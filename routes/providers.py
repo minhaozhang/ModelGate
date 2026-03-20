@@ -1,0 +1,95 @@
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from typing import Optional
+from sqlalchemy import select
+
+from database import async_session_maker, Provider
+from services.proxy import load_providers
+
+router = APIRouter(tags=["providers"])
+
+
+class ProviderCreate(BaseModel):
+    name: str
+    base_url: str
+    api_key: Optional[str] = None
+    max_concurrent: Optional[int] = None
+
+
+class ProviderUpdate(BaseModel):
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    is_active: Optional[bool] = None
+    max_concurrent: Optional[int] = None
+
+
+@router.get("/providers")
+async def list_providers():
+    async with async_session_maker() as session:
+        result = await session.execute(select(Provider))
+        providers = result.scalars().all()
+        return {
+            "providers": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "base_url": p.base_url,
+                    "is_active": p.is_active,
+                    "max_concurrent": p.max_concurrent or 3,
+                }
+                for p in providers
+            ]
+        }
+
+
+@router.post("/providers")
+async def create_provider(data: ProviderCreate):
+    async with async_session_maker() as session:
+        provider = Provider(
+            name=data.name,
+            base_url=data.base_url,
+            api_key=data.api_key,
+            max_concurrent=data.max_concurrent or 3,
+        )
+        session.add(provider)
+        await session.commit()
+        await load_providers()
+        return {"id": provider.id, "name": provider.name}
+
+
+@router.put("/providers/{provider_id}")
+async def update_provider(provider_id: int, data: ProviderUpdate):
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Provider).where(Provider.id == provider_id)
+        )
+        provider = result.scalar_one_or_none()
+        if not provider:
+            return JSONResponse({"error": "Provider not found"}, status_code=404)
+        if data.base_url is not None:
+            provider.base_url = data.base_url
+        if data.api_key is not None:
+            provider.api_key = data.api_key
+        if data.is_active is not None:
+            provider.is_active = data.is_active
+        if data.max_concurrent is not None:
+            provider.max_concurrent = data.max_concurrent
+        await session.commit()
+        await load_providers()
+        return {"id": provider.id}
+
+
+@router.delete("/providers/{provider_id}")
+async def delete_provider(provider_id: int):
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Provider).where(Provider.id == provider_id)
+        )
+        provider = result.scalar_one_or_none()
+        if not provider:
+            return JSONResponse({"error": "Provider not found"}, status_code=404)
+        await session.delete(provider)
+        await session.commit()
+        await load_providers()
+        return {"deleted": True}

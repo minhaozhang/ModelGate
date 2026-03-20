@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+httpx
+asyncpg
+sqlalchemy[asyncio]
+python-dotenv
+aiosqlite
+apscheduler
+python-dateutil
