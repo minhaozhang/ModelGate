@@ -11,6 +11,9 @@ test_screenshots/
 *.egg-info/
 dist/
 build/
+.venv/
+venv/
+.mypy_cache/
 
 # Build and Release Folders
 bin-debug/

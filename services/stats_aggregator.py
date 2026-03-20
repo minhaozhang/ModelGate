@@ -1,8 +1,8 @@
-import logging
 from datetime import datetime, timedelta
 from sqlalchemy import select, func, and_, delete
 from sqlalchemy.orm import joinedload
 
+from config import proxy_logger
 from database import (
     async_session_maker,
     RequestLog,
@@ -13,7 +13,7 @@ from database import (
     Provider,
 )
 
-logger = logging.getLogger("api_proxy")
+logger = proxy_logger
 
 
 async def aggregate_stats_for_date(date_str: str) -> dict:

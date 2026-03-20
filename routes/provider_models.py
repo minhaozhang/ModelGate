@@ -1,15 +1,14 @@
 import httpx
-import logging
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
 
+from config import admin_logger
 from database import async_session_maker, Provider, Model, ProviderModel
 
 router = APIRouter(tags=["provider-models"])
-logger = logging.getLogger("api_proxy")
 
 
 class ProviderModelCreate(BaseModel):
@@ -179,7 +178,7 @@ async def sync_provider_models(provider_id: int):
                 await session.commit()
                 return {"synced": synced, "total": len(synced)}
             except Exception as e:
-                logger.error(f"[SYNC MODELS ERROR] {e}")
+                admin_logger.error(f"[SYNC MODELS ERROR] {e}")
                 return JSONResponse({"error": str(e)}, status_code=500)
 
 

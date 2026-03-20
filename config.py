@@ -9,25 +9,37 @@ from typing import Optional
 
 os.makedirs("logs", exist_ok=True)
 
-logger = logging.getLogger("api_proxy")
-logger.setLevel(logging.DEBUG)
+proxy_logger = logging.getLogger("proxy")
+proxy_logger.setLevel(logging.DEBUG)
+proxy_file_handler = RotatingFileHandler(
+    "logs/proxy.log", maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
+)
+proxy_file_handler.setLevel(logging.DEBUG)
+proxy_file_handler.setFormatter(
+    logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+)
+proxy_logger.addHandler(proxy_file_handler)
 
-file_handler = RotatingFileHandler(
-    "logs/api.log", maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
+admin_logger = logging.getLogger("admin")
+admin_logger.setLevel(logging.DEBUG)
+admin_file_handler = RotatingFileHandler(
+    "logs/admin.log", maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
 )
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(
-    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+admin_file_handler.setLevel(logging.DEBUG)
+admin_file_handler.setFormatter(
+    logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 )
+admin_logger.addHandler(admin_file_handler)
 
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(
     logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
 )
+proxy_logger.addHandler(console_handler)
+admin_logger.addHandler(console_handler)
 
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
+logger = proxy_logger
 
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
