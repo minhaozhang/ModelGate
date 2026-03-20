@@ -1,18 +1,19 @@
 -- API Proxy Database Schema
--- Generated from PostgreSQL database
+-- PostgreSQL 初始化脚本
 
--- Providers table
+-- Providers 表
 CREATE TABLE providers (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL,
     base_url VARCHAR(255) NOT NULL,
     api_key VARCHAR(255),
+    max_concurrent INTEGER DEFAULT 3,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Models table
+-- Models 表
 CREATE TABLE models (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
@@ -24,7 +25,7 @@ CREATE TABLE models (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Provider-Model association table
+-- Provider-Model 关联表
 CREATE TABLE provider_models (
     id SERIAL PRIMARY KEY,
     provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
@@ -35,7 +36,7 @@ CREATE TABLE provider_models (
     CONSTRAINT idx_provider_model UNIQUE (provider_id, model_id)
 );
 
--- API Keys table
+-- API Keys 表
 CREATE TABLE api_keys (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -45,7 +46,7 @@ CREATE TABLE api_keys (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- API Key-Model association table (access control)
+-- API Key-Model 关联表 (访问控制)
 CREATE TABLE api_key_models (
     id SERIAL PRIMARY KEY,
     api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
@@ -53,7 +54,7 @@ CREATE TABLE api_key_models (
     CONSTRAINT idx_api_key_model UNIQUE (api_key_id, provider_model_id)
 );
 
--- Request logs table
+-- Request logs 表
 CREATE TABLE request_logs (
     id SERIAL PRIMARY KEY,
     api_key_id INTEGER REFERENCES api_keys(id),
@@ -70,39 +71,43 @@ CREATE TABLE request_logs (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Hourly stats table
-CREATE TABLE hourly_stats (
-    id SERIAL PRIMARY KEY,
-    provider_id INTEGER,
-    hour_key VARCHAR NOT NULL,
-    requests INTEGER,
-    tokens INTEGER,
-    errors INTEGER
-);
-
--- Provider daily stats table
+-- Provider 每日统计表
 CREATE TABLE provider_daily_stats (
     id SERIAL PRIMARY KEY,
-    provider_name VARCHAR NOT NULL,
-    date VARCHAR NOT NULL,
+    provider_name VARCHAR(50) NOT NULL,
+    date VARCHAR(10) NOT NULL,
     hour INTEGER,
-    requests INTEGER,
-    tokens INTEGER,
-    errors INTEGER
+    requests INTEGER DEFAULT 0,
+    tokens INTEGER DEFAULT 0,
+    errors INTEGER DEFAULT 0
 );
 
--- API Key daily stats table
+-- API Key 每日统计表
 CREATE TABLE api_key_daily_stats (
     id SERIAL PRIMARY KEY,
     api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
-    date VARCHAR NOT NULL,
+    date VARCHAR(10) NOT NULL,
     hour INTEGER,
-    requests INTEGER,
-    tokens INTEGER,
-    errors INTEGER
+    requests INTEGER DEFAULT 0,
+    tokens INTEGER DEFAULT 0,
+    errors INTEGER DEFAULT 0
 );
 
--- Indexes
+-- Model 每日统计表
+CREATE TABLE model_daily_stats (
+    id SERIAL PRIMARY KEY,
+    model_name VARCHAR(100) NOT NULL,
+    provider_name VARCHAR(50),
+    date VARCHAR(10) NOT NULL,
+    requests INTEGER DEFAULT 0,
+    tokens INTEGER DEFAULT 0,
+    errors INTEGER DEFAULT 0,
+    CONSTRAINT idx_model_stats_unique UNIQUE (model_name, provider_name, date)
+);
+
+-- 索引
 CREATE INDEX idx_request_logs_created_at ON request_logs(created_at);
 CREATE INDEX idx_request_logs_api_key_id ON request_logs(api_key_id);
-CREATE INDEX idx_api_key_model_api_key ON api_key_models(api_key_id);
+CREATE INDEX idx_provider_stats_date ON provider_daily_stats(date);
+CREATE INDEX idx_apikey_stats_date ON api_key_daily_stats(date);
+CREATE INDEX idx_model_stats_date ON model_daily_stats(date);
