@@ -1,7 +1,4 @@
 import os
-import sys
-import logging
-from logging.handlers import RotatingFileHandler
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -9,7 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from config import CONFIG, logger
+from config import CONFIG, error_logger
 from database import init_db
 from services.proxy import load_providers, load_api_keys
 
@@ -18,33 +15,24 @@ app = FastAPI(title="API Proxy")
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    from config import logger
-
-    logger.error(
+    error_logger.error(
         f"[HTTP ERROR] {request.method} {request.url} - Status: {exc.status_code}, Detail: {exc.detail}"
     )
-    logger.debug(f"[HTTP ERROR] Headers: {dict(request.headers)}")
-    try:
-        body = await request.body()
-        logger.debug(f"[HTTP ERROR] Body: {body.decode()}")
-    except Exception:
-        pass
     return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    from config import logger
-
-    logger.error(
-        f"[VALIDATION ERROR] {request.method} {request.url} - Errors: {exc.errors()}"
-    )
-    logger.debug(f"[VALIDATION ERROR] Headers: {dict(request.headers)}")
     try:
         body = await request.body()
-        logger.debug(f"[VALIDATION ERROR] Body: {body.decode()}")
+        body_str = body.decode()[:1000]
     except Exception:
-        pass
+        body_str = ""
+    error_logger.error(
+        f"[VALIDATION ERROR] {request.method} {request.url}\n"
+        f"  Errors: {exc.errors()}\n"
+        f"  Body: {body_str}"
+    )
     return JSONResponse(
         {"error": "Validation error", "details": exc.errors()}, status_code=422
     )
@@ -52,17 +40,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    from config import logger
-
-    logger.error(
-        f"[UNHANDLED ERROR] {request.method} {request.url} - {type(exc).__name__}: {exc}"
-    )
-    logger.debug(f"[UNHANDLED ERROR] Headers: {dict(request.headers)}")
     try:
         body = await request.body()
-        logger.debug(f"[UNHANDLED ERROR] Body: {body.decode()}")
+        body_str = body.decode()[:1000]
     except Exception:
-        pass
+        body_str = ""
+    error_logger.error(
+        f"[UNHANDLED ERROR] {request.method} {request.url}\n"
+        f"  Error: {type(exc).__name__}: {exc}\n"
+        f"  Body: {body_str}"
+    )
     return JSONResponse({"error": str(exc)}, status_code=500)
 
 

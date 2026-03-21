@@ -14,6 +14,7 @@ from config import (
     api_keys_cache,
     update_stats,
     logger,
+    error_logger,
     provider_semaphores,
 )
 from database import async_session_maker, RequestLog, Provider
@@ -352,10 +353,11 @@ async def proxy_request(request: Request, endpoint: str):
                 headers=original_headers,
                 request_body=body_json,
             )
-            logger.error(
-                f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}, Error: {e}"
+            error_logger.error(
+                f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}\n"
+                f"  Error: {type(e).__name__}: {e}\n"
+                f"  Request Body: {json.dumps(body_json, ensure_ascii=False)[:1000]}"
             )
-            logger.debug(f"[REQUEST ERROR] Traceback: {type(e).__name__}")
             return JSONResponse({"error": str(e)}, status_code=500)
 
 
@@ -403,7 +405,10 @@ async def handle_normal(
     if "choices" in resp_json and resp_json["choices"]:
         response_text = resp_json["choices"][0].get("message", {}).get("content", "")
 
-    update_stats(provider, model, total_tokens, api_key_id=api_key_id)
+    is_error = resp.status_code >= 400
+    update_stats(
+        provider, model, total_tokens, api_key_id=api_key_id, is_error=is_error
+    )
     await log_request(
         provider,
         model,
@@ -411,11 +416,19 @@ async def handle_normal(
         response_text,
         usage,
         latency,
-        "success",
+        "error" if is_error else "success",
         api_key_id=api_key_id,
+        error=resp.text if is_error else None,
         headers=req_headers,
         request_body=req_body,
     )
+
+    if is_error:
+        error_logger.error(
+            f"[API ERROR] Provider: {provider}, Model: {model}, Status: {resp.status_code}\n"
+            f"  Request Body: {json.dumps(req_body, ensure_ascii=False)[:1000]}\n"
+            f"  Response: {resp.text[:1000]}"
+        )
 
     logger.info(
         f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms"
@@ -593,8 +606,10 @@ async def handle_streaming(
                 headers=req_headers,
                 request_body=req_body,
             )
-            logger.error(
-                f"[STREAM ERROR] Provider: {provider}, Model: {model}, Error: {e}"
+            error_logger.error(
+                f"[STREAM ERROR] Provider: {provider}, Model: {model}\n"
+                f"  Error: {type(e).__name__}: {e}\n"
+                f"  Request Body: {json.dumps(req_body, ensure_ascii=False)[:1000]}"
             )
             error_msg = json.dumps(
                 {"error": {"message": str(e), "type": type(e).__name__}}

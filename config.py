@@ -31,6 +31,17 @@ admin_file_handler.setFormatter(
 )
 admin_logger.addHandler(admin_file_handler)
 
+error_logger = logging.getLogger("error")
+error_logger.setLevel(logging.DEBUG)
+error_file_handler = RotatingFileHandler(
+    "logs/error.log", maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
+)
+error_file_handler.setLevel(logging.DEBUG)
+error_file_handler.setFormatter(
+    logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+)
+error_logger.addHandler(error_file_handler)
+
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(
@@ -38,6 +49,7 @@ console_handler.setFormatter(
 )
 proxy_logger.addHandler(console_handler)
 admin_logger.addHandler(console_handler)
+error_logger.addHandler(console_handler)
 
 logger = proxy_logger
 
