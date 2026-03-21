@@ -1,8 +1,9 @@
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import select
 
 from database import async_session_maker, ApiKey
+from routes.user import get_user_session
 
 router = APIRouter(tags=["query"])
 
@@ -110,7 +111,18 @@ QUERY_PAGE_HTML = """
 
 
 @router.get("/api-keys/{key_id}/query", response_class=HTMLResponse)
-async def api_key_query_page(key_id: int):
+async def api_key_query_page(
+    key_id: int, user_api_key_id: int = Depends(get_user_session)
+):
+    if not user_api_key_id:
+        return RedirectResponse(url="/user/login", status_code=302)
+
+    if user_api_key_id != key_id:
+        return HTMLResponse(
+            "<h1>Access Denied</h1><p>You can only view your own API key stats.</p>",
+            status_code=403,
+        )
+
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
         key = result.scalar_one_or_none()

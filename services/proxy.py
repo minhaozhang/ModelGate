@@ -260,8 +260,7 @@ async def proxy_request(request: Request, endpoint: str):
     if provider_name == "minimax":
         body_json.pop("thinking", None)
         body_json.pop("stream_options", None)
-        body_json.pop("tools", None)
-        body_json.pop("tool_choice", None)
+        body_json["reasoning_split"] = True
         messages = body_json.get("messages", [])
         system_msgs = [m for m in messages if m.get("role") == "system"]
         other_msgs = [m for m in messages if m.get("role") != "system"]

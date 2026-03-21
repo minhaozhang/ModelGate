@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -12,6 +12,7 @@ from database import (
     generate_api_key,
 )
 from services.proxy import load_api_keys
+from routes.user import get_user_session
 
 router = APIRouter(tags=["api-keys"])
 
@@ -108,7 +109,15 @@ async def delete_api_key(key_id: int):
 
 
 @router.get("/api-keys/{key_id}/stats")
-async def get_api_key_stats(key_id: int):
+async def get_api_key_stats(
+    key_id: int, user_api_key_id: int = Depends(get_user_session)
+):
+    if not user_api_key_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    if user_api_key_id != key_id:
+        return JSONResponse({"error": "Access denied"}, status_code=403)
+
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
         key = result.scalar_one_or_none()
@@ -160,7 +169,15 @@ async def get_api_key_stats(key_id: int):
 
 
 @router.get("/api-keys/{key_id}/logs")
-async def get_api_key_logs(key_id: int, limit: int = 100):
+async def get_api_key_logs(
+    key_id: int, limit: int = 100, user_api_key_id: int = Depends(get_user_session)
+):
+    if not user_api_key_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    if user_api_key_id != key_id:
+        return JSONResponse({"error": "Access denied"}, status_code=403)
+
     async with async_session_maker() as session:
         result = await session.execute(
             select(RequestLog)
