@@ -120,6 +120,8 @@ class RequestLog(Base):
     __table_args__ = (
         Index("idx_request_logs_created_at", "created_at"),
         Index("idx_request_logs_api_key_id", "api_key_id"),
+        Index("idx_request_logs_provider_id", "provider_id"),
+        Index("idx_request_logs_status", "status"),
     )
 
 

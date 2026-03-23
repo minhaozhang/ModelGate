@@ -3,7 +3,7 @@ OPENCODE_PAGE_HTML = """
 <html>
 <head>
     <meta charset="utf-8">
-    <title>OpenCode Config - API Proxy</title>
+    <title>OpenCode Config v2 - API Proxy</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .nav-link { transition: all 0.2s; }
@@ -133,7 +133,11 @@ OPENCODE_PAGE_HTML = """
                 document.getElementById('config-section').classList.remove('hidden');
                 document.getElementById('error-section').classList.add('hidden');
                 
-                const configJson = JSON.stringify(data.config, null, 2);
+                const config = data.config;
+                config.provider['proxy-coding-plan'].options.baseURL = window.location.origin + '/v1';
+                
+                const prompt = "# 请帮我将以下provider配置添加到 ~/.opencode/opencode.json 中。保留现有的providers和其他设置，只添加或更新 'proxy-coding-plan' 这个provider。\\n\\n";
+                const configJson = prompt + JSON.stringify(config, null, 2);
                 document.getElementById('config-output').textContent = configJson;
                 
                 const modelsHtml = data.models.map(m => `

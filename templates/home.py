@@ -80,6 +80,13 @@ HOME_PAGE_HTML = """
                 </div>
             </div>
             <div class="bg-white rounded-lg shadow p-5 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">Active Sessions (Last 1 Minute)</h3>
+                    <span id="active-count" class="text-sm text-gray-500">0 active</span>
+                </div>
+                <div id="active-sessions" class="space-y-2">No active sessions</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-5 mb-6">
                 <h3 class="text-lg font-semibold mb-4">Request Trend</h3>
                 <canvas id="trendChart" height="100"></canvas>
             </div>
@@ -143,6 +150,37 @@ HOME_PAGE_HTML = """
         }
         loadData();
         setInterval(loadData, 10000);
+        loadActiveSessions();
+        setInterval(loadActiveSessions, 60000);
+        
+        async function loadActiveSessions() {
+            const resp = await fetch('/stats/active');
+            const data = await resp.json();
+            document.getElementById('active-count').textContent = data.active_count + ' active';
+            
+            if (data.active_count === 0) {
+                document.getElementById('active-sessions').innerHTML = '<div class="text-gray-400 text-center py-4">No active sessions</div>';
+                return;
+            }
+            
+            const html = Object.entries(data.sessions).map(([name, session]) => {
+                const modelsHtml = Object.entries(session.models).map(([model, count]) => 
+                    `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">${model} (${count})</span>`
+                ).join(' ');
+                return `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <div>
+                            <div class="font-medium">${name}</div>
+                            <div class="text-xs text-gray-500 mt-1">${modelsHtml}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-medium">${session.requests} req</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('active-sessions').innerHTML = html;
+        }
     </script>
 </body>
 </html>

@@ -12,3 +12,4 @@ venv
 *.log
 logs/*
 !logs/.gitkeep
+*.tar

@@ -23,34 +23,280 @@ USER_LOGIN_HTML = """
     <meta charset="utf-8">
     <title>User Login - API Proxy</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        #particles-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        .login-card {
+            background: rgba(10, 10, 20, 0.2);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+        .login-card label {
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .login-card input[type="password"] {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+        .login-card input[type="password"]::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+        .login-card input[type="password"]:focus {
+            border-color: rgba(100, 150, 255, 0.6);
+            background: rgba(255, 255, 255, 0.12);
+        }
+        .login-card input[type="checkbox"] {
+            accent-color: #6366f1;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
-    <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-        <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">API Key Login</h1>
+<body class="min-h-screen flex items-center justify-center overflow-hidden">
+    <div id="particles-container"></div>
+    
+    <div class="login-card rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
+        <h1 class="text-2xl font-bold text-white mb-6 text-center">API Key Login</h1>
         
         <form id="login-form" class="space-y-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                <label class="block text-sm font-medium mb-1" style="color: rgba(255,255,255,0.8)">API Key</label>
                 <input type="password" id="api-key" required
-                    class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    class="w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     placeholder="sk-...">
             </div>
             <div class="flex items-center">
                 <input type="checkbox" id="remember" class="mr-2" checked>
-                <label for="remember" class="text-sm text-gray-600">Remember API Key</label>
+                <label for="remember" class="text-sm" style="color: rgba(255,255,255,0.7)">Remember API Key</label>
             </div>
-            <div id="error-msg" class="text-red-500 text-sm hidden"></div>
-            <button type="submit" id="login-btn" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
+            <div id="error-msg" class="text-red-400 text-sm hidden"></div>
+            <button type="submit" id="login-btn" class="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-2.5 rounded-lg hover:from-blue-600 hover:to-purple-600 font-medium transition-all shadow-lg hover:shadow-xl">
                 Login
             </button>
         </form>
         
-        <p class="text-gray-500 text-sm text-center mt-4">
+        <p class="text-sm text-center mt-4" style="color: rgba(255,255,255,0.5)">
             Enter your API Key to view usage statistics
         </p>
     </div>
     
     <script>
+        // Three.js Particle System
+        let scene, camera, renderer, particles;
+        let mouseX = 0, mouseY = 0;
+        
+        function init() {
+            const container = document.getElementById('particles-container');
+            
+            scene = new THREE.Scene();
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 50;
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setClearColor(0x0d1117, 1);
+            container.appendChild(renderer.domElement);
+            
+            createParticles();
+            
+            document.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('resize', onWindowResize);
+            
+            animate();
+        }
+        
+        function createParticles() {
+            const particleCount = window.innerWidth < 768 ? 600 : 1800;
+            const geometry = new THREE.BufferGeometry();
+            
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+            const rotations = new Float32Array(particleCount);
+            const particleData = [];
+            
+            const colorPalette = [
+                [0.26, 0.52, 0.96],
+                [0.96, 0.26, 0.21],
+                [0.98, 0.73, 0.02],
+                [0.13, 0.69, 0.33],
+                [0.55, 0.36, 0.96],
+                [0.0, 0.73, 0.83],
+            ];
+            
+            const rings = 10;
+            const particlesPerRing = Math.floor(particleCount / rings);
+            
+            for (let ring = 0; ring < rings; ring++) {
+                const ringRadius = 10 + ring * 10;
+                const particlesInThisRing = particlesPerRing + (ring === rings - 1 ? particleCount % rings : 0);
+                
+                for (let i = 0; i < particlesInThisRing; i++) {
+                    const idx = ring * particlesPerRing + i;
+                    if (idx >= particleCount) break;
+                    
+                    const angle = (i / particlesInThisRing) * Math.PI * 2;
+                    const x = Math.cos(angle) * ringRadius;
+                    const y = Math.sin(angle) * ringRadius * 0.6;
+                    const z = (Math.random() - 0.5) * 25;
+                    
+                    positions[idx * 3] = x;
+                    positions[idx * 3 + 1] = y;
+                    positions[idx * 3 + 2] = z;
+                    
+                    const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+                    colors[idx * 3] = color[0] + (Math.random() - 0.5) * 0.1;
+                    colors[idx * 3 + 1] = color[1] + (Math.random() - 0.5) * 0.1;
+                    colors[idx * 3 + 2] = color[2] + (Math.random() - 0.5) * 0.1;
+                    
+                    const depthFactor = (z + 10) / 20;
+                    sizes[idx] = (2 + Math.random() * 2.5) * (0.7 + depthFactor * 0.3);
+                    
+                    rotations[idx] = angle + Math.PI / 2;
+                    
+                    particleData.push({
+                        x: x, y: y, z: z,
+                        ringRadius: ringRadius,
+                        baseAngle: angle,
+                        angularSpeed: 0.0003 + Math.random() * 0.0005,
+                        wobblePhase: Math.random() * Math.PI * 2,
+                        wobbleSpeed: 0.5 + Math.random() * 1,
+                        wobbleAmount: 0.3 + Math.random() * 0.5,
+                        pulsePhase: Math.random() * Math.PI * 2
+                    });
+                }
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            geometry.setAttribute('rotation', new THREE.BufferAttribute(rotations, 1));
+            
+            geometry.userData.particleData = particleData;
+            
+            const vertexShader = `
+                attribute float size;
+                attribute vec3 color;
+                attribute float rotation;
+                varying vec3 vColor;
+                varying float vAlpha;
+                varying float vRotation;
+                
+                void main() {
+                    vColor = color;
+                    vRotation = rotation;
+                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                    gl_PointSize = size * (300.0 / -mvPosition.z);
+                    gl_Position = projectionMatrix * mvPosition;
+                    vAlpha = smoothstep(-100.0, -10.0, mvPosition.z);
+                }
+            `;
+            
+            const fragmentShader = `
+                varying vec3 vColor;
+                varying float vAlpha;
+                varying float vRotation;
+                
+                void main() {
+                    vec2 uv = gl_PointCoord - vec2(0.5);
+                    float c = cos(vRotation);
+                    float s = sin(vRotation);
+                    vec2 rotUV = vec2(uv.x * c - uv.y * s, uv.x * s + uv.y * c);
+                    
+                    float aspect = 3.0;
+                    rotUV.y *= aspect;
+                    
+                    float n = 2.2;
+                    float dist = pow(abs(rotUV.x)/0.35, n) + pow(abs(rotUV.y)/0.35, n);
+                    float alpha = 1.0 - smoothstep(0.8, 1.2, dist);
+                    
+                    if (alpha < 0.01) discard;
+                    
+                    float shade = 1.0 - abs(rotUV.x) * 0.5 - abs(rotUV.y / aspect) * 0.2;
+                    gl_FragColor = vec4(vColor * shade, alpha * vAlpha * 0.9);
+                }
+            `;
+            
+            const material = new THREE.ShaderMaterial({
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+        }
+        
+        function onMouseMove(event) {
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        let time = 0;
+        let centerX = 0, centerY = 0;
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.016;
+            
+            const positions = particles.geometry.attributes.position.array;
+            const rotations = particles.geometry.attributes.rotation.array;
+            const particleData = particles.geometry.userData.particleData;
+            const particleCount = positions.length / 3;
+            
+            centerX += (mouseX * 55 - centerX) * 0.002;
+            centerY += (mouseY * 40 - centerY) * 0.002;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const data = particleData[i];
+                
+                const angle = data.baseAngle + time * data.angularSpeed * (1 + Math.sin(time * 0.5) * 0.3);
+                const pulse = Math.sin(time * 0.8 + data.pulsePhase) * 2;
+                const radius = data.ringRadius + pulse;
+                
+                const x = Math.cos(angle) * radius + centerX;
+                const y = Math.sin(angle) * radius * 0.85 + centerY;
+                
+                const wobbleX = Math.sin(time * data.wobbleSpeed + data.wobblePhase) * data.wobbleAmount;
+                const wobbleZ = Math.cos(time * data.wobbleSpeed * 0.7 + data.wobblePhase) * data.wobbleAmount * 0.5;
+                
+                positions[i * 3] = x + wobbleX;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = data.z + wobbleZ;
+                
+                rotations[i] = angle;
+            }
+            
+            particles.geometry.attributes.position.needsUpdate = true;
+            particles.geometry.attributes.rotation.needsUpdate = true;
+            
+            particles.rotation.x += (mouseY * 0.15 - particles.rotation.x) * 0.02;
+            particles.rotation.y += (mouseX * 0.1 - particles.rotation.y) * 0.02;
+            
+            renderer.render(scene, camera);
+        }
+        
+        init();
+        
+        // Login form handler
         const STORAGE_KEY = 'user_api_key';
         const errorMsg = document.getElementById('error-msg');
         const loginBtn = document.getElementById('login-btn');
@@ -394,7 +640,11 @@ const data = await response.json();</code></pre>
                 
                 if (data.error) return;
                 
-                document.getElementById('config-output').textContent = JSON.stringify(data.config, null, 2);
+                const config = data.config;
+                config.provider['proxy-coding-plan'].options.baseURL = window.location.origin + '/v1';
+                
+                const prompt = "# 请帮我将以下provider配置添加到 ~/.opencode/opencode.json 中。保留现有的providers和其他设置，只添加或更新 'proxy-coding-plan' 这个provider。\\n\\n";
+                document.getElementById('config-output').textContent = prompt + JSON.stringify(config, null, 2);
                 
                 const modelsHtml = data.models.map(m => `
                     <div class="flex justify-between items-center p-2 bg-white rounded">
@@ -617,12 +867,30 @@ async def get_user_opencode_config(api_key_id: int = Depends(get_user_session)):
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    from database import Provider, Model, ProviderModel
+    from database import Provider, Model, ProviderModel, ApiKeyModel
 
     async with async_session_maker() as session:
-        pm_result = await session.execute(
-            select(ProviderModel).where(ProviderModel.is_active == True)
+        key_result = await session.execute(
+            select(ApiKey).where(ApiKey.id == api_key_id)
         )
+        api_key = key_result.scalar_one_or_none()
+        if not api_key:
+            return JSONResponse({"error": "API Key not found"}, status_code=404)
+
+        models_result = await session.execute(
+            select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key_id)
+        )
+        key_models = models_result.scalars().all()
+
+        allowed_pm_ids = [km.provider_model_id for km in key_models]
+
+        if allowed_pm_ids:
+            pm_result = await session.execute(
+                select(ProviderModel).where(ProviderModel.id.in_(allowed_pm_ids))
+            )
+        else:
+            pm_result = await session.execute(select(ProviderModel))
+
         provider_models = pm_result.scalars().all()
 
         models_data = []
@@ -661,13 +929,12 @@ async def get_user_opencode_config(api_key_id: int = Depends(get_user_session)):
             )
 
         config = {
-            "$schema": "https://opencode.ai/config.json",
             "provider": {
                 "proxy-coding-plan": {
                     "name": "API Proxy",
                     "options": {
-                        "baseURL": f"{os.getenv('PUBLIC_URL', 'http://127.0.0.1:8765')}/v1",
-                        "apiKey": "YOUR-API-KEY",
+                        "baseURL": "BASEURL_PLACEHOLDER",
+                        "apiKey": api_key.key,
                     },
                     "models": models_config,
                 }

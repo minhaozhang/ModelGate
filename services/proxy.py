@@ -54,6 +54,7 @@ async def load_providers():
                 )
 
             providers_cache[p.name] = {
+                "id": p.id,
                 "base_url": p.base_url,
                 "api_key": p.api_key or "",
                 "models": provider_models_data,
@@ -169,10 +170,9 @@ async def log_request(
     async with async_session_maker() as session:
         provider_id = None
         if provider_name:
-            for pid, pinfo in providers_cache.items():
-                if pinfo.get("name") == provider_name:
-                    provider_id = pid
-                    break
+            pinfo = providers_cache.get(provider_name)
+            if pinfo:
+                provider_id = pinfo.get("id")
 
         log = RequestLog(
             api_key_id=api_key_id,
@@ -569,9 +569,10 @@ async def handle_streaming(
                                     reasoning = delta.get("reasoning_content", "")
                                     if reasoning and provider != "minimax":
                                         total_reasoning += reasoning
-                            except json.JSONDecodeError:
-                                pass
-                            yield f"{line}\n\n"
+                            except json.JSONDecodeError as e:
+                                logger.warning(f"[SSE] Invalid JSON, skipping line: {line[:100]}... Error: {e}")
+                                continue
+                            yield f"{line.rstrip()}\n\n"
 
             latency = (time.time() - start_time) * 1000
             approx_tokens = (len(total_content) + len(total_reasoning)) // 2

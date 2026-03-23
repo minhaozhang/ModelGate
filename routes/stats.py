@@ -548,3 +548,50 @@ async def reaggregate_all_stats():
     await aggregate_stats_for_date(today)
     await backfill_historical_stats()
     return {"status": "ok", "message": "Stats re-aggregated"}
+
+
+@router.get("/stats/active")
+async def get_active_sessions():
+    now = datetime.now()
+    one_minute_ago = now - timedelta(minutes=1)
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(RequestLog).where(RequestLog.created_at >= one_minute_ago)
+        )
+        logs = result.scalars().all()
+
+        active_sessions = {}
+        for log in logs:
+            if not log.api_key_id:
+                continue
+
+            key_info = None
+            for k, v in api_keys_cache.items():
+                if v["id"] == log.api_key_id:
+                    key_info = v
+                    break
+
+            key_name = key_info["name"] if key_info else f"Key-{log.api_key_id}"
+
+            if key_name not in active_sessions:
+                active_sessions[key_name] = {
+                    "api_key_id": log.api_key_id,
+                    "models": {},
+                    "requests": 0,
+                    "last_activity": log.created_at.isoformat(),
+                }
+
+            active_sessions[key_name]["requests"] += 1
+            if log.created_at.isoformat() > active_sessions[key_name]["last_activity"]:
+                active_sessions[key_name]["last_activity"] = log.created_at.isoformat()
+
+            if log.model:
+                if log.model not in active_sessions[key_name]["models"]:
+                    active_sessions[key_name]["models"][log.model] = 0
+                active_sessions[key_name]["models"][log.model] += 1
+
+        return {
+            "active_count": len(active_sessions),
+            "sessions": active_sessions,
+        }

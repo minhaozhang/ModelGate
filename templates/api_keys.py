@@ -130,7 +130,7 @@ API_KEYS_PAGE_HTML = """
                     ? modelNames.slice(0, 3).join(', ') + (modelNames.length > 3 ? ` +${modelNames.length - 3}` : '')
                     : '<span class="text-gray-400">All models</span>';
                 const userPageUrl = `${baseUrl}/user/login`;
-                const opencodeUrl = `${baseUrl}/opencode?api_key=${k.key}`;
+                const setupMdUrl = `${baseUrl}/opencode/setup.md?api_key=${k.key}`;
                 return `
                 <div class="p-4">
                     <div class="flex justify-between items-center">
@@ -138,7 +138,7 @@ API_KEYS_PAGE_HTML = """
                             <div class="font-medium">${k.name}</div>
                             <div class="text-sm text-gray-500 flex items-center gap-2">
                                 <code class="bg-gray-100 px-2 py-0.5 rounded text-xs">${k.key}</code>
-                                <button onclick="copyKey('${k.key}')" class="text-blue-500 hover:text-blue-700 text-xs">Copy</button>
+                                <button onclick="copyKeyWithInstructions('${k.key}', '${userPageUrl}', '${setupMdUrl}')" class="text-blue-500 hover:text-blue-700 text-xs">Copy</button>
                             </div>
                             <div class="text-xs text-gray-400 mt-1">${modelsDisplay}</div>
                         </div>
@@ -156,13 +156,12 @@ API_KEYS_PAGE_HTML = """
                             </div>
                             <button onclick="copyKey('${userPageUrl}')" class="text-blue-500 hover:text-blue-700">Copy</button>
                         </div>
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <span class="text-gray-500">OpenCode Config: </span>
-                                <a href="${opencodeUrl}" target="_blank" class="text-purple-500 hover:underline">Generate opencode.json</a>
-                            </div>
-                            <button onclick="copyKey('${opencodeUrl}')" class="text-purple-500 hover:text-purple-700">Copy</button>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-500">Setup Doc:</span>
+                            <a href="${setupMdUrl}" target="_blank" class="text-orange-500 hover:underline">配置指南.md</a>
+                            <button onclick="copyKey('${setupMdUrl}')" class="text-orange-500 hover:text-orange-700 text-xs">Copy</button>
                         </div>
+
                     </div>
                 </div>
             `}).join('');
@@ -205,6 +204,18 @@ API_KEYS_PAGE_HTML = """
         
         function copyKey(key) {
             navigator.clipboard.writeText(key).then(() => alert('Copied!'));
+        }
+        
+        function copyKeyWithInstructions(key, userPageUrl, setupMdUrl) {
+            const text = `API Key: ${key}
+
+使用说明：
+1. 登录用户页面：${userPageUrl}
+   在页面中粘贴上面的 API Key 进行登录
+
+2. 配置 OpenCode：
+   让智能体读取配置文档：${setupMdUrl}`;
+            navigator.clipboard.writeText(text).then(() => alert('API Key 和使用说明已复制!'));
         }
         
         function showAddApiKey() {
