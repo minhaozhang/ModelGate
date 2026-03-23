@@ -157,15 +157,12 @@ async def validate_api_key(
 async def log_request(
     provider_name: str,
     model: str,
-    messages: list,
     response: str,
     tokens: dict,
     latency_ms: float,
     status: str,
     api_key_id: Optional[int] = None,
     error: Optional[str] = None,
-    headers: Optional[dict] = None,
-    request_body: Optional[dict] = None,
 ):
     async with async_session_maker() as session:
         provider_id = None
@@ -178,14 +175,11 @@ async def log_request(
             api_key_id=api_key_id,
             provider_id=provider_id,
             model=model,
-            messages=messages,
             response=response,
             tokens=tokens,
             latency_ms=latency_ms,
             status=status,
             error=error,
-            headers=headers,
-            request_body=request_body,
         )
         session.add(log)
         await session.commit()
@@ -342,15 +336,12 @@ async def proxy_request(request: Request, endpoint: str):
             await log_request(
                 provider_name,
                 actual_model,
-                messages,
                 "",
                 {},
                 latency,
                 "error",
                 api_key_id=api_key_id,
                 error=str(e),
-                headers=original_headers,
-                request_body=body_json,
             )
             error_logger.error(
                 f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}\n"
@@ -411,15 +402,12 @@ async def handle_normal(
     await log_request(
         provider,
         model,
-        messages,
         response_text,
         usage,
         latency,
         "error" if is_error else "success",
         api_key_id=api_key_id,
         error=resp.text if is_error else None,
-        headers=req_headers,
-        request_body=req_body,
     )
 
     if is_error:
@@ -570,7 +558,9 @@ async def handle_streaming(
                                     if reasoning and provider != "minimax":
                                         total_reasoning += reasoning
                             except json.JSONDecodeError as e:
-                                logger.warning(f"[SSE] Invalid JSON, skipping line: {line[:100]}... Error: {e}")
+                                logger.warning(
+                                    f"[SSE] Invalid JSON, skipping line: {line[:100]}... Error: {e}"
+                                )
                                 continue
                             yield f"{line.rstrip()}\n\n"
 
@@ -580,14 +570,11 @@ async def handle_streaming(
             await log_request(
                 provider,
                 model,
-                messages,
                 total_content,
                 {"total_tokens": approx_tokens, "estimated": approx_tokens},
                 latency,
                 "success",
                 api_key_id=api_key_id,
-                headers=req_headers,
-                request_body=req_body,
             )
             logger.info(f"[STREAM COMPLETE] ~{approx_tokens} tokens | {latency:.0f}ms")
         except Exception as e:
@@ -596,15 +583,12 @@ async def handle_streaming(
             await log_request(
                 provider,
                 model,
-                messages,
                 "",
                 {},
                 latency,
                 "error",
                 api_key_id=api_key_id,
                 error=str(e),
-                headers=req_headers,
-                request_body=req_body,
             )
             error_logger.error(
                 f"[STREAM ERROR] Provider: {provider}, Model: {model}\n"

@@ -47,10 +47,10 @@ async def get_stats():
         }
 
 
-def get_period_range(period: str) -> tuple[datetime, list[str], callable]:
+def get_period_range(
+    period: str, now: datetime
+) -> tuple[datetime, list[str], callable]:
     from dateutil.relativedelta import relativedelta
-
-    now = datetime.now()
 
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -189,9 +189,11 @@ async def get_aggregate_stats(
     dimension: Literal["provider", "api_key", "model"] = "provider",
     period: Literal["day", "week", "month", "year"] = "day",
 ):
-    start, intervals, format_func = get_period_range(period)
-    now = datetime.now()
+    async with async_session_maker() as session:
+        now_result = await session.execute(select(func.now()))
+        now = now_result.scalar()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start, intervals, format_func = get_period_range(period, now)
 
     stats_data = {}
 
@@ -227,9 +229,11 @@ async def get_trend_data(
     period: Literal["day", "week", "month", "year"] = "day",
     name: Optional[str] = None,
 ):
-    start, intervals, format_func = get_period_range(period)
-    now = datetime.now()
+    async with async_session_maker() as session:
+        now_result = await session.execute(select(func.now()))
+        now = now_result.scalar()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start, intervals, format_func = get_period_range(period, now)
 
     trend_data = {
         label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals
@@ -334,7 +338,9 @@ async def get_trend_data(
 
 @router.get("/stats/period")
 async def get_stats_period(period: str = "day"):
-    now = datetime.now()
+    async with async_session_maker() as session:
+        now_result = await session.execute(select(func.now()))
+        now = now_result.scalar()
 
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -456,7 +462,10 @@ async def get_chart_data(
     provider: Optional[str] = None,
     api_key_id: Optional[int] = None,
 ):
-    start, intervals, format_func = get_period_range(period)
+    async with async_session_maker() as session:
+        now_result = await session.execute(select(func.now()))
+        now = now_result.scalar()
+    start, intervals, format_func = get_period_range(period, now)
 
     async with async_session_maker() as session:
         query = select(RequestLog).where(RequestLog.created_at >= start)
@@ -552,12 +561,11 @@ async def reaggregate_all_stats():
 
 @router.get("/stats/active")
 async def get_active_sessions():
-    now = datetime.now()
-    one_minute_ago = now - timedelta(minutes=1)
-
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(RequestLog.created_at >= one_minute_ago)
+            select(RequestLog).where(
+                RequestLog.created_at >= func.now() - timedelta(minutes=1)
+            )
         )
         logs = result.scalars().all()
 

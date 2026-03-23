@@ -11,6 +11,7 @@ from sqlalchemy import (
     DateTime,
     Index,
     ForeignKey,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -43,8 +44,8 @@ class Provider(Base):
     api_key = Column(String(255), nullable=True)
     max_concurrent = Column(Integer, default=3)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class Model(Base):
@@ -56,8 +57,8 @@ class Model(Base):
     max_tokens = Column(Integer, default=16384)
     is_multimodal = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class ProviderModel(Base):
@@ -68,7 +69,7 @@ class ProviderModel(Base):
     model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
     model_name_override = Column(String(100), nullable=True)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
         Index("idx_provider_model", "provider_id", "model_id", unique=True),
@@ -96,8 +97,8 @@ class ApiKey(Base):
     name = Column(String(100), nullable=False)
     key = Column(String(64), unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class RequestLog(Base):
@@ -107,15 +108,12 @@ class RequestLog(Base):
     api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=True)
     provider_id = Column(Integer, nullable=True)
     model = Column(String(100), nullable=False)
-    messages = Column(JSONB, nullable=True)
     response = Column(Text, nullable=True)
     tokens = Column(JSONB, nullable=True)
     latency_ms = Column(Float, nullable=True)
     status = Column(String(20), nullable=False)
     error = Column(Text, nullable=True)
-    headers = Column(JSONB, nullable=True)
-    request_body = Column(JSONB, nullable=True)
-    created_at = Column(DateTime, default=datetime.now, index=True)
+    created_at = Column(DateTime, server_default=func.now(), index=True)
 
     __table_args__ = (
         Index("idx_request_logs_created_at", "created_at"),

@@ -60,14 +60,11 @@ CREATE TABLE request_logs (
     api_key_id INTEGER REFERENCES api_keys(id),
     provider_id INTEGER,
     model VARCHAR(100) NOT NULL,
-    messages JSONB,
     response TEXT,
     tokens JSONB,
     latency_ms FLOAT,
     status VARCHAR(20) NOT NULL,
     error TEXT,
-    headers JSONB,
-    request_body JSONB,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -108,6 +105,8 @@ CREATE TABLE model_daily_stats (
 -- 索引
 CREATE INDEX idx_request_logs_created_at ON request_logs(created_at);
 CREATE INDEX idx_request_logs_api_key_id ON request_logs(api_key_id);
+CREATE INDEX idx_request_logs_provider_id ON request_logs(provider_id);
+CREATE INDEX idx_request_logs_status ON request_logs(status);
 CREATE INDEX idx_provider_stats_date ON provider_daily_stats(date);
 CREATE INDEX idx_apikey_stats_date ON api_key_daily_stats(date);
 CREATE INDEX idx_model_stats_date ON model_daily_stats(date);

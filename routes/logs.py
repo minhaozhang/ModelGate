@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from fastapi import APIRouter
 from sqlalchemy import select, func
 
@@ -9,11 +9,13 @@ router = APIRouter(tags=["logs"])
 
 @router.get("/logs/today")
 async def get_today_logs():
-    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     async with async_session_maker() as session:
+        today_result = await session.execute(select(func.current_date()))
+        today_date = today_result.scalar()
+        today_start = datetime.combine(today_date, time.min)
         result = await session.execute(
             select(RequestLog)
-            .where(RequestLog.created_at >= today)
+            .where(RequestLog.created_at >= today_start)
             .order_by(RequestLog.created_at.desc())
             .limit(50)
         )
@@ -54,7 +56,6 @@ async def get_all_logs(limit: int = 100):
                     "created_at": log.created_at.isoformat(),
                     "response": log.response,
                     "error": log.error,
-                    "messages": log.messages,
                 }
                 for log in logs
             ],

@@ -149,8 +149,11 @@ async def get_missing_dates() -> list[str]:
         if not first_log_date:
             return []
 
+        today_result = await session.execute(select(func.current_date))
+        db_today = today_result.scalar()
+
         start_date = first_log_date.date()
-        end_date = datetime.now().date() - timedelta(days=1)
+        end_date = db_today - timedelta(days=1)
 
         result = await session.execute(select(ProviderDailyStat.date).distinct())
         existing_dates = {row[0] for row in result.fetchall()}
@@ -181,7 +184,10 @@ async def backfill_historical_stats() -> None:
 
 
 async def aggregate_yesterday_stats() -> None:
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    async with async_session_maker() as session:
+        today_result = await session.execute(select(func.current_date))
+        db_today = today_result.scalar()
+    yesterday = (db_today - timedelta(days=1)).strftime("%Y-%m-%d")
     try:
         await aggregate_stats_for_date(yesterday)
     except Exception as e:
