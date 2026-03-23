@@ -441,6 +441,14 @@ USER_DASHBOARD_HTML = """
                     </div>
                 </div>
                 
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-semibold">Active Sessions (Last 1 Minute)</h3>
+                        <span id="active-count" class="text-sm text-gray-500">0 active</span>
+                    </div>
+                    <div id="active-sessions" class="space-y-2"><div class="text-gray-400 text-center py-2">No active sessions</div></div>
+                </div>
+                
                 <div class="mb-6" style="height: 250px;">
                     <canvas id="trend-chart"></canvas>
                 </div>
@@ -675,8 +683,30 @@ const data = await response.json();</code></pre>
             window.location.href = '/user/login';
         }}
         
+        async function loadActiveSessions() {{
+            const resp = await fetch('/user/api/active');
+            const data = await resp.json();
+            
+            document.getElementById('active-count').textContent = data.active_count + ' active';
+            
+            if (data.active_count === 0) {{
+                document.getElementById('active-sessions').innerHTML = '<div class="text-gray-400 text-center py-2">No active sessions</div>';
+                return;
+            }}
+            
+            const html = Object.entries(data.sessions).map(([model, session]) => `
+                <div class="flex justify-between items-center p-2 bg-white rounded">
+                    <span class="font-medium text-sm">${{model}}</span>
+                    <span class="text-sm text-gray-600">${{session.requests}} req</span>
+                </div>
+            `).join('');
+            document.getElementById('active-sessions').innerHTML = html;
+        }}
+        
         loadStats();
+        loadActiveSessions();
         setInterval(loadStats, 30000);
+        setInterval(loadActiveSessions, 60000);
     </script>
 </body>
 </html>
@@ -844,6 +874,37 @@ async def get_user_stats(
             "total_errors": total_errors,
             "models": model_stats,
             "trend": trend_data,
+        }
+
+
+@router.get("/user/api/active")
+async def get_user_active_sessions(api_key_id: int = Depends(get_user_session)):
+    if not api_key_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(RequestLog).where(
+                RequestLog.api_key_id == api_key_id,
+                RequestLog.created_at >= func.now() - timedelta(minutes=1),
+            )
+        )
+        logs = result.scalars().all()
+
+        model_sessions = {}
+        for log in logs:
+            if not log.model:
+                continue
+
+            model = log.model
+            if model not in model_sessions:
+                model_sessions[model] = {"requests": 0}
+
+            model_sessions[model]["requests"] += 1
+
+        return {
+            "active_count": len(model_sessions),
+            "sessions": model_sessions,
         }
 
 

@@ -704,3 +704,35 @@ async def get_active_sessions():
             "active_count": len(active_sessions),
             "sessions": active_sessions,
         }
+
+
+@router.get("/stats/active/models")
+async def get_active_sessions_by_model():
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(RequestLog).where(
+                RequestLog.created_at >= func.now() - timedelta(minutes=1)
+            )
+        )
+        logs = result.scalars().all()
+
+        model_sessions = {}
+        for log in logs:
+            if not log.model:
+                continue
+
+            model = log.model
+            if model not in model_sessions:
+                model_sessions[model] = {
+                    "requests": 0,
+                    "last_activity": log.created_at.isoformat(),
+                }
+
+            model_sessions[model]["requests"] += 1
+            if log.created_at.isoformat() > model_sessions[model]["last_activity"]:
+                model_sessions[model]["last_activity"] = log.created_at.isoformat()
+
+        return {
+            "active_count": len(model_sessions),
+            "sessions": model_sessions,
+        }

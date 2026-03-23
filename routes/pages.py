@@ -81,14 +81,14 @@ async def dashboard_page():
     return HTMLResponse(content=DASHBOARD_HTML)
 
 
-@router.get("/api-keys/{key_id}/query", response_class=HTMLResponse)
-async def api_key_query_page(key_id: int):
-    async with async_session_maker() as session:
-        result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
-        key = result.scalar_one_or_none()
-        if not key:
-            return HTMLResponse("<h1>API Key not found</h1>", status_code=404)
-        from templates.query import QUERY_PAGE_HTML
-
-        html = QUERY_PAGE_HTML.format(name=key.name, key_id=key_id)
-        return HTMLResponse(content=html)
+# @router.get("/api-keys/{key_id}/query", response_class=HTMLResponse)
+# async def api_key_query_page(key_id: int):
+#     async with async_session_maker() as session:
+#         result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
+#         key = result.scalar_one_or_none()
+#         if not key:
+#             return HTMLResponse("<h1>API Key not found</h1>", status_code=404)
+#         from templates.query import QUERY_PAGE_HTML
+#
+#         html = QUERY_PAGE_HTML.format(name=key.name, key_id=key_id)
+#         return HTMLResponse(content=html)

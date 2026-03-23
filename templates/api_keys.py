@@ -35,10 +35,6 @@ API_KEYS_PAGE_HTML = """
                     <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                     Monitor
                 </a>
-                <a href="/opencode" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-                    OpenCode Config
-                </a>
                 <a href="/usage" class="nav-link flex items-center px-4 py-3 text-gray-700">
                     <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     Usage Guide
@@ -169,7 +165,6 @@ API_KEYS_PAGE_HTML = """
                     ? modelNames.slice(0, 3).join(', ') + (modelNames.length > 3 ? ` +${modelNames.length - 3}` : '')
                     : '<span class="text-gray-400">All models</span>';
                 const userPageUrl = `${baseUrl}/user/login`;
-                const setupMdUrl = `${baseUrl}/opencode/setup.md?api_key=${k.key}`;
                 return `
                 <div class="p-4">
                     <div class="flex justify-between items-center">
@@ -177,7 +172,7 @@ API_KEYS_PAGE_HTML = """
                             <div class="font-medium">${k.name}</div>
                             <div class="text-sm text-gray-500 flex items-center gap-2">
                                 <code class="bg-gray-100 px-2 py-0.5 rounded text-xs">${k.key}</code>
-                                <button onclick="copyKeyWithInstructions('${k.key}', '${userPageUrl}', '${setupMdUrl}')" class="text-blue-500 hover:text-blue-700 text-xs">Copy</button>
+                                <button onclick="copyKeyWithInstructions('${k.key}', '${userPageUrl}')" class="text-blue-500 hover:text-blue-700 text-xs">Copy</button>
                             </div>
                             <div class="text-xs text-gray-400 mt-1">${modelsDisplay}</div>
                         </div>
@@ -195,12 +190,6 @@ API_KEYS_PAGE_HTML = """
                             </div>
                             <button onclick="copyKey('${userPageUrl}')" class="text-blue-500 hover:text-blue-700">Copy</button>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-gray-500">Setup Doc:</span>
-                            <a href="${setupMdUrl}" target="_blank" class="text-orange-500 hover:underline">配置指南.md</a>
-                            <button onclick="copyKey('${setupMdUrl}')" class="text-orange-500 hover:text-orange-700 text-xs">Copy</button>
-                        </div>
-
                     </div>
                 </div>
             `}).join('');
@@ -298,15 +287,12 @@ API_KEYS_PAGE_HTML = """
             navigator.clipboard.writeText(key).then(() => alert('Copied!'));
         }
         
-        function copyKeyWithInstructions(key, userPageUrl, setupMdUrl) {
+        function copyKeyWithInstructions(key, userPageUrl) {
             const text = `API Key: ${key}
 
 使用说明：
 1. 登录用户页面：${userPageUrl}
-   在页面中粘贴上面的 API Key 进行登录
-
-2. 配置 OpenCode：
-   让智能体读取配置文档：${setupMdUrl}`;
+   在页面中粘贴上面的 API Key 进行登录`;
             navigator.clipboard.writeText(text).then(() => alert('API Key 和使用说明已复制!'));
         }
         
