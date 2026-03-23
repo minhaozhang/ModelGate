@@ -12,9 +12,110 @@ from database import (
     ApiKeyDailyStat,
     ModelDailyStat,
 )
-from config import api_keys_cache, stats
+from config import (
+    api_keys_cache,
+    stats,
+    today_stats_cache,
+    today_stats_cache_time,
+    TODAY_STATS_CACHE_TTL_SECONDS,
+)
 
 router = APIRouter(tags=["stats"])
+
+
+async def get_cached_today_stats(start: datetime) -> dict:
+    from config import proxy_logger
+
+    now = datetime.now()
+    cache_key = start.strftime("%Y-%m-%d")
+
+    if (
+        today_stats_cache_time
+        and (now - today_stats_cache_time).total_seconds()
+        < TODAY_STATS_CACHE_TTL_SECONDS
+        and today_stats_cache.get("date") == cache_key
+    ):
+        return today_stats_cache
+
+    proxy_logger.info("[STATS CACHE] Refreshing today stats cache")
+
+    async with async_session_maker() as session:
+        query = select(RequestLog).where(RequestLog.created_at >= start)
+        result = await session.execute(query)
+        logs = result.scalars().all()
+
+        provider_cache = {}
+        provider_stats = {}
+        api_key_stats = {}
+        model_stats = {}
+
+        for log in logs:
+            tokens = (
+                (log.tokens or {}).get("total_tokens")
+                or (log.tokens or {}).get("estimated")
+                or 0
+            )
+            is_error = log.status == "error"
+
+            provider_name = None
+            if log.provider_id:
+                if log.provider_id not in provider_cache:
+                    prov_result = await session.execute(
+                        select(Provider).where(Provider.id == log.provider_id)
+                    )
+                    prov = prov_result.scalar_one_or_none()
+                    provider_cache[log.provider_id] = prov.name if prov else None
+                provider_name = provider_cache.get(log.provider_id)
+
+            if provider_name:
+                if provider_name not in provider_stats:
+                    provider_stats[provider_name] = {
+                        "requests": 0,
+                        "tokens": 0,
+                        "errors": 0,
+                    }
+                provider_stats[provider_name]["requests"] += 1
+                provider_stats[provider_name]["tokens"] += tokens
+                if is_error:
+                    provider_stats[provider_name]["errors"] += 1
+
+            if log.api_key_id:
+                key_info = None
+                for k, v in api_keys_cache.items():
+                    if v["id"] == log.api_key_id:
+                        key_info = v
+                        break
+                key_name = key_info["name"] if key_info else f"Key-{log.api_key_id}"
+                if key_name not in api_key_stats:
+                    api_key_stats[key_name] = {"requests": 0, "tokens": 0, "errors": 0}
+                api_key_stats[key_name]["requests"] += 1
+                api_key_stats[key_name]["tokens"] += tokens
+                if is_error:
+                    api_key_stats[key_name]["errors"] += 1
+
+            if log.model:
+                if log.model not in model_stats:
+                    model_stats[log.model] = {"requests": 0, "tokens": 0, "errors": 0}
+                model_stats[log.model]["requests"] += 1
+                model_stats[log.model]["tokens"] += tokens
+                if is_error:
+                    model_stats[log.model]["errors"] += 1
+
+        cache_data = {
+            "date": cache_key,
+            "provider": provider_stats,
+            "api_key": api_key_stats,
+            "model": model_stats,
+            "logs": logs,
+            "provider_cache": provider_cache,
+        }
+
+        import config
+
+        config.today_stats_cache = cache_data
+        config.today_stats_cache_time = now
+
+        return cache_data
 
 
 @router.get("/stats")
@@ -86,55 +187,8 @@ def get_period_range(
 async def get_today_realtime_stats(
     dimension: str, start: datetime
 ) -> tuple[dict, dict]:
-    async with async_session_maker() as session:
-        query = select(RequestLog).where(RequestLog.created_at >= start)
-        result = await session.execute(query)
-        logs = result.scalars().all()
-
-        provider_cache = {}
-        stats_data = {}
-        trend_data = {}
-
-        for log in logs:
-            tokens = (
-                (log.tokens or {}).get("total_tokens")
-                or (log.tokens or {}).get("estimated")
-                or 0
-            )
-            is_error = log.status == "error"
-
-            if dimension == "provider":
-                key = None
-                if log.provider_id:
-                    if log.provider_id not in provider_cache:
-                        prov_result = await session.execute(
-                            select(Provider).where(Provider.id == log.provider_id)
-                        )
-                        prov = prov_result.scalar_one_or_none()
-                        provider_cache[log.provider_id] = prov.name if prov else None
-                    key = provider_cache.get(log.provider_id)
-            elif dimension == "api_key":
-                if log.api_key_id:
-                    key_info = None
-                    for k, v in api_keys_cache.items():
-                        if v["id"] == log.api_key_id:
-                            key_info = v
-                            break
-                    key = key_info["name"] if key_info else f"Key-{log.api_key_id}"
-                else:
-                    key = None
-            else:
-                key = log.model
-
-            if key:
-                if key not in stats_data:
-                    stats_data[key] = {"requests": 0, "tokens": 0, "errors": 0}
-                stats_data[key]["requests"] += 1
-                stats_data[key]["tokens"] += tokens
-                if is_error:
-                    stats_data[key]["errors"] += 1
-
-        return stats_data, trend_data
+    cache = await get_cached_today_stats(start)
+    return cache.get(dimension, {}), {}
 
 
 async def get_aggregated_stats(dimension: str, start: datetime, end: datetime) -> dict:
@@ -192,6 +246,8 @@ async def get_aggregate_stats(
     async with async_session_maker() as session:
         now_result = await session.execute(select(func.now()))
         now = now_result.scalar()
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start, intervals, format_func = get_period_range(period, now)
 
@@ -232,6 +288,8 @@ async def get_trend_data(
     async with async_session_maker() as session:
         now_result = await session.execute(select(func.now()))
         now = now_result.scalar()
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start, intervals, format_func = get_period_range(period, now)
 
@@ -299,7 +357,10 @@ async def get_trend_data(
                 name_col = ModelDailyStat.model_name
 
             start_str = start.strftime("%Y-%m-%d")
-            query = select(table).where(table.date >= start_str)
+            today_str = today_start.strftime("%Y-%m-%d")
+            query = select(table).where(
+                and_(table.date >= start_str, table.date < today_str)
+            )
             if name:
                 query = query.where(name_col == name)
 
@@ -327,6 +388,41 @@ async def get_trend_data(
                     trend_data[label]["tokens"] += row.tokens or 0
                     trend_data[label]["errors"] += row.errors or 0
 
+        cache = await get_cached_today_stats(today_start)
+        today_logs = cache.get("logs", [])
+        provider_cache = cache.get("provider_cache", {})
+
+        for log in today_logs:
+            if dimension == "provider":
+                key = provider_cache.get(log.provider_id)
+            elif dimension == "api_key":
+                if log.api_key_id:
+                    key_info = None
+                    for k, v in api_keys_cache.items():
+                        if v["id"] == log.api_key_id:
+                            key_info = v
+                            break
+                    key = key_info["name"] if key_info else f"Key-{log.api_key_id}"
+                else:
+                    key = None
+            else:
+                key = log.model
+
+            if name and key != name:
+                continue
+
+            label = format_func(log.created_at)
+            if label in trend_data:
+                tokens = (
+                    (log.tokens or {}).get("total_tokens")
+                    or (log.tokens or {}).get("estimated")
+                    or 0
+                )
+                trend_data[label]["requests"] += 1
+                trend_data[label]["tokens"] += tokens
+                if log.status == "error":
+                    trend_data[label]["errors"] += 1
+
     return {
         "dimension": dimension,
         "period": period,
@@ -341,6 +437,9 @@ async def get_stats_period(period: str = "day"):
     async with async_session_maker() as session:
         now_result = await session.execute(select(func.now()))
         now = now_result.scalar()
+
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
 
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -465,6 +564,8 @@ async def get_chart_data(
     async with async_session_maker() as session:
         now_result = await session.execute(select(func.now()))
         now = now_result.scalar()
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
     start, intervals, format_func = get_period_range(period, now)
 
     async with async_session_maker() as session:

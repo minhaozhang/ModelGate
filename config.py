@@ -85,6 +85,10 @@ stats = {
     "requests_per_minute": [],
 }
 
+today_stats_cache: dict = {}
+today_stats_cache_time: Optional[datetime] = None
+TODAY_STATS_CACHE_TTL_SECONDS = 600
+
 
 def create_session() -> str:
     import secrets

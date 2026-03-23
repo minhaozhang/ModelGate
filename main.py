@@ -114,4 +114,4 @@ if __name__ == "__main__":
 ║  Admin Password: {CONFIG["admin_password"]:<39} ║
 ╚════════════════════════════════════════════════════════════╝
     """)
-    uvicorn.run(app, host="0.0.0.0", port=CONFIG["port"])
+    uvicorn.run(app, host="0.0.0.0", port=CONFIG["port"], access_log=False)
