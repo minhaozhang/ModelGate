@@ -58,9 +58,25 @@ API_KEYS_PAGE_HTML = """
                 <button onclick="showAddApiKey()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Add API Key</button>
             </div>
             
+            <div class="mb-4 flex items-center gap-4">
+                <div class="relative flex-1 max-w-md">
+                    <input type="text" id="search-input" placeholder="Search by name or key..." 
+                        class="w-full border rounded-lg px-4 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        oninput="handleSearch()">
+                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <div class="text-sm text-gray-500">
+                    <span id="total-count">0</span> keys
+                </div>
+            </div>
+            
             <div class="bg-white rounded-lg shadow">
                 <div id="apikeys-list" class="divide-y"></div>
             </div>
+            
+            <div id="pagination" class="flex justify-center items-center gap-2 mt-4"></div>
         </main>
     </div>
     
@@ -97,6 +113,9 @@ API_KEYS_PAGE_HTML = """
         let selectedModelIds = [];
         let providerModels = [];
         let apiKeysData = [];
+        let filteredData = [];
+        let currentPage = 1;
+        const pageSize = 10;
         
         async function logout() {
             await fetch('/api/logout', {method: 'POST'});
@@ -107,7 +126,23 @@ API_KEYS_PAGE_HTML = """
             const resp = await fetch('/api/keys');
             const data = await resp.json();
             apiKeysData = data.api_keys || [];
+            handleSearch();
+        }
+        
+        function handleSearch() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            if (query) {
+                filteredData = apiKeysData.filter(k => 
+                    k.name.toLowerCase().includes(query) || 
+                    k.key.toLowerCase().includes(query)
+                );
+            } else {
+                filteredData = apiKeysData;
+            }
+            document.getElementById('total-count').textContent = filteredData.length;
+            currentPage = 1;
             renderApiKeys();
+            renderPagination();
         }
         
         async function loadProviderModels() {
@@ -124,7 +159,11 @@ API_KEYS_PAGE_HTML = """
         
         function renderApiKeys() {
             const baseUrl = window.location.origin;
-            const html = apiKeysData.map(k => {
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            const pageData = filteredData.slice(start, end);
+            
+            const html = pageData.map(k => {
                 const modelNames = (k.allowed_provider_model_ids || []).map(id => getModelDisplayName(id));
                 const modelsDisplay = modelNames.length > 0 
                     ? modelNames.slice(0, 3).join(', ') + (modelNames.length > 3 ? ` +${modelNames.length - 3}` : '')
@@ -165,7 +204,60 @@ API_KEYS_PAGE_HTML = """
                     </div>
                 </div>
             `}).join('');
-            document.getElementById('apikeys-list').innerHTML = html || '<div class="text-gray-400 text-center py-8">No API keys</div>';
+            document.getElementById('apikeys-list').innerHTML = html || '<div class="text-gray-400 text-center py-8">No API keys found</div>';
+        }
+        
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredData.length / pageSize);
+            if (totalPages <= 1) {
+                document.getElementById('pagination').innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            
+            if (currentPage > 1) {
+                html += `<button onclick="goToPage(${currentPage - 1})" class="px-3 py-1 border rounded hover:bg-gray-50">Previous</button>`;
+            }
+            
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            
+            if (endPage - startPage + 1 < maxVisible) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+            
+            if (startPage > 1) {
+                html += `<button onclick="goToPage(1)" class="px-3 py-1 border rounded hover:bg-gray-50">1</button>`;
+                if (startPage > 2) html += `<span class="px-2">...</span>`;
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                if (i === currentPage) {
+                    html += `<button class="px-3 py-1 border rounded bg-blue-500 text-white">${i}</button>`;
+                } else {
+                    html += `<button onclick="goToPage(${i})" class="px-3 py-1 border rounded hover:bg-gray-50">${i}</button>`;
+                }
+            }
+            
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<span class="px-2">...</span>`;
+                html += `<button onclick="goToPage(${totalPages})" class="px-3 py-1 border rounded hover:bg-gray-50">${totalPages}</button>`;
+            }
+            
+            if (currentPage < totalPages) {
+                html += `<button onclick="goToPage(${currentPage + 1})" class="px-3 py-1 border rounded hover:bg-gray-50">Next</button>`;
+            }
+            
+            document.getElementById('pagination').innerHTML = html;
+        }
+        
+        function goToPage(page) {
+            currentPage = page;
+            renderApiKeys();
+            renderPagination();
+            window.scrollTo({top: 0, behavior: 'smooth'});
         }
         
         function copyExample(cmd) {
@@ -289,6 +381,13 @@ API_KEYS_PAGE_HTML = """
         });
         
         loadProviderModels().then(() => loadApiKeys());
+        
+        document.getElementById('search-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.target.value = '';
+                handleSearch();
+            }
+        });
     </script>
 </body>
 </html>

@@ -641,9 +641,9 @@ const data = await response.json();</code></pre>
                 if (data.error) return;
                 
                 const config = data.config;
-                config.provider['proxy-coding-plan'].options.baseURL = window.location.origin + '/v1';
+                config.provider['model-token-plan'].options.baseURL = window.location.origin + '/v1';
                 
-                const prompt = "# 请帮我将以下provider配置添加到 ~/.opencode/opencode.json 中。保留现有的providers和其他设置，只添加或更新 'proxy-coding-plan' 这个provider。\\n\\n";
+                const prompt = "# 请帮我将以下provider配置添加到 ~/.opencode/opencode.json 中。保留现有的providers和其他设置，只添加或更新 'model-token-plan' 这个provider。\\n\\n";
                 document.getElementById('config-output').textContent = prompt + JSON.stringify(config, null, 2);
                 
                 const modelsHtml = data.models.map(m => `
@@ -930,8 +930,8 @@ async def get_user_opencode_config(api_key_id: int = Depends(get_user_session)):
 
         config = {
             "provider": {
-                "proxy-coding-plan": {
-                    "name": "API Proxy",
+                "model-token-plan": {
+                    "name": "Model Token Plan",
                     "options": {
                         "baseURL": "BASEURL_PLACEHOLDER",
                         "apiKey": api_key.key,

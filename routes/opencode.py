@@ -75,8 +75,8 @@ async def build_opencode_config(session, api_key: str, base_url: str):
 
     return {
         "provider": {
-            "proxy-coding-plan": {
-                "name": "API Proxy",
+            "model-token-plan": {
+                "name": "Model Token Plan",
                 "options": {
                     "baseURL": base_url,
                     "apiKey": api_key,
@@ -119,7 +119,7 @@ async def get_opencode_setup_markdown(request: Request, api_key: Optional[str] =
         if not config:
             return PlainTextResponse("# Error\n\nInvalid API Key", status_code=401)
 
-        md = f"""请帮我将以下 provider 配置添加到 `~/.opencode/opencode.json` 中。保留现有的 providers 和其他设置，只添加或更新 `proxy-coding-plan` 这个 provider：
+        md = f"""请帮我将以下 provider 配置添加到 `~/.opencode/opencode.json` 中。保留现有的 providers 和其他设置，只添加或更新 `model-token-plan` 这个 provider：
 
 ```json
 {json.dumps(config, ensure_ascii=False, indent=2)}

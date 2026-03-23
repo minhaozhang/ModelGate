@@ -134,9 +134,9 @@ OPENCODE_PAGE_HTML = """
                 document.getElementById('error-section').classList.add('hidden');
                 
                 const config = data.config;
-                config.provider['proxy-coding-plan'].options.baseURL = window.location.origin + '/v1';
+                config.provider['model-token-plan'].options.baseURL = window.location.origin + '/v1';
                 
-                const prompt = "# 请帮我将以下provider配置添加到 ~/.opencode/opencode.json 中。保留现有的providers和其他设置，只添加或更新 'proxy-coding-plan' 这个provider。\\n\\n";
+                const prompt = "# 请帮我将以下provider配置添加到 ~/.opencode/opencode.json 中。保留现有的providers和其他设置，只添加或更新 'model-token-plan' 这个provider。\\n\\n";
                 const configJson = prompt + JSON.stringify(config, null, 2);
                 document.getElementById('config-output').textContent = configJson;
                 
