@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timedelta
 from typing import Optional, Literal
 from fastapi import APIRouter
@@ -775,9 +776,7 @@ async def get_realtime_stats():
 
 @router.get("/stats/slow")
 async def get_slow_requests():
-    now = datetime.now()
-    now_ts = now.timestamp()
-    one_hour_ago = now - timedelta(hours=1)
+    now_ts = time.time()
 
     slow_pending = []
     for req_id, req_info in pending_requests.items():
@@ -798,6 +797,12 @@ async def get_slow_requests():
             )
 
     async with async_session_maker() as session:
+        now_result = await session.execute(select(func.now()))
+        db_now = now_result.scalar()
+        if db_now.tzinfo is not None:
+            db_now = db_now.replace(tzinfo=None)
+        one_hour_ago = db_now - timedelta(hours=1)
+
         result = await session.execute(
             select(RequestLog)
             .where(
