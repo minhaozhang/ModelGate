@@ -115,6 +115,7 @@ class RequestLog(Base):
     status = Column(String(20), nullable=False)
     error = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), index=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
         Index("idx_request_logs_created_at", "created_at"),

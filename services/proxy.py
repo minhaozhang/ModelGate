@@ -47,6 +47,8 @@ def parse_minimax_tool_calls(content: str) -> tuple[str, list[dict]]:
     return cleaned_content, tool_calls
 
 
+from sqlalchemy import update
+
 from core.config import (
     providers_cache,
     providers_cache_time,
@@ -197,6 +199,55 @@ async def validate_api_key(
     return key_info["id"], None
 
 
+async def create_request_log(
+    provider_name: str,
+    model: str,
+    api_key_id: Optional[int] = None,
+    request_body: Optional[dict] = None,
+) -> int:
+    """Create a pending request log entry, return log_id"""
+    async with async_session_maker() as session:
+        provider_id = None
+        if provider_name:
+            pinfo = providers_cache.get(provider_name)
+            if pinfo:
+                provider_id = pinfo.get("id")
+
+        log = RequestLog(
+            api_key_id=api_key_id,
+            provider_id=provider_id,
+            model=model,
+            status="pending",
+        )
+        session.add(log)
+        await session.commit()
+        return log.id
+
+
+async def update_request_log(
+    log_id: int,
+    response: str = "",
+    tokens: Optional[dict] = None,
+    latency_ms: Optional[float] = None,
+    status: str = "success",
+    error: Optional[str] = None,
+):
+    """Update an existing request log entry"""
+    async with async_session_maker() as session:
+        await session.execute(
+            update(RequestLog)
+            .where(RequestLog.id == log_id)
+            .values(
+                response=response,
+                tokens=tokens or {},
+                latency_ms=latency_ms,
+                status=status,
+                error=error,
+            )
+        )
+        await session.commit()
+
+
 async def log_request(
     provider_name: str,
     model: str,
@@ -207,6 +258,7 @@ async def log_request(
     api_key_id: Optional[int] = None,
     error: Optional[str] = None,
 ):
+    """Directly insert a completed request log (for non-streaming success/error)"""
     async with async_session_maker() as session:
         provider_id = None
         if provider_name:
@@ -410,6 +462,13 @@ async def proxy_request(request: Request, endpoint: str):
         "stream": stream,
     }
 
+    # 流式请求：先创建 pending 日志
+    stream_log_id = None
+    if stream:
+        stream_log_id = await create_request_log(
+            provider_name, actual_model, api_key_id=api_key_id
+        )
+
     async with httpx.AsyncClient(timeout=120.0) as client:
         try:
             if stream:
@@ -426,6 +485,8 @@ async def proxy_request(request: Request, endpoint: str):
                     api_key_id,
                     semaphore,
                     request_id,
+                    stream_log_id,
+                    request,
                 )
             else:
                 return await handle_normal(
@@ -570,6 +631,8 @@ async def handle_streaming(
     api_key_id,
     semaphore,
     request_id,
+    log_id,
+    request,
 ):
     logger.debug(f"[STREAM REQUEST] Provider: {provider}, Model: {model}, URL: {url}")
     if provider == "minimax":
@@ -799,30 +862,48 @@ async def handle_streaming(
                                 continue
                             yield f"{line.rstrip()}\n\n"
 
+                            # 定期检查客户端是否断开
+                            if chunk_count % 10 == 0:
+                                if await request.is_disconnected():
+                                    logger.info(
+                                        f"[STREAM] Client disconnected at chunk {chunk_count}"
+                                    )
+                                    latency = (time.time() - start_time) * 1000
+                                    approx_tokens = (
+                                        len(total_content) + len(total_reasoning)
+                                    ) // 2
+                                    await update_request_log(
+                                        log_id,
+                                        response=total_content,
+                                        tokens={
+                                            "total_tokens": approx_tokens,
+                                            "estimated": True,
+                                        },
+                                        latency_ms=latency,
+                                        status="cancelled",
+                                    )
+                                    return
+
             latency = (time.time() - start_time) * 1000
             approx_tokens = (len(total_content) + len(total_reasoning)) // 2
             update_stats(provider, model, approx_tokens, api_key_id=api_key_id)
-            await log_request(
-                provider,
-                model,
-                total_content,
-                {"total_tokens": approx_tokens, "estimated": approx_tokens},
-                latency,
-                "success",
-                api_key_id=api_key_id,
+            await update_request_log(
+                log_id,
+                response=total_content,
+                tokens={"total_tokens": approx_tokens, "estimated": approx_tokens},
+                latency_ms=latency,
+                status="success",
             )
             logger.info(f"[STREAM COMPLETE] ~{approx_tokens} tokens | {latency:.0f}ms")
         except Exception as e:
             latency = (time.time() - start_time) * 1000
             update_stats(provider, model, 0, api_key_id=api_key_id, is_error=True)
-            await log_request(
-                provider,
-                model,
-                "",
-                {},
-                latency,
-                "error",
-                api_key_id=api_key_id,
+            await update_request_log(
+                log_id,
+                response="",
+                tokens={},
+                latency_ms=latency,
+                status="error",
                 error=str(e),
             )
             error_logger.error(
