@@ -5,10 +5,10 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
 
-from config import admin_logger
-from database import async_session_maker, Provider, Model, ProviderModel
+from core.config import admin_logger
+from core.database import async_session_maker, Provider, Model, ProviderModel
 
-router = APIRouter(tags=["provider-models"])
+router = APIRouter(prefix="/admin/api", tags=["provider-models"])
 
 
 class ProviderModelCreate(BaseModel):

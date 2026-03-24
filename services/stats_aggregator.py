@@ -2,8 +2,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, func, and_, delete
 from sqlalchemy.orm import joinedload
 
-from config import proxy_logger
-from database import (
+from core.config import proxy_logger
+from core.database import (
     async_session_maker,
     RequestLog,
     ProviderDailyStat,

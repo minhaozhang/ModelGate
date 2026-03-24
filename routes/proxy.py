@@ -22,7 +22,7 @@ async def embeddings(request: Request):
 
 @router.api_route("/v1/models", methods=["GET"])
 async def list_models():
-    from config import providers_cache
+    from core.config import providers_cache
 
     models = []
     for provider_name, cfg in providers_cache.items():

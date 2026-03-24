@@ -315,14 +315,14 @@ LOGIN_PAGE_HTML = """
             const password = document.getElementById('password').value;
             const errorEl = document.getElementById('error');
             try {
-                const resp = await fetch('/api/login', {
+                const resp = await fetch('/admin/api/auth/login', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({username, password})
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    window.location.href = '/home';
+                    window.location.href = '/admin/home';
                 } else {
                     errorEl.textContent = data.error || 'Login failed';
                     errorEl.classList.remove('hidden');

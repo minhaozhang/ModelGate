@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from config import proxy_logger
+from core.config import proxy_logger
 from services.stats_aggregator import (
     aggregate_yesterday_stats,
     backfill_historical_stats,

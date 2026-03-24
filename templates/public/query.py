@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import select
 
-from database import async_session_maker, ApiKey
+from core.database import async_session_maker, ApiKey
 from routes.user import get_user_session
 
 router = APIRouter(tags=["query"])

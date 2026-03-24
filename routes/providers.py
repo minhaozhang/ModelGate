@@ -4,11 +4,11 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
 
-from database import async_session_maker, Provider
+from core.database import async_session_maker, Provider
 from services.proxy import load_providers
-from config import validate_session
+from core.config import validate_session
 
-router = APIRouter(tags=["providers"])
+router = APIRouter(prefix="/admin/api", tags=["providers"])
 
 
 def require_admin(session: Optional[str] = Cookie(None)):

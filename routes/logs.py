@@ -2,9 +2,9 @@ from datetime import datetime, time
 from fastapi import APIRouter
 from sqlalchemy import select, func
 
-from database import async_session_maker, RequestLog
+from core.database import async_session_maker, RequestLog
 
-router = APIRouter(tags=["logs"])
+router = APIRouter(prefix="/admin/api", tags=["logs"])
 
 
 @router.get("/logs/today")

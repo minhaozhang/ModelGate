@@ -4,7 +4,7 @@ from typing import Optional, Literal
 from fastapi import APIRouter
 from sqlalchemy import select, func, and_
 
-from database import (
+from core.database import (
     async_session_maker,
     RequestLog,
     ApiKey,
@@ -13,7 +13,7 @@ from database import (
     ApiKeyDailyStat,
     ModelDailyStat,
 )
-from config import (
+from core.config import (
     api_keys_cache,
     stats,
     today_stats_cache,
@@ -24,11 +24,11 @@ from config import (
     pending_requests,
 )
 
-router = APIRouter(tags=["stats"])
+router = APIRouter(prefix="/admin/api", tags=["stats"])
 
 
 async def get_cached_today_stats(start: datetime) -> dict:
-    from config import proxy_logger
+    from core.config import proxy_logger
 
     now = datetime.now()
     cache_key = start.strftime("%Y-%m-%d")
@@ -114,7 +114,7 @@ async def get_cached_today_stats(start: datetime) -> dict:
             "provider_cache": provider_cache,
         }
 
-        import config
+        import core.config as config
 
         config.today_stats_cache = cache_data
         config.today_stats_cache_time = now
@@ -797,16 +797,10 @@ async def get_slow_requests():
             )
 
     async with async_session_maker() as session:
-        now_result = await session.execute(select(func.now()))
-        db_now = now_result.scalar()
-        if db_now.tzinfo is not None:
-            db_now = db_now.replace(tzinfo=None)
-        one_hour_ago = db_now - timedelta(hours=1)
-
         result = await session.execute(
             select(RequestLog)
             .where(
-                RequestLog.created_at >= one_hour_ago,
+                RequestLog.created_at >= func.now() - timedelta(hours=1),
                 RequestLog.latency_ms >= 60000,
             )
             .order_by(RequestLog.latency_ms.desc())

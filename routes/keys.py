@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select, func, delete
 
-from database import (
+from core.database import (
     async_session_maker,
     ApiKey,
     ApiKeyModel,
@@ -13,9 +13,9 @@ from database import (
 )
 from services.proxy import load_api_keys
 from routes.user import get_user_session
-from config import validate_session
+from core.config import validate_session
 
-router = APIRouter(tags=["api-keys"])
+router = APIRouter(prefix="/admin/api", tags=["api-keys"])
 
 
 def require_admin(session: Optional[str] = Cookie(None)):
@@ -35,7 +35,7 @@ class ApiKeyUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-@router.get("/api/keys")
+@router.get("/keys")
 async def list_api_keys(_: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey))
@@ -60,7 +60,7 @@ async def list_api_keys(_: bool = Depends(require_admin)):
         return {"api_keys": api_keys}
 
 
-@router.post("/api/keys")
+@router.post("/keys")
 async def create_api_key(data: ApiKeyCreate, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         new_key = ApiKey(name=data.name, key=generate_api_key())
@@ -76,7 +76,7 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(require_admin)):
         return {"id": new_key.id, "name": new_key.name, "key": new_key.key}
 
 
-@router.put("/api/keys/{key_id}")
+@router.put("/keys/{key_id}")
 async def update_api_key(
     key_id: int, data: ApiKeyUpdate, _: bool = Depends(require_admin)
 ):
@@ -101,7 +101,7 @@ async def update_api_key(
         return {"id": key.id}
 
 
-@router.delete("/api/keys/{key_id}")
+@router.delete("/keys/{key_id}")
 async def delete_api_key(key_id: int, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
@@ -117,7 +117,7 @@ async def delete_api_key(key_id: int, _: bool = Depends(require_admin)):
         return {"deleted": True}
 
 
-@router.get("/api-keys/{key_id}/stats")
+@router.get("/keys/{key_id}/stats")
 async def get_api_key_stats(
     key_id: int, user_api_key_id: int = Depends(get_user_session)
 ):
@@ -177,7 +177,7 @@ async def get_api_key_stats(
         }
 
 
-@router.get("/api-keys/{key_id}/logs")
+@router.get("/keys/{key_id}/logs")
 async def get_api_key_logs(
     key_id: int, limit: int = 100, user_api_key_id: int = Depends(get_user_session)
 ):

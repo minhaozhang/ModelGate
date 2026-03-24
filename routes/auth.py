@@ -4,13 +4,19 @@ from fastapi import APIRouter, Response, Cookie, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from config import (
-    admin_users, validate_session, create_session, clear_session,
-    login_attempts, login_lockout, LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_MINUTES,
-    admin_logger
+from core.config import (
+    admin_users,
+    validate_session,
+    create_session,
+    clear_session,
+    login_attempts,
+    login_lockout,
+    LOGIN_MAX_ATTEMPTS,
+    LOGIN_LOCKOUT_MINUTES,
+    admin_logger,
 )
 
-router = APIRouter(tags=["auth"])
+router = APIRouter(prefix="/admin/api/auth", tags=["auth"])
 
 
 class LoginRequest(BaseModel):
@@ -18,7 +24,7 @@ class LoginRequest(BaseModel):
     password: str
 
 
-@router.post("/api/login")
+@router.post("/login")
 async def login(data: LoginRequest, response: Response, request: Request):
     client_ip = request.client.host if request.client else "unknown"
 
@@ -71,7 +77,7 @@ async def login(data: LoginRequest, response: Response, request: Request):
     )
 
 
-@router.post("/api/logout")
+@router.post("/logout")
 async def logout(response: Response, session: Optional[str] = Cookie(None)):
     if session:
         clear_session(session)
@@ -79,6 +85,6 @@ async def logout(response: Response, session: Optional[str] = Cookie(None)):
     return {"success": True}
 
 
-@router.get("/api/check-auth")
+@router.get("/check")
 async def check_auth(session: Optional[str] = Cookie(None)):
     return {"authenticated": validate_session(session)}

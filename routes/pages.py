@@ -3,10 +3,10 @@ from fastapi import APIRouter, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 
-from config import validate_session
-from database import async_session_maker, ApiKey
+from core.config import validate_session
+from core.database import async_session_maker, ApiKey
 
-router = APIRouter(tags=["pages"])
+router = APIRouter(prefix="/admin", tags=["pages"])
 
 
 def _check_auth(session: Optional[str]) -> bool:
@@ -16,15 +16,15 @@ def _check_auth(session: Optional[str]) -> bool:
 @router.get("/", response_class=HTMLResponse)
 async def root(session: Optional[str] = Cookie(None)):
     if _check_auth(session):
-        return RedirectResponse(url="/home")
-    return RedirectResponse(url="/login")
+        return RedirectResponse(url="/admin/home")
+    return RedirectResponse(url="/admin/login")
 
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(session: Optional[str] = Cookie(None)):
     if _check_auth(session):
-        return RedirectResponse(url="/home")
-    from templates.login import LOGIN_PAGE_HTML
+        return RedirectResponse(url="/admin/home")
+    from templates.admin.login import LOGIN_PAGE_HTML
 
     return HTMLResponse(content=LOGIN_PAGE_HTML)
 
@@ -32,8 +32,8 @@ async def login_page(session: Optional[str] = Cookie(None)):
 @router.get("/home", response_class=HTMLResponse)
 async def home_page(session: Optional[str] = Cookie(None)):
     if not _check_auth(session):
-        return RedirectResponse(url="/login")
-    from templates.home import HOME_PAGE_HTML
+        return RedirectResponse(url="/admin/login")
+    from templates.admin.home import HOME_PAGE_HTML
 
     return HTMLResponse(content=HOME_PAGE_HTML)
 
@@ -41,8 +41,8 @@ async def home_page(session: Optional[str] = Cookie(None)):
 @router.get("/config", response_class=HTMLResponse)
 async def config_page(session: Optional[str] = Cookie(None)):
     if not _check_auth(session):
-        return RedirectResponse(url="/login")
-    from templates.config import CONFIG_PAGE_HTML
+        return RedirectResponse(url="/admin/login")
+    from templates.admin.config import CONFIG_PAGE_HTML
 
     return HTMLResponse(content=CONFIG_PAGE_HTML)
 
@@ -50,8 +50,8 @@ async def config_page(session: Optional[str] = Cookie(None)):
 @router.get("/api-keys", response_class=HTMLResponse)
 async def api_keys_page(session: Optional[str] = Cookie(None)):
     if not _check_auth(session):
-        return RedirectResponse(url="/login")
-    from templates.api_keys import API_KEYS_PAGE_HTML
+        return RedirectResponse(url="/admin/login")
+    from templates.admin.api_keys import API_KEYS_PAGE_HTML
 
     return HTMLResponse(content=API_KEYS_PAGE_HTML)
 
@@ -59,8 +59,8 @@ async def api_keys_page(session: Optional[str] = Cookie(None)):
 @router.get("/monitor", response_class=HTMLResponse)
 async def monitor_page(session: Optional[str] = Cookie(None)):
     if not _check_auth(session):
-        return RedirectResponse(url="/login")
-    from templates.monitor import MONITOR_PAGE_HTML
+        return RedirectResponse(url="/admin/login")
+    from templates.admin.monitor import MONITOR_PAGE_HTML
 
     return HTMLResponse(content=MONITOR_PAGE_HTML)
 
@@ -68,17 +68,10 @@ async def monitor_page(session: Optional[str] = Cookie(None)):
 @router.get("/usage", response_class=HTMLResponse)
 async def usage_page(session: Optional[str] = Cookie(None)):
     if not _check_auth(session):
-        return RedirectResponse(url="/login")
-    from templates.usage import USAGE_PAGE_HTML
+        return RedirectResponse(url="/admin/login")
+    from templates.admin.usage import USAGE_PAGE_HTML
 
     return HTMLResponse(content=USAGE_PAGE_HTML)
-
-
-@router.get("/dashboard", response_class=HTMLResponse)
-async def dashboard_page():
-    from templates.dashboard import DASHBOARD_HTML
-
-    return HTMLResponse(content=DASHBOARD_HTML)
 
 
 # @router.get("/api-keys/{key_id}/query", response_class=HTMLResponse)

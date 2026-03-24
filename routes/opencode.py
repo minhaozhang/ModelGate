@@ -9,8 +9,8 @@ from fastapi.responses import (
 )
 from sqlalchemy import select
 
-from config import validate_session
-from database import (
+from core.config import validate_session
+from core.database import (
     async_session_maker,
     ApiKey,
     Provider,

@@ -2,15 +2,20 @@ import os
 
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from config import CONFIG, error_logger
-from database import init_db
+from core.config import CONFIG, error_logger
+from core.database import init_db
 from services.proxy import load_providers, load_api_keys
 
 app = FastAPI(title="API Proxy")
+
+
+@app.get("/")
+async def root_redirect():
+    return RedirectResponse(url="/admin/")
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -55,7 +60,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 @app.on_event("startup")
 async def startup():
-    from config import providers_cache, api_keys_cache, logger
+    from core.config import providers_cache, api_keys_cache, logger
 
     await init_db()
     await load_providers()
@@ -104,13 +109,13 @@ app.include_router(opencode.router)
 
 
 if __name__ == "__main__":
-    from config import logger, admin_users
+    from core.config import logger, admin_users
 
     users_str = ", ".join(admin_users.keys())
     print(f"""
 ╔════════════════════════════════════════════════════════════╗
 ║  API Proxy Started                                        ║
-║  Dashboard: http://localhost:{CONFIG["port"]}/home                ║
+║  Dashboard: http://localhost:{CONFIG["port"]}/admin/home          ║
 ║  API: http://localhost:{CONFIG["port"]}/v1/chat/completions         ║
 ║  Admin Users: {users_str:<43} ║
 ╚════════════════════════════════════════════════════════════╝

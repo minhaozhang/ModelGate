@@ -47,7 +47,7 @@ def parse_minimax_tool_calls(content: str) -> tuple[str, list[dict]]:
     return cleaned_content, tool_calls
 
 
-from config import (
+from core.config import (
     providers_cache,
     providers_cache_time,
     PROVIDERS_CACHE_TTL_MINUTES,
@@ -58,12 +58,12 @@ from config import (
     provider_semaphores,
     pending_requests,
 )
-from database import async_session_maker, RequestLog, Provider
+from core.database import async_session_maker, RequestLog, Provider
 
 
 async def load_providers():
-    from config import providers_cache, providers_cache_time
-    from database import ProviderModel, Model
+    from core.config import providers_cache, providers_cache_time
+    from core.database import ProviderModel, Model
 
     from sqlalchemy import select
 
@@ -109,13 +109,13 @@ async def load_providers():
             ]._value != (p.max_concurrent or 3):
                 provider_semaphores[p.name] = asyncio.Semaphore(p.max_concurrent or 3)
 
-        import config
+        import core.config as config
 
         config.providers_cache_time = datetime.now()
 
 
 async def get_provider_config(provider_name: str) -> Optional[dict]:
-    from config import providers_cache, providers_cache_time
+    from core.config import providers_cache, providers_cache_time
 
     if providers_cache_time is None or (
         datetime.now() - providers_cache_time
@@ -125,8 +125,8 @@ async def get_provider_config(provider_name: str) -> Optional[dict]:
 
 
 async def load_api_keys():
-    from config import api_keys_cache
-    from database import ApiKey, ApiKeyModel
+    from core.config import api_keys_cache
+    from core.database import ApiKey, ApiKeyModel
     from sqlalchemy import select
 
     async with async_session_maker() as session:
@@ -617,12 +617,17 @@ async def handle_streaming(
                                     f"[MINIMAX NON-DATA LINE] {repr(line[:300])}"
                                 )
                         if line.startswith("data: "):
-                            data = line[6:]
-                            if data == "[DONE]":
+                            line_content = line[6:]
+                            if line_content == "[DONE]":
                                 yield f"data: [DONE]\n\n"
                                 break
+                            if "data: " in line_content:
+                                logger.warning(
+                                    f"[SSE] Malformed line with embedded 'data:', skipping: {line[:200]}"
+                                )
+                                continue
                             try:
-                                chunk = json.loads(data)
+                                chunk = json.loads(line_content)
                                 chunk_count += 1
                                 if "choices" in chunk and chunk["choices"]:
                                     delta = chunk["choices"][0].get("delta", {})

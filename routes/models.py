@@ -4,10 +4,10 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
 
-from database import async_session_maker, Model
-from config import validate_session
+from core.database import async_session_maker, Model
+from core.config import validate_session
 
-router = APIRouter(prefix="/admin", tags=["models"])
+router = APIRouter(prefix="/admin/api", tags=["models"])
 
 
 def require_admin(session: Optional[str] = Cookie(None)):
