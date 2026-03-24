@@ -173,7 +173,7 @@ API_KEYS_PAGE_HTML = """
                             <div class="font-medium">${k.name}</div>
                             <div class="text-sm text-gray-500 flex items-center gap-2">
                                 <code class="bg-gray-100 px-2 py-0.5 rounded text-xs">${k.key}</code>
-                                <button onclick="copyKeyWithInstructions('${k.key}', '${userPageUrl}', '${setupMdUrl}')" class="text-blue-500 hover:text-blue-700 text-xs">Copy</button>
+                                <button onclick="copyKey('${k.key}')" class="text-blue-500 hover:text-blue-700 text-xs">Copy</button>
                             </div>
                             <div class="text-xs text-gray-400 mt-1">${modelsDisplay}</div>
                         </div>
@@ -194,7 +194,7 @@ API_KEYS_PAGE_HTML = """
                         <div class="flex items-center gap-2">
                             <span class="text-gray-500">Setup Doc:</span>
                             <a href="${setupMdUrl}" target="_blank" class="text-orange-500 hover:underline">OpenCode配置.md</a>
-                            <button onclick="copyKey('${setupMdUrl}')" class="text-orange-500 hover:text-orange-700">Copy</button>
+                            <button onclick="copyKeyWithInstructions('${k.key}', '${userPageUrl}', '${setupMdUrl}')" class="text-orange-500 hover:text-orange-700">Copy</button>
                         </div>
                     </div>
                 </div>

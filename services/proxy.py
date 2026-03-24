@@ -56,6 +56,7 @@ from config import (
     logger,
     error_logger,
     provider_semaphores,
+    pending_requests,
 )
 from database import async_session_maker, RequestLog, Provider
 
@@ -258,6 +259,7 @@ def get_model_config(provider_config: dict, model_name: str) -> Optional[dict]:
 
 async def proxy_request(request: Request, endpoint: str):
     start_time = time.time()
+    request_id = str(uuid.uuid4())[:8]
     body = await request.body()
 
     try:
@@ -297,7 +299,7 @@ async def proxy_request(request: Request, endpoint: str):
     except asyncio.TimeoutError:
         logger.warning(f"[RATE LIMIT] Provider {provider_name} at max concurrency")
         return JSONResponse(
-            {"error": f"Provider '{provider_name}' is at maximum concurrency"},
+            {"error": f"提供商 '{provider_name}' 达到最大并发数，请稍后重试"},
             status_code=429,
         )
 
@@ -400,6 +402,14 @@ async def proxy_request(request: Request, endpoint: str):
     logger.info(f"[REQUEST] Target: {target_url}")
     logger.debug(f"[REQUEST] Headers: {original_headers}")
 
+    pending_requests[request_id] = {
+        "provider": provider_name,
+        "model": actual_model,
+        "key_name": key_name,
+        "start_time": start_time,
+        "stream": stream,
+    }
+
     async with httpx.AsyncClient(timeout=120.0) as client:
         try:
             if stream:
@@ -415,6 +425,7 @@ async def proxy_request(request: Request, endpoint: str):
                     body_json,
                     api_key_id,
                     semaphore,
+                    request_id,
                 )
             else:
                 return await handle_normal(
@@ -430,8 +441,10 @@ async def proxy_request(request: Request, endpoint: str):
                     body_json,
                     api_key_id,
                     semaphore,
+                    request_id,
                 )
         except Exception as e:
+            pending_requests.pop(request_id, None)
             if acquired:
                 semaphore.release()
             latency = (time.time() - start_time) * 1000
@@ -469,6 +482,7 @@ async def handle_normal(
     req_body,
     api_key_id,
     semaphore,
+    request_id,
 ):
     logger.debug(f"[NORMAL REQUEST] Provider: {provider}, Model: {model}, URL: {url}")
 
@@ -534,6 +548,7 @@ async def handle_normal(
         f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms"
     )
 
+    pending_requests.pop(request_id, None)
     semaphore.release()
     return Response(
         content=resp.content,
@@ -554,6 +569,7 @@ async def handle_streaming(
     req_body,
     api_key_id,
     semaphore,
+    request_id,
 ):
     logger.debug(f"[STREAM REQUEST] Provider: {provider}, Model: {model}, URL: {url}")
     if provider == "minimax":
@@ -814,6 +830,7 @@ async def handle_streaming(
             )
             yield f"data: {error_msg}\n\n"
         finally:
+            pending_requests.pop(request_id, None)
             semaphore.release()
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")

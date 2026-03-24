@@ -57,43 +57,58 @@ HOME_PAGE_HTML = """
                     <option value="year">This Year</option>
                 </select>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">Total Requests</div>
-                    <div id="total-requests" class="text-3xl font-bold text-blue-600">0</div>
+                    <div id="total-requests" class="text-2xl font-bold text-blue-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">Total Tokens</div>
-                    <div id="total-tokens" class="text-3xl font-bold text-green-600">0</div>
+                    <div id="total-tokens" class="text-2xl font-bold text-green-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">Req/sec</div>
+                    <div id="rps" class="text-2xl font-bold text-orange-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">Tokens/sec</div>
+                    <div id="tps" class="text-2xl font-bold text-teal-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">Errors</div>
-                    <div id="total-errors" class="text-3xl font-bold text-red-600">0</div>
+                    <div id="total-errors" class="text-2xl font-bold text-red-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">Error Rate</div>
-                    <div id="error-rate" class="text-3xl font-bold text-orange-600">0%</div>
+                    <div id="error-rate" class="text-2xl font-bold text-purple-600">0%</div>
                 </div>
-            </div>
-            <div class="bg-white rounded-lg shadow p-5 mb-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold">Active Sessions (Last 1 Minute)</h3>
-                    <span id="active-count" class="text-sm text-gray-500">0 active</span>
-                </div>
-                <div id="active-sessions" class="space-y-2">No active sessions</div>
             </div>
             <div class="bg-white rounded-lg shadow p-5 mb-6">
                 <h3 class="text-lg font-semibold mb-4">Request Trend</h3>
-                <canvas id="trendChart" height="100"></canvas>
+                <canvas id="trendChart" height="80"></canvas>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">Provider Usage</h3>
-                    <div id="provider-bars" class="space-y-3"></div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-sm font-semibold">Active Sessions</h3>
+                        <span id="active-count" class="text-xs text-gray-500">0</span>
+                    </div>
+                    <div id="active-sessions" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">No active sessions</div>
                 </div>
-                <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">API Key Usage</h3>
-                    <div id="apikey-bars" class="space-y-3"></div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-sm font-semibold text-orange-600">Slow Requests (>60s)</h3>
+                        <span id="slow-count" class="text-xs text-gray-500">0</span>
+                    </div>
+                    <div id="slow-requests" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">No slow requests</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <h3 class="text-sm font-semibold mb-3">Provider Usage</h3>
+                    <div id="provider-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <h3 class="text-sm font-semibold mb-3">API Key Usage</h3>
+                    <div id="apikey-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
                 </div>
             </div>
         </main>
@@ -119,17 +134,17 @@ HOME_PAGE_HTML = """
             const maxReq = Math.max(...Object.values(providers).map(p => p.requests), 1);
             const html = Object.entries(providers).map(([name, p]) => {
                 const pct = (p.requests / maxReq) * 100;
-                return `<div class="rounded p-2"><div class="flex justify-between text-sm mb-1"><span class="font-medium">${name}</span><span class="text-gray-600">${p.requests.toLocaleString()} req / ${p.tokens.toLocaleString()} tokens</span></div><div class="w-full bg-gray-200 rounded-full h-2"><div class="bg-blue-500 h-2 rounded-full" style="width: ${pct}%"></div></div></div>`;
+                return `<div class="rounded p-1"><div class="flex justify-between text-xs mb-1"><span class="font-medium truncate">${name}</span><span class="text-gray-500 ml-1">${p.requests}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div></div>`;
             }).join('');
-            document.getElementById('provider-bars').innerHTML = html || '<div class="text-gray-400 text-center py-4">No data</div>';
+            document.getElementById('provider-bars').innerHTML = html || '<div class="text-gray-400 text-center py-2 text-xs">No data</div>';
         }
         function renderApiKeyBars(apiKeys) {
             const maxReq = Math.max(...Object.values(apiKeys).map(k => k.requests), 1);
             const html = Object.entries(apiKeys).map(([name, k]) => {
                 const pct = (k.requests / maxReq) * 100;
-                return `<div class="rounded p-2"><div class="flex justify-between text-sm mb-1"><span class="font-medium">${name}</span><span class="text-gray-600">${k.requests.toLocaleString()} req / ${k.tokens.toLocaleString()} tokens</span></div><div class="w-full bg-gray-200 rounded-full h-2"><div class="bg-green-500 h-2 rounded-full" style="width: ${pct}%"></div></div></div>`;
+                return `<div class="rounded p-1"><div class="flex justify-between text-xs mb-1"><span class="font-medium truncate">${name}</span><span class="text-gray-500 ml-1">${k.requests}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-green-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div></div>`;
             }).join('');
-            document.getElementById('apikey-bars').innerHTML = html || '<div class="text-gray-400 text-center py-4">No data</div>';
+            document.getElementById('apikey-bars').innerHTML = html || '<div class="text-gray-400 text-center py-2 text-xs">No data</div>';
         }
         async function loadChart() {
             const resp = await fetch('/stats/chart?period=' + currentPeriod);
@@ -154,7 +169,7 @@ HOME_PAGE_HTML = """
         async function loadActiveSessions() {
             const resp = await fetch('/stats/active');
             const data = await resp.json();
-            document.getElementById('active-count').textContent = data.active_count + ' active';
+            document.getElementById('active-count').textContent = data.active_count;
             
             if (data.active_count === 0) {
                 document.getElementById('active-sessions').innerHTML = '<div class="text-gray-400 text-center py-4">No active sessions</div>';
@@ -179,6 +194,70 @@ HOME_PAGE_HTML = """
             }).join('');
             document.getElementById('active-sessions').innerHTML = html;
         }
+        
+        async function loadSlowRequests() {
+            const resp = await fetch('/stats/slow');
+            const data = await resp.json();
+            
+            const pending = data.pending || [];
+            const completed = data.completed || [];
+            const total = pending.length + completed.length;
+            
+            document.getElementById('slow-count').textContent = total;
+            
+            if (total === 0) {
+                document.getElementById('slow-requests').innerHTML = '<div class="text-gray-400 text-center py-4">No slow requests</div>';
+                return;
+            }
+            
+            let html = '';
+            
+            pending.forEach(req => {
+                const startTime = req.start_time ? new Date(req.start_time).toLocaleTimeString() : '';
+                html += `
+                    <div class="flex justify-between items-center p-2 bg-orange-50 rounded border-l-4 border-orange-500 mb-2">
+                        <div>
+                            <div class="font-medium text-sm">${req.provider} / ${req.model}</div>
+                            <div class="text-xs text-gray-500">${startTime} | ${req.key_name}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-lg font-bold text-orange-600">${req.elapsed_seconds}s</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            completed.slice(0, 5).forEach(req => {
+                const statusClass = req.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                const createdAt = req.created_at ? new Date(req.created_at).toLocaleTimeString() : '';
+                html += `
+                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded mb-2">
+                        <div>
+                            <div class="font-medium text-sm">${req.provider || 'N/A'} / ${req.model}</div>
+                            <div class="text-xs text-gray-500">${createdAt} | ${req.key_name || 'N/A'}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-bold text-orange-600">${(req.latency_ms / 1000).toFixed(1)}s</div>
+                            <span class="px-1.5 py-0.5 rounded text-xs ${statusClass}">${req.status}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('slow-requests').innerHTML = html;
+        }
+        
+        async function loadRealtimeStats() {
+            const resp = await fetch('/stats/realtime');
+            const data = await resp.json();
+            document.getElementById('rps').textContent = data.requests_per_second;
+            document.getElementById('tps').textContent = data.tokens_per_second;
+        }
+        
+        loadSlowRequests();
+        setInterval(loadSlowRequests, 5000);
+        loadRealtimeStats();
+        setInterval(loadRealtimeStats, 1000);
     </script>
 </body>
 </html>

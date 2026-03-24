@@ -5,6 +5,7 @@ DASHBOARD_HTML = """
     <meta charset="utf-8">
     <title>API Proxy Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .log-entry { transition: all 0.2s; }
         .log-entry:hover { background: #f8fafc; }
@@ -36,6 +37,31 @@ DASHBOARD_HTML = """
                 <div id="errors" class="text-2xl font-bold text-red-600">0</div>
             </div>
         </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="text-gray-500 text-sm">Req/sec</div>
+                <div id="rps" class="text-2xl font-bold text-orange-600">0</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="text-gray-500 text-sm">Tokens/sec</div>
+                <div id="tps" class="text-2xl font-bold text-teal-600">0</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="text-gray-500 text-sm">Avg Latency</div>
+                <div id="avg-latency" class="text-2xl font-bold text-indigo-600">0ms</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-5 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">System Performance (Last 60s)</h3>
+                <span id="realtime-time" class="text-sm text-gray-500"></span>
+            </div>
+            <div style="height: 200px;">
+                <canvas id="realtimeChart"></canvas>
+            </div>
+        </div>
         
         <div class="bg-white rounded-lg shadow p-5 mb-6">
             <div class="flex justify-between items-center mb-4">
@@ -43,6 +69,14 @@ DASHBOARD_HTML = """
                 <span id="active-count" class="text-sm text-gray-500">0 active</span>
             </div>
             <div id="active-sessions" class="space-y-2"><div class="text-gray-400 text-center py-4">No active sessions</div></div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-5 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-orange-600">Slow Requests (>10s, Last 1 Hour)</h3>
+                <span id="slow-count" class="text-sm text-gray-500">0 slow</span>
+            </div>
+            <div id="slow-requests" class="space-y-2"><div class="text-gray-400 text-center py-4">No slow requests</div></div>
         </div>
         
         <div class="bg-white rounded-lg shadow mb-6">
@@ -506,6 +540,140 @@ DASHBOARD_HTML = """
             }).join('');
             document.getElementById('active-sessions').innerHTML = html;
         }
+
+        let realtimeChart;
+        async function initRealtimeChart() {
+            const ctx = document.getElementById('realtimeChart').getContext('2d');
+            realtimeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Req/s',
+                            data: [],
+                            borderColor: 'rgb(249, 115, 22)',
+                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Tokens/s',
+                            data: [],
+                            borderColor: 'rgb(20, 184, 166)',
+                            backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: 'Req/s' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'Tokens/s' },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadRealtimeStats() {
+            const resp = await fetch('/stats/realtime');
+            const data = await resp.json();
+
+            document.getElementById('rps').textContent = data.requests_per_second;
+            document.getElementById('tps').textContent = data.tokens_per_second;
+            document.getElementById('realtime-time').textContent = 'Last update: ' + new Date().toLocaleTimeString();
+
+            if (realtimeChart) {
+                const labels = data.history.map(h => h.second);
+                const reqData = data.history.map(h => h.requests);
+                const tokData = data.history.map(h => h.tokens);
+
+                realtimeChart.data.labels = labels;
+                realtimeChart.data.datasets[0].data = reqData;
+                realtimeChart.data.datasets[1].data = tokData;
+                realtimeChart.update('none');
+            }
+        }
+
+        initRealtimeChart();
+        loadRealtimeStats();
+        setInterval(loadRealtimeStats, 1000);
+        
+        async function loadSlowRequests() {
+            const resp = await fetch('/stats/slow');
+            const data = await resp.json();
+            
+            const pending = data.pending || [];
+            const completed = data.completed || [];
+            const total = pending.length + completed.length;
+            
+            document.getElementById('slow-count').textContent = total + ' slow';
+            
+            if (total === 0) {
+                document.getElementById('slow-requests').innerHTML = '<div class="text-gray-400 text-center py-4">No slow requests</div>';
+                return;
+            }
+            
+            let html = '';
+            
+            if (pending.length > 0) {
+                html += '<div class="mb-3"><span class="text-xs font-semibold text-orange-600 uppercase">Pending (' + pending.length + ')</span></div>';
+                pending.forEach(req => {
+                    html += `
+                        <div class="flex justify-between items-center p-3 bg-orange-50 rounded border-l-4 border-orange-500">
+                            <div>
+                                <div class="font-medium">${req.provider} / ${req.model}</div>
+                                <div class="text-xs text-gray-500">Key: ${req.key_name} | ${req.stream ? 'Stream' : 'Normal'}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-lg font-bold text-orange-600">${req.elapsed_seconds}s</div>
+                                <div class="text-xs text-gray-500">Still running...</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (completed.length > 0) {
+                if (pending.length > 0) html += '<div class="my-3 border-t"></div>';
+                html += '<div class="mb-3"><span class="text-xs font-semibold text-gray-600 uppercase">Completed (' + completed.length + ')</span></div>';
+                completed.slice(0, 10).forEach(req => {
+                    const statusClass = req.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                    html += `
+                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                            <div>
+                                <div class="font-medium">${req.provider || 'N/A'} / ${req.model}</div>
+                                <div class="text-xs text-gray-500">Key: ${req.key_name || 'N/A'}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-lg font-bold text-orange-600">${(req.latency_ms / 1000).toFixed(1)}s</div>
+                                <span class="px-1.5 py-0.5 rounded text-xs ${statusClass}">${req.status}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            document.getElementById('slow-requests').innerHTML = html;
+        }
+        
+        loadSlowRequests();
+        setInterval(loadSlowRequests, 5000);
     </script>
 </body>
 </html>

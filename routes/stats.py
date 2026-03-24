@@ -18,6 +18,9 @@ from config import (
     today_stats_cache,
     today_stats_cache_time,
     TODAY_STATS_CACHE_TTL_SECONDS,
+    requests_per_second,
+    tokens_per_second,
+    pending_requests,
 )
 
 router = APIRouter(tags=["stats"])
@@ -736,3 +739,108 @@ async def get_active_sessions_by_model():
             "active_count": len(model_sessions),
             "sessions": model_sessions,
         }
+
+
+@router.get("/stats/realtime")
+async def get_realtime_stats():
+    now = datetime.now()
+    current_second = now.strftime("%Y%m%d_%H%M%S")
+
+    current_second_requests = sum(
+        v for k, v in requests_per_second if k == current_second
+    )
+    current_second_tokens = sum(v for k, v in tokens_per_second if k == current_second)
+
+    last_60_seconds = []
+    for i in range(60):
+        sec = (now - timedelta(seconds=i)).strftime("%Y%m%d_%H%M%S")
+        reqs = sum(v for k, v in requests_per_second if k == sec)
+        toks = sum(v for k, v in tokens_per_second if k == sec)
+        last_60_seconds.append(
+            {
+                "second": (now - timedelta(seconds=i)).strftime("%H:%M:%S"),
+                "requests": reqs,
+                "tokens": toks,
+            }
+        )
+
+    last_60_seconds.reverse()
+
+    return {
+        "requests_per_second": current_second_requests,
+        "tokens_per_second": current_second_tokens,
+        "history": last_60_seconds,
+    }
+
+
+@router.get("/stats/slow")
+async def get_slow_requests():
+    now = datetime.now()
+    now_ts = now.timestamp()
+    one_hour_ago = now - timedelta(hours=1)
+
+    slow_pending = []
+    for req_id, req_info in pending_requests.items():
+        elapsed = now_ts - req_info["start_time"]
+        if elapsed >= 60:
+            slow_pending.append(
+                {
+                    "id": req_id,
+                    "provider": req_info["provider"],
+                    "model": req_info["model"],
+                    "key_name": req_info["key_name"],
+                    "elapsed_seconds": round(elapsed, 1),
+                    "stream": req_info["stream"],
+                    "start_time": datetime.fromtimestamp(
+                        req_info["start_time"]
+                    ).isoformat(),
+                }
+            )
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(RequestLog)
+            .where(
+                RequestLog.created_at >= one_hour_ago,
+                RequestLog.latency_ms >= 60000,
+            )
+            .order_by(RequestLog.latency_ms.desc())
+            .limit(50)
+        )
+        slow_logs = result.scalars().all()
+
+        slow_completed = []
+        for log in slow_logs:
+            key_name = None
+            if log.api_key_id:
+                for k, v in api_keys_cache.items():
+                    if v["id"] == log.api_key_id:
+                        key_name = v["name"]
+                        break
+                if not key_name:
+                    key_name = f"Key-{log.api_key_id}"
+
+            provider_name = None
+            if log.provider_id:
+                prov_result = await session.execute(
+                    select(Provider).where(Provider.id == log.provider_id)
+                )
+                prov = prov_result.scalar_one_or_none()
+                provider_name = prov.name if prov else None
+
+            slow_completed.append(
+                {
+                    "id": log.id,
+                    "provider": provider_name,
+                    "model": log.model,
+                    "key_name": key_name,
+                    "latency_ms": round(log.latency_ms, 0),
+                    "status": log.status,
+                    "created_at": log.created_at.isoformat(),
+                }
+            )
+
+    return {
+        "pending": slow_pending,
+        "completed": slow_completed,
+    }
