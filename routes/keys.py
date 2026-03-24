@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Cookie, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -13,8 +13,15 @@ from database import (
 )
 from services.proxy import load_api_keys
 from routes.user import get_user_session
+from config import validate_session
 
 router = APIRouter(tags=["api-keys"])
+
+
+def require_admin(session: Optional[str] = Cookie(None)):
+    if not validate_session(session):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return True
 
 
 class ApiKeyCreate(BaseModel):
@@ -29,7 +36,7 @@ class ApiKeyUpdate(BaseModel):
 
 
 @router.get("/api/keys")
-async def list_api_keys():
+async def list_api_keys(_: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey))
         keys = result.scalars().all()
@@ -54,7 +61,7 @@ async def list_api_keys():
 
 
 @router.post("/api/keys")
-async def create_api_key(data: ApiKeyCreate):
+async def create_api_key(data: ApiKeyCreate, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         new_key = ApiKey(name=data.name, key=generate_api_key())
         session.add(new_key)
@@ -70,7 +77,9 @@ async def create_api_key(data: ApiKeyCreate):
 
 
 @router.put("/api/keys/{key_id}")
-async def update_api_key(key_id: int, data: ApiKeyUpdate):
+async def update_api_key(
+    key_id: int, data: ApiKeyUpdate, _: bool = Depends(require_admin)
+):
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
         key = result.scalar_one_or_none()
@@ -93,7 +102,7 @@ async def update_api_key(key_id: int, data: ApiKeyUpdate):
 
 
 @router.delete("/api/keys/{key_id}")
-async def delete_api_key(key_id: int):
+async def delete_api_key(key_id: int, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
         key = result.scalar_one_or_none()

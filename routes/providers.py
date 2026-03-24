@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Cookie, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -6,8 +6,15 @@ from sqlalchemy import select
 
 from database import async_session_maker, Provider
 from services.proxy import load_providers
+from config import validate_session
 
 router = APIRouter(tags=["providers"])
+
+
+def require_admin(session: Optional[str] = Cookie(None)):
+    if not validate_session(session):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return True
 
 
 class ProviderCreate(BaseModel):
@@ -27,7 +34,7 @@ class ProviderUpdate(BaseModel):
 
 
 @router.get("/providers")
-async def list_providers():
+async def list_providers(_: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(select(Provider))
         providers = result.scalars().all()
@@ -47,7 +54,7 @@ async def list_providers():
 
 
 @router.post("/providers")
-async def create_provider(data: ProviderCreate):
+async def create_provider(data: ProviderCreate, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         provider = Provider(
             name=data.name,
@@ -63,7 +70,9 @@ async def create_provider(data: ProviderCreate):
 
 
 @router.put("/providers/{provider_id}")
-async def update_provider(provider_id: int, data: ProviderUpdate):
+async def update_provider(
+    provider_id: int, data: ProviderUpdate, _: bool = Depends(require_admin)
+):
     async with async_session_maker() as session:
         result = await session.execute(
             select(Provider).where(Provider.id == provider_id)
@@ -87,7 +96,7 @@ async def update_provider(provider_id: int, data: ProviderUpdate):
 
 
 @router.delete("/providers/{provider_id}")
-async def delete_provider(provider_id: int):
+async def delete_provider(provider_id: int, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(
             select(Provider).where(Provider.id == provider_id)

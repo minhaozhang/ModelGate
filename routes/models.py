@@ -1,12 +1,19 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Cookie, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
 
 from database import async_session_maker, Model
+from config import validate_session
 
 router = APIRouter(prefix="/admin", tags=["models"])
+
+
+def require_admin(session: Optional[str] = Cookie(None)):
+    if not validate_session(session):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return True
 
 
 class ModelCreate(BaseModel):
@@ -25,7 +32,7 @@ class ModelUpdate(BaseModel):
 
 
 @router.get("/models")
-async def list_all_models():
+async def list_all_models(_: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(select(Model).order_by(Model.name))
         models = result.scalars().all()
@@ -45,7 +52,7 @@ async def list_all_models():
 
 
 @router.post("/models")
-async def create_model(data: ModelCreate):
+async def create_model(data: ModelCreate, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         model = Model(**data.model_dump())
         session.add(model)
@@ -54,7 +61,9 @@ async def create_model(data: ModelCreate):
 
 
 @router.put("/models/{model_id}")
-async def update_model(model_id: int, data: ModelUpdate):
+async def update_model(
+    model_id: int, data: ModelUpdate, _: bool = Depends(require_admin)
+):
     async with async_session_maker() as session:
         result = await session.execute(select(Model).where(Model.id == model_id))
         model = result.scalar_one_or_none()
@@ -67,7 +76,7 @@ async def update_model(model_id: int, data: ModelUpdate):
 
 
 @router.delete("/models/{model_id}")
-async def delete_model(model_id: int):
+async def delete_model(model_id: int, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(select(Model).where(Model.id == model_id))
         model = result.scalar_one_or_none()
