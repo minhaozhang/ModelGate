@@ -107,6 +107,10 @@ CONFIG_PAGE_HTML = """
                     <input type="checkbox" id="provider-active" checked class="mr-2">
                     <label class="text-sm text-gray-700">Active</label>
                 </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="provider-merge-msgs" class="mr-2">
+                    <label class="text-sm text-gray-700">合并连续相同角色消息 <span class="text-xs text-gray-400">(MiniMax等要求角色交替的供应商)</span></label>
+                </div>
                 <div class="flex gap-2">
                     <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Save</button>
                     <button type="button" onclick="closeProviderModal()" class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
@@ -297,6 +301,7 @@ CONFIG_PAGE_HTML = """
             document.getElementById('provider-url').value = '';
             document.getElementById('provider-key').value = '';
             document.getElementById('provider-active').checked = true;
+            document.getElementById('provider-merge-msgs').checked = false;
             document.getElementById('provider-modal').classList.remove('hidden');
             document.getElementById('provider-modal').classList.add('flex');
         }
@@ -311,6 +316,7 @@ CONFIG_PAGE_HTML = """
             document.getElementById('provider-url').value = p.base_url;
             document.getElementById('provider-key').value = '';
             document.getElementById('provider-active').checked = p.is_active;
+            document.getElementById('provider-merge-msgs').checked = p.merge_consecutive_messages || false;
             document.getElementById('provider-modal').classList.remove('hidden');
             document.getElementById('provider-modal').classList.add('flex');
         }
@@ -327,7 +333,8 @@ CONFIG_PAGE_HTML = """
                 name: document.getElementById('provider-name').value,
                 base_url: document.getElementById('provider-url').value,
                 api_key: document.getElementById('provider-key').value || null,
-                is_active: document.getElementById('provider-active').checked
+                is_active: document.getElementById('provider-active').checked,
+                merge_consecutive_messages: document.getElementById('provider-merge-msgs').checked
             };
             
             try {
@@ -335,7 +342,7 @@ CONFIG_PAGE_HTML = """
                     await fetch('/providers/' + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({base_url: data.base_url, api_key: data.api_key, is_active: data.is_active})
+                        body: JSON.stringify({base_url: data.base_url, api_key: data.api_key, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages})
                     });
                 } else {
                     await fetch('/providers', {

@@ -43,6 +43,7 @@ class Provider(Base):
     base_url = Column(String(255), nullable=False)
     api_key = Column(String(255), nullable=True)
     max_concurrent = Column(Integer, default=3)
+    merge_consecutive_messages = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

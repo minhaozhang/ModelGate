@@ -8,6 +8,7 @@ CREATE TABLE providers (
     base_url VARCHAR(255) NOT NULL,
     api_key VARCHAR(255),
     max_concurrent INTEGER DEFAULT 3,
+    merge_consecutive_messages BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()

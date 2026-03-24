@@ -46,12 +46,18 @@ LOGIN_PAGE_HTML = """
         <h1 class="text-2xl font-bold text-white mb-6 text-center">API Proxy Login</h1>
         <form id="login-form" class="space-y-4">
             <div>
+                <label class="block text-sm font-medium mb-1" style="color: rgba(255,255,255,0.8)">Username</label>
+                <input type="text" id="username" required 
+                    class="w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    placeholder="Enter username">
+            </div>
+            <div>
                 <label class="block text-sm font-medium mb-1" style="color: rgba(255,255,255,0.8)">Password</label>
                 <input type="password" id="password" required 
                     class="w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     placeholder="Enter admin password">
             </div>
-            <div id="error" class="text-red-600 text-sm hidden"></div>
+            <div id="error" class="text-red-400 text-sm hidden"></div>
             <button type="submit" class="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-2.5 rounded-lg hover:from-blue-600 hover:to-purple-600 font-medium transition-all shadow-lg hover:shadow-xl">
                 Login
             </button>
@@ -305,13 +311,14 @@ LOGIN_PAGE_HTML = """
         // Login form handler
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const errorEl = document.getElementById('error');
             try {
                 const resp = await fetch('/api/login', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({password})
+                    body: JSON.stringify({username, password})
                 });
                 const data = await resp.json();
                 if (data.success) {

@@ -1,11 +1,51 @@
 import json
+import re
 import time
+import uuid
 import asyncio
 import httpx
 from typing import Optional
 from datetime import datetime, timedelta
 from fastapi import Request
 from fastapi.responses import Response, JSONResponse, StreamingResponse
+
+
+def parse_minimax_tool_calls(content: str) -> tuple[str, list[dict]]:
+    """
+    Parse MiniMax XML tool_call format and convert to OpenAI tool_calls format.
+    Returns (cleaned_content, tool_calls_list)
+    """
+    tool_calls = []
+    pattern = r"<minimax:tool_call>\s*(.*?)\s*</minimax:tool_call>"
+    matches = re.findall(pattern, content, re.DOTALL)
+
+    for match in matches:
+        invoke_pattern = r'<invoke\s+name="([^"]+)"[^>]*>(.*?)</invoke>'
+        invoke_matches = re.findall(invoke_pattern, match, re.DOTALL)
+
+        for func_name, params_xml in invoke_matches:
+            arguments = {}
+            param_pattern = r'<parameter\s+name="([^"]+)"[^>]*>(.*?)</parameter>'
+            param_matches = re.findall(param_pattern, params_xml, re.DOTALL)
+
+            for param_name, param_value in param_matches:
+                arguments[param_name] = param_value.strip()
+
+            tool_calls.append(
+                {
+                    "id": f"call_{uuid.uuid4().hex[:24]}",
+                    "type": "function",
+                    "function": {
+                        "name": func_name,
+                        "arguments": json.dumps(arguments, ensure_ascii=False),
+                    },
+                }
+            )
+
+    cleaned_content = re.sub(pattern, "", content, flags=re.DOTALL).strip()
+
+    return cleaned_content, tool_calls
+
 
 from config import (
     providers_cache,
@@ -50,6 +90,7 @@ async def load_providers():
                         "model_name": pm.model_name_override
                         or (model.display_name if model else None),
                         "actual_model_name": model.name if model else None,
+                        "is_multimodal": model.is_multimodal if model else False,
                     }
                 )
 
@@ -59,6 +100,7 @@ async def load_providers():
                 "api_key": p.api_key or "",
                 "models": provider_models_data,
                 "max_concurrent": p.max_concurrent or 3,
+                "merge_consecutive_messages": p.merge_consecutive_messages or False,
             }
 
             if p.name not in provider_semaphores or provider_semaphores[
@@ -204,6 +246,16 @@ async def get_provider_and_model(model: str) -> tuple[Optional[dict], str, str]:
     return config, actual_model, provider_name
 
 
+def get_model_config(provider_config: dict, model_name: str) -> Optional[dict]:
+    if not provider_config:
+        return None
+    for pm in provider_config.get("models", []):
+        pm_model_name = pm.get("model_name")
+        if pm_model_name == model_name or pm_model_name == model_name.split("/")[-1]:
+            return pm
+    return None
+
+
 async def proxy_request(request: Request, endpoint: str):
     start_time = time.time()
     body = await request.body()
@@ -251,19 +303,61 @@ async def proxy_request(request: Request, endpoint: str):
 
     body_json["model"] = actual_model
 
-    if provider_name == "minimax":
-        body_json.pop("thinking", None)
-        body_json.pop("stream_options", None)
-        body_json["reasoning_split"] = True
-        messages = body_json.get("messages", [])
+    model_config = get_model_config(provider_config, actual_model)
+    is_multimodal = model_config.get("is_multimodal", False) if model_config else False
+
+    messages = body_json.get("messages", [])
+
+    merge_messages = provider_config.get("merge_consecutive_messages", False)
+
+    if merge_messages or not is_multimodal:
         system_msgs = [m for m in messages if m.get("role") == "system"]
         other_msgs = [m for m in messages if m.get("role") != "system"]
         if len(system_msgs) > 1:
+            text_parts = []
+            for m in system_msgs:
+                content = m.get("content", "")
+                if isinstance(content, list):
+                    for c in content:
+                        if isinstance(c, dict) and c.get("type") == "text":
+                            text_parts.append(c.get("text", ""))
+                        elif isinstance(c, str):
+                            text_parts.append(c)
+                else:
+                    text_parts.append(content)
             merged_system = {
                 "role": "system",
-                "content": "\n\n".join(m.get("content", "") for m in system_msgs),
+                "content": "\n\n".join(text_parts),
             }
             body_json["messages"] = [merged_system] + other_msgs
+            messages = body_json["messages"]
+
+    if merge_messages:
+        merged_msgs = []
+        for m in messages:
+            has_tool_content = m.get("tool_calls") or m.get("tool_call_id")
+            if (
+                merged_msgs
+                and merged_msgs[-1].get("role") == m.get("role")
+                and not has_tool_content
+                and not (
+                    merged_msgs[-1].get("tool_calls")
+                    or merged_msgs[-1].get("tool_call_id")
+                )
+            ):
+                prev_content = merged_msgs[-1].get("content", "")
+                curr_content = m.get("content", "")
+                if isinstance(prev_content, str) and isinstance(curr_content, str):
+                    merged_msgs[-1]["content"] = prev_content + "\n\n" + curr_content
+                else:
+                    merged_msgs.append(m)
+            else:
+                merged_msgs.append(m)
+        if len(merged_msgs) != len(messages):
+            body_json["messages"] = merged_msgs
+        body_json.pop("thinking", None)
+        body_json.pop("stream_options", None)
+        body_json["reasoning_split"] = True
 
     body = json.dumps(body_json).encode()
 
@@ -289,8 +383,19 @@ async def proxy_request(request: Request, endpoint: str):
         if auth_header.startswith("Bearer ")
         else "unknown"
     )
+    msg_count = len(messages)
+    has_images = any(
+        isinstance(m.get("content"), list)
+        and any(
+            c.get("type") == "image_url"
+            for c in m.get("content", [])
+            if isinstance(c, dict)
+        )
+        for m in messages
+    )
+    multimodal_tag = " [MULTIMODAL]" if is_multimodal or has_images else ""
     logger.info(
-        f"[REQUEST] Provider: {provider_name.upper()}, Model: {actual_model}, Key: {key_name}, Messages: {len(messages)}, Stream: {stream}"
+        f"[REQUEST] Provider: {provider_name.upper()}, Model: {actual_model}, Key: {key_name}, Messages: {msg_count}, Stream: {stream}{multimodal_tag}"
     )
     logger.info(f"[REQUEST] Target: {target_url}")
     logger.debug(f"[REQUEST] Headers: {original_headers}")
@@ -385,6 +490,14 @@ async def handle_normal(
             remaining = content[:start_idx] + content[end_idx:]
             message["reasoning_content"] = reasoning
             message["content"] = remaining.strip()
+            content = remaining.strip()
+        if "<minimax:tool_call>" in content:
+            cleaned_content, tool_calls = parse_minimax_tool_calls(content)
+            if tool_calls:
+                message["content"] = cleaned_content if cleaned_content else None
+                message["tool_calls"] = tool_calls
+                resp_json["choices"][0]["finish_reason"] = "tool_calls"
+                logger.info(f"[MINIMAX TOOL_CALLS] Parsed {len(tool_calls)} tool calls")
 
     usage = resp_json.get("usage", {})
     prompt_tokens = usage.get("prompt_tokens", 0)
@@ -464,8 +577,11 @@ async def handle_streaming(
     async def stream_generator():
         total_content = ""
         total_reasoning = ""
+        total_raw_content = ""
         in_thinking = False
+        in_tool_call = False
         thinking_buffer = ""
+        tool_call_buffer = ""
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
                 async with client.stream(
@@ -475,10 +591,15 @@ async def handle_streaming(
                         logger.info(f"[MINIMAX RESP] status={resp.status_code}")
                     chunk_count = 0
                     async for line in resp.aiter_lines():
-                        if provider == "minimax" and chunk_count < 3:
-                            logger.info(
-                                f"[MINIMAX LINE {chunk_count}] {repr(line[:150])}"
-                            )
+                        if provider == "minimax":
+                            if chunk_count < 5:
+                                logger.info(
+                                    f"[MINIMAX LINE {chunk_count}] {repr(line[:300])}"
+                                )
+                            if not line.startswith("data: ") and line.strip():
+                                logger.warning(
+                                    f"[MINIMAX NON-DATA LINE] {repr(line[:300])}"
+                                )
                         if line.startswith("data: "):
                             data = line[6:]
                             if data == "[DONE]":
@@ -492,65 +613,158 @@ async def handle_streaming(
                                     content = delta.get("content", "")
 
                                     if provider == "minimax" and content:
-                                        thinking_buffer += content
-                                        new_content = ""
-                                        new_reasoning = ""
+                                        total_raw_content += content
+                                        if "<minimax:tool_call>" in total_raw_content:
+                                            in_tool_call = True
 
-                                        i = 0
-                                        while i < len(thinking_buffer):
-                                            if not in_thinking:
-                                                start_idx = thinking_buffer.find(
-                                                    "<Parsed>", i
+                                        if in_tool_call:
+                                            if (
+                                                "</minimax:tool_call>"
+                                                in total_raw_content
+                                            ):
+                                                cleaned, tool_calls = (
+                                                    parse_minimax_tool_calls(
+                                                        total_raw_content
+                                                    )
                                                 )
-                                                if start_idx != -1:
-                                                    new_content += thinking_buffer[
-                                                        i:start_idx
-                                                    ]
-                                                    i = start_idx + 8
-                                                    in_thinking = True
-                                                else:
-                                                    new_content += thinking_buffer[i:]
-                                                    break
-                                            else:
-                                                end_idx = thinking_buffer.find(
-                                                    "</Parsed>", i
-                                                )
-                                                if end_idx != -1:
-                                                    new_reasoning += thinking_buffer[
-                                                        i:end_idx
-                                                    ]
-                                                    i = end_idx + 9
-                                                    in_thinking = False
-                                                else:
-                                                    new_reasoning += thinking_buffer[i:]
-                                                    break
-
-                                        if in_thinking:
-                                            thinking_buffer = ""
-                                            if new_content:
-                                                delta["content"] = new_content
+                                                if tool_calls:
+                                                    for i, tc in enumerate(tool_calls):
+                                                        tc_chunk = {
+                                                            "id": chunk.get("id", ""),
+                                                            "object": chunk.get(
+                                                                "object",
+                                                                "chat.completion.chunk",
+                                                            ),
+                                                            "created": chunk.get(
+                                                                "created", 0
+                                                            ),
+                                                            "model": chunk.get(
+                                                                "model", ""
+                                                            ),
+                                                            "choices": [
+                                                                {
+                                                                    "index": 0,
+                                                                    "delta": {
+                                                                        "tool_calls": [
+                                                                            {
+                                                                                "index": i,
+                                                                                "id": tc[
+                                                                                    "id"
+                                                                                ],
+                                                                                "type": "function",
+                                                                                "function": {
+                                                                                    "name": tc[
+                                                                                        "function"
+                                                                                    ][
+                                                                                        "name"
+                                                                                    ],
+                                                                                    "arguments": tc[
+                                                                                        "function"
+                                                                                    ][
+                                                                                        "arguments"
+                                                                                    ],
+                                                                                },
+                                                                            }
+                                                                        ]
+                                                                    },
+                                                                    "finish_reason": None,
+                                                                }
+                                                            ],
+                                                        }
+                                                        yield f"data: {json.dumps(tc_chunk)}\n\n"
+                                                        logger.info(
+                                                            f"[MINIMAX TOOL_CALL] {tc['function']['name']}"
+                                                        )
+                                                    finish_chunk = {
+                                                        "id": chunk.get("id", ""),
+                                                        "object": chunk.get(
+                                                            "object",
+                                                            "chat.completion.chunk",
+                                                        ),
+                                                        "created": chunk.get(
+                                                            "created", 0
+                                                        ),
+                                                        "model": chunk.get("model", ""),
+                                                        "choices": [
+                                                            {
+                                                                "index": 0,
+                                                                "delta": {},
+                                                                "finish_reason": "tool_calls",
+                                                            }
+                                                        ],
+                                                    }
+                                                    yield f"data: {json.dumps(finish_chunk)}\n\n"
+                                                    total_raw_content = ""
+                                                    in_tool_call = False
+                                                continue
                                             else:
                                                 delta.pop("content", None)
-                                            if new_reasoning:
-                                                delta["reasoning_content"] = (
-                                                    new_reasoning
-                                                )
-                                                total_reasoning += new_reasoning
+                                                data = json.dumps(chunk)
+                                                line = f"data: {data}"
                                         else:
-                                            thinking_buffer = ""
-                                            if new_content:
-                                                delta["content"] = new_content
-                                                total_content += new_content
-                                            else:
-                                                delta.pop("content", None)
-                                            if new_reasoning:
-                                                delta["reasoning_content"] = (
-                                                    new_reasoning
-                                                )
-                                                total_reasoning += new_reasoning
+                                            thinking_buffer += content
+                                            new_content = ""
+                                            new_reasoning = ""
 
-                                        data = json.dumps(chunk)
-                                        line = f"data: {data}"
+                                            i = 0
+                                            while i < len(thinking_buffer):
+                                                if not in_thinking:
+                                                    start_idx = thinking_buffer.find(
+                                                        "<Parsed>", i
+                                                    )
+                                                    if start_idx != -1:
+                                                        new_content += thinking_buffer[
+                                                            i:start_idx
+                                                        ]
+                                                        i = start_idx + 8
+                                                        in_thinking = True
+                                                    else:
+                                                        new_content += thinking_buffer[
+                                                            i:
+                                                        ]
+                                                        break
+                                                else:
+                                                    end_idx = thinking_buffer.find(
+                                                        "</Parsed>", i
+                                                    )
+                                                    if end_idx != -1:
+                                                        new_reasoning += (
+                                                            thinking_buffer[i:end_idx]
+                                                        )
+                                                        i = end_idx + 9
+                                                        in_thinking = False
+                                                    else:
+                                                        new_reasoning += (
+                                                            thinking_buffer[i:]
+                                                        )
+                                                        break
+
+                                            if in_thinking:
+                                                thinking_buffer = ""
+                                                if new_content:
+                                                    delta["content"] = new_content
+                                                else:
+                                                    delta.pop("content", None)
+                                                if new_reasoning:
+                                                    delta["reasoning_content"] = (
+                                                        new_reasoning
+                                                    )
+                                                    total_reasoning += new_reasoning
+                                            else:
+                                                thinking_buffer = ""
+                                                if new_content:
+                                                    delta["content"] = new_content
+                                                    total_content += new_content
+                                                else:
+                                                    delta.pop("content", None)
+                                                if new_reasoning:
+                                                    delta["reasoning_content"] = (
+                                                        new_reasoning
+                                                    )
+                                                    total_reasoning += new_reasoning
+
+                                            data = json.dumps(chunk)
+                                            line = f"data: {data}"
                                     elif content:
                                         total_content += content
 

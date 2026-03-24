@@ -59,8 +59,29 @@ logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 CONFIG = {
     "port": int(os.getenv("PORT", 8765)),
-    "admin_password": os.getenv("ADMIN_PASSWORD", "admin123"),
 }
+
+
+def parse_admin_users() -> dict[str, str]:
+    users_env = os.getenv("ADMIN_USERS", "")
+    if users_env:
+        users = {}
+        for pair in users_env.split(","):
+            if ":" in pair:
+                username, password = pair.strip().split(":", 1)
+                users[username] = password
+        return users
+    return {
+        os.getenv("ADMIN_USERNAME", "admin"): os.getenv("ADMIN_PASSWORD", "admin123")
+    }
+
+
+admin_users: dict[str, str] = parse_admin_users()
+
+login_attempts: dict[str, int] = {}
+login_lockout: dict[str, datetime] = {}
+LOGIN_MAX_ATTEMPTS = 3
+LOGIN_LOCKOUT_MINUTES = 5
 
 providers_cache: dict[str, dict] = {}
 providers_cache_time: Optional[datetime] = None

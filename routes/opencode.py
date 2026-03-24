@@ -66,9 +66,13 @@ async def build_opencode_config(session, api_key: str, base_url: str):
         max_output = model.max_tokens or 16384
         context_window = max_output * 8
 
+        input_modalities = ["text"]
+        if model.is_multimodal:
+            input_modalities.append("image")
+
         models_config[model_key] = {
             "name": f"{provider.name}/{display_name}",
-            "modalities": {"input": ["text"], "output": ["text"]},
+            "modalities": {"input": input_modalities, "output": ["text"]},
             "options": {"thinking": {"type": "enabled", "budgetTokens": 8192}},
             "limit": {"context": context_window, "output": max_output},
         }

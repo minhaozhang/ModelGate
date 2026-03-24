@@ -104,14 +104,15 @@ app.include_router(opencode.router)
 
 
 if __name__ == "__main__":
-    from config import logger
+    from config import logger, admin_users
 
+    users_str = ", ".join(admin_users.keys())
     print(f"""
 ╔════════════════════════════════════════════════════════════╗
 ║  API Proxy Started                                        ║
 ║  Dashboard: http://localhost:{CONFIG["port"]}/home                ║
 ║  API: http://localhost:{CONFIG["port"]}/v1/chat/completions         ║
-║  Admin Password: {CONFIG["admin_password"]:<39} ║
+║  Admin Users: {users_str:<43} ║
 ╚════════════════════════════════════════════════════════════╝
     """)
     uvicorn.run(app, host="0.0.0.0", port=CONFIG["port"], access_log=False)

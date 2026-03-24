@@ -15,6 +15,7 @@ class ProviderCreate(BaseModel):
     base_url: str
     api_key: Optional[str] = None
     max_concurrent: Optional[int] = None
+    merge_consecutive_messages: Optional[bool] = False
 
 
 class ProviderUpdate(BaseModel):
@@ -22,6 +23,7 @@ class ProviderUpdate(BaseModel):
     api_key: Optional[str] = None
     is_active: Optional[bool] = None
     max_concurrent: Optional[int] = None
+    merge_consecutive_messages: Optional[bool] = None
 
 
 @router.get("/providers")
@@ -37,6 +39,7 @@ async def list_providers():
                     "base_url": p.base_url,
                     "is_active": p.is_active,
                     "max_concurrent": p.max_concurrent or 3,
+                    "merge_consecutive_messages": p.merge_consecutive_messages or False,
                 }
                 for p in providers
             ]
@@ -51,6 +54,7 @@ async def create_provider(data: ProviderCreate):
             base_url=data.base_url,
             api_key=data.api_key,
             max_concurrent=data.max_concurrent or 3,
+            merge_consecutive_messages=data.merge_consecutive_messages or False,
         )
         session.add(provider)
         await session.commit()
@@ -75,6 +79,8 @@ async def update_provider(provider_id: int, data: ProviderUpdate):
             provider.is_active = data.is_active
         if data.max_concurrent is not None:
             provider.max_concurrent = data.max_concurrent
+        if data.merge_consecutive_messages is not None:
+            provider.merge_consecutive_messages = data.merge_consecutive_messages
         await session.commit()
         await load_providers()
         return {"id": provider.id}
