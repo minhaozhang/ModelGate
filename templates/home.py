@@ -83,10 +83,6 @@ HOME_PAGE_HTML = """
                     <div id="error-rate" class="text-2xl font-bold text-purple-600">0%</div>
                 </div>
             </div>
-            <div class="bg-white rounded-lg shadow p-5 mb-6">
-                <h3 class="text-lg font-semibold mb-4">Request Trend</h3>
-                <canvas id="trendChart" height="80"></canvas>
-            </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
@@ -110,6 +106,10 @@ HOME_PAGE_HTML = """
                     <h3 class="text-sm font-semibold mb-3">API Key Usage</h3>
                     <div id="apikey-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
                 </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-5 mb-6">
+                <h3 class="text-lg font-semibold mb-4">Request Trend</h3>
+                <canvas id="trendChart" height="80"></canvas>
             </div>
         </main>
     </div>
