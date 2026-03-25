@@ -30,3 +30,4 @@ bin-release/
 *.ipa
 *.apk
 api-proxy.tar
+AGENTS.md

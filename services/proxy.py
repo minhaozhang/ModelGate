@@ -49,7 +49,7 @@ def parse_minimax_tool_calls(content: str) -> tuple[str, list[dict]]:
     return cleaned_content, tool_calls
 
 
-from sqlalchemy import update
+from sqlalchemy import update, func
 
 from core.config import (
     providers_cache,
@@ -107,10 +107,10 @@ async def load_providers():
                 "merge_consecutive_messages": p.merge_consecutive_messages or False,
             }
 
-            if p.name not in provider_semaphores or provider_semaphores[
-                p.name
-            ]._value != (p.max_concurrent or 3):
-                provider_semaphores[p.name] = asyncio.Semaphore(p.max_concurrent or 3)
+            max_conc = p.max_concurrent or 3
+            existing = provider_semaphores.get(p.name)
+            if existing is None or getattr(existing, "_value", None) != max_conc:
+                provider_semaphores[p.name] = asyncio.Semaphore(max_conc)
 
         import core.config as config
 
@@ -244,6 +244,7 @@ async def update_request_log(
                 latency_ms=latency_ms,
                 status=status,
                 error=error,
+                updated_at=func.now(),
             )
         )
         await session.commit()
@@ -410,6 +411,8 @@ async def proxy_request(request: Request, endpoint: str):
                 merged_msgs.append(m)
         if len(merged_msgs) != len(messages):
             body_json["messages"] = merged_msgs
+
+    if provider_name == "minimax" and merge_messages:
         body_json.pop("thinking", None)
         body_json.pop("stream_options", None)
         body_json["reasoning_split"] = True
@@ -621,6 +624,29 @@ async def handle_normal(
     )
 
 
+async def _normalize_sse_stream(aiter_lines):
+    """Normalize raw SSE stream: split merged data lines, handle non-data JSON."""
+    async for raw_line in aiter_lines:
+        line = raw_line.rstrip()
+        if not line:
+            continue
+
+        if line.startswith("data: "):
+            content = line[6:]
+            if "data: " in content:
+                parts = content.split("data: ")
+                for part in parts:
+                    part = part.strip()
+                    if part:
+                        yield f"data: {part}"
+            else:
+                yield line
+        elif line.startswith("{"):
+            yield f"data: {line}"
+        elif line.startswith(":"):
+            continue
+
+
 async def handle_streaming(
     url,
     headers,
@@ -639,13 +665,7 @@ async def handle_streaming(
 ):
     logger.debug(f"[STREAM REQUEST] Provider: {provider}, Model: {model}, URL: {url}")
     if provider == "minimax":
-        body_json = (
-            json.loads(body)
-            if isinstance(body, bytes)
-            else json.loads(body)
-            if body
-            else {}
-        )
+        body_json = json.loads(body) if body else {}
         msgs = body_json.get("messages", [])
         logger.info(f"[MINIMAX MSG COUNT] {len(msgs)}")
         for i, m in enumerate(msgs):
@@ -684,7 +704,7 @@ async def handle_streaming(
                     if provider == "minimax":
                         logger.info(f"[MINIMAX RESP] status={resp.status_code}")
                     chunk_count = 0
-                    async for line in resp.aiter_lines():
+                    async for line in _normalize_sse_stream(resp.aiter_lines()):
                         if provider == "minimax":
                             if chunk_count < 5:
                                 logger.info(
@@ -699,11 +719,6 @@ async def handle_streaming(
                             if line_content == "[DONE]":
                                 yield f"data: [DONE]\n\n"
                                 break
-                            if "data: " in line_content:
-                                logger.warning(
-                                    f"[SSE] Malformed line with embedded 'data:', skipping: {line[:200]}"
-                                )
-                                continue
                             try:
                                 chunk = json.loads(line_content)
                                 chunk_count += 1

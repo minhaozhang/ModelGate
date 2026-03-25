@@ -1,14 +1,20 @@
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Cookie, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
 
-from core.config import admin_logger
+from core.config import admin_logger, validate_session
 from core.database import async_session_maker, Provider, Model, ProviderModel
 
 router = APIRouter(prefix="/admin/api", tags=["provider-models"])
+
+
+def require_admin(session: Optional[str] = Cookie(None)):
+    if not validate_session(session):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return True
 
 
 class ProviderModelCreate(BaseModel):
@@ -18,7 +24,7 @@ class ProviderModelCreate(BaseModel):
 
 
 @router.get("/providers/{provider_id}/models")
-async def list_provider_models(provider_id: int):
+async def list_provider_models(provider_id: int, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ProviderModel).where(ProviderModel.provider_id == provider_id)
@@ -45,7 +51,9 @@ async def list_provider_models(provider_id: int):
 
 
 @router.post("/providers/{provider_id}/models")
-async def add_provider_model(provider_id: int, data: ProviderModelCreate):
+async def add_provider_model(
+    provider_id: int, data: ProviderModelCreate, _: bool = Depends(require_admin)
+):
     async with async_session_maker() as session:
         pm = ProviderModel(
             provider_id=provider_id,
@@ -60,7 +68,10 @@ async def add_provider_model(provider_id: int, data: ProviderModelCreate):
 
 @router.put("/providers/{provider_id}/models/{pm_id}")
 async def update_provider_model(
-    provider_id: int, pm_id: int, data: ProviderModelCreate
+    provider_id: int,
+    pm_id: int,
+    data: ProviderModelCreate,
+    _: bool = Depends(require_admin),
 ):
     async with async_session_maker() as session:
         result = await session.execute(
@@ -80,7 +91,9 @@ async def update_provider_model(
 
 
 @router.delete("/providers/{provider_id}/models/{pm_id}")
-async def remove_provider_model(provider_id: int, pm_id: int):
+async def remove_provider_model(
+    provider_id: int, pm_id: int, _: bool = Depends(require_admin)
+):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ProviderModel).where(
@@ -96,7 +109,7 @@ async def remove_provider_model(provider_id: int, pm_id: int):
 
 
 @router.post("/providers/{provider_id}/sync-models")
-async def sync_provider_models(provider_id: int):
+async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(
             select(Provider).where(Provider.id == provider_id)
@@ -123,10 +136,39 @@ async def sync_provider_models(provider_id: int):
                 if isinstance(models, dict):
                     models = list(models.values())
 
+                context_length_map = {
+                    "glm-4.5": 131072,
+                    "glm-4.5-air": 131072,
+                    "glm-4.6": 131072,
+                    "glm-4.6v": 131072,
+                    "glm-4.6v-flash": 131072,
+                    "glm-4.6v-flashx": 131072,
+                    "glm-4.7": 131072,
+                    "glm-4.1v-thinking-flashx": 131072,
+                    "glm-4.1v-thinking-flash": 131072,
+                    "glm-4.1-mini": 131072,
+                    "glm-4.1-mini-flash": 131072,
+                    "glm-4": 128 * 1024,
+                    "glm-4-flash-250414": 128 * 1024,
+                    "glm-4-air-250414": 128 * 1024,
+                    "glm-4-plus": 128 * 1024,
+                    "glm-4-air": 128 * 1024,
+                    "glm-4-airx": 128 * 1024,
+                    "glm-4-flash": 128 * 1024,
+                    "glm-4-flashx": 128 * 1024,
+                    "glm-4v-plus-0111": 128 * 1024,
+                    "glm-4v-flash": 128 * 1024,
+                    "glm-5": 131072,
+                    "glm-5-turbo": 131072,
+                    "glm-4.5-x": 131072,
+                    "glm-4.5-flash": 131072,
+                }
+
                 for model_info in models:
                     if isinstance(model_info, str):
                         model_name = model_info
                         max_tokens = 16384
+                        context_length = 131072
                     else:
                         model_name = model_info.get("id", model_info.get("name", ""))
                         max_tokens = model_info.get("max_tokens", 16384)
@@ -135,6 +177,7 @@ async def sync_provider_models(provider_id: int):
                                 max_tokens = int(max_tokens)
                             except ValueError:
                                 max_tokens = 16384
+                        context_length = context_length_map.get(model_name, 131072)
 
                     if not model_name:
                         continue
@@ -148,6 +191,7 @@ async def sync_provider_models(provider_id: int):
                             name=model_name,
                             display_name=model_name,
                             max_tokens=max_tokens,
+                            context_length=context_length,
                             is_active=True,
                         )
                         session.add(model)
@@ -157,6 +201,8 @@ async def sync_provider_models(provider_id: int):
                             model.max_tokens = max_tokens
                         if model.display_name != model_name:
                             model.display_name = model_name
+                        if model.context_length != context_length:
+                            model.context_length = context_length
 
                     pm_result = await session.execute(
                         select(ProviderModel).where(
@@ -183,7 +229,7 @@ async def sync_provider_models(provider_id: int):
 
 
 @router.get("/provider-models")
-async def list_all_provider_models():
+async def list_all_provider_models(_: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ProviderModel).where(ProviderModel.is_active == True)

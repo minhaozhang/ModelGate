@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from sqlalchemy import select, func, and_, delete
+from sqlalchemy import select, func, and_, delete, update
 from sqlalchemy.orm import joinedload
 
 from core.config import proxy_logger
@@ -183,29 +183,28 @@ async def backfill_historical_stats() -> None:
 
 
 async def cleanup_stale_pending_requests() -> None:
-    timeout_threshold = datetime.utcnow() - timedelta(minutes=10)
-
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(
+            update(RequestLog)
+            .where(
                 RequestLog.status == "pending",
-                RequestLog.created_at < timeout_threshold,
+                RequestLog.created_at < func.now() - timedelta(minutes=10),
             )
+            .values(
+                status="timeout",
+                error="Request timed out",
+                latency_ms=func.extract("epoch", func.now() - RequestLog.created_at) * 1000,
+                updated_at=func.now(),
+            )
+            .returning(RequestLog.id)
         )
-        stale_logs = result.scalars().all()
-
-        if not stale_logs:
-            return
-
-        for log in stale_logs:
-            log.status = "timeout"
-            log.error = "Request timed out"
-            log.latency_ms = (datetime.utcnow() - log.created_at).total_seconds() * 1000
-
+        updated_ids = result.scalars().all()
         await session.commit()
-        logger.info(
-            f"[AGGREGATOR] Marked {len(stale_logs)} stale pending requests as timeout"
-        )
+
+        if updated_ids:
+            logger.info(
+                f"[AGGREGATOR] Marked {len(updated_ids)} stale pending requests as timeout"
+            )
 
 
 async def aggregate_yesterday_stats() -> None:
