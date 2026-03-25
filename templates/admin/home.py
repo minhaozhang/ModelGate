@@ -195,6 +195,15 @@ HOME_PAGE_HTML = """
             document.getElementById('active-sessions').innerHTML = html;
         }
         
+        function formatDuration(seconds) {
+            if (seconds >= 60) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}m ${secs}s`;
+            }
+            return `${seconds.toFixed(1)}s`;
+        }
+        
         async function loadSlowRequests() {
             const resp = await fetch('/admin/api/stats/slow');
             const data = await resp.json();
@@ -221,7 +230,7 @@ HOME_PAGE_HTML = """
                             <div class="text-xs text-gray-500">${startTime} | ${req.key_name}</div>
                         </div>
                         <div class="text-right">
-                            <div class="text-lg font-bold text-orange-600">${req.elapsed_seconds}s</div>
+                            <div class="text-lg font-bold text-orange-600">${formatDuration(req.elapsed_seconds)}</div>
                         </div>
                     </div>
                 `;
@@ -237,7 +246,7 @@ HOME_PAGE_HTML = """
                             <div class="text-xs text-gray-500">${createdAt} | ${req.key_name || 'N/A'}</div>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm font-bold text-orange-600">${(req.latency_ms / 1000).toFixed(1)}s</div>
+                            <div class="text-sm font-bold text-orange-600">${formatDuration(req.latency_ms / 1000)}</div>
                             <span class="px-1.5 py-0.5 rounded text-xs ${statusClass}">${req.status}</span>
                         </div>
                     </div>
