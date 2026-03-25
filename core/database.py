@@ -56,6 +56,7 @@ class Model(Base):
     name = Column(String(100), unique=True, nullable=False)
     display_name = Column(String(100), nullable=True)
     max_tokens = Column(Integer, default=16384)
+    context_length = Column(Integer, default=131072)
     is_multimodal = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())

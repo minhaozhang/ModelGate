@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import Cookie, Depends
 from fastapi.responses import JSONResponse
 
-from config import validate_session
+from core.config import validate_session
 
 
 def get_session(session: Optional[str] = Cookie(None)) -> Optional[str]:

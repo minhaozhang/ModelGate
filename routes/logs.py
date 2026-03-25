@@ -1,14 +1,22 @@
 from datetime import datetime, time
-from fastapi import APIRouter
+from typing import Optional
+from fastapi import APIRouter, Cookie, Depends, HTTPException
 from sqlalchemy import select, func
 
 from core.database import async_session_maker, RequestLog
+from core.config import validate_session
 
 router = APIRouter(prefix="/admin/api", tags=["logs"])
 
 
+def require_admin(session: Optional[str] = Cookie(None)):
+    if not validate_session(session):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return True
+
+
 @router.get("/logs/today")
-async def get_today_logs():
+async def get_today_logs(_: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         today_result = await session.execute(select(func.current_date()))
         today_date = today_result.scalar()
@@ -36,7 +44,7 @@ async def get_today_logs():
 
 
 @router.get("/logs/all")
-async def get_all_logs(limit: int = 100):
+async def get_all_logs(limit: int = 100, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         count_result = await session.execute(select(func.count(RequestLog.id)))
         total = count_result.scalar() or 0

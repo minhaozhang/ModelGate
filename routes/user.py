@@ -85,7 +85,11 @@ async def get_user_stats(
 
     from datetime import datetime, timedelta
 
-    now = datetime.now()
+    async with async_session_maker() as db_session:
+        now_result = await db_session.execute(select(func.now()))
+        now = now_result.scalar()
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         intervals = [
@@ -281,7 +285,7 @@ async def get_user_opencode_config(api_key_id: int = Depends(get_user_session)):
             display_name = model.display_name or model.name
 
             max_output = model.max_tokens or 16384
-            context_window = max_output * 8
+            context_window = model.context_length or (max_output * 8)
 
             models_config[model_key] = {
                 "name": f"{provider.name}/{display_name}",

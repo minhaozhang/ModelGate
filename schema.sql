@@ -164,6 +164,7 @@ CREATE TABLE public.models (
     name character varying(100) NOT NULL,
     display_name character varying(100),
     max_tokens integer,
+    context_length integer DEFAULT 131072,
     is_multimodal boolean,
     is_active boolean,
     created_at timestamp without time zone DEFAULT now(),

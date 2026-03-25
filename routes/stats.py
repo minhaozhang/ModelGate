@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional, Literal
-from fastapi import APIRouter
+from fastapi import APIRouter, Cookie, Depends, HTTPException
 from sqlalchemy import select, func, and_
 
 from core.database import (
@@ -12,17 +12,23 @@ from core.database import (
     ApiKeyDailyStat,
     ModelDailyStat,
 )
+import core.config as config_module
 from core.config import (
     api_keys_cache,
     stats,
-    today_stats_cache,
-    today_stats_cache_time,
     TODAY_STATS_CACHE_TTL_SECONDS,
     requests_per_second,
     tokens_per_second,
 )
 
 router = APIRouter(prefix="/admin/api", tags=["stats"])
+
+
+def require_admin(session: Optional[str] = Cookie(None)):
+    from core.config import validate_session
+    if not validate_session(session):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return True
 
 
 async def get_cached_today_stats(start: datetime) -> dict:
@@ -32,12 +38,12 @@ async def get_cached_today_stats(start: datetime) -> dict:
     cache_key = start.strftime("%Y-%m-%d")
 
     if (
-        today_stats_cache_time
-        and (now - today_stats_cache_time).total_seconds()
+        config_module.today_stats_cache_time
+        and (now - config_module.today_stats_cache_time).total_seconds()
         < TODAY_STATS_CACHE_TTL_SECONDS
-        and today_stats_cache.get("date") == cache_key
+        and config_module.today_stats_cache.get("date") == cache_key
     ):
-        return today_stats_cache
+        return config_module.today_stats_cache
 
     proxy_logger.info("[STATS CACHE] Refreshing today stats cache")
 
@@ -112,16 +118,14 @@ async def get_cached_today_stats(start: datetime) -> dict:
             "provider_cache": provider_cache,
         }
 
-        import core.config as config
-
-        config.today_stats_cache = cache_data
-        config.today_stats_cache_time = now
+        config_module.today_stats_cache = cache_data
+        config_module.today_stats_cache_time = now
 
         return cache_data
 
 
 @router.get("/stats")
-async def get_stats():
+async def get_stats(_: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         total_result = await session.execute(select(func.count(RequestLog.id)))
         total_requests = total_result.scalar() or 0
@@ -244,6 +248,7 @@ async def get_aggregated_stats(dimension: str, start: datetime, end: datetime) -
 async def get_aggregate_stats(
     dimension: Literal["provider", "api_key", "model"] = "provider",
     period: Literal["day", "week", "month", "year"] = "day",
+    _: bool = Depends(require_admin),
 ):
     async with async_session_maker() as session:
         now_result = await session.execute(select(func.now()))
@@ -286,6 +291,7 @@ async def get_trend_data(
     dimension: Literal["provider", "api_key", "model"] = "provider",
     period: Literal["day", "week", "month", "year"] = "day",
     name: Optional[str] = None,
+    _: bool = Depends(require_admin),
 ):
     async with async_session_maker() as session:
         now_result = await session.execute(select(func.now()))
@@ -435,7 +441,7 @@ async def get_trend_data(
 
 
 @router.get("/stats/period")
-async def get_stats_period(period: str = "day"):
+async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         now_result = await session.execute(select(func.now()))
         now = now_result.scalar()
@@ -562,6 +568,7 @@ async def get_chart_data(
     period: str = "day",
     provider: Optional[str] = None,
     api_key_id: Optional[int] = None,
+    _: bool = Depends(require_admin),
 ):
     async with async_session_maker() as session:
         now_result = await session.execute(select(func.now()))
@@ -649,7 +656,7 @@ async def get_chart_data(
 
 
 @router.post("/stats/reaggregate")
-async def reaggregate_all_stats():
+async def reaggregate_all_stats(_: bool = Depends(require_admin)):
     from services.stats_aggregator import (
         backfill_historical_stats,
         aggregate_stats_for_date,
@@ -663,7 +670,7 @@ async def reaggregate_all_stats():
 
 
 @router.get("/stats/active")
-async def get_active_sessions():
+async def get_active_sessions(_: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(
             select(RequestLog).where(
@@ -709,7 +716,7 @@ async def get_active_sessions():
 
 
 @router.get("/stats/active/models")
-async def get_active_sessions_by_model():
+async def get_active_sessions_by_model(_: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(
             select(RequestLog).where(
@@ -741,7 +748,7 @@ async def get_active_sessions_by_model():
 
 
 @router.get("/stats/realtime")
-async def get_realtime_stats():
+async def get_realtime_stats(_: bool = Depends(require_admin)):
     now = datetime.now()
     cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
 
@@ -755,18 +762,19 @@ async def get_realtime_stats():
         if k >= cutoff:
             tokens_by_second[k] = tokens_by_second.get(k, 0) + v
 
-    active_seconds = max(len(reqs_by_second), 1)
+    req_active_seconds = max(len(reqs_by_second), 1)
+    token_active_seconds = max(len([v for v in tokens_by_second.values() if v > 0]), 1)
     total_requests = sum(reqs_by_second.values())
     total_tokens = sum(tokens_by_second.values())
 
     return {
-        "requests_per_second": round(total_requests / active_seconds, 1),
-        "tokens_per_second": round(total_tokens / active_seconds, 1),
+        "requests_per_second": round(total_requests / req_active_seconds, 1),
+        "tokens_per_second": round(total_tokens / token_active_seconds, 1),
     }
 
 
 @router.get("/stats/slow")
-async def get_slow_requests():
+async def get_slow_requests(_: bool = Depends(require_admin)):
     slow_pending = []
     async with async_session_maker() as session:
         result = await session.execute(
