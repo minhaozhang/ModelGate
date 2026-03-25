@@ -9,41 +9,44 @@ from typing import Optional
 
 os.makedirs("logs", exist_ok=True)
 
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, LOG_LEVEL, logging.INFO)
+
 proxy_logger = logging.getLogger("proxy")
-proxy_logger.setLevel(logging.DEBUG)
+proxy_logger.setLevel(log_level)
 proxy_file_handler = RotatingFileHandler(
     "logs/proxy.log", maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
 )
-proxy_file_handler.setLevel(logging.DEBUG)
+proxy_file_handler.setLevel(log_level)
 proxy_file_handler.setFormatter(
     logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 )
 proxy_logger.addHandler(proxy_file_handler)
 
 admin_logger = logging.getLogger("admin")
-admin_logger.setLevel(logging.DEBUG)
+admin_logger.setLevel(log_level)
 admin_file_handler = RotatingFileHandler(
     "logs/admin.log", maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
 )
-admin_file_handler.setLevel(logging.DEBUG)
+admin_file_handler.setLevel(log_level)
 admin_file_handler.setFormatter(
     logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 )
 admin_logger.addHandler(admin_file_handler)
 
 error_logger = logging.getLogger("error")
-error_logger.setLevel(logging.DEBUG)
+error_logger.setLevel(log_level)
 error_file_handler = RotatingFileHandler(
     "logs/error.log", maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
 )
-error_file_handler.setLevel(logging.DEBUG)
+error_file_handler.setLevel(log_level)
 error_file_handler.setFormatter(
     logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 )
 error_logger.addHandler(error_file_handler)
 
 console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
+console_handler.setLevel(log_level)
 console_handler.setFormatter(
     logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
 )

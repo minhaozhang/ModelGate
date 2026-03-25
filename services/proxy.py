@@ -294,7 +294,7 @@ async def get_provider_and_model(model: str) -> tuple[Optional[dict], str, str]:
     if not provider_name:
         if providers_cache:
             provider_name = list(providers_cache.keys())[0]
-            logger.debug(f"[PROXY] No provider prefix, using default: {provider_name}")
+            logger.debug("[PROXY] No provider prefix, using default: %s", provider_name)
         else:
             return None, model, ""
     config = await get_provider_config(provider_name)
@@ -357,116 +357,123 @@ async def proxy_request(request: Request, endpoint: str):
             status_code=429,
         )
 
-    body_json["model"] = actual_model
+    try:
+        body_json["model"] = actual_model
 
-    model_config = get_model_config(provider_config, actual_model)
-    is_multimodal = model_config.get("is_multimodal", False) if model_config else False
+        model_config = get_model_config(provider_config, actual_model)
+        is_multimodal = (
+            model_config.get("is_multimodal", False) if model_config else False
+        )
 
-    messages = body_json.get("messages", [])
+        messages = body_json.get("messages", [])
 
-    merge_messages = provider_config.get("merge_consecutive_messages", False)
+        merge_messages = provider_config.get("merge_consecutive_messages", False)
 
-    if merge_messages or not is_multimodal:
-        system_msgs = [m for m in messages if m.get("role") == "system"]
-        other_msgs = [m for m in messages if m.get("role") != "system"]
-        if len(system_msgs) > 1:
-            text_parts = []
-            for m in system_msgs:
-                content = m.get("content", "")
-                if isinstance(content, list):
-                    for c in content:
-                        if isinstance(c, dict) and c.get("type") == "text":
-                            text_parts.append(c.get("text", ""))
-                        elif isinstance(c, str):
-                            text_parts.append(c)
-                else:
-                    text_parts.append(content)
-            merged_system = {
-                "role": "system",
-                "content": "\n\n".join(text_parts),
-            }
-            body_json["messages"] = [merged_system] + other_msgs
-            messages = body_json["messages"]
+        if merge_messages or not is_multimodal:
+            system_msgs = [m for m in messages if m.get("role") == "system"]
+            other_msgs = [m for m in messages if m.get("role") != "system"]
+            if len(system_msgs) > 1:
+                text_parts = []
+                for m in system_msgs:
+                    content = m.get("content", "")
+                    if isinstance(content, list):
+                        for c in content:
+                            if isinstance(c, dict) and c.get("type") == "text":
+                                text_parts.append(c.get("text", ""))
+                            elif isinstance(c, str):
+                                text_parts.append(c)
+                    else:
+                        text_parts.append(content)
+                merged_system = {
+                    "role": "system",
+                    "content": "\n\n".join(text_parts),
+                }
+                body_json["messages"] = [merged_system] + other_msgs
+                messages = body_json["messages"]
 
-    if merge_messages:
-        merged_msgs = []
-        for m in messages:
-            has_tool_content = m.get("tool_calls") or m.get("tool_call_id")
-            if (
-                merged_msgs
-                and merged_msgs[-1].get("role") == m.get("role")
-                and not has_tool_content
-                and not (
-                    merged_msgs[-1].get("tool_calls")
-                    or merged_msgs[-1].get("tool_call_id")
-                )
-            ):
-                prev_content = merged_msgs[-1].get("content", "")
-                curr_content = m.get("content", "")
-                if isinstance(prev_content, str) and isinstance(curr_content, str):
-                    merged_msgs[-1]["content"] = prev_content + "\n\n" + curr_content
+        if merge_messages:
+            merged_msgs = []
+            for m in messages:
+                has_tool_content = m.get("tool_calls") or m.get("tool_call_id")
+                if (
+                    merged_msgs
+                    and merged_msgs[-1].get("role") == m.get("role")
+                    and not has_tool_content
+                    and not (
+                        merged_msgs[-1].get("tool_calls")
+                        or merged_msgs[-1].get("tool_call_id")
+                    )
+                ):
+                    prev_content = merged_msgs[-1].get("content", "")
+                    curr_content = m.get("content", "")
+                    if isinstance(prev_content, str) and isinstance(curr_content, str):
+                        merged_msgs[-1]["content"] = (
+                            prev_content + "\n\n" + curr_content
+                        )
+                    else:
+                        merged_msgs.append(m)
                 else:
                     merged_msgs.append(m)
-            else:
-                merged_msgs.append(m)
-        if len(merged_msgs) != len(messages):
-            body_json["messages"] = merged_msgs
+            if len(merged_msgs) != len(messages):
+                body_json["messages"] = merged_msgs
 
-    if provider_name == "minimax" and merge_messages:
-        body_json.pop("thinking", None)
-        body_json.pop("stream_options", None)
-        body_json["reasoning_split"] = True
+        if provider_name == "minimax" and merge_messages:
+            body_json.pop("thinking", None)
+            body_json.pop("stream_options", None)
+            body_json["reasoning_split"] = True
 
-    body = json.dumps(body_json).encode()
+        body = json.dumps(body_json).encode()
 
-    target_url = f"{provider_config['base_url']}{endpoint}"
-    headers = {
-        "content-type": "application/json",
-        "user-agent": "opencode/1.2.27 ai-sdk/provider-utils/3.0.20 runtime/bun/1.3.10",
-        "connection": "keep-alive",
-        "accept": "*/*",
-    }
+        target_url = f"{provider_config['base_url']}{endpoint}"
+        headers = {
+            "content-type": "application/json",
+            "user-agent": "opencode/1.2.27 ai-sdk/provider-utils/3.0.20 runtime/bun/1.3.10",
+            "connection": "keep-alive",
+            "accept": "*/*",
+        }
 
-    if provider_config.get("api_key"):
-        headers["authorization"] = f"Bearer {provider_config['api_key']}"
+        if provider_config.get("api_key"):
+            headers["authorization"] = f"Bearer {provider_config['api_key']}"
 
-    original_headers = dict(headers)
+        original_headers = dict(headers)
 
-    stream = body_json.get("stream", False)
+        stream = body_json.get("stream", False)
 
-    key_name = (
-        api_keys_cache.get(auth_header.replace("Bearer ", ""), {}).get(
-            "name", "unknown"
+        key_name = (
+            api_keys_cache.get(auth_header.replace("Bearer ", ""), {}).get(
+                "name", "unknown"
+            )
+            if auth_header.startswith("Bearer ")
+            else "unknown"
         )
-        if auth_header.startswith("Bearer ")
-        else "unknown"
-    )
-    msg_count = len(messages)
-    has_images = any(
-        isinstance(m.get("content"), list)
-        and any(
-            c.get("type") == "image_url"
-            for c in m.get("content", [])
-            if isinstance(c, dict)
+        msg_count = len(messages)
+        has_images = any(
+            isinstance(m.get("content"), list)
+            and any(
+                c.get("type") == "image_url"
+                for c in m.get("content", [])
+                if isinstance(c, dict)
+            )
+            for m in messages
         )
-        for m in messages
-    )
-    multimodal_tag = " [MULTIMODAL]" if is_multimodal or has_images else ""
-    logger.info(
-        f"[REQUEST] Provider: {provider_name.upper()}, Model: {actual_model}, Key: {key_name}, Messages: {msg_count}, Stream: {stream}{multimodal_tag}"
-    )
-    logger.info(f"[REQUEST] Target: {target_url}")
-    logger.debug(f"[REQUEST] Headers: {original_headers}")
-
-    # 流式请求：先创建 pending 日志
-    stream_log_id = None
-    if stream:
-        stream_log_id = await create_request_log(
-            provider_name, actual_model, api_key_id=api_key_id
+        multimodal_tag = " [MULTIMODAL]" if is_multimodal or has_images else ""
+        logger.info(
+            f"[REQUEST] Provider: {provider_name.upper()}, Model: {actual_model}, Key: {key_name}, Messages: {msg_count}, Stream: {stream}{multimodal_tag}"
+        )
+        logger.info(f"[REQUEST] Target: {target_url}")
+        logger.debug("[REQUEST] Headers: %s", original_headers)
+        logger.debug(
+            f"[REQUEST] Body: {body.decode() if isinstance(body, bytes) else body}"
         )
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        try:
+        # 流式请求：先创建 pending 日志
+        stream_log_id = None
+        if stream:
+            stream_log_id = await create_request_log(
+                provider_name, actual_model, api_key_id=api_key_id
+            )
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
             if stream:
                 return await handle_streaming(
                     target_url,
@@ -500,29 +507,29 @@ async def proxy_request(request: Request, endpoint: str):
                     semaphore,
                     request_id,
                 )
-        except Exception as e:
-            if acquired:
-                semaphore.release()
-            latency = (time.time() - start_time) * 1000
-            update_stats(
-                provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True
-            )
-            await log_request(
-                provider_name,
-                actual_model,
-                "",
-                {},
-                latency,
-                "error",
-                api_key_id=api_key_id,
-                error=str(e),
-            )
-            error_logger.error(
-                f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}\n"
-                f"  Error: {type(e).__name__}: {e}\n"
-                f"  Request Body: {json.dumps(body_json, ensure_ascii=False)[:1000]}"
-            )
-            return JSONResponse({"error": str(e)}, status_code=500)
+    except Exception as e:
+        if acquired:
+            semaphore.release()
+        latency = (time.time() - start_time) * 1000
+        update_stats(
+            provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True
+        )
+        await log_request(
+            provider_name,
+            actual_model,
+            "",
+            {},
+            latency,
+            "error",
+            api_key_id=api_key_id,
+            error=str(e),
+        )
+        error_logger.error(
+            f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}\n"
+            f"  Error: {type(e).__name__}: {e}\n"
+            f"  Request Body: {json.dumps(body_json, ensure_ascii=False)[:1000]}"
+        )
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 async def handle_normal(
@@ -540,7 +547,9 @@ async def handle_normal(
     semaphore,
     request_id,
 ):
-    logger.debug(f"[NORMAL REQUEST] Provider: {provider}, Model: {model}, URL: {url}")
+    logger.debug(
+        "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
+    )
 
     resp = await client.post(url, headers=headers, content=body)
     latency = (time.time() - start_time) * 1000
@@ -615,6 +624,7 @@ async def handle_normal(
     logger.info(
         f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms"
     )
+    logger.debug("[RESPONSE] Body: %s", resp.text)
 
     semaphore.release()
     return Response(
@@ -663,7 +673,9 @@ async def handle_streaming(
     log_id,
     request,
 ):
-    logger.debug(f"[STREAM REQUEST] Provider: {provider}, Model: {model}, URL: {url}")
+    logger.debug(
+        "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
+    )
     if provider == "minimax":
         body_json = json.loads(body) if body else {}
         msgs = body_json.get("messages", [])
@@ -953,6 +965,7 @@ async def handle_streaming(
                 status="success",
             )
             logger.info(f"[STREAM COMPLETE] ~{approx_tokens} tokens | {latency:.0f}ms")
+            logger.debug("[STREAM RESPONSE] Content: %s", total_content)
         except Exception as e:
             latency = (time.time() - start_time) * 1000
             update_stats(provider, model, 0, api_key_id=api_key_id, is_error=True)
