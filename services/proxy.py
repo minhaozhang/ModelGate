@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from fastapi import Request
 from fastapi.responses import Response, JSONResponse, StreamingResponse
 
+REPEATED_CHUNK_LIMIT = 10
+
 
 def parse_minimax_tool_calls(content: str) -> tuple[str, list[dict]]:
     """
@@ -58,7 +60,6 @@ from core.config import (
     logger,
     error_logger,
     provider_semaphores,
-    pending_requests,
 )
 from core.database import async_session_maker, RequestLog, Provider
 
@@ -454,14 +455,6 @@ async def proxy_request(request: Request, endpoint: str):
     logger.info(f"[REQUEST] Target: {target_url}")
     logger.debug(f"[REQUEST] Headers: {original_headers}")
 
-    pending_requests[request_id] = {
-        "provider": provider_name,
-        "model": actual_model,
-        "key_name": key_name,
-        "start_time": start_time,
-        "stream": stream,
-    }
-
     # 流式请求：先创建 pending 日志
     stream_log_id = None
     if stream:
@@ -505,7 +498,6 @@ async def proxy_request(request: Request, endpoint: str):
                     request_id,
                 )
         except Exception as e:
-            pending_requests.pop(request_id, None)
             if acquired:
                 semaphore.release()
             latency = (time.time() - start_time) * 1000
@@ -584,6 +576,18 @@ async def handle_normal(
         response_text = resp_json["choices"][0].get("message", {}).get("content", "")
 
     is_error = resp.status_code >= 400
+    retry_after = resp.headers.get("retry-after")
+    if retry_after:
+        error_logger.warning(
+            f"[API] {provider} rate limited, retry-after: {retry_after}s"
+        )
+
+    if not is_error and resp_json.get("error"):
+        is_error = True
+        error_logger.error(
+            f"[API ERROR] Provider: {provider}, Model: {model}, API returned error: {resp_json.get('error')}"
+        )
+
     update_stats(
         provider, model, total_tokens, api_key_id=api_key_id, is_error=is_error
     )
@@ -609,7 +613,6 @@ async def handle_normal(
         f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms"
     )
 
-    pending_requests.pop(request_id, None)
     semaphore.release()
     return Response(
         content=resp.content,
@@ -661,11 +664,23 @@ async def handle_streaming(
         in_tool_call = False
         thinking_buffer = ""
         tool_call_buffer = ""
+        last_content = ""
+        repeated_count = 0
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
                 async with client.stream(
                     "POST", url, headers=headers, content=body
                 ) as resp:
+                    if resp.status_code >= 400:
+                        error_body = await resp.aread()
+                        retry_after = resp.headers.get("retry-after")
+                        error_msg = error_body.decode()[:500]
+                        if retry_after:
+                            error_logger.warning(
+                                f"[STREAM ERROR] {provider} rate limited, retry-after: {retry_after}s"
+                            )
+                        raise Exception(f"HTTP {resp.status_code}: {error_msg}")
+
                     if provider == "minimax":
                         logger.info(f"[MINIMAX RESP] status={resp.status_code}")
                     chunk_count = 0
@@ -692,8 +707,24 @@ async def handle_streaming(
                             try:
                                 chunk = json.loads(line_content)
                                 chunk_count += 1
+
+                                if chunk.get("error"):
+                                    error_msg = chunk.get("error")
+                                    if isinstance(error_msg, dict):
+                                        error_msg = error_msg.get(
+                                            "message", str(error_msg)
+                                        )
+                                    raise Exception(f"API error: {error_msg}")
+
                                 if "choices" in chunk and chunk["choices"]:
-                                    delta = chunk["choices"][0].get("delta", {})
+                                    choice = chunk["choices"][0]
+                                    finish_reason = choice.get("finish_reason")
+                                    if finish_reason == "error":
+                                        raise Exception(
+                                            "Stream finished with error status"
+                                        )
+
+                                    delta = choice.get("delta", {})
                                     content = delta.get("content", "")
 
                                     if provider == "minimax" and content:
@@ -850,6 +881,18 @@ async def handle_streaming(
                                             data = json.dumps(chunk)
                                             line = f"data: {data}"
                                     elif content:
+                                        if content == last_content and content.strip():
+                                            repeated_count += 1
+                                            if repeated_count >= REPEATED_CHUNK_LIMIT:
+                                                logger.warning(
+                                                    f"[STREAM] Detected repeated content ({repeated_count}x), aborting"
+                                                )
+                                                raise Exception(
+                                                    f"Model repeating same content: {content[:50]}..."
+                                                )
+                                        else:
+                                            repeated_count = 0
+                                        last_content = content
                                         total_content += content
 
                                     reasoning = delta.get("reasoning_content", "")
@@ -916,7 +959,6 @@ async def handle_streaming(
             )
             yield f"data: {error_msg}\n\n"
         finally:
-            pending_requests.pop(request_id, None)
             semaphore.release()
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")

@@ -257,7 +257,7 @@ HOME_PAGE_HTML = """
         loadSlowRequests();
         setInterval(loadSlowRequests, 5000);
         loadRealtimeStats();
-        setInterval(loadRealtimeStats, 1000);
+        setInterval(loadRealtimeStats, 10000);
     </script>
 </body>
 </html>

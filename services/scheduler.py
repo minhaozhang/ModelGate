@@ -6,6 +6,7 @@ from core.config import proxy_logger
 from services.stats_aggregator import (
     aggregate_yesterday_stats,
     backfill_historical_stats,
+    cleanup_stale_pending_requests,
 )
 
 logger = proxy_logger
@@ -19,8 +20,16 @@ async def startup_scheduler():
         id="aggregate_daily_stats",
         replace_existing=True,
     )
+    scheduler.add_job(
+        cleanup_stale_pending_requests,
+        CronTrigger(minute=0),
+        id="cleanup_stale_pending",
+        replace_existing=True,
+    )
     scheduler.start()
-    logger.info("[SCHEDULER] Scheduler started, daily aggregation at 00:05")
+    logger.info(
+        "[SCHEDULER] Scheduler started: aggregate at 00:05, cleanup pending hourly"
+    )
 
     import asyncio
 

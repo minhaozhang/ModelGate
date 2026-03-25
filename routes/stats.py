@@ -1,4 +1,3 @@
-import time
 from datetime import datetime, timedelta
 from typing import Optional, Literal
 from fastapi import APIRouter
@@ -21,7 +20,6 @@ from core.config import (
     TODAY_STATS_CACHE_TTL_SECONDS,
     requests_per_second,
     tokens_per_second,
-    pending_requests,
 )
 
 router = APIRouter(prefix="/admin/api", tags=["stats"])
@@ -745,58 +743,81 @@ async def get_active_sessions_by_model():
 @router.get("/stats/realtime")
 async def get_realtime_stats():
     now = datetime.now()
-    current_second = now.strftime("%Y%m%d_%H%M%S")
+    cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
 
-    current_second_requests = sum(
-        v for k, v in requests_per_second if k == current_second
-    )
-    current_second_tokens = sum(v for k, v in tokens_per_second if k == current_second)
+    reqs_by_second: dict[str, int] = {}
+    for k, v in requests_per_second:
+        if k >= cutoff:
+            reqs_by_second[k] = reqs_by_second.get(k, 0) + v
 
-    last_60_seconds = []
-    for i in range(60):
-        sec = (now - timedelta(seconds=i)).strftime("%Y%m%d_%H%M%S")
-        reqs = sum(v for k, v in requests_per_second if k == sec)
-        toks = sum(v for k, v in tokens_per_second if k == sec)
-        last_60_seconds.append(
-            {
-                "second": (now - timedelta(seconds=i)).strftime("%H:%M:%S"),
-                "requests": reqs,
-                "tokens": toks,
-            }
-        )
+    tokens_by_second: dict[str, int] = {}
+    for k, v in tokens_per_second:
+        if k >= cutoff:
+            tokens_by_second[k] = tokens_by_second.get(k, 0) + v
 
-    last_60_seconds.reverse()
+    active_seconds = max(len(reqs_by_second), 1)
+    total_requests = sum(reqs_by_second.values())
+    total_tokens = sum(tokens_by_second.values())
 
     return {
-        "requests_per_second": current_second_requests,
-        "tokens_per_second": current_second_tokens,
-        "history": last_60_seconds,
+        "requests_per_second": round(total_requests / active_seconds, 1),
+        "tokens_per_second": round(total_tokens / active_seconds, 1),
     }
 
 
 @router.get("/stats/slow")
 async def get_slow_requests():
-    now_ts = time.time()
-
     slow_pending = []
-    for req_id, req_info in pending_requests.items():
-        elapsed = now_ts - req_info["start_time"]
-        if elapsed >= 60:
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(
+                RequestLog,
+                func.extract("epoch", func.now() - RequestLog.created_at).label(
+                    "elapsed_seconds"
+                ),
+            )
+            .where(
+                RequestLog.status == "pending",
+                RequestLog.created_at <= func.now() - timedelta(seconds=60),
+            )
+            .order_by(RequestLog.created_at.asc())
+            .limit(50)
+        )
+        pending_logs = result.all()
+
+        for row in pending_logs:
+            log = row[0]
+            elapsed = row[1] or 0
+
+            key_name = None
+            if log.api_key_id:
+                for k, v in api_keys_cache.items():
+                    if v["id"] == log.api_key_id:
+                        key_name = v["name"]
+                        break
+                if not key_name:
+                    key_name = f"Key-{log.api_key_id}"
+
+            provider_name = None
+            if log.provider_id:
+                prov_result = await session.execute(
+                    select(Provider).where(Provider.id == log.provider_id)
+                )
+                prov = prov_result.scalar_one_or_none()
+                provider_name = prov.name if prov else None
+
             slow_pending.append(
                 {
-                    "id": req_id,
-                    "provider": req_info["provider"],
-                    "model": req_info["model"],
-                    "key_name": req_info["key_name"],
+                    "id": log.id,
+                    "provider": provider_name,
+                    "model": log.model,
+                    "key_name": key_name,
                     "elapsed_seconds": round(elapsed, 1),
-                    "stream": req_info["stream"],
-                    "start_time": datetime.fromtimestamp(
-                        req_info["start_time"]
-                    ).isoformat(),
+                    "stream": True,
+                    "start_time": log.created_at.isoformat(),
                 }
             )
 
-    async with async_session_maker() as session:
         result = await session.execute(
             select(RequestLog)
             .where(

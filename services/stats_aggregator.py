@@ -182,6 +182,32 @@ async def backfill_historical_stats() -> None:
             logger.error(f"[AGGREGATOR] Error backfilling {date_str}: {e}")
 
 
+async def cleanup_stale_pending_requests() -> None:
+    timeout_threshold = datetime.utcnow() - timedelta(minutes=10)
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(RequestLog).where(
+                RequestLog.status == "pending",
+                RequestLog.created_at < timeout_threshold,
+            )
+        )
+        stale_logs = result.scalars().all()
+
+        if not stale_logs:
+            return
+
+        for log in stale_logs:
+            log.status = "timeout"
+            log.error = "Request timed out"
+            log.latency_ms = (datetime.utcnow() - log.created_at).total_seconds() * 1000
+
+        await session.commit()
+        logger.info(
+            f"[AGGREGATOR] Marked {len(stale_logs)} stale pending requests as timeout"
+        )
+
+
 async def aggregate_yesterday_stats() -> None:
     async with async_session_maker() as session:
         today_result = await session.execute(select(func.current_date()))
@@ -189,5 +215,6 @@ async def aggregate_yesterday_stats() -> None:
     yesterday = (db_today - timedelta(days=1)).strftime("%Y-%m-%d")
     try:
         await aggregate_stats_for_date(yesterday)
+        await backfill_historical_stats()
     except Exception as e:
         logger.error(f"[AGGREGATOR] Error aggregating yesterday stats: {e}")

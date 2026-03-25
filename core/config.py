@@ -109,8 +109,6 @@ stats = {
 requests_per_second: list[tuple[str, int]] = []
 tokens_per_second: list[tuple[str, int]] = []
 
-pending_requests: dict[str, dict] = {}
-
 today_stats_cache: dict = {}
 today_stats_cache_time: Optional[datetime] = None
 TODAY_STATS_CACHE_TTL_SECONDS = 600
@@ -172,9 +170,6 @@ def update_stats(
     second_key = now.strftime("%Y%m%d_%H%M%S")
     requests_per_second.append((second_key, 1))
     tokens_per_second.append((second_key, tokens))
-    requests_per_second[:] = [
-        (k, v) for k, v in requests_per_second if k >= now.strftime("%Y%m%d_%H%M%S")
-    ]
-    tokens_per_second[:] = [
-        (k, v) for k, v in tokens_per_second if k >= now.strftime("%Y%m%d_%H%M%S")
-    ]
+    cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
+    requests_per_second[:] = [(k, v) for k, v in requests_per_second if k >= cutoff]
+    tokens_per_second[:] = [(k, v) for k, v in tokens_per_second if k >= cutoff]
