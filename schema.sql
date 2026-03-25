@@ -363,5 +363,110 @@ ALTER TABLE ONLY public.provider_models ADD CONSTRAINT provider_models_provider_
 ALTER TABLE ONLY public.request_logs ADD CONSTRAINT request_logs_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES public.api_keys(id);
 
 --
+-- COMMENTS
+--
+
+-- 提供商表
+COMMENT ON TABLE public.providers IS 'API提供商';
+COMMENT ON COLUMN public.providers.id IS '主键ID';
+COMMENT ON COLUMN public.providers.name IS '提供商名称，如zhipu、deepseek';
+COMMENT ON COLUMN public.providers.base_url IS 'API基础URL';
+COMMENT ON COLUMN public.providers.api_key IS '提供商API密钥';
+COMMENT ON COLUMN public.providers.is_active IS '是否启用';
+COMMENT ON COLUMN public.providers.created_at IS '创建时间';
+COMMENT ON COLUMN public.providers.updated_at IS '更新时间';
+COMMENT ON COLUMN public.providers.max_concurrent IS '最大并发数，默认3';
+COMMENT ON COLUMN public.providers.merge_consecutive_messages IS '是否合并连续相同角色的消息';
+
+-- 模型表
+COMMENT ON TABLE public.models IS '模型信息';
+COMMENT ON COLUMN public.models.id IS '主键ID';
+COMMENT ON COLUMN public.models.name IS '模型标识，如glm-4';
+COMMENT ON COLUMN public.models.display_name IS '显示名称';
+COMMENT ON COLUMN public.models.max_tokens IS '最大输出token数';
+COMMENT ON COLUMN public.models.context_length IS '上下文窗口长度';
+COMMENT ON COLUMN public.models.is_multimodal IS '是否支持多模态（图片）';
+COMMENT ON COLUMN public.models.is_active IS '是否启用';
+COMMENT ON COLUMN public.models.created_at IS '创建时间';
+COMMENT ON COLUMN public.models.updated_at IS '更新时间';
+
+-- 提供商-模型关联表
+COMMENT ON TABLE public.provider_models IS '提供商与模型的关联关系';
+COMMENT ON COLUMN public.provider_models.id IS '主键ID';
+COMMENT ON COLUMN public.provider_models.provider_id IS '提供商ID';
+COMMENT ON COLUMN public.provider_models.model_id IS '模型ID';
+COMMENT ON COLUMN public.provider_models.model_name_override IS '模型名称覆盖，用于指定提供商特定的模型名';
+COMMENT ON COLUMN public.provider_models.is_active IS '是否启用';
+COMMENT ON COLUMN public.provider_models.created_at IS '创建时间';
+
+-- API密钥表
+COMMENT ON TABLE public.api_keys IS 'API密钥';
+COMMENT ON COLUMN public.api_keys.id IS '主键ID';
+COMMENT ON COLUMN public.api_keys.name IS '密钥名称';
+COMMENT ON COLUMN public.api_keys.key IS '密钥值，sk-开头';
+COMMENT ON COLUMN public.api_keys.is_active IS '是否启用';
+COMMENT ON COLUMN public.api_keys.created_at IS '创建时间';
+COMMENT ON COLUMN public.api_keys.updated_at IS '更新时间';
+
+-- API密钥-模型关联表
+COMMENT ON TABLE public.api_key_models IS 'API密钥可访问的模型';
+COMMENT ON COLUMN public.api_key_models.id IS '主键ID';
+COMMENT ON COLUMN public.api_key_models.api_key_id IS 'API密钥ID';
+COMMENT ON COLUMN public.api_key_models.provider_model_id IS '提供商-模型关联ID';
+
+-- 请求日志表
+COMMENT ON TABLE public.request_logs IS '请求日志';
+COMMENT ON COLUMN public.request_logs.id IS '主键ID';
+COMMENT ON COLUMN public.request_logs.api_key_id IS 'API密钥ID';
+COMMENT ON COLUMN public.request_logs.provider_id IS '提供商ID';
+COMMENT ON COLUMN public.request_logs.model IS '模型名称';
+COMMENT ON COLUMN public.request_logs.response IS '响应内容（非流式）';
+COMMENT ON COLUMN public.request_logs.tokens IS 'token统计，JSON格式：{input, output}';
+COMMENT ON COLUMN public.request_logs.latency_ms IS '响应延迟（毫秒）';
+COMMENT ON COLUMN public.request_logs.status IS '状态：pending/success/error/timeout';
+COMMENT ON COLUMN public.request_logs.error IS '错误信息';
+COMMENT ON COLUMN public.request_logs.created_at IS '创建时间';
+COMMENT ON COLUMN public.request_logs.updated_at IS '更新时间';
+
+-- 提供商每日统计表
+COMMENT ON TABLE public.provider_daily_stats IS '提供商每日/每小时统计';
+COMMENT ON COLUMN public.provider_daily_stats.id IS '主键ID';
+COMMENT ON COLUMN public.provider_daily_stats.provider_name IS '提供商名称';
+COMMENT ON COLUMN public.provider_daily_stats.date IS '日期，格式YYYY-MM-DD';
+COMMENT ON COLUMN public.provider_daily_stats.hour IS '小时（0-23），为空表示全天汇总';
+COMMENT ON COLUMN public.provider_daily_stats.requests IS '请求数';
+COMMENT ON COLUMN public.provider_daily_stats.tokens IS 'token数';
+COMMENT ON COLUMN public.provider_daily_stats.errors IS '错误数';
+
+-- 模型每日统计表
+COMMENT ON TABLE public.model_daily_stats IS '模型每日统计';
+COMMENT ON COLUMN public.model_daily_stats.id IS '主键ID';
+COMMENT ON COLUMN public.model_daily_stats.model_name IS '模型名称';
+COMMENT ON COLUMN public.model_daily_stats.provider_name IS '提供商名称';
+COMMENT ON COLUMN public.model_daily_stats.date IS '日期，格式YYYY-MM-DD';
+COMMENT ON COLUMN public.model_daily_stats.requests IS '请求数';
+COMMENT ON COLUMN public.model_daily_stats.tokens IS 'token数';
+COMMENT ON COLUMN public.model_daily_stats.errors IS '错误数';
+
+-- API密钥每日统计表
+COMMENT ON TABLE public.api_key_daily_stats IS 'API密钥每日/每小时统计';
+COMMENT ON COLUMN public.api_key_daily_stats.id IS '主键ID';
+COMMENT ON COLUMN public.api_key_daily_stats.api_key_id IS 'API密钥ID';
+COMMENT ON COLUMN public.api_key_daily_stats.date IS '日期，格式YYYY-MM-DD';
+COMMENT ON COLUMN public.api_key_daily_stats.hour IS '小时（0-23），为空表示全天汇总';
+COMMENT ON COLUMN public.api_key_daily_stats.requests IS '请求数';
+COMMENT ON COLUMN public.api_key_daily_stats.tokens IS 'token数';
+COMMENT ON COLUMN public.api_key_daily_stats.errors IS '错误数';
+
+-- 小时统计表（旧版）
+COMMENT ON TABLE public.hourly_stats IS '小时统计（旧版，逐步废弃）';
+COMMENT ON COLUMN public.hourly_stats.id IS '主键ID';
+COMMENT ON COLUMN public.hourly_stats.provider_id IS '提供商ID';
+COMMENT ON COLUMN public.hourly_stats.hour_key IS '小时标识，格式YYYY-MM-DD-HH';
+COMMENT ON COLUMN public.hourly_stats.requests IS '请求数';
+COMMENT ON COLUMN public.hourly_stats.tokens IS 'token数';
+COMMENT ON COLUMN public.hourly_stats.errors IS '错误数';
+
+--
 -- PostgreSQL database dump complete
 --
