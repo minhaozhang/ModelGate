@@ -11,9 +11,7 @@ MONITOR_PAGE_HTML = """
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
         .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
         .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
-        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .bar-item { transition: all 0.2s; }
-        .bar-item:hover { background: #f8fafc; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -49,20 +47,21 @@ MONITOR_PAGE_HTML = """
                 </button>
             </div>
         </nav>
-        
+
         <main class="ml-56 flex-1 p-6">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">Statistics Monitor</h2>
-                <div class="flex gap-2">
-                    <div class="flex bg-white rounded border overflow-hidden">
-                        <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">Day</button>
-                        <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Week</button>
-                        <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Month</button>
-                        <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Year</button>
-                    </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">Statistics Monitor</h2>
+                    <p class="text-sm text-gray-500 mt-1">Composition, concentration, hotspots, and trend behavior</p>
+                </div>
+                <div class="flex bg-white rounded border overflow-hidden">
+                    <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">Day</button>
+                    <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Week</button>
+                    <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Month</button>
+                    <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Year</button>
                 </div>
             </div>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">Total Requests</div>
@@ -81,38 +80,63 @@ MONITOR_PAGE_HTML = """
                     <div id="error-rate" class="text-3xl font-bold text-orange-600">0%</div>
                 </div>
             </div>
-            
+
             <div class="bg-white rounded-lg shadow p-5 mb-6">
-                <h3 class="text-lg font-semibold mb-4">Request Trend</h3>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Request Trend</h3>
+                    <div id="trend-meta" class="text-sm text-gray-500">Requests / Tokens / Errors</div>
+                </div>
                 <canvas id="trendChart" height="80"></canvas>
             </div>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 <div class="bg-white rounded-lg shadow p-5">
                     <h3 class="text-lg font-semibold mb-4">Provider Usage</h3>
-                    <div id="provider-bars" class="space-y-2 max-h-80 overflow-y-auto"></div>
+                    <div class="h-64"><canvas id="providerChart"></canvas></div>
+                    <div id="provider-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
                     <h3 class="text-lg font-semibold mb-4">API Key Usage</h3>
-                    <div id="apikey-bars" class="space-y-2 max-h-80 overflow-y-auto"></div>
+                    <div class="h-64"><canvas id="apikeyChart"></canvas></div>
+                    <div id="apikey-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
                     <h3 class="text-lg font-semibold mb-4">Model Usage</h3>
-                    <div id="model-bars" class="space-y-2 max-h-80 overflow-y-auto"></div>
+                    <div class="h-64"><canvas id="modelChart"></canvas></div>
+                    <div id="model-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-6">
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">Traffic Concentration</h3>
+                    <div id="concentration-cards" class="space-y-3"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">Error Hotspots</h3>
+                    <div id="error-hotspots" class="space-y-3"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">Active Footprint</h3>
+                    <div id="footprint-cards" class="space-y-3"></div>
                 </div>
             </div>
         </main>
     </div>
-    
+
     <script>
         let currentPeriod = 'day';
         let trendChart = null;
-        
+        let providerChart = null;
+        let apikeyChart = null;
+        let modelChart = null;
+        const chartPalette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#6366f1'];
+
         async function logout() {
-            await fetch('/admin/api/auth/logout', {method: 'POST'});
+            await fetch('/admin/api/auth/logout', { method: 'POST' });
             window.location.href = '/admin/login';
         }
-        
+
         function setPeriod(period) {
             currentPeriod = period;
             document.querySelectorAll('[id^="btn-"]').forEach(btn => {
@@ -123,7 +147,299 @@ MONITOR_PAGE_HTML = """
             document.getElementById('btn-' + period).classList.remove('text-gray-600', 'hover:bg-gray-100');
             loadData();
         }
-        
+
+        function formatCompactTokens(tokens) {
+            const value = Number(tokens || 0);
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\\.0$/, '') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\\.0$/, '') + 'K';
+            if (Number.isInteger(value)) return value.toLocaleString();
+            return value.toFixed(1).replace(/\\.0$/, '');
+        }
+
+        function formatPct(value, digits = 1) {
+            return `${(Number(value || 0) * 100).toFixed(digits)}%`;
+        }
+
+        function getTokenChartScale(requestValues, tokenValues) {
+            const maxRequests = Math.max(...requestValues, 1);
+            const maxTokens = Math.max(...tokenValues, 1);
+            const scales = [
+                { divisor: 1, suffix: '' },
+                { divisor: 1000, suffix: 'K' },
+                { divisor: 1000000, suffix: 'M' },
+                { divisor: 1000000000, suffix: 'B' }
+            ];
+            let scale = scales.find(s => maxTokens / s.divisor <= maxRequests * 5) || scales[scales.length - 1];
+            if (maxTokens / scale.divisor >= 1000) {
+                scale = scales[scales.indexOf(scale) + 1] || scale;
+            }
+            return scale;
+        }
+
+        function buildDonutSeries(data, metric = 'tokens', limit = 5) {
+            const entries = Object.entries(data || {})
+                .sort((a, b) => (b[1][metric] || 0) - (a[1][metric] || 0))
+                .filter(([, stats]) => (stats[metric] || 0) > 0);
+            const topEntries = entries.slice(0, limit);
+            const otherValue = entries.slice(limit).reduce((sum, [, stats]) => sum + (stats[metric] || 0), 0);
+            const labels = topEntries.map(([name]) => name);
+            const values = topEntries.map(([, stats]) => stats[metric] || 0);
+            const colors = topEntries.map((_, index) => chartPalette[index % chartPalette.length]);
+            if (otherValue > 0) {
+                labels.push('Others');
+                values.push(otherValue);
+                colors.push('#cbd5e1');
+            }
+            return { entries, labels, values, colors };
+        }
+
+        function renderDonutChart(currentChart, canvasId, legendId, data, accentColor) {
+            const series = buildDonutSeries(data, 'tokens', 5);
+            const canvas = document.getElementById(canvasId);
+            if (currentChart) currentChart.destroy();
+
+            const chart = new Chart(canvas.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: series.labels,
+                    datasets: [{
+                        data: series.values,
+                        backgroundColor: series.colors,
+                        borderWidth: 0,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '62%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
+                                    const pct = context.raw / total;
+                                    return `${context.label}: ${formatCompactTokens(context.raw)} (${formatPct(pct)})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const total = series.entries.reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0) || 1;
+            const legendHtml = series.entries.slice(0, 6).map(([name, stats], index) => {
+                const pct = (stats.tokens || 0) / total;
+                const errRate = stats.requests ? stats.errors / stats.requests : 0;
+                const color = chartPalette[index % chartPalette.length];
+                return `
+                    <div class="rounded-lg border border-gray-100 p-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${color}"></span>
+                                    <div class="font-medium text-sm truncate" title="${name}">${name}</div>
+                                </div>
+                                <div class="mt-1 text-xs text-gray-500">${stats.requests.toLocaleString()} req / ${formatCompactTokens(stats.tokens || 0)} tok</div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <div class="text-sm font-semibold" style="color:${accentColor}">${formatPct(pct)}</div>
+                                <div class="text-xs text-gray-400">err ${formatPct(errRate, 1)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById(legendId).innerHTML = legendHtml || '<div class="text-gray-400 text-center py-4">No data</div>';
+            return { chart, entries: series.entries };
+        }
+
+        function renderConcentrationCards(providerEntries, apikeyEntries, modelEntries) {
+            const sections = [
+                ['Providers', providerEntries],
+                ['API Keys', apikeyEntries],
+                ['Models', modelEntries]
+            ];
+            const html = sections.map(([label, entries]) => {
+                const total = entries.reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0) || 1;
+                const top1 = entries[0];
+                const top3Value = entries.slice(0, 3).reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0);
+                return `
+                    <div class="rounded-lg bg-slate-50 p-4">
+                        <div class="text-xs uppercase tracking-wide text-slate-500">${label}</div>
+                        <div class="mt-2 text-sm font-medium text-slate-800 truncate" title="${top1 ? top1[0] : 'No data'}">${top1 ? top1[0] : 'No data'}</div>
+                        <div class="mt-1 text-xs text-slate-500">Top 1 share ${top1 ? formatPct((top1[1].tokens || 0) / total) : '0%'}</div>
+                        <div class="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
+                            <div class="h-full bg-slate-700" style="width:${Math.min((top3Value / total) * 100, 100)}%"></div>
+                        </div>
+                        <div class="mt-2 text-xs text-slate-500">Top 3 combined ${formatPct(top3Value / total)}</div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('concentration-cards').innerHTML = html;
+        }
+
+        function renderErrorHotspots(providerEntries, apikeyEntries, modelEntries) {
+            const hotspots = [
+                ...providerEntries.map(([name, stats]) => ({ scope: 'Provider', name, stats })),
+                ...apikeyEntries.map(([name, stats]) => ({ scope: 'API Key', name, stats })),
+                ...modelEntries.map(([name, stats]) => ({ scope: 'Model', name, stats }))
+            ]
+            .filter(item => (item.stats.requests || 0) >= 3)
+            .map(item => ({ ...item, errorRate: item.stats.requests ? item.stats.errors / item.stats.requests : 0 }))
+            .sort((a, b) => b.errorRate - a.errorRate || (b.stats.errors || 0) - (a.stats.errors || 0))
+            .slice(0, 6);
+
+            const html = hotspots.map(item => `
+                <div class="rounded-lg border border-red-100 bg-red-50 p-3">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="text-xs uppercase tracking-wide text-red-500">${item.scope}</div>
+                            <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${item.name}</div>
+                            <div class="mt-1 text-xs text-red-400">${item.stats.errors.toLocaleString()} errors / ${item.stats.requests.toLocaleString()} requests</div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-lg font-bold text-red-600">${formatPct(item.errorRate, 1)}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('error-hotspots').innerHTML = html || '<div class="text-gray-400 text-center py-4">No hotspots</div>';
+        }
+
+        function renderFootprintCards(providerEntries, apikeyEntries, modelEntries) {
+            const cards = [
+                {
+                    label: 'Active Providers',
+                    value: providerEntries.length,
+                    detail: providerEntries[0] ? `Top: ${providerEntries[0][0]}` : 'No traffic'
+                },
+                {
+                    label: 'Active API Keys',
+                    value: apikeyEntries.length,
+                    detail: apikeyEntries[0] ? `Top: ${apikeyEntries[0][0]}` : 'No traffic'
+                },
+                {
+                    label: 'Active Models',
+                    value: modelEntries.length,
+                    detail: modelEntries[0] ? `Top: ${modelEntries[0][0]}` : 'No traffic'
+                }
+            ];
+
+            const html = cards.map(card => `
+                <div class="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <div class="text-xs uppercase tracking-wide text-gray-500">${card.label}</div>
+                    <div class="mt-2 text-2xl font-bold text-gray-800">${card.value.toLocaleString()}</div>
+                    <div class="mt-1 text-sm text-gray-500 truncate" title="${card.detail}">${card.detail}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('footprint-cards').innerHTML = html;
+        }
+
+        function renderTrendChart(data) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            if (trendChart) trendChart.destroy();
+
+            const requests = data.intervals.map(label => data.data[label]?.requests || 0);
+            const rawTokens = data.intervals.map(label => data.data[label]?.tokens || 0);
+            const errors = data.intervals.map(label => data.data[label]?.errors || 0);
+            const tokenScale = getTokenChartScale(requests, rawTokens);
+            const tokens = rawTokens.map(value => Number((value / tokenScale.divisor).toFixed(2)));
+            const tokenLabel = tokenScale.suffix ? `Tokens (${tokenScale.suffix})` : 'Tokens';
+            document.getElementById('trend-meta').textContent = `${tokenLabel} on right axis`;
+
+            trendChart = new Chart(ctx, {
+                data: {
+                    labels: data.intervals,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Requests',
+                            data: requests,
+                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
+                            borderColor: 'rgba(59, 130, 246, 0.85)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: tokenLabel,
+                            data: tokens,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            pointBackgroundColor: '#10b981',
+                            pointRadius: 3,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.25,
+                            fill: true,
+                            yAxisID: 'yTokens'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Errors',
+                            data: errors,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [6, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            ticks: {
+                                autoSkip: true,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                maxTicksLimit: currentPeriod === 'week' ? 10 : 12
+                            }
+                        },
+                        yRequests: {
+                            beginAtZero: true,
+                            position: 'left',
+                            title: { display: true, text: 'Requests / Errors' }
+                        },
+                        yTokens: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            title: { display: true, text: tokenLabel }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.yAxisID === 'yTokens') {
+                                        const rawValue = rawTokens[context.dataIndex] || 0;
+                                        return `${tokenLabel}: ${formatCompactTokens(rawValue)} (${rawValue.toLocaleString()})`;
+                                    }
+                                    return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         async function loadData() {
             const [providerData, apikeyData, modelData, trendData] = await Promise.all([
                 fetch('/admin/api/stats/aggregate?dimension=provider&period=' + currentPeriod).then(r => r.json()),
@@ -131,68 +447,29 @@ MONITOR_PAGE_HTML = """
                 fetch('/admin/api/stats/aggregate?dimension=model&period=' + currentPeriod).then(r => r.json()),
                 fetch('/admin/api/stats/trend?dimension=provider&period=' + currentPeriod).then(r => r.json())
             ]);
-            
+
             const totalRequests = providerData.total_requests || 0;
             const totalTokens = providerData.total_tokens || 0;
             const totalErrors = providerData.total_errors || 0;
-            
+
             document.getElementById('total-requests').textContent = totalRequests.toLocaleString();
-            document.getElementById('total-tokens').textContent = totalTokens.toLocaleString();
-            document.getElementById('total-errors').textContent = totalErrors;
-            const errorRate = totalRequests > 0 ? ((totalErrors / totalRequests) * 100).toFixed(1) : 0;
-            document.getElementById('error-rate').textContent = errorRate + '%';
-            
-            renderBarChart('provider-bars', providerData.data || {}, '#3b82f6');
-            renderBarChart('apikey-bars', apikeyData.data || {}, '#10b981');
-            renderBarChart('model-bars', modelData.data || {}, '#8b5cf6');
+            document.getElementById('total-tokens').textContent = formatCompactTokens(totalTokens);
+            document.getElementById('total-errors').textContent = totalErrors.toLocaleString();
+            document.getElementById('error-rate').textContent = (totalRequests > 0 ? ((totalErrors / totalRequests) * 100).toFixed(1) : '0.0') + '%';
+
+            const providerResult = renderDonutChart(providerChart, 'providerChart', 'provider-legend', providerData.data || {}, '#2563eb');
+            providerChart = providerResult.chart;
+            const apikeyResult = renderDonutChart(apikeyChart, 'apikeyChart', 'apikey-legend', apikeyData.data || {}, '#059669');
+            apikeyChart = apikeyResult.chart;
+            const modelResult = renderDonutChart(modelChart, 'modelChart', 'model-legend', modelData.data || {}, '#7c3aed');
+            modelChart = modelResult.chart;
+
+            renderConcentrationCards(providerResult.entries, apikeyResult.entries, modelResult.entries);
+            renderErrorHotspots(providerResult.entries, apikeyResult.entries, modelResult.entries);
+            renderFootprintCards(providerResult.entries, apikeyResult.entries, modelResult.entries);
             renderTrendChart(trendData);
         }
-        
-        function renderBarChart(containerId, data, color) {
-            const entries = Object.entries(data).sort((a, b) => b[1].requests - a[1].requests);
-            const maxReq = Math.max(...entries.map(e => e[1].requests), 1);
-            
-            const html = entries.map(([name, stats]) => {
-                const pct = (stats.requests / maxReq) * 100;
-                return `
-                <div class="bar-item rounded p-2">
-                    <div class="flex justify-between text-sm mb-1">
-                        <span class="font-medium truncate max-w-[120px]" title="${name}">${name}</span>
-                        <span class="text-gray-500 ml-2">${stats.requests.toLocaleString()} / ${stats.tokens.toLocaleString()} tok</span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="h-2 rounded-full" style="width: ${pct}%; background: ${color}"></div>
-                    </div>
-                </div>`;
-            }).join('');
-            
-            document.getElementById(containerId).innerHTML = html || '<div class="text-gray-400 text-center py-4">No data</div>';
-        }
-        
-        function renderTrendChart(data) {
-            const ctx = document.getElementById('trendChart').getContext('2d');
-            if (trendChart) trendChart.destroy();
-            
-            const requests = data.intervals.map(i => data.data[i]?.requests || 0);
-            const tokens = data.intervals.map(i => Math.floor((data.data[i]?.tokens || 0) / 1000));
-            
-            trendChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.intervals,
-                    datasets: [
-                        { label: 'Requests', data: requests, backgroundColor: '#3b82f6', borderRadius: 4 },
-                        { label: 'Tokens (K)', data: tokens, backgroundColor: '#10b981', borderRadius: 4 }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    scales: { y: { beginAtZero: true } },
-                    plugins: { legend: { position: 'top' } }
-                }
-            });
-        }
-        
+
         loadData();
         setInterval(loadData, 30000);
     </script>

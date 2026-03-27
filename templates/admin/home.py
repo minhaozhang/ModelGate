@@ -122,7 +122,7 @@ HOME_PAGE_HTML = """
             const resp = await fetch('/admin/api/stats/period?period=' + currentPeriod);
             const data = await resp.json();
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
-            document.getElementById('total-tokens').textContent = data.total_tokens.toLocaleString();
+            document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
             document.getElementById('total-errors').textContent = data.total_errors;
             const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
             document.getElementById('error-rate').textContent = errorRate + '%';
@@ -131,9 +131,26 @@ HOME_PAGE_HTML = """
             loadChart();
         }
         function formatCompactTokens(tokens) {
-            if (tokens >= 1000000) return (tokens / 1000000).toFixed(1).replace(/\\.0$/, '') + 'M';
-            if (tokens >= 1000) return (tokens / 1000).toFixed(1).replace(/\\.0$/, '') + 'K';
-            return (tokens || 0).toLocaleString();
+            const value = Number(tokens || 0);
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\\.0$/, '') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\\.0$/, '') + 'K';
+            if (Number.isInteger(value)) return value.toLocaleString();
+            return value.toFixed(1).replace(/\\.0$/, '');
+        }
+        function getTokenChartScale(requestValues, tokenValues) {
+            const maxRequests = Math.max(...requestValues, 1);
+            const maxTokens = Math.max(...tokenValues, 1);
+            const scales = [
+                { divisor: 1, suffix: '' },
+                { divisor: 1000, suffix: 'K' },
+                { divisor: 1000000, suffix: 'M' },
+                { divisor: 1000000000, suffix: 'B' }
+            ];
+            let scale = scales.find(s => maxTokens / s.divisor <= maxRequests * 5) || scales[scales.length - 1];
+            if (maxTokens / scale.divisor >= 1000) {
+                scale = scales[scales.indexOf(scale) + 1] || scale;
+            }
+            return scale;
         }
         function renderModelList(models, accentClass) {
             const items = Object.entries(models || {})
@@ -172,11 +189,82 @@ HOME_PAGE_HTML = """
             const scrollY = window.scrollY;
             if (trendChart) trendChart.destroy();
             const requests = data.intervals.map(i => data.data[i]?.requests || 0);
-            const tokens = data.intervals.map(i => Math.floor((data.data[i]?.tokens || 0) / 1000));
+            const rawTokens = data.intervals.map(i => data.data[i]?.tokens || 0);
+            const tokenScale = getTokenChartScale(requests, rawTokens);
+            const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
+            const tokenLabel = tokenScale.suffix ? `Tokens (${tokenScale.suffix})` : 'Tokens';
             trendChart = new Chart(ctx, {
-                type: 'bar',
-                data: { labels: data.intervals, datasets: [{ label: 'Requests', data: requests, backgroundColor: '#3b82f6', borderRadius: 4 }, { label: 'Tokens (K)', data: tokens, backgroundColor: '#10b981', borderRadius: 4 }] },
-                options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'top' } } }
+                data: {
+                    labels: data.intervals,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Requests',
+                            data: requests,
+                            backgroundColor: 'rgba(59, 130, 246, 0.45)',
+                            borderColor: 'rgba(59, 130, 246, 0.9)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: tokenLabel,
+                            data: tokens,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            pointBackgroundColor: '#10b981',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 1,
+                            pointRadius: 3,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.25,
+                            fill: true,
+                            yAxisID: 'yTokens'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            ticks: {
+                                autoSkip: true,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                maxTicksLimit: currentPeriod === 'week' ? 10 : 12
+                            }
+                        },
+                        yRequests: {
+                            beginAtZero: true,
+                            position: 'left',
+                            title: { display: true, text: 'Requests' }
+                        },
+                        yTokens: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            title: { display: true, text: tokenLabel }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.yAxisID === 'yTokens') {
+                                        const rawValue = rawTokens[context.dataIndex] || 0;
+                                        return `${tokenLabel}: ${formatCompactTokens(rawValue)} (${rawValue.toLocaleString()})`;
+                                    }
+                                    return `Requests: ${(context.parsed.y || 0).toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
             });
             window.scrollTo(0, scrollY);
         }
@@ -279,7 +367,7 @@ HOME_PAGE_HTML = """
             const resp = await fetch('/admin/api/stats/realtime');
             const data = await resp.json();
             document.getElementById('rps').textContent = data.requests_per_second;
-            document.getElementById('tps').textContent = data.tokens_per_second;
+            document.getElementById('tps').textContent = formatCompactTokens(data.tokens_per_second || 0);
         }
         
         loadSlowRequests();

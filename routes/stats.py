@@ -168,8 +168,16 @@ def get_period_range(
     elif period == "week":
         start = now - timedelta(days=now.weekday())
         start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-        intervals = [((start + timedelta(days=i)).strftime("%m/%d")) for i in range(7)]
-        format_func = lambda d: d.strftime("%m/%d")
+        intervals = [
+            ((start + timedelta(hours=6 * i)).strftime("%m/%d %H:%M"))
+            for i in range(28)
+        ]
+        format_func = lambda d: d.replace(
+            hour=(d.hour // 6) * 6,
+            minute=0,
+            second=0,
+            microsecond=0,
+        ).strftime("%m/%d %H:%M")
     elif period == "month":
         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         days_in_month = (
