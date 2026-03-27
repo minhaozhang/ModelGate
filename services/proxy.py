@@ -10,6 +10,7 @@ from fastapi import Request
 from fastapi.responses import Response, JSONResponse, StreamingResponse
 
 REPEATED_CHUNK_LIMIT = 10
+PROVIDER_REQUEST_TIMEOUT_SECONDS = 300.0
 
 
 def parse_minimax_tool_calls(content: str) -> tuple[str, list[dict]]:
@@ -598,7 +599,7 @@ async def proxy_request(request: Request, endpoint: str):
                 provider_name, actual_model, api_key_id=api_key_id
             )
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS) as client:
             if stream:
                 return await handle_streaming(
                     target_url,
@@ -831,7 +832,7 @@ async def handle_streaming(
         repeated_count = 0
         last_usage = None
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            async with httpx.AsyncClient(timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS) as client:
                 async with client.stream(
                     "POST", url, headers=headers, content=body
                 ) as resp:
