@@ -99,8 +99,16 @@ async def get_user_stats(
     elif period == "week":
         start = now - timedelta(days=now.weekday())
         start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-        intervals = [((start + timedelta(days=i)).strftime("%m/%d")) for i in range(7)]
-        format_func = lambda d: d.strftime("%m/%d")
+        intervals = [
+            ((start + timedelta(hours=6 * i)).strftime("%m/%d %H:%M"))
+            for i in range(28)
+        ]
+        format_func = lambda d: d.replace(
+            hour=(d.hour // 6) * 6,
+            minute=0,
+            second=0,
+            microsecond=0,
+        ).strftime("%m/%d %H:%M")
     else:
         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         days_in_month = (
@@ -126,9 +134,15 @@ async def get_user_stats(
         total_requests = total_result.scalar() or 0
 
         tokens_result = await session.execute(
-            select(func.sum(RequestLog.tokens["total_tokens"].as_integer())).where(
-                RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
-            )
+            select(
+                func.sum(
+                    func.coalesce(
+                        RequestLog.tokens["total_tokens"].as_integer(),
+                        RequestLog.tokens["estimated"].as_integer(),
+                        0,
+                    )
+                )
+            ).where(RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start)
         )
         total_tokens = tokens_result.scalar() or 0
 
@@ -145,9 +159,13 @@ async def get_user_stats(
             select(
                 RequestLog.model,
                 func.count(RequestLog.id).label("count"),
-                func.sum(RequestLog.tokens["total_tokens"].as_integer()).label(
-                    "tokens"
-                ),
+                func.sum(
+                    func.coalesce(
+                        RequestLog.tokens["total_tokens"].as_integer(),
+                        RequestLog.tokens["estimated"].as_integer(),
+                        0,
+                    )
+                ).label("tokens"),
             )
             .where(RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start)
             .group_by(RequestLog.model)
@@ -164,7 +182,7 @@ async def get_user_stats(
         trend_result = await session.execute(trend_query)
         trend_logs = trend_result.scalars().all()
 
-        trend_data = {label: {"requests": 0, "tokens": 0} for label in intervals}
+        trend_data = {label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals}
         for log in trend_logs:
             label = format_func(log.created_at)
             if label in trend_data:
@@ -175,6 +193,8 @@ async def get_user_stats(
                     or 0
                 )
                 trend_data[label]["tokens"] += tokens
+                if log.status == "error":
+                    trend_data[label]["errors"] += 1
 
         return {
             "name": key.name,

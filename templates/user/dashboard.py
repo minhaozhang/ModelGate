@@ -72,8 +72,14 @@ USER_DASHBOARD_HTML = """
                     <div id="active-sessions" class="space-y-2"><div class="text-gray-400 text-center py-2">No active sessions</div></div>
                 </div>
                 
-                <div class="mb-6" style="height: 250px;">
-                    <canvas id="trend-chart"></canvas>
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-semibold">Request Trend</h3>
+                        <span id="trend-meta" class="text-xs text-gray-500">Requests / Tokens / Errors</span>
+                    </div>
+                    <div style="height: 250px;">
+                        <canvas id="trend-chart"></canvas>
+                    </div>
                 </div>
                 
                 <div>
@@ -197,7 +203,6 @@ const data = await response.json();</code></pre>
     </div>
     
     <script>
-        const apiKeyId = {api_key_id};
         const baseUrl = window.location.origin + '/v1';
         let trendChart = null;
         
@@ -214,52 +219,153 @@ const data = await response.json();</code></pre>
             
             if (tab === 'opencode') loadOpenCodeConfig();
         }}
-        
+
+        function formatCompactTokens(tokens) {{
+            const value = Number(tokens || 0);
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\\.0$/, '') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\\.0$/, '') + 'K';
+            if (Number.isInteger(value)) return value.toLocaleString();
+            return value.toFixed(1).replace(/\\.0$/, '');
+        }}
+
+        function getTokenChartScale(requestValues, tokenValues) {{
+            const maxRequests = Math.max(...requestValues, 1);
+            const maxTokens = Math.max(...tokenValues, 1);
+            const scales = [
+                {{ divisor: 1, suffix: '' }},
+                {{ divisor: 1000, suffix: 'K' }},
+                {{ divisor: 1000000, suffix: 'M' }},
+                {{ divisor: 1000000000, suffix: 'B' }}
+            ];
+            let scale = scales.find(s => maxTokens / s.divisor <= maxRequests * 5) || scales[scales.length - 1];
+            if (maxTokens / scale.divisor >= 1000) {{
+                scale = scales[scales.indexOf(scale) + 1] || scale;
+            }}
+            return scale;
+        }}
+         
         async function loadStats() {{
             const period = document.getElementById('period-select').value;
             const resp = await fetch('/user/api/stats?period=' + period);
             const data = await resp.json();
             
             if (data.error) {{ window.location.href = '/user/login'; return; }}
-            
+             
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
-            document.getElementById('total-tokens').textContent = data.total_tokens.toLocaleString();
+            document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
             document.getElementById('total-errors').textContent = data.total_errors;
             document.getElementById('model-count').textContent = Object.keys(data.models || {{}}).length;
-            
-            const modelHtml = Object.entries(data.models || {{}}).map(([name, m]) => `
+             
+            const modelHtml = Object.entries(data.models || {{}})
+                .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0) || (b[1].requests || 0) - (a[1].requests || 0))
+                .map(([name, m]) => `
                 <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
                     <span class="font-medium text-sm">${{name}}</span>
-                    <span class="text-sm text-gray-600">${{m.requests}} req / ${{m.tokens.toLocaleString()}} tokens</span>
+                    <span class="text-sm text-gray-600">${{m.requests}} req / ${{formatCompactTokens(m.tokens || 0)}} tok</span>
                 </div>
             `).join('');
             document.getElementById('model-stats').innerHTML = modelHtml || '<div class="text-gray-400">No data</div>';
-            
+             
             renderTrendChart(data.trend || {{}});
         }}
-        
+         
         function renderTrendChart(trendData) {{
             const ctx = document.getElementById('trend-chart').getContext('2d');
             if (trendChart) trendChart.destroy();
-            
+             
             const labels = Object.keys(trendData);
             const requests = labels.map(l => trendData[l].requests || 0);
-            const tokens = labels.map(l => Math.floor((trendData[l].tokens || 0) / 1000));
-            
+            const rawTokens = labels.map(l => trendData[l].tokens || 0);
+            const errors = labels.map(l => trendData[l].errors || 0);
+            const tokenScale = getTokenChartScale(requests, rawTokens);
+            const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
+            const tokenLabel = tokenScale.suffix ? `Tokens (${{tokenScale.suffix}})` : 'Tokens';
+            document.getElementById('trend-meta').textContent = `${{tokenLabel}} on right axis`;
+             
             trendChart = new Chart(ctx, {{
-                type: 'bar',
                 data: {{
                     labels: labels,
                     datasets: [
-                        {{ label: 'Requests', data: requests, backgroundColor: '#3b82f6', borderRadius: 4 }},
-                        {{ label: 'Tokens (K)', data: tokens, backgroundColor: '#10b981', borderRadius: 4 }}
+                        {{
+                            type: 'bar',
+                            label: 'Requests',
+                            data: requests,
+                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
+                            borderColor: 'rgba(59, 130, 246, 0.85)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            yAxisID: 'yRequests'
+                        }},
+                        {{
+                            type: 'line',
+                            label: tokenLabel,
+                            data: tokens,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            pointBackgroundColor: '#10b981',
+                            pointRadius: 3,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.25,
+                            fill: true,
+                            yAxisID: 'yTokens'
+                        }},
+                        {{
+                            type: 'line',
+                            label: 'Errors',
+                            data: errors,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [6, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        }}
                     ]
                 }},
                 options: {{
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: {{ y: {{ beginAtZero: true }} }},
-                    plugins: {{ legend: {{ position: 'top' }} }}
+                    interaction: {{ mode: 'index', intersect: false }},
+                    scales: {{
+                        x: {{
+                            ticks: {{
+                                autoSkip: true,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                maxTicksLimit: labels.length > 20 ? 10 : 12
+                            }}
+                        }},
+                        yRequests: {{
+                            beginAtZero: true,
+                            position: 'left',
+                            title: {{ display: true, text: 'Requests / Errors' }}
+                        }},
+                        yTokens: {{
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: {{ drawOnChartArea: false }},
+                            title: {{ display: true, text: tokenLabel }}
+                        }}
+                    }},
+                    plugins: {{
+                        legend: {{ position: 'top' }},
+                        tooltip: {{
+                            callbacks: {{
+                                label: function(context) {{
+                                    if (context.dataset.yAxisID === 'yTokens') {{
+                                        const rawValue = rawTokens[context.dataIndex] || 0;
+                                        return `${{tokenLabel}}: ${{formatCompactTokens(rawValue)}} (${{rawValue.toLocaleString()}})`;
+                                    }}
+                                    return `${{context.dataset.label}}: ${{(context.parsed.y || 0).toLocaleString()}}`;
+                                }}
+                            }}
+                        }}
+                    }}
                 }}
             }});
         }}
