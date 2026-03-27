@@ -289,6 +289,122 @@ def parse_model(model: str) -> tuple[str, str]:
     return "", model
 
 
+def _coerce_int(value) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        value = value.strip()
+        if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
+            return int(value)
+    return None
+
+
+def _first_usage_int(usage: dict, *keys: str) -> Optional[int]:
+    for key in keys:
+        value = _coerce_int(usage.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _estimate_text_tokens(text: str) -> int:
+    if not text:
+        return 0
+    return max(len(text) // 4, 1)
+
+
+def _estimate_prompt_tokens(req_body: Optional[dict]) -> int:
+    if not req_body:
+        return 0
+
+    payload = {}
+    for key in (
+        "messages",
+        "input",
+        "prompt",
+        "tools",
+        "tool_choice",
+        "temperature",
+        "max_tokens",
+    ):
+        if key in req_body:
+            payload[key] = req_body[key]
+
+    if not payload:
+        payload = req_body
+
+    try:
+        serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    except TypeError:
+        serialized = str(payload)
+
+    return _estimate_text_tokens(serialized)
+
+
+def build_tokens_record(
+    usage: Optional[dict],
+    req_body: Optional[dict] = None,
+    response_text: str = "",
+    reasoning_text: str = "",
+) -> dict:
+    raw_usage = usage if isinstance(usage, dict) else {}
+    tokens_record = dict(raw_usage)
+
+    prompt_tokens = _first_usage_int(
+        raw_usage,
+        "prompt_tokens",
+        "input_tokens",
+        "promptTokens",
+        "inputTokens",
+    )
+    completion_tokens = _first_usage_int(
+        raw_usage,
+        "completion_tokens",
+        "output_tokens",
+        "completionTokens",
+        "outputTokens",
+    )
+    total_tokens = _first_usage_int(
+        raw_usage,
+        "total_tokens",
+        "totalTokens",
+    )
+
+    estimated = False
+
+    if prompt_tokens is None:
+        if total_tokens is not None and completion_tokens is not None:
+            prompt_tokens = max(total_tokens - completion_tokens, 0)
+        else:
+            prompt_tokens = _estimate_prompt_tokens(req_body)
+            estimated = True
+
+    if completion_tokens is None:
+        if total_tokens is not None and prompt_tokens is not None:
+            completion_tokens = max(total_tokens - prompt_tokens, 0)
+        else:
+            completion_tokens = _estimate_text_tokens(response_text + reasoning_text)
+            estimated = True
+
+    if total_tokens is None:
+        total_tokens = (prompt_tokens or 0) + (completion_tokens or 0)
+        estimated = True
+
+    tokens_record.update(
+        {
+            "prompt_tokens": prompt_tokens or 0,
+            "completion_tokens": completion_tokens or 0,
+            "total_tokens": total_tokens or 0,
+            "estimated": estimated,
+        }
+    )
+    return tokens_record
+
+
 async def get_provider_and_model(model: str) -> tuple[Optional[dict], str, str]:
     provider_name, actual_model = parse_model(model)
     if not provider_name:
@@ -417,6 +533,17 @@ async def proxy_request(request: Request, endpoint: str):
             if len(merged_msgs) != len(messages):
                 body_json["messages"] = merged_msgs
 
+        stream = body_json.get("stream", False)
+
+        if stream and provider_name != "minimax":
+            stream_options = body_json.get("stream_options")
+            if isinstance(stream_options, dict):
+                stream_options = dict(stream_options)
+            else:
+                stream_options = {}
+            stream_options["include_usage"] = True
+            body_json["stream_options"] = stream_options
+
         if provider_name == "minimax" and merge_messages:
             body_json.pop("thinking", None)
             body_json.pop("stream_options", None)
@@ -436,8 +563,6 @@ async def proxy_request(request: Request, endpoint: str):
             headers["authorization"] = f"Bearer {provider_config['api_key']}"
 
         original_headers = dict(headers)
-
-        stream = body_json.get("stream", False)
 
         key_name = (
             api_keys_cache.get(auth_header.replace("Bearer ", ""), {}).get(
@@ -578,14 +703,20 @@ async def handle_normal(
                 resp_json["choices"][0]["finish_reason"] = "tool_calls"
                 logger.info(f"[MINIMAX TOOL_CALLS] Parsed {len(tool_calls)} tool calls")
 
-    usage = resp_json.get("usage", {})
-    prompt_tokens = usage.get("prompt_tokens", 0)
-    completion_tokens = usage.get("completion_tokens", 0)
-    total_tokens = usage.get("total_tokens", prompt_tokens + completion_tokens)
-
     response_text = ""
+    reasoning_text = ""
     if "choices" in resp_json and resp_json["choices"]:
-        response_text = resp_json["choices"][0].get("message", {}).get("content", "")
+        message = resp_json["choices"][0].get("message", {})
+        response_text = message.get("content", "")
+        reasoning_text = message.get("reasoning_content", "")
+
+    tokens_record = build_tokens_record(
+        resp_json.get("usage"),
+        req_body=req_body,
+        response_text=response_text,
+        reasoning_text=reasoning_text,
+    )
+    total_tokens = tokens_record["total_tokens"]
 
     is_error = resp.status_code >= 400
     retry_after = resp.headers.get("retry-after")
@@ -607,7 +738,7 @@ async def handle_normal(
         provider,
         model,
         response_text,
-        usage,
+        tokens_record,
         latency,
         "error" if is_error else "success",
         api_key_id=api_key_id,
@@ -698,6 +829,7 @@ async def handle_streaming(
         tool_call_buffer = ""
         last_content = ""
         repeated_count = 0
+        last_usage = None
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
                 async with client.stream(
@@ -734,6 +866,9 @@ async def handle_streaming(
                             try:
                                 chunk = json.loads(line_content)
                                 chunk_count += 1
+
+                                if chunk.get("usage"):
+                                    last_usage = chunk["usage"]
 
                                 if chunk.get("error"):
                                     error_msg = chunk.get("error")
@@ -939,32 +1074,38 @@ async def handle_streaming(
                                         f"[STREAM] Client disconnected at chunk {chunk_count}"
                                     )
                                     latency = (time.time() - start_time) * 1000
-                                    approx_tokens = (
-                                        len(total_content) + len(total_reasoning)
-                                    ) // 2
+                                    tokens_record = build_tokens_record(
+                                        last_usage,
+                                        req_body=req_body,
+                                        response_text=total_content,
+                                        reasoning_text=total_reasoning,
+                                    )
                                     await update_request_log(
                                         log_id,
                                         response=total_content,
-                                        tokens={
-                                            "total_tokens": approx_tokens,
-                                            "estimated": True,
-                                        },
+                                        tokens=tokens_record,
                                         latency_ms=latency,
                                         status="cancelled",
                                     )
                                     return
 
             latency = (time.time() - start_time) * 1000
-            approx_tokens = (len(total_content) + len(total_reasoning)) // 2
-            update_stats(provider, model, approx_tokens, api_key_id=api_key_id)
+            tokens_record = build_tokens_record(
+                last_usage,
+                req_body=req_body,
+                response_text=total_content,
+                reasoning_text=total_reasoning,
+            )
+            total_tokens = tokens_record["total_tokens"]
+            update_stats(provider, model, total_tokens, api_key_id=api_key_id)
             await update_request_log(
                 log_id,
                 response=total_content,
-                tokens={"total_tokens": approx_tokens, "estimated": approx_tokens},
+                tokens=tokens_record,
                 latency_ms=latency,
                 status="success",
             )
-            logger.info(f"[STREAM COMPLETE] ~{approx_tokens} tokens | {latency:.0f}ms")
+            logger.info(f"[STREAM COMPLETE] ~{total_tokens} tokens | {latency:.0f}ms")
             logger.debug("[STREAM RESPONSE] Content: %s", total_content)
         except Exception as e:
             latency = (time.time() - start_time) * 1000
