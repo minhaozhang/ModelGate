@@ -130,19 +130,38 @@ HOME_PAGE_HTML = """
             renderApiKeyBars(data.api_keys || {});
             loadChart();
         }
+        function formatCompactTokens(tokens) {
+            if (tokens >= 1000000) return (tokens / 1000000).toFixed(1).replace(/\\.0$/, '') + 'M';
+            if (tokens >= 1000) return (tokens / 1000).toFixed(1).replace(/\\.0$/, '') + 'K';
+            return (tokens || 0).toLocaleString();
+        }
+        function renderModelList(models, accentClass) {
+            const items = Object.entries(models || {})
+                .filter(([, m]) => (m.requests || 0) > 0)
+                .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0) || (b[1].requests || 0) - (a[1].requests || 0))
+                .map(([model, m]) => `<div class="flex justify-between gap-2 text-[11px] text-gray-500"><span class="truncate ${accentClass}">${model}</span><span class="shrink-0">${m.requests} / ${formatCompactTokens(m.tokens || 0)}</span></div>`)
+                .join('');
+            return items ? `<div class="mt-2 space-y-1 border-l-2 border-gray-100 pl-2">${items}</div>` : '';
+        }
         function renderProviderBars(providers) {
-            const maxReq = Math.max(...Object.values(providers).map(p => p.requests), 1);
-            const html = Object.entries(providers).map(([name, p]) => {
-                const pct = (p.requests / maxReq) * 100;
-                return `<div class="rounded p-1"><div class="flex justify-between text-xs mb-1"><span class="font-medium truncate">${name}</span><span class="text-gray-500 ml-1">${p.requests}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div></div>`;
+            const entries = Object.entries(providers)
+                .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0) || (b[1].requests || 0) - (a[1].requests || 0));
+            const maxTokens = Math.max(...entries.map(([, p]) => p.tokens || 0), 1);
+            const html = entries.map(([name, p]) => {
+                const pct = ((p.tokens || 0) / maxTokens) * 100;
+                const modelsHtml = renderModelList(p.models, 'text-gray-600');
+                return `<div class="rounded p-2 bg-gray-50"><div class="flex justify-between text-xs mb-1 gap-2"><span class="font-medium truncate">${name}</span><span class="text-gray-500 shrink-0">${p.requests} req / ${formatCompactTokens(p.tokens || 0)}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>${modelsHtml}</div>`;
             }).join('');
             document.getElementById('provider-bars').innerHTML = html || '<div class="text-gray-400 text-center py-2 text-xs">No data</div>';
         }
         function renderApiKeyBars(apiKeys) {
-            const maxReq = Math.max(...Object.values(apiKeys).map(k => k.requests), 1);
-            const html = Object.entries(apiKeys).map(([name, k]) => {
-                const pct = (k.requests / maxReq) * 100;
-                return `<div class="rounded p-1"><div class="flex justify-between text-xs mb-1"><span class="font-medium truncate">${name}</span><span class="text-gray-500 ml-1">${k.requests}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-green-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div></div>`;
+            const entries = Object.entries(apiKeys)
+                .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0) || (b[1].requests || 0) - (a[1].requests || 0));
+            const maxTokens = Math.max(...entries.map(([, k]) => k.tokens || 0), 1);
+            const html = entries.map(([name, k]) => {
+                const pct = ((k.tokens || 0) / maxTokens) * 100;
+                const modelsHtml = renderModelList(k.models, 'text-gray-600');
+                return `<div class="rounded p-2 bg-gray-50"><div class="flex justify-between text-xs mb-1 gap-2"><span class="font-medium truncate">${name}</span><span class="text-gray-500 shrink-0">${k.requests} req / ${formatCompactTokens(k.tokens || 0)}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-green-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>${modelsHtml}</div>`;
             }).join('');
             document.getElementById('apikey-bars').innerHTML = html || '<div class="text-gray-400 text-center py-2 text-xs">No data</div>';
         }

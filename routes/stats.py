@@ -487,69 +487,78 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
         )
         total_errors = errors_result.scalar() or 0
 
-        provider_result = await session.execute(
-            select(
-                RequestLog.model,
-                func.count(RequestLog.id).label("count"),
-                func.sum(
-                    func.coalesce(
-                        RequestLog.tokens["total_tokens"].as_integer(),
-                        RequestLog.tokens["estimated"].as_integer(),
-                        0,
-                    )
-                ).label("tokens"),
-            )
-            .where(RequestLog.created_at >= start)
-            .group_by(RequestLog.model)
+        logs_result = await session.execute(
+            select(RequestLog).where(RequestLog.created_at >= start)
         )
-        model_stats = {
-            row.model: {"requests": row.count, "tokens": row.tokens or 0}
-            for row in provider_result
-        }
+        logs = logs_result.scalars().all()
 
-        api_key_result = await session.execute(
-            select(
-                RequestLog.api_key_id,
-                func.count(RequestLog.id).label("count"),
-                func.sum(
-                    func.coalesce(
-                        RequestLog.tokens["total_tokens"].as_integer(),
-                        RequestLog.tokens["estimated"].as_integer(),
-                        0,
-                    )
-                ).label("tokens"),
+        provider_ids = {log.provider_id for log in logs if log.provider_id}
+        api_key_ids = {log.api_key_id for log in logs if log.api_key_id}
+
+        providers_map = {}
+        if provider_ids:
+            providers_result = await session.execute(
+                select(Provider).where(Provider.id.in_(provider_ids))
             )
-            .where(RequestLog.created_at >= start)
-            .group_by(RequestLog.api_key_id)
-        )
-        api_key_stats = {}
-        for row in api_key_result:
-            if row.api_key_id:
-                key_result = await session.execute(
-                    select(ApiKey).where(ApiKey.id == row.api_key_id)
-                )
-                key = key_result.scalar_one_or_none()
-                name = key.name if key else f"Key {row.api_key_id}"
-                api_key_stats[name] = {"requests": row.count, "tokens": row.tokens or 0}
+            providers_map = {provider.id: provider.name for provider in providers_result.scalars()}
 
+        api_keys_map = {}
+        if api_key_ids:
+            api_keys_result = await session.execute(
+                select(ApiKey).where(ApiKey.id.in_(api_key_ids))
+            )
+            api_keys_map = {api_key.id: api_key.name for api_key in api_keys_result.scalars()}
+
+        model_stats = {}
         provider_stats = {}
-        for model, data in model_stats.items():
-            prov_result = await session.execute(
-                select(RequestLog.provider_id)
-                .where(RequestLog.model == model)
-                .distinct()
+        api_key_stats = {}
+
+        for log in logs:
+            tokens = (
+                (log.tokens or {}).get("total_tokens")
+                or (log.tokens or {}).get("estimated")
+                or 0
             )
-            prov_ids = [r[0] for r in prov_result.fetchall() if r[0]]
-            for prov_id in prov_ids:
-                p_result = await session.execute(
-                    select(Provider).where(Provider.id == prov_id)
-                )
-                p = p_result.scalar_one_or_none()
-                if p:
-                    if p.name not in provider_stats:
-                        provider_stats[p.name] = {"requests": 0, "tokens": 0}
-                    provider_stats[p.name]["requests"] += data["requests"]
-                    provider_stats[p.name]["tokens"] += data["tokens"]
+
+            if log.model:
+                if log.model not in model_stats:
+                    model_stats[log.model] = {"requests": 0, "tokens": 0}
+                model_stats[log.model]["requests"] += 1
+                model_stats[log.model]["tokens"] += tokens
+
+            provider_name = providers_map.get(log.provider_id)
+            if provider_name:
+                if provider_name not in provider_stats:
+                    provider_stats[provider_name] = {
+                        "requests": 0,
+                        "tokens": 0,
+                        "models": {},
+                    }
+                provider_stats[provider_name]["requests"] += 1
+                provider_stats[provider_name]["tokens"] += tokens
+                if log.model:
+                    models = provider_stats[provider_name]["models"]
+                    if log.model not in models:
+                        models[log.model] = {"requests": 0, "tokens": 0}
+                    models[log.model]["requests"] += 1
+                    models[log.model]["tokens"] += tokens
+
+            api_key_name = api_keys_map.get(log.api_key_id)
+            if api_key_name:
+                if api_key_name not in api_key_stats:
+                    api_key_stats[api_key_name] = {
+                        "requests": 0,
+                        "tokens": 0,
+                        "models": {},
+                    }
+                api_key_stats[api_key_name]["requests"] += 1
+                api_key_stats[api_key_name]["tokens"] += tokens
+                if log.model:
+                    models = api_key_stats[api_key_name]["models"]
+                    if log.model not in models:
+                        models[log.model] = {"requests": 0, "tokens": 0}
+                    models[log.model]["requests"] += 1
+                    models[log.model]["tokens"] += tokens
 
         return {
             "period": period,
