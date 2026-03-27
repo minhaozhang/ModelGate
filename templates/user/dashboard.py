@@ -63,16 +63,26 @@ USER_DASHBOARD_HTML = """
                         <div id="model-count" class="text-2xl font-bold text-purple-600">0</div>
                     </div>
                 </div>
-                
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-lg font-semibold">Active Sessions (Last 1 Minute)</h3>
-                        <span id="active-count" class="text-sm text-gray-500">0 active</span>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">Active Sessions (Last 1 Minute)</h3>
+                            <span id="active-count" class="text-sm text-gray-500">0 active</span>
+                        </div>
+                        <div id="active-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-3"><div class="text-gray-400 text-center py-2 2xl:col-span-2">No active sessions</div></div>
                     </div>
-                    <div id="active-sessions" class="space-y-2"><div class="text-gray-400 text-center py-2">No active sessions</div></div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">System Active Requests (Last 1 Minute)</h3>
+                            <span id="system-active-count" class="text-sm text-gray-500">0 active</span>
+                        </div>
+                        <div class="text-xs text-gray-400 mb-3">Anonymized across all API keys. Your own traffic is labeled as Yourself.</div>
+                        <div id="system-active-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-3"><div class="text-gray-400 text-center py-2 2xl:col-span-2">No active sessions</div></div>
+                    </div>
                 </div>
-                
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+
+                <div class="bg-gray-50 rounded-lg p-4 my-6">
                     <div class="flex justify-between items-center mb-3">
                         <h3 class="text-lg font-semibold">Request Trend</h3>
                         <span id="trend-meta" class="text-xs text-gray-500">Requests / Tokens / Errors</span>
@@ -81,10 +91,24 @@ USER_DASHBOARD_HTML = """
                         <canvas id="trend-chart"></canvas>
                     </div>
                 </div>
-                
-                <div>
-                    <h3 class="text-lg font-semibold mb-3">Model Usage</h3>
-                    <div id="model-stats" class="space-y-2"></div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">Model Usage</h3>
+                            <span id="model-usage-meta" class="text-xs text-gray-500">Your API key</span>
+                        </div>
+                        <div class="h-64"><canvas id="model-usage-chart"></canvas></div>
+                        <div id="model-stats" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-64 overflow-y-auto"></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">System Model Usage</h3>
+                            <span id="system-model-meta" class="text-xs text-gray-500">All API keys</span>
+                        </div>
+                        <div class="h-64"><canvas id="system-model-chart"></canvas></div>
+                        <div id="system-model-legend" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-64 overflow-y-auto"></div>
+                    </div>
                 </div>
             </div>
             
@@ -205,6 +229,9 @@ const data = await response.json();</code></pre>
     <script>
         const baseUrl = window.location.origin + '/v1';
         let trendChart = null;
+        let modelUsageChart = null;
+        let systemModelChart = null;
+        const chartPalette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#6366f1'];
         
         document.getElementById('proxy-url').textContent = baseUrl;
         document.getElementById('base-python').textContent = baseUrl;
@@ -243,12 +270,141 @@ const data = await response.json();</code></pre>
             }}
             return scale;
         }}
+
+        function buildDonutSeries(data, metric = 'requests', limit = 5) {{
+            const entries = Object.entries(data || {{}})
+                .sort((a, b) => (b[1][metric] || 0) - (a[1][metric] || 0))
+                .filter(([, stats]) => (stats[metric] || 0) > 0);
+            const topEntries = entries.slice(0, limit);
+            const otherValue = entries.slice(limit).reduce((sum, [, stats]) => sum + (stats[metric] || 0), 0);
+            const labels = topEntries.map(([name]) => name);
+            const values = topEntries.map(([, stats]) => stats[metric] || 0);
+            const colors = topEntries.map((_, index) => chartPalette[index % chartPalette.length]);
+            if (otherValue > 0) {{
+                labels.push('Others');
+                values.push(otherValue);
+                colors.push('#cbd5e1');
+            }}
+            return {{ entries, labels, values, colors }};
+        }}
+
+        function renderModelUsageChart(chartId, legendId, metaId, models, chartRef, metaLabel = 'All API keys') {{
+            const series = buildDonutSeries(models, 'requests', 6);
+            const ctx = document.getElementById(chartId).getContext('2d');
+            if (chartRef.current) chartRef.current.destroy();
+
+            chartRef.current = new Chart(ctx, {{
+                type: 'doughnut',
+                data: {{
+                    labels: series.labels,
+                    datasets: [{{
+                        data: series.values,
+                        backgroundColor: series.colors,
+                        borderWidth: 0,
+                        hoverOffset: 8
+                    }}]
+                }},
+                options: {{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {{
+                        legend: {{ display: false }},
+                        tooltip: {{
+                            callbacks: {{
+                                label: function(context) {{
+                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
+                                    const pct = context.raw / total;
+                                    return `${{context.label}}: ${{(context.raw || 0).toLocaleString()}} req (${{(pct * 100).toFixed(1)}}%)`;
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            }});
+
+            const totalRequests = series.entries.reduce((sum, [, stats]) => sum + (stats.requests || 0), 0) || 1;
+            const legendHtml = series.entries.slice(0, 6).map(([name, stats], index) => `
+                <div class="rounded bg-white p-3 shadow-sm">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${{chartPalette[index % chartPalette.length]}}"></span>
+                        <span class="truncate text-sm font-medium" title="${{name}}">${{name}}</span>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-500">${{stats.requests.toLocaleString()}} req / ${{formatCompactTokens(stats.tokens || 0)}}</div>
+                    ${{typeof stats.errors === 'number' ? `<div class="mt-1 text-xs text-gray-400">err ${{stats.errors}}</div>` : ''}}
+                </div>
+            `).join('');
+            document.getElementById(legendId).innerHTML = legendHtml || '<div class="text-gray-400 text-center py-2 2xl:col-span-2">No data</div>';
+            document.getElementById(metaId).textContent = `${{metaLabel}} / ${{Object.keys(models || {{}}).length}} models / top share ${{
+                series.entries[0] ? (((series.entries[0][1].requests || 0) / totalRequests) * 100).toFixed(1) + '%' : '0%'
+            }}`;
+        }}
+
+        function renderOwnModelChart(models) {{
+            renderModelUsageChart(
+                'model-usage-chart',
+                'model-stats',
+                'model-usage-meta',
+                models,
+                {{
+                    get current() {{ return modelUsageChart; }},
+                    set current(value) {{ modelUsageChart = value; }}
+                }},
+                'Your API key'
+            );
+        }}
+
+        function renderSystemModelChart(models) {{
+            renderModelUsageChart(
+                'system-model-chart',
+                'system-model-legend',
+                'system-model-meta',
+                models,
+                {{
+                    get current() {{ return systemModelChart; }},
+                    set current(value) {{ systemModelChart = value; }}
+                }},
+                'All API keys'
+            );
+        }}
+
+        function renderSystemActiveSessions(data) {{
+            document.getElementById('system-active-count').textContent = `${{data.active_count || 0}} active / ${{(data.request_count || 0).toLocaleString()}} req`;
+            if (!data.active_count) {{
+                document.getElementById('system-active-sessions').innerHTML = '<div class="text-gray-400 text-center py-2 2xl:col-span-2">No active sessions</div>';
+                return;
+            }}
+
+            const html = (data.sessions || []).map(session => {{
+                const labelClass = session.is_self ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-700';
+                const modelsHtml = Object.entries(session.models || {{}})
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([model, count]) => `<span class="bg-white text-gray-600 text-xs px-2 py-1 rounded">${{model}} (${{count}})</span>`)
+                    .join(' ');
+                return `
+                    <div class="rounded bg-white p-3 shadow-sm">
+                        <div class="flex justify-between items-start gap-3">
+                            <div class="min-w-0">
+                                <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium ${{labelClass}}">${{session.name}}</span>
+                                <div class="mt-2 text-xs text-gray-500">${{modelsHtml || 'No models'}}</div>
+                            </div>
+                            <div class="text-sm font-medium text-gray-700 shrink-0">${{session.requests}} req</div>
+                        </div>
+                    </div>
+                `;
+            }}).join('');
+            document.getElementById('system-active-sessions').innerHTML = html;
+        }}
          
         async function loadStats() {{
             const period = document.getElementById('period-select').value;
-            const resp = await fetch('/user/api/stats?period=' + period);
-            const data = await resp.json();
-            
+            const [statsResp, systemModelsResp] = await Promise.all([
+                fetch('/user/api/stats?period=' + period),
+                fetch('/user/api/system-models?period=' + period)
+            ]);
+            const data = await statsResp.json();
+            const systemModels = await systemModelsResp.json();
+             
             if (data.error) {{ window.location.href = '/user/login'; return; }}
              
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
@@ -256,17 +412,9 @@ const data = await response.json();</code></pre>
             document.getElementById('total-errors').textContent = data.total_errors;
             document.getElementById('model-count').textContent = Object.keys(data.models || {{}}).length;
              
-            const modelHtml = Object.entries(data.models || {{}})
-                .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0) || (b[1].requests || 0) - (a[1].requests || 0))
-                .map(([name, m]) => `
-                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span class="font-medium text-sm">${{name}}</span>
-                    <span class="text-sm text-gray-600">${{m.requests}} req / ${{formatCompactTokens(m.tokens || 0)}} tok</span>
-                </div>
-            `).join('');
-            document.getElementById('model-stats').innerHTML = modelHtml || '<div class="text-gray-400">No data</div>';
-             
             renderTrendChart(data.trend || {{}});
+            renderOwnModelChart(data.models || {{}});
+            renderSystemModelChart(systemModels.models || {{}});
         }}
          
         function renderTrendChart(trendData) {{
@@ -419,23 +567,34 @@ const data = await response.json();</code></pre>
             document.getElementById('active-count').textContent = data.active_count + ' active';
             
             if (data.active_count === 0) {{
-                document.getElementById('active-sessions').innerHTML = '<div class="text-gray-400 text-center py-2">No active sessions</div>';
+                document.getElementById('active-sessions').innerHTML = '<div class="text-gray-400 text-center py-2 2xl:col-span-2">No active sessions</div>';
                 return;
             }}
             
             const html = Object.entries(data.sessions).map(([model, session]) => `
-                <div class="flex justify-between items-center p-2 bg-white rounded">
-                    <span class="font-medium text-sm">${{model}}</span>
-                    <span class="text-sm text-gray-600">${{session.requests}} req</span>
+                <div class="rounded bg-white p-3 shadow-sm">
+                    <div class="flex justify-between items-start gap-3">
+                        <span class="font-medium text-sm min-w-0">${{model}}</span>
+                        <span class="text-sm text-gray-600 shrink-0">${{session.requests}} req</span>
+                    </div>
                 </div>
             `).join('');
             document.getElementById('active-sessions').innerHTML = html;
         }}
-        
+
+        async function loadSystemActiveSessions() {{
+            const resp = await fetch('/user/api/system-active');
+            const data = await resp.json();
+            if (data.error) return;
+            renderSystemActiveSessions(data);
+        }}
+         
         loadStats();
         loadActiveSessions();
+        loadSystemActiveSessions();
         setInterval(loadStats, 30000);
         setInterval(loadActiveSessions, 60000);
+        setInterval(loadSystemActiveSessions, 30000);
     </script>
 </body>
 </html>

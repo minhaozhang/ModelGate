@@ -1,11 +1,12 @@
+import secrets
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Cookie, Response, Depends
+from typing import Optional
+
+from fastapi import APIRouter, Cookie, Depends, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
-from sqlalchemy import select, func
-from typing import Optional
-import secrets
-import os
+from sqlalchemy import case, func, select
 
 from core.database import async_session_maker, ApiKey, RequestLog
 from core.config import logger
@@ -34,6 +35,40 @@ def get_user_session(user_session: Optional[str] = Cookie(None)) -> Optional[int
         del USER_SESSIONS[user_session]
         return None
     return session_data.get("api_key_id")
+
+
+def get_user_period_range(
+    now: datetime, period: str
+) -> tuple[datetime, list[str], Callable[[datetime], str]]:
+    if period == "day":
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        intervals = [((start + timedelta(hours=i)).strftime("%H:00")) for i in range(24)]
+        format_func = lambda d: d.strftime("%H:00")
+    elif period == "week":
+        start = now - timedelta(days=now.weekday())
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        intervals = [
+            ((start + timedelta(hours=6 * i)).strftime("%m/%d %H:%M"))
+            for i in range(28)
+        ]
+        format_func = lambda d: d.replace(
+            hour=(d.hour // 6) * 6,
+            minute=0,
+            second=0,
+            microsecond=0,
+        ).strftime("%m/%d %H:%M")
+    else:
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        days_in_month = (
+            now.replace(month=now.month % 12 + 1, day=1) - timedelta(days=1)
+        ).day
+        intervals = [
+            ((start + timedelta(days=i)).strftime("%m/%d"))
+            for i in range(days_in_month)
+        ]
+        format_func = lambda d: d.strftime("%m/%d")
+
+    return start, intervals, format_func
 
 
 @router.get("/user/login", response_class=HTMLResponse)
@@ -90,35 +125,7 @@ async def get_user_stats(
         now = now_result.scalar()
     if now.tzinfo is not None:
         now = now.replace(tzinfo=None)
-    if period == "day":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        intervals = [
-            ((start + timedelta(hours=i)).strftime("%H:00")) for i in range(24)
-        ]
-        format_func = lambda d: d.strftime("%H:00")
-    elif period == "week":
-        start = now - timedelta(days=now.weekday())
-        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-        intervals = [
-            ((start + timedelta(hours=6 * i)).strftime("%m/%d %H:%M"))
-            for i in range(28)
-        ]
-        format_func = lambda d: d.replace(
-            hour=(d.hour // 6) * 6,
-            minute=0,
-            second=0,
-            microsecond=0,
-        ).strftime("%m/%d %H:%M")
-    else:
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        days_in_month = (
-            now.replace(month=now.month % 12 + 1, day=1) - timedelta(days=1)
-        ).day
-        intervals = [
-            ((start + timedelta(days=i)).strftime("%m/%d"))
-            for i in range(days_in_month)
-        ]
-        format_func = lambda d: d.strftime("%m/%d")
+    start, intervals, format_func = get_user_period_range(now, period)
 
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
@@ -166,13 +173,20 @@ async def get_user_stats(
                         0,
                     )
                 ).label("tokens"),
+                func.sum(case((RequestLog.status == "error", 1), else_=0)).label(
+                    "errors"
+                ),
             )
             .where(RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start)
             .group_by(RequestLog.model)
         )
         model_stats_rows = model_stats_result.fetchall()
         model_stats = {
-            row.model: {"requests": row.count, "tokens": row.tokens or 0}
+            row.model: {
+                "requests": row.count,
+                "tokens": row.tokens or 0,
+                "errors": row.errors or 0,
+            }
             for row in model_stats_rows
         }
 
@@ -235,6 +249,104 @@ async def get_user_active_sessions(api_key_id: int = Depends(get_user_session)):
             "active_count": len(model_sessions),
             "sessions": model_sessions,
         }
+
+
+@router.get("/user/api/system-models")
+async def get_system_model_stats(
+    api_key_id: int = Depends(get_user_session), period: str = "day"
+):
+    if not api_key_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    async with async_session_maker() as db_session:
+        now_result = await db_session.execute(select(func.now()))
+        now = now_result.scalar()
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
+
+    start, _, _ = get_user_period_range(now, period)
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(
+                RequestLog.model,
+                func.count(RequestLog.id).label("count"),
+                func.sum(
+                    func.coalesce(
+                        RequestLog.tokens["total_tokens"].as_integer(),
+                        RequestLog.tokens["estimated"].as_integer(),
+                        0,
+                    )
+                ).label("tokens"),
+            )
+            .where(RequestLog.created_at >= start)
+            .group_by(RequestLog.model)
+        )
+        rows = result.fetchall()
+
+    models = {
+        row.model: {"requests": row.count or 0, "tokens": row.tokens or 0}
+        for row in rows
+        if row.model
+    }
+    return {
+        "period": period,
+        "total_requests": sum(v["requests"] for v in models.values()),
+        "total_tokens": sum(v["tokens"] for v in models.values()),
+        "models": models,
+    }
+
+
+@router.get("/user/api/system-active")
+async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)):
+    if not api_key_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(RequestLog).where(RequestLog.created_at >= func.now() - timedelta(minutes=1))
+        )
+        logs = result.scalars().all()
+
+    grouped: dict[int | None, dict] = {}
+    for log in logs:
+        key = log.api_key_id
+        if key not in grouped:
+            grouped[key] = {"requests": 0, "models": {}}
+        grouped[key]["requests"] += 1
+        if log.model:
+            grouped[key]["models"][log.model] = grouped[key]["models"].get(log.model, 0) + 1
+
+    other_index = 1
+    sessions = []
+    for key in sorted(grouped.keys(), key=lambda value: (value != api_key_id, value or 0)):
+        stats = grouped[key]
+        if key == api_key_id:
+            display_name = "Yourself"
+            is_self = True
+        elif key is None:
+            display_name = "Anonymous"
+            is_self = False
+        else:
+            display_name = f"Other {other_index}"
+            other_index += 1
+            is_self = False
+
+        sessions.append(
+            {
+                "name": display_name,
+                "is_self": is_self,
+                "requests": stats["requests"],
+                "models": stats["models"],
+            }
+        )
+
+    sessions.sort(key=lambda item: (not item["is_self"], -item["requests"], item["name"]))
+    return {
+        "active_count": len(sessions),
+        "request_count": sum(item["requests"] for item in sessions),
+        "sessions": sessions,
+    }
 
 
 @router.get("/user/dashboard", response_class=HTMLResponse)
