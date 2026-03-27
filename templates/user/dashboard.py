@@ -231,7 +231,8 @@ const data = await response.json();</code></pre>
         let trendChart = null;
         let modelUsageChart = null;
         let systemModelChart = null;
-        const chartPalette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#6366f1'];
+        const ownModelPalette = ['#2563eb', '#0f766e', '#0891b2', '#1d4ed8', '#059669', '#0ea5e9', '#14b8a6', '#0284c7'];
+        const systemModelPalette = ['#f59e0b', '#ef4444', '#f97316', '#dc2626', '#eab308', '#fb7185', '#ea580c', '#f43f5e'];
         
         document.getElementById('proxy-url').textContent = baseUrl;
         document.getElementById('base-python').textContent = baseUrl;
@@ -271,7 +272,7 @@ const data = await response.json();</code></pre>
             return scale;
         }}
 
-        function buildDonutSeries(data, metric = 'requests', limit = 5) {{
+        function buildDonutSeries(data, palette, metric = 'requests', limit = 5) {{
             const entries = Object.entries(data || {{}})
                 .sort((a, b) => (b[1][metric] || 0) - (a[1][metric] || 0))
                 .filter(([, stats]) => (stats[metric] || 0) > 0);
@@ -279,7 +280,7 @@ const data = await response.json();</code></pre>
             const otherValue = entries.slice(limit).reduce((sum, [, stats]) => sum + (stats[metric] || 0), 0);
             const labels = topEntries.map(([name]) => name);
             const values = topEntries.map(([, stats]) => stats[metric] || 0);
-            const colors = topEntries.map((_, index) => chartPalette[index % chartPalette.length]);
+            const colors = topEntries.map((_, index) => palette[index % palette.length]);
             if (otherValue > 0) {{
                 labels.push('Others');
                 values.push(otherValue);
@@ -288,8 +289,8 @@ const data = await response.json();</code></pre>
             return {{ entries, labels, values, colors }};
         }}
 
-        function renderModelUsageChart(chartId, legendId, metaId, models, chartRef, metaLabel = 'All API keys') {{
-            const series = buildDonutSeries(models, 'requests', 6);
+        function renderModelUsageChart(chartId, legendId, metaId, models, chartRef, palette, metaLabel = 'All API keys') {{
+            const series = buildDonutSeries(models, palette, 'requests', 6);
             const ctx = document.getElementById(chartId).getContext('2d');
             if (chartRef.current) chartRef.current.destroy();
 
@@ -327,7 +328,7 @@ const data = await response.json();</code></pre>
             const legendHtml = series.entries.slice(0, 6).map(([name, stats], index) => `
                 <div class="rounded bg-white p-3 shadow-sm">
                     <div class="flex items-center gap-2 min-w-0">
-                        <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${{chartPalette[index % chartPalette.length]}}"></span>
+                        <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${{palette[index % palette.length]}}"></span>
                         <span class="truncate text-sm font-medium" title="${{name}}">${{name}}</span>
                     </div>
                     <div class="mt-2 text-xs text-gray-500">${{stats.requests.toLocaleString()}} req / ${{formatCompactTokens(stats.tokens || 0)}}</div>
@@ -350,6 +351,7 @@ const data = await response.json();</code></pre>
                     get current() {{ return modelUsageChart; }},
                     set current(value) {{ modelUsageChart = value; }}
                 }},
+                ownModelPalette,
                 'Your API key'
             );
         }}
@@ -364,6 +366,7 @@ const data = await response.json();</code></pre>
                     get current() {{ return systemModelChart; }},
                     set current(value) {{ systemModelChart = value; }}
                 }},
+                systemModelPalette,
                 'All API keys'
             );
         }}
