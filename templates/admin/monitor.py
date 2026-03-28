@@ -12,6 +12,41 @@ MONITOR_PAGE_HTML = """
         .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
         .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
         .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50,
+        body.theme-dark .bg-slate-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .bg-slate-200,
+        body.theme-dark .bg-gray-200 { background: #1f2937 !important; }
+        body.theme-dark .text-gray-800,
+        body.theme-dark .text-slate-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700,
+        body.theme-dark .text-slate-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600,
+        body.theme-dark .text-slate-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500,
+        body.theme-dark .text-slate-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .border-blue-100,
+        body.theme-dark .border-emerald-100,
+        body.theme-dark .border-violet-100,
+        body.theme-dark .border-green-100,
+        body.theme-dark .border-amber-100,
+        body.theme-dark .border-red-100 { border-color: #1f2937 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500):not(.bg-teal-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark .bg-green-50 { background: rgba(16, 185, 129, 0.14) !important; }
+        body.theme-dark .bg-amber-50 { background: rgba(245, 158, 11, 0.14) !important; }
+        body.theme-dark .bg-red-50 { background: rgba(239, 68, 68, 0.14) !important; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -54,11 +89,16 @@ MONITOR_PAGE_HTML = """
                     <h2 class="text-2xl font-bold text-gray-800">Statistics Monitor</h2>
                     <p class="text-sm text-gray-500 mt-1">Composition, concentration, hotspots, and trend behavior</p>
                 </div>
-                <div class="flex bg-white rounded border overflow-hidden">
-                    <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">Day</button>
-                    <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Week</button>
-                    <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Month</button>
-                    <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Year</button>
+                <div class="flex items-center gap-3">
+                    <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                        Dark Mode
+                    </button>
+                    <div class="flex bg-white rounded border overflow-hidden">
+                        <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">Day</button>
+                        <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Week</button>
+                        <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Month</button>
+                        <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Year</button>
+                    </div>
                 </div>
             </div>
 
@@ -139,6 +179,39 @@ MONITOR_PAGE_HTML = """
             window.location.href = '/admin/login';
         }
 
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'light';
+        }
+
+        function getChartTheme() {
+            const isDark = document.body.classList.contains('theme-dark');
+            return {
+                tickColor: isDark ? '#94a3b8' : '#6b7280',
+                gridColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)',
+                titleColor: isDark ? '#cbd5e1' : '#4b5563',
+                legendColor: isDark ? '#e5e7eb' : '#374151',
+                tooltipBg: isDark ? '#0f172a' : '#ffffff',
+                tooltipTitle: isDark ? '#f8fafc' : '#111827',
+                tooltipBody: isDark ? '#cbd5e1' : '#374151',
+                tooltipBorder: isDark ? '#334155' : '#e5e7eb'
+            };
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+        }
+
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+            loadData();
+        }
+
+        applyTheme(getThemeMode());
+
         async function fetchJsonOrRedirect(url, options) {
             const resp = await fetch(url, options);
             if (resp.status === 401) {
@@ -207,6 +280,7 @@ MONITOR_PAGE_HTML = """
         function renderUsageChart(currentChart, canvasId, legendId, data, config) {
             const series = buildDonutSeries(data, config.palette, 'tokens', 5);
             const canvas = document.getElementById(canvasId);
+            const chartTheme = getChartTheme();
             if (currentChart) currentChart.destroy();
 
             const chart = new Chart(canvas.getContext('2d'), {
@@ -228,6 +302,11 @@ MONITOR_PAGE_HTML = """
                     plugins: {
                         legend: { display: false },
                         tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
                             callbacks: {
                                 label: function(context) {
                                     const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
@@ -329,15 +408,15 @@ MONITOR_PAGE_HTML = """
                             value: 'text-red-600'
                         };
                 return `
-                <div class="rounded-lg border ${{tone.border}} ${{tone.bg}} p-3">
+                <div class="rounded-lg border ${tone.border} ${tone.bg} p-3">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <div class="text-xs uppercase tracking-wide ${{tone.scope}}">${item.scope}</div>
+                            <div class="text-xs uppercase tracking-wide ${tone.scope}">${item.scope}</div>
                             <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${item.name}</div>
-                            <div class="mt-1 text-xs ${{tone.meta}}">${item.stats.errors.toLocaleString()} errors / ${item.stats.requests.toLocaleString()} requests</div>
+                            <div class="mt-1 text-xs ${tone.meta}">${item.stats.errors.toLocaleString()} errors / ${item.stats.requests.toLocaleString()} requests</div>
                         </div>
                         <div class="text-right shrink-0">
-                            <div class="text-lg font-bold ${{tone.value}}">${formatPct(item.errorRate, 1)}</div>
+                            <div class="text-lg font-bold ${tone.value}">${formatPct(item.errorRate, 1)}</div>
                         </div>
                     </div>
                 </div>
@@ -379,6 +458,7 @@ MONITOR_PAGE_HTML = """
 
         function renderTrendChart(data) {
             const ctx = document.getElementById('trendChart').getContext('2d');
+            const chartTheme = getChartTheme();
             if (trendChart) trendChart.destroy();
 
             const requests = data.intervals.map(label => data.data[label]?.requests || 0);
@@ -440,7 +520,9 @@ MONITOR_PAGE_HTML = """
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
+                            grid: { color: chartTheme.gridColor },
                             ticks: {
+                                color: chartTheme.tickColor,
                                 autoSkip: true,
                                 maxRotation: 0,
                                 minRotation: 0,
@@ -450,18 +532,26 @@ MONITOR_PAGE_HTML = """
                         yRequests: {
                             beginAtZero: true,
                             position: 'left',
-                            title: { display: true, text: 'Requests / Errors' }
+                            grid: { color: chartTheme.gridColor },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: 'Requests / Errors', color: chartTheme.titleColor }
                         },
                         yTokens: {
                             beginAtZero: true,
                             position: 'right',
                             grid: { drawOnChartArea: false },
-                            title: { display: true, text: tokenLabel }
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: tokenLabel, color: chartTheme.titleColor }
                         }
                     },
                     plugins: {
-                        legend: { position: 'top' },
+                        legend: { position: 'top', labels: { color: chartTheme.legendColor } },
                         tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
                             callbacks: {
                                 label: function(context) {
                                     if (context.dataset.yAxisID === 'yTokens') {

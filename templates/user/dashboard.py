@@ -50,7 +50,7 @@ USER_DASHBOARD_HTML = """
         <div class="bg-white rounded-lg shadow mb-6">
             <div class="flex border-b">
                 <button class="tab-btn active px-6 py-3 font-medium" onclick="showTab('stats')">Statistics</button>
-                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('catalog')">Catalog</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('catalog')">Models</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('opencode')">OpenCode Config</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">Usage Guide</button>
             </div>
@@ -132,7 +132,7 @@ USER_DASHBOARD_HTML = """
                 </div>
             </div>
 
-            <!-- Catalog Tab -->
+            <!-- Models Tab -->
             <div id="tab-catalog" class="tab-content p-6">
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <div class="bg-gray-50 rounded-lg p-4">

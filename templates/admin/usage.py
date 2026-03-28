@@ -12,6 +12,30 @@ USAGE_PAGE_HTML = """
         pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
         code { font-family: 'Monaco', 'Menlo', monospace; font-size: 0.875rem; }
         .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50,
+        body.theme-dark .bg-yellow-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .text-yellow-800 { color: #fde68a !important; }
+        body.theme-dark .text-yellow-700 { color: #fef3c7 !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .border-yellow-200 { border-color: #1f2937 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500):not(.bg-gray-700) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark code:not(pre code) { background: #111827 !important; color: #e2e8f0 !important; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -49,7 +73,12 @@ USAGE_PAGE_HTML = """
         </nav>
         
         <main class="ml-56 flex-1 p-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">How to Configure API Clients</h2>
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">How to Configure API Clients</h2>
+                <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                    Dark Mode
+                </button>
+            </div>
             
             <div class="bg-white rounded-lg shadow p-6 mb-6">
                 <h3 class="text-lg font-semibold mb-4">Basic Information</h3>
@@ -201,6 +230,24 @@ console.log(data.choices[0].message.content);</code></pre>
             await fetch('/admin/api/auth/logout', {method: 'POST'});
             window.location.href = '/admin/login';
         }
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'light';
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+        }
+
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+        }
+
+        applyTheme(getThemeMode());
         
         function copyCode(type) {
             const el = document.getElementById('code-' + type);
