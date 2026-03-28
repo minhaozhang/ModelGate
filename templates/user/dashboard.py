@@ -12,6 +12,22 @@ USER_DASHBOARD_HTML = """
         .tab-content.active {{ display: block; }}
         pre {{ background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }}
         code {{ font-family: 'Monaco', 'Menlo', monospace; font-size: 0.875rem; }}
+        body.theme-dark {{ background: #020617 !important; color: #e2e8f0; }}
+        body.theme-dark .bg-white {{ background: #0f172a !important; }}
+        body.theme-dark .bg-gray-50 {{ background: #111827 !important; }}
+        body.theme-dark .bg-gray-100 {{ background: #020617 !important; }}
+        body.theme-dark .text-gray-800 {{ color: #f8fafc !important; }}
+        body.theme-dark .text-gray-700 {{ color: #e5e7eb !important; }}
+        body.theme-dark .text-gray-600 {{ color: #cbd5e1 !important; }}
+        body.theme-dark .text-gray-500 {{ color: #94a3b8 !important; }}
+        body.theme-dark .text-gray-400 {{ color: #64748b !important; }}
+        body.theme-dark .border,
+        body.theme-dark .border-b {{ border-color: #1f2937 !important; }}
+        body.theme-dark select,
+        body.theme-dark button:not(.bg-red-500) {{ background-color: #0f172a; color: #e5e7eb; border-color: #334155; }}
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-sm {{ box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }}
+        body.theme-dark .tab-btn.active {{ border-bottom-color: #60a5fa; color: #60a5fa !important; }}
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -22,6 +38,9 @@ USER_DASHBOARD_HTML = """
                 <p class="text-gray-500">{name}</p>
             </div>
             <div class="flex gap-2">
+                <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                    Dark Mode
+                </button>
                 <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
                     Logout
                 </button>
@@ -61,6 +80,28 @@ USER_DASHBOARD_HTML = """
                     <div class="bg-gray-50 rounded-lg p-4">
                         <div class="text-gray-500 text-sm">Models Used</div>
                         <div id="model-count" class="text-2xl font-bold text-purple-600">0</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">Platform Providers & Models</h3>
+                            <span id="platform-catalog-meta" class="text-xs text-gray-500">0 providers / 0 models</span>
+                        </div>
+                        <div id="platform-catalog" class="space-y-3 max-h-96 overflow-y-auto">
+                            <div class="text-gray-400 text-center py-4">Loading catalog...</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">Your Access</h3>
+                            <span id="owned-catalog-meta" class="text-xs text-gray-500">0 providers / 0 models</span>
+                        </div>
+                        <div id="owned-catalog-note" class="text-xs text-gray-400 mb-3">Models available to this API key.</div>
+                        <div id="owned-catalog" class="space-y-3 max-h-96 overflow-y-auto">
+                            <div class="text-gray-400 text-center py-4">Loading access...</div>
+                        </div>
                     </div>
                 </div>
 
@@ -238,6 +279,50 @@ const data = await response.json();</code></pre>
         document.getElementById('base-python').textContent = baseUrl;
         document.getElementById('base-js').textContent = baseUrl;
         document.getElementById('base-curl').textContent = baseUrl;
+
+        function getThemeMode() {{
+            return localStorage.getItem('dashboard_theme') || 'light';
+        }}
+
+        function getChartTheme() {{
+            const isDark = document.body.classList.contains('theme-dark');
+            return {{
+                tickColor: isDark ? '#94a3b8' : '#6b7280',
+                gridColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)',
+                titleColor: isDark ? '#cbd5e1' : '#4b5563',
+                legendColor: isDark ? '#e5e7eb' : '#374151',
+                tooltipBg: isDark ? '#0f172a' : '#ffffff',
+                tooltipTitle: isDark ? '#f8fafc' : '#111827',
+                tooltipBody: isDark ? '#cbd5e1' : '#374151',
+                tooltipBorder: isDark ? '#334155' : '#e5e7eb'
+            }};
+        }}
+
+        function applyTheme(mode) {{
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('dashboard_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+        }}
+
+        function toggleTheme() {{
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+            loadStats();
+            loadActiveSessions();
+            loadSystemActiveSessions();
+        }}
+
+        applyTheme(getThemeMode());
+
+        async function fetchJsonOrRedirect(url, options) {{
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {{
+                window.location.href = '/user/login';
+                throw new Error('Unauthorized');
+            }}
+            return await resp.json();
+        }}
         
         function showTab(tab) {{
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -289,9 +374,59 @@ const data = await response.json();</code></pre>
             return {{ entries, labels, values, colors }};
         }}
 
+        function renderCatalogSections(data) {{
+            const renderProviderGroups = (groups, emptyText) => {{
+                if (!groups || !groups.length) {{
+                    return `<div class="text-gray-400 text-center py-4">${{emptyText}}</div>`;
+                }}
+
+                return groups.map(group => {{
+                    const modelsHtml = (group.models || []).map(model => `
+                        <div class="rounded bg-white px-3 py-2 shadow-sm">
+                            <div class="text-sm font-medium truncate" title="${{model.full_name}}">${{model.full_name}}</div>
+                            <div class="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1">
+                                <span>${{model.display_name}}</span>
+                                <span>ctx ${{(model.context || 0).toLocaleString()}}</span>
+                                <span>out ${{(model.output || 0).toLocaleString()}}</span>
+                                ${{model.is_multimodal ? '<span>multimodal</span>' : ''}}
+                            </div>
+                        </div>
+                    `).join('');
+
+                    return `
+                        <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <div class="font-semibold text-sm">${{group.name}}</div>
+                                <div class="text-xs text-gray-500 shrink-0">${{group.model_count}} models</div>
+                            </div>
+                            <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${{modelsHtml}}</div>
+                        </div>
+                    `;
+                }}).join('');
+            }};
+
+            document.getElementById('platform-catalog-meta').textContent =
+                `${{data.platform_provider_count || 0}} providers / ${{data.platform_model_count || 0}} models`;
+            document.getElementById('owned-catalog-meta').textContent =
+                `${{data.owned_provider_count || 0}} providers / ${{data.owned_model_count || 0}} models`;
+            document.getElementById('owned-catalog-note').textContent = data.full_access
+                ? 'This API key currently has access to all active models on the platform.'
+                : 'Models explicitly available to this API key.';
+
+            document.getElementById('platform-catalog').innerHTML = renderProviderGroups(
+                data.platform_providers || [],
+                'No active providers or models'
+            );
+            document.getElementById('owned-catalog').innerHTML = renderProviderGroups(
+                data.owned_providers || [],
+                'No accessible models'
+            );
+        }}
+
         function renderModelUsageChart(chartId, legendId, metaId, models, chartRef, palette, metaLabel = 'All API keys') {{
             const series = buildDonutSeries(models, palette, 'requests', 6);
             const ctx = document.getElementById(chartId).getContext('2d');
+            const chartTheme = getChartTheme();
             if (chartRef.current) chartRef.current.destroy();
 
             chartRef.current = new Chart(ctx, {{
@@ -312,6 +447,11 @@ const data = await response.json();</code></pre>
                     plugins: {{
                         legend: {{ display: false }},
                         tooltip: {{
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
                             callbacks: {{
                                 label: function(context) {{
                                     const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
@@ -401,14 +541,10 @@ const data = await response.json();</code></pre>
          
         async function loadStats() {{
             const period = document.getElementById('period-select').value;
-            const [statsResp, systemModelsResp] = await Promise.all([
-                fetch('/user/api/stats?period=' + period),
-                fetch('/user/api/system-models?period=' + period)
+            const [data, systemModels] = await Promise.all([
+                fetchJsonOrRedirect('/user/api/stats?period=' + period),
+                fetchJsonOrRedirect('/user/api/system-models?period=' + period)
             ]);
-            const data = await statsResp.json();
-            const systemModels = await systemModelsResp.json();
-             
-            if (data.error) {{ window.location.href = '/user/login'; return; }}
              
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
             document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
@@ -419,9 +555,15 @@ const data = await response.json();</code></pre>
             renderOwnModelChart(data.models || {{}});
             renderSystemModelChart(systemModels.models || {{}});
         }}
+
+        async function loadCatalog() {{
+            const data = await fetchJsonOrRedirect('/user/api/catalog');
+            renderCatalogSections(data);
+        }}
          
         function renderTrendChart(trendData) {{
             const ctx = document.getElementById('trend-chart').getContext('2d');
+            const chartTheme = getChartTheme();
             if (trendChart) trendChart.destroy();
              
             const labels = Object.keys(trendData);
@@ -484,7 +626,9 @@ const data = await response.json();</code></pre>
                     interaction: {{ mode: 'index', intersect: false }},
                     scales: {{
                         x: {{
+                            grid: {{ color: chartTheme.gridColor }},
                             ticks: {{
+                                color: chartTheme.tickColor,
                                 autoSkip: true,
                                 maxRotation: 0,
                                 minRotation: 0,
@@ -494,18 +638,29 @@ const data = await response.json();</code></pre>
                         yRequests: {{
                             beginAtZero: true,
                             position: 'left',
-                            title: {{ display: true, text: 'Requests / Errors' }}
+                            grid: {{ color: chartTheme.gridColor }},
+                            ticks: {{ color: chartTheme.tickColor }},
+                            title: {{ display: true, text: 'Requests / Errors', color: chartTheme.titleColor }}
                         }},
                         yTokens: {{
                             beginAtZero: true,
                             position: 'right',
                             grid: {{ drawOnChartArea: false }},
-                            title: {{ display: true, text: tokenLabel }}
+                            ticks: {{ color: chartTheme.tickColor }},
+                            title: {{ display: true, text: tokenLabel, color: chartTheme.titleColor }}
                         }}
                     }},
                     plugins: {{
-                        legend: {{ position: 'top' }},
+                        legend: {{
+                            position: 'top',
+                            labels: {{ color: chartTheme.legendColor }}
+                        }},
                         tooltip: {{
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
                             callbacks: {{
                                 label: function(context) {{
                                     if (context.dataset.yAxisID === 'yTokens') {{
@@ -523,10 +678,7 @@ const data = await response.json();</code></pre>
         
         async function loadOpenCodeConfig() {{
             try {{
-                const resp = await fetch('/user/api/opencode-config');
-                const data = await resp.json();
-                
-                if (data.error) return;
+                const data = await fetchJsonOrRedirect('/user/api/opencode-config');
                 
                 const config = data.config;
                 config.provider['model-token-plan'].options.baseURL = window.location.origin + '/v1';
@@ -564,8 +716,7 @@ const data = await response.json();</code></pre>
         }}
         
         async function loadActiveSessions() {{
-            const resp = await fetch('/user/api/active');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/user/api/active');
             
             document.getElementById('active-count').textContent = data.active_count + ' active';
             
@@ -586,13 +737,12 @@ const data = await response.json();</code></pre>
         }}
 
         async function loadSystemActiveSessions() {{
-            const resp = await fetch('/user/api/system-active');
-            const data = await resp.json();
-            if (data.error) return;
+            const data = await fetchJsonOrRedirect('/user/api/system-active');
             renderSystemActiveSessions(data);
         }}
-         
+        
         loadStats();
+        loadCatalog();
         loadActiveSessions();
         loadSystemActiveSessions();
         setInterval(loadStats, 30000);

@@ -130,11 +130,22 @@ MONITOR_PAGE_HTML = """
         let providerChart = null;
         let apikeyChart = null;
         let modelChart = null;
-        const chartPalette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#6366f1'];
+        const providerPalette = ['#2563eb', '#3b82f6', '#0ea5e9', '#38bdf8', '#1d4ed8', '#60a5fa', '#0284c7', '#7dd3fc'];
+        const apikeyPalette = ['#059669', '#10b981', '#14b8a6', '#34d399', '#0f766e', '#2dd4bf', '#22c55e', '#6ee7b7'];
+        const modelPalette = ['#7c3aed', '#a855f7', '#ec4899', '#f97316', '#eab308', '#8b5cf6', '#f43f5e', '#c084fc'];
 
         async function logout() {
             await fetch('/admin/api/auth/logout', { method: 'POST' });
             window.location.href = '/admin/login';
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = '/admin/login';
+                throw new Error('Unauthorized');
+            }
+            return await resp.json();
         }
 
         function setPeriod(period) {
@@ -176,7 +187,7 @@ MONITOR_PAGE_HTML = """
             return scale;
         }
 
-        function buildDonutSeries(data, metric = 'tokens', limit = 5) {
+        function buildDonutSeries(data, palette, metric = 'tokens', limit = 5) {
             const entries = Object.entries(data || {})
                 .sort((a, b) => (b[1][metric] || 0) - (a[1][metric] || 0))
                 .filter(([, stats]) => (stats[metric] || 0) > 0);
@@ -184,7 +195,7 @@ MONITOR_PAGE_HTML = """
             const otherValue = entries.slice(limit).reduce((sum, [, stats]) => sum + (stats[metric] || 0), 0);
             const labels = topEntries.map(([name]) => name);
             const values = topEntries.map(([, stats]) => stats[metric] || 0);
-            const colors = topEntries.map((_, index) => chartPalette[index % chartPalette.length]);
+            const colors = topEntries.map((_, index) => palette[index % palette.length]);
             if (otherValue > 0) {
                 labels.push('Others');
                 values.push(otherValue);
@@ -193,13 +204,13 @@ MONITOR_PAGE_HTML = """
             return { entries, labels, values, colors };
         }
 
-        function renderDonutChart(currentChart, canvasId, legendId, data, accentColor) {
-            const series = buildDonutSeries(data, 'tokens', 5);
+        function renderUsageChart(currentChart, canvasId, legendId, data, config) {
+            const series = buildDonutSeries(data, config.palette, 'tokens', 5);
             const canvas = document.getElementById(canvasId);
             if (currentChart) currentChart.destroy();
 
             const chart = new Chart(canvas.getContext('2d'), {
-                type: 'doughnut',
+                type: config.type,
                 data: {
                     labels: series.labels,
                     datasets: [{
@@ -212,7 +223,8 @@ MONITOR_PAGE_HTML = """
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '62%',
+                    cutout: config.cutout,
+                    rotation: config.rotation || 0,
                     plugins: {
                         legend: { display: false },
                         tooltip: {
@@ -232,9 +244,9 @@ MONITOR_PAGE_HTML = """
             const legendHtml = series.entries.slice(0, 6).map(([name, stats], index) => {
                 const pct = (stats.tokens || 0) / total;
                 const errRate = stats.requests ? stats.errors / stats.requests : 0;
-                const color = chartPalette[index % chartPalette.length];
+                const color = config.palette[index % config.palette.length];
                 return `
-                    <div class="rounded-lg border border-gray-100 p-3">
+                    <div class="rounded-lg border ${config.cardBorder} p-3">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <div class="flex items-center gap-2">
@@ -244,7 +256,7 @@ MONITOR_PAGE_HTML = """
                                 <div class="mt-1 text-xs text-gray-500">${stats.requests.toLocaleString()} req / ${formatCompactTokens(stats.tokens || 0)} tok</div>
                             </div>
                             <div class="text-right shrink-0">
-                                <div class="text-sm font-semibold" style="color:${accentColor}">${formatPct(pct)}</div>
+                                <div class="text-sm font-semibold" style="color:${config.accentColor}">${formatPct(pct)}</div>
                                 <div class="text-xs text-gray-400">err ${formatPct(errRate, 1)}</div>
                             </div>
                         </div>
@@ -292,20 +304,45 @@ MONITOR_PAGE_HTML = """
             .sort((a, b) => b.errorRate - a.errorRate || (b.stats.errors || 0) - (a.stats.errors || 0))
             .slice(0, 6);
 
-            const html = hotspots.map(item => `
-                <div class="rounded-lg border border-red-100 bg-red-50 p-3">
+            const html = hotspots.map(item => {
+                const tone = item.errorRate === 0
+                    ? {
+                        border: 'border-green-100',
+                        bg: 'bg-green-50',
+                        scope: 'text-green-600',
+                        meta: 'text-green-500',
+                        value: 'text-green-600'
+                    }
+                    : item.errorRate < 0.05
+                        ? {
+                            border: 'border-amber-100',
+                            bg: 'bg-amber-50',
+                            scope: 'text-amber-600',
+                            meta: 'text-amber-500',
+                            value: 'text-amber-600'
+                        }
+                        : {
+                            border: 'border-red-100',
+                            bg: 'bg-red-50',
+                            scope: 'text-red-500',
+                            meta: 'text-red-400',
+                            value: 'text-red-600'
+                        };
+                return `
+                <div class="rounded-lg border ${{tone.border}} ${{tone.bg}} p-3">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <div class="text-xs uppercase tracking-wide text-red-500">${item.scope}</div>
+                            <div class="text-xs uppercase tracking-wide ${{tone.scope}}">${item.scope}</div>
                             <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${item.name}</div>
-                            <div class="mt-1 text-xs text-red-400">${item.stats.errors.toLocaleString()} errors / ${item.stats.requests.toLocaleString()} requests</div>
+                            <div class="mt-1 text-xs ${{tone.meta}}">${item.stats.errors.toLocaleString()} errors / ${item.stats.requests.toLocaleString()} requests</div>
                         </div>
                         <div class="text-right shrink-0">
-                            <div class="text-lg font-bold text-red-600">${formatPct(item.errorRate, 1)}</div>
+                            <div class="text-lg font-bold ${{tone.value}}">${formatPct(item.errorRate, 1)}</div>
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
             document.getElementById('error-hotspots').innerHTML = html || '<div class="text-gray-400 text-center py-4">No hotspots</div>';
         }
@@ -442,10 +479,10 @@ MONITOR_PAGE_HTML = """
 
         async function loadData() {
             const [providerData, apikeyData, modelData, trendData] = await Promise.all([
-                fetch('/admin/api/stats/aggregate?dimension=provider&period=' + currentPeriod).then(r => r.json()),
-                fetch('/admin/api/stats/aggregate?dimension=api_key&period=' + currentPeriod).then(r => r.json()),
-                fetch('/admin/api/stats/aggregate?dimension=model&period=' + currentPeriod).then(r => r.json()),
-                fetch('/admin/api/stats/trend?dimension=provider&period=' + currentPeriod).then(r => r.json())
+                fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=provider&period=' + currentPeriod),
+                fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=api_key&period=' + currentPeriod),
+                fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=model&period=' + currentPeriod),
+                fetchJsonOrRedirect('/admin/api/stats/trend?dimension=provider&period=' + currentPeriod)
             ]);
 
             const totalRequests = providerData.total_requests || 0;
@@ -457,11 +494,32 @@ MONITOR_PAGE_HTML = """
             document.getElementById('total-errors').textContent = totalErrors.toLocaleString();
             document.getElementById('error-rate').textContent = (totalRequests > 0 ? ((totalErrors / totalRequests) * 100).toFixed(1) : '0.0') + '%';
 
-            const providerResult = renderDonutChart(providerChart, 'providerChart', 'provider-legend', providerData.data || {}, '#2563eb');
+            const providerResult = renderUsageChart(providerChart, 'providerChart', 'provider-legend', providerData.data || {}, {
+                type: 'doughnut',
+                cutout: '74%',
+                rotation: -90,
+                palette: providerPalette,
+                accentColor: '#2563eb',
+                cardBorder: 'border-blue-100'
+            });
             providerChart = providerResult.chart;
-            const apikeyResult = renderDonutChart(apikeyChart, 'apikeyChart', 'apikey-legend', apikeyData.data || {}, '#059669');
+            const apikeyResult = renderUsageChart(apikeyChart, 'apikeyChart', 'apikey-legend', apikeyData.data || {}, {
+                type: 'doughnut',
+                cutout: '48%',
+                rotation: -45,
+                palette: apikeyPalette,
+                accentColor: '#059669',
+                cardBorder: 'border-emerald-100'
+            });
             apikeyChart = apikeyResult.chart;
-            const modelResult = renderDonutChart(modelChart, 'modelChart', 'model-legend', modelData.data || {}, '#7c3aed');
+            const modelResult = renderUsageChart(modelChart, 'modelChart', 'model-legend', modelData.data || {}, {
+                type: 'pie',
+                cutout: 0,
+                rotation: 15,
+                palette: modelPalette,
+                accentColor: '#7c3aed',
+                cardBorder: 'border-violet-100'
+            });
             modelChart = modelResult.chart;
 
             renderConcentrationCards(providerResult.entries, apikeyResult.entries, modelResult.entries);

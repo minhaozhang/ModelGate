@@ -166,10 +166,23 @@ CONFIG_PAGE_HTML = """
             await fetch('/admin/api/auth/logout', {method: 'POST'});
             window.location.href = '/admin/login';
         }
+
+        async function fetchOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = '/admin/login';
+                throw new Error('Unauthorized');
+            }
+            return resp;
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetchOrRedirect(url, options);
+            return await resp.json();
+        }
         
         async function loadProviders() {
-            const resp = await fetch('/admin/api/providers');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/providers');
             allProviders = data.providers || [];
             const html = allProviders.map(p => `
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded cursor-pointer hover:bg-blue-50 ${selectedProviderId === p.id ? 'ring-2 ring-blue-500' : ''}" onclick="selectProvider(${p.id})">
@@ -188,8 +201,7 @@ CONFIG_PAGE_HTML = """
         }
         
         async function loadModels() {
-            const resp = await fetch('/admin/api/models');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/models');
             allModels = data.models || [];
             const html = allModels.map(m => `
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
@@ -215,8 +227,7 @@ CONFIG_PAGE_HTML = """
         
         async function loadProviderBindings(providerId) {
             const provider = allProviders.find(p => p.id === providerId);
-            const resp = await fetch('/admin/api/providers/' + providerId + '/models');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/providers/' + providerId + '/models');
             const bindings = data.models || [];
             
             const unboundModels = allModels.filter(m => m.is_active && !bindings.find(b => b.model_id === m.id));
@@ -255,7 +266,7 @@ CONFIG_PAGE_HTML = """
         async function bindModel() {
             const modelId = document.getElementById('bind-model-select').value;
             if (!modelId || !selectedProviderId) return;
-            await fetch('/admin/api/providers/' + selectedProviderId + '/models', {
+            await fetchOrRedirect('/admin/api/providers/' + selectedProviderId + '/models', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({model_id: parseInt(modelId), is_active: true})
@@ -264,7 +275,7 @@ CONFIG_PAGE_HTML = """
         }
         
         async function unbindModel(pmId) {
-            await fetch('/admin/api/providers/' + selectedProviderId + '/models/' + pmId, {method: 'DELETE'});
+            await fetchOrRedirect('/admin/api/providers/' + selectedProviderId + '/models/' + pmId, {method: 'DELETE'});
             loadProviderBindings(selectedProviderId);
         }
         
@@ -277,8 +288,7 @@ CONFIG_PAGE_HTML = """
             btn.disabled = true;
             btn.textContent = 'Syncing...';
             try {
-                const resp = await fetch('/admin/api/providers/' + selectedProviderId + '/sync-models', {method: 'POST'});
-                const data = await resp.json();
+                const data = await fetchJsonOrRedirect('/admin/api/providers/' + selectedProviderId + '/sync-models', {method: 'POST'});
                 if (data.synced) {
                     alert('Synced ' + data.total + ' models: ' + data.synced.join(', '));
                     loadModels();
@@ -339,13 +349,13 @@ CONFIG_PAGE_HTML = """
             
             try {
                 if (id) {
-                    await fetch('/admin/api/providers/' + id, {
+                    await fetchOrRedirect('/admin/api/providers/' + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({base_url: data.base_url, api_key: data.api_key, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages})
                     });
                 } else {
-                    await fetch('/admin/api/providers', {
+                    await fetchOrRedirect('/admin/api/providers', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
@@ -360,7 +370,7 @@ CONFIG_PAGE_HTML = """
         
         async function deleteProvider(id) {
             if (!confirm('Delete this provider?')) return;
-            await fetch('/admin/api/providers/' + id, {method: 'DELETE'});
+            await fetchOrRedirect('/admin/api/providers/' + id, {method: 'DELETE'});
             if (selectedProviderId === id) {
                 selectedProviderId = null;
                 document.getElementById('bindings-container').innerHTML = '<div class="text-gray-400 text-center py-4">Select a provider to view bindings</div>';
@@ -414,7 +424,7 @@ CONFIG_PAGE_HTML = """
             
             try {
                 if (id) {
-                    await fetch('/admin/api/models/' + id, {
+                    await fetchOrRedirect('/admin/api/models/' + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
@@ -425,7 +435,7 @@ CONFIG_PAGE_HTML = """
                         })
                     });
                 } else {
-                    await fetch('/admin/api/models', {
+                    await fetchOrRedirect('/admin/api/models', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
@@ -440,7 +450,7 @@ CONFIG_PAGE_HTML = """
         
         async function deleteModel(id) {
             if (!confirm('Delete this model?')) return;
-            await fetch('/admin/api/models/' + id, {method: 'DELETE'});
+            await fetchOrRedirect('/admin/api/models/' + id, {method: 'DELETE'});
             loadModels();
         }
         

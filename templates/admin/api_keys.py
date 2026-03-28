@@ -117,10 +117,23 @@ API_KEYS_PAGE_HTML = """
             await fetch('/admin/api/auth/logout', {method: 'POST'});
             window.location.href = '/admin/login';
         }
+
+        async function fetchOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = '/admin/login';
+                throw new Error('Unauthorized');
+            }
+            return resp;
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetchOrRedirect(url, options);
+            return await resp.json();
+        }
         
         async function loadApiKeys() {
-            const resp = await fetch('/admin/api/keys');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/keys');
             apiKeysData = data.api_keys || [];
             handleSearch();
         }
@@ -142,8 +155,7 @@ API_KEYS_PAGE_HTML = """
         }
         
         async function loadProviderModels() {
-            const resp = await fetch('/admin/api/provider-models');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/provider-models');
             providerModels = data.provider_models || [];
             renderModelCheckboxes();
         }
@@ -344,18 +356,17 @@ API_KEYS_PAGE_HTML = """
             
             try {
                 if (id) {
-                    await fetch('/admin/api/keys/' + id, {
+                    await fetchOrRedirect('/admin/api/keys/' + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
                     });
                 } else {
-                    const resp = await fetch('/admin/api/keys', {
+                    const result = await fetchJsonOrRedirect('/admin/api/keys', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
                     });
-                    const result = await resp.json();
                     alert('API Key created: ' + result.key + '\\nPlease save this key!');
                 }
                 closeApiKeyModal();
@@ -367,7 +378,7 @@ API_KEYS_PAGE_HTML = """
         
         async function deleteApiKey(id) {
             if (!confirm('Delete this API key?')) return;
-            await fetch('/admin/api/keys/' + id, {method: 'DELETE'});
+            await fetchOrRedirect('/admin/api/keys/' + id, {method: 'DELETE'});
             loadApiKeys();
         }
         

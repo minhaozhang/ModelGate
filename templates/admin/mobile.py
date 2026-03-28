@@ -412,11 +412,11 @@ MOBILE_HOME_HTML = """
             const period = document.getElementById('period-select').value;
             try {
                 const [statsResp, chartResp] = await Promise.all([
-                    fetch('/admin/api/stats/period?period=' + period),
-                    fetch('/admin/api/stats/chart?period=' + period)
+                    fetchJsonOrRedirect('/admin/api/stats/period?period=' + period),
+                    fetchJsonOrRedirect('/admin/api/stats/chart?period=' + period)
                 ]);
-                const data = await statsResp.json();
-                const chartData = await chartResp.json();
+                const data = statsResp;
+                const chartData = chartResp;
 
                 document.getElementById('total-requests').textContent = (data.total_requests || 0).toLocaleString();
                 document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
@@ -434,8 +434,7 @@ MOBILE_HOME_HTML = """
 
         async function loadRealtimeStats() {
             try {
-                const resp = await fetch('/admin/api/stats/realtime');
-                const data = await resp.json();
+                const data = await fetchJsonOrRedirect('/admin/api/stats/realtime');
                 document.getElementById('rps').textContent = data.requests_per_second || 0;
                 document.getElementById('tps').textContent = formatCompactTokens(data.tokens_per_second || 0);
             } catch (e) {}
@@ -443,8 +442,7 @@ MOBILE_HOME_HTML = """
 
         async function loadActiveSessions() {
             try {
-                const resp = await fetch('/admin/api/stats/active');
-                const data = await resp.json();
+                const data = await fetchJsonOrRedirect('/admin/api/stats/active');
                 const sessions = data.sessions || {};
                 const count = Object.keys(sessions).length;
                 document.getElementById('active-count').textContent = count;
@@ -470,8 +468,7 @@ MOBILE_HOME_HTML = """
 
         async function loadSlowRequests() {
             try {
-                const resp = await fetch('/admin/api/stats/slow');
-                const data = await resp.json();
+                const data = await fetchJsonOrRedirect('/admin/api/stats/slow');
                 const pending = data.pending || [];
                 const recent = data.recent || [];
                 const count = pending.length + recent.length;
@@ -506,6 +503,15 @@ MOBILE_HOME_HTML = """
         async function logout() {
             await fetch('/admin/api/auth/logout', { method: 'POST' });
             window.location.href = '/admin/m/login';
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = '/admin/m/login';
+                throw new Error('Unauthorized');
+            }
+            return await resp.json();
         }
 
         loadData();

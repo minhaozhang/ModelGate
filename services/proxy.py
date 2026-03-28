@@ -346,11 +346,101 @@ def _estimate_prompt_tokens(req_body: Optional[dict]) -> int:
     return _estimate_text_tokens(serialized)
 
 
+def _tool_call_key(tool_call: dict) -> str:
+    if not isinstance(tool_call, dict):
+        return ""
+
+    tool_call_id = tool_call.get("id")
+    if tool_call_id:
+        return str(tool_call_id)
+
+    function = tool_call.get("function")
+    function_name = ""
+    if isinstance(function, dict):
+        function_name = str(function.get("name") or "")
+
+    index = tool_call.get("index")
+    if index is not None or function_name:
+        return f"{index}:{function_name}"
+
+    try:
+        return json.dumps(tool_call, ensure_ascii=False, sort_keys=True)
+    except TypeError:
+        return str(tool_call)
+
+
+def _collect_tool_calls(
+    tool_calls: Optional[list], seen_keys: set[str], collected: list[dict]
+):
+    if not isinstance(tool_calls, list):
+        return
+
+    for tool_call in tool_calls:
+        if not isinstance(tool_call, dict):
+            continue
+        key = _tool_call_key(tool_call)
+        if key and key in seen_keys:
+            continue
+        if key:
+            seen_keys.add(key)
+        collected.append(tool_call)
+
+
+def build_response_meta(
+    response_text: str = "",
+    reasoning_text: str = "",
+    tool_calls: Optional[list] = None,
+    finish_reason: Optional[str] = None,
+) -> dict:
+    collected_tool_calls = tool_calls if isinstance(tool_calls, list) else []
+    has_text = bool((response_text or "").strip())
+    has_reasoning = bool((reasoning_text or "").strip())
+    has_tool_calls = bool(collected_tool_calls)
+
+    response_types = []
+    if has_text:
+        response_types.append("text")
+    if has_reasoning:
+        response_types.append("reasoning")
+    if has_tool_calls:
+        response_types.append("tool_calls")
+    if not response_types:
+        response_types.append("empty")
+
+    tool_names = []
+    for tool_call in collected_tool_calls:
+        function = tool_call.get("function") if isinstance(tool_call, dict) else None
+        if isinstance(function, dict) and function.get("name"):
+            tool_names.append(str(function["name"]))
+
+    return {
+        "response_types": response_types,
+        "has_text": has_text,
+        "has_reasoning": has_reasoning,
+        "has_tool_calls": has_tool_calls,
+        "tool_call_count": len(collected_tool_calls),
+        "tool_names": tool_names,
+        "finish_reason": finish_reason or "",
+    }
+
+
+def log_response_meta(provider: str, model: str, response_meta: dict):
+    response_types = "/".join(response_meta.get("response_types", [])) or "empty"
+    finish_reason = response_meta.get("finish_reason") or "unknown"
+    tool_call_count = response_meta.get("tool_call_count", 0)
+    tool_names = ", ".join(response_meta.get("tool_names", [])[:3]) or "-"
+    logger.info(
+        f"[RESPONSE META] Provider: {provider}, Model: {model}, Types: {response_types}, "
+        f"Finish: {finish_reason}, ToolCalls: {tool_call_count}, Tools: {tool_names}"
+    )
+
+
 def build_tokens_record(
     usage: Optional[dict],
     req_body: Optional[dict] = None,
     response_text: str = "",
     reasoning_text: str = "",
+    response_meta: Optional[dict] = None,
 ) -> dict:
     raw_usage = usage if isinstance(usage, dict) else {}
     tokens_record = dict(raw_usage)
@@ -403,6 +493,8 @@ def build_tokens_record(
             "estimated": estimated,
         }
     )
+    if response_meta:
+        tokens_record["response_meta"] = response_meta
     return tokens_record
 
 
@@ -706,16 +798,29 @@ async def handle_normal(
 
     response_text = ""
     reasoning_text = ""
+    tool_calls = []
+    finish_reason = ""
     if "choices" in resp_json and resp_json["choices"]:
-        message = resp_json["choices"][0].get("message", {})
+        choice = resp_json["choices"][0]
+        message = choice.get("message", {})
         response_text = message.get("content", "")
         reasoning_text = message.get("reasoning_content", "")
+        tool_calls = message.get("tool_calls", []) if isinstance(message, dict) else []
+        finish_reason = choice.get("finish_reason", "") or ""
+
+    response_meta = build_response_meta(
+        response_text=response_text,
+        reasoning_text=reasoning_text,
+        tool_calls=tool_calls,
+        finish_reason=finish_reason,
+    )
 
     tokens_record = build_tokens_record(
         resp_json.get("usage"),
         req_body=req_body,
         response_text=response_text,
         reasoning_text=reasoning_text,
+        response_meta=response_meta,
     )
     total_tokens = tokens_record["total_tokens"]
 
@@ -735,6 +840,7 @@ async def handle_normal(
     update_stats(
         provider, model, total_tokens, api_key_id=api_key_id, is_error=is_error
     )
+    log_response_meta(provider, model, response_meta)
     await log_request(
         provider,
         model,
@@ -767,26 +873,43 @@ async def handle_normal(
 
 
 async def _normalize_sse_stream(aiter_lines):
-    """Normalize raw SSE stream: split merged data lines, handle non-data JSON."""
+    """Normalize raw SSE stream and merge multi-line SSE data events."""
+    data_lines: list[str] = []
+
+    def flush_event():
+        if not data_lines:
+            return None
+        payload = "\n".join(data_lines)
+        data_lines.clear()
+        return f"data: {payload}"
+
     async for raw_line in aiter_lines:
-        line = raw_line.rstrip()
-        if not line:
+        line = raw_line.rstrip("\r")
+        if line == "":
+            event = flush_event()
+            if event:
+                yield event
             continue
 
-        if line.startswith("data: "):
-            content = line[6:]
-            if "data: " in content:
-                parts = content.split("data: ")
-                for part in parts:
-                    part = part.strip()
-                    if part:
-                        yield f"data: {part}"
-            else:
-                yield line
+        if line.startswith("data:"):
+            content = line[5:]
+            if content.startswith(" "):
+                content = content[1:]
+            data_lines.append(content)
+            continue
+
+        if data_lines:
+            # Ignore other SSE fields like event:/id: while waiting for the blank line flush.
+            continue
+
         elif line.startswith("{"):
             yield f"data: {line}"
         elif line.startswith(":"):
             continue
+
+    event = flush_event()
+    if event:
+        yield event
 
 
 async def handle_streaming(
@@ -831,6 +954,9 @@ async def handle_streaming(
         last_content = ""
         repeated_count = 0
         last_usage = None
+        final_finish_reason = ""
+        stream_tool_calls = []
+        seen_tool_call_keys: set[str] = set()
         try:
             async with httpx.AsyncClient(timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS) as client:
                 async with client.stream(
@@ -882,12 +1008,19 @@ async def handle_streaming(
                                 if "choices" in chunk and chunk["choices"]:
                                     choice = chunk["choices"][0]
                                     finish_reason = choice.get("finish_reason")
+                                    if finish_reason:
+                                        final_finish_reason = finish_reason
                                     if finish_reason == "error":
                                         raise Exception(
                                             "Stream finished with error status"
                                         )
 
                                     delta = choice.get("delta", {})
+                                    _collect_tool_calls(
+                                        delta.get("tool_calls"),
+                                        seen_tool_call_keys,
+                                        stream_tool_calls,
+                                    )
                                     content = delta.get("content", "")
 
                                     if provider == "minimax" and content:
@@ -906,6 +1039,12 @@ async def handle_streaming(
                                                     )
                                                 )
                                                 if tool_calls:
+                                                    _collect_tool_calls(
+                                                        tool_calls,
+                                                        seen_tool_call_keys,
+                                                        stream_tool_calls,
+                                                    )
+                                                    final_finish_reason = "tool_calls"
                                                     for i, tc in enumerate(tool_calls):
                                                         tc_chunk = {
                                                             "id": chunk.get("id", ""),
@@ -1062,10 +1201,13 @@ async def handle_streaming(
                                     if reasoning and provider != "minimax":
                                         total_reasoning += reasoning
                             except json.JSONDecodeError as e:
+                                line_preview = line_content[:200].replace("\n", "\\n")
                                 logger.warning(
                                     f"[SSE] Invalid JSON, skipping line: {line[:100]}... Error: {e}"
                                 )
-                                continue
+                                raise Exception(
+                                    f"SSE JSON parse error: {e}; chunk={line_preview}"
+                                ) from e
                             yield f"{line.rstrip()}\n\n"
 
                             # 定期检查客户端是否断开
@@ -1075,12 +1217,20 @@ async def handle_streaming(
                                         f"[STREAM] Client disconnected at chunk {chunk_count}"
                                     )
                                     latency = (time.time() - start_time) * 1000
+                                    response_meta = build_response_meta(
+                                        response_text=total_content,
+                                        reasoning_text=total_reasoning,
+                                        tool_calls=stream_tool_calls,
+                                        finish_reason=final_finish_reason,
+                                    )
                                     tokens_record = build_tokens_record(
                                         last_usage,
                                         req_body=req_body,
                                         response_text=total_content,
                                         reasoning_text=total_reasoning,
+                                        response_meta=response_meta,
                                     )
+                                    log_response_meta(provider, model, response_meta)
                                     await update_request_log(
                                         log_id,
                                         response=total_content,
@@ -1091,14 +1241,22 @@ async def handle_streaming(
                                     return
 
             latency = (time.time() - start_time) * 1000
+            response_meta = build_response_meta(
+                response_text=total_content,
+                reasoning_text=total_reasoning,
+                tool_calls=stream_tool_calls,
+                finish_reason=final_finish_reason,
+            )
             tokens_record = build_tokens_record(
                 last_usage,
                 req_body=req_body,
                 response_text=total_content,
                 reasoning_text=total_reasoning,
+                response_meta=response_meta,
             )
             total_tokens = tokens_record["total_tokens"]
             update_stats(provider, model, total_tokens, api_key_id=api_key_id)
+            log_response_meta(provider, model, response_meta)
             await update_request_log(
                 log_id,
                 response=total_content,
@@ -1110,11 +1268,25 @@ async def handle_streaming(
             logger.debug("[STREAM RESPONSE] Content: %s", total_content)
         except Exception as e:
             latency = (time.time() - start_time) * 1000
+            response_meta = build_response_meta(
+                response_text=total_content,
+                reasoning_text=total_reasoning,
+                tool_calls=stream_tool_calls,
+                finish_reason=final_finish_reason,
+            )
+            tokens_record = build_tokens_record(
+                last_usage,
+                req_body=req_body,
+                response_text=total_content,
+                reasoning_text=total_reasoning,
+                response_meta=response_meta,
+            )
             update_stats(provider, model, 0, api_key_id=api_key_id, is_error=True)
+            log_response_meta(provider, model, response_meta)
             await update_request_log(
                 log_id,
-                response="",
-                tokens={},
+                response=total_content,
+                tokens=tokens_record,
                 latency_ms=latency,
                 status="error",
                 error=str(e),

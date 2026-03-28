@@ -349,6 +349,103 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
     }
 
 
+@router.get("/user/api/catalog")
+async def get_user_catalog(api_key_id: int = Depends(get_user_session)):
+    if not api_key_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    from core.database import ApiKeyModel, Model, Provider, ProviderModel
+
+    async with async_session_maker() as session:
+        key_result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
+        api_key = key_result.scalar_one_or_none()
+        if not api_key:
+            return JSONResponse({"error": "API Key not found"}, status_code=404)
+
+        providers_result = await session.execute(
+            select(Provider).where(Provider.is_active == True)
+        )
+        models_result = await session.execute(select(Model).where(Model.is_active == True))
+        provider_models_result = await session.execute(
+            select(ProviderModel).where(ProviderModel.is_active == True)
+        )
+        key_models_result = await session.execute(
+            select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key_id)
+        )
+
+        providers = providers_result.scalars().all()
+        models = models_result.scalars().all()
+        provider_models = provider_models_result.scalars().all()
+        key_models = key_models_result.scalars().all()
+
+    provider_map = {provider.id: provider for provider in providers}
+    model_map = {model.id: model for model in models}
+    active_provider_models = [
+        pm
+        for pm in provider_models
+        if pm.provider_id in provider_map and pm.model_id in model_map
+    ]
+
+    allowed_pm_ids = {item.provider_model_id for item in key_models}
+    full_access = len(allowed_pm_ids) == 0
+    owned_provider_models = (
+        active_provider_models
+        if full_access
+        else [pm for pm in active_provider_models if pm.id in allowed_pm_ids]
+    )
+
+    def serialize_provider_models(items: list[ProviderModel]) -> list[dict]:
+        grouped: dict[str, dict] = {}
+        for provider_model in items:
+            provider = provider_map[provider_model.provider_id]
+            model = model_map[provider_model.model_id]
+            provider_name = provider.name
+            model_name = model.name
+            display_name = model.display_name or model_name
+
+            if provider_name not in grouped:
+                grouped[provider_name] = {
+                    "name": provider_name,
+                    "models": [],
+                }
+
+            grouped[provider_name]["models"].append(
+                {
+                    "name": model_name,
+                    "full_name": f"{provider_name}/{model_name}",
+                    "display_name": display_name,
+                    "context": model.context_length or 0,
+                    "output": model.max_tokens or 0,
+                    "is_multimodal": bool(model.is_multimodal),
+                    "has_override": bool(provider_model.model_name_override),
+                }
+            )
+
+        providers_data = []
+        for provider_name in sorted(grouped.keys()):
+            provider_entry = grouped[provider_name]
+            provider_entry["models"].sort(key=lambda item: item["full_name"])
+            provider_entry["model_count"] = len(provider_entry["models"])
+            providers_data.append(provider_entry)
+        return providers_data
+
+    platform_providers = serialize_provider_models(active_provider_models)
+    owned_providers = serialize_provider_models(owned_provider_models)
+
+    return {
+        "name": api_key.name,
+        "full_access": full_access,
+        "platform_provider_count": len(platform_providers),
+        "platform_model_count": sum(
+            provider["model_count"] for provider in platform_providers
+        ),
+        "owned_provider_count": len(owned_providers),
+        "owned_model_count": sum(provider["model_count"] for provider in owned_providers),
+        "platform_providers": platform_providers,
+        "owned_providers": owned_providers,
+    }
+
+
 @router.get("/user/dashboard", response_class=HTMLResponse)
 async def user_dashboard(api_key_id: int = Depends(get_user_session)):
     if not api_key_id:

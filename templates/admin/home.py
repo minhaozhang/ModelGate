@@ -117,10 +117,17 @@ HOME_PAGE_HTML = """
         let currentPeriod = 'day';
         let trendChart = null;
         async function logout() { await fetch('/admin/api/auth/logout', {method: 'POST'}); window.location.href = '/admin/login'; }
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = '/admin/login';
+                throw new Error('Unauthorized');
+            }
+            return await resp.json();
+        }
         function changePeriod() { currentPeriod = document.getElementById('period-select').value; loadData(); }
         async function loadData() {
-            const resp = await fetch('/admin/api/stats/period?period=' + currentPeriod);
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/stats/period?period=' + currentPeriod);
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
             document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
             document.getElementById('total-errors').textContent = data.total_errors;
@@ -183,8 +190,7 @@ HOME_PAGE_HTML = """
             document.getElementById('apikey-bars').innerHTML = html || '<div class="text-gray-400 text-center py-2 text-xs">No data</div>';
         }
         async function loadChart() {
-            const resp = await fetch('/admin/api/stats/chart?period=' + currentPeriod);
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/stats/chart?period=' + currentPeriod);
             const ctx = document.getElementById('trendChart').getContext('2d');
             const scrollY = window.scrollY;
             if (trendChart) trendChart.destroy();
@@ -274,8 +280,7 @@ HOME_PAGE_HTML = """
         setInterval(loadActiveSessions, 60000);
         
         async function loadActiveSessions() {
-            const resp = await fetch('/admin/api/stats/active');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/stats/active');
             document.getElementById('active-count').textContent = data.active_count;
             
             if (data.active_count === 0) {
@@ -312,8 +317,7 @@ HOME_PAGE_HTML = """
         }
         
         async function loadSlowRequests() {
-            const resp = await fetch('/admin/api/stats/slow');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/stats/slow');
             
             const pending = data.pending || [];
             const completed = data.completed || [];
@@ -364,8 +368,7 @@ HOME_PAGE_HTML = """
         }
         
         async function loadRealtimeStats() {
-            const resp = await fetch('/admin/api/stats/realtime');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/stats/realtime');
             document.getElementById('rps').textContent = data.requests_per_second;
             document.getElementById('tps').textContent = formatCompactTokens(data.tokens_per_second || 0);
         }
