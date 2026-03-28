@@ -65,6 +65,24 @@ async def monitor_page(session: Optional[str] = Cookie(None)):
     return HTMLResponse(content=MONITOR_PAGE_HTML)
 
 
+@router.get("/m/login", response_class=HTMLResponse)
+async def mobile_login_page(session: Optional[str] = Cookie(None)):
+    if _check_auth(session):
+        return RedirectResponse(url="/admin/m")
+    from templates.admin.mobile import MOBILE_LOGIN_HTML
+
+    return HTMLResponse(content=MOBILE_LOGIN_HTML)
+
+
+@router.get("/m", response_class=HTMLResponse)
+async def mobile_home_page(session: Optional[str] = Cookie(None)):
+    if not _check_auth(session):
+        return RedirectResponse(url="/admin/m/login")
+    from templates.admin.mobile import MOBILE_HOME_HTML
+
+    return HTMLResponse(content=MOBILE_HOME_HTML)
+
+
 @router.get("/usage", response_class=HTMLResponse)
 async def usage_page(session: Optional[str] = Cookie(None)):
     if not _check_auth(session):
