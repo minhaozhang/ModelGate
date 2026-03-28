@@ -50,6 +50,7 @@ USER_DASHBOARD_HTML = """
         <div class="bg-white rounded-lg shadow mb-6">
             <div class="flex border-b">
                 <button class="tab-btn active px-6 py-3 font-medium" onclick="showTab('stats')">Statistics</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('catalog')">Catalog</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('opencode')">OpenCode Config</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">Usage Guide</button>
             </div>
@@ -80,28 +81,6 @@ USER_DASHBOARD_HTML = """
                     <div class="bg-gray-50 rounded-lg p-4">
                         <div class="text-gray-500 text-sm">Models Used</div>
                         <div id="model-count" class="text-2xl font-bold text-purple-600">0</div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <div class="flex justify-between items-center mb-3">
-                            <h3 class="text-lg font-semibold">Platform Providers & Models</h3>
-                            <span id="platform-catalog-meta" class="text-xs text-gray-500">0 providers / 0 models</span>
-                        </div>
-                        <div id="platform-catalog" class="space-y-3 max-h-96 overflow-y-auto">
-                            <div class="text-gray-400 text-center py-4">Loading catalog...</div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <div class="flex justify-between items-center mb-3">
-                            <h3 class="text-lg font-semibold">Your Access</h3>
-                            <span id="owned-catalog-meta" class="text-xs text-gray-500">0 providers / 0 models</span>
-                        </div>
-                        <div id="owned-catalog-note" class="text-xs text-gray-400 mb-3">Models available to this API key.</div>
-                        <div id="owned-catalog" class="space-y-3 max-h-96 overflow-y-auto">
-                            <div class="text-gray-400 text-center py-4">Loading access...</div>
-                        </div>
                     </div>
                 </div>
 
@@ -149,6 +128,31 @@ USER_DASHBOARD_HTML = """
                         </div>
                         <div class="h-64"><canvas id="system-model-chart"></canvas></div>
                         <div id="system-model-legend" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-64 overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Catalog Tab -->
+            <div id="tab-catalog" class="tab-content p-6">
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">Platform Providers & Models</h3>
+                            <span id="platform-catalog-meta" class="text-xs text-gray-500">0 providers / 0 models</span>
+                        </div>
+                        <div id="platform-catalog" class="space-y-3 max-h-[36rem] overflow-y-auto">
+                            <div class="text-gray-400 text-center py-4">Loading catalog...</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">Your Access</h3>
+                            <span id="owned-catalog-meta" class="text-xs text-gray-500">0 providers / 0 models</span>
+                        </div>
+                        <div id="owned-catalog-note" class="text-xs text-gray-400 mb-3">Models available to this API key.</div>
+                        <div id="owned-catalog" class="space-y-3 max-h-[36rem] overflow-y-auto">
+                            <div class="text-gray-400 text-center py-4">Loading access...</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -331,6 +335,7 @@ const data = await response.json();</code></pre>
             document.getElementById('tab-' + tab).classList.add('active');
             
             if (tab === 'opencode') loadOpenCodeConfig();
+            if (tab === 'catalog') loadCatalog();
         }}
 
         function formatCompactTokens(tokens) {{
@@ -375,29 +380,91 @@ const data = await response.json();</code></pre>
         }}
 
         function renderCatalogSections(data) {{
-            const renderProviderGroups = (groups, emptyText) => {{
+            const ownedFullNames = new Set(
+                (data.owned_providers || []).flatMap(group =>
+                    (group.models || []).map(model => model.full_name)
+                )
+            );
+
+            const renderPlatformGroups = (groups, emptyText) => {{
+                if (!groups || !groups.length) {{
+                    return `<div class="text-gray-400 text-center py-4">${{emptyText}}</div>`;
+                }}
+
+                return groups.map(group => {{
+                    const modelsHtml = (group.models || []).map(model => {{
+                        const isOwned = ownedFullNames.has(model.full_name);
+                        const tone = isOwned
+                            ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-900'
+                            : 'border-gray-200 bg-white text-gray-700';
+                        const badge = isOwned
+                            ? '<span class="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Owned</span>'
+                            : '<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">Available</span>';
+                        return `
+                            <div class="rounded-2xl border ${{tone}} px-3 py-3 shadow-sm transition hover:-translate-y-0.5">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-semibold truncate" title="${{model.full_name}}">${{model.display_name}}</div>
+                                        <div class="mt-0.5 text-[11px] text-gray-500 truncate">${{model.full_name}}</div>
+                                    </div>
+                                    ${{badge}}
+                                </div>
+                                <div class="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                                    <span class="rounded-full bg-black/5 px-2 py-1">ctx ${{formatCompactTokens(model.context || 0)}}</span>
+                                    <span class="rounded-full bg-black/5 px-2 py-1">out ${{formatCompactTokens(model.output || 0)}}</span>
+                                    ${{model.is_multimodal ? '<span class="rounded-full bg-black/5 px-2 py-1">multimodal</span>' : ''}}
+                                    ${{model.has_override ? '<span class="rounded-full bg-black/5 px-2 py-1">alias</span>' : ''}}
+                                </div>
+                            </div>
+                        `;
+                    }}).join('');
+
+                    return `
+                        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <div>
+                                    <div class="font-semibold text-sm">${{group.name}}</div>
+                                    <div class="mt-1 text-[11px] text-gray-500">Platform provider catalog</div>
+                                </div>
+                                <div class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 shrink-0">${{group.model_count}} models</div>
+                            </div>
+                            <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${{modelsHtml}}</div>
+                        </div>
+                    `;
+                }}).join('');
+            }};
+
+            const renderOwnedGroups = (groups, emptyText) => {{
                 if (!groups || !groups.length) {{
                     return `<div class="text-gray-400 text-center py-4">${{emptyText}}</div>`;
                 }}
 
                 return groups.map(group => {{
                     const modelsHtml = (group.models || []).map(model => `
-                        <div class="rounded bg-white px-3 py-2 shadow-sm">
-                            <div class="text-sm font-medium truncate" title="${{model.full_name}}">${{model.full_name}}</div>
-                            <div class="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1">
-                                <span>${{model.display_name}}</span>
-                                <span>ctx ${{(model.context || 0).toLocaleString()}}</span>
-                                <span>out ${{(model.output || 0).toLocaleString()}}</span>
-                                ${{model.is_multimodal ? '<span>multimodal</span>' : ''}}
+                        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 px-3 py-3 shadow-sm">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <div class="text-sm font-semibold truncate" title="${{model.full_name}}">${{model.display_name}}</div>
+                                    <div class="mt-0.5 text-[11px] text-emerald-700/80 truncate">${{model.full_name}}</div>
+                                </div>
+                                <span class="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Access</span>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-1.5 text-[11px] text-emerald-900/80">
+                                <span class="rounded-full bg-white/70 px-2 py-1">ctx ${{formatCompactTokens(model.context || 0)}}</span>
+                                <span class="rounded-full bg-white/70 px-2 py-1">out ${{formatCompactTokens(model.output || 0)}}</span>
+                                ${{model.is_multimodal ? '<span class="rounded-full bg-white/70 px-2 py-1">multimodal</span>' : ''}}
                             </div>
                         </div>
                     `).join('');
 
                     return `
-                        <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                        <div class="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
                             <div class="flex items-center justify-between gap-3 mb-3">
-                                <div class="font-semibold text-sm">${{group.name}}</div>
-                                <div class="text-xs text-gray-500 shrink-0">${{group.model_count}} models</div>
+                                <div>
+                                    <div class="font-semibold text-sm">${{group.name}}</div>
+                                    <div class="mt-1 text-[11px] text-gray-500">Models this key can use</div>
+                                </div>
+                                <div class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs text-emerald-700 shrink-0">${{group.model_count}} models</div>
                             </div>
                             <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${{modelsHtml}}</div>
                         </div>
@@ -413,11 +480,11 @@ const data = await response.json();</code></pre>
                 ? 'This API key currently has access to all active models on the platform.'
                 : 'Models explicitly available to this API key.';
 
-            document.getElementById('platform-catalog').innerHTML = renderProviderGroups(
+            document.getElementById('platform-catalog').innerHTML = renderPlatformGroups(
                 data.platform_providers || [],
                 'No active providers or models'
             );
-            document.getElementById('owned-catalog').innerHTML = renderProviderGroups(
+            document.getElementById('owned-catalog').innerHTML = renderOwnedGroups(
                 data.owned_providers || [],
                 'No accessible models'
             );
