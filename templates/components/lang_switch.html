@@ -1,0 +1,14 @@
+<script>
+function switchLang(lang) {
+    document.cookie = "lang=" + lang + ";path=/;max-age=31536000";
+    window.location.reload();
+}
+(function() {
+    const cookies = document.cookie.split(';').map(c => c.trim());
+    const langCookie = cookies.find(c => c.startsWith('lang='));
+    if (langCookie) {
+        const select = document.getElementById('lang-select');
+        if (select) select.value = langCookie.split('=')[1];
+    }
+})();
+</script>
