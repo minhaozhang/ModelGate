@@ -9,6 +9,29 @@ CONFIG_PAGE_HTML = """
         .nav-link { transition: all 0.2s; }
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
         .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t { border-color: #1f2937 !important; }
+        body.theme-dark input,
+        body.theme-dark select,
+        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg,
+        body.theme-dark .shadow-xl { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -48,7 +71,12 @@ CONFIG_PAGE_HTML = """
         </nav>
         
         <main class="ml-56 flex-1 p-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">Provider & Model Configuration</h2>
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Provider & Model Configuration</h2>
+                <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                    Dark Mode
+                </button>
+            </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white rounded-lg shadow">
@@ -166,10 +194,41 @@ CONFIG_PAGE_HTML = """
             await fetch('/admin/api/auth/logout', {method: 'POST'});
             window.location.href = '/admin/login';
         }
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'light';
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+        }
+
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+        }
+
+        applyTheme(getThemeMode());
+
+        async function fetchOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = '/admin/login';
+                throw new Error('Unauthorized');
+            }
+            return resp;
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetchOrRedirect(url, options);
+            return await resp.json();
+        }
         
         async function loadProviders() {
-            const resp = await fetch('/admin/api/providers');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/providers');
             allProviders = data.providers || [];
             const html = allProviders.map(p => `
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded cursor-pointer hover:bg-blue-50 ${selectedProviderId === p.id ? 'ring-2 ring-blue-500' : ''}" onclick="selectProvider(${p.id})">
@@ -188,8 +247,7 @@ CONFIG_PAGE_HTML = """
         }
         
         async function loadModels() {
-            const resp = await fetch('/admin/api/models');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/models');
             allModels = data.models || [];
             const html = allModels.map(m => `
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
@@ -215,8 +273,7 @@ CONFIG_PAGE_HTML = """
         
         async function loadProviderBindings(providerId) {
             const provider = allProviders.find(p => p.id === providerId);
-            const resp = await fetch('/admin/api/providers/' + providerId + '/models');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/providers/' + providerId + '/models');
             const bindings = data.models || [];
             
             const unboundModels = allModels.filter(m => m.is_active && !bindings.find(b => b.model_id === m.id));
@@ -255,7 +312,7 @@ CONFIG_PAGE_HTML = """
         async function bindModel() {
             const modelId = document.getElementById('bind-model-select').value;
             if (!modelId || !selectedProviderId) return;
-            await fetch('/admin/api/providers/' + selectedProviderId + '/models', {
+            await fetchOrRedirect('/admin/api/providers/' + selectedProviderId + '/models', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({model_id: parseInt(modelId), is_active: true})
@@ -264,7 +321,7 @@ CONFIG_PAGE_HTML = """
         }
         
         async function unbindModel(pmId) {
-            await fetch('/admin/api/providers/' + selectedProviderId + '/models/' + pmId, {method: 'DELETE'});
+            await fetchOrRedirect('/admin/api/providers/' + selectedProviderId + '/models/' + pmId, {method: 'DELETE'});
             loadProviderBindings(selectedProviderId);
         }
         
@@ -277,8 +334,7 @@ CONFIG_PAGE_HTML = """
             btn.disabled = true;
             btn.textContent = 'Syncing...';
             try {
-                const resp = await fetch('/admin/api/providers/' + selectedProviderId + '/sync-models', {method: 'POST'});
-                const data = await resp.json();
+                const data = await fetchJsonOrRedirect('/admin/api/providers/' + selectedProviderId + '/sync-models', {method: 'POST'});
                 if (data.synced) {
                     alert('Synced ' + data.total + ' models: ' + data.synced.join(', '));
                     loadModels();
@@ -339,13 +395,13 @@ CONFIG_PAGE_HTML = """
             
             try {
                 if (id) {
-                    await fetch('/admin/api/providers/' + id, {
+                    await fetchOrRedirect('/admin/api/providers/' + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({base_url: data.base_url, api_key: data.api_key, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages})
                     });
                 } else {
-                    await fetch('/admin/api/providers', {
+                    await fetchOrRedirect('/admin/api/providers', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
@@ -360,7 +416,7 @@ CONFIG_PAGE_HTML = """
         
         async function deleteProvider(id) {
             if (!confirm('Delete this provider?')) return;
-            await fetch('/admin/api/providers/' + id, {method: 'DELETE'});
+            await fetchOrRedirect('/admin/api/providers/' + id, {method: 'DELETE'});
             if (selectedProviderId === id) {
                 selectedProviderId = null;
                 document.getElementById('bindings-container').innerHTML = '<div class="text-gray-400 text-center py-4">Select a provider to view bindings</div>';
@@ -414,7 +470,7 @@ CONFIG_PAGE_HTML = """
             
             try {
                 if (id) {
-                    await fetch('/admin/api/models/' + id, {
+                    await fetchOrRedirect('/admin/api/models/' + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
@@ -425,7 +481,7 @@ CONFIG_PAGE_HTML = """
                         })
                     });
                 } else {
-                    await fetch('/admin/api/models', {
+                    await fetchOrRedirect('/admin/api/models', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
@@ -440,7 +496,7 @@ CONFIG_PAGE_HTML = """
         
         async function deleteModel(id) {
             if (!confirm('Delete this model?')) return;
-            await fetch('/admin/api/models/' + id, {method: 'DELETE'});
+            await fetchOrRedirect('/admin/api/models/' + id, {method: 'DELETE'});
             loadModels();
         }
         

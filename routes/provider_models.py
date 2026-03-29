@@ -160,6 +160,8 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
                     "glm-4v-flash": 128 * 1024,
                     "glm-5": 131072,
                     "glm-5-turbo": 131072,
+                    "glm-5.1": 131072,
+                    "glm-5.1-flash": 131072,
                     "glm-4.5-x": 131072,
                     "glm-4.5-flash": 131072,
                 }

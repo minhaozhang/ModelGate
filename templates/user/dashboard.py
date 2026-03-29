@@ -12,6 +12,22 @@ USER_DASHBOARD_HTML = """
         .tab-content.active {{ display: block; }}
         pre {{ background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }}
         code {{ font-family: 'Monaco', 'Menlo', monospace; font-size: 0.875rem; }}
+        body.theme-dark {{ background: #020617 !important; color: #e2e8f0; }}
+        body.theme-dark .bg-white {{ background: #0f172a !important; }}
+        body.theme-dark .bg-gray-50 {{ background: #111827 !important; }}
+        body.theme-dark .bg-gray-100 {{ background: #020617 !important; }}
+        body.theme-dark .text-gray-800 {{ color: #f8fafc !important; }}
+        body.theme-dark .text-gray-700 {{ color: #e5e7eb !important; }}
+        body.theme-dark .text-gray-600 {{ color: #cbd5e1 !important; }}
+        body.theme-dark .text-gray-500 {{ color: #94a3b8 !important; }}
+        body.theme-dark .text-gray-400 {{ color: #64748b !important; }}
+        body.theme-dark .border,
+        body.theme-dark .border-b {{ border-color: #1f2937 !important; }}
+        body.theme-dark select,
+        body.theme-dark button:not(.bg-red-500) {{ background-color: #0f172a; color: #e5e7eb; border-color: #334155; }}
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-sm {{ box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }}
+        body.theme-dark .tab-btn.active {{ border-bottom-color: #60a5fa; color: #60a5fa !important; }}
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -22,6 +38,9 @@ USER_DASHBOARD_HTML = """
                 <p class="text-gray-500">{name}</p>
             </div>
             <div class="flex gap-2">
+                <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                    Dark Mode
+                </button>
                 <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
                     Logout
                 </button>
@@ -31,6 +50,7 @@ USER_DASHBOARD_HTML = """
         <div class="bg-white rounded-lg shadow mb-6">
             <div class="flex border-b">
                 <button class="tab-btn active px-6 py-3 font-medium" onclick="showTab('stats')">Statistics</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('catalog')">Models</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('opencode')">OpenCode Config</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">Usage Guide</button>
             </div>
@@ -63,22 +83,77 @@ USER_DASHBOARD_HTML = """
                         <div id="model-count" class="text-2xl font-bold text-purple-600">0</div>
                     </div>
                 </div>
-                
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-lg font-semibold">Active Sessions (Last 1 Minute)</h3>
-                        <span id="active-count" class="text-sm text-gray-500">0 active</span>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">Active Sessions (Last 1 Minute)</h3>
+                            <span id="active-count" class="text-sm text-gray-500">0 active</span>
+                        </div>
+                        <div id="active-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-3"><div class="text-gray-400 text-center py-2 2xl:col-span-2">No active sessions</div></div>
                     </div>
-                    <div id="active-sessions" class="space-y-2"><div class="text-gray-400 text-center py-2">No active sessions</div></div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">System Active Requests (Last 1 Minute)</h3>
+                            <span id="system-active-count" class="text-sm text-gray-500">0 active</span>
+                        </div>
+                        <div class="text-xs text-gray-400 mb-3">Anonymized across all API keys. Your own traffic is labeled as Yourself.</div>
+                        <div id="system-active-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-3"><div class="text-gray-400 text-center py-2 2xl:col-span-2">No active sessions</div></div>
+                    </div>
                 </div>
-                
-                <div class="mb-6" style="height: 250px;">
-                    <canvas id="trend-chart"></canvas>
+
+                <div class="bg-gray-50 rounded-lg p-4 my-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-semibold">Request Trend</h3>
+                        <span id="trend-meta" class="text-xs text-gray-500">Requests / Tokens / Errors</span>
+                    </div>
+                    <div style="height: 250px;">
+                        <canvas id="trend-chart"></canvas>
+                    </div>
                 </div>
-                
-                <div>
-                    <h3 class="text-lg font-semibold mb-3">Model Usage</h3>
-                    <div id="model-stats" class="space-y-2"></div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">Model Usage</h3>
+                            <span id="model-usage-meta" class="text-xs text-gray-500">Your API key</span>
+                        </div>
+                        <div class="h-64"><canvas id="model-usage-chart"></canvas></div>
+                        <div id="model-stats" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-64 overflow-y-auto"></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">System Model Usage</h3>
+                            <span id="system-model-meta" class="text-xs text-gray-500">All API keys</span>
+                        </div>
+                        <div class="h-64"><canvas id="system-model-chart"></canvas></div>
+                        <div id="system-model-legend" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-64 overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Models Tab -->
+            <div id="tab-catalog" class="tab-content p-6">
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">Platform Providers & Models</h3>
+                            <span id="platform-catalog-meta" class="text-xs text-gray-500">0 providers / 0 models</span>
+                        </div>
+                        <div id="platform-catalog" class="space-y-3 max-h-[36rem] overflow-y-auto">
+                            <div class="text-gray-400 text-center py-4">Loading catalog...</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">Your Access</h3>
+                            <span id="owned-catalog-meta" class="text-xs text-gray-500">0 providers / 0 models</span>
+                        </div>
+                        <div id="owned-catalog-note" class="text-xs text-gray-400 mb-3">Models available to this API key.</div>
+                        <div id="owned-catalog" class="space-y-3 max-h-[36rem] overflow-y-auto">
+                            <div class="text-gray-400 text-center py-4">Loading access...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -197,14 +272,61 @@ const data = await response.json();</code></pre>
     </div>
     
     <script>
-        const apiKeyId = {api_key_id};
         const baseUrl = window.location.origin + '/v1';
         let trendChart = null;
+        let modelUsageChart = null;
+        let systemModelChart = null;
+        const ownModelPalette = ['#2563eb', '#0f766e', '#0891b2', '#1d4ed8', '#059669', '#0ea5e9', '#14b8a6', '#0284c7'];
+        const systemModelPalette = ['#f59e0b', '#ef4444', '#f97316', '#dc2626', '#eab308', '#fb7185', '#ea580c', '#f43f5e'];
         
         document.getElementById('proxy-url').textContent = baseUrl;
         document.getElementById('base-python').textContent = baseUrl;
         document.getElementById('base-js').textContent = baseUrl;
         document.getElementById('base-curl').textContent = baseUrl;
+
+        function getThemeMode() {{
+            return localStorage.getItem('dashboard_theme') || 'light';
+        }}
+
+        function getChartTheme() {{
+            const isDark = document.body.classList.contains('theme-dark');
+            return {{
+                tickColor: isDark ? '#94a3b8' : '#6b7280',
+                gridColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)',
+                titleColor: isDark ? '#cbd5e1' : '#4b5563',
+                legendColor: isDark ? '#e5e7eb' : '#374151',
+                tooltipBg: isDark ? '#0f172a' : '#ffffff',
+                tooltipTitle: isDark ? '#f8fafc' : '#111827',
+                tooltipBody: isDark ? '#cbd5e1' : '#374151',
+                tooltipBorder: isDark ? '#334155' : '#e5e7eb'
+            }};
+        }}
+
+        function applyTheme(mode) {{
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('dashboard_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+        }}
+
+        function toggleTheme() {{
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+            loadStats();
+            loadActiveSessions();
+            loadSystemActiveSessions();
+        }}
+
+        applyTheme(getThemeMode());
+
+        async function fetchJsonOrRedirect(url, options) {{
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {{
+                window.location.href = '/user/login';
+                throw new Error('Unauthorized');
+            }}
+            return await resp.json();
+        }}
         
         function showTab(tab) {{
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -213,63 +335,417 @@ const data = await response.json();</code></pre>
             document.getElementById('tab-' + tab).classList.add('active');
             
             if (tab === 'opencode') loadOpenCodeConfig();
+            if (tab === 'catalog') loadCatalog();
         }}
-        
-        async function loadStats() {{
-            const period = document.getElementById('period-select').value;
-            const resp = await fetch('/user/api/stats?period=' + period);
-            const data = await resp.json();
-            
-            if (data.error) {{ window.location.href = '/user/login'; return; }}
-            
-            document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
-            document.getElementById('total-tokens').textContent = data.total_tokens.toLocaleString();
-            document.getElementById('total-errors').textContent = data.total_errors;
-            document.getElementById('model-count').textContent = Object.keys(data.models || {{}}).length;
-            
-            const modelHtml = Object.entries(data.models || {{}}).map(([name, m]) => `
-                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span class="font-medium text-sm">${{name}}</span>
-                    <span class="text-sm text-gray-600">${{m.requests}} req / ${{m.tokens.toLocaleString()}} tokens</span>
+
+        function formatCompactTokens(tokens) {{
+            const value = Number(tokens || 0);
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\\.0$/, '') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\\.0$/, '') + 'K';
+            if (Number.isInteger(value)) return value.toLocaleString();
+            return value.toFixed(1).replace(/\\.0$/, '');
+        }}
+
+        function getTokenChartScale(requestValues, tokenValues) {{
+            const maxRequests = Math.max(...requestValues, 1);
+            const maxTokens = Math.max(...tokenValues, 1);
+            const scales = [
+                {{ divisor: 1, suffix: '' }},
+                {{ divisor: 1000, suffix: 'K' }},
+                {{ divisor: 1000000, suffix: 'M' }},
+                {{ divisor: 1000000000, suffix: 'B' }}
+            ];
+            let scale = scales.find(s => maxTokens / s.divisor <= maxRequests * 5) || scales[scales.length - 1];
+            if (maxTokens / scale.divisor >= 1000) {{
+                scale = scales[scales.indexOf(scale) + 1] || scale;
+            }}
+            return scale;
+        }}
+
+        function buildDonutSeries(data, palette, metric = 'requests', limit = 5) {{
+            const entries = Object.entries(data || {{}})
+                .sort((a, b) => (b[1][metric] || 0) - (a[1][metric] || 0))
+                .filter(([, stats]) => (stats[metric] || 0) > 0);
+            const topEntries = entries.slice(0, limit);
+            const otherValue = entries.slice(limit).reduce((sum, [, stats]) => sum + (stats[metric] || 0), 0);
+            const labels = topEntries.map(([name]) => name);
+            const values = topEntries.map(([, stats]) => stats[metric] || 0);
+            const colors = topEntries.map((_, index) => palette[index % palette.length]);
+            if (otherValue > 0) {{
+                labels.push('Others');
+                values.push(otherValue);
+                colors.push('#cbd5e1');
+            }}
+            return {{ entries, labels, values, colors }};
+        }}
+
+        function renderCatalogSections(data) {{
+            const ownedFullNames = new Set(
+                (data.owned_providers || []).flatMap(group =>
+                    (group.models || []).map(model => model.full_name)
+                )
+            );
+
+            const renderPlatformGroups = (groups, emptyText) => {{
+                if (!groups || !groups.length) {{
+                    return `<div class="text-gray-400 text-center py-4">${{emptyText}}</div>`;
+                }}
+
+                return groups.map(group => {{
+                    const modelsHtml = (group.models || []).map(model => {{
+                        const isOwned = ownedFullNames.has(model.full_name);
+                        const tone = isOwned
+                            ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-900'
+                            : 'border-gray-200 bg-white text-gray-700';
+                        const badge = isOwned
+                            ? '<span class="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Owned</span>'
+                            : '<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">Available</span>';
+                        return `
+                            <div class="rounded-2xl border ${{tone}} px-3 py-3 shadow-sm transition hover:-translate-y-0.5">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-semibold truncate" title="${{model.full_name}}">${{model.display_name}}</div>
+                                        <div class="mt-0.5 text-[11px] text-gray-500 truncate">${{model.full_name}}</div>
+                                    </div>
+                                    ${{badge}}
+                                </div>
+                                <div class="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                                    <span class="rounded-full bg-black/5 px-2 py-1">ctx ${{formatCompactTokens(model.context || 0)}}</span>
+                                    <span class="rounded-full bg-black/5 px-2 py-1">out ${{formatCompactTokens(model.output || 0)}}</span>
+                                    ${{model.is_multimodal ? '<span class="rounded-full bg-black/5 px-2 py-1">multimodal</span>' : ''}}
+                                    ${{model.has_override ? '<span class="rounded-full bg-black/5 px-2 py-1">alias</span>' : ''}}
+                                </div>
+                            </div>
+                        `;
+                    }}).join('');
+
+                    return `
+                        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <div>
+                                    <div class="font-semibold text-sm">${{group.name}}</div>
+                                    <div class="mt-1 text-[11px] text-gray-500">Platform provider catalog</div>
+                                </div>
+                                <div class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 shrink-0">${{group.model_count}} models</div>
+                            </div>
+                            <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${{modelsHtml}}</div>
+                        </div>
+                    `;
+                }}).join('');
+            }};
+
+            const renderOwnedGroups = (groups, emptyText) => {{
+                if (!groups || !groups.length) {{
+                    return `<div class="text-gray-400 text-center py-4">${{emptyText}}</div>`;
+                }}
+
+                return groups.map(group => {{
+                    const modelsHtml = (group.models || []).map(model => `
+                        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 px-3 py-3 shadow-sm">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <div class="text-sm font-semibold truncate" title="${{model.full_name}}">${{model.display_name}}</div>
+                                    <div class="mt-0.5 text-[11px] text-emerald-700/80 truncate">${{model.full_name}}</div>
+                                </div>
+                                <span class="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Access</span>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-1.5 text-[11px] text-emerald-900/80">
+                                <span class="rounded-full bg-white/70 px-2 py-1">ctx ${{formatCompactTokens(model.context || 0)}}</span>
+                                <span class="rounded-full bg-white/70 px-2 py-1">out ${{formatCompactTokens(model.output || 0)}}</span>
+                                ${{model.is_multimodal ? '<span class="rounded-full bg-white/70 px-2 py-1">multimodal</span>' : ''}}
+                            </div>
+                        </div>
+                    `).join('');
+
+                    return `
+                        <div class="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <div>
+                                    <div class="font-semibold text-sm">${{group.name}}</div>
+                                    <div class="mt-1 text-[11px] text-gray-500">Models this key can use</div>
+                                </div>
+                                <div class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs text-emerald-700 shrink-0">${{group.model_count}} models</div>
+                            </div>
+                            <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${{modelsHtml}}</div>
+                        </div>
+                    `;
+                }}).join('');
+            }};
+
+            document.getElementById('platform-catalog-meta').textContent =
+                `${{data.platform_provider_count || 0}} providers / ${{data.platform_model_count || 0}} models`;
+            document.getElementById('owned-catalog-meta').textContent =
+                `${{data.owned_provider_count || 0}} providers / ${{data.owned_model_count || 0}} models`;
+            document.getElementById('owned-catalog-note').textContent = data.full_access
+                ? 'This API key currently has access to all active models on the platform.'
+                : 'Models explicitly available to this API key.';
+
+            document.getElementById('platform-catalog').innerHTML = renderPlatformGroups(
+                data.platform_providers || [],
+                'No active providers or models'
+            );
+            document.getElementById('owned-catalog').innerHTML = renderOwnedGroups(
+                data.owned_providers || [],
+                'No accessible models'
+            );
+        }}
+
+        function renderModelUsageChart(chartId, legendId, metaId, models, chartRef, palette, metaLabel = 'All API keys') {{
+            const series = buildDonutSeries(models, palette, 'requests', 6);
+            const ctx = document.getElementById(chartId).getContext('2d');
+            const chartTheme = getChartTheme();
+            if (chartRef.current) chartRef.current.destroy();
+
+            chartRef.current = new Chart(ctx, {{
+                type: 'doughnut',
+                data: {{
+                    labels: series.labels,
+                    datasets: [{{
+                        data: series.values,
+                        backgroundColor: series.colors,
+                        borderWidth: 0,
+                        hoverOffset: 8
+                    }}]
+                }},
+                options: {{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {{
+                        legend: {{ display: false }},
+                        tooltip: {{
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {{
+                                label: function(context) {{
+                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
+                                    const pct = context.raw / total;
+                                    return `${{context.label}}: ${{(context.raw || 0).toLocaleString()}} req (${{(pct * 100).toFixed(1)}}%)`;
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            }});
+
+            const totalRequests = series.entries.reduce((sum, [, stats]) => sum + (stats.requests || 0), 0) || 1;
+            const legendHtml = series.entries.slice(0, 6).map(([name, stats], index) => `
+                <div class="rounded bg-white p-3 shadow-sm">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${{palette[index % palette.length]}}"></span>
+                        <span class="truncate text-sm font-medium" title="${{name}}">${{name}}</span>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-500">${{stats.requests.toLocaleString()}} req / ${{formatCompactTokens(stats.tokens || 0)}}</div>
+                    ${{typeof stats.errors === 'number' ? `<div class="mt-1 text-xs text-gray-400">err ${{stats.errors}}</div>` : ''}}
                 </div>
             `).join('');
-            document.getElementById('model-stats').innerHTML = modelHtml || '<div class="text-gray-400">No data</div>';
-            
-            renderTrendChart(data.trend || {{}});
+            document.getElementById(legendId).innerHTML = legendHtml || '<div class="text-gray-400 text-center py-2 2xl:col-span-2">No data</div>';
+            document.getElementById(metaId).textContent = `${{metaLabel}} / ${{Object.keys(models || {{}}).length}} models / top share ${{
+                series.entries[0] ? (((series.entries[0][1].requests || 0) / totalRequests) * 100).toFixed(1) + '%' : '0%'
+            }}`;
         }}
-        
+
+        function renderOwnModelChart(models) {{
+            renderModelUsageChart(
+                'model-usage-chart',
+                'model-stats',
+                'model-usage-meta',
+                models,
+                {{
+                    get current() {{ return modelUsageChart; }},
+                    set current(value) {{ modelUsageChart = value; }}
+                }},
+                ownModelPalette,
+                'Your API key'
+            );
+        }}
+
+        function renderSystemModelChart(models) {{
+            renderModelUsageChart(
+                'system-model-chart',
+                'system-model-legend',
+                'system-model-meta',
+                models,
+                {{
+                    get current() {{ return systemModelChart; }},
+                    set current(value) {{ systemModelChart = value; }}
+                }},
+                systemModelPalette,
+                'All API keys'
+            );
+        }}
+
+        function renderSystemActiveSessions(data) {{
+            document.getElementById('system-active-count').textContent = `${{data.active_count || 0}} active / ${{(data.request_count || 0).toLocaleString()}} req`;
+            if (!data.active_count) {{
+                document.getElementById('system-active-sessions').innerHTML = '<div class="text-gray-400 text-center py-2 2xl:col-span-2">No active sessions</div>';
+                return;
+            }}
+
+            const html = (data.sessions || []).map(session => {{
+                const labelClass = session.is_self ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-700';
+                const modelsHtml = Object.entries(session.models || {{}})
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([model, count]) => `<span class="bg-white text-gray-600 text-xs px-2 py-1 rounded">${{model}} (${{count}})</span>`)
+                    .join(' ');
+                return `
+                    <div class="rounded bg-white p-3 shadow-sm">
+                        <div class="flex justify-between items-start gap-3">
+                            <div class="min-w-0">
+                                <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium ${{labelClass}}">${{session.name}}</span>
+                                <div class="mt-2 text-xs text-gray-500">${{modelsHtml || 'No models'}}</div>
+                            </div>
+                            <div class="text-sm font-medium text-gray-700 shrink-0">${{session.requests}} req</div>
+                        </div>
+                    </div>
+                `;
+            }}).join('');
+            document.getElementById('system-active-sessions').innerHTML = html;
+        }}
+         
+        async function loadStats() {{
+            const period = document.getElementById('period-select').value;
+            const [data, systemModels] = await Promise.all([
+                fetchJsonOrRedirect('/user/api/stats?period=' + period),
+                fetchJsonOrRedirect('/user/api/system-models?period=' + period)
+            ]);
+             
+            document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
+            document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
+            document.getElementById('total-errors').textContent = data.total_errors;
+            document.getElementById('model-count').textContent = Object.keys(data.models || {{}}).length;
+             
+            renderTrendChart(data.trend || {{}});
+            renderOwnModelChart(data.models || {{}});
+            renderSystemModelChart(systemModels.models || {{}});
+        }}
+
+        async function loadCatalog() {{
+            const data = await fetchJsonOrRedirect('/user/api/catalog');
+            renderCatalogSections(data);
+        }}
+         
         function renderTrendChart(trendData) {{
             const ctx = document.getElementById('trend-chart').getContext('2d');
+            const chartTheme = getChartTheme();
             if (trendChart) trendChart.destroy();
-            
+             
             const labels = Object.keys(trendData);
             const requests = labels.map(l => trendData[l].requests || 0);
-            const tokens = labels.map(l => Math.floor((trendData[l].tokens || 0) / 1000));
-            
+            const rawTokens = labels.map(l => trendData[l].tokens || 0);
+            const errors = labels.map(l => trendData[l].errors || 0);
+            const tokenScale = getTokenChartScale(requests, rawTokens);
+            const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
+            const tokenLabel = tokenScale.suffix ? `Tokens (${{tokenScale.suffix}})` : 'Tokens';
+            document.getElementById('trend-meta').textContent = `${{tokenLabel}} on right axis`;
+             
             trendChart = new Chart(ctx, {{
-                type: 'bar',
                 data: {{
                     labels: labels,
                     datasets: [
-                        {{ label: 'Requests', data: requests, backgroundColor: '#3b82f6', borderRadius: 4 }},
-                        {{ label: 'Tokens (K)', data: tokens, backgroundColor: '#10b981', borderRadius: 4 }}
+                        {{
+                            type: 'bar',
+                            label: 'Requests',
+                            data: requests,
+                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
+                            borderColor: 'rgba(59, 130, 246, 0.85)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            yAxisID: 'yRequests'
+                        }},
+                        {{
+                            type: 'line',
+                            label: tokenLabel,
+                            data: tokens,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            pointBackgroundColor: '#10b981',
+                            pointRadius: 3,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.25,
+                            fill: true,
+                            yAxisID: 'yTokens'
+                        }},
+                        {{
+                            type: 'line',
+                            label: 'Errors',
+                            data: errors,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [6, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        }}
                     ]
                 }},
                 options: {{
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: {{ y: {{ beginAtZero: true }} }},
-                    plugins: {{ legend: {{ position: 'top' }} }}
+                    interaction: {{ mode: 'index', intersect: false }},
+                    scales: {{
+                        x: {{
+                            grid: {{ color: chartTheme.gridColor }},
+                            ticks: {{
+                                color: chartTheme.tickColor,
+                                autoSkip: true,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                maxTicksLimit: labels.length > 20 ? 10 : 12
+                            }}
+                        }},
+                        yRequests: {{
+                            beginAtZero: true,
+                            position: 'left',
+                            grid: {{ color: chartTheme.gridColor }},
+                            ticks: {{ color: chartTheme.tickColor }},
+                            title: {{ display: true, text: 'Requests / Errors', color: chartTheme.titleColor }}
+                        }},
+                        yTokens: {{
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: {{ drawOnChartArea: false }},
+                            ticks: {{ color: chartTheme.tickColor }},
+                            title: {{ display: true, text: tokenLabel, color: chartTheme.titleColor }}
+                        }}
+                    }},
+                    plugins: {{
+                        legend: {{
+                            position: 'top',
+                            labels: {{ color: chartTheme.legendColor }}
+                        }},
+                        tooltip: {{
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {{
+                                label: function(context) {{
+                                    if (context.dataset.yAxisID === 'yTokens') {{
+                                        const rawValue = rawTokens[context.dataIndex] || 0;
+                                        return `${{tokenLabel}}: ${{formatCompactTokens(rawValue)}} (${{rawValue.toLocaleString()}})`;
+                                    }}
+                                    return `${{context.dataset.label}}: ${{(context.parsed.y || 0).toLocaleString()}}`;
+                                }}
+                            }}
+                        }}
+                    }}
                 }}
             }});
         }}
         
         async function loadOpenCodeConfig() {{
             try {{
-                const resp = await fetch('/user/api/opencode-config');
-                const data = await resp.json();
-                
-                if (data.error) return;
+                const data = await fetchJsonOrRedirect('/user/api/opencode-config');
                 
                 const config = data.config;
                 config.provider['model-token-plan'].options.baseURL = window.location.origin + '/v1';
@@ -307,29 +783,38 @@ const data = await response.json();</code></pre>
         }}
         
         async function loadActiveSessions() {{
-            const resp = await fetch('/user/api/active');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/user/api/active');
             
             document.getElementById('active-count').textContent = data.active_count + ' active';
             
             if (data.active_count === 0) {{
-                document.getElementById('active-sessions').innerHTML = '<div class="text-gray-400 text-center py-2">No active sessions</div>';
+                document.getElementById('active-sessions').innerHTML = '<div class="text-gray-400 text-center py-2 2xl:col-span-2">No active sessions</div>';
                 return;
             }}
             
             const html = Object.entries(data.sessions).map(([model, session]) => `
-                <div class="flex justify-between items-center p-2 bg-white rounded">
-                    <span class="font-medium text-sm">${{model}}</span>
-                    <span class="text-sm text-gray-600">${{session.requests}} req</span>
+                <div class="rounded bg-white p-3 shadow-sm">
+                    <div class="flex justify-between items-start gap-3">
+                        <span class="font-medium text-sm min-w-0">${{model}}</span>
+                        <span class="text-sm text-gray-600 shrink-0">${{session.requests}} req</span>
+                    </div>
                 </div>
             `).join('');
             document.getElementById('active-sessions').innerHTML = html;
         }}
+
+        async function loadSystemActiveSessions() {{
+            const data = await fetchJsonOrRedirect('/user/api/system-active');
+            renderSystemActiveSessions(data);
+        }}
         
         loadStats();
+        loadCatalog();
         loadActiveSessions();
+        loadSystemActiveSessions();
         setInterval(loadStats, 30000);
         setInterval(loadActiveSessions, 60000);
+        setInterval(loadSystemActiveSessions, 30000);
     </script>
 </body>
 </html>

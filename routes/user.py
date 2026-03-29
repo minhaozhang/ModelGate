@@ -1,11 +1,12 @@
+import secrets
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Cookie, Response, Depends
+from typing import Optional
+
+from fastapi import APIRouter, Cookie, Depends, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
-from sqlalchemy import select, func
-from typing import Optional
-import secrets
-import os
+from sqlalchemy import case, func, select
 
 from core.database import async_session_maker, ApiKey, RequestLog
 from core.config import logger
@@ -34,6 +35,40 @@ def get_user_session(user_session: Optional[str] = Cookie(None)) -> Optional[int
         del USER_SESSIONS[user_session]
         return None
     return session_data.get("api_key_id")
+
+
+def get_user_period_range(
+    now: datetime, period: str
+) -> tuple[datetime, list[str], Callable[[datetime], str]]:
+    if period == "day":
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        intervals = [((start + timedelta(hours=i)).strftime("%H:00")) for i in range(24)]
+        format_func = lambda d: d.strftime("%H:00")
+    elif period == "week":
+        start = now - timedelta(days=now.weekday())
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        intervals = [
+            ((start + timedelta(hours=6 * i)).strftime("%m/%d %H:%M"))
+            for i in range(28)
+        ]
+        format_func = lambda d: d.replace(
+            hour=(d.hour // 6) * 6,
+            minute=0,
+            second=0,
+            microsecond=0,
+        ).strftime("%m/%d %H:%M")
+    else:
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        days_in_month = (
+            now.replace(month=now.month % 12 + 1, day=1) - timedelta(days=1)
+        ).day
+        intervals = [
+            ((start + timedelta(days=i)).strftime("%m/%d"))
+            for i in range(days_in_month)
+        ]
+        format_func = lambda d: d.strftime("%m/%d")
+
+    return start, intervals, format_func
 
 
 @router.get("/user/login", response_class=HTMLResponse)
@@ -90,27 +125,7 @@ async def get_user_stats(
         now = now_result.scalar()
     if now.tzinfo is not None:
         now = now.replace(tzinfo=None)
-    if period == "day":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        intervals = [
-            ((start + timedelta(hours=i)).strftime("%H:00")) for i in range(24)
-        ]
-        format_func = lambda d: d.strftime("%H:00")
-    elif period == "week":
-        start = now - timedelta(days=now.weekday())
-        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-        intervals = [((start + timedelta(days=i)).strftime("%m/%d")) for i in range(7)]
-        format_func = lambda d: d.strftime("%m/%d")
-    else:
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        days_in_month = (
-            now.replace(month=now.month % 12 + 1, day=1) - timedelta(days=1)
-        ).day
-        intervals = [
-            ((start + timedelta(days=i)).strftime("%m/%d"))
-            for i in range(days_in_month)
-        ]
-        format_func = lambda d: d.strftime("%m/%d")
+    start, intervals, format_func = get_user_period_range(now, period)
 
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
@@ -126,9 +141,15 @@ async def get_user_stats(
         total_requests = total_result.scalar() or 0
 
         tokens_result = await session.execute(
-            select(func.sum(RequestLog.tokens["total_tokens"].as_integer())).where(
-                RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
-            )
+            select(
+                func.sum(
+                    func.coalesce(
+                        RequestLog.tokens["total_tokens"].as_integer(),
+                        RequestLog.tokens["estimated"].as_integer(),
+                        0,
+                    )
+                )
+            ).where(RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start)
         )
         total_tokens = tokens_result.scalar() or 0
 
@@ -145,8 +166,15 @@ async def get_user_stats(
             select(
                 RequestLog.model,
                 func.count(RequestLog.id).label("count"),
-                func.sum(RequestLog.tokens["total_tokens"].as_integer()).label(
-                    "tokens"
+                func.sum(
+                    func.coalesce(
+                        RequestLog.tokens["total_tokens"].as_integer(),
+                        RequestLog.tokens["estimated"].as_integer(),
+                        0,
+                    )
+                ).label("tokens"),
+                func.sum(case((RequestLog.status == "error", 1), else_=0)).label(
+                    "errors"
                 ),
             )
             .where(RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start)
@@ -154,7 +182,11 @@ async def get_user_stats(
         )
         model_stats_rows = model_stats_result.fetchall()
         model_stats = {
-            row.model: {"requests": row.count, "tokens": row.tokens or 0}
+            row.model: {
+                "requests": row.count,
+                "tokens": row.tokens or 0,
+                "errors": row.errors or 0,
+            }
             for row in model_stats_rows
         }
 
@@ -164,7 +196,7 @@ async def get_user_stats(
         trend_result = await session.execute(trend_query)
         trend_logs = trend_result.scalars().all()
 
-        trend_data = {label: {"requests": 0, "tokens": 0} for label in intervals}
+        trend_data = {label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals}
         for log in trend_logs:
             label = format_func(log.created_at)
             if label in trend_data:
@@ -175,6 +207,8 @@ async def get_user_stats(
                     or 0
                 )
                 trend_data[label]["tokens"] += tokens
+                if log.status == "error":
+                    trend_data[label]["errors"] += 1
 
         return {
             "name": key.name,
@@ -215,6 +249,201 @@ async def get_user_active_sessions(api_key_id: int = Depends(get_user_session)):
             "active_count": len(model_sessions),
             "sessions": model_sessions,
         }
+
+
+@router.get("/user/api/system-models")
+async def get_system_model_stats(
+    api_key_id: int = Depends(get_user_session), period: str = "day"
+):
+    if not api_key_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    async with async_session_maker() as db_session:
+        now_result = await db_session.execute(select(func.now()))
+        now = now_result.scalar()
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
+
+    start, _, _ = get_user_period_range(now, period)
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(
+                RequestLog.model,
+                func.count(RequestLog.id).label("count"),
+                func.sum(
+                    func.coalesce(
+                        RequestLog.tokens["total_tokens"].as_integer(),
+                        RequestLog.tokens["estimated"].as_integer(),
+                        0,
+                    )
+                ).label("tokens"),
+            )
+            .where(RequestLog.created_at >= start)
+            .group_by(RequestLog.model)
+        )
+        rows = result.fetchall()
+
+    models = {
+        row.model: {"requests": row.count or 0, "tokens": row.tokens or 0}
+        for row in rows
+        if row.model
+    }
+    return {
+        "period": period,
+        "total_requests": sum(v["requests"] for v in models.values()),
+        "total_tokens": sum(v["tokens"] for v in models.values()),
+        "models": models,
+    }
+
+
+@router.get("/user/api/system-active")
+async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)):
+    if not api_key_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(RequestLog).where(RequestLog.created_at >= func.now() - timedelta(minutes=1))
+        )
+        logs = result.scalars().all()
+
+    grouped: dict[int | None, dict] = {}
+    for log in logs:
+        key = log.api_key_id
+        if key not in grouped:
+            grouped[key] = {"requests": 0, "models": {}}
+        grouped[key]["requests"] += 1
+        if log.model:
+            grouped[key]["models"][log.model] = grouped[key]["models"].get(log.model, 0) + 1
+
+    other_index = 1
+    sessions = []
+    for key in sorted(grouped.keys(), key=lambda value: (value != api_key_id, value or 0)):
+        stats = grouped[key]
+        if key == api_key_id:
+            display_name = "Yourself"
+            is_self = True
+        elif key is None:
+            display_name = "Anonymous"
+            is_self = False
+        else:
+            display_name = f"Other {other_index}"
+            other_index += 1
+            is_self = False
+
+        sessions.append(
+            {
+                "name": display_name,
+                "is_self": is_self,
+                "requests": stats["requests"],
+                "models": stats["models"],
+            }
+        )
+
+    sessions.sort(key=lambda item: (not item["is_self"], -item["requests"], item["name"]))
+    return {
+        "active_count": len(sessions),
+        "request_count": sum(item["requests"] for item in sessions),
+        "sessions": sessions,
+    }
+
+
+@router.get("/user/api/catalog")
+async def get_user_catalog(api_key_id: int = Depends(get_user_session)):
+    if not api_key_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    from core.database import ApiKeyModel, Model, Provider, ProviderModel
+
+    async with async_session_maker() as session:
+        key_result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
+        api_key = key_result.scalar_one_or_none()
+        if not api_key:
+            return JSONResponse({"error": "API Key not found"}, status_code=404)
+
+        providers_result = await session.execute(
+            select(Provider).where(Provider.is_active == True)
+        )
+        models_result = await session.execute(select(Model).where(Model.is_active == True))
+        provider_models_result = await session.execute(
+            select(ProviderModel).where(ProviderModel.is_active == True)
+        )
+        key_models_result = await session.execute(
+            select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key_id)
+        )
+
+        providers = providers_result.scalars().all()
+        models = models_result.scalars().all()
+        provider_models = provider_models_result.scalars().all()
+        key_models = key_models_result.scalars().all()
+
+    provider_map = {provider.id: provider for provider in providers}
+    model_map = {model.id: model for model in models}
+    active_provider_models = [
+        pm
+        for pm in provider_models
+        if pm.provider_id in provider_map and pm.model_id in model_map
+    ]
+
+    allowed_pm_ids = {item.provider_model_id for item in key_models}
+    full_access = len(allowed_pm_ids) == 0
+    owned_provider_models = (
+        active_provider_models
+        if full_access
+        else [pm for pm in active_provider_models if pm.id in allowed_pm_ids]
+    )
+
+    def serialize_provider_models(items: list[ProviderModel]) -> list[dict]:
+        grouped: dict[str, dict] = {}
+        for provider_model in items:
+            provider = provider_map[provider_model.provider_id]
+            model = model_map[provider_model.model_id]
+            provider_name = provider.name
+            model_name = model.name
+            display_name = model.display_name or model_name
+
+            if provider_name not in grouped:
+                grouped[provider_name] = {
+                    "name": provider_name,
+                    "models": [],
+                }
+
+            grouped[provider_name]["models"].append(
+                {
+                    "name": model_name,
+                    "full_name": f"{provider_name}/{model_name}",
+                    "display_name": display_name,
+                    "context": model.context_length or 0,
+                    "output": model.max_tokens or 0,
+                    "is_multimodal": bool(model.is_multimodal),
+                    "has_override": bool(provider_model.model_name_override),
+                }
+            )
+
+        providers_data = []
+        for provider_name in sorted(grouped.keys()):
+            provider_entry = grouped[provider_name]
+            provider_entry["models"].sort(key=lambda item: item["full_name"])
+            provider_entry["model_count"] = len(provider_entry["models"])
+            providers_data.append(provider_entry)
+        return providers_data
+
+    platform_providers = serialize_provider_models(active_provider_models)
+    owned_providers = serialize_provider_models(owned_provider_models)
+
+    return {
+        "name": api_key.name,
+        "full_access": full_access,
+        "platform_provider_count": len(platform_providers),
+        "platform_model_count": sum(
+            provider["model_count"] for provider in platform_providers
+        ),
+        "owned_provider_count": len(owned_providers),
+        "owned_model_count": sum(provider["model_count"] for provider in owned_providers),
+        "platform_providers": platform_providers,
+        "owned_providers": owned_providers,
+    }
 
 
 @router.get("/user/dashboard", response_class=HTMLResponse)
