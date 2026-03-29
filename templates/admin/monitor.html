@@ -303,25 +303,21 @@
                     maintainAspectRatio: false,
                     cutout: config.cutout,
                     rotation: config.rotation || 0,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: chartTheme.tooltipBg,
-                                titleColor: chartTheme.tooltipTitle,
-                                bodyColor: chartTheme.tooltipBody,
-                                borderColor: chartTheme.tooltipBorder,
-                                borderWidth: 1,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
                             callbacks: {
                                 label: function(context) {
-                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1);
+                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
                                     const pct = context.raw / total;
-                                    const maskedLabel = maskName(context.label);
-                                    return `${context.label}: ${formatCompactTokens(context.raw)} (${formatPct(pct)})`;
+                                    const label = config.maskLabels ? maskName(context.label) : context.label;
+                                    return `${label}: ${formatCompactTokens(context.raw)} (${formatPct(pct)})`;
                                 }
-                            }
-                        }
-                    }
-                }
                             }
                         }
                     }
@@ -333,13 +329,14 @@
                 const pct = (stats.tokens || 0) / total;
                 const errRate = stats.requests ? stats.errors / stats.requests : 0;
                 const color = config.palette[index % config.palette.length];
+                const displayName = config.maskLabels ? maskName(name) : name;
                 return `
                     <div class="rounded-lg border ${config.cardBorder} p-3">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <div class="flex items-center gap-2">
                                     <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${color}"></span>
-                                    <div class="font-medium text-sm truncate" title="${name}">${name}</div>
+                                    <div class="font-medium text-sm truncate" title="${name}">${displayName}</div>
                                 </div>
                                 <div class="mt-1 text-xs text-gray-500">${stats.requests.toLocaleString()} ${window.I18N.req} / ${formatCompactTokens(stats.tokens || 0)} ${window.I18N.tok}</div>
                             </div>
@@ -386,8 +383,17 @@
         function renderErrorHotspots(providerEntries, apikeyEntries, modelEntries) {
             const hotspots = [
                 ...providerEntries.map(([name, stats]) => ({ scope: window.I18N.provider, name, stats })),
-                ...apikeyEntries.map(([name, stats]) => ({ scope: window.I18N.apiKey, name: maskName(name), stats })),
-            )
+                ...apikeyEntries.map(([name, stats]) => ({ scope: window.I18N.apiKey, name, stats, masked: true })),
+                ...modelEntries.map(([name, stats]) => ({ scope: window.I18N.model, name, stats })),
+            ]
+            .filter(item => (item.stats.requests || 0) >= 3)
+            .map(item => ({
+                ...item,
+                errorRate: item.stats.requests ? item.stats.errors / item.stats.requests : 0
+            }))
+            .sort((a, b) => b.errorRate - a.errorRate || (b.stats.errors || 0) - (a.stats.errors || 0))
+            .slice(0, 6);
+
             const html = hotspots.map(item => {
                 const tone = item.errorRate === 0
                     ? {
@@ -402,22 +408,23 @@
                             border: 'border-amber-100',
                             bg: 'bg-amber-50',
                             scope: 'text-amber-600',
-                            meta: 'text-amber-500';
+                            meta: 'text-amber-500',
                             value: 'text-amber-600'
                         }
                         : {
                             border: 'border-red-100',
                             bg: 'bg-red-50',
                             scope: 'text-red-500',
-                            meta: 'text-red-400';
+                            meta: 'text-red-400',
                             value: 'text-red-600'
                         };
+                const displayName = item.masked ? maskName(item.name) : item.name;
                 return `
                 <div class="rounded-lg border ${tone.border} ${tone.bg} p-3">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
                             <div class="text-xs uppercase tracking-wide ${tone.scope}">${item.scope}</div>
-                            <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${maskName(item.name)}</div>
+                            <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${displayName}</div>
                             <div class="mt-1 text-xs ${tone.meta}">${item.stats.errors.toLocaleString()} ${window.I18N.errors} / ${item.stats.requests.toLocaleString()} ${window.I18N.requests}</div>
                         </div>
                         <div class="text-right shrink-0">
@@ -595,7 +602,8 @@
                 rotation: -90,
                 palette: providerPalette,
                 accentColor: '#2563eb',
-                cardBorder: 'border-blue-100'
+                cardBorder: 'border-blue-100',
+                maskLabels: false
             });
             providerChart = providerResult.chart;
             const apikeyResult = renderUsageChart(apikeyChart, 'apikeyChart', 'apikey-legend', apikeyData.data || {}, {
@@ -604,7 +612,8 @@
                 rotation: -45,
                 palette: apikeyPalette,
                 accentColor: '#059669',
-                cardBorder: 'border-emerald-100'
+                cardBorder: 'border-emerald-100',
+                maskLabels: true
             });
             apikeyChart = apikeyResult.chart;
             const modelResult = renderUsageChart(modelChart, 'modelChart', 'model-legend', modelData.data || {}, {
@@ -613,7 +622,8 @@
                 rotation: 15,
                 palette: modelPalette,
                 accentColor: '#7c3aed',
-                cardBorder: 'border-violet-100'
+                cardBorder: 'border-violet-100',
+                maskLabels: false
             });
             modelChart = modelResult.chart;
 
