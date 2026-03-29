@@ -11,9 +11,7 @@ router = APIRouter(prefix="/admin", tags=["pages"])
 MOBILE_UA_KEYWORDS = ("android", "iphone", "ipad", "ipod", "mobile")
 
 
-def _is_mobile(request: Request) -> bool:
-    ua = (request.headers.get("user-agent") or "").lower()
-    return any(kw in ua for kw in MOBILE_UA_KEYWORDS)
+    return any(kw in ua for kw in MOBILE_UA_KEYWORDS)    return any(kw in ua for kw in MOBILE_UA_KEYWORDS)
 
 
 def _check_auth(session: Optional[str]) -> bool:
