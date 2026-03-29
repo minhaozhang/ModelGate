@@ -303,20 +303,25 @@
                     maintainAspectRatio: false,
                     cutout: config.cutout,
                     rotation: config.rotation || 0,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: chartTheme.tooltipBg,
-                            titleColor: chartTheme.tooltipTitle,
-                            bodyColor: chartTheme.tooltipBody,
-                            borderColor: chartTheme.tooltipBorder,
-                            borderWidth: 1,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: chartTheme.tooltipBg,
+                                titleColor: chartTheme.tooltipTitle,
+                                bodyColor: chartTheme.tooltipBody,
+                                borderColor: chartTheme.tooltipBorder,
+                                borderWidth: 1,
                             callbacks: {
                                 label: function(context) {
-                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
+                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1);
                                     const pct = context.raw / total;
+                                    const maskedLabel = maskName(context.label);
                                     return `${context.label}: ${formatCompactTokens(context.raw)} (${formatPct(pct)})`;
                                 }
+                            }
+                        }
+                    }
+                }
                             }
                         }
                     }
