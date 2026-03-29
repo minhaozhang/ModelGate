@@ -3,13 +3,25 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, Depends, Response
+from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import case, func, select
 
+from core.i18n import render
+from core.i18n import render
+
 from core.database import async_session_maker, ApiKey, RequestLog
 from core.config import logger
+
+from fastapi import Request
+
+
+from core.i18n import render
+from fastapi import APIRouter, Cookie, Depends, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi import Request
+from fastapi import Request
 
 router = APIRouter(tags=["user"])
 
@@ -17,8 +29,7 @@ USER_SESSIONS: dict[str, dict] = {}
 USER_SESSION_EXPIRE_HOURS = 24
 
 
-from templates.user.login import USER_LOGIN_HTML
-from templates.user.dashboard import USER_DASHBOARD_HTML
+from core.i18n import render
 
 
 class UserLoginRequest(BaseModel):
@@ -72,9 +83,8 @@ def get_user_period_range(
 
 
 @router.get("/user/login", response_class=HTMLResponse)
-async def user_login_page():
-    return HTMLResponse(content=USER_LOGIN_HTML)
-
+async def user_login_page(request: Request):
+    return HTMLResponse(content=render(request, "user/login.html"))
 
 @router.post("/user/api/login")
 async def user_login(data: UserLoginRequest, response: Response):
@@ -447,7 +457,7 @@ async def get_user_catalog(api_key_id: int = Depends(get_user_session)):
 
 
 @router.get("/user/dashboard", response_class=HTMLResponse)
-async def user_dashboard(api_key_id: int = Depends(get_user_session)):
+async def user_dashboard(request: Request, api_key_id: int = Depends(get_user_session)):
     if not api_key_id:
         return RedirectResponse(url="/user/login")
 
@@ -457,8 +467,9 @@ async def user_dashboard(api_key_id: int = Depends(get_user_session)):
         if not key:
             return RedirectResponse(url="/user/login")
 
-        html = USER_DASHBOARD_HTML.format(name=key.name, api_key_id=api_key_id)
+        html = render(request, "user/dashboard.html", name=key.name, api_key_id=api_key_id)
         return HTMLResponse(content=html)
+
 
 
 @router.get("/user/api/opencode-config")
