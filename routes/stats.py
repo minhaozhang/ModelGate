@@ -847,6 +847,7 @@ async def get_slow_requests(_: bool = Depends(require_admin)):
             select(RequestLog)
             .where(
                 RequestLog.created_at >= func.now() - timedelta(hours=1),
+                RequestLog.latency_ms.is_not(None),
                 RequestLog.latency_ms >= 60000,
             )
             .order_by(RequestLog.latency_ms.desc())
@@ -856,6 +857,9 @@ async def get_slow_requests(_: bool = Depends(require_admin)):
 
         slow_completed = []
         for log in slow_logs:
+            if log.latency_ms is None:
+                continue
+
             key_name = None
             if log.api_key_id:
                 for k, v in api_keys_cache.items():

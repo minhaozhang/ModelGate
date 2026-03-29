@@ -4,9 +4,10 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import select
 
+import core.config as config
+
 from core.config import (
     providers_cache,
-    providers_cache_time,
     PROVIDERS_CACHE_TTL_MINUTES,
     logger,
     provider_semaphores,
@@ -64,14 +65,12 @@ async def load_providers():
             if existing is None or getattr(existing, "_value", None) != max_conc:
                 provider_semaphores[p.name] = asyncio.Semaphore(max_conc)
 
-        import core.config as config
-
         config.providers_cache_time = datetime.now()
 
 
 async def get_provider_config(provider_name: str) -> Optional[dict]:
-    if providers_cache_time is None or (
-        datetime.now() - providers_cache_time
+    if config.providers_cache_time is None or (
+        datetime.now() - config.providers_cache_time
     ) > timedelta(minutes=PROVIDERS_CACHE_TTL_MINUTES):
         await load_providers()
     return providers_cache.get(provider_name)

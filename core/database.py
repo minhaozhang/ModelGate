@@ -12,6 +12,7 @@ from sqlalchemy import (
     Index,
     ForeignKey,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -182,3 +183,15 @@ def generate_api_key():
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(
+            text(
+                "ALTER TABLE models "
+                "ADD COLUMN IF NOT EXISTS thinking_enabled BOOLEAN DEFAULT TRUE"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE models "
+                "ADD COLUMN IF NOT EXISTS thinking_budget INTEGER DEFAULT 8192"
+            )
+        )

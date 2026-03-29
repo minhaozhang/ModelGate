@@ -116,12 +116,14 @@ async def proxy_request(request: Request, endpoint: str):
             if stream:
                 return await handle_streaming(
                     target_url, headers, body, provider_name, actual_model,
+                    messages,
                     start_time, body_json, api_key_id, semaphore, request_id,
                     stream_log_id, request,
                 )
             else:
                 return await handle_normal(
                     client, target_url, headers, body, provider_name, actual_model,
+                    messages,
                     start_time, body_json, api_key_id, semaphore, request_id,
                 )
     except Exception as e:
@@ -215,7 +217,14 @@ async def _record_stream_result(
         await update_request_log(log_id, response=total_content, tokens=tokens_record, latency_ms=latency, status="cancelled")
     elif status == "error":
         update_stats(provider, model, 0, api_key_id=api_key_id, is_error=True)
-        await update_request_log(log_id, response=total_content, tokens=tokens_record, latency_ms=latency, status="error", error=error)
+        await update_request_log(
+            log_id,
+            response=total_content,
+            tokens=tokens_record,
+            latency_ms=latency,
+            status="error",
+            error=str(error) if error is not None else None,
+        )
         error_logger.error(
             f"[STREAM ERROR] Provider: {provider}, Model: {model}\n"
             f"  Error: {type(error).__name__ if error else 'Unknown'}: {error}\n"
