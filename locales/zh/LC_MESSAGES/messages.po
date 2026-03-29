@@ -1,0 +1,3 @@
+# POT
+msgid ""
+msgstr ""
