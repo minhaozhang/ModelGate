@@ -31,7 +31,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     try:
         body = await request.body()
-        body_str = body.decode()[:1000]
+        body_str = body.decode("utf-8", errors="replace")[:1000]
     except Exception:
         body_str = ""
     error_logger.error(
@@ -48,7 +48,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def general_exception_handler(request: Request, exc: Exception):
     try:
         body = await request.body()
-        body_str = body.decode()[:1000]
+        body_str = body.decode("utf-8", errors="replace")[:1000]
     except Exception:
         body_str = ""
     error_logger.error(

@@ -55,8 +55,12 @@ async def proxy_request(request: Request, endpoint: str):
 
     if not provider_config:
         logger.error(f"[PROXY ERROR] Unknown provider for model: {model}")
-        logger.debug(f"[PROXY ERROR] Available providers: {list(providers_cache.keys())}")
-        return JSONResponse({"error": f"Unknown provider for model: {model}"}, status_code=400)
+        logger.debug(
+            f"[PROXY ERROR] Available providers: {list(providers_cache.keys())}"
+        )
+        return JSONResponse(
+            {"error": f"Unknown provider for model: {model}"}, status_code=400
+        )
 
     semaphore = provider_semaphores.get(provider_name)
     if semaphore is None:
@@ -79,7 +83,9 @@ async def proxy_request(request: Request, endpoint: str):
         body_json["model"] = actual_model
 
         model_config = get_model_config(provider_config, actual_model)
-        is_multimodal = model_config.get("is_multimodal", False) if model_config else False
+        is_multimodal = (
+            model_config.get("is_multimodal", False) if model_config else False
+        )
 
         merge_messages = provider_config.get("merge_consecutive_messages", False)
         body_json = preprocess_messages(body_json, merge_messages, is_multimodal)
@@ -106,34 +112,74 @@ async def proxy_request(request: Request, endpoint: str):
         target_url = f"{provider_config['base_url']}{endpoint}"
         headers = _build_headers(provider_config)
 
-        _log_request_info(provider_name, actual_model, auth_header, messages, is_multimodal, stream, target_url, headers, body)
+        _log_request_info(
+            provider_name,
+            actual_model,
+            auth_header,
+            messages,
+            is_multimodal,
+            stream,
+            target_url,
+            headers,
+            body,
+        )
 
         stream_log_id = None
         if stream:
-            stream_log_id = await create_request_log(provider_name, actual_model, api_key_id=api_key_id)
+            stream_log_id = await create_request_log(
+                provider_name, actual_model, api_key_id=api_key_id
+            )
 
-        async with httpx.AsyncClient(timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS) as client:
+        async with httpx.AsyncClient(
+            timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS
+        ) as client:
             if stream:
                 return await handle_streaming(
-                    target_url, headers, body, provider_name, actual_model,
+                    target_url,
+                    headers,
+                    body,
+                    provider_name,
+                    actual_model,
                     messages,
-                    start_time, body_json, api_key_id, semaphore, request_id,
-                    stream_log_id, request,
+                    start_time,
+                    body_json,
+                    api_key_id,
+                    semaphore,
+                    request_id,
+                    stream_log_id,
+                    request,
                 )
             else:
                 return await handle_normal(
-                    client, target_url, headers, body, provider_name, actual_model,
+                    client,
+                    target_url,
+                    headers,
+                    body,
+                    provider_name,
+                    actual_model,
                     messages,
-                    start_time, body_json, api_key_id, semaphore, request_id,
+                    start_time,
+                    body_json,
+                    api_key_id,
+                    semaphore,
+                    request_id,
                 )
     except Exception as e:
         if acquired:
             semaphore.release()
         latency = (time.time() - start_time) * 1000
-        update_stats(provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True)
+        update_stats(
+            provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True
+        )
         await log_request(
-            provider_name, actual_model, "", {}, latency, "error",
-            api_key_id=api_key_id, error=str(e),
+            provider_name,
+            actual_model,
+            "",
+            {},
+            latency,
+            "error",
+            api_key_id=api_key_id,
+            error=str(e),
         )
         error_logger.error(
             f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}\n"
@@ -155,15 +201,32 @@ def _build_headers(provider_config: dict) -> dict:
     return headers
 
 
-def _log_request_info(provider, model, auth_header, messages, is_multimodal, stream, target_url, headers, body):
+def _log_request_info(
+    provider,
+    model,
+    auth_header,
+    messages,
+    is_multimodal,
+    stream,
+    target_url,
+    headers,
+    body,
+):
     key_name = (
-        api_keys_cache.get(auth_header.replace("Bearer ", ""), {}).get("name", "unknown")
-        if auth_header.startswith("Bearer ") else "unknown"
+        api_keys_cache.get(auth_header.replace("Bearer ", ""), {}).get(
+            "name", "unknown"
+        )
+        if auth_header.startswith("Bearer ")
+        else "unknown"
     )
     msg_count = len(messages)
     has_images = any(
         isinstance(m.get("content"), list)
-        and any(c.get("type") == "image_url" for c in m.get("content", []) if isinstance(c, dict))
+        and any(
+            c.get("type") == "image_url"
+            for c in m.get("content", [])
+            if isinstance(c, dict)
+        )
         for m in messages
     )
     multimodal_tag = " [MULTIMODAL]" if is_multimodal or has_images else ""
@@ -173,7 +236,10 @@ def _log_request_info(provider, model, auth_header, messages, is_multimodal, str
     )
     logger.info(f"[REQUEST] Target: {target_url}")
     logger.debug("[REQUEST] Headers: %s", headers)
-    logger.debug(f"[REQUEST] Body: {body.decode() if isinstance(body, bytes) else body}")
+    logger.debug(
+        "[REQUEST] Body: %s",
+        body.decode("utf-8", errors="replace") if isinstance(body, bytes) else body,
+    )
 
 
 def _extract_response_fields(resp_json: dict) -> tuple[str, str, list, str]:
@@ -192,17 +258,32 @@ def _extract_response_fields(resp_json: dict) -> tuple[str, str, list, str]:
 
 
 async def _record_stream_result(
-    total_content, total_reasoning, stream_tool_calls, final_finish_reason,
-    last_usage, req_body, provider, model, api_key_id, start_time, log_id, status, error=None,
+    total_content,
+    total_reasoning,
+    stream_tool_calls,
+    final_finish_reason,
+    last_usage,
+    req_body,
+    provider,
+    model,
+    api_key_id,
+    start_time,
+    log_id,
+    status,
+    error=None,
 ):
     latency = (time.time() - start_time) * 1000
     response_meta = build_response_meta(
-        response_text=total_content, reasoning_text=total_reasoning,
-        tool_calls=stream_tool_calls, finish_reason=final_finish_reason,
+        response_text=total_content,
+        reasoning_text=total_reasoning,
+        tool_calls=stream_tool_calls,
+        finish_reason=final_finish_reason,
     )
     tokens_record = build_tokens_record(
-        last_usage, req_body=req_body,
-        response_text=total_content, reasoning_text=total_reasoning,
+        last_usage,
+        req_body=req_body,
+        response_text=total_content,
+        reasoning_text=total_reasoning,
         response_meta=response_meta,
     )
     total_tokens = tokens_record["total_tokens"]
@@ -210,11 +291,23 @@ async def _record_stream_result(
 
     if status == "success":
         update_stats(provider, model, total_tokens, api_key_id=api_key_id)
-        await update_request_log(log_id, response=total_content, tokens=tokens_record, latency_ms=latency, status="success")
+        await update_request_log(
+            log_id,
+            response=total_content,
+            tokens=tokens_record,
+            latency_ms=latency,
+            status="success",
+        )
         logger.info(f"[STREAM COMPLETE] ~{total_tokens} tokens | {latency:.0f}ms")
         logger.debug("[STREAM RESPONSE] Content: %s", total_content)
     elif status == "cancelled":
-        await update_request_log(log_id, response=total_content, tokens=tokens_record, latency_ms=latency, status="cancelled")
+        await update_request_log(
+            log_id,
+            response=total_content,
+            tokens=tokens_record,
+            latency_ms=latency,
+            status="cancelled",
+        )
     elif status == "error":
         update_stats(provider, model, 0, api_key_id=api_key_id, is_error=True)
         await update_request_log(
@@ -234,10 +327,22 @@ async def _record_stream_result(
 
 
 async def handle_normal(
-    client, url, headers, body, provider, model, messages,
-    start_time, req_body, api_key_id, semaphore, request_id,
+    client,
+    url,
+    headers,
+    body,
+    provider,
+    model,
+    messages,
+    start_time,
+    req_body,
+    api_key_id,
+    semaphore,
+    request_id,
 ):
-    logger.debug("[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url)
+    logger.debug(
+        "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
+    )
 
     resp = await client.post(url, headers=headers, content=body)
     latency = (time.time() - start_time) * 1000
@@ -250,15 +355,21 @@ async def handle_normal(
     if provider == "minimax":
         process_minimax_response(resp_json)
 
-    response_text, reasoning_text, tool_calls, finish_reason = _extract_response_fields(resp_json)
+    response_text, reasoning_text, tool_calls, finish_reason = _extract_response_fields(
+        resp_json
+    )
 
     response_meta = build_response_meta(
-        response_text=response_text, reasoning_text=reasoning_text,
-        tool_calls=tool_calls, finish_reason=finish_reason,
+        response_text=response_text,
+        reasoning_text=reasoning_text,
+        tool_calls=tool_calls,
+        finish_reason=finish_reason,
     )
     tokens_record = build_tokens_record(
-        resp_json.get("usage"), req_body=req_body,
-        response_text=response_text, reasoning_text=reasoning_text,
+        resp_json.get("usage"),
+        req_body=req_body,
+        response_text=response_text,
+        reasoning_text=reasoning_text,
         response_meta=response_meta,
     )
     total_tokens = tokens_record["total_tokens"]
@@ -266,18 +377,29 @@ async def handle_normal(
     is_error = resp.status_code >= 400
     retry_after = resp.headers.get("retry-after")
     if retry_after:
-        error_logger.warning(f"[API] {provider} rate limited, retry-after: {retry_after}s")
+        error_logger.warning(
+            f"[API] {provider} rate limited, retry-after: {retry_after}s"
+        )
 
     if not is_error and resp_json.get("error"):
         is_error = True
-        error_logger.error(f"[API ERROR] Provider: {provider}, Model: {model}, API returned error: {resp_json.get('error')}")
+        error_logger.error(
+            f"[API ERROR] Provider: {provider}, Model: {model}, API returned error: {resp_json.get('error')}"
+        )
 
-    update_stats(provider, model, total_tokens, api_key_id=api_key_id, is_error=is_error)
+    update_stats(
+        provider, model, total_tokens, api_key_id=api_key_id, is_error=is_error
+    )
     log_response_meta(provider, model, response_meta)
     await log_request(
-        provider, model, response_text, tokens_record, latency,
+        provider,
+        model,
+        response_text,
+        tokens_record,
+        latency,
         "error" if is_error else "success",
-        api_key_id=api_key_id, error=resp.text if is_error else None,
+        api_key_id=api_key_id,
+        error=resp.text if is_error else None,
     )
 
     if is_error:
@@ -287,18 +409,37 @@ async def handle_normal(
             f"  Response: {resp.text[:1000]}"
         )
 
-    logger.info(f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms")
+    logger.info(
+        f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms"
+    )
     logger.debug("[RESPONSE] Body: %s", resp.text)
 
     semaphore.release()
-    return Response(content=resp.content, status_code=resp.status_code, headers={"content-type": "application/json"})
+    return Response(
+        content=resp.content,
+        status_code=resp.status_code,
+        headers={"content-type": "application/json"},
+    )
 
 
 async def handle_streaming(
-    url, headers, body, provider, model, messages,
-    start_time, req_body, api_key_id, semaphore, request_id, log_id, request,
+    url,
+    headers,
+    body,
+    provider,
+    model,
+    messages,
+    start_time,
+    req_body,
+    api_key_id,
+    semaphore,
+    request_id,
+    log_id,
+    request,
 ):
-    logger.debug("[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url)
+    logger.debug(
+        "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
+    )
 
     async def stream_generator():
         total_content = ""
@@ -312,14 +453,22 @@ async def handle_streaming(
         minimax_proc = MinimaxStreamProcessor() if provider == "minimax" else None
 
         try:
-            async with httpx.AsyncClient(timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS) as client:
-                async with client.stream("POST", url, headers=headers, content=body) as resp:
+            async with httpx.AsyncClient(
+                timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS
+            ) as client:
+                async with client.stream(
+                    "POST", url, headers=headers, content=body
+                ) as resp:
                     if resp.status_code >= 400:
                         error_body = await resp.aread()
                         retry_after = resp.headers.get("retry-after")
                         if retry_after:
-                            error_logger.warning(f"[STREAM ERROR] {provider} rate limited, retry-after: {retry_after}s")
-                        raise Exception(f"HTTP {resp.status_code}: {error_body.decode()[:500]}")
+                            error_logger.warning(
+                                f"[STREAM ERROR] {provider} rate limited, retry-after: {retry_after}s"
+                            )
+                        raise Exception(
+                            f"HTTP {resp.status_code}: {error_body.decode('utf-8', errors='replace')[:500]}"
+                        )
 
                     chunk_count = 0
                     async for line in normalize_sse_stream(resp.aiter_lines()):
@@ -353,13 +502,21 @@ async def handle_streaming(
                                 raise Exception("Stream finished with error status")
 
                             delta = choice.get("delta", {})
-                            _collect_tool_calls(delta.get("tool_calls"), seen_tool_call_keys, stream_tool_calls)
+                            _collect_tool_calls(
+                                delta.get("tool_calls"),
+                                seen_tool_call_keys,
+                                stream_tool_calls,
+                            )
                             content = delta.get("content", "")
 
                             if minimax_proc and content:
                                 result = minimax_proc.process_content(
-                                    content, chunk, delta, seen_tool_call_keys,
-                                    stream_tool_calls, _collect_tool_calls,
+                                    content,
+                                    chunk,
+                                    delta,
+                                    seen_tool_call_keys,
+                                    stream_tool_calls,
+                                    _collect_tool_calls,
                                 )
                                 if result is None:
                                     continue
@@ -379,8 +536,12 @@ async def handle_streaming(
                                 if content == last_content and content.strip():
                                     repeated_count += 1
                                     if repeated_count >= REPEATED_CHUNK_LIMIT:
-                                        logger.warning(f"[STREAM] Detected repeated content ({repeated_count}x), aborting")
-                                        raise Exception(f"Model repeating same content: {content[:50]}...")
+                                        logger.warning(
+                                            f"[STREAM] Detected repeated content ({repeated_count}x), aborting"
+                                        )
+                                        raise Exception(
+                                            f"Model repeating same content: {content[:50]}..."
+                                        )
                                 else:
                                     repeated_count = 0
                                 last_content = content
@@ -392,28 +553,65 @@ async def handle_streaming(
 
                         except json.JSONDecodeError as e:
                             line_preview = line_content[:200].replace("\n", "\\n")
-                            logger.warning(f"[SSE] Invalid JSON, skipping line: {line[:100]}... Error: {e}")
-                            raise Exception(f"SSE JSON parse error: {e}; chunk={line_preview}") from e
+                            logger.warning(
+                                f"[SSE] Invalid JSON, skipping line: {line[:100]}... Error: {e}"
+                            )
+                            raise Exception(
+                                f"SSE JSON parse error: {e}; chunk={line_preview}"
+                            ) from e
 
                         yield f"{line.rstrip()}\n\n"
 
                         if chunk_count % 10 == 0:
                             if await request.is_disconnected():
-                                logger.info(f"[STREAM] Client disconnected at chunk {chunk_count}")
+                                logger.info(
+                                    f"[STREAM] Client disconnected at chunk {chunk_count}"
+                                )
                                 await _record_stream_result(
-                                    total_content, total_reasoning, stream_tool_calls, final_finish_reason,
-                                    last_usage, req_body, provider, model, api_key_id, start_time, log_id, "cancelled",
+                                    total_content,
+                                    total_reasoning,
+                                    stream_tool_calls,
+                                    final_finish_reason,
+                                    last_usage,
+                                    req_body,
+                                    provider,
+                                    model,
+                                    api_key_id,
+                                    start_time,
+                                    log_id,
+                                    "cancelled",
                                 )
                                 return
 
             await _record_stream_result(
-                total_content, total_reasoning, stream_tool_calls, final_finish_reason,
-                last_usage, req_body, provider, model, api_key_id, start_time, log_id, "success",
+                total_content,
+                total_reasoning,
+                stream_tool_calls,
+                final_finish_reason,
+                last_usage,
+                req_body,
+                provider,
+                model,
+                api_key_id,
+                start_time,
+                log_id,
+                "success",
             )
         except Exception as e:
             await _record_stream_result(
-                total_content, total_reasoning, stream_tool_calls, final_finish_reason,
-                last_usage, req_body, provider, model, api_key_id, start_time, log_id, "error", error=e,
+                total_content,
+                total_reasoning,
+                stream_tool_calls,
+                final_finish_reason,
+                last_usage,
+                req_body,
+                provider,
+                model,
+                api_key_id,
+                start_time,
+                log_id,
+                "error",
+                error=e,
             )
             yield f"data: {json.dumps({'error': {'message': str(e), 'type': type(e).__name__}})}\n\n"
         finally:

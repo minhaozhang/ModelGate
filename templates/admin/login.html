@@ -40,6 +40,12 @@
 </head>
 <body class="min-h-screen flex items-center justify-center overflow-hidden">
     <div id="particles-container"></div>
+    <div class="fixed top-4 right-4 z-10">
+        <select id="lang-select" onchange="switchLang(this.value)" class="bg-black/20 text-white/80 border border-white/20 rounded px-3 py-2 text-sm backdrop-blur-sm focus:outline-none">
+            <option value="en" class="text-gray-900">English</option>
+            <option value="zh" class="text-gray-900">&#20013;&#25991;</option>
+        </select>
+    </div>
 
     <div class="login-card rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
         <h1 class="text-2xl font-bold text-white mb-6 text-center">{{ _('API Proxy Login') }}</h1>
@@ -62,6 +68,8 @@
             </button>
         </form>
     </div>
+
+    {% include 'components/lang_switch.html' %}
 
     <script>
         let scene, camera, renderer, particles;
