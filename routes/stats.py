@@ -31,6 +31,13 @@ def require_admin(session: Optional[str] = Cookie(None)):
     return True
 
 
+def get_local_now() -> datetime:
+    now = datetime.now()
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
+    return now
+
+
 async def get_cached_today_stats(start: datetime) -> dict:
     from core.config import proxy_logger
 
@@ -258,11 +265,7 @@ async def get_aggregate_stats(
     period: Literal["day", "week", "month", "year"] = "day",
     _: bool = Depends(require_admin),
 ):
-    async with async_session_maker() as session:
-        now_result = await session.execute(select(func.now()))
-        now = now_result.scalar()
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
+    now = get_local_now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start, intervals, format_func = get_period_range(period, now)
 
@@ -301,11 +304,7 @@ async def get_trend_data(
     name: Optional[str] = None,
     _: bool = Depends(require_admin),
 ):
-    async with async_session_maker() as session:
-        now_result = await session.execute(select(func.now()))
-        now = now_result.scalar()
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
+    now = get_local_now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start, intervals, format_func = get_period_range(period, now)
 
@@ -450,12 +449,7 @@ async def get_trend_data(
 
 @router.get("/stats/period")
 async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)):
-    async with async_session_maker() as session:
-        now_result = await session.execute(select(func.now()))
-        now = now_result.scalar()
-
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
+    now = get_local_now()
 
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -587,11 +581,7 @@ async def get_chart_data(
     api_key_id: Optional[int] = None,
     _: bool = Depends(require_admin),
 ):
-    async with async_session_maker() as session:
-        now_result = await session.execute(select(func.now()))
-        now = now_result.scalar()
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
+    now = get_local_now()
     start, intervals, format_func = get_period_range(period, now)
 
     async with async_session_maker() as session:
@@ -688,11 +678,10 @@ async def reaggregate_all_stats(_: bool = Depends(require_admin)):
 
 @router.get("/stats/active")
 async def get_active_sessions(_: bool = Depends(require_admin)):
+    cutoff = get_local_now() - timedelta(minutes=1)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(
-                RequestLog.created_at >= func.now() - timedelta(minutes=1)
-            )
+            select(RequestLog).where(RequestLog.created_at >= cutoff)
         )
         logs = result.scalars().all()
 
@@ -734,11 +723,10 @@ async def get_active_sessions(_: bool = Depends(require_admin)):
 
 @router.get("/stats/active/models")
 async def get_active_sessions_by_model(_: bool = Depends(require_admin)):
+    cutoff = get_local_now() - timedelta(minutes=1)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(
-                RequestLog.created_at >= func.now() - timedelta(minutes=1)
-            )
+            select(RequestLog).where(RequestLog.created_at >= cutoff)
         )
         logs = result.scalars().all()
 
@@ -793,26 +781,23 @@ async def get_realtime_stats(_: bool = Depends(require_admin)):
 @router.get("/stats/slow")
 async def get_slow_requests(_: bool = Depends(require_admin)):
     slow_pending = []
+    now = get_local_now()
+    pending_cutoff = now - timedelta(seconds=60)
+    completed_cutoff = now - timedelta(hours=1)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(
-                RequestLog,
-                func.extract("epoch", func.now() - RequestLog.created_at).label(
-                    "elapsed_seconds"
-                ),
-            )
+            select(RequestLog)
             .where(
                 RequestLog.status == "pending",
-                RequestLog.created_at <= func.now() - timedelta(seconds=60),
+                RequestLog.created_at <= pending_cutoff,
             )
             .order_by(RequestLog.created_at.asc())
             .limit(50)
         )
-        pending_logs = result.all()
+        pending_logs = result.scalars().all()
 
-        for row in pending_logs:
-            log = row[0]
-            elapsed = row[1] or 0
+        for log in pending_logs:
+            elapsed = max((now - log.created_at).total_seconds(), 0)
 
             key_name = None
             if log.api_key_id:
@@ -846,7 +831,7 @@ async def get_slow_requests(_: bool = Depends(require_admin)):
         result = await session.execute(
             select(RequestLog)
             .where(
-                RequestLog.created_at >= func.now() - timedelta(hours=1),
+                RequestLog.created_at >= completed_cutoff,
                 RequestLog.latency_ms.is_not(None),
                 RequestLog.latency_ms >= 60000,
             )

@@ -130,9 +130,7 @@ async def get_user_stats(
 
     from datetime import datetime, timedelta
 
-    async with async_session_maker() as db_session:
-        now_result = await db_session.execute(select(func.now()))
-        now = now_result.scalar()
+    now = datetime.now()
     if now.tzinfo is not None:
         now = now.replace(tzinfo=None)
     start, intervals, format_func = get_user_period_range(now, period)
@@ -235,11 +233,12 @@ async def get_user_active_sessions(api_key_id: int = Depends(get_user_session)):
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
+    cutoff = datetime.now() - timedelta(minutes=1)
     async with async_session_maker() as session:
         result = await session.execute(
             select(RequestLog).where(
                 RequestLog.api_key_id == api_key_id,
-                RequestLog.created_at >= func.now() - timedelta(minutes=1),
+                RequestLog.created_at >= cutoff,
             )
         )
         logs = result.scalars().all()
@@ -268,9 +267,7 @@ async def get_system_model_stats(
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    async with async_session_maker() as db_session:
-        now_result = await db_session.execute(select(func.now()))
-        now = now_result.scalar()
+    now = datetime.now()
     if now.tzinfo is not None:
         now = now.replace(tzinfo=None)
 
@@ -312,9 +309,10 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
+    cutoff = datetime.now() - timedelta(minutes=1)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(RequestLog.created_at >= func.now() - timedelta(minutes=1))
+            select(RequestLog).where(RequestLog.created_at >= cutoff)
         )
         logs = result.scalars().all()
 
