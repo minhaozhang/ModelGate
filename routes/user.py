@@ -8,28 +8,14 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import case, func, select
 
-from core.i18n import render
-from core.i18n import render
-
-from core.database import async_session_maker, ApiKey, RequestLog
 from core.config import logger
-
-from fastapi import Request
-
-
+from core.database import async_session_maker, ApiKey, RequestLog
 from core.i18n import render
-from fastapi import APIRouter, Cookie, Depends, Response
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi import Request
-from fastapi import Request
 
 router = APIRouter(tags=["user"])
 
 USER_SESSIONS: dict[str, dict] = {}
 USER_SESSION_EXPIRE_HOURS = 24
-
-
-from core.i18n import render
 
 
 class UserLoginRequest(BaseModel):
@@ -46,6 +32,13 @@ def get_user_session(user_session: Optional[str] = Cookie(None)) -> Optional[int
         del USER_SESSIONS[user_session]
         return None
     return session_data.get("api_key_id")
+
+
+def get_local_now() -> datetime:
+    now = datetime.now()
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
+    return now
 
 
 def get_user_period_range(
@@ -85,6 +78,7 @@ def get_user_period_range(
 @router.get("/user/login", response_class=HTMLResponse)
 async def user_login_page(request: Request):
     return HTMLResponse(content=render(request, "user/login.html"))
+
 
 @router.post("/user/api/login")
 async def user_login(data: UserLoginRequest, response: Response):
@@ -128,11 +122,7 @@ async def get_user_stats(
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    from datetime import datetime, timedelta
-
-    now = datetime.now()
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
+    now = get_local_now()
     start, intervals, format_func = get_user_period_range(now, period)
 
     async with async_session_maker() as session:
@@ -267,10 +257,7 @@ async def get_system_model_stats(
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    now = datetime.now()
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
-
+    now = get_local_now()
     start, _, _ = get_user_period_range(now, period)
 
     async with async_session_maker() as session:
@@ -467,8 +454,6 @@ async def user_dashboard(request: Request, api_key_id: int = Depends(get_user_se
 
         html = render(request, "user/dashboard.html", name=key.name, api_key_id=api_key_id)
         return HTMLResponse(content=html)
-
-
 
 @router.get("/user/api/opencode-config")
 async def get_user_opencode_config(api_key_id: int = Depends(get_user_session)):

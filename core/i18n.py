@@ -1,5 +1,4 @@
 import logging
-import os
 from io import BytesIO
 from pathlib import Path
 
@@ -86,9 +85,14 @@ def _load_translations_from_po(locale: str) -> Translations:
 def render(request, template_name: str, **kwargs) -> str:
     locale = get_locale(request)
     translations = _get_translations(locale)
-    _env.install_gettext_translations(translations)
     template = _env.get_template(template_name)
-    return template.render(**kwargs)
+    context = {
+        "_": translations.gettext,
+        "gettext": translations.gettext,
+        "ngettext": translations.ngettext,
+        **kwargs,
+    }
+    return template.render(**context)
 
 
 def clear_cache():
