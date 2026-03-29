@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{ _('Login') }} - {{ _('API Proxy') }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+            min-height: 100vh;
+        }
+        .login-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .input-field {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e2e8f0;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: rgba(99, 102, 241, 0.6);
+            background: rgba(255, 255, 255, 0.12);
+        }
+        .input-field::placeholder { color: #64748b; }
+        .btn-login {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn-login:active { transform: scale(0.98); }
+        .btn-login:disabled { opacity: 0.5; }
+    </style>
+</head>
+<body>
+    <div class="flex items-center justify-center min-h-screen px-6">
+        <div class="login-card rounded-2xl p-8 w-full max-w-sm">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-indigo-500/20 mb-4">
+                    <svg class="w-7 h-7 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold text-white">{{ _('API Proxy') }}</h1>
+                <p class="text-sm text-slate-400 mt-1">{{ _('Admin Dashboard') }}</p>
+            </div>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <input type="text" id="username" class="input-field w-full rounded-xl px-4 py-3 text-sm" placeholder="{{ _('Username') }}" autocomplete="username" required>
+                </div>
+                <div>
+                    <input type="password" id="password" class="input-field w-full rounded-xl px-4 py-3 text-sm" placeholder="{{ _('Password') }}" autocomplete="current-password" required>
+                </div>
+                <div id="error-msg" class="text-red-400 text-xs text-center hidden"></div>
+                <button type="submit" id="login-btn" class="btn-login w-full text-white font-medium py-3 rounded-xl text-sm">
+                    {{ _('Sign In') }}
+                </button>
+            </form>
+            <div class="mt-4 flex justify-center">
+                <select id="lang-select" onchange="switchLang(this.value)" class="bg-transparent text-white/50 border border-white/20 rounded px-2 py-1 text-xs cursor-pointer focus:outline-none">
+                    <option value="en">English</option>
+                    <option value="zh">中文</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    {% include 'components/lang_switch.html' %}
+    <script>
+    window.I18N = {
+        signingIn: "{{ _('Signing in...') }}",
+        signIn: "{{ _('Sign In') }}",
+        loginFailed: "{{ _('Login failed') }}",
+        networkError: "{{ _('Network error') }}",
+    };
+    </script>
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('login-btn');
+            const errEl = document.getElementById('error-msg');
+            btn.disabled = true;
+            btn.textContent = window.I18N.signingIn;
+            errEl.classList.add('hidden');
+            try {
+                const resp = await fetch('/admin/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: document.getElementById('username').value,
+                        password: document.getElementById('password').value
+                    })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    window.location.href = '/admin/m';
+                } else {
+                    errEl.textContent = data.error || data.detail || window.I18N.loginFailed;
+                    errEl.classList.remove('hidden');
+                }
+            } catch (err) {
+                errEl.textContent = window.I18N.networkError;
+                errEl.classList.remove('hidden');
+            }
+            btn.disabled = false;
+            btn.textContent = window.I18N.signIn;
+        });
+    </script>
+</body>
+</html>
