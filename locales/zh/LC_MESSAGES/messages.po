@@ -1,3 +1,587 @@
-# POT
 msgid ""
 msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Dashboard"
+msgstr "仪表盘"
+
+msgid "API Proxy"
+msgstr "API 代理"
+
+msgid "Admin Dashboard"
+msgstr "管理后台"
+
+msgid "Today"
+msgstr "今天"
+
+msgid "Week"
+msgstr "周"
+
+msgid "Month"
+msgstr "月"
+
+msgid "Year"
+msgstr "年"
+
+msgid "Requests"
+msgstr "请求数"
+
+msgid "Tokens"
+msgstr "Token 数"
+
+msgid "Errors"
+msgstr "错误数"
+
+msgid "RPS"
+msgstr "RPS"
+
+msgid "TPS"
+msgstr "TPS"
+
+msgid "Err Rate"
+msgstr "错误率"
+
+msgid "Active Sessions"
+msgstr "活跃会话"
+
+msgid "Slow Requests"
+msgstr "慢请求"
+
+msgid "Provider Usage"
+msgstr "供应商使用"
+
+msgid "API Key Usage"
+msgstr "API 密钥用量"
+
+msgid "Request Trend"
+msgstr "请求趋势"
+
+msgid "No data"
+msgstr "暂无数据"
+
+msgid "No active sessions"
+msgstr "无活跃会话"
+
+msgid "No slow requests"
+msgstr "无慢请求"
+
+msgid "req"
+msgstr "请求"
+
+msgid "pending"
+msgstr "进行中"
+
+msgid "{seconds}s elapsed"
+msgstr "已耗时 {seconds} 秒"
+
+msgid "{label} on right axis"
+msgstr "右侧轴: {label}"
+
+msgid "Dark Mode"
+msgstr "深色模式"
+
+msgid "This Week"
+msgstr "本周"
+
+msgid "This Month"
+msgstr "本月"
+
+msgid "This Year"
+msgstr "今年"
+
+msgid "Total Requests"
+msgstr "总请求数"
+
+msgid "Total Tokens"
+msgstr "总 Token 数"
+
+msgid "Req/sec"
+msgstr "请求/秒"
+
+msgid "Tokens/sec"
+msgstr "Token/秒"
+
+msgid "Error Rate"
+msgstr "错误率"
+
+msgid "Slow Requests (>60s)"
+msgstr "慢请求 (>60秒)"
+
+msgid "Login"
+msgstr "登录"
+
+msgid "API Proxy Login"
+msgstr "API 代理登录"
+
+msgid "Username"
+msgstr "用户名"
+
+msgid "Enter username"
+msgstr "输入用户名"
+
+msgid "Password"
+msgstr "密码"
+
+msgid "Enter admin password"
+msgstr "输入管理员密码"
+
+msgid "Sign In"
+msgstr "登录"
+
+msgid "Signing in..."
+msgstr "登录中..."
+
+msgid "Login failed"
+msgstr "登录失败"
+
+msgid "Network error"
+msgstr "网络错误"
+
+msgid "Config"
+msgstr "配置"
+
+msgid "Provider & Model Configuration"
+msgstr "供应商和模型配置"
+
+msgid "Providers"
+msgstr "供应商"
+
+msgid "+ Add"
+msgstr "+ 添加"
+
+msgid "Models"
+msgstr "模型"
+
+msgid "Sync"
+msgstr "同步"
+
+msgid "Provider-Model Bindings"
+msgstr "供应商-模型绑定"
+
+msgid "Sync from API"
+msgstr "从 API 同步"
+
+msgid "Select a provider to view bindings"
+msgstr "选择供应商查看绑定"
+
+msgid "Add Provider"
+msgstr "添加供应商"
+
+msgid "Name"
+msgstr "名称"
+
+msgid "Base URL"
+msgstr "基础 URL"
+
+msgid "API Key"
+msgstr "API 密钥"
+
+msgid "Active"
+msgstr "启用"
+
+msgid "Merge consecutive same-role messages"
+msgstr "合并连续相同角色消息"
+
+msgid "For providers like MiniMax requiring role alternation"
+msgstr "适用于 MiniMax 等需要角色交替的供应商"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Add Model"
+msgstr "添加模型"
+
+msgid "Model Name (ID)"
+msgstr "模型名称 (ID)"
+
+msgid "Display Name"
+msgstr "显示名称"
+
+msgid "Max Tokens"
+msgstr "最大 Token 数"
+
+msgid "Multimodal"
+msgstr "多模态"
+
+msgid "Monitor"
+msgstr "监控"
+
+msgid "Statistics Monitor"
+msgstr "统计监控"
+
+msgid "Composition, concentration, hotspots, and trend behavior"
+msgstr "流量构成、集中度、热点和趋势行为"
+
+msgid "Day"
+msgstr "天"
+
+msgid "Model Usage"
+msgstr "模型使用"
+
+msgid "Traffic Concentration"
+msgstr "流量集中度"
+
+msgid "Error Hotspots"
+msgstr "错误热点"
+
+msgid "Active Footprint"
+msgstr "活跃足迹"
+
+msgid "Light Mode"
+msgstr "浅色模式"
+
+msgid "Others"
+msgstr "其他"
+
+msgid "tok"
+msgstr "Token"
+
+msgid "err"
+msgstr "错误"
+
+msgid "API Keys"
+msgstr "API 密钥"
+
+msgid "Provider"
+msgstr "供应商"
+
+msgid "Model"
+msgstr "模型"
+
+msgid "Top 1 share"
+msgstr "Top 1 占比"
+
+msgid "Top 3 combined"
+msgstr "Top 3 合计"
+
+msgid "No hotspots"
+msgstr "无热点"
+
+msgid "Active Providers"
+msgstr "活跃供应商"
+
+msgid "Active API Keys"
+msgstr "活跃 API 密钥"
+
+msgid "Active Models"
+msgstr "活跃模型"
+
+msgid "Top:"
+msgstr "排名:"
+
+msgid "No traffic"
+msgstr "无流量"
+
+msgid "Requests / Errors"
+msgstr "请求数 / 错误数"
+
+msgid "Usage Guide"
+msgstr "使用指南"
+
+msgid "How to Configure API Clients"
+msgstr "如何配置 API 客户端"
+
+msgid "Basic Information"
+msgstr "基本信息"
+
+msgid "Proxy URL:"
+msgstr "代理 URL:"
+
+msgid "API Endpoint:"
+msgstr "API 端点:"
+
+msgid "Auth Header:"
+msgstr "认证头:"
+
+msgid "Model Name Format"
+msgstr "模型名称格式"
+
+msgid "Use"
+msgstr "使用"
+
+msgid "format to specify provider:"
+msgstr "格式指定供应商:"
+
+msgid "With Provider Prefix"
+msgstr "带供应商前缀"
+
+msgid "Routes to Zhipu provider"
+msgstr "路由到智谱供应商"
+
+msgid "Without Prefix"
+msgstr "不带前缀"
+
+msgid "Uses default provider"
+msgstr "使用默认供应商"
+
+msgid "ChatGPT-Next-Web / LobeChat"
+msgstr "ChatGPT-Next-Web / LobeChat"
+
+msgid "Go to Settings and configure:"
+msgstr "前往设置并配置:"
+
+msgid "Python (OpenAI SDK)"
+msgstr "Python (OpenAI SDK)"
+
+msgid "Copy"
+msgstr "复制"
+
+msgid "JavaScript / Node.js"
+msgstr "JavaScript / Node.js"
+
+msgid "cURL"
+msgstr "cURL"
+
+msgid "VS Code (Continue / Cline)"
+msgstr "VS Code (Continue / Cline)"
+
+msgid "Add to your config.json:"
+msgstr "添加到 config.json:"
+
+msgid "Tips"
+msgstr "提示"
+
+msgid "Get your API key from"
+msgstr "从以下页面获取 API 密钥:"
+
+msgid "page"
+msgstr "页面"
+
+msgid "Check available models in"
+msgstr "在"
+
+msgid "Monitor usage in"
+msgstr "在"
+
+msgid "Each provider has its own concurrency limit"
+msgstr "每个供应商有自己的并发限制"
+
+msgid "Copied!"
+msgstr "已复制!"
+
+msgid "Add API Key"
+msgstr "添加 API 密钥"
+
+msgid "Search by name or key..."
+msgstr "按名称或密钥搜索..."
+
+msgid "keys"
+msgstr "密钥"
+
+msgid "e.g., Project A"
+msgstr "例如: 项目 A"
+
+msgid "Allowed Models"
+msgstr "允许的模型"
+
+msgid "selected"
+msgstr "已选择"
+
+msgid "Leave empty to allow all models"
+msgstr "留空以允许所有模型"
+
+msgid "API Key and usage instructions copied!"
+msgstr "API Key 和使用说明已复制!"
+
+msgid "Usage Instructions:"
+msgstr "使用说明:"
+
+msgid "Paste the API Key above to log in on the page"
+msgstr "在上方粘贴 API 密钥以登录页面"
+
+msgid "Configure OpenCode:"
+msgstr "配置 OpenCode:"
+
+msgid "Let the agent read the configuration document:"
+msgstr "让智能体读取配置文档:"
+
+msgid "Edit API Key"
+msgstr "编辑 API 密钥"
+
+msgid "All models"
+msgstr "所有模型"
+
+msgid "No API keys found"
+msgstr "未找到 API 密钥"
+
+msgid "Previous"
+msgstr "上一页"
+
+msgid "Next"
+msgstr "下一页"
+
+msgid "No models available. Add providers and models in Config first."
+msgstr "无可用模型。请先在配置中添加供应商和模型。"
+
+msgid "API Key created:"
+msgstr "API 密钥已创建:"
+
+msgid "Please save this key!"
+msgstr "请保存此密钥!"
+
+msgid "Failed to save API key"
+msgstr "保存 API 密钥失败"
+
+msgid "Delete this API key?"
+msgstr "删除此 API 密钥?"
+
+msgid "Edit"
+msgstr "编辑"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Query"
+msgstr "查询"
+
+msgid "User Page:"
+msgstr "用户页面:"
+
+msgid "Setup Doc:"
+msgstr "安装文档:"
+
+msgid "OpenCode Setup"
+msgstr "OpenCode 设置"
+
+msgid "API Key Login"
+msgstr "API 密钥登录"
+
+msgid "Remember API Key"
+msgstr "记住 API 密钥"
+
+msgid "Enter your API Key to view usage statistics"
+msgstr "输入 API 密钥查看使用统计"
+
+msgid "API Key Dashboard"
+msgstr "API 密钥仪表盘"
+
+msgid "Logout"
+msgstr "退出登录"
+
+msgid "Statistics"
+msgstr "统计"
+
+msgid "OpenCode Config"
+msgstr "OpenCode 配置"
+
+msgid "Models Used"
+msgstr "使用模型数"
+
+msgid "Active Sessions (Last 1 Minute)"
+msgstr "活跃会话 (最近 1 分钟)"
+
+msgid "active"
+msgstr "活跃"
+
+msgid "System Active Requests (Last 1 Minute)"
+msgstr "系统活跃请求 (最近 1 分钟)"
+
+msgid "Anonymized across all API keys. Your own traffic is labeled as Yourself."
+msgstr "所有 API 密钥的流量已匿名化。您自己的流量标记为\"您自己\"。"
+
+msgid "Requests / Tokens / Errors"
+msgstr "请求数 / Token 数 / 错误数"
+
+msgid "Your API key"
+msgstr "你的 API 密钥"
+
+msgid "System Model Usage"
+msgstr "系统模型使用"
+
+msgid "All API keys"
+msgstr "所有 API 密钥"
+
+msgid "Platform Providers & Models"
+msgstr "平台供应商和模型"
+
+msgid "providers"
+msgstr "供应商"
+
+msgid "models"
+msgstr "模型"
+
+msgid "Loading catalog..."
+msgstr "加载目录中..."
+
+msgid "Your Access"
+msgstr "你的权限"
+
+msgid "Models available to this API key."
+msgstr "此 API 密钥可用的模型。"
+
+msgid "Loading access..."
+msgstr "加载权限中..."
+
+msgid "OpenCode Configuration"
+msgstr "OpenCode 配置"
+
+msgid "Generate opencode.json config for this proxy"
+msgstr "为此代理生成 opencode.json 配置"
+
+msgid "Available Models"
+msgstr "可用模型"
+
+msgid "How to use"
+msgstr "如何使用"
+
+msgid "Copy the generated <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code>"
+msgstr "复制生成的 opencode.json"
+
+msgid "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code> in your project root"
+msgstr "在项目根目录创建 opencode.json"
+
+msgid "Paste the configuration and save"
+msgstr "粘贴配置并保存"
+
+msgid "OpenCode will now use this proxy for API requests"
+msgstr "OpenCode 现在将使用此代理进行 API 请求"
+
+msgid "Proxy URL"
+msgstr "代理 URL"
+
+msgid "API Endpoint"
+msgstr "API 端点"
+
+msgid "Auth Header"
+msgstr "认证头"
+
+msgid "Use <code class=\"bg-white px-2 py-1 rounded\">provider/model</code> format"
+msgstr "使用 provider/model 格式"
+
+msgid "With Provider"
+msgstr "带供应商"
+
+msgid "JavaScript"
+msgstr "JavaScript"
+
+msgid "Home"
+msgstr "首页"
+
+msgid "Enter your API Key to generate config"
+msgstr "输入 API 密钥以生成配置"
+
+msgid "Generate"
+msgstr "生成"
+
+msgid "Enter your API Key and click Generate"
+msgstr "输入 API 密钥并点击生成"
+
+msgid "Copy the generated"
+msgstr "复制生成的"
+
+msgid "Create"
+msgstr "创建"
+
+msgid "in your project root"
+msgstr "在你的项目根目录"
+
+msgid "Recent Requests"
+msgstr "最近请求"
+
+msgid "Refresh"
+msgstr "刷新"
+
