@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ _('OpenCode Configuration') }} - {{ _('API Proxy') }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        pre { white-space: pre-wrap; word-break: break-all; }
+        .copy-btn { transition: all 0.2s; }
+        .copy-btn:hover { background: #3b82f6; color: white; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="flex">
+        {% set active_page = 'opencode' %}
+        {% include "components/nav.html" %}
+
+        <main class="ml-56 flex-1 p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">{{ _('OpenCode Configuration') }}</h2>
+            <p class="text-gray-500 mb-6">{{ _('Generate opencode.json config for this proxy') }}</p>
+
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ _('Enter your API Key to generate config') }}</label>
+                <div class="flex gap-2">
+                    <input type="text" id="api-key-input" placeholder="sk-..."
+                        class="flex-1 border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <button onclick="generateConfig()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        {{ _('Generate') }}
+                    </button>
+                </div>
+            </div>
+
+            <div id="config-section" class="hidden">
+                <div class="bg-white rounded-lg shadow mb-6">
+                    <div class="flex justify-between items-center p-4 border-b">
+                        <h3 class="text-lg font-semibold">opencode.json</h3>
+                        <button onclick="copyConfig()" class="copy-btn border border-blue-500 text-blue-500 px-3 py-1 rounded text-sm">
+                            {{ _('Copy') }}
+                        </button>
+                    </div>
+                    <pre id="config-output" class="p-4 text-sm bg-gray-50 overflow-x-auto"></pre>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-4">
+                    <h3 class="text-lg font-semibold mb-3">{{ _('Available Models') }}</h3>
+                    <div id="models-list" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <div id="error-section" class="hidden bg-red-50 border border-red-200 rounded-lg p-4">
+                <p id="error-msg" class="text-red-600"></p>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6 mt-6">
+                <h3 class="text-lg font-semibold mb-3">{{ _('How to use') }}</h3>
+                <ol class="list-decimal list-inside space-y-2 text-gray-600">
+                    <li>{{ _('Enter your API Key and click Generate') }}</li>
+                    <li>{{ _('Copy the generated') }} <code class="bg-gray-100 px-1 rounded">opencode.json</code></li>
+                    <li>{{ _('Create') }} <code class="bg-gray-100 px-1 rounded">opencode.json</code> {{ _('in your project root') }}</li>
+                    <li>{{ _('Paste the configuration and save') }}</li>
+                    <li>{{ _('OpenCode will now use this proxy for API requests') }}</li>
+                </ol>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        window.I18N = {
+            pleaseEnterApiKey: {{ _('Please enter an API Key') | tojson }},
+            copied: {{ _('Copied!') | tojson }},
+            copy: {{ _('Copy') | tojson }},
+            failedToGenerateConfig: {{ _('Failed to generate config') | tojson }},
+            promptText: {{ _('# Please add the following provider config to ~/.opencode/opencode.json. Keep existing providers and settings, only add or update the model-token-plan provider.') | tojson }},
+            contextLabel: {{ _('context') | tojson }},
+            outputLabel: {{ _('output') | tojson }}
+        };
+    </script>
+    <script>
+        async function logout() {
+            await fetch('/admin/api/auth/logout', {method: 'POST'});
+            window.location.href = '/login';
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const apiKeyFromUrl = urlParams.get('api_key');
+        if (apiKeyFromUrl) {
+            document.getElementById('api-key-input').value = apiKeyFromUrl;
+            generateConfig();
+        }
+
+        async function generateConfig() {
+            const apiKey = document.getElementById('api-key-input').value.trim();
+            if (!apiKey) {
+                showError(window.I18N.pleaseEnterApiKey);
+                return;
+            }
+
+            try {
+                const resp = await fetch('/opencode/config?api_key=' + encodeURIComponent(apiKey));
+                const data = await resp.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                document.getElementById('config-section').classList.remove('hidden');
+                document.getElementById('error-section').classList.add('hidden');
+
+                const config = data.config;
+                config.provider['model-token-plan'].options.baseURL = window.location.origin + '/v1';
+
+                const prompt = window.I18N.promptText + "\n\n";
+                const configJson = prompt + JSON.stringify(config, null, 2);
+                document.getElementById('config-output').textContent = configJson;
+
+                const modelsHtml = data.models.map(m => `
+                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <span class="font-medium">${m.name}</span>
+                        <span class="text-sm text-gray-500">${window.I18N.contextLabel}: ${m.context.toLocaleString()} | ${window.I18N.outputLabel}: ${m.output.toLocaleString()}</span>
+                    </div>
+                `).join('');
+                document.getElementById('models-list').innerHTML = modelsHtml;
+            } catch (e) {
+                showError(window.I18N.failedToGenerateConfig + ': ' + e.message);
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('config-section').classList.add('hidden');
+            document.getElementById('error-section').classList.remove('hidden');
+            document.getElementById('error-msg').textContent = msg;
+        }
+
+        function copyConfig() {
+            const config = document.getElementById('config-output').textContent;
+            navigator.clipboard.writeText(config).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = window.I18N.copied;
+                setTimeout(() => btn.textContent = window.I18N.copy, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

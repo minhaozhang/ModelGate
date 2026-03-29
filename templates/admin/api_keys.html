@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ _('API Keys') }} - API Proxy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        .model-item.selected { background: #dbeafe; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .divide-y > :not([hidden]) ~ :not([hidden]) { border-color: #1f2937 !important; }
+        body.theme-dark input,
+        body.theme-dark select,
+        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg,
+        body.theme-dark .shadow-xl { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark code { background: #111827 !important; color: #e2e8f0 !important; }
+        body.theme-dark .model-item.selected,
+        body.theme-dark label.selected { background: rgba(37, 99, 235, 0.18) !important; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="flex">
+        {% set active_page = 'api-keys' %}
+        {% include 'components/nav.html' %}
+        
+        <main class="ml-56 flex-1 p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">{{ _('API Keys') }}</h2>
+                <div class="flex items-center gap-3">
+                    <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                        {{ _('Dark Mode') }}
+                    </button>
+                    <button onclick="showAddApiKey()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Add API Key') }}</button>
+                </div>
+            </div>
+            
+            <div class="mb-4 flex items-center gap-4">
+                <div class="relative flex-1 max-w-md">
+                    <input type="text" id="search-input" placeholder="{{ _('Search by name or key...') }}"
+                        class="w-full border rounded-lg px-4 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        oninput="handleSearch()">
+                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <div class="text-sm text-gray-500">
+                    <span id="total-count">0</span> {{ _('keys') }}
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow">
+                <div id="apikeys-list" class="divide-y"></div>
+            </div>
+            
+            <div id="pagination" class="flex justify-center items-center gap-2 mt-4"></div>
+        </main>
+    </div>
+    
+    <div id="apikey-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 id="apikey-modal-title" class="font-semibold">{{ _('Add API Key') }}</h3>
+                <button onclick="closeApiKeyModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <form id="apikey-form" class="p-4">
+                <input type="hidden" id="apikey-id">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Name') }}</label>
+                    <input type="text" id="apikey-name" required class="w-full border rounded px-3 py-2" placeholder="{{ _('e.g., Project A') }}">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        {{ _('Allowed Models') }} <span class="text-gray-400">(<span id="selected-count">0</span> {{ _('selected') }})</span>
+                    </label>
+                    <div class="border rounded max-h-60 overflow-y-auto">
+                        <div id="models-checkbox-container" class="divide-y"></div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">{{ _('Leave empty to allow all models') }}</p>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="closeApiKeyModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+    window.I18N = {
+        copied: "{{ _('Copied!') }}",
+        apiKeyAndUsageCopied: "{{ _('API Key and usage instructions copied!') }}",
+        usageInstructions: "{{ _('Usage Instructions:') }}",
+        pasteApiKey: "{{ _('Paste the API Key above to log in on the page') }}",
+        configureOpenCode: "{{ _('Configure OpenCode:') }}",
+        letAgentReadConfig: "{{ _('Let the agent read the configuration document:') }}",
+        lightMode: "{{ _('Light Mode') }}",
+        darkMode: "{{ _('Dark Mode') }}",
+        addApiKey: "{{ _('Add API Key') }}",
+        editApiKey: "{{ _('Edit API Key') }}",
+        allModels: "{{ _('All models') }}",
+        noApiKeys: "{{ _('No API keys found') }}",
+        previous: "{{ _('Previous') }}",
+        next: "{{ _('Next') }}",
+        noModels: "{{ _('No models available. Add providers and models in Config first.') }}",
+        apiKeyCreated: "{{ _('API Key created:') }}",
+        pleaseSaveKey: "{{ _('Please save this key!') }}",
+        failedToSave: "{{ _('Failed to save API key') }}",
+        deleteConfirm: "{{ _('Delete this API key?') }}",
+        copy: "{{ _('Copy') }}",
+        edit: "{{ _('Edit') }}",
+        delete: "{{ _('Delete') }}",
+        query: "{{ _('Query') }}",
+        userPage: "{{ _('User Page:') }}",
+        setupDoc: "{{ _('Setup Doc:') }}",
+        openCodeSetupMd: "{{ _('OpenCode Setup') }}",
+        loginLabel: "{{ _('Login') }}",
+    };
+    </script>
+    <script>
+        let selectedModelIds = [];
+        let providerModels = [];
+        let apiKeysData = [];
+        let filteredData = [];
+        let currentPage = 1;
+        const pageSize = 10;
+        
+        async function logout() {
+            await fetch('/admin/api/auth/logout', {method: 'POST'});
+            window.location.href = '/admin/login';
+        }
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'light';
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
+        }
+
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+        }
+
+        applyTheme(getThemeMode());
+
+        async function fetchOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = '/admin/login';
+                throw new Error('Unauthorized');
+            }
+            return resp;
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetchOrRedirect(url, options);
+            return await resp.json();
+        }
+        
+        async function loadApiKeys() {
+            const data = await fetchJsonOrRedirect('/admin/api/keys');
+            apiKeysData = data.api_keys || [];
+            handleSearch();
+        }
+        
+        function handleSearch() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            if (query) {
+                filteredData = apiKeysData.filter(k => 
+                    k.name.toLowerCase().includes(query) || 
+                    k.key.toLowerCase().includes(query)
+                );
+            } else {
+                filteredData = apiKeysData;
+            }
+            document.getElementById('total-count').textContent = filteredData.length;
+            currentPage = 1;
+            renderApiKeys();
+            renderPagination();
+        }
+        
+        async function loadProviderModels() {
+            const data = await fetchJsonOrRedirect('/admin/api/provider-models');
+            providerModels = data.provider_models || [];
+            renderModelCheckboxes();
+        }
+        
+        function getModelDisplayName(pmId) {
+            const pm = providerModels.find(p => p.id === pmId);
+            return pm ? pm.display_name : `ID:${pmId}`;
+        }
+        
+        function renderApiKeys() {
+            const baseUrl = window.location.origin;
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            const pageData = filteredData.slice(start, end);
+            
+            const html = pageData.map(k => {
+                const modelNames = (k.allowed_provider_model_ids || []).map(id => getModelDisplayName(id));
+                const modelsDisplay = modelNames.length > 0 
+                    ? modelNames.slice(0, 3).join(', ') + (modelNames.length > 3 ? ` +${modelNames.length - 3}` : '')
+                    : `<span class="text-gray-400">${window.I18N.allModels}</span>`;
+                const userPageUrl = `${baseUrl}/user/login`;
+                const setupMdUrl = `${baseUrl}/opencode/setup.md?api_key=${k.key}`;
+                return `
+                <div class="p-4">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="font-medium">${k.name}</div>
+                            <div class="text-sm text-gray-500 flex items-center gap-2">
+                                <code class="bg-gray-100 px-2 py-0.5 rounded text-xs">${k.key}</code>
+                                <button onclick="copyKey('${k.key}')" class="text-blue-500 hover:text-blue-700 text-xs">${window.I18N.copy}</button>
+                            </div>
+                            <div class="text-xs text-gray-400 mt-1">${modelsDisplay}</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <a href="/api-keys/${k.id}/query" target="_blank" class="text-green-500 hover:text-green-700 text-sm">${window.I18N.query}</a>
+                            <button onclick="editApiKey(${k.id})" class="text-blue-500 hover:text-blue-700 text-sm">${window.I18N.edit}</button>
+                            <button onclick="deleteApiKey(${k.id})" class="text-red-500 hover:text-red-700 text-sm">${window.I18N.delete}</button>
+                        </div>
+                    </div>
+                    <div class="mt-2 bg-gray-50 rounded p-2 text-xs space-y-1">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="text-gray-500">${window.I18N.userPage} </span>
+                                <a href="${userPageUrl}" target="_blank" class="text-blue-500 hover:underline">${userPageUrl}</a>
+                            </div>
+                            <button onclick="copyKey('${userPageUrl}')" class="text-blue-500 hover:text-blue-700">${window.I18N.copy}</button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-500">${window.I18N.setupDoc}</span>
+                            <a href="${setupMdUrl}" target="_blank" class="text-orange-500 hover:underline">${window.I18N.openCodeSetupMd}</a>
+                            <button onclick="copyKeyWithInstructions('${k.key}', '${userPageUrl}', '${setupMdUrl}')" class="text-orange-500 hover:text-orange-700">${window.I18N.copy}</button>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+            document.getElementById('apikeys-list').innerHTML = html || `<div class="text-gray-400 text-center py-8">${window.I18N.noApiKeys}</div>`;
+        }
+        
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredData.length / pageSize);
+            if (totalPages <= 1) {
+                document.getElementById('pagination').innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            
+            if (currentPage > 1) {
+                html += `<button onclick="goToPage(${currentPage - 1})" class="px-3 py-1 border rounded hover:bg-gray-50">${window.I18N.previous}</button>`;
+            }
+            
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            
+            if (endPage - startPage + 1 < maxVisible) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+            
+            if (startPage > 1) {
+                html += `<button onclick="goToPage(1)" class="px-3 py-1 border rounded hover:bg-gray-50">1</button>`;
+                if (startPage > 2) html += `<span class="px-2">...</span>`;
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                if (i === currentPage) {
+                    html += `<button class="px-3 py-1 border rounded bg-blue-500 text-white">${i}</button>`;
+                } else {
+                    html += `<button onclick="goToPage(${i})" class="px-3 py-1 border rounded hover:bg-gray-50">${i}</button>`;
+                }
+            }
+            
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<span class="px-2">...</span>`;
+                html += `<button onclick="goToPage(${totalPages})" class="px-3 py-1 border rounded hover:bg-gray-50">${totalPages}</button>`;
+            }
+            
+            if (currentPage < totalPages) {
+                html += `<button onclick="goToPage(${currentPage + 1})" class="px-3 py-1 border rounded hover:bg-gray-50">${window.I18N.next}</button>`;
+            }
+            
+            document.getElementById('pagination').innerHTML = html;
+        }
+        
+        function goToPage(page) {
+            currentPage = page;
+            renderApiKeys();
+            renderPagination();
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+        
+        function copyExample(cmd) {
+            navigator.clipboard.writeText(cmd).then(() => alert(window.I18N.copied));
+        }
+        
+        function renderModelCheckboxes() {
+            const container = document.getElementById('models-checkbox-container');
+            if (providerModels.length === 0) {
+                container.innerHTML = `<div class="text-gray-400 text-center py-4">${window.I18N.noModels}</div>`;
+                return;
+            }
+            container.innerHTML = providerModels.map(pm => `
+                <label class="flex items-center p-2 hover:bg-gray-50 cursor-pointer ${selectedModelIds.includes(pm.id) ? 'selected' : ''}" data-pm-id="${pm.id}">
+                    <input type="checkbox" class="mr-2" value="${pm.id}" ${selectedModelIds.includes(pm.id) ? 'checked' : ''} onchange="toggleModel(${pm.id})">
+                    <span class="text-sm">${pm.display_name}</span>
+                </label>
+            `).join('');
+        }
+        
+        function toggleModel(id) {
+            const idx = selectedModelIds.indexOf(id);
+            if (idx > -1) {
+                selectedModelIds.splice(idx, 1);
+            } else {
+                selectedModelIds.push(id);
+            }
+            updateSelectedCount();
+            const label = document.querySelector(`label[data-pm-id="${id}"]`);
+            if (label) label.classList.toggle('selected', selectedModelIds.includes(id));
+        }
+        
+        function updateSelectedCount() {
+            document.getElementById('selected-count').textContent = selectedModelIds.length;
+        }
+        
+        function copyKey(key) {
+            navigator.clipboard.writeText(key).then(() => alert(window.I18N.copied));
+        }
+        
+        function copyKeyWithInstructions(key, userPageUrl, setupMdUrl) {
+            const text = `API Key: ${key}
+
+${window.I18N.usageInstructions}
+1. ${window.I18N.loginLabel}: ${userPageUrl}
+   ${window.I18N.pasteApiKey}
+
+2. ${window.I18N.configureOpenCode}
+   ${window.I18N.letAgentReadConfig} ${setupMdUrl}`;
+            navigator.clipboard.writeText(text).then(() => alert(window.I18N.apiKeyAndUsageCopied));
+        }
+        
+        function showAddApiKey() {
+            document.getElementById('apikey-modal-title').textContent = window.I18N.addApiKey;
+            document.getElementById('apikey-id').value = '';
+            document.getElementById('apikey-name').value = '';
+            selectedModelIds = [];
+            updateSelectedCount();
+            renderModelCheckboxes();
+            document.getElementById('apikey-modal').classList.remove('hidden');
+            document.getElementById('apikey-modal').classList.add('flex');
+        }
+        
+        function editApiKey(id) {
+            const key = apiKeysData.find(k => k.id === id);
+            if (!key) return;
+            document.getElementById('apikey-modal-title').textContent = window.I18N.editApiKey;
+            document.getElementById('apikey-id').value = id;
+            document.getElementById('apikey-name').value = key.name;
+            selectedModelIds = key.allowed_provider_model_ids || [];
+            updateSelectedCount();
+            renderModelCheckboxes();
+            document.getElementById('apikey-modal').classList.remove('hidden');
+            document.getElementById('apikey-modal').classList.add('flex');
+        }
+        
+        function closeApiKeyModal() {
+            document.getElementById('apikey-modal').classList.add('hidden');
+            document.getElementById('apikey-modal').classList.remove('flex');
+        }
+        
+        document.getElementById('apikey-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('apikey-id').value;
+            const data = {
+                name: document.getElementById('apikey-name').value,
+                allowed_provider_model_ids: selectedModelIds,
+            };
+            
+            try {
+                if (id) {
+                    await fetchOrRedirect('/admin/api/keys/' + id, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    const result = await fetchJsonOrRedirect('/admin/api/keys', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(data)
+                    });
+                    alert(window.I18N.apiKeyCreated + ' ' + result.key + '\n' + window.I18N.pleaseSaveKey);
+                }
+                closeApiKeyModal();
+                loadApiKeys();
+            } catch(err) {
+                alert(window.I18N.failedToSave);
+            }
+        });
+        
+        async function deleteApiKey(id) {
+            if (!confirm(window.I18N.deleteConfirm)) return;
+            await fetchOrRedirect('/admin/api/keys/' + id, {method: 'DELETE'});
+            loadApiKeys();
+        }
+        
+        document.getElementById('apikey-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'apikey-modal') closeApiKeyModal();
+        });
+        
+        loadProviderModels().then(() => loadApiKeys());
+        
+        document.getElementById('search-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.target.value = '';
+                handleSearch();
+            }
+        });
+    </script>
+</body>
+</html>
