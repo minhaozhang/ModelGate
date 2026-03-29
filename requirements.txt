@@ -7,3 +7,5 @@ python-dotenv
 aiosqlite
 apscheduler
 python-dateutil
+jinja2
+babel
