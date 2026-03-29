@@ -8,7 +8,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from core.config import CONFIG, error_logger
 from core.database import init_db
-from services.proxy import load_providers, load_api_keys
+from services.provider import load_providers
+from services.auth import load_api_keys
 
 app = FastAPI(title="API Proxy")
 

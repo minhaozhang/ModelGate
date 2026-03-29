@@ -11,7 +11,7 @@ from core.database import (
     RequestLog,
     generate_api_key,
 )
-from services.proxy import load_api_keys
+from services.auth import load_api_keys
 from routes.user import get_user_session
 from core.config import validate_session
 

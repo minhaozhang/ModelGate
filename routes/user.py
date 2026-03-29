@@ -519,9 +519,15 @@ async def get_user_opencode_config(api_key_id: int = Depends(get_user_session)):
             models_config[model_key] = {
                 "name": f"{provider.name}/{display_name}",
                 "modalities": {"input": ["text"], "output": ["text"]},
-                "options": {"thinking": {"type": "enabled", "budgetTokens": 8192}},
                 "limit": {"context": context_window, "output": max_output},
             }
+            if model.thinking_enabled:
+                models_config[model_key]["options"] = {
+                    "thinking": {
+                        "type": "enabled",
+                        "budgetTokens": model.thinking_budget or 8192,
+                    }
+                }
 
             models_data.append(
                 {"name": model_key, "context": context_window, "output": max_output}
