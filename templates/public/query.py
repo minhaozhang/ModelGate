@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import select
 
 from core.database import async_session_maker, ApiKey
+from core.i18n import render
 from routes.user import get_user_session
 
 router = APIRouter(tags=["query"])
@@ -119,7 +120,7 @@ QUERY_PAGE_HTML = """
 
 @router.get("/api-keys/{key_id}/query", response_class=HTMLResponse)
 async def api_key_query_page(
-    key_id: int, user_api_key_id: int = Depends(get_user_session)
+    request: Request, key_id: int, user_api_key_id: int = Depends(get_user_session)
 ):
     if not user_api_key_id:
         return RedirectResponse(url="/user/login", status_code=302)
@@ -136,5 +137,5 @@ async def api_key_query_page(
         if not key:
             return HTMLResponse("<h1>API Key not found</h1>", status_code=404)
 
-        html = QUERY_PAGE_HTML.format(name=key.name, key_id=key_id)
+        html = render(request, "public/query.html", name=key.name, key_id=key_id)
         return HTMLResponse(content=html)
