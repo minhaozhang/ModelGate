@@ -10,6 +10,33 @@ API_KEYS_PAGE_HTML = """
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
         .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
         .model-item.selected { background: #dbeafe; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .divide-y > :not([hidden]) ~ :not([hidden]) { border-color: #1f2937 !important; }
+        body.theme-dark input,
+        body.theme-dark select,
+        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg,
+        body.theme-dark .shadow-xl { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark code { background: #111827 !important; color: #e2e8f0 !important; }
+        body.theme-dark .model-item.selected,
+        body.theme-dark label.selected { background: rgba(37, 99, 235, 0.18) !important; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -51,7 +78,12 @@ API_KEYS_PAGE_HTML = """
         <main class="ml-56 flex-1 p-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">API Keys</h2>
-                <button onclick="showAddApiKey()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Add API Key</button>
+                <div class="flex items-center gap-3">
+                    <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                        Dark Mode
+                    </button>
+                    <button onclick="showAddApiKey()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Add API Key</button>
+                </div>
             </div>
             
             <div class="mb-4 flex items-center gap-4">
@@ -117,10 +149,41 @@ API_KEYS_PAGE_HTML = """
             await fetch('/admin/api/auth/logout', {method: 'POST'});
             window.location.href = '/admin/login';
         }
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'light';
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+        }
+
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+        }
+
+        applyTheme(getThemeMode());
+
+        async function fetchOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = '/admin/login';
+                throw new Error('Unauthorized');
+            }
+            return resp;
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetchOrRedirect(url, options);
+            return await resp.json();
+        }
         
         async function loadApiKeys() {
-            const resp = await fetch('/admin/api/keys');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/keys');
             apiKeysData = data.api_keys || [];
             handleSearch();
         }
@@ -142,8 +205,7 @@ API_KEYS_PAGE_HTML = """
         }
         
         async function loadProviderModels() {
-            const resp = await fetch('/admin/api/provider-models');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/admin/api/provider-models');
             providerModels = data.provider_models || [];
             renderModelCheckboxes();
         }
@@ -344,18 +406,17 @@ API_KEYS_PAGE_HTML = """
             
             try {
                 if (id) {
-                    await fetch('/admin/api/keys/' + id, {
+                    await fetchOrRedirect('/admin/api/keys/' + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
                     });
                 } else {
-                    const resp = await fetch('/admin/api/keys', {
+                    const result = await fetchJsonOrRedirect('/admin/api/keys', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
                     });
-                    const result = await resp.json();
                     alert('API Key created: ' + result.key + '\\nPlease save this key!');
                 }
                 closeApiKeyModal();
@@ -367,7 +428,7 @@ API_KEYS_PAGE_HTML = """
         
         async function deleteApiKey(id) {
             if (!confirm('Delete this API key?')) return;
-            await fetch('/admin/api/keys/' + id, {method: 'DELETE'});
+            await fetchOrRedirect('/admin/api/keys/' + id, {method: 'DELETE'});
             loadApiKeys();
         }
         

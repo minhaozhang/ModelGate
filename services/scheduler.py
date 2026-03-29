@@ -22,13 +22,13 @@ async def startup_scheduler():
     )
     scheduler.add_job(
         cleanup_stale_pending_requests,
-        CronTrigger(minute=0),
+        CronTrigger(minute="*/10"),
         id="cleanup_stale_pending",
         replace_existing=True,
     )
     scheduler.start()
     logger.info(
-        "[SCHEDULER] Scheduler started: aggregate at 00:05, cleanup pending hourly"
+        "[SCHEDULER] Scheduler started: aggregate at 00:05, cleanup pending every 10 min"
     )
 
     import asyncio

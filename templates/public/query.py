@@ -59,10 +59,18 @@ QUERY_PAGE_HTML = """
     
     <script>
         const keyId = {key_id};
+
+        async function fetchJsonOrRedirect(url, options) {{
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {{
+                window.location.href = '/user/login';
+                throw new Error('Unauthorized');
+            }}
+            return await resp.json();
+        }}
         
         async function loadStats() {{
-            const resp = await fetch('/api-keys/' + keyId + '/stats');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/api-keys/' + keyId + '/stats');
             
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
             document.getElementById('total-tokens').textContent = data.total_tokens.toLocaleString();
@@ -79,8 +87,7 @@ QUERY_PAGE_HTML = """
         }}
         
         async function loadLogs() {{
-            const resp = await fetch('/api-keys/' + keyId + '/logs?limit=50');
-            const data = await resp.json();
+            const data = await fetchJsonOrRedirect('/api-keys/' + keyId + '/logs?limit=50');
             
             const logsHtml = (data.logs || []).map(log => {{
                 const statusClass = log.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';

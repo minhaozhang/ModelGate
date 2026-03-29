@@ -11,9 +11,42 @@ MONITOR_PAGE_HTML = """
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
         .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
         .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
-        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .bar-item { transition: all 0.2s; }
-        .bar-item:hover { background: #f8fafc; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50,
+        body.theme-dark .bg-slate-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .bg-slate-200,
+        body.theme-dark .bg-gray-200 { background: #1f2937 !important; }
+        body.theme-dark .text-gray-800,
+        body.theme-dark .text-slate-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700,
+        body.theme-dark .text-slate-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600,
+        body.theme-dark .text-slate-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500,
+        body.theme-dark .text-slate-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .border-blue-100,
+        body.theme-dark .border-emerald-100,
+        body.theme-dark .border-violet-100,
+        body.theme-dark .border-green-100,
+        body.theme-dark .border-amber-100,
+        body.theme-dark .border-red-100 { border-color: #1f2937 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500):not(.bg-teal-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark .bg-green-50 { background: rgba(16, 185, 129, 0.14) !important; }
+        body.theme-dark .bg-amber-50 { background: rgba(245, 158, 11, 0.14) !important; }
+        body.theme-dark .bg-red-50 { background: rgba(239, 68, 68, 0.14) !important; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -49,11 +82,17 @@ MONITOR_PAGE_HTML = """
                 </button>
             </div>
         </nav>
-        
+
         <main class="ml-56 flex-1 p-6">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">Statistics Monitor</h2>
-                <div class="flex gap-2">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">Statistics Monitor</h2>
+                    <p class="text-sm text-gray-500 mt-1">Composition, concentration, hotspots, and trend behavior</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                        Dark Mode
+                    </button>
                     <div class="flex bg-white rounded border overflow-hidden">
                         <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">Day</button>
                         <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Week</button>
@@ -62,7 +101,7 @@ MONITOR_PAGE_HTML = """
                     </div>
                 </div>
             </div>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">Total Requests</div>
@@ -81,38 +120,107 @@ MONITOR_PAGE_HTML = """
                     <div id="error-rate" class="text-3xl font-bold text-orange-600">0%</div>
                 </div>
             </div>
-            
+
             <div class="bg-white rounded-lg shadow p-5 mb-6">
-                <h3 class="text-lg font-semibold mb-4">Request Trend</h3>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">Request Trend</h3>
+                    <div id="trend-meta" class="text-sm text-gray-500">Requests / Tokens / Errors</div>
+                </div>
                 <canvas id="trendChart" height="80"></canvas>
             </div>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 <div class="bg-white rounded-lg shadow p-5">
                     <h3 class="text-lg font-semibold mb-4">Provider Usage</h3>
-                    <div id="provider-bars" class="space-y-2 max-h-80 overflow-y-auto"></div>
+                    <div class="h-64"><canvas id="providerChart"></canvas></div>
+                    <div id="provider-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
                     <h3 class="text-lg font-semibold mb-4">API Key Usage</h3>
-                    <div id="apikey-bars" class="space-y-2 max-h-80 overflow-y-auto"></div>
+                    <div class="h-64"><canvas id="apikeyChart"></canvas></div>
+                    <div id="apikey-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
                     <h3 class="text-lg font-semibold mb-4">Model Usage</h3>
-                    <div id="model-bars" class="space-y-2 max-h-80 overflow-y-auto"></div>
+                    <div class="h-64"><canvas id="modelChart"></canvas></div>
+                    <div id="model-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-6">
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">Traffic Concentration</h3>
+                    <div id="concentration-cards" class="space-y-3"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">Error Hotspots</h3>
+                    <div id="error-hotspots" class="space-y-3"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">Active Footprint</h3>
+                    <div id="footprint-cards" class="space-y-3"></div>
                 </div>
             </div>
         </main>
     </div>
-    
+
     <script>
         let currentPeriod = 'day';
         let trendChart = null;
-        
+        let providerChart = null;
+        let apikeyChart = null;
+        let modelChart = null;
+        const providerPalette = ['#2563eb', '#3b82f6', '#0ea5e9', '#38bdf8', '#1d4ed8', '#60a5fa', '#0284c7', '#7dd3fc'];
+        const apikeyPalette = ['#059669', '#10b981', '#14b8a6', '#34d399', '#0f766e', '#2dd4bf', '#22c55e', '#6ee7b7'];
+        const modelPalette = ['#7c3aed', '#a855f7', '#ec4899', '#f97316', '#eab308', '#8b5cf6', '#f43f5e', '#c084fc'];
+
         async function logout() {
-            await fetch('/admin/api/auth/logout', {method: 'POST'});
+            await fetch('/admin/api/auth/logout', { method: 'POST' });
             window.location.href = '/admin/login';
         }
-        
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'light';
+        }
+
+        function getChartTheme() {
+            const isDark = document.body.classList.contains('theme-dark');
+            return {
+                tickColor: isDark ? '#94a3b8' : '#6b7280',
+                gridColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)',
+                titleColor: isDark ? '#cbd5e1' : '#4b5563',
+                legendColor: isDark ? '#e5e7eb' : '#374151',
+                tooltipBg: isDark ? '#0f172a' : '#ffffff',
+                tooltipTitle: isDark ? '#f8fafc' : '#111827',
+                tooltipBody: isDark ? '#cbd5e1' : '#374151',
+                tooltipBorder: isDark ? '#334155' : '#e5e7eb'
+            };
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+        }
+
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+            loadData();
+        }
+
+        applyTheme(getThemeMode());
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = '/admin/login';
+                throw new Error('Unauthorized');
+            }
+            return await resp.json();
+        }
+
         function setPeriod(period) {
             currentPeriod = period;
             document.querySelectorAll('[id^="btn-"]').forEach(btn => {
@@ -123,76 +231,393 @@ MONITOR_PAGE_HTML = """
             document.getElementById('btn-' + period).classList.remove('text-gray-600', 'hover:bg-gray-100');
             loadData();
         }
-        
-        async function loadData() {
-            const [providerData, apikeyData, modelData, trendData] = await Promise.all([
-                fetch('/admin/api/stats/aggregate?dimension=provider&period=' + currentPeriod).then(r => r.json()),
-                fetch('/admin/api/stats/aggregate?dimension=api_key&period=' + currentPeriod).then(r => r.json()),
-                fetch('/admin/api/stats/aggregate?dimension=model&period=' + currentPeriod).then(r => r.json()),
-                fetch('/admin/api/stats/trend?dimension=provider&period=' + currentPeriod).then(r => r.json())
-            ]);
-            
-            const totalRequests = providerData.total_requests || 0;
-            const totalTokens = providerData.total_tokens || 0;
-            const totalErrors = providerData.total_errors || 0;
-            
-            document.getElementById('total-requests').textContent = totalRequests.toLocaleString();
-            document.getElementById('total-tokens').textContent = totalTokens.toLocaleString();
-            document.getElementById('total-errors').textContent = totalErrors;
-            const errorRate = totalRequests > 0 ? ((totalErrors / totalRequests) * 100).toFixed(1) : 0;
-            document.getElementById('error-rate').textContent = errorRate + '%';
-            
-            renderBarChart('provider-bars', providerData.data || {}, '#3b82f6');
-            renderBarChart('apikey-bars', apikeyData.data || {}, '#10b981');
-            renderBarChart('model-bars', modelData.data || {}, '#8b5cf6');
-            renderTrendChart(trendData);
+
+        function formatCompactTokens(tokens) {
+            const value = Number(tokens || 0);
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\\.0$/, '') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\\.0$/, '') + 'K';
+            if (Number.isInteger(value)) return value.toLocaleString();
+            return value.toFixed(1).replace(/\\.0$/, '');
         }
-        
-        function renderBarChart(containerId, data, color) {
-            const entries = Object.entries(data).sort((a, b) => b[1].requests - a[1].requests);
-            const maxReq = Math.max(...entries.map(e => e[1].requests), 1);
-            
-            const html = entries.map(([name, stats]) => {
-                const pct = (stats.requests / maxReq) * 100;
+
+        function formatPct(value, digits = 1) {
+            return `${(Number(value || 0) * 100).toFixed(digits)}%`;
+        }
+
+        function getTokenChartScale(requestValues, tokenValues) {
+            const maxRequests = Math.max(...requestValues, 1);
+            const maxTokens = Math.max(...tokenValues, 1);
+            const scales = [
+                { divisor: 1, suffix: '' },
+                { divisor: 1000, suffix: 'K' },
+                { divisor: 1000000, suffix: 'M' },
+                { divisor: 1000000000, suffix: 'B' }
+            ];
+            let scale = scales.find(s => maxTokens / s.divisor <= maxRequests * 5) || scales[scales.length - 1];
+            if (maxTokens / scale.divisor >= 1000) {
+                scale = scales[scales.indexOf(scale) + 1] || scale;
+            }
+            return scale;
+        }
+
+        function buildDonutSeries(data, palette, metric = 'tokens', limit = 5) {
+            const entries = Object.entries(data || {})
+                .sort((a, b) => (b[1][metric] || 0) - (a[1][metric] || 0))
+                .filter(([, stats]) => (stats[metric] || 0) > 0);
+            const topEntries = entries.slice(0, limit);
+            const otherValue = entries.slice(limit).reduce((sum, [, stats]) => sum + (stats[metric] || 0), 0);
+            const labels = topEntries.map(([name]) => name);
+            const values = topEntries.map(([, stats]) => stats[metric] || 0);
+            const colors = topEntries.map((_, index) => palette[index % palette.length]);
+            if (otherValue > 0) {
+                labels.push('Others');
+                values.push(otherValue);
+                colors.push('#cbd5e1');
+            }
+            return { entries, labels, values, colors };
+        }
+
+        function renderUsageChart(currentChart, canvasId, legendId, data, config) {
+            const series = buildDonutSeries(data, config.palette, 'tokens', 5);
+            const canvas = document.getElementById(canvasId);
+            const chartTheme = getChartTheme();
+            if (currentChart) currentChart.destroy();
+
+            const chart = new Chart(canvas.getContext('2d'), {
+                type: config.type,
+                data: {
+                    labels: series.labels,
+                    datasets: [{
+                        data: series.values,
+                        backgroundColor: series.colors,
+                        borderWidth: 0,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: config.cutout,
+                    rotation: config.rotation || 0,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
+                                    const pct = context.raw / total;
+                                    return `${context.label}: ${formatCompactTokens(context.raw)} (${formatPct(pct)})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const total = series.entries.reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0) || 1;
+            const legendHtml = series.entries.slice(0, 6).map(([name, stats], index) => {
+                const pct = (stats.tokens || 0) / total;
+                const errRate = stats.requests ? stats.errors / stats.requests : 0;
+                const color = config.palette[index % config.palette.length];
                 return `
-                <div class="bar-item rounded p-2">
-                    <div class="flex justify-between text-sm mb-1">
-                        <span class="font-medium truncate max-w-[120px]" title="${name}">${name}</span>
-                        <span class="text-gray-500 ml-2">${stats.requests.toLocaleString()} / ${stats.tokens.toLocaleString()} tok</span>
+                    <div class="rounded-lg border ${config.cardBorder} p-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${color}"></span>
+                                    <div class="font-medium text-sm truncate" title="${name}">${name}</div>
+                                </div>
+                                <div class="mt-1 text-xs text-gray-500">${stats.requests.toLocaleString()} req / ${formatCompactTokens(stats.tokens || 0)} tok</div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <div class="text-sm font-semibold" style="color:${config.accentColor}">${formatPct(pct)}</div>
+                                <div class="text-xs text-gray-400">err ${formatPct(errRate, 1)}</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="h-2 rounded-full" style="width: ${pct}%; background: ${color}"></div>
-                    </div>
-                </div>`;
+                `;
             }).join('');
-            
-            document.getElementById(containerId).innerHTML = html || '<div class="text-gray-400 text-center py-4">No data</div>';
+
+            document.getElementById(legendId).innerHTML = legendHtml || '<div class="text-gray-400 text-center py-4">No data</div>';
+            return { chart, entries: series.entries };
         }
-        
+
+        function renderConcentrationCards(providerEntries, apikeyEntries, modelEntries) {
+            const sections = [
+                ['Providers', providerEntries],
+                ['API Keys', apikeyEntries],
+                ['Models', modelEntries]
+            ];
+            const html = sections.map(([label, entries]) => {
+                const total = entries.reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0) || 1;
+                const top1 = entries[0];
+                const top3Value = entries.slice(0, 3).reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0);
+                return `
+                    <div class="rounded-lg bg-slate-50 p-4">
+                        <div class="text-xs uppercase tracking-wide text-slate-500">${label}</div>
+                        <div class="mt-2 text-sm font-medium text-slate-800 truncate" title="${top1 ? top1[0] : 'No data'}">${top1 ? top1[0] : 'No data'}</div>
+                        <div class="mt-1 text-xs text-slate-500">Top 1 share ${top1 ? formatPct((top1[1].tokens || 0) / total) : '0%'}</div>
+                        <div class="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
+                            <div class="h-full bg-slate-700" style="width:${Math.min((top3Value / total) * 100, 100)}%"></div>
+                        </div>
+                        <div class="mt-2 text-xs text-slate-500">Top 3 combined ${formatPct(top3Value / total)}</div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('concentration-cards').innerHTML = html;
+        }
+
+        function renderErrorHotspots(providerEntries, apikeyEntries, modelEntries) {
+            const hotspots = [
+                ...providerEntries.map(([name, stats]) => ({ scope: 'Provider', name, stats })),
+                ...apikeyEntries.map(([name, stats]) => ({ scope: 'API Key', name, stats })),
+                ...modelEntries.map(([name, stats]) => ({ scope: 'Model', name, stats }))
+            ]
+            .filter(item => (item.stats.requests || 0) >= 3)
+            .map(item => ({ ...item, errorRate: item.stats.requests ? item.stats.errors / item.stats.requests : 0 }))
+            .sort((a, b) => b.errorRate - a.errorRate || (b.stats.errors || 0) - (a.stats.errors || 0))
+            .slice(0, 6);
+
+            const html = hotspots.map(item => {
+                const tone = item.errorRate === 0
+                    ? {
+                        border: 'border-green-100',
+                        bg: 'bg-green-50',
+                        scope: 'text-green-600',
+                        meta: 'text-green-500',
+                        value: 'text-green-600'
+                    }
+                    : item.errorRate < 0.05
+                        ? {
+                            border: 'border-amber-100',
+                            bg: 'bg-amber-50',
+                            scope: 'text-amber-600',
+                            meta: 'text-amber-500',
+                            value: 'text-amber-600'
+                        }
+                        : {
+                            border: 'border-red-100',
+                            bg: 'bg-red-50',
+                            scope: 'text-red-500',
+                            meta: 'text-red-400',
+                            value: 'text-red-600'
+                        };
+                return `
+                <div class="rounded-lg border ${tone.border} ${tone.bg} p-3">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="text-xs uppercase tracking-wide ${tone.scope}">${item.scope}</div>
+                            <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${item.name}</div>
+                            <div class="mt-1 text-xs ${tone.meta}">${item.stats.errors.toLocaleString()} errors / ${item.stats.requests.toLocaleString()} requests</div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-lg font-bold ${tone.value}">${formatPct(item.errorRate, 1)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            }).join('');
+
+            document.getElementById('error-hotspots').innerHTML = html || '<div class="text-gray-400 text-center py-4">No hotspots</div>';
+        }
+
+        function renderFootprintCards(providerEntries, apikeyEntries, modelEntries) {
+            const cards = [
+                {
+                    label: 'Active Providers',
+                    value: providerEntries.length,
+                    detail: providerEntries[0] ? `Top: ${providerEntries[0][0]}` : 'No traffic'
+                },
+                {
+                    label: 'Active API Keys',
+                    value: apikeyEntries.length,
+                    detail: apikeyEntries[0] ? `Top: ${apikeyEntries[0][0]}` : 'No traffic'
+                },
+                {
+                    label: 'Active Models',
+                    value: modelEntries.length,
+                    detail: modelEntries[0] ? `Top: ${modelEntries[0][0]}` : 'No traffic'
+                }
+            ];
+
+            const html = cards.map(card => `
+                <div class="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <div class="text-xs uppercase tracking-wide text-gray-500">${card.label}</div>
+                    <div class="mt-2 text-2xl font-bold text-gray-800">${card.value.toLocaleString()}</div>
+                    <div class="mt-1 text-sm text-gray-500 truncate" title="${card.detail}">${card.detail}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('footprint-cards').innerHTML = html;
+        }
+
         function renderTrendChart(data) {
             const ctx = document.getElementById('trendChart').getContext('2d');
+            const chartTheme = getChartTheme();
             if (trendChart) trendChart.destroy();
-            
-            const requests = data.intervals.map(i => data.data[i]?.requests || 0);
-            const tokens = data.intervals.map(i => Math.floor((data.data[i]?.tokens || 0) / 1000));
-            
+
+            const requests = data.intervals.map(label => data.data[label]?.requests || 0);
+            const rawTokens = data.intervals.map(label => data.data[label]?.tokens || 0);
+            const errors = data.intervals.map(label => data.data[label]?.errors || 0);
+            const tokenScale = getTokenChartScale(requests, rawTokens);
+            const tokens = rawTokens.map(value => Number((value / tokenScale.divisor).toFixed(2)));
+            const tokenLabel = tokenScale.suffix ? `Tokens (${tokenScale.suffix})` : 'Tokens';
+            document.getElementById('trend-meta').textContent = `${tokenLabel} on right axis`;
+
             trendChart = new Chart(ctx, {
-                type: 'bar',
                 data: {
                     labels: data.intervals,
                     datasets: [
-                        { label: 'Requests', data: requests, backgroundColor: '#3b82f6', borderRadius: 4 },
-                        { label: 'Tokens (K)', data: tokens, backgroundColor: '#10b981', borderRadius: 4 }
+                        {
+                            type: 'bar',
+                            label: 'Requests',
+                            data: requests,
+                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
+                            borderColor: 'rgba(59, 130, 246, 0.85)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: tokenLabel,
+                            data: tokens,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            pointBackgroundColor: '#10b981',
+                            pointRadius: 3,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.25,
+                            fill: true,
+                            yAxisID: 'yTokens'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Errors',
+                            data: errors,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [6, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        }
                     ]
                 },
                 options: {
                     responsive: true,
-                    scales: { y: { beginAtZero: true } },
-                    plugins: { legend: { position: 'top' } }
+                    maintainAspectRatio: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            grid: { color: chartTheme.gridColor },
+                            ticks: {
+                                color: chartTheme.tickColor,
+                                autoSkip: true,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                maxTicksLimit: currentPeriod === 'week' ? 10 : 12
+                            }
+                        },
+                        yRequests: {
+                            beginAtZero: true,
+                            position: 'left',
+                            grid: { color: chartTheme.gridColor },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: 'Requests / Errors', color: chartTheme.titleColor }
+                        },
+                        yTokens: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: tokenLabel, color: chartTheme.titleColor }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { color: chartTheme.legendColor } },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.yAxisID === 'yTokens') {
+                                        const rawValue = rawTokens[context.dataIndex] || 0;
+                                        return `${tokenLabel}: ${formatCompactTokens(rawValue)} (${rawValue.toLocaleString()})`;
+                                    }
+                                    return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
                 }
             });
         }
-        
+
+        async function loadData() {
+            const [providerData, apikeyData, modelData, trendData] = await Promise.all([
+                fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=provider&period=' + currentPeriod),
+                fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=api_key&period=' + currentPeriod),
+                fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=model&period=' + currentPeriod),
+                fetchJsonOrRedirect('/admin/api/stats/trend?dimension=provider&period=' + currentPeriod)
+            ]);
+
+            const totalRequests = providerData.total_requests || 0;
+            const totalTokens = providerData.total_tokens || 0;
+            const totalErrors = providerData.total_errors || 0;
+
+            document.getElementById('total-requests').textContent = totalRequests.toLocaleString();
+            document.getElementById('total-tokens').textContent = formatCompactTokens(totalTokens);
+            document.getElementById('total-errors').textContent = totalErrors.toLocaleString();
+            document.getElementById('error-rate').textContent = (totalRequests > 0 ? ((totalErrors / totalRequests) * 100).toFixed(1) : '0.0') + '%';
+
+            const providerResult = renderUsageChart(providerChart, 'providerChart', 'provider-legend', providerData.data || {}, {
+                type: 'doughnut',
+                cutout: '74%',
+                rotation: -90,
+                palette: providerPalette,
+                accentColor: '#2563eb',
+                cardBorder: 'border-blue-100'
+            });
+            providerChart = providerResult.chart;
+            const apikeyResult = renderUsageChart(apikeyChart, 'apikeyChart', 'apikey-legend', apikeyData.data || {}, {
+                type: 'doughnut',
+                cutout: '48%',
+                rotation: -45,
+                palette: apikeyPalette,
+                accentColor: '#059669',
+                cardBorder: 'border-emerald-100'
+            });
+            apikeyChart = apikeyResult.chart;
+            const modelResult = renderUsageChart(modelChart, 'modelChart', 'model-legend', modelData.data || {}, {
+                type: 'pie',
+                cutout: 0,
+                rotation: 15,
+                palette: modelPalette,
+                accentColor: '#7c3aed',
+                cardBorder: 'border-violet-100'
+            });
+            modelChart = modelResult.chart;
+
+            renderConcentrationCards(providerResult.entries, apikeyResult.entries, modelResult.entries);
+            renderErrorHotspots(providerResult.entries, apikeyResult.entries, modelResult.entries);
+            renderFootprintCards(providerResult.entries, apikeyResult.entries, modelResult.entries);
+            renderTrendChart(trendData);
+        }
+
         loadData();
         setInterval(loadData, 30000);
     </script>

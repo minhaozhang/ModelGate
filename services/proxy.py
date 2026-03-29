@@ -10,6 +10,7 @@ from fastapi import Request
 from fastapi.responses import Response, JSONResponse, StreamingResponse
 
 REPEATED_CHUNK_LIMIT = 10
+PROVIDER_REQUEST_TIMEOUT_SECONDS = 300.0
 
 
 def parse_minimax_tool_calls(content: str) -> tuple[str, list[dict]]:
@@ -289,6 +290,214 @@ def parse_model(model: str) -> tuple[str, str]:
     return "", model
 
 
+def _coerce_int(value) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        value = value.strip()
+        if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
+            return int(value)
+    return None
+
+
+def _first_usage_int(usage: dict, *keys: str) -> Optional[int]:
+    for key in keys:
+        value = _coerce_int(usage.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _estimate_text_tokens(text: str) -> int:
+    if not text:
+        return 0
+    return max(len(text) // 4, 1)
+
+
+def _estimate_prompt_tokens(req_body: Optional[dict]) -> int:
+    if not req_body:
+        return 0
+
+    payload = {}
+    for key in (
+        "messages",
+        "input",
+        "prompt",
+        "tools",
+        "tool_choice",
+        "temperature",
+        "max_tokens",
+    ):
+        if key in req_body:
+            payload[key] = req_body[key]
+
+    if not payload:
+        payload = req_body
+
+    try:
+        serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    except TypeError:
+        serialized = str(payload)
+
+    return _estimate_text_tokens(serialized)
+
+
+def _tool_call_key(tool_call: dict) -> str:
+    if not isinstance(tool_call, dict):
+        return ""
+
+    tool_call_id = tool_call.get("id")
+    if tool_call_id:
+        return str(tool_call_id)
+
+    function = tool_call.get("function")
+    function_name = ""
+    if isinstance(function, dict):
+        function_name = str(function.get("name") or "")
+
+    index = tool_call.get("index")
+    if index is not None or function_name:
+        return f"{index}:{function_name}"
+
+    try:
+        return json.dumps(tool_call, ensure_ascii=False, sort_keys=True)
+    except TypeError:
+        return str(tool_call)
+
+
+def _collect_tool_calls(
+    tool_calls: Optional[list], seen_keys: set[str], collected: list[dict]
+):
+    if not isinstance(tool_calls, list):
+        return
+
+    for tool_call in tool_calls:
+        if not isinstance(tool_call, dict):
+            continue
+        key = _tool_call_key(tool_call)
+        if key and key in seen_keys:
+            continue
+        if key:
+            seen_keys.add(key)
+        collected.append(tool_call)
+
+
+def build_response_meta(
+    response_text: str = "",
+    reasoning_text: str = "",
+    tool_calls: Optional[list] = None,
+    finish_reason: Optional[str] = None,
+) -> dict:
+    collected_tool_calls = tool_calls if isinstance(tool_calls, list) else []
+    has_text = bool((response_text or "").strip())
+    has_reasoning = bool((reasoning_text or "").strip())
+    has_tool_calls = bool(collected_tool_calls)
+
+    response_types = []
+    if has_text:
+        response_types.append("text")
+    if has_reasoning:
+        response_types.append("reasoning")
+    if has_tool_calls:
+        response_types.append("tool_calls")
+    if not response_types:
+        response_types.append("empty")
+
+    tool_names = []
+    for tool_call in collected_tool_calls:
+        function = tool_call.get("function") if isinstance(tool_call, dict) else None
+        if isinstance(function, dict) and function.get("name"):
+            tool_names.append(str(function["name"]))
+
+    return {
+        "response_types": response_types,
+        "has_text": has_text,
+        "has_reasoning": has_reasoning,
+        "has_tool_calls": has_tool_calls,
+        "tool_call_count": len(collected_tool_calls),
+        "tool_names": tool_names,
+        "finish_reason": finish_reason or "",
+    }
+
+
+def log_response_meta(provider: str, model: str, response_meta: dict):
+    response_types = "/".join(response_meta.get("response_types", [])) or "empty"
+    finish_reason = response_meta.get("finish_reason") or "unknown"
+    tool_call_count = response_meta.get("tool_call_count", 0)
+    tool_names = ", ".join(response_meta.get("tool_names", [])[:3]) or "-"
+    logger.info(
+        f"[RESPONSE META] Provider: {provider}, Model: {model}, Types: {response_types}, "
+        f"Finish: {finish_reason}, ToolCalls: {tool_call_count}, Tools: {tool_names}"
+    )
+
+
+def build_tokens_record(
+    usage: Optional[dict],
+    req_body: Optional[dict] = None,
+    response_text: str = "",
+    reasoning_text: str = "",
+    response_meta: Optional[dict] = None,
+) -> dict:
+    raw_usage = usage if isinstance(usage, dict) else {}
+    tokens_record = dict(raw_usage)
+
+    prompt_tokens = _first_usage_int(
+        raw_usage,
+        "prompt_tokens",
+        "input_tokens",
+        "promptTokens",
+        "inputTokens",
+    )
+    completion_tokens = _first_usage_int(
+        raw_usage,
+        "completion_tokens",
+        "output_tokens",
+        "completionTokens",
+        "outputTokens",
+    )
+    total_tokens = _first_usage_int(
+        raw_usage,
+        "total_tokens",
+        "totalTokens",
+    )
+
+    estimated = False
+
+    if prompt_tokens is None:
+        if total_tokens is not None and completion_tokens is not None:
+            prompt_tokens = max(total_tokens - completion_tokens, 0)
+        else:
+            prompt_tokens = _estimate_prompt_tokens(req_body)
+            estimated = True
+
+    if completion_tokens is None:
+        if total_tokens is not None and prompt_tokens is not None:
+            completion_tokens = max(total_tokens - prompt_tokens, 0)
+        else:
+            completion_tokens = _estimate_text_tokens(response_text + reasoning_text)
+            estimated = True
+
+    if total_tokens is None:
+        total_tokens = (prompt_tokens or 0) + (completion_tokens or 0)
+        estimated = True
+
+    tokens_record.update(
+        {
+            "prompt_tokens": prompt_tokens or 0,
+            "completion_tokens": completion_tokens or 0,
+            "total_tokens": total_tokens or 0,
+            "estimated": estimated,
+        }
+    )
+    if response_meta:
+        tokens_record["response_meta"] = response_meta
+    return tokens_record
+
+
 async def get_provider_and_model(model: str) -> tuple[Optional[dict], str, str]:
     provider_name, actual_model = parse_model(model)
     if not provider_name:
@@ -417,6 +626,17 @@ async def proxy_request(request: Request, endpoint: str):
             if len(merged_msgs) != len(messages):
                 body_json["messages"] = merged_msgs
 
+        stream = body_json.get("stream", False)
+
+        if stream and provider_name != "minimax":
+            stream_options = body_json.get("stream_options")
+            if isinstance(stream_options, dict):
+                stream_options = dict(stream_options)
+            else:
+                stream_options = {}
+            stream_options["include_usage"] = True
+            body_json["stream_options"] = stream_options
+
         if provider_name == "minimax" and merge_messages:
             body_json.pop("thinking", None)
             body_json.pop("stream_options", None)
@@ -436,8 +656,6 @@ async def proxy_request(request: Request, endpoint: str):
             headers["authorization"] = f"Bearer {provider_config['api_key']}"
 
         original_headers = dict(headers)
-
-        stream = body_json.get("stream", False)
 
         key_name = (
             api_keys_cache.get(auth_header.replace("Bearer ", ""), {}).get(
@@ -473,7 +691,7 @@ async def proxy_request(request: Request, endpoint: str):
                 provider_name, actual_model, api_key_id=api_key_id
             )
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS) as client:
             if stream:
                 return await handle_streaming(
                     target_url,
@@ -578,14 +796,33 @@ async def handle_normal(
                 resp_json["choices"][0]["finish_reason"] = "tool_calls"
                 logger.info(f"[MINIMAX TOOL_CALLS] Parsed {len(tool_calls)} tool calls")
 
-    usage = resp_json.get("usage", {})
-    prompt_tokens = usage.get("prompt_tokens", 0)
-    completion_tokens = usage.get("completion_tokens", 0)
-    total_tokens = usage.get("total_tokens", prompt_tokens + completion_tokens)
-
     response_text = ""
+    reasoning_text = ""
+    tool_calls = []
+    finish_reason = ""
     if "choices" in resp_json and resp_json["choices"]:
-        response_text = resp_json["choices"][0].get("message", {}).get("content", "")
+        choice = resp_json["choices"][0]
+        message = choice.get("message", {})
+        response_text = message.get("content", "")
+        reasoning_text = message.get("reasoning_content", "")
+        tool_calls = message.get("tool_calls", []) if isinstance(message, dict) else []
+        finish_reason = choice.get("finish_reason", "") or ""
+
+    response_meta = build_response_meta(
+        response_text=response_text,
+        reasoning_text=reasoning_text,
+        tool_calls=tool_calls,
+        finish_reason=finish_reason,
+    )
+
+    tokens_record = build_tokens_record(
+        resp_json.get("usage"),
+        req_body=req_body,
+        response_text=response_text,
+        reasoning_text=reasoning_text,
+        response_meta=response_meta,
+    )
+    total_tokens = tokens_record["total_tokens"]
 
     is_error = resp.status_code >= 400
     retry_after = resp.headers.get("retry-after")
@@ -603,11 +840,12 @@ async def handle_normal(
     update_stats(
         provider, model, total_tokens, api_key_id=api_key_id, is_error=is_error
     )
+    log_response_meta(provider, model, response_meta)
     await log_request(
         provider,
         model,
         response_text,
-        usage,
+        tokens_record,
         latency,
         "error" if is_error else "success",
         api_key_id=api_key_id,
@@ -635,26 +873,43 @@ async def handle_normal(
 
 
 async def _normalize_sse_stream(aiter_lines):
-    """Normalize raw SSE stream: split merged data lines, handle non-data JSON."""
+    """Normalize raw SSE stream and merge multi-line SSE data events."""
+    data_lines: list[str] = []
+
+    def flush_event():
+        if not data_lines:
+            return None
+        payload = "\n".join(data_lines)
+        data_lines.clear()
+        return f"data: {payload}"
+
     async for raw_line in aiter_lines:
-        line = raw_line.rstrip()
-        if not line:
+        line = raw_line.rstrip("\r")
+        if line == "":
+            event = flush_event()
+            if event:
+                yield event
             continue
 
-        if line.startswith("data: "):
-            content = line[6:]
-            if "data: " in content:
-                parts = content.split("data: ")
-                for part in parts:
-                    part = part.strip()
-                    if part:
-                        yield f"data: {part}"
-            else:
-                yield line
+        if line.startswith("data:"):
+            content = line[5:]
+            if content.startswith(" "):
+                content = content[1:]
+            data_lines.append(content)
+            continue
+
+        if data_lines:
+            # Ignore other SSE fields like event:/id: while waiting for the blank line flush.
+            continue
+
         elif line.startswith("{"):
             yield f"data: {line}"
         elif line.startswith(":"):
             continue
+
+    event = flush_event()
+    if event:
+        yield event
 
 
 async def handle_streaming(
@@ -698,8 +953,12 @@ async def handle_streaming(
         tool_call_buffer = ""
         last_content = ""
         repeated_count = 0
+        last_usage = None
+        final_finish_reason = ""
+        stream_tool_calls = []
+        seen_tool_call_keys: set[str] = set()
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            async with httpx.AsyncClient(timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS) as client:
                 async with client.stream(
                     "POST", url, headers=headers, content=body
                 ) as resp:
@@ -735,6 +994,9 @@ async def handle_streaming(
                                 chunk = json.loads(line_content)
                                 chunk_count += 1
 
+                                if chunk.get("usage"):
+                                    last_usage = chunk["usage"]
+
                                 if chunk.get("error"):
                                     error_msg = chunk.get("error")
                                     if isinstance(error_msg, dict):
@@ -746,12 +1008,19 @@ async def handle_streaming(
                                 if "choices" in chunk and chunk["choices"]:
                                     choice = chunk["choices"][0]
                                     finish_reason = choice.get("finish_reason")
+                                    if finish_reason:
+                                        final_finish_reason = finish_reason
                                     if finish_reason == "error":
                                         raise Exception(
                                             "Stream finished with error status"
                                         )
 
                                     delta = choice.get("delta", {})
+                                    _collect_tool_calls(
+                                        delta.get("tool_calls"),
+                                        seen_tool_call_keys,
+                                        stream_tool_calls,
+                                    )
                                     content = delta.get("content", "")
 
                                     if provider == "minimax" and content:
@@ -770,6 +1039,12 @@ async def handle_streaming(
                                                     )
                                                 )
                                                 if tool_calls:
+                                                    _collect_tool_calls(
+                                                        tool_calls,
+                                                        seen_tool_call_keys,
+                                                        stream_tool_calls,
+                                                    )
+                                                    final_finish_reason = "tool_calls"
                                                     for i, tc in enumerate(tool_calls):
                                                         tc_chunk = {
                                                             "id": chunk.get("id", ""),
@@ -926,10 +1201,13 @@ async def handle_streaming(
                                     if reasoning and provider != "minimax":
                                         total_reasoning += reasoning
                             except json.JSONDecodeError as e:
+                                line_preview = line_content[:200].replace("\n", "\\n")
                                 logger.warning(
                                     f"[SSE] Invalid JSON, skipping line: {line[:100]}... Error: {e}"
                                 )
-                                continue
+                                raise Exception(
+                                    f"SSE JSON parse error: {e}; chunk={line_preview}"
+                                ) from e
                             yield f"{line.rstrip()}\n\n"
 
                             # 定期检查客户端是否断开
@@ -939,40 +1217,76 @@ async def handle_streaming(
                                         f"[STREAM] Client disconnected at chunk {chunk_count}"
                                     )
                                     latency = (time.time() - start_time) * 1000
-                                    approx_tokens = (
-                                        len(total_content) + len(total_reasoning)
-                                    ) // 2
+                                    response_meta = build_response_meta(
+                                        response_text=total_content,
+                                        reasoning_text=total_reasoning,
+                                        tool_calls=stream_tool_calls,
+                                        finish_reason=final_finish_reason,
+                                    )
+                                    tokens_record = build_tokens_record(
+                                        last_usage,
+                                        req_body=req_body,
+                                        response_text=total_content,
+                                        reasoning_text=total_reasoning,
+                                        response_meta=response_meta,
+                                    )
+                                    log_response_meta(provider, model, response_meta)
                                     await update_request_log(
                                         log_id,
                                         response=total_content,
-                                        tokens={
-                                            "total_tokens": approx_tokens,
-                                            "estimated": True,
-                                        },
+                                        tokens=tokens_record,
                                         latency_ms=latency,
                                         status="cancelled",
                                     )
                                     return
 
             latency = (time.time() - start_time) * 1000
-            approx_tokens = (len(total_content) + len(total_reasoning)) // 2
-            update_stats(provider, model, approx_tokens, api_key_id=api_key_id)
+            response_meta = build_response_meta(
+                response_text=total_content,
+                reasoning_text=total_reasoning,
+                tool_calls=stream_tool_calls,
+                finish_reason=final_finish_reason,
+            )
+            tokens_record = build_tokens_record(
+                last_usage,
+                req_body=req_body,
+                response_text=total_content,
+                reasoning_text=total_reasoning,
+                response_meta=response_meta,
+            )
+            total_tokens = tokens_record["total_tokens"]
+            update_stats(provider, model, total_tokens, api_key_id=api_key_id)
+            log_response_meta(provider, model, response_meta)
             await update_request_log(
                 log_id,
                 response=total_content,
-                tokens={"total_tokens": approx_tokens, "estimated": approx_tokens},
+                tokens=tokens_record,
                 latency_ms=latency,
                 status="success",
             )
-            logger.info(f"[STREAM COMPLETE] ~{approx_tokens} tokens | {latency:.0f}ms")
+            logger.info(f"[STREAM COMPLETE] ~{total_tokens} tokens | {latency:.0f}ms")
             logger.debug("[STREAM RESPONSE] Content: %s", total_content)
         except Exception as e:
             latency = (time.time() - start_time) * 1000
+            response_meta = build_response_meta(
+                response_text=total_content,
+                reasoning_text=total_reasoning,
+                tool_calls=stream_tool_calls,
+                finish_reason=final_finish_reason,
+            )
+            tokens_record = build_tokens_record(
+                last_usage,
+                req_body=req_body,
+                response_text=total_content,
+                reasoning_text=total_reasoning,
+                response_meta=response_meta,
+            )
             update_stats(provider, model, 0, api_key_id=api_key_id, is_error=True)
+            log_response_meta(provider, model, response_meta)
             await update_request_log(
                 log_id,
-                response="",
-                tokens={},
+                response=total_content,
+                tokens=tokens_record,
                 latency_ms=latency,
                 status="error",
                 error=str(e),
