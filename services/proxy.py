@@ -14,6 +14,11 @@ from core.config import (
     error_logger,
     provider_semaphores,
 )
+from core.log_sanitizer import (
+    sanitize_headers_for_log,
+    sanitize_payload_for_log,
+    sanitize_text_for_log,
+)
 from services.provider import (
     get_provider_and_model,
     get_model_config,
@@ -183,8 +188,8 @@ async def proxy_request(request: Request, endpoint: str):
         )
         error_logger.error(
             f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}\n"
-            f"  Error: {type(e).__name__}: {e}\n"
-            f"  Request Body: {json.dumps(body_json, ensure_ascii=False)[:1000]}"
+            f"  Error: {type(e).__name__}: {sanitize_text_for_log(e)}\n"
+            f"  Request Body: {sanitize_payload_for_log(body_json)}"
         )
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -235,11 +240,8 @@ def _log_request_info(
         f"Messages: {msg_count}, Stream: {stream}{multimodal_tag}"
     )
     logger.info(f"[REQUEST] Target: {target_url}")
-    logger.debug("[REQUEST] Headers: %s", headers)
-    logger.debug(
-        "[REQUEST] Body: %s",
-        body.decode("utf-8", errors="replace") if isinstance(body, bytes) else body,
-    )
+    logger.debug("[REQUEST] Headers: %s", sanitize_headers_for_log(headers))
+    logger.debug("[REQUEST] Body: %s", sanitize_payload_for_log(body))
 
 
 def _extract_response_fields(resp_json: dict) -> tuple[str, str, list, str]:
@@ -320,8 +322,8 @@ async def _record_stream_result(
         )
         error_logger.error(
             f"[STREAM ERROR] Provider: {provider}, Model: {model}\n"
-            f"  Error: {type(error).__name__ if error else 'Unknown'}: {error}\n"
-            f"  Request Body: {json.dumps(req_body, ensure_ascii=False)[:1000]}"
+            f"  Error: {type(error).__name__ if error else 'Unknown'}: {sanitize_text_for_log(error)}\n"
+            f"  Request Body: {sanitize_payload_for_log(req_body)}"
         )
     return latency
 
@@ -399,20 +401,20 @@ async def handle_normal(
         latency,
         "error" if is_error else "success",
         api_key_id=api_key_id,
-        error=resp.text if is_error else None,
+        error=sanitize_text_for_log(resp.text, limit=2000) if is_error else None,
     )
 
     if is_error:
         error_logger.error(
             f"[API ERROR] Provider: {provider}, Model: {model}, Status: {resp.status_code}\n"
-            f"  Request Body: {json.dumps(req_body, ensure_ascii=False)[:1000]}\n"
-            f"  Response: {resp.text[:1000]}"
+            f"  Request Body: {sanitize_payload_for_log(req_body)}\n"
+            f"  Response: {sanitize_text_for_log(resp.text)}"
         )
 
     logger.info(
         f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms"
     )
-    logger.debug("[RESPONSE] Body: %s", resp.text)
+    logger.debug("[RESPONSE] Body: %s", sanitize_text_for_log(resp.text))
 
     semaphore.release()
     return Response(
@@ -466,8 +468,9 @@ async def handle_streaming(
                             error_logger.warning(
                                 f"[STREAM ERROR] {provider} rate limited, retry-after: {retry_after}s"
                             )
+                        error_text = sanitize_text_for_log(error_body.decode("utf-8", errors="replace"))
                         raise Exception(
-                            f"HTTP {resp.status_code}: {error_body.decode('utf-8', errors='replace')[:500]}"
+                            f"HTTP {resp.status_code}: {error_text}"
                         )
 
                     chunk_count = 0
@@ -552,9 +555,12 @@ async def handle_streaming(
                                 total_reasoning += reasoning
 
                         except json.JSONDecodeError as e:
-                            line_preview = line_content[:200].replace("\n", "\\n")
+                            line_preview = sanitize_text_for_log(
+                                line_content[:200].replace("\n", "\\n"),
+                                limit=300,
+                            )
                             logger.warning(
-                                f"[SSE] Invalid JSON, skipping line: {line[:100]}... Error: {e}"
+                                f"[SSE] Invalid JSON, skipping line: {sanitize_text_for_log(line, limit=150)}... Error: {sanitize_text_for_log(e)}"
                             )
                             raise Exception(
                                 f"SSE JSON parse error: {e}; chunk={line_preview}"
