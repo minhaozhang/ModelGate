@@ -232,6 +232,10 @@
             loadData();
         }
 
+        function maskName(name) {
+            if (!name || name.length <= 4) return name;
+            return name.slice(0, 2) + '***' + name.slice(-2);
+        }
         function formatCompactTokens(tokens) {
             const value = Number(tokens || 0);
             if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
@@ -349,18 +353,20 @@
 
         function renderConcentrationCards(providerEntries, apikeyEntries, modelEntries) {
             const sections = [
-                [window.I18N.providers, providerEntries],
-                [window.I18N.apiKeys, apikeyEntries],
-                [window.I18N.models, modelEntries]
-            ];
-            const html = sections.map(([label, entries]) => {
-                const total = entries.reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0) || 1;
-                const top1 = entries[0];
-                const top3Value = entries.slice(0, 3).reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0);
-                return `
-                    <div class="rounded-lg bg-slate-50 p-4">
-                        <div class="text-xs uppercase tracking-wide text-slate-500">${label}</div>
-                        <div class="mt-2 text-sm font-medium text-slate-800 truncate" title="${top1 ? top1[0] : window.I18N.noData}">${top1 ? top1[0] : window.I18N.noData}</div>
+                 [window.I18N.providers, providerEntries, false],
+                 [window.I18N.apiKeys, apikeyEntries, true],
+                 [window.I18N.models, modelEntries, false]
+             ];
+             const html = sections.map(([label, entries, shouldMask]) => {
+                 const total = entries.reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0) || 1;
+                 const top1 = entries[0];
+                 const top3Value = entries.slice(0, 3).reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0);
+                 const displayName = top1 ? (shouldMask ? maskName(top1[0]) : top1[0]) : window.I18N.noData;
+                 const fullName = top1 ? top1[0] : '';
+                 return `
+                     <div class="rounded-lg bg-slate-50 p-4">
+                         <div class="text-xs uppercase tracking-wide text-slate-500">${label}</div>
+                         <div class="mt-2 text-sm font-medium text-slate-800 truncate" title="${fullName}">${displayName}</div>
                         <div class="mt-1 text-xs text-slate-500">${window.I18N.top1Share} ${top1 ? formatPct((top1[1].tokens || 0) / total) : '0%'}</div>
                         <div class="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
                             <div class="h-full bg-slate-700" style="width:${Math.min((top3Value / total) * 100, 100)}%"></div>
@@ -375,14 +381,8 @@
         function renderErrorHotspots(providerEntries, apikeyEntries, modelEntries) {
             const hotspots = [
                 ...providerEntries.map(([name, stats]) => ({ scope: window.I18N.provider, name, stats })),
-                ...apikeyEntries.map(([name, stats]) => ({ scope: window.I18N.apiKey, name, stats })),
-                ...modelEntries.map(([name, stats]) => ({ scope: window.I18N.model, name, stats }))
-            ]
-            .filter(item => (item.stats.requests || 0) >= 3)
-            .map(item => ({ ...item, errorRate: item.stats.requests ? item.stats.errors / item.stats.requests : 0 }))
-            .sort((a, b) => b.errorRate - a.errorRate || (b.stats.errors || 0) - (a.stats.errors || 0))
-            .slice(0, 6);
-
+                ...apikeyEntries.map(([name, stats]) => ({ scope: window.I18N.apiKey, name: maskName(name), stats })),
+            )
             const html = hotspots.map(item => {
                 const tone = item.errorRate === 0
                     ? {
@@ -397,14 +397,14 @@
                             border: 'border-amber-100',
                             bg: 'bg-amber-50',
                             scope: 'text-amber-600',
-                            meta: 'text-amber-500',
+                            meta: 'text-amber-500';
                             value: 'text-amber-600'
                         }
                         : {
                             border: 'border-red-100',
                             bg: 'bg-red-50',
                             scope: 'text-red-500',
-                            meta: 'text-red-400',
+                            meta: 'text-red-400';
                             value: 'text-red-600'
                         };
                 return `
@@ -412,7 +412,7 @@
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
                             <div class="text-xs uppercase tracking-wide ${tone.scope}">${item.scope}</div>
-                            <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${item.name}</div>
+                            <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${maskName(item.name)}</div>
                             <div class="mt-1 text-xs ${tone.meta}">${item.stats.errors.toLocaleString()} ${window.I18N.errors} / ${item.stats.requests.toLocaleString()} ${window.I18N.requests}</div>
                         </div>
                         <div class="text-right shrink-0">
