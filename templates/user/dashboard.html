@@ -159,14 +159,14 @@
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
                     <div class="bg-gray-50 rounded-lg p-4">
                         <div class="flex justify-between items-center mb-3">
-                            <h3 class="text-lg font-semibold">{{ _('Active Sessions (Last 1 Minute)') }}</h3>
+                            <h3 class="text-lg font-semibold">{{ _('Active Sessions') }}</h3>
                             <span id="active-count" class="text-sm text-gray-500">0 {{ _('active') }}</span>
                         </div>
                         <div id="active-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-3"><div class="text-gray-400 text-center py-2 2xl:col-span-2">{{ _('No active sessions') }}</div></div>
                     </div>
                     <div class="bg-gray-50 rounded-lg p-4">
                         <div class="flex justify-between items-center mb-3">
-                            <h3 class="text-lg font-semibold">{{ _('System Active Requests (Last 1 Minute)') }}</h3>
+                            <h3 class="text-lg font-semibold">{{ _('System Active Requests') }}</h3>
                             <span id="system-active-count" class="text-sm text-gray-500">0 {{ _('active') }}</span>
                         </div>
                         <div class="text-xs text-gray-400 mb-3">{{ _('Anonymized across all API keys. Your own traffic is labeled as Yourself.') }}</div>
@@ -908,7 +908,9 @@ const data = await response.json();</code></pre>
                 return;
             }
             
-            const html = Object.entries(data.sessions).map(([model, session]) => `
+            const html = Object.entries(data.sessions)
+                .sort((a, b) => new Date(b[1].last_activity || 0) - new Date(a[1].last_activity || 0))
+                .map(([model, session]) => `
                 <div class="rounded bg-white p-3 shadow-sm">
                     <div class="flex justify-between items-start gap-3">
                         <span class="font-medium text-sm min-w-0">${model}</span>
@@ -929,8 +931,8 @@ const data = await response.json();</code></pre>
         loadActiveSessions();
         loadSystemActiveSessions();
         setInterval(loadStats, 30000);
-        setInterval(loadActiveSessions, 60000);
-        setInterval(loadSystemActiveSessions, 30000);
+        setInterval(loadActiveSessions, 10000);
+        setInterval(loadSystemActiveSessions, 10000);
     </script>
 {% endraw %}
 </body>

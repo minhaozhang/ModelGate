@@ -12,7 +12,7 @@ from core.log_sanitizer import sanitize_text_for_log
 from services.provider import load_providers
 from services.auth import load_api_keys
 
-app = FastAPI(title="API Proxy")
+app = FastAPI(title="ModelGate")
 
 
 @app.get("/")
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     users_str = ", ".join(admin_users.keys())
     print(f"""
 ╔════════════════════════════════════════════════════════════╗
-║  API Proxy Started                                        ║
+║  ModelGate Started                                        ║
 ║  Dashboard: http://localhost:{CONFIG["port"]}/admin/home          ║
 ║  API: http://localhost:{CONFIG["port"]}/v1/chat/completions         ║
 ║  Admin Users: {users_str:<43} ║

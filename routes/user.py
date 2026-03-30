@@ -6,14 +6,15 @@ from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 
 from core.config import logger
 from core.database import async_session_maker, ApiKey, RequestLog
-from core.i18n import render
+from core.i18n import render, translate
 
 router = APIRouter(tags=["user"])
 ERROR_STATUSES = ("error", "timeout")
+ACTIVE_WINDOW_SECONDS = 30
 
 USER_SESSIONS: dict[str, dict] = {}
 USER_SESSION_EXPIRE_HOURS = 24
@@ -21,6 +22,10 @@ USER_SESSION_EXPIRE_HOURS = 24
 
 class UserLoginRequest(BaseModel):
     api_key: str
+
+
+def translated_error(request: Request, message: str, status_code: int) -> JSONResponse:
+    return JSONResponse({"error": translate(request, message)}, status_code=status_code)
 
 
 def get_user_session(user_session: Optional[str] = Cookie(None)) -> Optional[int]:
@@ -84,14 +89,14 @@ async def user_login_page(request: Request):
 
 
 @router.post("/user/api/login")
-async def user_login(data: UserLoginRequest, response: Response):
+async def user_login(request: Request, data: UserLoginRequest, response: Response):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ApiKey).where(ApiKey.key == data.api_key, ApiKey.is_active == True)
         )
         key = result.scalar_one_or_none()
         if not key:
-            return JSONResponse({"error": "Invalid API Key"}, status_code=401)
+            return translated_error(request, "Invalid API Key", 401)
 
         session_token = secrets.token_hex(32)
         USER_SESSIONS[session_token] = {
@@ -120,10 +125,10 @@ async def user_logout(response: Response, user_session: Optional[str] = Cookie(N
 
 @router.get("/user/api/stats")
 async def get_user_stats(
-    api_key_id: int = Depends(get_user_session), period: str = "day"
+    request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"
 ):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
     now = get_local_now()
     start, intervals, format_func = get_user_period_range(now, period)
@@ -132,7 +137,7 @@ async def get_user_stats(
         result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
         key = result.scalar_one_or_none()
         if not key:
-            return JSONResponse({"error": "API key not found"}, status_code=404)
+            return translated_error(request, "API key not found", 404)
 
         total_result = await session.execute(
             select(func.count(RequestLog.id)).where(
@@ -226,17 +231,24 @@ async def get_user_stats(
 
 
 @router.get("/user/api/active")
-async def get_user_active_sessions(api_key_id: int = Depends(get_user_session)):
+async def get_user_active_sessions(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
-    cutoff = datetime.now() - timedelta(minutes=1)
+    cutoff = get_local_now() - timedelta(seconds=ACTIVE_WINDOW_SECONDS)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(
+            select(RequestLog)
+            .where(
                 RequestLog.api_key_id == api_key_id,
-                RequestLog.created_at >= cutoff,
+                or_(
+                    RequestLog.status == "pending",
+                    RequestLog.created_at >= cutoff,
+                ),
             )
+            .order_by(RequestLog.created_at.desc())
         )
         logs = result.scalars().all()
 
@@ -247,22 +259,35 @@ async def get_user_active_sessions(api_key_id: int = Depends(get_user_session)):
 
             model = log.model
             if model not in model_sessions:
-                model_sessions[model] = {"requests": 0}
+                model_sessions[model] = {
+                    "requests": 0,
+                    "last_activity": log.created_at.isoformat(),
+                }
 
             model_sessions[model]["requests"] += 1
+            if log.created_at.isoformat() > model_sessions[model]["last_activity"]:
+                model_sessions[model]["last_activity"] = log.created_at.isoformat()
+
+        ordered_sessions = dict(
+            sorted(
+                model_sessions.items(),
+                key=lambda item: item[1]["last_activity"],
+                reverse=True,
+            )
+        )
 
         return {
-            "active_count": len(model_sessions),
-            "sessions": model_sessions,
+            "active_count": len(ordered_sessions),
+            "sessions": ordered_sessions,
         }
 
 
 @router.get("/user/api/system-models")
 async def get_system_model_stats(
-    api_key_id: int = Depends(get_user_session), period: str = "day"
+    request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"
 ):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
     now = get_local_now()
     start, _, _ = get_user_period_range(now, period)
@@ -299,14 +324,23 @@ async def get_system_model_stats(
 
 
 @router.get("/user/api/system-active")
-async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)):
+async def get_system_active_sessions(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
-    cutoff = datetime.now() - timedelta(minutes=1)
+    cutoff = get_local_now() - timedelta(seconds=ACTIVE_WINDOW_SECONDS)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(RequestLog.created_at >= cutoff)
+            select(RequestLog)
+            .where(
+                or_(
+                    RequestLog.status == "pending",
+                    RequestLog.created_at >= cutoff,
+                )
+            )
+            .order_by(RequestLog.created_at.desc())
         )
         logs = result.scalars().all()
 
@@ -314,8 +348,14 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
     for log in logs:
         key = log.api_key_id
         if key not in grouped:
-            grouped[key] = {"requests": 0, "models": {}}
+            grouped[key] = {
+                "requests": 0,
+                "models": {},
+                "last_activity": log.created_at.isoformat(),
+            }
         grouped[key]["requests"] += 1
+        if log.created_at.isoformat() > grouped[key]["last_activity"]:
+            grouped[key]["last_activity"] = log.created_at.isoformat()
         if log.model:
             grouped[key]["models"][log.model] = (
                 grouped[key]["models"].get(log.model, 0) + 1
@@ -328,13 +368,13 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
     ):
         stats = grouped[key]
         if key == api_key_id:
-            display_name = "Yourself"
+            display_name = translate(request, "Yourself")
             is_self = True
         elif key is None:
-            display_name = "Anonymous"
+            display_name = translate(request, "Anonymous")
             is_self = False
         else:
-            display_name = f"Other {other_index}"
+            display_name = translate(request, "Other {index}", index=other_index)
             other_index += 1
             is_self = False
 
@@ -344,11 +384,17 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
                 "is_self": is_self,
                 "requests": stats["requests"],
                 "models": stats["models"],
+                "last_activity": stats["last_activity"],
             }
         )
 
     sessions.sort(
-        key=lambda item: (not item["is_self"], -item["requests"], item["name"])
+        key=lambda item: (
+            -datetime.fromisoformat(item["last_activity"]).timestamp(),
+            not item["is_self"],
+            -item["requests"],
+            item["name"],
+        )
     )
     return {
         "active_count": len(sessions),
@@ -358,9 +404,9 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
 
 
 @router.get("/user/api/catalog")
-async def get_user_catalog(api_key_id: int = Depends(get_user_session)):
+async def get_user_catalog(request: Request, api_key_id: int = Depends(get_user_session)):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
     from core.database import ApiKeyModel, Model, Provider, ProviderModel
 
@@ -370,7 +416,7 @@ async def get_user_catalog(api_key_id: int = Depends(get_user_session)):
         )
         api_key = key_result.scalar_one_or_none()
         if not api_key:
-            return JSONResponse({"error": "API Key not found"}, status_code=404)
+            return translated_error(request, "API Key not found", 404)
 
         providers_result = await session.execute(
             select(Provider).where(Provider.is_active == True)
@@ -478,9 +524,11 @@ async def user_dashboard(request: Request, api_key_id: int = Depends(get_user_se
 
 
 @router.get("/user/api/opencode-config")
-async def get_user_opencode_config(api_key_id: int = Depends(get_user_session)):
+async def get_user_opencode_config(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
     from core.database import Provider, Model, ProviderModel, ApiKeyModel
 
@@ -490,7 +538,7 @@ async def get_user_opencode_config(api_key_id: int = Depends(get_user_session)):
         )
         api_key = key_result.scalar_one_or_none()
         if not api_key:
-            return JSONResponse({"error": "API Key not found"}, status_code=404)
+            return translated_error(request, "API Key not found", 404)
 
         models_result = await session.execute(
             select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key_id)

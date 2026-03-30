@@ -95,5 +95,11 @@ def render(request, template_name: str, **kwargs) -> str:
     return template.render(**context)
 
 
+def translate(request, message: str, **kwargs) -> str:
+    locale = get_locale(request)
+    text = _get_translations(locale).gettext(message)
+    return text.format(**kwargs) if kwargs else text
+
+
 def clear_cache():
     _cache.clear()
