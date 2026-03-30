@@ -74,7 +74,6 @@ async def build_opencode_config(session, api_key: str, base_url: str):
         if model.thinking_enabled:
             thinking_config = {
                 "type": "enabled",
-                "budgetTokens": model.thinking_budget or 8192,
             }
 
         model_entry = {
