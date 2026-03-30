@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ _('Dashboard') }} - {{ name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+        code { font-family: 'Monaco', 'Menlo', monospace; font-size: 0.875rem; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-200 { background: #243244 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .bg-blue-50 { background: rgba(37, 99, 235, 0.12) !important; }
+        body.theme-dark .bg-blue-100 { background: rgba(59, 130, 246, 0.18) !important; }
+        body.theme-dark .bg-emerald-50 { background: rgba(16, 185, 129, 0.12) !important; }
+        body.theme-dark .bg-emerald-100 { background: rgba(16, 185, 129, 0.18) !important; }
+        body.theme-dark .bg-slate-100 { background: #1e293b !important; }
+        body.theme-dark .from-blue-50,
+        body.theme-dark .to-cyan-50,
+        body.theme-dark .from-emerald-50,
+        body.theme-dark .to-teal-50 { background-image: none !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .text-blue-900 { color: #dbeafe !important; }
+        body.theme-dark .text-slate-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-emerald-700 { color: #a7f3d0 !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-blue-200,
+        body.theme-dark .border-gray-200,
+        body.theme-dark .border-slate-200,
+        body.theme-dark .border-emerald-200 { border-color: #243244 !important; }
+        body.theme-dark select,
+        body.theme-dark button:not(.bg-red-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-sm { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .tab-btn.active { border-bottom-color: #60a5fa; color: #60a5fa !important; }
+        body.theme-dark .bg-white.rounded,
+        body.theme-dark .bg-white.rounded-lg,
+        body.theme-dark .bg-white.rounded-xl,
+        body.theme-dark .bg-white.rounded-2xl,
+        body.theme-dark .bg-gray-50.rounded,
+        body.theme-dark .bg-gray-50.rounded-lg,
+        body.theme-dark .bg-gray-50.rounded-xl,
+        body.theme-dark .bg-gray-50.rounded-2xl,
+        body.theme-dark .bg-blue-50.rounded-lg,
+        body.theme-dark .bg-blue-50.rounded-2xl {
+            border: 1px solid rgba(71, 85, 105, 0.55) !important;
+            box-shadow:
+                0 18px 36px rgba(2, 6, 23, 0.34),
+                inset 0 1px 0 rgba(148, 163, 184, 0.08) !important;
+        }
+        body.theme-dark .tab-content > .bg-gray-50.rounded-lg,
+        body.theme-dark .tab-content > .bg-white.rounded-lg,
+        body.theme-dark .tab-content > .grid .bg-gray-50.rounded-lg,
+        body.theme-dark .tab-content > .grid .bg-white.rounded-lg {
+            background-image: linear-gradient(180deg, rgba(148, 163, 184, 0.04), transparent 28%) !important;
+        }
+        body.theme-dark .bg-white.p-3.rounded,
+        body.theme-dark .bg-white.p-3.rounded-lg,
+        body.theme-dark .bg-white.p-4.rounded,
+        body.theme-dark .bg-white.p-4.rounded-lg,
+        body.theme-dark .bg-gray-50.p-3.rounded,
+        body.theme-dark .bg-gray-50.p-3.rounded-lg {
+            border-color: rgba(71, 85, 105, 0.5) !important;
+        }
+        body.theme-dark code.bg-white,
+        body.theme-dark .bg-white.px-2,
+        body.theme-dark .bg-white.p-3:not(.rounded-2xl) {
+            background: #111827 !important;
+        }
+        body.theme-dark .bg-white.text-gray-600,
+        body.theme-dark .bg-white.text-gray-700,
+        body.theme-dark .bg-gray-200.text-gray-700,
+        body.theme-dark .bg-gray-100.text-gray-500,
+        body.theme-dark .bg-slate-100.text-slate-600,
+        body.theme-dark .bg-emerald-100.text-emerald-700 {
+            color: #cbd5e1 !important;
+        }
+        body.theme-dark .bg-black\/5,
+        body.theme-dark .bg-white\/70 {
+            background: rgba(148, 163, 184, 0.12) !important;
+            color: #dbeafe !important;
+            border: 1px solid rgba(71, 85, 105, 0.45);
+        }
+        body.theme-dark pre {
+            border: 1px solid rgba(71, 85, 105, 0.6);
+            box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">{{ _('API Key Dashboard') }}</h1>
+                <p class="text-gray-500">{{ name }}</p>
+            </div>
+            <div class="flex gap-2">
+                <select id="lang-select" onchange="switchLang(this.value)" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm">
+                    <option value="en">English</option>
+                    <option value="zh">中文</option>
+                </select>
+                <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                    {{ _('Dark Mode') }}
+                </button>
+                <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                    {{ _('Logout') }}
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="flex border-b">
+                <button class="tab-btn active px-6 py-3 font-medium" onclick="showTab('stats')">{{ _('Statistics') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('catalog')">{{ _('Models') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('opencode')">{{ _('OpenCode Config') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
+            </div>
+            
+            <!-- Stats Tab -->
+            <div id="tab-stats" class="tab-content active p-6">
+                <div class="flex justify-end mb-4">
+                    <select id="period-select" onchange="loadStats()" class="border rounded px-3 py-2 text-sm">
+                        <option value="day">{{ _('Today') }}</option>
+                        <option value="week">{{ _('This Week') }}</option>
+                        <option value="month">{{ _('This Month') }}</option>
+                    </select>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-gray-500 text-sm">{{ _('Total Requests') }}</div>
+                        <div id="total-requests" class="text-2xl font-bold text-blue-600">0</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-gray-500 text-sm">{{ _('Total Tokens') }}</div>
+                        <div id="total-tokens" class="text-2xl font-bold text-green-600">0</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-gray-500 text-sm">{{ _('Errors') }}</div>
+                        <div id="total-errors" class="text-2xl font-bold text-red-600">0</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-gray-500 text-sm">{{ _('Models Used') }}</div>
+                        <div id="model-count" class="text-2xl font-bold text-purple-600">0</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">{{ _('Active Sessions (Last 1 Minute)') }}</h3>
+                            <span id="active-count" class="text-sm text-gray-500">0 {{ _('active') }}</span>
+                        </div>
+                        <div id="active-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-3"><div class="text-gray-400 text-center py-2 2xl:col-span-2">{{ _('No active sessions') }}</div></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">{{ _('System Active Requests (Last 1 Minute)') }}</h3>
+                            <span id="system-active-count" class="text-sm text-gray-500">0 {{ _('active') }}</span>
+                        </div>
+                        <div class="text-xs text-gray-400 mb-3">{{ _('Anonymized across all API keys. Your own traffic is labeled as Yourself.') }}</div>
+                        <div id="system-active-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-3"><div class="text-gray-400 text-center py-2 2xl:col-span-2">{{ _('No active sessions') }}</div></div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-4 my-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-semibold">{{ _('Request Trend') }}</h3>
+                        <span id="trend-meta" class="text-xs text-gray-500">{{ _('Requests / Tokens / Errors') }}</span>
+                    </div>
+                    <div style="height: 250px;">
+                        <canvas id="trend-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">{{ _('Model Usage') }}</h3>
+                            <span id="model-usage-meta" class="text-xs text-gray-500">{{ _('Your API key') }}</span>
+                        </div>
+                        <div class="h-64"><canvas id="model-usage-chart"></canvas></div>
+                        <div id="model-stats" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-64 overflow-y-auto"></div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">{{ _('System Model Usage') }}</h3>
+                            <span id="system-model-meta" class="text-xs text-gray-500">{{ _('All API keys') }}</span>
+                        </div>
+                        <div class="h-64"><canvas id="system-model-chart"></canvas></div>
+                        <div id="system-model-legend" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-64 overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Models Tab -->
+            <div id="tab-catalog" class="tab-content p-6">
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">{{ _('Platform Providers & Models') }}</h3>
+                            <span id="platform-catalog-meta" class="text-xs text-gray-500">0 {{ _('providers') }} / 0 {{ _('models') }}</span>
+                        </div>
+                        <div id="platform-catalog" class="space-y-3 max-h-[36rem] overflow-y-auto">
+                            <div class="text-gray-400 text-center py-4">{{ _('Loading catalog...') }}</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">{{ _('Your Access') }}</h3>
+                            <span id="owned-catalog-meta" class="text-xs text-gray-500">0 {{ _('providers') }} / 0 {{ _('models') }}</span>
+                        </div>
+                        <div id="owned-catalog-note" class="text-xs text-gray-400 mb-3">{{ _('Models available to this API key.') }}</div>
+                        <div id="owned-catalog" class="space-y-3 max-h-[36rem] overflow-y-auto">
+                            <div class="text-gray-400 text-center py-4">{{ _('Loading access...') }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- OpenCode Config Tab -->
+            <div id="tab-opencode" class="tab-content p-6">
+                <h2 class="text-xl font-bold mb-4">{{ _('OpenCode Configuration') }}</h2>
+                <p class="text-gray-600 mb-4">{{ _('Generate opencode.json config for this proxy') }}</p>
+                
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <h3 class="font-semibold mb-2">opencode.json</h3>
+                    <div class="relative">
+                        <button onclick="copyConfig()" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
+                        <pre id="config-output" class="text-sm"></pre>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <h3 class="font-semibold mb-3">{{ _('Available Models') }}</h3>
+                    <div id="models-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+                
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <h3 class="font-semibold text-blue-800 mb-2">{{ _('How to use') }}</h3>
+                    <ol class="list-decimal list-inside text-sm text-blue-700 space-y-1">
+                        <li>{{ _('Copy the generated <code class="bg-blue-100 px-1 rounded">opencode.json</code>') }}</li>
+                        <li>{{ _('Create <code class="bg-blue-100 px-1 rounded">opencode.json</code> in your project root') }}</li>
+                        <li>{{ _('Paste the configuration and save') }}</li>
+                        <li>{{ _('OpenCode will now use this proxy for API requests') }}</li>
+                    </ol>
+                </div>
+            </div>
+            
+            <!-- Usage Tab -->
+            <div id="tab-usage" class="tab-content p-6">
+                <h2 class="text-xl font-bold mb-4">{{ _('How to Configure API Clients') }}</h2>
+                
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <h3 class="font-semibold mb-3">{{ _('Basic Information') }}</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex"><span class="text-gray-500 w-32">{{ _('Proxy URL') }}:</span><code class="bg-white px-2 py-1 rounded" id="proxy-url"></code></div>
+                        <div class="flex"><span class="text-gray-500 w-32">{{ _('API Endpoint') }}:</span><code class="bg-white px-2 py-1 rounded">/v1/chat/completions</code></div>
+                        <div class="flex"><span class="text-gray-500 w-32">{{ _('Auth Header') }}:</span><code class="bg-white px-2 py-1 rounded">Authorization: Bearer YOUR_API_KEY</code></div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <h3 class="font-semibold mb-3">{{ _('Model Name Format') }}</h3>
+                    <p class="text-gray-600 text-sm mb-3">{{ _('Use <code class="bg-white px-2 py-1 rounded">provider/model</code> format') }}:</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white p-3 rounded"><div class="text-xs text-gray-500 mb-1">{{ _('With Provider') }}</div><code class="text-sm">zhipu/glm-4</code></div>
+                        <div class="bg-white p-3 rounded"><div class="text-xs text-gray-500 mb-1">{{ _('Without Prefix') }}</div><code class="text-sm">glm-4</code></div>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="font-semibold mb-3 flex items-center">
+                            <span class="w-5 h-5 mr-2 bg-green-500 text-white rounded text-xs flex items-center justify-center">Py</span>
+                            {{ _('Python (OpenAI SDK)') }}
+                        </h3>
+                        <div class="relative">
+                            <button onclick="copyCode('python')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
+                            <pre id="code-python"><code>from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="<span id="base-python"></span>"
+)
+
+response = client.chat.completions.create(
+    model="zhipu/glm-4",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.choices[0].message.content)</code></pre>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="font-semibold mb-3 flex items-center">
+                            <span class="w-5 h-5 mr-2 bg-yellow-500 text-white rounded text-xs flex items-center justify-center">JS</span>
+                            {{ _('JavaScript') }}
+                        </h3>
+                        <div class="relative">
+                            <button onclick="copyCode('js')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
+                            <pre id="code-js"><code>const response = await fetch('<span id="base-js"></span>/chat/completions', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_API_KEY'
+  },
+  body: JSON.stringify({
+    model: 'zhipu/glm-4',
+    messages: [{ role: 'user', content: 'Hello!' }]
+  })
+});
+const data = await response.json();</code></pre>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="font-semibold mb-3 flex items-center">
+                            <span class="w-5 h-5 mr-2 bg-blue-500 text-white rounded text-xs flex items-center justify-center">$</span>
+                            cURL
+                        </h3>
+                        <div class="relative">
+                            <button onclick="copyCode('curl')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
+                            <pre id="code-curl"><code>curl <span id="base-curl"></span>/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{"model": "zhipu/glm-4", "messages": [{"role": "user", "content": "Hello!"}]}'</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    window.I18N = {
+        lightMode: {{ _('Light Mode') | tojson }},
+        darkMode: {{ _('Dark Mode') | tojson }},
+        unauthorized: {{ _('Unauthorized') | tojson }},
+        others: {{ _('Others') | tojson }},
+        owned: {{ _('Owned') | tojson }},
+        available: {{ _('Available') | tojson }},
+        access: {{ _('Access') | tojson }},
+        noActiveProviders: {{ _('No active providers or models') | tojson }},
+        noAccessibleModels: {{ _('No accessible models') | tojson }},
+        fullAccessNote: {{ _('This API key currently has access to all active models on the platform.') | tojson }},
+        limitedAccessNote: {{ _('Models explicitly available to this API key.') | tojson }},
+        modelsAvailableNote: {{ _('Models available to this API key.') | tojson }},
+        platformProviderCatalog: {{ _('Platform provider catalog') | tojson }},
+        modelsThisKeyCanUse: {{ _('Models this key can use') | tojson }},
+        noData: {{ _('No data') | tojson }},
+        noActiveSessions: {{ _('No active sessions') | tojson }},
+        noModels: {{ _('No models') | tojson }},
+        copied: {{ _('Copied!') | tojson }},
+        clearSavedApiKey: {{ _('Clear saved API Key?') | tojson }},
+        active: {{ _('active') | tojson }},
+        req: {{ _('req') | tojson }},
+        err: {{ _('err') | tojson }},
+        models: {{ _('models') | tojson }},
+        providers: {{ _('providers') | tojson }},
+        ctx: {{ _('ctx') | tojson }},
+        out: {{ _('out') | tojson }},
+        multimodal: {{ _('multimodal') | tojson }},
+        alias: {{ _('alias') | tojson }},
+        requestsLabel: {{ _('Requests') | tojson }},
+        errorsLabel: {{ _('Errors') | tojson }},
+        tokensLabel: {{ _('Tokens') | tojson }},
+        requestsErrorsLabel: {{ _('Requests / Errors') | tojson }},
+        opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.opencode/opencode.json. Keep existing providers and other settings, only add or update the model-token-plan provider.') | tojson }},
+        topShare: {{ _('top share') | tojson }},
+        onRightAxis: {{ _('on right axis') | tojson }},
+        yourApiKey: {{ _('Your API key') | tojson }},
+        allApiKeys: {{ _('All API keys') | tojson }},
+    };
+    </script>
+
+    {% include 'components/lang_switch.html' %}
+{% raw %}
+    <script>
+        const baseUrl = window.location.origin + '/v1';
+        let trendChart = null;
+        let modelUsageChart = null;
+        let systemModelChart = null;
+        const ownModelPalette = ['#2563eb', '#0f766e', '#0891b2', '#1d4ed8', '#059669', '#0ea5e9', '#14b8a6', '#0284c7'];
+        const systemModelPalette = ['#f59e0b', '#ef4444', '#f97316', '#dc2626', '#eab308', '#fb7185', '#ea580c', '#f43f5e'];
+        
+        document.getElementById('proxy-url').textContent = baseUrl;
+        document.getElementById('base-python').textContent = baseUrl;
+        document.getElementById('base-js').textContent = baseUrl;
+        document.getElementById('base-curl').textContent = baseUrl;
+
+        function getThemeMode() {
+            return localStorage.getItem('dashboard_theme') || 'light';
+        }
+
+        function getChartTheme() {
+            const isDark = document.body.classList.contains('theme-dark');
+            return {
+                tickColor: isDark ? '#94a3b8' : '#6b7280',
+                gridColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)',
+                titleColor: isDark ? '#cbd5e1' : '#4b5563',
+                legendColor: isDark ? '#e5e7eb' : '#374151',
+                tooltipBg: isDark ? '#0f172a' : '#ffffff',
+                tooltipTitle: isDark ? '#f8fafc' : '#111827',
+                tooltipBody: isDark ? '#cbd5e1' : '#374151',
+                tooltipBorder: isDark ? '#334155' : '#e5e7eb'
+            };
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('dashboard_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
+        }
+
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+            loadStats();
+            loadActiveSessions();
+            loadSystemActiveSessions();
+        }
+
+        applyTheme(getThemeMode());
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = '/user/login';
+                throw new Error(window.I18N.unauthorized);
+            }
+            return await resp.json();
+        }
+        
+        function showTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+            
+            if (tab === 'opencode') loadOpenCodeConfig();
+            if (tab === 'catalog') loadCatalog();
+        }
+
+        function formatCompactTokens(tokens) {
+            const value = Number(tokens || 0);
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+            if (Number.isInteger(value)) return value.toLocaleString();
+            return value.toFixed(1).replace(/\.0$/, '');
+        }
+
+        function getTokenChartScale(requestValues, tokenValues) {
+            const maxRequests = Math.max(...requestValues, 1);
+            const maxTokens = Math.max(...tokenValues, 1);
+            const scales = [
+                { divisor: 1, suffix: '' },
+                { divisor: 1000, suffix: 'K' },
+                { divisor: 1000000, suffix: 'M' },
+                { divisor: 1000000000, suffix: 'B' }
+            ];
+            let scale = scales.find(s => maxTokens / s.divisor <= maxRequests * 5) || scales[scales.length - 1];
+            if (maxTokens / scale.divisor >= 1000) {
+                scale = scales[scales.indexOf(scale) + 1] || scale;
+            }
+            return scale;
+        }
+
+        function buildDonutSeries(data, palette, metric = 'requests', limit = 5) {
+            const entries = Object.entries(data || {})
+                .sort((a, b) => (b[1][metric] || 0) - (a[1][metric] || 0))
+                .filter(([, stats]) => (stats[metric] || 0) > 0);
+            const topEntries = entries.slice(0, limit);
+            const otherValue = entries.slice(limit).reduce((sum, [, stats]) => sum + (stats[metric] || 0), 0);
+            const labels = topEntries.map(([name]) => name);
+            const values = topEntries.map(([, stats]) => stats[metric] || 0);
+            const colors = topEntries.map((_, index) => palette[index % palette.length]);
+            if (otherValue > 0) {
+                labels.push(window.I18N.others);
+                values.push(otherValue);
+                colors.push('#cbd5e1');
+            }
+            return { entries, labels, values, colors };
+        }
+
+        function renderCatalogSections(data) {
+            const ownedFullNames = new Set(
+                (data.owned_providers || []).flatMap(group =>
+                    (group.models || []).map(model => model.full_name)
+                )
+            );
+
+            const renderPlatformGroups = (groups, emptyText) => {
+                if (!groups || !groups.length) {
+                    return `<div class="text-gray-400 text-center py-4">${emptyText}</div>`;
+                }
+
+                return groups.map(group => {
+                    const modelsHtml = (group.models || []).map(model => {
+                        const isOwned = ownedFullNames.has(model.full_name);
+                        const tone = isOwned
+                            ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-900'
+                            : 'border-gray-200 bg-white text-gray-700';
+                        const badge = isOwned
+                            ? `<span class="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${window.I18N.owned}</span>`
+                            : `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">${window.I18N.available}</span>`;
+                        return `
+                            <div class="rounded-2xl border ${tone} px-3 py-3 shadow-sm transition hover:-translate-y-0.5">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-semibold truncate" title="${model.full_name}">${model.display_name}</div>
+                                        <div class="mt-0.5 text-[11px] text-gray-500 truncate">${model.full_name}</div>
+                                    </div>
+                                    ${badge}
+                                </div>
+                                <div class="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                                    <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
+                                    <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
+                                    ${model.is_multimodal ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
+                                    ${model.has_override ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.alias}</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    return `
+                        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <div>
+                                    <div class="font-semibold text-sm">${group.name}</div>
+                                    <div class="mt-1 text-[11px] text-gray-500">${window.I18N.platformProviderCatalog}</div>
+                                </div>
+                                <div class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 shrink-0">${group.model_count} ${window.I18N.models}</div>
+                            </div>
+                            <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${modelsHtml}</div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            const renderOwnedGroups = (groups, emptyText) => {
+                if (!groups || !groups.length) {
+                    return `<div class="text-gray-400 text-center py-4">${emptyText}</div>`;
+                }
+
+                return groups.map(group => {
+                    const modelsHtml = (group.models || []).map(model => `
+                        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 px-3 py-3 shadow-sm">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <div class="text-sm font-semibold truncate" title="${model.full_name}">${model.display_name}</div>
+                                    <div class="mt-0.5 text-[11px] text-emerald-700/80 truncate">${model.full_name}</div>
+                                </div>
+                                <span class="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${window.I18N.access}</span>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-1.5 text-[11px] text-emerald-900/80">
+                                <span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
+                                <span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
+                                ${model.is_multimodal ? `<span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+
+                    return `
+                        <div class="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <div>
+                                    <div class="font-semibold text-sm">${group.name}</div>
+                                    <div class="mt-1 text-[11px] text-gray-500">${window.I18N.modelsThisKeyCanUse}</div>
+                                </div>
+                                <div class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs text-emerald-700 shrink-0">${group.model_count} ${window.I18N.models}</div>
+                            </div>
+                            <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${modelsHtml}</div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            document.getElementById('platform-catalog-meta').textContent =
+                `${data.platform_provider_count || 0} ${window.I18N.providers} / ${data.platform_model_count || 0} ${window.I18N.models}`;
+            document.getElementById('owned-catalog-meta').textContent =
+                `${data.owned_provider_count || 0} ${window.I18N.providers} / ${data.owned_model_count || 0} ${window.I18N.models}`;
+            document.getElementById('owned-catalog-note').textContent = data.full_access
+                ? window.I18N.fullAccessNote
+                : window.I18N.limitedAccessNote;
+
+            document.getElementById('platform-catalog').innerHTML = renderPlatformGroups(
+                data.platform_providers || [],
+                window.I18N.noActiveProviders
+            );
+            document.getElementById('owned-catalog').innerHTML = renderOwnedGroups(
+                data.owned_providers || [],
+                window.I18N.noAccessibleModels
+            );
+        }
+
+        function renderModelUsageChart(chartId, legendId, metaId, models, chartRef, palette, metaLabel = window.I18N.allApiKeys) {
+            const series = buildDonutSeries(models, palette, 'requests', 6);
+            const ctx = document.getElementById(chartId).getContext('2d');
+            const chartTheme = getChartTheme();
+            if (chartRef.current) chartRef.current.destroy();
+
+            chartRef.current = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: series.labels,
+                    datasets: [{
+                        data: series.values,
+                        backgroundColor: series.colors,
+                        borderWidth: 0,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
+                                    const pct = context.raw / total;
+                                    return `${context.label}: ${(context.raw || 0).toLocaleString()} ${window.I18N.req} (${(pct * 100).toFixed(1)}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const totalRequests = series.entries.reduce((sum, [, stats]) => sum + (stats.requests || 0), 0) || 1;
+            const legendHtml = series.entries.slice(0, 6).map(([name, stats], index) => `
+                <div class="rounded bg-white p-3 shadow-sm">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${palette[index % palette.length]}"></span>
+                        <span class="truncate text-sm font-medium" title="${name}">${name}</span>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-500">${stats.requests.toLocaleString()} ${window.I18N.req} / ${formatCompactTokens(stats.tokens || 0)}</div>
+                    ${typeof stats.errors === 'number' ? `<div class="mt-1 text-xs text-gray-400">${window.I18N.err} ${stats.errors}</div>` : ''}
+                </div>
+            `).join('');
+            document.getElementById(legendId).innerHTML = legendHtml || `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${window.I18N.noData}</div>`;
+            document.getElementById(metaId).textContent = `${metaLabel} / ${Object.keys(models || {}).length} ${window.I18N.models} / ${window.I18N.topShare} ${
+                series.entries[0] ? (((series.entries[0][1].requests || 0) / totalRequests) * 100).toFixed(1) + '%' : '0%'
+            }`;
+        }
+
+        function renderOwnModelChart(models) {
+            renderModelUsageChart(
+                'model-usage-chart',
+                'model-stats',
+                'model-usage-meta',
+                models,
+                {
+                    get current() { return modelUsageChart; },
+                    set current(value) { modelUsageChart = value; }
+                },
+                ownModelPalette,
+                window.I18N.yourApiKey
+            );
+        }
+
+        function renderSystemModelChart(models) {
+            renderModelUsageChart(
+                'system-model-chart',
+                'system-model-legend',
+                'system-model-meta',
+                models,
+                {
+                    get current() { return systemModelChart; },
+                    set current(value) { systemModelChart = value; }
+                },
+                systemModelPalette,
+                window.I18N.allApiKeys
+            );
+        }
+
+        function renderSystemActiveSessions(data) {
+            document.getElementById('system-active-count').textContent = `${data.active_count || 0} ${window.I18N.active} / ${(data.request_count || 0).toLocaleString()} ${window.I18N.req}`;
+            if (!data.active_count) {
+                document.getElementById('system-active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${window.I18N.noActiveSessions}</div>`;
+                return;
+            }
+
+            const html = (data.sessions || []).map(session => {
+                const labelClass = session.is_self ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-700';
+                const modelsHtml = Object.entries(session.models || {})
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([model, count]) => `<span class="bg-white text-gray-600 text-xs px-2 py-1 rounded">${model} (${count})</span>`)
+                    .join(' ');
+                return `
+                    <div class="rounded bg-white p-3 shadow-sm">
+                        <div class="flex justify-between items-start gap-3">
+                            <div class="min-w-0">
+                                <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium ${labelClass}">${session.name}</span>
+                                <div class="mt-2 text-xs text-gray-500">${modelsHtml || window.I18N.noModels}</div>
+                            </div>
+                            <div class="text-sm font-medium text-gray-700 shrink-0">${session.requests} ${window.I18N.req}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('system-active-sessions').innerHTML = html;
+        }
+         
+        async function loadStats() {
+            const period = document.getElementById('period-select').value;
+            const [data, systemModels] = await Promise.all([
+                fetchJsonOrRedirect('/user/api/stats?period=' + period),
+                fetchJsonOrRedirect('/user/api/system-models?period=' + period)
+            ]);
+             
+            document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
+            document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
+            document.getElementById('total-errors').textContent = data.total_errors;
+            document.getElementById('model-count').textContent = Object.keys(data.models || {}).length;
+             
+            renderTrendChart(data.trend || {});
+            renderOwnModelChart(data.models || {});
+            renderSystemModelChart(systemModels.models || {});
+        }
+
+        async function loadCatalog() {
+            const data = await fetchJsonOrRedirect('/user/api/catalog');
+            renderCatalogSections(data);
+        }
+         
+        function renderTrendChart(trendData) {
+            const ctx = document.getElementById('trend-chart').getContext('2d');
+            const chartTheme = getChartTheme();
+            if (trendChart) trendChart.destroy();
+             
+            const labels = Object.keys(trendData);
+            const requests = labels.map(l => trendData[l].requests || 0);
+            const rawTokens = labels.map(l => trendData[l].tokens || 0);
+            const errors = labels.map(l => trendData[l].errors || 0);
+            const tokenScale = getTokenChartScale(requests, rawTokens);
+            const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
+            const tokenLabel = tokenScale.suffix ? `${window.I18N.tokensLabel} (${tokenScale.suffix})` : window.I18N.tokensLabel;
+            document.getElementById('trend-meta').textContent = `${tokenLabel} ${window.I18N.onRightAxis}`;
+             
+            trendChart = new Chart(ctx, {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: window.I18N.requestsLabel,
+                            data: requests,
+                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
+                            borderColor: 'rgba(59, 130, 246, 0.85)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: tokenLabel,
+                            data: tokens,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            pointBackgroundColor: '#10b981',
+                            pointRadius: 3,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.25,
+                            fill: true,
+                            yAxisID: 'yTokens'
+                        },
+                        {
+                            type: 'line',
+                            label: window.I18N.errorsLabel,
+                            data: errors,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [6, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            grid: { color: chartTheme.gridColor },
+                            ticks: {
+                                color: chartTheme.tickColor,
+                                autoSkip: true,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                maxTicksLimit: labels.length > 20 ? 10 : 12
+                            }
+                        },
+                        yRequests: {
+                            beginAtZero: true,
+                            position: 'left',
+                            grid: { color: chartTheme.gridColor },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: window.I18N.requestsErrorsLabel, color: chartTheme.titleColor }
+                        },
+                        yTokens: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: tokenLabel, color: chartTheme.titleColor }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: chartTheme.legendColor }
+                        },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.yAxisID === 'yTokens') {
+                                        const rawValue = rawTokens[context.dataIndex] || 0;
+                                        return `${tokenLabel}: ${formatCompactTokens(rawValue)} (${rawValue.toLocaleString()})`;
+                                    }
+                                    return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        async function loadOpenCodeConfig() {
+            try {
+                const data = await fetchJsonOrRedirect('/user/api/opencode-config');
+                
+                const config = data.config;
+                config.provider['model-token-plan'].options.baseURL = window.location.origin + '/v1';
+                
+                const prompt = "# " + window.I18N.opencodePrompt + "\n\n";
+                document.getElementById('config-output').textContent = prompt + JSON.stringify(config, null, 2);
+                
+                const modelsHtml = data.models.map(m => `
+                    <div class="flex justify-between items-center p-2 bg-white rounded">
+                        <span class="font-medium text-sm">${m.name}</span>
+                        <span class="text-xs text-gray-500">${window.I18N.ctx}: ${m.context.toLocaleString()} | ${window.I18N.out}: ${m.output.toLocaleString()}</span>
+                    </div>
+                `).join('');
+                document.getElementById('models-list').innerHTML = modelsHtml || `<div class="text-gray-400">${window.I18N.noModels}</div>`;
+            } catch (e) {
+                console.error('Failed to load OpenCode config:', e);
+            }
+        }
+        
+        function copyConfig() {
+            const config = document.getElementById('config-output').textContent;
+            navigator.clipboard.writeText(config).then(() => alert(window.I18N.copied));
+        }
+        
+        function copyCode(type) {
+            const el = document.getElementById('code-' + type);
+            navigator.clipboard.writeText(el.textContent).then(() => alert(window.I18N.copied));
+        }
+        
+        async function logout() {
+            const clearSaved = confirm(window.I18N.clearSavedApiKey);
+            if (clearSaved) localStorage.removeItem('user_api_key');
+            await fetch('/user/api/logout', {method: 'POST'});
+            window.location.href = '/user/login';
+        }
+        
+        async function loadActiveSessions() {
+            const data = await fetchJsonOrRedirect('/user/api/active');
+            
+            document.getElementById('active-count').textContent = data.active_count + ' ' + window.I18N.active;
+            
+            if (data.active_count === 0) {
+                document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${window.I18N.noActiveSessions}</div>`;
+                return;
+            }
+            
+            const html = Object.entries(data.sessions).map(([model, session]) => `
+                <div class="rounded bg-white p-3 shadow-sm">
+                    <div class="flex justify-between items-start gap-3">
+                        <span class="font-medium text-sm min-w-0">${model}</span>
+                        <span class="text-sm text-gray-600 shrink-0">${session.requests} ${window.I18N.req}</span>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('active-sessions').innerHTML = html;
+        }
+
+        async function loadSystemActiveSessions() {
+            const data = await fetchJsonOrRedirect('/user/api/system-active');
+            renderSystemActiveSessions(data);
+        }
+        
+        loadStats();
+        loadCatalog();
+        loadActiveSessions();
+        loadSystemActiveSessions();
+        setInterval(loadStats, 30000);
+        setInterval(loadActiveSessions, 60000);
+        setInterval(loadSystemActiveSessions, 30000);
+    </script>
+{% endraw %}
+</body>
+</html>

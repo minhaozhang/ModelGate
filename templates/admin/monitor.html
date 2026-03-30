@@ -1,9 +1,8 @@
-MONITOR_PAGE_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Monitor - API Proxy</title>
+    <title>{{ _('Monitor') }} - {{ _('API Proxy') }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -38,6 +37,9 @@ MONITOR_PAGE_HTML = """
         body.theme-dark .border-green-100,
         body.theme-dark .border-amber-100,
         body.theme-dark .border-red-100 { border-color: #1f2937 !important; }
+        body.theme-dark input,
+        body.theme-dark select,
+        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
         body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500):not(.bg-teal-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
         body.theme-dark .shadow,
         body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
@@ -51,97 +53,68 @@ MONITOR_PAGE_HTML = """
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex">
-        <nav class="w-56 bg-white shadow-lg min-h-screen fixed">
-            <div class="p-4 border-b"><h1 class="text-xl font-bold text-gray-800">API Proxy</h1></div>
-            <div class="py-2">
-                <a href="/admin/home" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-                    Home
-                </a>
-                <a href="/admin/config" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                    Config
-                </a>
-                <a href="/admin/api-keys" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
-                    API Keys
-                </a>
-                <a href="/admin/monitor" class="nav-link active flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                    Monitor
-                </a>
-                <a href="/admin/usage" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Usage Guide
-                </a>
-            </div>
-            <div class="absolute bottom-0 w-full p-4 border-t">
-                <button onclick="logout()" class="w-full text-left text-gray-600 hover:text-red-600 flex items-center">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    Logout
-                </button>
-            </div>
-        </nav>
+        {% set active_page = 'monitor' %}
+        {% include 'components/nav.html' %}
 
         <main class="ml-56 flex-1 p-6">
             <div class="flex justify-between items-center mb-6">
                 <div>
-                    <h2 class="text-2xl font-bold text-gray-800">Statistics Monitor</h2>
-                    <p class="text-sm text-gray-500 mt-1">Composition, concentration, hotspots, and trend behavior</p>
+                    <h2 class="text-2xl font-bold text-gray-800">{{ _('Statistics Monitor') }}</h2>
+                    <p class="text-sm text-gray-500 mt-1">{{ _('Composition, concentration, hotspots, and trend behavior') }}</p>
                 </div>
                 <div class="flex items-center gap-3">
                     <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
-                        Dark Mode
+                        {{ _('Dark Mode') }}
                     </button>
                     <div class="flex bg-white rounded border overflow-hidden">
-                        <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">Day</button>
-                        <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Week</button>
-                        <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Month</button>
-                        <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Year</button>
+                        <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">{{ _('Day') }}</button>
+                        <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Week') }}</button>
+                        <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Month') }}</button>
+                        <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Year') }}</button>
                     </div>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">Total Requests</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
                     <div id="total-requests" class="text-3xl font-bold text-blue-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">Total Tokens</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Total Tokens') }}</div>
                     <div id="total-tokens" class="text-3xl font-bold text-green-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">Errors</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Errors') }}</div>
                     <div id="total-errors" class="text-3xl font-bold text-red-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">Error Rate</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>
                     <div id="error-rate" class="text-3xl font-bold text-orange-600">0%</div>
                 </div>
             </div>
 
             <div class="bg-white rounded-lg shadow p-5 mb-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold">Request Trend</h3>
-                    <div id="trend-meta" class="text-sm text-gray-500">Requests / Tokens / Errors</div>
+                    <h3 class="text-lg font-semibold">{{ _('Request Trend') }}</h3>
+                    <div id="trend-meta" class="text-sm text-gray-500">{{ _('Requests') }} / {{ _('Tokens') }} / {{ _('Errors') }}</div>
                 </div>
                 <canvas id="trendChart" height="80"></canvas>
             </div>
 
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">Provider Usage</h3>
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Provider Usage') }}</h3>
                     <div class="h-64"><canvas id="providerChart"></canvas></div>
                     <div id="provider-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">API Key Usage</h3>
+                    <h3 class="text-lg font-semibold mb-4">{{ _('API Key Usage') }}</h3>
                     <div class="h-64"><canvas id="apikeyChart"></canvas></div>
                     <div id="apikey-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">Model Usage</h3>
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Model Usage') }}</h3>
                     <div class="h-64"><canvas id="modelChart"></canvas></div>
                     <div id="model-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
@@ -149,21 +122,51 @@ MONITOR_PAGE_HTML = """
 
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-6">
                 <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">Traffic Concentration</h3>
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Traffic Concentration') }}</h3>
                     <div id="concentration-cards" class="space-y-3"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">Error Hotspots</h3>
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Error Hotspots') }}</h3>
                     <div id="error-hotspots" class="space-y-3"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">Active Footprint</h3>
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Active Footprint') }}</h3>
                     <div id="footprint-cards" class="space-y-3"></div>
                 </div>
             </div>
         </main>
     </div>
 
+    <script>
+    window.I18N = {
+        lightMode: "{{ _('Light Mode') }}",
+        darkMode: "{{ _('Dark Mode') }}",
+        others: "{{ _('Others') }}",
+        noData: "{{ _('No data') }}",
+        req: "{{ _('req') }}",
+        tok: "{{ _('tok') }}",
+        err: "{{ _('err') }}",
+        providers: "{{ _('Providers') }}",
+        apiKeys: "{{ _('API Keys') }}",
+        models: "{{ _('Models') }}",
+        provider: "{{ _('Provider') }}",
+        apiKey: "{{ _('API Key') }}",
+        model: "{{ _('Model') }}",
+        top1Share: "{{ _('Top 1 share') }}",
+        top3Combined: "{{ _('Top 3 combined') }}",
+        noHotspots: "{{ _('No hotspots') }}",
+        activeProviders: "{{ _('Active Providers') }}",
+        activeApiKeys: "{{ _('Active API Keys') }}",
+        activeModels: "{{ _('Active Models') }}",
+        top: "{{ _('Top:') }}",
+        noTraffic: "{{ _('No traffic') }}",
+        requests: "{{ _('Requests') }}",
+        tokens: "{{ _('Tokens') }}",
+        errors: "{{ _('Errors') }}",
+        requestsErrors: "{{ _('Requests / Errors') }}",
+        onRightAxis: "{{ _('{label} on right axis') }}",
+    };
+    </script>
     <script>
         let currentPeriod = 'day';
         let trendChart = null;
@@ -201,7 +204,7 @@ MONITOR_PAGE_HTML = """
             const isDark = mode === 'dark';
             document.body.classList.toggle('theme-dark', isDark);
             localStorage.setItem('admin_theme', mode);
-            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
         }
 
         function toggleTheme() {
@@ -232,12 +235,16 @@ MONITOR_PAGE_HTML = """
             loadData();
         }
 
+        function maskName(name) {
+            if (!name || name.length <= 4) return name;
+            return name.slice(0, 2) + '***' + name.slice(-2);
+        }
         function formatCompactTokens(tokens) {
             const value = Number(tokens || 0);
-            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\\.0$/, '') + 'M';
-            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\\.0$/, '') + 'K';
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
             if (Number.isInteger(value)) return value.toLocaleString();
-            return value.toFixed(1).replace(/\\.0$/, '');
+            return value.toFixed(1).replace(/\.0$/, '');
         }
 
         function formatPct(value, digits = 1) {
@@ -270,7 +277,7 @@ MONITOR_PAGE_HTML = """
             const values = topEntries.map(([, stats]) => stats[metric] || 0);
             const colors = topEntries.map((_, index) => palette[index % palette.length]);
             if (otherValue > 0) {
-                labels.push('Others');
+                labels.push(window.I18N.others);
                 values.push(otherValue);
                 colors.push('#cbd5e1');
             }
@@ -311,7 +318,8 @@ MONITOR_PAGE_HTML = """
                                 label: function(context) {
                                     const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
                                     const pct = context.raw / total;
-                                    return `${context.label}: ${formatCompactTokens(context.raw)} (${formatPct(pct)})`;
+                                    const label = config.maskLabels ? maskName(context.label) : context.label;
+                                    return `${label}: ${formatCompactTokens(context.raw)} (${formatPct(pct)})`;
                                 }
                             }
                         }
@@ -324,48 +332,51 @@ MONITOR_PAGE_HTML = """
                 const pct = (stats.tokens || 0) / total;
                 const errRate = stats.requests ? stats.errors / stats.requests : 0;
                 const color = config.palette[index % config.palette.length];
+                const displayName = config.maskLabels ? maskName(name) : name;
                 return `
                     <div class="rounded-lg border ${config.cardBorder} p-3">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <div class="flex items-center gap-2">
                                     <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${color}"></span>
-                                    <div class="font-medium text-sm truncate" title="${name}">${name}</div>
+                                    <div class="font-medium text-sm truncate" title="${name}">${displayName}</div>
                                 </div>
-                                <div class="mt-1 text-xs text-gray-500">${stats.requests.toLocaleString()} req / ${formatCompactTokens(stats.tokens || 0)} tok</div>
+                                <div class="mt-1 text-xs text-gray-500">${stats.requests.toLocaleString()} ${window.I18N.req} / ${formatCompactTokens(stats.tokens || 0)} ${window.I18N.tok}</div>
                             </div>
                             <div class="text-right shrink-0">
                                 <div class="text-sm font-semibold" style="color:${config.accentColor}">${formatPct(pct)}</div>
-                                <div class="text-xs text-gray-400">err ${formatPct(errRate, 1)}</div>
+                                <div class="text-xs text-gray-400">${window.I18N.err} ${formatPct(errRate, 1)}</div>
                             </div>
                         </div>
                     </div>
                 `;
             }).join('');
 
-            document.getElementById(legendId).innerHTML = legendHtml || '<div class="text-gray-400 text-center py-4">No data</div>';
+            document.getElementById(legendId).innerHTML = legendHtml || `<div class="text-gray-400 text-center py-4">${window.I18N.noData}</div>`;
             return { chart, entries: series.entries };
         }
 
         function renderConcentrationCards(providerEntries, apikeyEntries, modelEntries) {
             const sections = [
-                ['Providers', providerEntries],
-                ['API Keys', apikeyEntries],
-                ['Models', modelEntries]
-            ];
-            const html = sections.map(([label, entries]) => {
-                const total = entries.reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0) || 1;
-                const top1 = entries[0];
-                const top3Value = entries.slice(0, 3).reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0);
-                return `
-                    <div class="rounded-lg bg-slate-50 p-4">
-                        <div class="text-xs uppercase tracking-wide text-slate-500">${label}</div>
-                        <div class="mt-2 text-sm font-medium text-slate-800 truncate" title="${top1 ? top1[0] : 'No data'}">${top1 ? top1[0] : 'No data'}</div>
-                        <div class="mt-1 text-xs text-slate-500">Top 1 share ${top1 ? formatPct((top1[1].tokens || 0) / total) : '0%'}</div>
+                 [window.I18N.providers, providerEntries, false],
+                 [window.I18N.apiKeys, apikeyEntries, true],
+                 [window.I18N.models, modelEntries, false]
+             ];
+             const html = sections.map(([label, entries, shouldMask]) => {
+                 const total = entries.reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0) || 1;
+                 const top1 = entries[0];
+                 const top3Value = entries.slice(0, 3).reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0);
+                 const displayName = top1 ? (shouldMask ? maskName(top1[0]) : top1[0]) : window.I18N.noData;
+                 const fullName = top1 ? top1[0] : '';
+                 return `
+                     <div class="rounded-lg bg-slate-50 p-4">
+                         <div class="text-xs uppercase tracking-wide text-slate-500">${label}</div>
+                         <div class="mt-2 text-sm font-medium text-slate-800 truncate" title="${fullName}">${displayName}</div>
+                        <div class="mt-1 text-xs text-slate-500">${window.I18N.top1Share} ${top1 ? formatPct((top1[1].tokens || 0) / total) : '0%'}</div>
                         <div class="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
                             <div class="h-full bg-slate-700" style="width:${Math.min((top3Value / total) * 100, 100)}%"></div>
                         </div>
-                        <div class="mt-2 text-xs text-slate-500">Top 3 combined ${formatPct(top3Value / total)}</div>
+                        <div class="mt-2 text-xs text-slate-500">${window.I18N.top3Combined} ${formatPct(top3Value / total)}</div>
                     </div>
                 `;
             }).join('');
@@ -374,12 +385,15 @@ MONITOR_PAGE_HTML = """
 
         function renderErrorHotspots(providerEntries, apikeyEntries, modelEntries) {
             const hotspots = [
-                ...providerEntries.map(([name, stats]) => ({ scope: 'Provider', name, stats })),
-                ...apikeyEntries.map(([name, stats]) => ({ scope: 'API Key', name, stats })),
-                ...modelEntries.map(([name, stats]) => ({ scope: 'Model', name, stats }))
+                ...providerEntries.map(([name, stats]) => ({ scope: window.I18N.provider, name, stats })),
+                ...apikeyEntries.map(([name, stats]) => ({ scope: window.I18N.apiKey, name, stats, masked: true })),
+                ...modelEntries.map(([name, stats]) => ({ scope: window.I18N.model, name, stats })),
             ]
             .filter(item => (item.stats.requests || 0) >= 3)
-            .map(item => ({ ...item, errorRate: item.stats.requests ? item.stats.errors / item.stats.requests : 0 }))
+            .map(item => ({
+                ...item,
+                errorRate: item.stats.requests ? item.stats.errors / item.stats.requests : 0
+            }))
             .sort((a, b) => b.errorRate - a.errorRate || (b.stats.errors || 0) - (a.stats.errors || 0))
             .slice(0, 6);
 
@@ -407,13 +421,14 @@ MONITOR_PAGE_HTML = """
                             meta: 'text-red-400',
                             value: 'text-red-600'
                         };
+                const displayName = item.masked ? maskName(item.name) : item.name;
                 return `
                 <div class="rounded-lg border ${tone.border} ${tone.bg} p-3">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
                             <div class="text-xs uppercase tracking-wide ${tone.scope}">${item.scope}</div>
-                            <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${item.name}</div>
-                            <div class="mt-1 text-xs ${tone.meta}">${item.stats.errors.toLocaleString()} errors / ${item.stats.requests.toLocaleString()} requests</div>
+                            <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${displayName}</div>
+                            <div class="mt-1 text-xs ${tone.meta}">${item.stats.errors.toLocaleString()} ${window.I18N.errors} / ${item.stats.requests.toLocaleString()} ${window.I18N.requests}</div>
                         </div>
                         <div class="text-right shrink-0">
                             <div class="text-lg font-bold ${tone.value}">${formatPct(item.errorRate, 1)}</div>
@@ -423,25 +438,25 @@ MONITOR_PAGE_HTML = """
             `;
             }).join('');
 
-            document.getElementById('error-hotspots').innerHTML = html || '<div class="text-gray-400 text-center py-4">No hotspots</div>';
+            document.getElementById('error-hotspots').innerHTML = html || `<div class="text-gray-400 text-center py-4">${window.I18N.noHotspots}</div>`;
         }
 
         function renderFootprintCards(providerEntries, apikeyEntries, modelEntries) {
             const cards = [
                 {
-                    label: 'Active Providers',
+                    label: window.I18N.activeProviders,
                     value: providerEntries.length,
-                    detail: providerEntries[0] ? `Top: ${providerEntries[0][0]}` : 'No traffic'
+                    detail: providerEntries[0] ? `${window.I18N.top} ${providerEntries[0][0]}` : window.I18N.noTraffic
                 },
                 {
-                    label: 'Active API Keys',
+                    label: window.I18N.activeApiKeys,
                     value: apikeyEntries.length,
-                    detail: apikeyEntries[0] ? `Top: ${apikeyEntries[0][0]}` : 'No traffic'
+                    detail: apikeyEntries[0] ? `${window.I18N.top} ${apikeyEntries[0][0]}` : window.I18N.noTraffic
                 },
                 {
-                    label: 'Active Models',
+                    label: window.I18N.activeModels,
                     value: modelEntries.length,
-                    detail: modelEntries[0] ? `Top: ${modelEntries[0][0]}` : 'No traffic'
+                    detail: modelEntries[0] ? `${window.I18N.top} ${modelEntries[0][0]}` : window.I18N.noTraffic
                 }
             ];
 
@@ -466,8 +481,8 @@ MONITOR_PAGE_HTML = """
             const errors = data.intervals.map(label => data.data[label]?.errors || 0);
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(value => Number((value / tokenScale.divisor).toFixed(2)));
-            const tokenLabel = tokenScale.suffix ? `Tokens (${tokenScale.suffix})` : 'Tokens';
-            document.getElementById('trend-meta').textContent = `${tokenLabel} on right axis`;
+            const tokenLabel = tokenScale.suffix ? `${window.I18N.tokens} (${tokenScale.suffix})` : window.I18N.tokens;
+            document.getElementById('trend-meta').textContent = window.I18N.onRightAxis.replace('{label}', tokenLabel);
 
             trendChart = new Chart(ctx, {
                 data: {
@@ -475,7 +490,7 @@ MONITOR_PAGE_HTML = """
                     datasets: [
                         {
                             type: 'bar',
-                            label: 'Requests',
+                            label: window.I18N.requests,
                             data: requests,
                             backgroundColor: 'rgba(59, 130, 246, 0.35)',
                             borderColor: 'rgba(59, 130, 246, 0.85)',
@@ -499,7 +514,7 @@ MONITOR_PAGE_HTML = """
                         },
                         {
                             type: 'line',
-                            label: 'Errors',
+                            label: window.I18N.errors,
                             data: errors,
                             borderColor: '#ef4444',
                             backgroundColor: 'rgba(239, 68, 68, 0.08)',
@@ -534,7 +549,7 @@ MONITOR_PAGE_HTML = """
                             position: 'left',
                             grid: { color: chartTheme.gridColor },
                             ticks: { color: chartTheme.tickColor },
-                            title: { display: true, text: 'Requests / Errors', color: chartTheme.titleColor }
+                            title: { display: true, text: window.I18N.requestsErrors, color: chartTheme.titleColor }
                         },
                         yTokens: {
                             beginAtZero: true,
@@ -590,7 +605,8 @@ MONITOR_PAGE_HTML = """
                 rotation: -90,
                 palette: providerPalette,
                 accentColor: '#2563eb',
-                cardBorder: 'border-blue-100'
+                cardBorder: 'border-blue-100',
+                maskLabels: false
             });
             providerChart = providerResult.chart;
             const apikeyResult = renderUsageChart(apikeyChart, 'apikeyChart', 'apikey-legend', apikeyData.data || {}, {
@@ -599,7 +615,8 @@ MONITOR_PAGE_HTML = """
                 rotation: -45,
                 palette: apikeyPalette,
                 accentColor: '#059669',
-                cardBorder: 'border-emerald-100'
+                cardBorder: 'border-emerald-100',
+                maskLabels: true
             });
             apikeyChart = apikeyResult.chart;
             const modelResult = renderUsageChart(modelChart, 'modelChart', 'model-legend', modelData.data || {}, {
@@ -608,7 +625,8 @@ MONITOR_PAGE_HTML = """
                 rotation: 15,
                 palette: modelPalette,
                 accentColor: '#7c3aed',
-                cardBorder: 'border-violet-100'
+                cardBorder: 'border-violet-100',
+                maskLabels: false
             });
             modelChart = modelResult.chart;
 
@@ -623,4 +641,3 @@ MONITOR_PAGE_HTML = """
     </script>
 </body>
 </html>
-"""

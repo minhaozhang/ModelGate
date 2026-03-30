@@ -1,9 +1,8 @@
-API_KEYS_PAGE_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>API Keys - API Proxy</title>
+    <title>{{ _('API Keys') }} - API Proxy</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .nav-link { transition: all 0.2s; }
@@ -41,54 +40,23 @@ API_KEYS_PAGE_HTML = """
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex">
-        <nav class="w-56 bg-white shadow-lg min-h-screen fixed">
-            <div class="p-4 border-b">
-                <h1 class="text-xl font-bold text-gray-800">API Proxy</h1>
-            </div>
-            <div class="py-2">
-                <a href="/admin/home" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-                    Home
-                </a>
-                <a href="/admin/config" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                    Config
-                </a>
-                <a href="/admin/api-keys" class="nav-link active flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
-                    API Keys
-                </a>
-                <a href="/admin/monitor" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                    Monitor
-                </a>
-                <a href="/admin/usage" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Usage Guide
-                </a>
-            </div>
-            <div class="absolute bottom-0 w-full p-4 border-t">
-                <button onclick="logout()" class="w-full text-left text-gray-600 hover:text-red-600 flex items-center">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    Logout
-                </button>
-            </div>
-        </nav>
+        {% set active_page = 'api-keys' %}
+        {% include 'components/nav.html' %}
         
         <main class="ml-56 flex-1 p-6">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">API Keys</h2>
+                <h2 class="text-2xl font-bold text-gray-800">{{ _('API Keys') }}</h2>
                 <div class="flex items-center gap-3">
                     <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
-                        Dark Mode
+                        {{ _('Dark Mode') }}
                     </button>
-                    <button onclick="showAddApiKey()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Add API Key</button>
+                    <button onclick="showAddApiKey()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Add API Key') }}</button>
                 </div>
             </div>
             
             <div class="mb-4 flex items-center gap-4">
                 <div class="relative flex-1 max-w-md">
-                    <input type="text" id="search-input" placeholder="Search by name or key..." 
+                    <input type="text" id="search-input" placeholder="{{ _('Search by name or key...') }}"
                         class="w-full border rounded-lg px-4 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-blue-400"
                         oninput="handleSearch()">
                     <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,7 +64,7 @@ API_KEYS_PAGE_HTML = """
                     </svg>
                 </div>
                 <div class="text-sm text-gray-500">
-                    <span id="total-count">0</span> keys
+                    <span id="total-count">0</span> {{ _('keys') }}
                 </div>
             </div>
             
@@ -111,32 +79,63 @@ API_KEYS_PAGE_HTML = """
     <div id="apikey-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
             <div class="p-4 border-b flex justify-between items-center">
-                <h3 id="apikey-modal-title" class="font-semibold">Add API Key</h3>
+                <h3 id="apikey-modal-title" class="font-semibold">{{ _('Add API Key') }}</h3>
                 <button onclick="closeApiKeyModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
             <form id="apikey-form" class="p-4">
                 <input type="hidden" id="apikey-id">
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                    <input type="text" id="apikey-name" required class="w-full border rounded px-3 py-2" placeholder="e.g., Project A">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Name') }}</label>
+                    <input type="text" id="apikey-name" required class="w-full border rounded px-3 py-2" placeholder="{{ _('e.g., Project A') }}">
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Allowed Models <span class="text-gray-400">(<span id="selected-count">0</span> selected)</span>
+                        {{ _('Allowed Models') }} <span class="text-gray-400">(<span id="selected-count">0</span> {{ _('selected') }})</span>
                     </label>
                     <div class="border rounded max-h-60 overflow-y-auto">
                         <div id="models-checkbox-container" class="divide-y"></div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">Leave empty to allow all models</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ _('Leave empty to allow all models') }}</p>
                 </div>
                 <div class="flex justify-end gap-2">
-                    <button type="button" onclick="closeApiKeyModal()" class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
+                    <button type="button" onclick="closeApiKeyModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ _('Save') }}</button>
                 </div>
             </form>
         </div>
     </div>
     
+    <script>
+    window.I18N = {
+        copied: "{{ _('Copied!') }}",
+        apiKeyAndUsageCopied: "{{ _('API Key and usage instructions copied!') }}",
+        usageInstructions: "{{ _('Usage Instructions:') }}",
+        pasteApiKey: "{{ _('Paste the API Key above to log in on the page') }}",
+        configureOpenCode: "{{ _('Configure OpenCode:') }}",
+        letAgentReadConfig: "{{ _('Let the agent read the configuration document:') }}",
+        lightMode: "{{ _('Light Mode') }}",
+        darkMode: "{{ _('Dark Mode') }}",
+        addApiKey: "{{ _('Add API Key') }}",
+        editApiKey: "{{ _('Edit API Key') }}",
+        allModels: "{{ _('All models') }}",
+        noApiKeys: "{{ _('No API keys found') }}",
+        previous: "{{ _('Previous') }}",
+        next: "{{ _('Next') }}",
+        noModels: "{{ _('No models available. Add providers and models in Config first.') }}",
+        apiKeyCreated: "{{ _('API Key created:') }}",
+        pleaseSaveKey: "{{ _('Please save this key!') }}",
+        failedToSave: "{{ _('Failed to save API key') }}",
+        deleteConfirm: "{{ _('Delete this API key?') }}",
+        copy: "{{ _('Copy') }}",
+        edit: "{{ _('Edit') }}",
+        delete: "{{ _('Delete') }}",
+        query: "{{ _('Query') }}",
+        userPage: "{{ _('User Page:') }}",
+        setupDoc: "{{ _('Setup Doc:') }}",
+        openCodeSetupMd: "{{ _('OpenCode Setup') }}",
+        loginLabel: "{{ _('Login') }}",
+    };
+    </script>
     <script>
         let selectedModelIds = [];
         let providerModels = [];
@@ -158,7 +157,7 @@ API_KEYS_PAGE_HTML = """
             const isDark = mode === 'dark';
             document.body.classList.toggle('theme-dark', isDark);
             localStorage.setItem('admin_theme', mode);
-            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
         }
 
         function toggleTheme() {
@@ -225,7 +224,7 @@ API_KEYS_PAGE_HTML = """
                 const modelNames = (k.allowed_provider_model_ids || []).map(id => getModelDisplayName(id));
                 const modelsDisplay = modelNames.length > 0 
                     ? modelNames.slice(0, 3).join(', ') + (modelNames.length > 3 ? ` +${modelNames.length - 3}` : '')
-                    : '<span class="text-gray-400">All models</span>';
+                    : `<span class="text-gray-400">${window.I18N.allModels}</span>`;
                 const userPageUrl = `${baseUrl}/user/login`;
                 const setupMdUrl = `${baseUrl}/opencode/setup.md?api_key=${k.key}`;
                 return `
@@ -235,33 +234,33 @@ API_KEYS_PAGE_HTML = """
                             <div class="font-medium">${k.name}</div>
                             <div class="text-sm text-gray-500 flex items-center gap-2">
                                 <code class="bg-gray-100 px-2 py-0.5 rounded text-xs">${k.key}</code>
-                                <button onclick="copyKey('${k.key}')" class="text-blue-500 hover:text-blue-700 text-xs">Copy</button>
+                                <button onclick="copyKey('${k.key}')" class="text-blue-500 hover:text-blue-700 text-xs">${window.I18N.copy}</button>
                             </div>
                             <div class="text-xs text-gray-400 mt-1">${modelsDisplay}</div>
                         </div>
                         <div class="flex gap-2">
-                            <a href="/api-keys/${k.id}/query" target="_blank" class="text-green-500 hover:text-green-700 text-sm">Query</a>
-                            <button onclick="editApiKey(${k.id})" class="text-blue-500 hover:text-blue-700 text-sm">Edit</button>
-                            <button onclick="deleteApiKey(${k.id})" class="text-red-500 hover:text-red-700 text-sm">Delete</button>
+                            <a href="/api-keys/${k.id}/query" target="_blank" class="text-green-500 hover:text-green-700 text-sm">${window.I18N.query}</a>
+                            <button onclick="editApiKey(${k.id})" class="text-blue-500 hover:text-blue-700 text-sm">${window.I18N.edit}</button>
+                            <button onclick="deleteApiKey(${k.id})" class="text-red-500 hover:text-red-700 text-sm">${window.I18N.delete}</button>
                         </div>
                     </div>
                     <div class="mt-2 bg-gray-50 rounded p-2 text-xs space-y-1">
                         <div class="flex justify-between items-center">
                             <div>
-                                <span class="text-gray-500">User Page: </span>
+                                <span class="text-gray-500">${window.I18N.userPage} </span>
                                 <a href="${userPageUrl}" target="_blank" class="text-blue-500 hover:underline">${userPageUrl}</a>
                             </div>
-                            <button onclick="copyKey('${userPageUrl}')" class="text-blue-500 hover:text-blue-700">Copy</button>
+                            <button onclick="copyKey('${userPageUrl}')" class="text-blue-500 hover:text-blue-700">${window.I18N.copy}</button>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="text-gray-500">Setup Doc:</span>
-                            <a href="${setupMdUrl}" target="_blank" class="text-orange-500 hover:underline">OpenCode配置.md</a>
-                            <button onclick="copyKeyWithInstructions('${k.key}', '${userPageUrl}', '${setupMdUrl}')" class="text-orange-500 hover:text-orange-700">Copy</button>
+                            <span class="text-gray-500">${window.I18N.setupDoc}</span>
+                            <a href="${setupMdUrl}" target="_blank" class="text-orange-500 hover:underline">${window.I18N.openCodeSetupMd}</a>
+                            <button onclick="copyKeyWithInstructions('${k.key}', '${userPageUrl}', '${setupMdUrl}')" class="text-orange-500 hover:text-orange-700">${window.I18N.copy}</button>
                         </div>
                     </div>
                 </div>
             `}).join('');
-            document.getElementById('apikeys-list').innerHTML = html || '<div class="text-gray-400 text-center py-8">No API keys found</div>';
+            document.getElementById('apikeys-list').innerHTML = html || `<div class="text-gray-400 text-center py-8">${window.I18N.noApiKeys}</div>`;
         }
         
         function renderPagination() {
@@ -274,7 +273,7 @@ API_KEYS_PAGE_HTML = """
             let html = '';
             
             if (currentPage > 1) {
-                html += `<button onclick="goToPage(${currentPage - 1})" class="px-3 py-1 border rounded hover:bg-gray-50">Previous</button>`;
+                html += `<button onclick="goToPage(${currentPage - 1})" class="px-3 py-1 border rounded hover:bg-gray-50">${window.I18N.previous}</button>`;
             }
             
             const maxVisible = 5;
@@ -304,7 +303,7 @@ API_KEYS_PAGE_HTML = """
             }
             
             if (currentPage < totalPages) {
-                html += `<button onclick="goToPage(${currentPage + 1})" class="px-3 py-1 border rounded hover:bg-gray-50">Next</button>`;
+                html += `<button onclick="goToPage(${currentPage + 1})" class="px-3 py-1 border rounded hover:bg-gray-50">${window.I18N.next}</button>`;
             }
             
             document.getElementById('pagination').innerHTML = html;
@@ -318,13 +317,13 @@ API_KEYS_PAGE_HTML = """
         }
         
         function copyExample(cmd) {
-            navigator.clipboard.writeText(cmd).then(() => alert('Copied!'));
+            navigator.clipboard.writeText(cmd).then(() => alert(window.I18N.copied));
         }
         
         function renderModelCheckboxes() {
             const container = document.getElementById('models-checkbox-container');
             if (providerModels.length === 0) {
-                container.innerHTML = '<div class="text-gray-400 text-center py-4">No models available. Add providers and models in Config first.</div>';
+                container.innerHTML = `<div class="text-gray-400 text-center py-4">${window.I18N.noModels}</div>`;
                 return;
             }
             container.innerHTML = providerModels.map(pm => `
@@ -352,23 +351,23 @@ API_KEYS_PAGE_HTML = """
         }
         
         function copyKey(key) {
-            navigator.clipboard.writeText(key).then(() => alert('Copied!'));
+            navigator.clipboard.writeText(key).then(() => alert(window.I18N.copied));
         }
         
         function copyKeyWithInstructions(key, userPageUrl, setupMdUrl) {
             const text = `API Key: ${key}
 
-使用说明：
-1. 登录用户页面：${userPageUrl}
-   在页面中粘贴上面的 API Key 进行登录
+${window.I18N.usageInstructions}
+1. ${window.I18N.loginLabel}: ${userPageUrl}
+   ${window.I18N.pasteApiKey}
 
-2. 配置 OpenCode：
-   让智能体读取配置文档：${setupMdUrl}`;
-            navigator.clipboard.writeText(text).then(() => alert('API Key 和使用说明已复制!'));
+2. ${window.I18N.configureOpenCode}
+   ${window.I18N.letAgentReadConfig} ${setupMdUrl}`;
+            navigator.clipboard.writeText(text).then(() => alert(window.I18N.apiKeyAndUsageCopied));
         }
         
         function showAddApiKey() {
-            document.getElementById('apikey-modal-title').textContent = 'Add API Key';
+            document.getElementById('apikey-modal-title').textContent = window.I18N.addApiKey;
             document.getElementById('apikey-id').value = '';
             document.getElementById('apikey-name').value = '';
             selectedModelIds = [];
@@ -381,7 +380,7 @@ API_KEYS_PAGE_HTML = """
         function editApiKey(id) {
             const key = apiKeysData.find(k => k.id === id);
             if (!key) return;
-            document.getElementById('apikey-modal-title').textContent = 'Edit API Key';
+            document.getElementById('apikey-modal-title').textContent = window.I18N.editApiKey;
             document.getElementById('apikey-id').value = id;
             document.getElementById('apikey-name').value = key.name;
             selectedModelIds = key.allowed_provider_model_ids || [];
@@ -417,17 +416,17 @@ API_KEYS_PAGE_HTML = """
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
                     });
-                    alert('API Key created: ' + result.key + '\\nPlease save this key!');
+                    alert(window.I18N.apiKeyCreated + ' ' + result.key + '\n' + window.I18N.pleaseSaveKey);
                 }
                 closeApiKeyModal();
                 loadApiKeys();
             } catch(err) {
-                alert('Failed to save API key');
+                alert(window.I18N.failedToSave);
             }
         });
         
         async function deleteApiKey(id) {
-            if (!confirm('Delete this API key?')) return;
+            if (!confirm(window.I18N.deleteConfirm)) return;
             await fetchOrRedirect('/admin/api/keys/' + id, {method: 'DELETE'});
             loadApiKeys();
         }
@@ -447,4 +446,3 @@ API_KEYS_PAGE_HTML = """
     </script>
 </body>
 </html>
-"""

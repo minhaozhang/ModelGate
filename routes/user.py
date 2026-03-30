@@ -3,22 +3,20 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, Depends, Response
+from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import case, func, select
 
-from core.database import async_session_maker, ApiKey, RequestLog
 from core.config import logger
+from core.database import async_session_maker, ApiKey, RequestLog
+from core.i18n import render
 
 router = APIRouter(tags=["user"])
+ERROR_STATUSES = ("error", "timeout")
 
 USER_SESSIONS: dict[str, dict] = {}
 USER_SESSION_EXPIRE_HOURS = 24
-
-
-from templates.user.login import USER_LOGIN_HTML
-from templates.user.dashboard import USER_DASHBOARD_HTML
 
 
 class UserLoginRequest(BaseModel):
@@ -37,12 +35,21 @@ def get_user_session(user_session: Optional[str] = Cookie(None)) -> Optional[int
     return session_data.get("api_key_id")
 
 
+def get_local_now() -> datetime:
+    now = datetime.now()
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
+    return now
+
+
 def get_user_period_range(
     now: datetime, period: str
 ) -> tuple[datetime, list[str], Callable[[datetime], str]]:
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        intervals = [((start + timedelta(hours=i)).strftime("%H:00")) for i in range(24)]
+        intervals = [
+            ((start + timedelta(hours=i)).strftime("%H:00")) for i in range(24)
+        ]
         format_func = lambda d: d.strftime("%H:00")
     elif period == "week":
         start = now - timedelta(days=now.weekday())
@@ -72,8 +79,8 @@ def get_user_period_range(
 
 
 @router.get("/user/login", response_class=HTMLResponse)
-async def user_login_page():
-    return HTMLResponse(content=USER_LOGIN_HTML)
+async def user_login_page(request: Request):
+    return HTMLResponse(content=render(request, "user/login.html"))
 
 
 @router.post("/user/api/login")
@@ -118,13 +125,7 @@ async def get_user_stats(
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    from datetime import datetime, timedelta
-
-    async with async_session_maker() as db_session:
-        now_result = await db_session.execute(select(func.now()))
-        now = now_result.scalar()
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
+    now = get_local_now()
     start, intervals, format_func = get_user_period_range(now, period)
 
     async with async_session_maker() as session:
@@ -156,7 +157,7 @@ async def get_user_stats(
         errors_result = await session.execute(
             select(func.count(RequestLog.id)).where(
                 RequestLog.api_key_id == api_key_id,
-                RequestLog.status == "error",
+                RequestLog.status.in_(ERROR_STATUSES),
                 RequestLog.created_at >= start,
             )
         )
@@ -173,7 +174,9 @@ async def get_user_stats(
                         0,
                     )
                 ).label("tokens"),
-                func.sum(case((RequestLog.status == "error", 1), else_=0)).label(
+                func.sum(
+                    case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                ).label(
                     "errors"
                 ),
             )
@@ -196,7 +199,9 @@ async def get_user_stats(
         trend_result = await session.execute(trend_query)
         trend_logs = trend_result.scalars().all()
 
-        trend_data = {label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals}
+        trend_data = {
+            label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals
+        }
         for log in trend_logs:
             label = format_func(log.created_at)
             if label in trend_data:
@@ -207,7 +212,7 @@ async def get_user_stats(
                     or 0
                 )
                 trend_data[label]["tokens"] += tokens
-                if log.status == "error":
+                if log.status in ERROR_STATUSES:
                     trend_data[label]["errors"] += 1
 
         return {
@@ -225,11 +230,12 @@ async def get_user_active_sessions(api_key_id: int = Depends(get_user_session)):
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
+    cutoff = datetime.now() - timedelta(minutes=1)
     async with async_session_maker() as session:
         result = await session.execute(
             select(RequestLog).where(
                 RequestLog.api_key_id == api_key_id,
-                RequestLog.created_at >= func.now() - timedelta(minutes=1),
+                RequestLog.created_at >= cutoff,
             )
         )
         logs = result.scalars().all()
@@ -258,12 +264,7 @@ async def get_system_model_stats(
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    async with async_session_maker() as db_session:
-        now_result = await db_session.execute(select(func.now()))
-        now = now_result.scalar()
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
-
+    now = get_local_now()
     start, _, _ = get_user_period_range(now, period)
 
     async with async_session_maker() as session:
@@ -302,9 +303,10 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
+    cutoff = datetime.now() - timedelta(minutes=1)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(RequestLog.created_at >= func.now() - timedelta(minutes=1))
+            select(RequestLog).where(RequestLog.created_at >= cutoff)
         )
         logs = result.scalars().all()
 
@@ -315,11 +317,15 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
             grouped[key] = {"requests": 0, "models": {}}
         grouped[key]["requests"] += 1
         if log.model:
-            grouped[key]["models"][log.model] = grouped[key]["models"].get(log.model, 0) + 1
+            grouped[key]["models"][log.model] = (
+                grouped[key]["models"].get(log.model, 0) + 1
+            )
 
     other_index = 1
     sessions = []
-    for key in sorted(grouped.keys(), key=lambda value: (value != api_key_id, value or 0)):
+    for key in sorted(
+        grouped.keys(), key=lambda value: (value != api_key_id, value or 0)
+    ):
         stats = grouped[key]
         if key == api_key_id:
             display_name = "Yourself"
@@ -341,7 +347,9 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
             }
         )
 
-    sessions.sort(key=lambda item: (not item["is_self"], -item["requests"], item["name"]))
+    sessions.sort(
+        key=lambda item: (not item["is_self"], -item["requests"], item["name"])
+    )
     return {
         "active_count": len(sessions),
         "request_count": sum(item["requests"] for item in sessions),
@@ -357,7 +365,9 @@ async def get_user_catalog(api_key_id: int = Depends(get_user_session)):
     from core.database import ApiKeyModel, Model, Provider, ProviderModel
 
     async with async_session_maker() as session:
-        key_result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
+        key_result = await session.execute(
+            select(ApiKey).where(ApiKey.id == api_key_id)
+        )
         api_key = key_result.scalar_one_or_none()
         if not api_key:
             return JSONResponse({"error": "API Key not found"}, status_code=404)
@@ -365,7 +375,9 @@ async def get_user_catalog(api_key_id: int = Depends(get_user_session)):
         providers_result = await session.execute(
             select(Provider).where(Provider.is_active == True)
         )
-        models_result = await session.execute(select(Model).where(Model.is_active == True))
+        models_result = await session.execute(
+            select(Model).where(Model.is_active == True)
+        )
         provider_models_result = await session.execute(
             select(ProviderModel).where(ProviderModel.is_active == True)
         )
@@ -440,14 +452,16 @@ async def get_user_catalog(api_key_id: int = Depends(get_user_session)):
             provider["model_count"] for provider in platform_providers
         ),
         "owned_provider_count": len(owned_providers),
-        "owned_model_count": sum(provider["model_count"] for provider in owned_providers),
+        "owned_model_count": sum(
+            provider["model_count"] for provider in owned_providers
+        ),
         "platform_providers": platform_providers,
         "owned_providers": owned_providers,
     }
 
 
 @router.get("/user/dashboard", response_class=HTMLResponse)
-async def user_dashboard(api_key_id: int = Depends(get_user_session)):
+async def user_dashboard(request: Request, api_key_id: int = Depends(get_user_session)):
     if not api_key_id:
         return RedirectResponse(url="/user/login")
 
@@ -457,7 +471,9 @@ async def user_dashboard(api_key_id: int = Depends(get_user_session)):
         if not key:
             return RedirectResponse(url="/user/login")
 
-        html = USER_DASHBOARD_HTML.format(name=key.name, api_key_id=api_key_id)
+        html = render(
+            request, "user/dashboard.html", name=key.name, api_key_id=api_key_id
+        )
         return HTMLResponse(content=html)
 
 
@@ -519,9 +535,14 @@ async def get_user_opencode_config(api_key_id: int = Depends(get_user_session)):
             models_config[model_key] = {
                 "name": f"{provider.name}/{display_name}",
                 "modalities": {"input": ["text"], "output": ["text"]},
-                "options": {"thinking": {"type": "enabled", "budgetTokens": 8192}},
                 "limit": {"context": context_window, "output": max_output},
             }
+            if model.thinking_enabled:
+                models_config[model_key]["options"] = {
+                    "thinking": {
+                        "type": "enabled",
+                    }
+                }
 
             models_data.append(
                 {"name": model_key, "context": context_window, "output": max_output}

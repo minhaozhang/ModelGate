@@ -14,6 +14,7 @@ from core.database import (
 )
 
 logger = proxy_logger
+ERROR_STATUSES = {"error", "timeout"}
 
 
 async def aggregate_stats_for_date(date_str: str) -> dict:
@@ -48,7 +49,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 or (log.tokens or {}).get("estimated")
                 or 0
             )
-            is_error = log.status == "error"
+            is_error = log.status in ERROR_STATUSES
 
             if provider_name:
                 if provider_name not in provider_stats:

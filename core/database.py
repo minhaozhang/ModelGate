@@ -12,6 +12,7 @@ from sqlalchemy import (
     Index,
     ForeignKey,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -57,6 +58,8 @@ class Model(Base):
     display_name = Column(String(100), nullable=True)
     max_tokens = Column(Integer, default=16384)
     context_length = Column(Integer, default=131072)
+    thinking_enabled = Column(Boolean, default=True)
+    thinking_budget = Column(Integer, default=8192)
     is_multimodal = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -180,3 +183,15 @@ def generate_api_key():
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(
+            text(
+                "ALTER TABLE models "
+                "ADD COLUMN IF NOT EXISTS thinking_enabled BOOLEAN DEFAULT TRUE"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE models "
+                "ADD COLUMN IF NOT EXISTS thinking_budget INTEGER DEFAULT 8192"
+            )
+        )

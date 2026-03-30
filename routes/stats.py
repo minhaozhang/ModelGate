@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional, Literal
 from fastapi import APIRouter, Cookie, Depends, HTTPException
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 
 from core.database import (
     async_session_maker,
@@ -22,6 +22,7 @@ from core.config import (
 )
 
 router = APIRouter(prefix="/admin/api", tags=["stats"])
+ERROR_STATUSES = ("error", "timeout")
 
 
 def require_admin(session: Optional[str] = Cookie(None)):
@@ -29,6 +30,13 @@ def require_admin(session: Optional[str] = Cookie(None)):
     if not validate_session(session):
         raise HTTPException(status_code=401, detail="Unauthorized")
     return True
+
+
+def get_local_now() -> datetime:
+    now = datetime.now()
+    if now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
+    return now
 
 
 async def get_cached_today_stats(start: datetime) -> dict:
@@ -63,7 +71,7 @@ async def get_cached_today_stats(start: datetime) -> dict:
                 or (log.tokens or {}).get("estimated")
                 or 0
             )
-            is_error = log.status == "error"
+            is_error = log.status in ERROR_STATUSES
 
             provider_name = None
             if log.provider_id:
@@ -136,7 +144,9 @@ async def get_stats(_: bool = Depends(require_admin)):
         total_tokens = tokens_result.scalar() or 0
 
         errors_result = await session.execute(
-            select(func.count(RequestLog.id)).where(RequestLog.status == "error")
+            select(func.count(RequestLog.id)).where(
+                RequestLog.status.in_(ERROR_STATUSES)
+            )
         )
         total_errors = errors_result.scalar() or 0
 
@@ -258,11 +268,7 @@ async def get_aggregate_stats(
     period: Literal["day", "week", "month", "year"] = "day",
     _: bool = Depends(require_admin),
 ):
-    async with async_session_maker() as session:
-        now_result = await session.execute(select(func.now()))
-        now = now_result.scalar()
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
+    now = get_local_now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start, intervals, format_func = get_period_range(period, now)
 
@@ -301,11 +307,7 @@ async def get_trend_data(
     name: Optional[str] = None,
     _: bool = Depends(require_admin),
 ):
-    async with async_session_maker() as session:
-        now_result = await session.execute(select(func.now()))
-        now = now_result.scalar()
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
+    now = get_local_now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start, intervals, format_func = get_period_range(period, now)
 
@@ -358,7 +360,7 @@ async def get_trend_data(
                     )
                     trend_data[label]["requests"] += 1
                     trend_data[label]["tokens"] += tokens
-                    if log.status == "error":
+                    if log.status in ERROR_STATUSES:
                         trend_data[label]["errors"] += 1
     else:
         async with async_session_maker() as session:
@@ -436,7 +438,7 @@ async def get_trend_data(
                 )
                 trend_data[label]["requests"] += 1
                 trend_data[label]["tokens"] += tokens
-                if log.status == "error":
+                if log.status in ERROR_STATUSES:
                     trend_data[label]["errors"] += 1
 
     return {
@@ -450,12 +452,7 @@ async def get_trend_data(
 
 @router.get("/stats/period")
 async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)):
-    async with async_session_maker() as session:
-        now_result = await session.execute(select(func.now()))
-        now = now_result.scalar()
-
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
+    now = get_local_now()
 
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -490,7 +487,8 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
 
         errors_result = await session.execute(
             select(func.count(RequestLog.id)).where(
-                RequestLog.created_at >= start, RequestLog.status == "error"
+                RequestLog.created_at >= start,
+                RequestLog.status.in_(ERROR_STATUSES),
             )
         )
         total_errors = errors_result.scalar() or 0
@@ -587,11 +585,7 @@ async def get_chart_data(
     api_key_id: Optional[int] = None,
     _: bool = Depends(require_admin),
 ):
-    async with async_session_maker() as session:
-        now_result = await session.execute(select(func.now()))
-        now = now_result.scalar()
-    if now.tzinfo is not None:
-        now = now.replace(tzinfo=None)
+    now = get_local_now()
     start, intervals, format_func = get_period_range(period, now)
 
     async with async_session_maker() as session:
@@ -616,7 +610,7 @@ async def get_chart_data(
                     or 0
                 )
                 data[label]["tokens"] += tokens
-                if log.status == "error":
+                if log.status in ERROR_STATUSES:
                     data[label]["errors"] += 1
 
         provider_stats = {}
@@ -688,11 +682,17 @@ async def reaggregate_all_stats(_: bool = Depends(require_admin)):
 
 @router.get("/stats/active")
 async def get_active_sessions(_: bool = Depends(require_admin)):
+    recent_cutoff = get_local_now() - timedelta(seconds=30)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(
-                RequestLog.created_at >= func.now() - timedelta(minutes=1)
+            select(RequestLog)
+            .where(
+                or_(
+                    RequestLog.status == "pending",
+                    RequestLog.created_at >= recent_cutoff,
+                )
             )
+            .order_by(RequestLog.created_at.desc())
         )
         logs = result.scalars().all()
 
@@ -726,19 +726,33 @@ async def get_active_sessions(_: bool = Depends(require_admin)):
                     active_sessions[key_name]["models"][log.model] = 0
                 active_sessions[key_name]["models"][log.model] += 1
 
+        ordered_sessions = dict(
+            sorted(
+                active_sessions.items(),
+                key=lambda item: item[1]["last_activity"],
+                reverse=True,
+            )
+        )
+
         return {
-            "active_count": len(active_sessions),
-            "sessions": active_sessions,
+            "active_count": len(ordered_sessions),
+            "sessions": ordered_sessions,
         }
 
 
 @router.get("/stats/active/models")
 async def get_active_sessions_by_model(_: bool = Depends(require_admin)):
+    recent_cutoff = get_local_now() - timedelta(seconds=30)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(
-                RequestLog.created_at >= func.now() - timedelta(minutes=1)
+            select(RequestLog)
+            .where(
+                or_(
+                    RequestLog.status == "pending",
+                    RequestLog.created_at >= recent_cutoff,
+                )
             )
+            .order_by(RequestLog.created_at.desc())
         )
         logs = result.scalars().all()
 
@@ -758,9 +772,17 @@ async def get_active_sessions_by_model(_: bool = Depends(require_admin)):
             if log.created_at.isoformat() > model_sessions[model]["last_activity"]:
                 model_sessions[model]["last_activity"] = log.created_at.isoformat()
 
+        ordered_sessions = dict(
+            sorted(
+                model_sessions.items(),
+                key=lambda item: item[1]["last_activity"],
+                reverse=True,
+            )
+        )
+
         return {
-            "active_count": len(model_sessions),
-            "sessions": model_sessions,
+            "active_count": len(ordered_sessions),
+            "sessions": ordered_sessions,
         }
 
 
@@ -793,26 +815,23 @@ async def get_realtime_stats(_: bool = Depends(require_admin)):
 @router.get("/stats/slow")
 async def get_slow_requests(_: bool = Depends(require_admin)):
     slow_pending = []
+    now = get_local_now()
+    pending_cutoff = now - timedelta(seconds=60)
+    completed_cutoff = now - timedelta(hours=1)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(
-                RequestLog,
-                func.extract("epoch", func.now() - RequestLog.created_at).label(
-                    "elapsed_seconds"
-                ),
-            )
+            select(RequestLog)
             .where(
                 RequestLog.status == "pending",
-                RequestLog.created_at <= func.now() - timedelta(seconds=60),
+                RequestLog.created_at <= pending_cutoff,
             )
             .order_by(RequestLog.created_at.asc())
             .limit(50)
         )
-        pending_logs = result.all()
+        pending_logs = result.scalars().all()
 
-        for row in pending_logs:
-            log = row[0]
-            elapsed = row[1] or 0
+        for log in pending_logs:
+            elapsed = max((now - log.created_at).total_seconds(), 0)
 
             key_name = None
             if log.api_key_id:
@@ -846,7 +865,8 @@ async def get_slow_requests(_: bool = Depends(require_admin)):
         result = await session.execute(
             select(RequestLog)
             .where(
-                RequestLog.created_at >= func.now() - timedelta(hours=1),
+                RequestLog.created_at >= completed_cutoff,
+                RequestLog.latency_ms.is_not(None),
                 RequestLog.latency_ms >= 60000,
             )
             .order_by(RequestLog.latency_ms.desc())
@@ -856,6 +876,9 @@ async def get_slow_requests(_: bool = Depends(require_admin)):
 
         slow_completed = []
         for log in slow_logs:
+            if log.latency_ms is None:
+                continue
+
             key_name = None
             if log.api_key_id:
                 for k, v in api_keys_cache.items():

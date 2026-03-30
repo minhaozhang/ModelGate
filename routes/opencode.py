@@ -70,12 +70,21 @@ async def build_opencode_config(session, api_key: str, base_url: str):
         if model.is_multimodal:
             input_modalities.append("image")
 
-        models_config[model_key] = {
+        thinking_config = None
+        if model.thinking_enabled:
+            thinking_config = {
+                "type": "enabled",
+            }
+
+        model_entry = {
             "name": f"{provider.name}/{display_name}",
             "modalities": {"input": input_modalities, "output": ["text"]},
-            "options": {"thinking": {"type": "enabled", "budgetTokens": 8192}},
             "limit": {"context": context_window, "output": max_output},
         }
+        if thinking_config:
+            model_entry["options"] = {"thinking": thinking_config}
+
+        models_config[model_key] = model_entry
 
     return {
         "provider": {

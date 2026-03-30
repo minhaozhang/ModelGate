@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy import select
 
 from core.database import async_session_maker, Provider
-from services.proxy import load_providers
+from services.provider import load_providers
 from core.config import validate_session
 
 router = APIRouter(prefix="/admin/api", tags=["providers"])

@@ -1,9 +1,8 @@
-HOME_PAGE_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Dashboard - API Proxy</title>
+    <title>{{ _('Dashboard') }} - {{ _('API Proxy') }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -60,104 +59,74 @@ HOME_PAGE_HTML = """
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex">
-        <nav class="w-56 bg-white shadow-lg min-h-screen fixed">
-            <div class="p-4 border-b"><h1 class="text-xl font-bold text-gray-800">API Proxy</h1></div>
-            <div class="py-2">
-                <a href="/admin/home" class="nav-link active flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-                    Home
-                </a>
-                <a href="/admin/config" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                    Config
-                </a>
-                <a href="/admin/api-keys" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
-                    API Keys
-                </a>
-                <a href="/admin/monitor" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                    Monitor
-                </a>
-                <a href="/admin/usage" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Usage Guide
-                </a>
-            </div>
-            <div class="absolute bottom-0 w-full p-4 border-t">
-                <button onclick="logout()" class="w-full text-left text-gray-600 hover:text-red-600 flex items-center">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    Logout
-                </button>
-            </div>
-        </nav>
+        {% include "components/nav.html" %}
         <main class="ml-56 flex-1 p-6">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">Dashboard</h2>
+                <h2 class="text-2xl font-bold text-gray-800">{{ _('Dashboard') }}</h2>
                 <div class="flex items-center gap-3">
                     <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
-                        Dark Mode
+                        {{ _('Dark Mode') }}
                     </button>
                     <select id="period-select" onchange="changePeriod()" class="border rounded px-3 py-2 bg-white">
-                        <option value="day">Today</option>
-                        <option value="week">This Week</option>
-                        <option value="month">This Month</option>
-                        <option value="year">This Year</option>
+                        <option value="day">{{ _('Today') }}</option>
+                        <option value="week">{{ _('This Week') }}</option>
+                        <option value="month">{{ _('This Month') }}</option>
+                        <option value="year">{{ _('This Year') }}</option>
                     </select>
                 </div>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">Total Requests</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
                     <div id="total-requests" class="text-2xl font-bold text-blue-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">Total Tokens</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Total Tokens') }}</div>
                     <div id="total-tokens" class="text-2xl font-bold text-green-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">Req/sec</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Req/sec') }}</div>
                     <div id="rps" class="text-2xl font-bold text-orange-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">Tokens/sec</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Tokens/sec') }}</div>
                     <div id="tps" class="text-2xl font-bold text-teal-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">Errors</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Errors') }}</div>
                     <div id="total-errors" class="text-2xl font-bold text-red-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">Error Rate</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>
                     <div id="error-rate" class="text-2xl font-bold text-purple-600">0%</div>
                 </div>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-sm font-semibold">Active Sessions</h3>
+                        <h3 class="text-sm font-semibold">{{ _('Active Sessions') }}</h3>
                         <span id="active-count" class="text-xs text-gray-500">0</span>
                     </div>
-                    <div id="active-sessions" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">No active sessions</div>
+                    <div id="active-sessions" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No active sessions') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-sm font-semibold text-orange-600">Slow Requests (>60s)</h3>
+                        <h3 class="text-sm font-semibold text-orange-600">{{ _('Slow Requests (>60s)') }}</h3>
                         <span id="slow-count" class="text-xs text-gray-500">0</span>
                     </div>
-                    <div id="slow-requests" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">No slow requests</div>
+                    <div id="slow-requests" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No slow requests') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
-                    <h3 class="text-sm font-semibold mb-3">Provider Usage</h3>
+                    <h3 class="text-sm font-semibold mb-3">{{ _('Provider Usage') }}</h3>
                     <div id="provider-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
-                    <h3 class="text-sm font-semibold mb-3">API Key Usage</h3>
+                    <h3 class="text-sm font-semibold mb-3">{{ _('API Key Usage') }}</h3>
                     <div id="apikey-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
                 </div>
             </div>
             <div class="bg-white rounded-lg shadow p-5 mb-6">
-                <h3 class="text-lg font-semibold mb-4">Request Trend</h3>
+                <h3 class="text-lg font-semibold mb-4">{{ _('Request Trend') }}</h3>
                 <canvas id="trendChart" height="80"></canvas>
             </div>
         </main>
@@ -212,12 +181,16 @@ HOME_PAGE_HTML = """
             renderApiKeyBars(data.api_keys || {});
             loadChart();
         }
+        function maskName(name) {
+            if (!name || name.length <= 4) return name;
+            return name.slice(0, 2) + '***' + name.slice(-2);
+        }
         function formatCompactTokens(tokens) {
             const value = Number(tokens || 0);
-            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\\.0$/, '') + 'M';
-            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\\.0$/, '') + 'K';
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
             if (Number.isInteger(value)) return value.toLocaleString();
-            return value.toFixed(1).replace(/\\.0$/, '');
+            return value.toFixed(1).replace(/\.0$/, '');
         }
         function getTokenChartScale(requestValues, tokenValues) {
             const maxRequests = Math.max(...requestValues, 1);
@@ -260,7 +233,8 @@ HOME_PAGE_HTML = """
             const html = entries.map(([name, k]) => {
                 const pct = ((k.tokens || 0) / maxTokens) * 100;
                 const modelsHtml = renderModelList(k.models, 'text-gray-600');
-                return `<div class="rounded p-2 bg-gray-50"><div class="flex justify-between text-xs mb-1 gap-2"><span class="font-medium truncate">${name}</span><span class="text-gray-500 shrink-0">${k.requests} req / ${formatCompactTokens(k.tokens || 0)}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-green-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>${modelsHtml}</div>`;
+                const masked = maskName(name);
+                return `<div class="rounded p-2 bg-gray-50"><div class="flex justify-between text-xs mb-1 gap-2"><span class="font-medium truncate cursor-default" title="${name}">${masked}</span><span class="text-gray-500 shrink-0">${k.requests} req / ${formatCompactTokens(k.tokens || 0)}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-green-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>${modelsHtml}</div>`;
             }).join('');
             document.getElementById('apikey-bars').innerHTML = html || '<div class="text-gray-400 text-center py-2 text-xs">No data</div>';
         }
@@ -363,19 +337,21 @@ HOME_PAGE_HTML = """
         loadData();
         setInterval(loadData, 10000);
         loadActiveSessions();
-        setInterval(loadActiveSessions, 60000);
-        
+        setInterval(loadActiveSessions, 10000);
+
         async function loadActiveSessions() {
             const data = await fetchJsonOrRedirect('/admin/api/stats/active');
             document.getElementById('active-count').textContent = data.active_count;
-            
+
             if (data.active_count === 0) {
                 document.getElementById('active-sessions').innerHTML = '<div class="text-gray-400 text-center py-4">No active sessions</div>';
                 return;
             }
-            
-            const html = Object.entries(data.sessions).map(([name, session]) => {
-                const modelsHtml = Object.entries(session.models).map(([model, count]) => 
+
+            const html = Object.entries(data.sessions)
+                .sort((a, b) => new Date(b[1].last_activity || 0) - new Date(a[1].last_activity || 0))
+                .map(([name, session]) => {
+                const modelsHtml = Object.entries(session.models).map(([model, count]) =>
                     `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">${model} (${count})</span>`
                 ).join(' ');
                 return `
@@ -392,7 +368,7 @@ HOME_PAGE_HTML = """
             }).join('');
             document.getElementById('active-sessions').innerHTML = html;
         }
-        
+
         function formatDuration(seconds) {
             if (seconds >= 60) {
                 const mins = Math.floor(seconds / 60);
@@ -401,23 +377,18 @@ HOME_PAGE_HTML = """
             }
             return `${seconds.toFixed(1)}s`;
         }
-        
+
         async function loadSlowRequests() {
             const data = await fetchJsonOrRedirect('/admin/api/stats/slow');
-            
             const pending = data.pending || [];
             const completed = data.completed || [];
             const total = pending.length + completed.length;
-            
             document.getElementById('slow-count').textContent = total;
-            
             if (total === 0) {
                 document.getElementById('slow-requests').innerHTML = '<div class="text-gray-400 text-center py-4">No slow requests</div>';
                 return;
             }
-            
             let html = '';
-            
             pending.forEach(req => {
                 const startTime = req.start_time ? new Date(req.start_time).toLocaleTimeString() : '';
                 html += `
@@ -432,7 +403,6 @@ HOME_PAGE_HTML = """
                     </div>
                 `;
             });
-            
             completed.slice(0, 5).forEach(req => {
                 const statusClass = req.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
                 const createdAt = req.created_at ? new Date(req.created_at).toLocaleTimeString() : '';
@@ -449,16 +419,15 @@ HOME_PAGE_HTML = """
                     </div>
                 `;
             });
-            
             document.getElementById('slow-requests').innerHTML = html;
         }
-        
+
         async function loadRealtimeStats() {
             const data = await fetchJsonOrRedirect('/admin/api/stats/realtime');
             document.getElementById('rps').textContent = data.requests_per_second;
             document.getElementById('tps').textContent = formatCompactTokens(data.tokens_per_second || 0);
         }
-        
+
         loadSlowRequests();
         setInterval(loadSlowRequests, 5000);
         loadRealtimeStats();
@@ -466,4 +435,3 @@ HOME_PAGE_HTML = """
     </script>
 </body>
 </html>
-"""
