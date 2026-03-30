@@ -14,11 +14,13 @@
         body.theme-dark { background: #020617 !important; color: #e2e8f0; }
         body.theme-dark .bg-white { background: #0f172a !important; }
         body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-200 { background: #243244 !important; }
         body.theme-dark .bg-gray-100 { background: #020617 !important; }
         body.theme-dark .bg-blue-50 { background: rgba(37, 99, 235, 0.12) !important; }
         body.theme-dark .bg-blue-100 { background: rgba(59, 130, 246, 0.18) !important; }
         body.theme-dark .bg-emerald-50 { background: rgba(16, 185, 129, 0.12) !important; }
         body.theme-dark .bg-emerald-100 { background: rgba(16, 185, 129, 0.18) !important; }
+        body.theme-dark .bg-slate-100 { background: #1e293b !important; }
         body.theme-dark .from-blue-50,
         body.theme-dark .to-cyan-50,
         body.theme-dark .from-emerald-50,
@@ -29,6 +31,8 @@
         body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
         body.theme-dark .text-gray-400 { color: #64748b !important; }
         body.theme-dark .text-blue-900 { color: #dbeafe !important; }
+        body.theme-dark .text-slate-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-emerald-700 { color: #a7f3d0 !important; }
         body.theme-dark .border,
         body.theme-dark .border-b,
         body.theme-dark .border-blue-200,
@@ -73,6 +77,20 @@
         body.theme-dark .bg-white.px-2,
         body.theme-dark .bg-white.p-3:not(.rounded-2xl) {
             background: #111827 !important;
+        }
+        body.theme-dark .bg-white.text-gray-600,
+        body.theme-dark .bg-white.text-gray-700,
+        body.theme-dark .bg-gray-200.text-gray-700,
+        body.theme-dark .bg-gray-100.text-gray-500,
+        body.theme-dark .bg-slate-100.text-slate-600,
+        body.theme-dark .bg-emerald-100.text-emerald-700 {
+            color: #cbd5e1 !important;
+        }
+        body.theme-dark .bg-black\/5,
+        body.theme-dark .bg-white\/70 {
+            background: rgba(148, 163, 184, 0.12) !important;
+            color: #dbeafe !important;
+            border: 1px solid rgba(71, 85, 105, 0.45);
         }
         body.theme-dark pre {
             border: 1px solid rgba(71, 85, 105, 0.6);

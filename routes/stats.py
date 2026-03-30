@@ -22,6 +22,7 @@ from core.config import (
 )
 
 router = APIRouter(prefix="/admin/api", tags=["stats"])
+ERROR_STATUSES = ("error", "timeout")
 
 
 def require_admin(session: Optional[str] = Cookie(None)):
@@ -70,7 +71,7 @@ async def get_cached_today_stats(start: datetime) -> dict:
                 or (log.tokens or {}).get("estimated")
                 or 0
             )
-            is_error = log.status == "error"
+            is_error = log.status in ERROR_STATUSES
 
             provider_name = None
             if log.provider_id:
@@ -143,7 +144,9 @@ async def get_stats(_: bool = Depends(require_admin)):
         total_tokens = tokens_result.scalar() or 0
 
         errors_result = await session.execute(
-            select(func.count(RequestLog.id)).where(RequestLog.status == "error")
+            select(func.count(RequestLog.id)).where(
+                RequestLog.status.in_(ERROR_STATUSES)
+            )
         )
         total_errors = errors_result.scalar() or 0
 
@@ -357,7 +360,7 @@ async def get_trend_data(
                     )
                     trend_data[label]["requests"] += 1
                     trend_data[label]["tokens"] += tokens
-                    if log.status == "error":
+                    if log.status in ERROR_STATUSES:
                         trend_data[label]["errors"] += 1
     else:
         async with async_session_maker() as session:
@@ -435,7 +438,7 @@ async def get_trend_data(
                 )
                 trend_data[label]["requests"] += 1
                 trend_data[label]["tokens"] += tokens
-                if log.status == "error":
+                if log.status in ERROR_STATUSES:
                     trend_data[label]["errors"] += 1
 
     return {
@@ -484,7 +487,8 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
 
         errors_result = await session.execute(
             select(func.count(RequestLog.id)).where(
-                RequestLog.created_at >= start, RequestLog.status == "error"
+                RequestLog.created_at >= start,
+                RequestLog.status.in_(ERROR_STATUSES),
             )
         )
         total_errors = errors_result.scalar() or 0
@@ -606,7 +610,7 @@ async def get_chart_data(
                     or 0
                 )
                 data[label]["tokens"] += tokens
-                if log.status == "error":
+                if log.status in ERROR_STATUSES:
                     data[label]["errors"] += 1
 
         provider_stats = {}

@@ -1,6 +1,12 @@
-# API Proxy
+# ModelGate
 
-A FastAPI-based proxy server for LLM API requests with provider management, API key control, and usage monitoring.
+ModelGate is a FastAPI-based LLM gateway for provider routing, API key control, and usage monitoring.
+
+Repository / image compatibility notes:
+
+- Repository directory: `api-proxy/`
+- Docker image tag: `api-proxy`
+- Product name / dashboard name: `ModelGate`
 
 ## Features
 
@@ -80,7 +86,7 @@ glm-4            # Uses default provider
 
 ## Dashboard
 
-Access the admin dashboard at `/admin/home` after login:
+Access the ModelGate admin dashboard at `/admin/home` after login:
 
 - **Home**: Overview with charts and real-time statistics
 - **Config**: Manage providers and models
