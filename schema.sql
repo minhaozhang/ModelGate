@@ -165,6 +165,8 @@ CREATE TABLE public.models (
     display_name character varying(100),
     max_tokens integer,
     context_length integer DEFAULT 131072,
+    thinking_enabled boolean DEFAULT true,
+    thinking_budget integer DEFAULT 8192,
     is_multimodal boolean,
     is_active boolean,
     created_at timestamp without time zone DEFAULT now(),
@@ -385,6 +387,8 @@ COMMENT ON COLUMN public.models.name IS '模型标识，如glm-4';
 COMMENT ON COLUMN public.models.display_name IS '显示名称';
 COMMENT ON COLUMN public.models.max_tokens IS '最大输出token数';
 COMMENT ON COLUMN public.models.context_length IS '上下文窗口长度';
+COMMENT ON COLUMN public.models.thinking_enabled IS '是否支持思考模式';
+COMMENT ON COLUMN public.models.thinking_budget IS '思考模式预算token数';
 COMMENT ON COLUMN public.models.is_multimodal IS '是否支持多模态（图片）';
 COMMENT ON COLUMN public.models.is_active IS '是否启用';
 COMMENT ON COLUMN public.models.created_at IS '创建时间';

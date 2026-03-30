@@ -35,7 +35,7 @@ if errorlevel 2 (
 )
 
 echo.
-echo Starting API Proxy...
+echo Starting ModelGate...
 echo ========================================
 py main.py
 
