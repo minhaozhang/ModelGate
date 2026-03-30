@@ -585,3 +585,90 @@ msgstr "Recent Requests"
 msgid "Refresh"
 msgstr "Refresh"
 
+msgid "System Active Requests"
+msgstr "System Active Requests"
+
+msgid "Unauthorized"
+msgstr "Unauthorized"
+
+msgid "Owned"
+msgstr "Owned"
+
+msgid "Available"
+msgstr "Available"
+
+msgid "Access"
+msgstr "Access"
+
+msgid "No active providers or models"
+msgstr "No active providers or models"
+
+msgid "No accessible models"
+msgstr "No accessible models"
+
+msgid "This API key currently has access to all active models on the platform."
+msgstr "This API key currently has access to all active models on the platform."
+
+msgid "Models explicitly available to this API key."
+msgstr "Models explicitly available to this API key."
+
+msgid "Platform provider catalog"
+msgstr "Platform provider catalog"
+
+msgid "Models this key can use"
+msgstr "Models this key can use"
+
+msgid "top share"
+msgstr "top share"
+
+msgid "on right axis"
+msgstr "on right axis"
+
+msgid "ctx"
+msgstr "ctx"
+
+msgid "out"
+msgstr "out"
+
+msgid "multimodal"
+msgstr "multimodal"
+
+msgid "alias"
+msgstr "alias"
+
+msgid "Clear saved API Key?"
+msgstr "Clear saved API Key?"
+
+msgid "Please help me add the following provider configuration to ~/.opencode/opencode.json. Keep existing providers and other settings, only add or update the model-token-plan provider."
+msgstr "Please help me add the following provider configuration to ~/.opencode/opencode.json. Keep existing providers and other settings, only add or update the model-token-plan provider."
+
+msgid "Yourself"
+msgstr "Yourself"
+
+msgid "Anonymous"
+msgstr "Anonymous"
+
+msgid "Other {index}"
+msgstr "Other {index}"
+
+msgid "Invalid API Key"
+msgstr "Invalid API Key"
+
+msgid "Not authenticated"
+msgstr "Not authenticated"
+
+msgid "API key not found"
+msgstr "API key not found"
+
+msgid "API Key not found"
+msgstr "API Key not found"
+
+msgid "Hourly average response time by model"
+msgstr "Hourly average response time by model"
+
+msgid "Hour of day"
+msgstr "Hour of day"
+
+msgid "{count} samples"
+msgstr "{count} samples"
+

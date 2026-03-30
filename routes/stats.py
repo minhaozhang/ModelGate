@@ -603,14 +603,22 @@ async def get_monitor_details(
         )
         top_models = [row.model for row in top_models_result.fetchall() if row.model]
 
-        latency_points: list[dict] = []
+        latency_intervals = [f"{hour:02d}:00" for hour in range(24)]
+        latency_series: dict[str, dict[str, list]] = {}
         if top_models:
+            latency_series = {
+                model: {
+                    "latency_ms": [None] * 24,
+                    "samples": [0] * 24,
+                }
+                for model in top_models
+            }
             latency_rows_result = await session.execute(
                 select(
                     RequestLog.model,
-                    RequestLog.latency_ms,
-                    RequestLog.status,
-                    RequestLog.created_at,
+                    func.extract("hour", RequestLog.created_at).label("hour_of_day"),
+                    func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                    func.count(RequestLog.id).label("samples"),
                 )
                 .where(
                     RequestLog.created_at >= start,
@@ -618,24 +626,22 @@ async def get_monitor_details(
                     RequestLog.latency_ms.is_not(None),
                     RequestLog.status != "pending",
                 )
-                .order_by(RequestLog.created_at.desc())
+                .group_by(RequestLog.model, func.extract("hour", RequestLog.created_at))
+                .order_by(RequestLog.model, func.extract("hour", RequestLog.created_at))
             )
-            counts_by_model = {model: 0 for model in top_models}
             for row in latency_rows_result.fetchall():
                 model_name = row.model
-                if not model_name or counts_by_model.get(model_name, 0) >= 40:
+                if not model_name or model_name not in latency_series:
                     continue
-                latency_points.append(
-                    {
-                        "model": model_name,
-                        "latency_ms": round(row.latency_ms or 0, 1),
-                        "status": row.status,
-                        "created_at": row.created_at.isoformat(),
-                    }
+                hour_of_day = int(row.hour_of_day or 0)
+                if hour_of_day < 0 or hour_of_day > 23:
+                    continue
+                latency_series[model_name]["latency_ms"][hour_of_day] = round(
+                    row.avg_latency_ms or 0, 1
                 )
-                counts_by_model[model_name] += 1
-                if all(count >= 40 for count in counts_by_model.values()):
-                    break
+                latency_series[model_name]["samples"][hour_of_day] = int(
+                    row.samples or 0
+                )
 
     def build_status_entries(rows, scope: str, resolver, masked: bool = False) -> list[dict]:
         entries = []
@@ -705,7 +711,8 @@ async def get_monitor_details(
         "timeout_hotspots": timeout_hotspots,
         "latency": {
             "models": top_models,
-            "points": latency_points,
+            "intervals": latency_intervals,
+            "series": latency_series,
         },
     }
 

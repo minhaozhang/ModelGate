@@ -146,7 +146,7 @@
             <div class="bg-white rounded-lg shadow p-5 mt-6">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold">{{ _('Model Response Time') }}</h3>
-                    <div id="latency-meta" class="text-sm text-gray-500">{{ _('Latest latency samples by model') }}</div>
+                    <div id="latency-meta" class="text-sm text-gray-500">{{ _('Hourly average response time by model') }}</div>
                 </div>
                 <div class="h-80">
                     <canvas id="latencyChart"></canvas>
@@ -187,7 +187,9 @@
         requestsErrorsTimeouts: "{{ _('Requests / Errors / Timeouts') }}",
         onRightAxis: "{{ _('{label} on right axis') }}",
         responseTimeSeconds: "{{ _('Response Time (s)') }}",
-        latestLatencySamples: "{{ _('Latest latency samples by model') }}",
+        hourlyAverageResponseTime: "{{ _('Hourly average response time by model') }}",
+        hourOfDay: "{{ _('Hour of day') }}",
+        sampleCount: "{{ _('{count} samples') }}",
     };
     </script>
     <script>
@@ -459,15 +461,21 @@
             if (latencyChart) latencyChart.destroy();
 
             const models = latencyData.models || [];
-            const points = latencyData.points || [];
+            const intervals = latencyData.intervals || Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, '0')}:00`);
+            const series = latencyData.series || {};
             document.getElementById('latency-meta').textContent = models.length
-                ? `${window.I18N.latestLatencySamples} / ${models.length} ${window.I18N.models}`
+                ? `${window.I18N.hourlyAverageResponseTime} / ${models.length} ${window.I18N.models}`
                 : window.I18N.noLatencyData;
 
-            if (!models.length || !points.length) {
+            const hasLatencyData = models.some(model => {
+                const values = series[model]?.latency_ms || [];
+                return values.some(value => value !== null && value !== undefined);
+            });
+
+            if (!models.length || !hasLatencyData) {
                 latencyChart = new Chart(ctx, {
-                    type: 'scatter',
-                    data: { datasets: [] },
+                    type: 'line',
+                    data: { labels: intervals, datasets: [] },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
@@ -476,7 +484,14 @@
                             tooltip: { enabled: false }
                         },
                         scales: {
-                            x: { display: false },
+                            x: {
+                                grid: { color: chartTheme.gridColor },
+                                ticks: {
+                                    color: chartTheme.tickColor,
+                                    maxTicksLimit: 12,
+                                },
+                                title: { display: true, text: window.I18N.hourOfDay, color: chartTheme.titleColor }
+                            },
                             y: {
                                 beginAtZero: true,
                                 grid: { color: chartTheme.gridColor },
@@ -489,26 +504,26 @@
                 return;
             }
 
-            const modelIndexMap = Object.fromEntries(models.map((model, index) => [model, index]));
             const datasets = models.map((model, index) => ({
                 label: model,
-                data: points
-                    .filter(point => point.model === model)
-                    .map(point => ({
-                        x: index,
-                        y: Number(((point.latency_ms || 0) / 1000).toFixed(2)),
-                        status: point.status,
-                        created_at: point.created_at,
-                    })),
+                data: (series[model]?.latency_ms || []).map((value, hourIndex) => ({
+                    x: intervals[hourIndex],
+                    y: value === null || value === undefined ? null : Number((value / 1000).toFixed(2)),
+                    samples: (series[model]?.samples || [])[hourIndex] || 0,
+                })),
                 backgroundColor: modelPalette[index % modelPalette.length],
                 borderColor: modelPalette[index % modelPalette.length],
-                pointRadius: 4,
+                pointRadius: 3,
                 pointHoverRadius: 5,
+                pointHitRadius: 12,
+                borderWidth: 2,
+                spanGaps: false,
+                tension: 0.28,
             })).filter(dataset => dataset.data.length > 0);
 
             latencyChart = new Chart(ctx, {
-                type: 'scatter',
-                data: { datasets },
+                type: 'line',
+                data: { labels: intervals, datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -525,37 +540,29 @@
                             borderWidth: 1,
                             callbacks: {
                                 title: function(items) {
-                                    const item = items[0];
-                                    return models[Math.round(item.parsed.x)] || item.dataset.label;
+                                    return items[0]?.label || '';
                                 },
                                 label: function(context) {
                                     const raw = context.raw || {};
-                                    return `${window.I18N.responseTimeSeconds}: ${(raw.y || 0).toFixed(2)}s`;
+                                    return `${context.dataset.label}: ${(raw.y || 0).toFixed(2)}s`;
                                 },
                                 afterLabel: function(context) {
                                     const raw = context.raw || {};
-                                    const parts = [];
-                                    if (raw.status) parts.push(raw.status);
-                                    if (raw.created_at) parts.push(new Date(raw.created_at).toLocaleString());
-                                    return parts;
+                                    return raw.samples
+                                        ? window.I18N.sampleCount.replace('{count}', raw.samples)
+                                        : [];
                                 }
                             }
                         }
                     },
                     scales: {
                         x: {
-                            type: 'linear',
-                            min: -0.5,
-                            max: Math.max(models.length - 0.5, 0.5),
                             grid: { color: chartTheme.gridColor },
                             ticks: {
                                 color: chartTheme.tickColor,
-                                stepSize: 1,
-                                callback: function(value) {
-                                    const rounded = Math.round(value);
-                                    return Number.isInteger(value) && models[rounded] ? models[rounded] : '';
-                                }
-                            }
+                                maxTicksLimit: 12,
+                            },
+                            title: { display: true, text: window.I18N.hourOfDay, color: chartTheme.titleColor }
                         },
                         y: {
                             beginAtZero: true,

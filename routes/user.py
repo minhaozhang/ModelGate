@@ -10,7 +10,7 @@ from sqlalchemy import case, func, or_, select
 
 from core.config import logger
 from core.database import async_session_maker, ApiKey, RequestLog
-from core.i18n import render
+from core.i18n import render, translate
 
 router = APIRouter(tags=["user"])
 ERROR_STATUSES = ("error", "timeout")
@@ -22,6 +22,10 @@ USER_SESSION_EXPIRE_HOURS = 24
 
 class UserLoginRequest(BaseModel):
     api_key: str
+
+
+def translated_error(request: Request, message: str, status_code: int) -> JSONResponse:
+    return JSONResponse({"error": translate(request, message)}, status_code=status_code)
 
 
 def get_user_session(user_session: Optional[str] = Cookie(None)) -> Optional[int]:
@@ -85,14 +89,14 @@ async def user_login_page(request: Request):
 
 
 @router.post("/user/api/login")
-async def user_login(data: UserLoginRequest, response: Response):
+async def user_login(request: Request, data: UserLoginRequest, response: Response):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ApiKey).where(ApiKey.key == data.api_key, ApiKey.is_active == True)
         )
         key = result.scalar_one_or_none()
         if not key:
-            return JSONResponse({"error": "Invalid API Key"}, status_code=401)
+            return translated_error(request, "Invalid API Key", 401)
 
         session_token = secrets.token_hex(32)
         USER_SESSIONS[session_token] = {
@@ -121,10 +125,10 @@ async def user_logout(response: Response, user_session: Optional[str] = Cookie(N
 
 @router.get("/user/api/stats")
 async def get_user_stats(
-    api_key_id: int = Depends(get_user_session), period: str = "day"
+    request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"
 ):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
     now = get_local_now()
     start, intervals, format_func = get_user_period_range(now, period)
@@ -133,7 +137,7 @@ async def get_user_stats(
         result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
         key = result.scalar_one_or_none()
         if not key:
-            return JSONResponse({"error": "API key not found"}, status_code=404)
+            return translated_error(request, "API key not found", 404)
 
         total_result = await session.execute(
             select(func.count(RequestLog.id)).where(
@@ -227,9 +231,11 @@ async def get_user_stats(
 
 
 @router.get("/user/api/active")
-async def get_user_active_sessions(api_key_id: int = Depends(get_user_session)):
+async def get_user_active_sessions(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
     cutoff = get_local_now() - timedelta(seconds=ACTIVE_WINDOW_SECONDS)
     async with async_session_maker() as session:
@@ -278,10 +284,10 @@ async def get_user_active_sessions(api_key_id: int = Depends(get_user_session)):
 
 @router.get("/user/api/system-models")
 async def get_system_model_stats(
-    api_key_id: int = Depends(get_user_session), period: str = "day"
+    request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"
 ):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
     now = get_local_now()
     start, _, _ = get_user_period_range(now, period)
@@ -318,9 +324,11 @@ async def get_system_model_stats(
 
 
 @router.get("/user/api/system-active")
-async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)):
+async def get_system_active_sessions(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
     cutoff = get_local_now() - timedelta(seconds=ACTIVE_WINDOW_SECONDS)
     async with async_session_maker() as session:
@@ -360,13 +368,13 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
     ):
         stats = grouped[key]
         if key == api_key_id:
-            display_name = "Yourself"
+            display_name = translate(request, "Yourself")
             is_self = True
         elif key is None:
-            display_name = "Anonymous"
+            display_name = translate(request, "Anonymous")
             is_self = False
         else:
-            display_name = f"Other {other_index}"
+            display_name = translate(request, "Other {index}", index=other_index)
             other_index += 1
             is_self = False
 
@@ -396,9 +404,9 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
 
 
 @router.get("/user/api/catalog")
-async def get_user_catalog(api_key_id: int = Depends(get_user_session)):
+async def get_user_catalog(request: Request, api_key_id: int = Depends(get_user_session)):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
     from core.database import ApiKeyModel, Model, Provider, ProviderModel
 
@@ -408,7 +416,7 @@ async def get_user_catalog(api_key_id: int = Depends(get_user_session)):
         )
         api_key = key_result.scalar_one_or_none()
         if not api_key:
-            return JSONResponse({"error": "API Key not found"}, status_code=404)
+            return translated_error(request, "API Key not found", 404)
 
         providers_result = await session.execute(
             select(Provider).where(Provider.is_active == True)
@@ -516,9 +524,11 @@ async def user_dashboard(request: Request, api_key_id: int = Depends(get_user_se
 
 
 @router.get("/user/api/opencode-config")
-async def get_user_opencode_config(api_key_id: int = Depends(get_user_session)):
+async def get_user_opencode_config(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
     if not api_key_id:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+        return translated_error(request, "Not authenticated", 401)
 
     from core.database import Provider, Model, ProviderModel, ApiKeyModel
 
@@ -528,7 +538,7 @@ async def get_user_opencode_config(api_key_id: int = Depends(get_user_session)):
         )
         api_key = key_result.scalar_one_or_none()
         if not api_key:
-            return JSONResponse({"error": "API Key not found"}, status_code=404)
+            return translated_error(request, "API Key not found", 404)
 
         models_result = await session.execute(
             select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key_id)

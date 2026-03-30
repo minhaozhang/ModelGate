@@ -585,3 +585,90 @@ msgstr "最近请求"
 msgid "Refresh"
 msgstr "刷新"
 
+
+msgid "System Active Requests"
+msgstr "系统活跃请求"
+
+msgid "Unauthorized"
+msgstr "未授权"
+
+msgid "Owned"
+msgstr "已拥有"
+
+msgid "Available"
+msgstr "可用"
+
+msgid "Access"
+msgstr "权限"
+
+msgid "No active providers or models"
+msgstr "暂无活跃提供商或模型"
+
+msgid "No accessible models"
+msgstr "暂无可访问模型"
+
+msgid "This API key currently has access to all active models on the platform."
+msgstr "此 API Key 当前可访问平台上的全部活跃模型。"
+
+msgid "Models explicitly available to this API key."
+msgstr "明确授权给此 API Key 的模型。"
+
+msgid "Platform provider catalog"
+msgstr "平台提供商目录"
+
+msgid "Models this key can use"
+msgstr "此密钥可用模型"
+
+msgid "top share"
+msgstr "头部占比"
+
+msgid "on right axis"
+msgstr "在右轴"
+
+msgid "ctx"
+msgstr "上下文"
+
+msgid "out"
+msgstr "输出"
+
+msgid "multimodal"
+msgstr "多模态"
+
+msgid "alias"
+msgstr "别名"
+
+msgid "Clear saved API Key?"
+msgstr "清除已保存的 API Key？"
+
+msgid "Please help me add the following provider configuration to ~/.opencode/opencode.json. Keep existing providers and other settings, only add or update the model-token-plan provider."
+msgstr "请帮我把下面的 provider 配置加入 ~/.opencode/opencode.json。保留现有 providers 和其他设置，只添加或更新 model-token-plan provider。"
+
+msgid "Yourself"
+msgstr "你自己"
+
+msgid "Anonymous"
+msgstr "匿名"
+
+msgid "Other {index}"
+msgstr "其他 {index}"
+
+msgid "Invalid API Key"
+msgstr "无效的 API Key"
+
+msgid "Not authenticated"
+msgstr "未认证"
+
+msgid "API key not found"
+msgstr "未找到 API Key"
+
+msgid "API Key not found"
+msgstr "未找到 API Key"
+
+msgid "Hourly average response time by model"
+msgstr "按小时统计的模型平均响应时间"
+
+msgid "Hour of day"
+msgstr "小时"
+
+msgid "{count} samples"
+msgstr "{count} 个样本"
