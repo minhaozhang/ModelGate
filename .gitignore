@@ -12,6 +12,7 @@ test_screenshots/
 dist/
 build/
 .venv/
+.venv_copies/
 venv/
 .mypy_cache/
 
@@ -29,5 +30,5 @@ bin-release/
 *.air
 *.ipa
 *.apk
-api-proxy.tar
+modelgate.tar
 AGENTS.md

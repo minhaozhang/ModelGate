@@ -1,4 +1,4 @@
-# API Proxy
+# ModelGate
 
 基于 FastAPI 的 LLM API 代理服务器，支持多提供商管理、API Key 控制、用量监控和 Web 管理面板。
 
@@ -42,8 +42,8 @@ Windows 用户可使用 `start.bat`（会自动终止占用 8765 端口的进程
 ### 数据库初始化
 
 ```sql
-CREATE USER "api-proxy" WITH PASSWORD 'your_password';
-CREATE DATABASE "api-proxy" OWNER "api-proxy";
+CREATE USER "modelgate" WITH PASSWORD 'your_password';
+CREATE DATABASE "modelgate" OWNER "modelgate";
 ```
 
 完整数据库结构见 `schema.sql`。
@@ -96,7 +96,7 @@ API Key 持有者可访问 `/user/login` 查看：
 ## 项目结构
 
 ```
-api-proxy/
+modelgate/
 ├── main.py                  # FastAPI 应用、异常处理
 ├── core/                    # 核心模块
 │   ├── config.py            # 全局状态、缓存、日志
@@ -125,19 +125,19 @@ api-proxy/
 
 ```bash
 # 构建并推送到本地镜像仓库
-docker build -t localhost:5002/api-proxy:latest .
-docker push localhost:5002/api-proxy:latest
+docker build -t localhost:5002/modelgate:latest .
+docker push localhost:5002/modelgate:latest
 
 # 生产服务器拉取并运行
-docker pull <REGISTRY_IP>:5005/api-proxy:latest
-docker run -d --name api-proxy \
+docker pull <REGISTRY_IP>:5005/modelgate:latest
+docker run -d --name modelgate \
   -p 8765:8765 \
-  -e DATABASE_URL="postgresql+asyncpg://api-proxy:password@host:5432/api-proxy" \
+  -e DATABASE_URL="postgresql+asyncpg://modelgate:password@host:5432/modelgate" \
   -e PORT=8765 \
   -e ADMIN_USERS="admin:YourPassword" \
-  -v /opt/api-proxy/logs:/app/logs \
+  -v /opt/modelgate/logs:/app/logs \
   --restart unless-stopped \
-  <REGISTRY_IP>:5005/api-proxy:latest
+  <REGISTRY_IP>:5005/modelgate:latest
 ```
 
 ## 许可证

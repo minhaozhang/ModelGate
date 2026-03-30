@@ -7,7 +7,7 @@ msgid "Dashboard"
 msgstr "Dashboard"
 
 msgid "API Proxy"
-msgstr "API Proxy"
+msgstr "ModelGate"
 
 msgid "Admin Dashboard"
 msgstr "Admin Dashboard"
@@ -112,7 +112,7 @@ msgid "Login"
 msgstr "Login"
 
 msgid "API Proxy Login"
-msgstr "API Proxy Login"
+msgstr "ModelGate Login"
 
 msgid "Username"
 msgstr "Username"

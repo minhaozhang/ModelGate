@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{{ _('Monitor') }} - {{ _('API Proxy') }}</title>
+    <title>{{ _('Monitor') }} - ModelGate</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -75,7 +75,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
                     <div id="total-requests" class="text-3xl font-bold text-blue-600">0</div>
@@ -89,6 +89,10 @@
                     <div id="total-errors" class="text-3xl font-bold text-red-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Timeouts') }}</div>
+                    <div id="total-timeouts" class="text-3xl font-bold text-amber-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>
                     <div id="error-rate" class="text-3xl font-bold text-orange-600">0%</div>
                 </div>
@@ -97,7 +101,7 @@
             <div class="bg-white rounded-lg shadow p-5 mb-6">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold">{{ _('Request Trend') }}</h3>
-                    <div id="trend-meta" class="text-sm text-gray-500">{{ _('Requests') }} / {{ _('Tokens') }} / {{ _('Errors') }}</div>
+                    <div id="trend-meta" class="text-sm text-gray-500">{{ _('Requests') }} / {{ _('Tokens') }} / {{ _('Errors') }} / {{ _('Timeouts') }}</div>
                 </div>
                 <canvas id="trendChart" height="80"></canvas>
             </div>
@@ -120,7 +124,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-6">
+            <div class="grid grid-cols-1 xl:grid-cols-4 gap-6 mt-6">
                 <div class="bg-white rounded-lg shadow p-5">
                     <h3 class="text-lg font-semibold mb-4">{{ _('Traffic Concentration') }}</h3>
                     <div id="concentration-cards" class="space-y-3"></div>
@@ -130,8 +134,22 @@
                     <div id="error-hotspots" class="space-y-3"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Timeout Hotspots') }}</h3>
+                    <div id="timeout-hotspots" class="space-y-3"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-5">
                     <h3 class="text-lg font-semibold mb-4">{{ _('Active Footprint') }}</h3>
                     <div id="footprint-cards" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-5 mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">{{ _('Model Response Time') }}</h3>
+                    <div id="latency-meta" class="text-sm text-gray-500">{{ _('Latest latency samples by model') }}</div>
+                </div>
+                <div class="h-80">
+                    <canvas id="latencyChart"></canvas>
                 </div>
             </div>
         </main>
@@ -146,6 +164,8 @@
         req: "{{ _('req') }}",
         tok: "{{ _('tok') }}",
         err: "{{ _('err') }}",
+        timeout: "{{ _('Timeout') }}",
+        timeouts: "{{ _('Timeouts') }}",
         providers: "{{ _('Providers') }}",
         apiKeys: "{{ _('API Keys') }}",
         models: "{{ _('Models') }}",
@@ -155,6 +175,7 @@
         top1Share: "{{ _('Top 1 share') }}",
         top3Combined: "{{ _('Top 3 combined') }}",
         noHotspots: "{{ _('No hotspots') }}",
+        noLatencyData: "{{ _('No latency data') }}",
         activeProviders: "{{ _('Active Providers') }}",
         activeApiKeys: "{{ _('Active API Keys') }}",
         activeModels: "{{ _('Active Models') }}",
@@ -163,8 +184,10 @@
         requests: "{{ _('Requests') }}",
         tokens: "{{ _('Tokens') }}",
         errors: "{{ _('Errors') }}",
-        requestsErrors: "{{ _('Requests / Errors') }}",
+        requestsErrorsTimeouts: "{{ _('Requests / Errors / Timeouts') }}",
         onRightAxis: "{{ _('{label} on right axis') }}",
+        responseTimeSeconds: "{{ _('Response Time (s)') }}",
+        latestLatencySamples: "{{ _('Latest latency samples by model') }}",
     };
     </script>
     <script>
@@ -173,6 +196,7 @@
         let providerChart = null;
         let apikeyChart = null;
         let modelChart = null;
+        let latencyChart = null;
         const providerPalette = ['#2563eb', '#3b82f6', '#0ea5e9', '#38bdf8', '#1d4ed8', '#60a5fa', '#0284c7', '#7dd3fc'];
         const apikeyPalette = ['#059669', '#10b981', '#14b8a6', '#34d399', '#0f766e', '#2dd4bf', '#22c55e', '#6ee7b7'];
         const modelPalette = ['#7c3aed', '#a855f7', '#ec4899', '#f97316', '#eab308', '#8b5cf6', '#f43f5e', '#c084fc'];
@@ -345,7 +369,6 @@
                             </div>
                             <div class="text-right shrink-0">
                                 <div class="text-sm font-semibold" style="color:${config.accentColor}">${formatPct(pct)}</div>
-                                <div class="text-xs text-gray-400">${window.I18N.err} ${formatPct(errRate, 1)}</div>
                             </div>
                         </div>
                     </div>
@@ -383,62 +406,166 @@
             document.getElementById('concentration-cards').innerHTML = html;
         }
 
-        function renderErrorHotspots(providerEntries, apikeyEntries, modelEntries) {
-            const hotspots = [
-                ...providerEntries.map(([name, stats]) => ({ scope: window.I18N.provider, name, stats })),
-                ...apikeyEntries.map(([name, stats]) => ({ scope: window.I18N.apiKey, name, stats, masked: true })),
-                ...modelEntries.map(([name, stats]) => ({ scope: window.I18N.model, name, stats })),
-            ]
-            .filter(item => (item.stats.requests || 0) >= 3)
-            .map(item => ({
-                ...item,
-                errorRate: item.stats.requests ? item.stats.errors / item.stats.requests : 0
-            }))
-            .sort((a, b) => b.errorRate - a.errorRate || (b.stats.errors || 0) - (a.stats.errors || 0))
-            .slice(0, 6);
-
-            const html = hotspots.map(item => {
-                const tone = item.errorRate === 0
+        function renderHotspots(targetId, hotspots, kind = 'error') {
+            const countKey = kind === 'timeout' ? 'timeouts' : 'errors';
+            const rateKey = kind === 'timeout' ? 'timeout_rate' : 'error_rate';
+            const primaryLabel = kind === 'timeout' ? window.I18N.timeouts : window.I18N.errors;
+            const html = (hotspots || []).map(item => {
+                const rate = Number(item[rateKey] || 0);
+                const count = Number(item[countKey] || 0);
+                const tone = rate < 0.05
                     ? {
-                        border: 'border-green-100',
-                        bg: 'bg-green-50',
-                        scope: 'text-green-600',
-                        meta: 'text-green-500',
-                        value: 'text-green-600'
+                        border: kind === 'timeout' ? 'border-amber-100' : 'border-amber-100',
+                        bg: kind === 'timeout' ? 'bg-amber-50' : 'bg-amber-50',
+                        scope: kind === 'timeout' ? 'text-amber-600' : 'text-amber-600',
+                        meta: kind === 'timeout' ? 'text-amber-500' : 'text-amber-500',
+                        value: kind === 'timeout' ? 'text-amber-600' : 'text-amber-600'
                     }
-                    : item.errorRate < 0.05
-                        ? {
-                            border: 'border-amber-100',
-                            bg: 'bg-amber-50',
-                            scope: 'text-amber-600',
-                            meta: 'text-amber-500',
-                            value: 'text-amber-600'
-                        }
-                        : {
-                            border: 'border-red-100',
-                            bg: 'bg-red-50',
-                            scope: 'text-red-500',
-                            meta: 'text-red-400',
-                            value: 'text-red-600'
-                        };
+                    : {
+                        border: kind === 'timeout' ? 'border-orange-100' : 'border-red-100',
+                        bg: kind === 'timeout' ? 'bg-amber-50' : 'bg-red-50',
+                        scope: kind === 'timeout' ? 'text-orange-600' : 'text-red-500',
+                        meta: kind === 'timeout' ? 'text-orange-500' : 'text-red-400',
+                        value: kind === 'timeout' ? 'text-orange-600' : 'text-red-600'
+                    };
+                const scopeLabel = item.scope === 'provider'
+                    ? window.I18N.provider
+                    : item.scope === 'api_key'
+                        ? window.I18N.apiKey
+                        : window.I18N.model;
                 const displayName = item.masked ? maskName(item.name) : item.name;
                 return `
                 <div class="rounded-lg border ${tone.border} ${tone.bg} p-3">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <div class="text-xs uppercase tracking-wide ${tone.scope}">${item.scope}</div>
+                            <div class="text-xs uppercase tracking-wide ${tone.scope}">${scopeLabel}</div>
                             <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${displayName}</div>
-                            <div class="mt-1 text-xs ${tone.meta}">${item.stats.errors.toLocaleString()} ${window.I18N.errors} / ${item.stats.requests.toLocaleString()} ${window.I18N.requests}</div>
+                            <div class="mt-1 text-xs ${tone.meta}">${count.toLocaleString()} ${primaryLabel} / ${Number(item.requests || 0).toLocaleString()} ${window.I18N.requests}</div>
                         </div>
                         <div class="text-right shrink-0">
-                            <div class="text-lg font-bold ${tone.value}">${formatPct(item.errorRate, 1)}</div>
+                            <div class="text-lg font-bold ${tone.value}">${formatPct(rate, 1)}</div>
                         </div>
                     </div>
                 </div>
             `;
             }).join('');
 
-            document.getElementById('error-hotspots').innerHTML = html || `<div class="text-gray-400 text-center py-4">${window.I18N.noHotspots}</div>`;
+            document.getElementById(targetId).innerHTML = html || `<div class="text-gray-400 text-center py-4">${window.I18N.noHotspots}</div>`;
+        }
+
+        function renderLatencyChart(latencyData) {
+            const chartTheme = getChartTheme();
+            const ctx = document.getElementById('latencyChart').getContext('2d');
+            if (latencyChart) latencyChart.destroy();
+
+            const models = latencyData.models || [];
+            const points = latencyData.points || [];
+            document.getElementById('latency-meta').textContent = models.length
+                ? `${window.I18N.latestLatencySamples} / ${models.length} ${window.I18N.models}`
+                : window.I18N.noLatencyData;
+
+            if (!models.length || !points.length) {
+                latencyChart = new Chart(ctx, {
+                    type: 'scatter',
+                    data: { datasets: [] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        },
+                        scales: {
+                            x: { display: false },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: chartTheme.gridColor },
+                                ticks: { color: chartTheme.tickColor },
+                                title: { display: true, text: window.I18N.responseTimeSeconds, color: chartTheme.titleColor }
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+
+            const modelIndexMap = Object.fromEntries(models.map((model, index) => [model, index]));
+            const datasets = models.map((model, index) => ({
+                label: model,
+                data: points
+                    .filter(point => point.model === model)
+                    .map(point => ({
+                        x: index,
+                        y: Number(((point.latency_ms || 0) / 1000).toFixed(2)),
+                        status: point.status,
+                        created_at: point.created_at,
+                    })),
+                backgroundColor: modelPalette[index % modelPalette.length],
+                borderColor: modelPalette[index % modelPalette.length],
+                pointRadius: 4,
+                pointHoverRadius: 5,
+            })).filter(dataset => dataset.data.length > 0);
+
+            latencyChart = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: chartTheme.legendColor }
+                        },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                title: function(items) {
+                                    const item = items[0];
+                                    return models[Math.round(item.parsed.x)] || item.dataset.label;
+                                },
+                                label: function(context) {
+                                    const raw = context.raw || {};
+                                    return `${window.I18N.responseTimeSeconds}: ${(raw.y || 0).toFixed(2)}s`;
+                                },
+                                afterLabel: function(context) {
+                                    const raw = context.raw || {};
+                                    const parts = [];
+                                    if (raw.status) parts.push(raw.status);
+                                    if (raw.created_at) parts.push(new Date(raw.created_at).toLocaleString());
+                                    return parts;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            min: -0.5,
+                            max: Math.max(models.length - 0.5, 0.5),
+                            grid: { color: chartTheme.gridColor },
+                            ticks: {
+                                color: chartTheme.tickColor,
+                                stepSize: 1,
+                                callback: function(value) {
+                                    const rounded = Math.round(value);
+                                    return Number.isInteger(value) && models[rounded] ? models[rounded] : '';
+                                }
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: chartTheme.gridColor },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: window.I18N.responseTimeSeconds, color: chartTheme.titleColor }
+                        }
+                    }
+                }
+            });
         }
 
         function renderFootprintCards(providerEntries, apikeyEntries, modelEntries) {
@@ -479,6 +606,7 @@
             const requests = data.intervals.map(label => data.data[label]?.requests || 0);
             const rawTokens = data.intervals.map(label => data.data[label]?.tokens || 0);
             const errors = data.intervals.map(label => data.data[label]?.errors || 0);
+            const timeouts = data.intervals.map(label => data.data[label]?.timeouts || 0);
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(value => Number((value / tokenScale.divisor).toFixed(2)));
             const tokenLabel = tokenScale.suffix ? `${window.I18N.tokens} (${tokenScale.suffix})` : window.I18N.tokens;
@@ -526,6 +654,21 @@
                             borderDash: [6, 4],
                             fill: false,
                             yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: window.I18N.timeouts,
+                            data: timeouts,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                            pointBackgroundColor: '#f59e0b',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [2, 5],
+                            fill: false,
+                            yAxisID: 'yRequests'
                         }
                     ]
                 },
@@ -549,7 +692,7 @@
                             position: 'left',
                             grid: { color: chartTheme.gridColor },
                             ticks: { color: chartTheme.tickColor },
-                            title: { display: true, text: window.I18N.requestsErrors, color: chartTheme.titleColor }
+                            title: { display: true, text: window.I18N.requestsErrorsTimeouts, color: chartTheme.titleColor }
                         },
                         yTokens: {
                             beginAtZero: true,
@@ -583,20 +726,22 @@
         }
 
         async function loadData() {
-            const [providerData, apikeyData, modelData, trendData] = await Promise.all([
+            const [providerData, apikeyData, modelData, monitorData] = await Promise.all([
                 fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=provider&period=' + currentPeriod),
                 fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=api_key&period=' + currentPeriod),
                 fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=model&period=' + currentPeriod),
-                fetchJsonOrRedirect('/admin/api/stats/trend?dimension=provider&period=' + currentPeriod)
+                fetchJsonOrRedirect('/admin/api/stats/monitor-details?period=' + currentPeriod)
             ]);
 
             const totalRequests = providerData.total_requests || 0;
             const totalTokens = providerData.total_tokens || 0;
-            const totalErrors = providerData.total_errors || 0;
+            const totalErrors = monitorData.total_errors || 0;
+            const totalTimeouts = monitorData.total_timeouts || 0;
 
             document.getElementById('total-requests').textContent = totalRequests.toLocaleString();
             document.getElementById('total-tokens').textContent = formatCompactTokens(totalTokens);
             document.getElementById('total-errors').textContent = totalErrors.toLocaleString();
+            document.getElementById('total-timeouts').textContent = totalTimeouts.toLocaleString();
             document.getElementById('error-rate').textContent = (totalRequests > 0 ? ((totalErrors / totalRequests) * 100).toFixed(1) : '0.0') + '%';
 
             const providerResult = renderUsageChart(providerChart, 'providerChart', 'provider-legend', providerData.data || {}, {
@@ -631,9 +776,11 @@
             modelChart = modelResult.chart;
 
             renderConcentrationCards(providerResult.entries, apikeyResult.entries, modelResult.entries);
-            renderErrorHotspots(providerResult.entries, apikeyResult.entries, modelResult.entries);
+            renderHotspots('error-hotspots', monitorData.error_hotspots || [], 'error');
+            renderHotspots('timeout-hotspots', monitorData.timeout_hotspots || [], 'timeout');
             renderFootprintCards(providerResult.entries, apikeyResult.entries, modelResult.entries);
-            renderTrendChart(trendData);
+            renderLatencyChart(monitorData.latency || {});
+            renderTrendChart(monitorData.trend || { intervals: [], data: {} });
         }
 
         loadData();

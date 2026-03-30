@@ -7,7 +7,7 @@ msgid "Dashboard"
 msgstr "仪表盘"
 
 msgid "API Proxy"
-msgstr "API 代理"
+msgstr "ModelGate"
 
 msgid "Admin Dashboard"
 msgstr "管理后台"
@@ -112,7 +112,7 @@ msgid "Login"
 msgstr "登录"
 
 msgid "API Proxy Login"
-msgstr "API 代理登录"
+msgstr "ModelGate 登录"
 
 msgid "Username"
 msgstr "用户名"
