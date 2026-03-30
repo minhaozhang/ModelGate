@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional, Literal
 from fastapi import APIRouter, Cookie, Depends, HTTPException
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, func, and_, or_, case
 
 from core.database import (
     async_session_maker,
@@ -22,7 +22,9 @@ from core.config import (
 )
 
 router = APIRouter(prefix="/admin/api", tags=["stats"])
-ERROR_STATUSES = ("error", "timeout")
+ERROR_STATUS = "error"
+TIMEOUT_STATUS = "timeout"
+ERROR_STATUSES = (ERROR_STATUS, TIMEOUT_STATUS)
 
 
 def require_admin(session: Optional[str] = Cookie(None)):
@@ -37,6 +39,19 @@ def get_local_now() -> datetime:
     if now.tzinfo is not None:
         now = now.replace(tzinfo=None)
     return now
+
+
+def get_period_start(period: str, now: datetime) -> datetime:
+    if period == "day":
+        return now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if period == "week":
+        start = now - timedelta(days=now.weekday())
+        return start.replace(hour=0, minute=0, second=0, microsecond=0)
+    if period == "month":
+        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if period == "year":
+        return now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 async def get_cached_today_stats(start: datetime) -> dict:
@@ -447,6 +462,258 @@ async def get_trend_data(
         "name": name,
         "intervals": intervals,
         "data": trend_data,
+    }
+
+
+@router.get("/stats/monitor-details")
+async def get_monitor_details(
+    period: Literal["day", "week", "month", "year"] = "day",
+    _: bool = Depends(require_admin),
+):
+    now = get_local_now()
+    start = get_period_start(period, now)
+    _, intervals, format_func = get_period_range(period, now)
+    trend_data = {
+        label: {"requests": 0, "tokens": 0, "errors": 0, "timeouts": 0}
+        for label in intervals
+    }
+
+    async with async_session_maker() as session:
+        total_errors_result = await session.execute(
+            select(func.count(RequestLog.id)).where(
+                RequestLog.created_at >= start,
+                RequestLog.status == ERROR_STATUS,
+            )
+        )
+        total_errors = total_errors_result.scalar() or 0
+
+        total_timeouts_result = await session.execute(
+            select(func.count(RequestLog.id)).where(
+                RequestLog.created_at >= start,
+                RequestLog.status == TIMEOUT_STATUS,
+            )
+        )
+        total_timeouts = total_timeouts_result.scalar() or 0
+
+        provider_rows_result = await session.execute(
+            select(
+                RequestLog.provider_id.label("group_key"),
+                func.count(RequestLog.id).label("requests"),
+                func.sum(
+                    case((RequestLog.status == ERROR_STATUS, 1), else_=0)
+                ).label("errors"),
+                func.sum(
+                    case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)
+                ).label("timeouts"),
+            )
+            .where(RequestLog.created_at >= start)
+            .group_by(RequestLog.provider_id)
+        )
+        provider_rows = provider_rows_result.fetchall()
+
+        api_key_rows_result = await session.execute(
+            select(
+                RequestLog.api_key_id.label("group_key"),
+                func.count(RequestLog.id).label("requests"),
+                func.sum(
+                    case((RequestLog.status == ERROR_STATUS, 1), else_=0)
+                ).label("errors"),
+                func.sum(
+                    case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)
+                ).label("timeouts"),
+            )
+            .where(RequestLog.created_at >= start)
+            .group_by(RequestLog.api_key_id)
+        )
+        api_key_rows = api_key_rows_result.fetchall()
+
+        model_rows_result = await session.execute(
+            select(
+                RequestLog.model.label("group_key"),
+                func.count(RequestLog.id).label("requests"),
+                func.sum(
+                    case((RequestLog.status == ERROR_STATUS, 1), else_=0)
+                ).label("errors"),
+                func.sum(
+                    case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)
+                ).label("timeouts"),
+            )
+            .where(RequestLog.created_at >= start)
+            .group_by(RequestLog.model)
+        )
+        model_rows = model_rows_result.fetchall()
+
+        provider_ids = [row.group_key for row in provider_rows if row.group_key]
+        api_key_ids = [row.group_key for row in api_key_rows if row.group_key]
+
+        providers_map: dict[int, str] = {}
+        if provider_ids:
+            providers_result = await session.execute(
+                select(Provider).where(Provider.id.in_(provider_ids))
+            )
+            providers_map = {
+                provider.id: provider.name for provider in providers_result.scalars()
+            }
+
+        api_keys_map: dict[int, str] = {}
+        if api_key_ids:
+            api_keys_result = await session.execute(
+                select(ApiKey).where(ApiKey.id.in_(api_key_ids))
+            )
+            api_keys_map = {
+                api_key.id: api_key.name for api_key in api_keys_result.scalars()
+            }
+
+        trend_logs_result = await session.execute(
+            select(
+                RequestLog.created_at,
+                RequestLog.status,
+                RequestLog.tokens,
+            ).where(RequestLog.created_at >= start)
+        )
+        trend_logs = trend_logs_result.fetchall()
+        for log in trend_logs:
+            label = format_func(log.created_at)
+            if label not in trend_data:
+                continue
+            tokens = (log.tokens or {}).get("total_tokens") or (
+                log.tokens or {}
+            ).get("estimated") or 0
+            trend_data[label]["requests"] += 1
+            trend_data[label]["tokens"] += tokens
+            if log.status == ERROR_STATUS:
+                trend_data[label]["errors"] += 1
+            elif log.status == TIMEOUT_STATUS:
+                trend_data[label]["timeouts"] += 1
+
+        top_models_result = await session.execute(
+            select(
+                RequestLog.model,
+                func.count(RequestLog.id).label("requests"),
+            )
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.latency_ms.is_not(None),
+                RequestLog.status != "pending",
+                RequestLog.model.is_not(None),
+            )
+            .group_by(RequestLog.model)
+            .order_by(func.count(RequestLog.id).desc())
+            .limit(8)
+        )
+        top_models = [row.model for row in top_models_result.fetchall() if row.model]
+
+        latency_intervals = [f"{hour:02d}:00" for hour in range(24)]
+        latency_series: dict[str, dict[str, list]] = {}
+        if top_models:
+            latency_series = {
+                model: {
+                    "latency_ms": [None] * 24,
+                    "samples": [0] * 24,
+                }
+                for model in top_models
+            }
+            latency_rows_result = await session.execute(
+                select(
+                    RequestLog.model,
+                    func.extract("hour", RequestLog.created_at).label("hour_of_day"),
+                    func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                    func.count(RequestLog.id).label("samples"),
+                )
+                .where(
+                    RequestLog.created_at >= start,
+                    RequestLog.model.in_(top_models),
+                    RequestLog.latency_ms.is_not(None),
+                    RequestLog.status != "pending",
+                )
+                .group_by(RequestLog.model, func.extract("hour", RequestLog.created_at))
+                .order_by(RequestLog.model, func.extract("hour", RequestLog.created_at))
+            )
+            for row in latency_rows_result.fetchall():
+                model_name = row.model
+                if not model_name or model_name not in latency_series:
+                    continue
+                hour_of_day = int(row.hour_of_day or 0)
+                if hour_of_day < 0 or hour_of_day > 23:
+                    continue
+                latency_series[model_name]["latency_ms"][hour_of_day] = round(
+                    row.avg_latency_ms or 0, 1
+                )
+                latency_series[model_name]["samples"][hour_of_day] = int(
+                    row.samples or 0
+                )
+
+    def build_status_entries(rows, scope: str, resolver, masked: bool = False) -> list[dict]:
+        entries = []
+        for row in rows:
+            group_key = row.group_key
+            if group_key is None:
+                continue
+            name = resolver(group_key)
+            if not name:
+                continue
+            requests = row.requests or 0
+            errors = row.errors or 0
+            timeouts = row.timeouts or 0
+            entries.append(
+                {
+                    "scope": scope,
+                    "name": name,
+                    "masked": masked,
+                    "requests": requests,
+                    "errors": errors,
+                    "timeouts": timeouts,
+                    "error_rate": (errors / requests) if requests else 0,
+                    "timeout_rate": (timeouts / requests) if requests else 0,
+                }
+            )
+        return entries
+
+    provider_entries = build_status_entries(
+        provider_rows,
+        "provider",
+        lambda provider_id: providers_map.get(provider_id),
+    )
+    api_key_entries = build_status_entries(
+        api_key_rows,
+        "api_key",
+        lambda api_key_id: api_keys_map.get(api_key_id, f"Key-{api_key_id}"),
+        masked=True,
+    )
+    model_entries = build_status_entries(
+        model_rows,
+        "model",
+        lambda model_name: model_name,
+    )
+
+    all_entries = provider_entries + api_key_entries + model_entries
+    error_hotspots = sorted(
+        [item for item in all_entries if item["requests"] >= 3 and item["errors"] > 0],
+        key=lambda item: (item["error_rate"], item["errors"], item["requests"]),
+        reverse=True,
+    )[:6]
+    timeout_hotspots = sorted(
+        [item for item in all_entries if item["requests"] >= 3 and item["timeouts"] > 0],
+        key=lambda item: (item["timeout_rate"], item["timeouts"], item["requests"]),
+        reverse=True,
+    )[:6]
+
+    return {
+        "period": period,
+        "start": start.isoformat(),
+        "total_errors": total_errors,
+        "total_timeouts": total_timeouts,
+        "trend": {
+            "intervals": intervals,
+            "data": trend_data,
+        },
+        "error_hotspots": error_hotspots,
+        "timeout_hotspots": timeout_hotspots,
+        "latency": {
+            "models": top_models,
+            "intervals": latency_intervals,
+            "series": latency_series,
+        },
     }
 
 

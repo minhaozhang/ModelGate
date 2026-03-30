@@ -23,7 +23,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+asyncpg://api-proxy:Zaq1%403edc@192.168.58.128/api-proxy",
+    "postgresql+asyncpg://modelgate:Zaq1%403edc@192.168.58.128/modelgate",
 )
 
 engine = create_async_engine(DATABASE_URL, echo=False)

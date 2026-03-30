@@ -4,8 +4,8 @@ ModelGate is a FastAPI-based LLM gateway for provider routing, API key control, 
 
 Repository / image compatibility notes:
 
-- Repository directory: `api-proxy/`
-- Docker image tag: `api-proxy`
+- Repository directory: `modelgate/`
+- Docker image tag: `modelgate`
 - Product name / dashboard name: `ModelGate`
 
 ## Features
@@ -60,8 +60,8 @@ Windows: Use `start.bat` (auto-kills existing process on port 8765)
 ### Database Setup
 
 ```sql
-CREATE USER "api-proxy" WITH PASSWORD 'your_password';
-CREATE DATABASE "api-proxy" OWNER "api-proxy";
+CREATE USER "modelgate" WITH PASSWORD 'your_password';
+CREATE DATABASE "modelgate" OWNER "modelgate";
 ```
 
 See `schema.sql` for full schema.
@@ -114,7 +114,7 @@ Each provider has a `max_concurrent` setting (default: 3):
 ## Project Structure
 
 ```
-api-proxy/
+modelgate/
 ├── main.py                  # FastAPI app, exception handlers
 ├── core/
 │   ├── config.py            # Global state, caches, logging
@@ -153,19 +153,19 @@ api-proxy/
 
 ```bash
 # Build and push to local registry
-docker build -t localhost:5002/api-proxy:latest .
-docker push localhost:5002/api-proxy:latest
+docker build -t localhost:5002/modelgate:latest .
+docker push localhost:5002/modelgate:latest
 
 # Run on production server
-docker pull <REGISTRY_IP>:5005/api-proxy:latest
-docker run -d --name api-proxy \
+docker pull <REGISTRY_IP>:5005/modelgate:latest
+docker run -d --name modelgate \
   -p 8765:8765 \
-  -e DATABASE_URL="postgresql+asyncpg://api-proxy:password@host:5432/api-proxy" \
+  -e DATABASE_URL="postgresql+asyncpg://modelgate:password@host:5432/modelgate" \
   -e PORT=8765 \
   -e ADMIN_USERS="admin:YourPassword" \
-  -v /opt/api-proxy/logs:/app/logs \
+  -v /opt/modelgate/logs:/app/logs \
   --restart unless-stopped \
-  <REGISTRY_IP>:5005/api-proxy:latest
+  <REGISTRY_IP>:5005/modelgate:latest
 ```
 
 ## License

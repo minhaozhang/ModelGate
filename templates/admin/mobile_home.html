@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>{{ _('Dashboard') }} - {{ _('API Proxy') }}</title>
+    <title>{{ _('Dashboard') }} - ModelGate</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -22,7 +22,7 @@
     <nav class="bg-white shadow-sm sticky top-0 z-50">
         <div class="flex items-center justify-between px-4 py-3">
             <div>
-                <h1 class="text-lg font-bold text-gray-800">{{ _('API Proxy') }}</h1>
+                <h1 class="text-lg font-bold text-gray-800">ModelGate</h1>
                 <div class="text-xs text-gray-400">{{ _('Admin Dashboard') }}</div>
             </div>
             <div class="flex items-center gap-2">
@@ -179,6 +179,11 @@
             if (value >= 1000) return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
             if (Number.isInteger(value)) return value.toLocaleString();
             return value.toFixed(1).replace(/\.0$/, '');
+        }
+
+        function maskName(name) {
+            if (!name || name.length <= 4) return name;
+            return name.slice(0, 2) + '***' + name.slice(-2);
         }
 
         function getTokenChartScale(requestValues, tokenValues) {
@@ -401,18 +406,22 @@
                 for (const req of pending) {
                     const elapsed = Math.round((Date.now() - new Date(req.created_at).getTime()) / 1000);
                     const elapsedText = window.I18N.elapsed.replace('{seconds}', elapsed);
+                    const rawKeyName = req.api_key || req.key_name || '-';
+                    const maskedKeyName = maskName(rawKeyName);
                     html += `<div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate">${req.api_key || '-'} / ${req.model || '-'}</div><div class="text-[10px] text-orange-600 mt-1">${elapsedText}</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-orange-600 mt-1">${elapsedText}</div></div>
                             <span class="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">${window.I18N.pending}</span>
                         </div>
                     </div>`;
                 }
                 for (const req of recent.slice(0, 5)) {
                     const statusClass = req.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+                    const rawKeyName = req.api_key || req.key_name || '-';
+                    const maskedKeyName = maskName(rawKeyName);
                     html += `<div class="bg-gray-50 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate">${req.api_key || '-'} / ${req.model || '-'}</div><div class="text-[10px] text-gray-500 mt-1">${Math.round(req.latency_ms / 1000)}s</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-gray-500 mt-1">${Math.round(req.latency_ms / 1000)}s</div></div>
                             <span class="text-[10px] ${statusClass} px-1.5 py-0.5 rounded">${req.status}</span>
                         </div>
                     </div>`;
