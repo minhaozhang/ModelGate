@@ -1,9 +1,8 @@
-CONFIG_PAGE_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Config - API Proxy</title>
+    <title>{{ _('Config') }} - {{ _('API Proxy') }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .nav-link { transition: all 0.2s; }
@@ -36,160 +35,128 @@ CONFIG_PAGE_HTML = """
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="flex">
-        <nav class="w-56 bg-white shadow-lg min-h-screen fixed">
-            <div class="p-4 border-b">
-                <h1 class="text-xl font-bold text-gray-800">API Proxy</h1>
-            </div>
-            <div class="py-2">
-                <a href="/admin/home" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-                    Home
-                </a>
-                <a href="/admin/config" class="nav-link active flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                    Config
-                </a>
-                <a href="/admin/api-keys" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
-                    API Keys
-                </a>
-                <a href="/admin/monitor" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                    Monitor
-                </a>
-                <a href="/admin/usage" class="nav-link flex items-center px-4 py-3 text-gray-700">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Usage Guide
-                </a>
-            </div>
-            <div class="absolute bottom-0 w-full p-4 border-t">
-                <button onclick="logout()" class="w-full text-left text-gray-600 hover:text-red-600 flex items-center">
-                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    Logout
-                </button>
-            </div>
-        </nav>
-        
+        {% include "components/nav.html" %}
+
         <main class="ml-56 flex-1 p-6">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">Provider & Model Configuration</h2>
+                <h2 class="text-2xl font-bold text-gray-800">{{ _('Provider & Model Configuration') }}</h2>
                 <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
-                    Dark Mode
+                    {{ _('Dark Mode') }}
                 </button>
             </div>
-            
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b flex justify-between items-center">
-                        <h3 class="text-lg font-semibold">Providers</h3>
-                        <button onclick="showAddProvider()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">+ Add</button>
+                        <h3 class="text-lg font-semibold">{{ _('Providers') }}</h3>
+                        <button onclick="showAddProvider()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ _('+ Add') }}</button>
                     </div>
                     <div id="providers-list" class="p-4 space-y-2 max-h-80 overflow-y-auto"></div>
                 </div>
-                
+
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b flex justify-between items-center">
-                        <h3 class="text-lg font-semibold">Models</h3>
+                        <h3 class="text-lg font-semibold">{{ _('Models') }}</h3>
                         <div class="flex gap-2">
-                            <button onclick="showAddModel()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">+ Add</button>
-                            <button onclick="syncSelectedProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600">Sync</button>
+                            <button onclick="showAddModel()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ _('+ Add') }}</button>
+                            <button onclick="syncSelectedProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600">{{ _('Sync') }}</button>
                         </div>
                     </div>
                     <div id="models-list" class="p-4 space-y-2 max-h-80 overflow-y-auto"></div>
                 </div>
             </div>
-            
+
             <div class="mt-6 bg-white rounded-lg shadow">
                 <div class="p-4 border-b flex justify-between items-center">
-                    <h3 class="text-lg font-semibold">Provider-Model Bindings</h3>
-                    <button onclick="syncSelectedProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600 ${!selectedProviderId ? 'opacity-50 cursor-not-allowed' : ''}" id="sync-btn">Sync from API</button>
+                    <h3 class="text-lg font-semibold">{{ _('Provider-Model Bindings') }}</h3>
+                    <button onclick="syncSelectedProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600 ${!selectedProviderId ? 'opacity-50 cursor-not-allowed' : ''}" id="sync-btn">{{ _('Sync from API') }}</button>
                 </div>
                 <div id="bindings-container" class="p-4">
-                    <div class="text-gray-400 text-center py-4">Select a provider to view bindings</div>
+                    <div class="text-gray-400 text-center py-4">{{ _('Select a provider to view bindings') }}</div>
                 </div>
             </div>
         </main>
     </div>
-    
+
     <div id="provider-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div class="p-4 border-b flex justify-between items-center">
-                <h3 id="provider-modal-title" class="font-semibold">Add Provider</h3>
+                <h3 id="provider-modal-title" class="font-semibold">{{ _('Add Provider') }}</h3>
                 <button onclick="closeProviderModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
             <form id="provider-form" class="p-4 space-y-4">
                 <input type="hidden" id="provider-id">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Name') }}</label>
                     <input type="text" id="provider-name" required class="w-full border rounded px-3 py-2" placeholder="e.g., zhipu, deepseek">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Base URL') }}</label>
                     <input type="text" id="provider-url" required class="w-full border rounded px-3 py-2" placeholder="https://api.example.com/v1">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('API Key') }}</label>
                     <input type="password" id="provider-key" class="w-full border rounded px-3 py-2" placeholder="sk-...">
                 </div>
                 <div class="flex items-center">
                     <input type="checkbox" id="provider-active" checked class="mr-2">
-                    <label class="text-sm text-gray-700">Active</label>
+                    <label class="text-sm text-gray-700">{{ _('Active') }}</label>
                 </div>
                 <div class="flex items-center">
                     <input type="checkbox" id="provider-merge-msgs" class="mr-2">
-                    <label class="text-sm text-gray-700">合并连续相同角色消息 <span class="text-xs text-gray-400">(MiniMax等要求角色交替的供应商)</span></label>
+                    <label class="text-sm text-gray-700">{{ _('Merge consecutive same-role messages') }} <span class="text-xs text-gray-400">({{ _('For providers like MiniMax requiring role alternation') }})</span></label>
                 </div>
                 <div class="flex gap-2">
-                    <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Save</button>
-                    <button type="button" onclick="closeProviderModal()" class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
+                    <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                    <button type="button" onclick="closeProviderModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                 </div>
             </form>
         </div>
     </div>
-    
+
     <div id="model-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div class="p-4 border-b flex justify-between items-center">
-                <h3 id="model-modal-title" class="font-semibold">Add Model</h3>
+                <h3 id="model-modal-title" class="font-semibold">{{ _('Add Model') }}</h3>
                 <button onclick="closeModelModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
             <form id="model-form" class="p-4 space-y-4">
                 <input type="hidden" id="model-id">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Model Name (ID)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Model Name (ID)') }}</label>
                     <input type="text" id="model-name" required class="w-full border rounded px-3 py-2" placeholder="e.g., glm-4.7">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Display Name') }}</label>
                     <input type="text" id="model-display-name" class="w-full border rounded px-3 py-2" placeholder="e.g., GLM-4.7">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Max Tokens</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Max Tokens') }}</label>
                     <input type="number" id="model-max-tokens" value="4096" class="w-full border rounded px-3 py-2">
                 </div>
                 <div class="flex items-center gap-4">
                     <label class="flex items-center">
                         <input type="checkbox" id="model-multimodal" class="mr-2">
-                        <span class="text-sm text-gray-700">Multimodal</span>
+                        <span class="text-sm text-gray-700">{{ _('Multimodal') }}</span>
                     </label>
                     <label class="flex items-center">
                         <input type="checkbox" id="model-active" checked class="mr-2">
-                        <span class="text-sm text-gray-700">Active</span>
+                        <span class="text-sm text-gray-700">{{ _('Active') }}</span>
                     </label>
                 </div>
                 <div class="flex gap-2">
-                    <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Save</button>
-                    <button type="button" onclick="closeModelModal()" class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
+                    <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                    <button type="button" onclick="closeModelModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                 </div>
             </form>
         </div>
     </div>
-    
+
     <script>
         let allProviders = [];
         let allModels = [];
         let selectedProviderId = null;
-        
+
         async function logout() {
             await fetch('/admin/api/auth/logout', {method: 'POST'});
             window.location.href = '/admin/login';
@@ -226,7 +193,7 @@ CONFIG_PAGE_HTML = """
             const resp = await fetchOrRedirect(url, options);
             return await resp.json();
         }
-        
+
         async function loadProviders() {
             const data = await fetchJsonOrRedirect('/admin/api/providers');
             allProviders = data.providers || [];
@@ -245,7 +212,7 @@ CONFIG_PAGE_HTML = """
             `).join('');
             document.getElementById('providers-list').innerHTML = html || '<div class="text-gray-400 text-center py-4">No providers</div>';
         }
-        
+
         async function loadModels() {
             const data = await fetchJsonOrRedirect('/admin/api/models');
             allModels = data.models || [];
@@ -264,22 +231,19 @@ CONFIG_PAGE_HTML = """
             `).join('');
             document.getElementById('models-list').innerHTML = html || '<div class="text-gray-400 text-center py-4">No models</div>';
         }
-        
+
         async function selectProvider(id) {
             selectedProviderId = id;
             loadProviders();
             await loadProviderBindings(id);
         }
-        
+
         async function loadProviderBindings(providerId) {
             const provider = allProviders.find(p => p.id === providerId);
             const data = await fetchJsonOrRedirect('/admin/api/providers/' + providerId + '/models');
             const bindings = data.models || [];
-            
             const unboundModels = allModels.filter(m => m.is_active && !bindings.find(b => b.model_id === m.id));
-            
             let html = `<div class="mb-4"><span class="font-medium">${provider.name}</span> - Bound Models</div>`;
-            
             if (bindings.length > 0) {
                 html += '<div class="space-y-2 mb-4">';
                 bindings.forEach(b => {
@@ -294,7 +258,6 @@ CONFIG_PAGE_HTML = """
             } else {
                 html += '<div class="text-gray-400 text-center py-2 mb-4">No models bound</div>';
             }
-            
             if (unboundModels.length > 0) {
                 html += `
                     <div class="flex gap-2">
@@ -305,10 +268,9 @@ CONFIG_PAGE_HTML = """
                     </div>
                 `;
             }
-            
             document.getElementById('bindings-container').innerHTML = html;
         }
-        
+
         async function bindModel() {
             const modelId = document.getElementById('bind-model-select').value;
             if (!modelId || !selectedProviderId) return;
@@ -319,12 +281,12 @@ CONFIG_PAGE_HTML = """
             });
             loadProviderBindings(selectedProviderId);
         }
-        
+
         async function unbindModel(pmId) {
             await fetchOrRedirect('/admin/api/providers/' + selectedProviderId + '/models/' + pmId, {method: 'DELETE'});
             loadProviderBindings(selectedProviderId);
         }
-        
+
         async function syncSelectedProvider() {
             if (!selectedProviderId) {
                 alert('Please select a provider first');
@@ -348,7 +310,7 @@ CONFIG_PAGE_HTML = """
             btn.disabled = false;
             btn.textContent = 'Sync';
         }
-        
+
         function showAddProvider() {
             document.getElementById('provider-modal-title').textContent = 'Add Provider';
             document.getElementById('provider-id').value = '';
@@ -361,7 +323,7 @@ CONFIG_PAGE_HTML = """
             document.getElementById('provider-modal').classList.remove('hidden');
             document.getElementById('provider-modal').classList.add('flex');
         }
-        
+
         function editProvider(id) {
             const p = allProviders.find(x => x.id === id);
             if (!p) return;
@@ -376,12 +338,12 @@ CONFIG_PAGE_HTML = """
             document.getElementById('provider-modal').classList.remove('hidden');
             document.getElementById('provider-modal').classList.add('flex');
         }
-        
+
         function closeProviderModal() {
             document.getElementById('provider-modal').classList.add('hidden');
             document.getElementById('provider-modal').classList.remove('flex');
         }
-        
+
         document.getElementById('provider-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('provider-id').value;
@@ -392,7 +354,6 @@ CONFIG_PAGE_HTML = """
                 is_active: document.getElementById('provider-active').checked,
                 merge_consecutive_messages: document.getElementById('provider-merge-msgs').checked
             };
-            
             try {
                 if (id) {
                     await fetchOrRedirect('/admin/api/providers/' + id, {
@@ -413,7 +374,7 @@ CONFIG_PAGE_HTML = """
                 alert('Failed to save provider');
             }
         });
-        
+
         async function deleteProvider(id) {
             if (!confirm('Delete this provider?')) return;
             await fetchOrRedirect('/admin/api/providers/' + id, {method: 'DELETE'});
@@ -423,7 +384,7 @@ CONFIG_PAGE_HTML = """
             }
             loadProviders();
         }
-        
+
         function showAddModel() {
             document.getElementById('model-modal-title').textContent = 'Add Model';
             document.getElementById('model-id').value = '';
@@ -436,7 +397,7 @@ CONFIG_PAGE_HTML = """
             document.getElementById('model-modal').classList.remove('hidden');
             document.getElementById('model-modal').classList.add('flex');
         }
-        
+
         function editModel(id) {
             const m = allModels.find(x => x.id === id);
             if (!m) return;
@@ -451,12 +412,12 @@ CONFIG_PAGE_HTML = """
             document.getElementById('model-modal').classList.remove('hidden');
             document.getElementById('model-modal').classList.add('flex');
         }
-        
+
         function closeModelModal() {
             document.getElementById('model-modal').classList.add('hidden');
             document.getElementById('model-modal').classList.remove('flex');
         }
-        
+
         document.getElementById('model-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('model-id').value;
@@ -467,7 +428,6 @@ CONFIG_PAGE_HTML = """
                 is_multimodal: document.getElementById('model-multimodal').checked,
                 is_active: document.getElementById('model-active').checked
             };
-            
             try {
                 if (id) {
                     await fetchOrRedirect('/admin/api/models/' + id, {
@@ -493,23 +453,22 @@ CONFIG_PAGE_HTML = """
                 alert('Failed to save model');
             }
         });
-        
+
         async function deleteModel(id) {
             if (!confirm('Delete this model?')) return;
             await fetchOrRedirect('/admin/api/models/' + id, {method: 'DELETE'});
             loadModels();
         }
-        
+
         document.getElementById('provider-modal').addEventListener('click', (e) => {
             if (e.target.id === 'provider-modal') closeProviderModal();
         });
         document.getElementById('model-modal').addEventListener('click', (e) => {
             if (e.target.id === 'model-modal') closeModelModal();
         });
-        
+
         loadProviders();
         loadModels();
     </script>
 </body>
 </html>
-"""

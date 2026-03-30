@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, HTTPException
 from sqlalchemy import select, func
@@ -17,10 +17,8 @@ def require_admin(session: Optional[str] = Cookie(None)):
 
 @router.get("/logs/today")
 async def get_today_logs(_: bool = Depends(require_admin)):
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     async with async_session_maker() as session:
-        today_result = await session.execute(select(func.current_date()))
-        today_date = today_result.scalar()
-        today_start = datetime.combine(today_date, time.min)
         result = await session.execute(
             select(RequestLog)
             .where(RequestLog.created_at >= today_start)

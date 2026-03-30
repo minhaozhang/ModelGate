@@ -8,7 +8,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from core.config import CONFIG, error_logger
 from core.database import init_db
-from services.proxy import load_providers, load_api_keys
+from core.log_sanitizer import sanitize_text_for_log
+from services.provider import load_providers
+from services.auth import load_api_keys
 
 app = FastAPI(title="API Proxy")
 
@@ -30,12 +32,12 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     try:
         body = await request.body()
-        body_str = body.decode()[:1000]
+        body_str = sanitize_text_for_log(body)
     except Exception:
         body_str = ""
     error_logger.error(
         f"[VALIDATION ERROR] {request.method} {request.url}\n"
-        f"  Errors: {exc.errors()}\n"
+        f"  Errors: {sanitize_text_for_log(exc.errors(), limit=1500)}\n"
         f"  Body: {body_str}"
     )
     return JSONResponse(
@@ -47,12 +49,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def general_exception_handler(request: Request, exc: Exception):
     try:
         body = await request.body()
-        body_str = body.decode()[:1000]
+        body_str = sanitize_text_for_log(body)
     except Exception:
         body_str = ""
     error_logger.error(
         f"[UNHANDLED ERROR] {request.method} {request.url}\n"
-        f"  Error: {type(exc).__name__}: {exc}\n"
+        f"  Error: {type(exc).__name__}: {sanitize_text_for_log(exc)}\n"
         f"  Body: {body_str}"
     )
     return JSONResponse({"error": str(exc)}, status_code=500)

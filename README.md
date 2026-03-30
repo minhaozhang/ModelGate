@@ -1,18 +1,35 @@
-# API Proxy
+# ModelGate
 
-A FastAPI-based proxy server for LLM API requests with provider management, API key control, and usage monitoring.
+ModelGate is a FastAPI-based LLM gateway for provider routing, API key control, and usage monitoring.
+
+Repository / image compatibility notes:
+
+- Repository directory: `api-proxy/`
+- Docker image tag: `api-proxy`
+- Product name / dashboard name: `ModelGate`
 
 ## Features
 
 - **Multi-Provider Support**: Zhipu, DeepSeek, Ollama, Minimax, and any OpenAI-compatible API
 - **Rate Limiting**: Per-provider concurrency control via semaphores
 - **API Key Management**: Per-key model access control
-- **Streaming Support**: Real-time streaming responses with token estimation
-- **Web Dashboard**: Monitor usage, manage providers, models, and API keys
+- **Streaming Support**: Real-time streaming responses with token estimation and SSE normalization
+- **Web Dashboard**: Monitor usage, manage providers, models, and API keys (admin + mobile)
 - **User Portal**: API key holders can view their own usage statistics
 - **OpenCode Config**: Generate configuration for AI coding assistants
-- **Real-time Stats**: 10-second sliding window for requests/tokens per second
+- **Real-time Stats**: 10-second sliding window for requests/token rates
 - **Request Logging**: Pending status for streaming, timeout detection for stale requests
+- **i18n Support**: English/Chinese bilingual UI with Jinja2 + Babel
+ language switcher
+- **Dark Mode**: Admin dashboard dark/light theme toggle
+- **Thinking Model Config**: Per-model thinking settings with configurable budget tokens
+- **Modular Architecture**: Services split into provider, auth, logging, tokens, message, sse, minimax
+ streaming
+- **Mobile Responsive**: Separate mobile admin dashboard with auto-redirect
+
+- **Usage Guide**: Built-in API client configuration guide (ChatGPT-Next-Web, Python, cURL, VS Code)
+
+
 
 ## Quick Start
 
@@ -38,6 +55,7 @@ Windows: Use `start.bat` (auto-kills existing process on port 8765)
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `PORT` | No | Server port (default: 8765) |
 | `ADMIN_USERS` | Yes | Admin accounts, format: `user:pass,user:pass` |
+| `LOG_LEVEL` | No | Log level: DEBUG, INFO (default), WARNING, ERROR |
 
 ### Database Setup
 
@@ -68,7 +86,7 @@ glm-4            # Uses default provider
 
 ## Dashboard
 
-Access the admin dashboard at `/admin/home` after login:
+Access the ModelGate admin dashboard at `/admin/home` after login:
 
 - **Home**: Overview with charts and real-time statistics
 - **Config**: Manage providers and models
@@ -98,26 +116,36 @@ Each provider has a `max_concurrent` setting (default: 3):
 ```
 api-proxy/
 ├── main.py                  # FastAPI app, exception handlers
-├── core/                    # Core modules
+├── core/
 │   ├── config.py            # Global state, caches, logging
 │   ├── database.py          # SQLAlchemy models
-│   └── deps.py              # FastAPI dependencies
+│   └── i18n.py              # Jinja2 + Babel i18n renderer
 ├── routes/                  # API endpoints
-│   ├── proxy.py             # /v1/chat/completions, /v1/models
+│   ├── proxy.py             # /v1/chat/completions proxy handler
+│   ├── pages.py             # Admin/user page routes
 │   ├── providers.py         # Provider CRUD
 │   ├── keys.py              # API Key CRUD
 │   ├── stats.py             # Statistics endpoints
 │   ├── logs.py              # Request log queries
-│   ├── user.py              # User portal
+│   ├── user.py              # User portal APIs
 │   └── opencode.py          # OpenCode config generator
 ├── services/                # Business logic
-│   ├── proxy.py             # Core proxy, streaming, rate limiting
-│   ├── scheduler.py         # Scheduled jobs
-│   └── stats_aggregator.py  # Stats aggregation
-├── templates/               # HTML templates
-│   ├── admin/               # Admin dashboard pages
+│   ├── proxy.py             # Core proxy orchestration
+│   ├── provider.py          # Provider loading & config
+│   ├── auth.py              # API key validation
+│   ├── logging.py           # Request logging
+│   ├── tokens.py            # Token estimation & tracking
+│   ├── message.py           # Message preprocessing
+│   ├── minimax.py            # Minimax streaming processor
+│   └── sse.py                # SSE stream normalization
+├── templates/               # Jinja2 HTML templates
+│   ├── admin/                # Admin dashboard pages
 │   ├── user/                # User portal pages
-│   └── public/              # Public pages
+│   ├── public/              # Public pages (opencode, query)
+│   └── components/          # Shared nav, language switcher
+├── locales/                 # Translation files
+│   ├── en/LC_MESSAGES/      # English translations
+│   └── zh/LC_MESSAGES/      # Chinese translations
 └── logs/                    # Rotating log files
 ```
 

@@ -20,6 +20,9 @@ class ModelCreate(BaseModel):
     name: str
     display_name: Optional[str] = None
     max_tokens: int = 16384
+    context_length: int = 131072
+    thinking_enabled: bool = True
+    thinking_budget: int = 8192
     is_multimodal: bool = False
     is_active: bool = True
 
@@ -27,6 +30,9 @@ class ModelCreate(BaseModel):
 class ModelUpdate(BaseModel):
     display_name: Optional[str] = None
     max_tokens: Optional[int] = None
+    context_length: Optional[int] = None
+    thinking_enabled: Optional[bool] = None
+    thinking_budget: Optional[int] = None
     is_multimodal: Optional[bool] = None
     is_active: Optional[bool] = None
 
@@ -43,6 +49,9 @@ async def list_all_models(_: bool = Depends(require_admin)):
                     "name": m.name,
                     "display_name": m.display_name,
                     "max_tokens": m.max_tokens,
+                    "context_length": m.context_length,
+                    "thinking_enabled": m.thinking_enabled,
+                    "thinking_budget": m.thinking_budget,
                     "is_multimodal": m.is_multimodal,
                     "is_active": m.is_active,
                 }

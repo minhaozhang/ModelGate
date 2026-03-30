@@ -27,6 +27,10 @@ class LoginRequest(BaseModel):
 @router.post("/login")
 async def login(data: LoginRequest, response: Response, request: Request):
     client_ip = request.client.host if request.client else "unknown"
+    username = data.username.strip()
+
+    if not username and len(admin_users) == 1:
+        username = next(iter(admin_users.keys()))
 
     if client_ip in login_lockout:
         if datetime.now() < login_lockout[client_ip]:
@@ -41,9 +45,9 @@ async def login(data: LoginRequest, response: Response, request: Request):
             del login_lockout[client_ip]
             login_attempts.pop(client_ip, None)
 
-    if data.username in admin_users and data.password == admin_users[data.username]:
+    if username in admin_users and data.password == admin_users[username]:
         login_attempts.pop(client_ip, None)
-        admin_logger.info(f"[LOGIN] Success - User: {data.username}, IP: {client_ip}")
+        admin_logger.info(f"[LOGIN] Success - User: {username}, IP: {client_ip}")
         token = create_session()
         response.set_cookie(
             key="session",
@@ -56,7 +60,7 @@ async def login(data: LoginRequest, response: Response, request: Request):
 
     login_attempts[client_ip] = login_attempts.get(client_ip, 0) + 1
     admin_logger.warning(
-        f"[LOGIN] Failed - User: {data.username}, IP: {client_ip}, Attempts: {login_attempts[client_ip]}"
+        f"[LOGIN] Failed - User: {username or '<empty>'}, IP: {client_ip}, Attempts: {login_attempts[client_ip]}"
     )
 
     if login_attempts[client_ip] >= LOGIN_MAX_ATTEMPTS:

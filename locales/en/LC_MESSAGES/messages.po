@@ -1,0 +1,587 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "API Proxy"
+msgstr "API Proxy"
+
+msgid "Admin Dashboard"
+msgstr "Admin Dashboard"
+
+msgid "Today"
+msgstr "Today"
+
+msgid "Week"
+msgstr "Week"
+
+msgid "Month"
+msgstr "Month"
+
+msgid "Year"
+msgstr "Year"
+
+msgid "Requests"
+msgstr "Requests"
+
+msgid "Tokens"
+msgstr "Tokens"
+
+msgid "Errors"
+msgstr "Errors"
+
+msgid "RPS"
+msgstr "RPS"
+
+msgid "TPS"
+msgstr "TPS"
+
+msgid "Err Rate"
+msgstr "Err Rate"
+
+msgid "Active Sessions"
+msgstr "Active Sessions"
+
+msgid "Slow Requests"
+msgstr "Slow Requests"
+
+msgid "Provider Usage"
+msgstr "Provider Usage"
+
+msgid "API Key Usage"
+msgstr "API Key Usage"
+
+msgid "Request Trend"
+msgstr "Request Trend"
+
+msgid "No data"
+msgstr "No data"
+
+msgid "No active sessions"
+msgstr "No active sessions"
+
+msgid "No slow requests"
+msgstr "No slow requests"
+
+msgid "req"
+msgstr "req"
+
+msgid "pending"
+msgstr "pending"
+
+msgid "{seconds}s elapsed"
+msgstr "{seconds}s elapsed"
+
+msgid "{label} on right axis"
+msgstr "{label} on right axis"
+
+msgid "Dark Mode"
+msgstr "Dark Mode"
+
+msgid "This Week"
+msgstr "This Week"
+
+msgid "This Month"
+msgstr "This Month"
+
+msgid "This Year"
+msgstr "This Year"
+
+msgid "Total Requests"
+msgstr "Total Requests"
+
+msgid "Total Tokens"
+msgstr "Total Tokens"
+
+msgid "Req/sec"
+msgstr "Req/sec"
+
+msgid "Tokens/sec"
+msgstr "Tokens/sec"
+
+msgid "Error Rate"
+msgstr "Error Rate"
+
+msgid "Slow Requests (>60s)"
+msgstr "Slow Requests (>60s)"
+
+msgid "Login"
+msgstr "Login"
+
+msgid "API Proxy Login"
+msgstr "API Proxy Login"
+
+msgid "Username"
+msgstr "Username"
+
+msgid "Enter username"
+msgstr "Enter username"
+
+msgid "Password"
+msgstr "Password"
+
+msgid "Enter admin password"
+msgstr "Enter admin password"
+
+msgid "Sign In"
+msgstr "Sign In"
+
+msgid "Signing in..."
+msgstr "Signing in..."
+
+msgid "Login failed"
+msgstr "Login failed"
+
+msgid "Network error"
+msgstr "Network error"
+
+msgid "Config"
+msgstr "Config"
+
+msgid "Provider & Model Configuration"
+msgstr "Provider & Model Configuration"
+
+msgid "Providers"
+msgstr "Providers"
+
+msgid "+ Add"
+msgstr "+ Add"
+
+msgid "Models"
+msgstr "Models"
+
+msgid "Sync"
+msgstr "Sync"
+
+msgid "Provider-Model Bindings"
+msgstr "Provider-Model Bindings"
+
+msgid "Sync from API"
+msgstr "Sync from API"
+
+msgid "Select a provider to view bindings"
+msgstr "Select a provider to view bindings"
+
+msgid "Add Provider"
+msgstr "Add Provider"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Base URL"
+msgstr "Base URL"
+
+msgid "API Key"
+msgstr "API Key"
+
+msgid "Active"
+msgstr "Active"
+
+msgid "Merge consecutive same-role messages"
+msgstr "Merge consecutive same-role messages"
+
+msgid "For providers like MiniMax requiring role alternation"
+msgstr "For providers like MiniMax requiring role alternation"
+
+msgid "Save"
+msgstr "Save"
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "Add Model"
+msgstr "Add Model"
+
+msgid "Model Name (ID)"
+msgstr "Model Name (ID)"
+
+msgid "Display Name"
+msgstr "Display Name"
+
+msgid "Max Tokens"
+msgstr "Max Tokens"
+
+msgid "Multimodal"
+msgstr "Multimodal"
+
+msgid "Monitor"
+msgstr "Monitor"
+
+msgid "Statistics Monitor"
+msgstr "Statistics Monitor"
+
+msgid "Composition, concentration, hotspots, and trend behavior"
+msgstr "Composition, concentration, hotspots, and trend behavior"
+
+msgid "Day"
+msgstr "Day"
+
+msgid "Model Usage"
+msgstr "Model Usage"
+
+msgid "Traffic Concentration"
+msgstr "Traffic Concentration"
+
+msgid "Error Hotspots"
+msgstr "Error Hotspots"
+
+msgid "Active Footprint"
+msgstr "Active Footprint"
+
+msgid "Light Mode"
+msgstr "Light Mode"
+
+msgid "Others"
+msgstr "Others"
+
+msgid "tok"
+msgstr "tok"
+
+msgid "err"
+msgstr "err"
+
+msgid "API Keys"
+msgstr "API Keys"
+
+msgid "Provider"
+msgstr "Provider"
+
+msgid "Model"
+msgstr "Model"
+
+msgid "Top 1 share"
+msgstr "Top 1 share"
+
+msgid "Top 3 combined"
+msgstr "Top 3 combined"
+
+msgid "No hotspots"
+msgstr "No hotspots"
+
+msgid "Active Providers"
+msgstr "Active Providers"
+
+msgid "Active API Keys"
+msgstr "Active API Keys"
+
+msgid "Active Models"
+msgstr "Active Models"
+
+msgid "Top:"
+msgstr "Top:"
+
+msgid "No traffic"
+msgstr "No traffic"
+
+msgid "Requests / Errors"
+msgstr "Requests / Errors"
+
+msgid "Usage Guide"
+msgstr "Usage Guide"
+
+msgid "How to Configure API Clients"
+msgstr "How to Configure API Clients"
+
+msgid "Basic Information"
+msgstr "Basic Information"
+
+msgid "Proxy URL:"
+msgstr "Proxy URL:"
+
+msgid "API Endpoint:"
+msgstr "API Endpoint:"
+
+msgid "Auth Header:"
+msgstr "Auth Header:"
+
+msgid "Model Name Format"
+msgstr "Model Name Format"
+
+msgid "Use"
+msgstr "Use"
+
+msgid "format to specify provider:"
+msgstr "format to specify provider:"
+
+msgid "With Provider Prefix"
+msgstr "With Provider Prefix"
+
+msgid "Routes to Zhipu provider"
+msgstr "Routes to Zhipu provider"
+
+msgid "Without Prefix"
+msgstr "Without Prefix"
+
+msgid "Uses default provider"
+msgstr "Uses default provider"
+
+msgid "ChatGPT-Next-Web / LobeChat"
+msgstr "ChatGPT-Next-Web / LobeChat"
+
+msgid "Go to Settings and configure:"
+msgstr "Go to Settings and configure:"
+
+msgid "Python (OpenAI SDK)"
+msgstr "Python (OpenAI SDK)"
+
+msgid "Copy"
+msgstr "Copy"
+
+msgid "JavaScript / Node.js"
+msgstr "JavaScript / Node.js"
+
+msgid "cURL"
+msgstr "cURL"
+
+msgid "VS Code (Continue / Cline)"
+msgstr "VS Code (Continue / Cline)"
+
+msgid "Add to your config.json:"
+msgstr "Add to your config.json:"
+
+msgid "Tips"
+msgstr "Tips"
+
+msgid "Get your API key from"
+msgstr "Get your API key from"
+
+msgid "page"
+msgstr "page"
+
+msgid "Check available models in"
+msgstr "Check available models in"
+
+msgid "Monitor usage in"
+msgstr "Monitor usage in"
+
+msgid "Each provider has its own concurrency limit"
+msgstr "Each provider has its own concurrency limit"
+
+msgid "Copied!"
+msgstr "Copied!"
+
+msgid "Add API Key"
+msgstr "Add API Key"
+
+msgid "Search by name or key..."
+msgstr "Search by name or key..."
+
+msgid "keys"
+msgstr "keys"
+
+msgid "e.g., Project A"
+msgstr "e.g., Project A"
+
+msgid "Allowed Models"
+msgstr "Allowed Models"
+
+msgid "selected"
+msgstr "selected"
+
+msgid "Leave empty to allow all models"
+msgstr "Leave empty to allow all models"
+
+msgid "API Key and usage instructions copied!"
+msgstr "API Key and usage instructions copied!"
+
+msgid "Usage Instructions:"
+msgstr "Usage Instructions:"
+
+msgid "Paste the API Key above to log in on the page"
+msgstr "Paste the API Key above to log in on the page"
+
+msgid "Configure OpenCode:"
+msgstr "Configure OpenCode:"
+
+msgid "Let the agent read the configuration document:"
+msgstr "Let the agent read the configuration document:"
+
+msgid "Edit API Key"
+msgstr "Edit API Key"
+
+msgid "All models"
+msgstr "All models"
+
+msgid "No API keys found"
+msgstr "No API keys found"
+
+msgid "Previous"
+msgstr "Previous"
+
+msgid "Next"
+msgstr "Next"
+
+msgid "No models available. Add providers and models in Config first."
+msgstr "No models available. Add providers and models in Config first."
+
+msgid "API Key created:"
+msgstr "API Key created:"
+
+msgid "Please save this key!"
+msgstr "Please save this key!"
+
+msgid "Failed to save API key"
+msgstr "Failed to save API key"
+
+msgid "Delete this API key?"
+msgstr "Delete this API key?"
+
+msgid "Edit"
+msgstr "Edit"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "Query"
+msgstr "Query"
+
+msgid "User Page:"
+msgstr "User Page:"
+
+msgid "Setup Doc:"
+msgstr "Setup Doc:"
+
+msgid "OpenCode Setup"
+msgstr "OpenCode Setup"
+
+msgid "API Key Login"
+msgstr "API Key Login"
+
+msgid "Remember API Key"
+msgstr "Remember API Key"
+
+msgid "Enter your API Key to view usage statistics"
+msgstr "Enter your API Key to view usage statistics"
+
+msgid "API Key Dashboard"
+msgstr "API Key Dashboard"
+
+msgid "Logout"
+msgstr "Logout"
+
+msgid "Statistics"
+msgstr "Statistics"
+
+msgid "OpenCode Config"
+msgstr "OpenCode Config"
+
+msgid "Models Used"
+msgstr "Models Used"
+
+msgid "Active Sessions (Last 1 Minute)"
+msgstr "Active Sessions (Last 1 Minute)"
+
+msgid "active"
+msgstr "active"
+
+msgid "System Active Requests (Last 1 Minute)"
+msgstr "System Active Requests (Last 1 Minute)"
+
+msgid "Anonymized across all API keys. Your own traffic is labeled as Yourself."
+msgstr "Anonymized across all API keys. Your own traffic is labeled as Yourself."
+
+msgid "Requests / Tokens / Errors"
+msgstr "Requests / Tokens / Errors"
+
+msgid "Your API key"
+msgstr "Your API key"
+
+msgid "System Model Usage"
+msgstr "System Model Usage"
+
+msgid "All API keys"
+msgstr "All API keys"
+
+msgid "Platform Providers & Models"
+msgstr "Platform Providers & Models"
+
+msgid "providers"
+msgstr "providers"
+
+msgid "models"
+msgstr "models"
+
+msgid "Loading catalog..."
+msgstr "Loading catalog..."
+
+msgid "Your Access"
+msgstr "Your Access"
+
+msgid "Models available to this API key."
+msgstr "Models available to this API key."
+
+msgid "Loading access..."
+msgstr "Loading access..."
+
+msgid "OpenCode Configuration"
+msgstr "OpenCode Configuration"
+
+msgid "Generate opencode.json config for this proxy"
+msgstr "Generate opencode.json config for this proxy"
+
+msgid "Available Models"
+msgstr "Available Models"
+
+msgid "How to use"
+msgstr "How to use"
+
+msgid "Copy the generated <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code>"
+msgstr "Copy the generated <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code>"
+
+msgid "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code> in your project root"
+msgstr "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code> in your project root"
+
+msgid "Paste the configuration and save"
+msgstr "Paste the configuration and save"
+
+msgid "OpenCode will now use this proxy for API requests"
+msgstr "OpenCode will now use this proxy for API requests"
+
+msgid "Proxy URL"
+msgstr "Proxy URL"
+
+msgid "API Endpoint"
+msgstr "API Endpoint"
+
+msgid "Auth Header"
+msgstr "Auth Header"
+
+msgid "Use <code class=\"bg-white px-2 py-1 rounded\">provider/model</code> format"
+msgstr "Use <code class=\"bg-white px-2 py-1 rounded\">provider/model</code> format"
+
+msgid "With Provider"
+msgstr "With Provider"
+
+msgid "JavaScript"
+msgstr "JavaScript"
+
+msgid "Home"
+msgstr "Home"
+
+msgid "Enter your API Key to generate config"
+msgstr "Enter your API Key to generate config"
+
+msgid "Generate"
+msgstr "Generate"
+
+msgid "Enter your API Key and click Generate"
+msgstr "Enter your API Key and click Generate"
+
+msgid "Copy the generated"
+msgstr "Copy the generated"
+
+msgid "Create"
+msgstr "Create"
+
+msgid "in your project root"
+msgstr "in your project root"
+
+msgid "Recent Requests"
+msgstr "Recent Requests"
+
+msgid "Refresh"
+msgstr "Refresh"
+
