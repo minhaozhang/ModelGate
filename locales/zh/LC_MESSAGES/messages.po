@@ -672,3 +672,36 @@ msgstr "小时"
 
 msgid "{count} samples"
 msgstr "{count} 个样本"
+
+msgid "Hourly P95 response time by model"
+msgstr "按小时统计的模型 P95 响应时间"
+
+msgid "Hourly response time range by model"
+msgstr "按小时统计的模型响应时间区间"
+
+msgid "Response time heatmap by model and hour"
+msgstr "按模型与小时展示的响应时间热力图"
+
+msgid "Average"
+msgstr "平均值"
+
+msgid "P95"
+msgstr "P95"
+
+msgid "Range"
+msgstr "区间"
+
+msgid "Heatmap"
+msgstr "热力图"
+
+msgid "Min"
+msgstr "最小值"
+
+msgid "Max"
+msgstr "最大值"
+
+msgid "Avg"
+msgstr "均值"
+
+msgid "No heatmap data"
+msgstr "暂无热力图数据"

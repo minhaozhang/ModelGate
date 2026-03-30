@@ -672,3 +672,36 @@ msgstr "Hour of day"
 msgid "{count} samples"
 msgstr "{count} samples"
 
+msgid "Hourly P95 response time by model"
+msgstr "Hourly P95 response time by model"
+
+msgid "Hourly response time range by model"
+msgstr "Hourly response time range by model"
+
+msgid "Response time heatmap by model and hour"
+msgstr "Response time heatmap by model and hour"
+
+msgid "Average"
+msgstr "Average"
+
+msgid "P95"
+msgstr "P95"
+
+msgid "Range"
+msgstr "Range"
+
+msgid "Heatmap"
+msgstr "Heatmap"
+
+msgid "Min"
+msgstr "Min"
+
+msgid "Max"
+msgstr "Max"
+
+msgid "Avg"
+msgstr "Avg"
+
+msgid "No heatmap data"
+msgstr "No heatmap data"
+

@@ -608,7 +608,10 @@ async def get_monitor_details(
         if top_models:
             latency_series = {
                 model: {
-                    "latency_ms": [None] * 24,
+                    "avg_latency_ms": [None] * 24,
+                    "p95_latency_ms": [None] * 24,
+                    "min_latency_ms": [None] * 24,
+                    "max_latency_ms": [None] * 24,
                     "samples": [0] * 24,
                 }
                 for model in top_models
@@ -618,6 +621,11 @@ async def get_monitor_details(
                     RequestLog.model,
                     func.extract("hour", RequestLog.created_at).label("hour_of_day"),
                     func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                    func.percentile_cont(0.95)
+                    .within_group(RequestLog.latency_ms)
+                    .label("p95_latency_ms"),
+                    func.min(RequestLog.latency_ms).label("min_latency_ms"),
+                    func.max(RequestLog.latency_ms).label("max_latency_ms"),
                     func.count(RequestLog.id).label("samples"),
                 )
                 .where(
@@ -636,8 +644,17 @@ async def get_monitor_details(
                 hour_of_day = int(row.hour_of_day or 0)
                 if hour_of_day < 0 or hour_of_day > 23:
                     continue
-                latency_series[model_name]["latency_ms"][hour_of_day] = round(
+                latency_series[model_name]["avg_latency_ms"][hour_of_day] = round(
                     row.avg_latency_ms or 0, 1
+                )
+                latency_series[model_name]["p95_latency_ms"][hour_of_day] = round(
+                    row.p95_latency_ms or 0, 1
+                )
+                latency_series[model_name]["min_latency_ms"][hour_of_day] = round(
+                    row.min_latency_ms or 0, 1
+                )
+                latency_series[model_name]["max_latency_ms"][hour_of_day] = round(
+                    row.max_latency_ms or 0, 1
                 )
                 latency_series[model_name]["samples"][hour_of_day] = int(
                     row.samples or 0
