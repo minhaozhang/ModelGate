@@ -337,7 +337,7 @@
         loadData();
         setInterval(loadData, 10000);
         loadActiveSessions();
-        setInterval(loadActiveSessions, 60000);
+        setInterval(loadActiveSessions, 10000);
 
         async function loadActiveSessions() {
             const data = await fetchJsonOrRedirect('/admin/api/stats/active');
@@ -348,7 +348,9 @@
                 return;
             }
 
-            const html = Object.entries(data.sessions).map(([name, session]) => {
+            const html = Object.entries(data.sessions)
+                .sort((a, b) => new Date(b[1].last_activity || 0) - new Date(a[1].last_activity || 0))
+                .map(([name, session]) => {
                 const modelsHtml = Object.entries(session.models).map(([model, count]) =>
                     `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">${model} (${count})</span>`
                 ).join(' ');

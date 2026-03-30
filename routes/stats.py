@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional, Literal
 from fastapi import APIRouter, Cookie, Depends, HTTPException
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 
 from core.database import (
     async_session_maker,
@@ -678,10 +678,17 @@ async def reaggregate_all_stats(_: bool = Depends(require_admin)):
 
 @router.get("/stats/active")
 async def get_active_sessions(_: bool = Depends(require_admin)):
-    cutoff = get_local_now() - timedelta(minutes=1)
+    recent_cutoff = get_local_now() - timedelta(seconds=30)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(RequestLog.created_at >= cutoff)
+            select(RequestLog)
+            .where(
+                or_(
+                    RequestLog.status == "pending",
+                    RequestLog.created_at >= recent_cutoff,
+                )
+            )
+            .order_by(RequestLog.created_at.desc())
         )
         logs = result.scalars().all()
 
@@ -715,18 +722,33 @@ async def get_active_sessions(_: bool = Depends(require_admin)):
                     active_sessions[key_name]["models"][log.model] = 0
                 active_sessions[key_name]["models"][log.model] += 1
 
+        ordered_sessions = dict(
+            sorted(
+                active_sessions.items(),
+                key=lambda item: item[1]["last_activity"],
+                reverse=True,
+            )
+        )
+
         return {
-            "active_count": len(active_sessions),
-            "sessions": active_sessions,
+            "active_count": len(ordered_sessions),
+            "sessions": ordered_sessions,
         }
 
 
 @router.get("/stats/active/models")
 async def get_active_sessions_by_model(_: bool = Depends(require_admin)):
-    cutoff = get_local_now() - timedelta(minutes=1)
+    recent_cutoff = get_local_now() - timedelta(seconds=30)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(RequestLog.created_at >= cutoff)
+            select(RequestLog)
+            .where(
+                or_(
+                    RequestLog.status == "pending",
+                    RequestLog.created_at >= recent_cutoff,
+                )
+            )
+            .order_by(RequestLog.created_at.desc())
         )
         logs = result.scalars().all()
 
@@ -746,9 +768,17 @@ async def get_active_sessions_by_model(_: bool = Depends(require_admin)):
             if log.created_at.isoformat() > model_sessions[model]["last_activity"]:
                 model_sessions[model]["last_activity"] = log.created_at.isoformat()
 
+        ordered_sessions = dict(
+            sorted(
+                model_sessions.items(),
+                key=lambda item: item[1]["last_activity"],
+                reverse=True,
+            )
+        )
+
         return {
-            "active_count": len(model_sessions),
-            "sessions": model_sessions,
+            "active_count": len(ordered_sessions),
+            "sessions": ordered_sessions,
         }
 
 

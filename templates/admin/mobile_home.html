@@ -368,7 +368,9 @@
                     document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noActiveSessions}</div>`;
                     return;
                 }
-                const html = Object.entries(sessions).map(([keyName, session]) => {
+                const html = Object.entries(sessions)
+                    .sort((a, b) => new Date(b[1].last_activity || 0) - new Date(a[1].last_activity || 0))
+                    .map(([keyName, session]) => {
                     const models = Object.entries(session.models || {})
                         .sort((a, b) => b[1] - a[1])
                         .map(([m, c]) => `<span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded">${m} (${c})</span>`)
@@ -440,7 +442,7 @@
 
         setInterval(loadData, 10000);
         setInterval(loadRealtimeStats, 10000);
-        setInterval(loadActiveSessions, 60000);
+        setInterval(loadActiveSessions, 10000);
         setInterval(loadSlowRequests, 5000);
     </script>
 </body>

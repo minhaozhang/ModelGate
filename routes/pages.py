@@ -3,7 +3,7 @@ from fastapi import APIRouter, Cookie, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 
-from core.config import validate_session
+from core.config import admin_users, validate_session
 from core.database import async_session_maker, ApiKey
 from core.i18n import render
 
@@ -75,7 +75,14 @@ async def monitor_page(request: Request, session: Optional[str] = Cookie(None)):
 async def mobile_login_page(request: Request, session: Optional[str] = Cookie(None)):
     if _check_auth(session):
         return RedirectResponse(url="/admin/m")
-    return HTMLResponse(content=render(request, "admin/mobile_login.html"))
+    default_username = next(iter(admin_users.keys())) if len(admin_users) == 1 else ""
+    return HTMLResponse(
+        content=render(
+            request,
+            "admin/mobile_login.html",
+            default_username=default_username,
+        )
+    )
 
 
 @router.get("/m", response_class=HTMLResponse)

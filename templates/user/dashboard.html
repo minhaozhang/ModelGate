@@ -15,18 +15,69 @@
         body.theme-dark .bg-white { background: #0f172a !important; }
         body.theme-dark .bg-gray-50 { background: #111827 !important; }
         body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .bg-blue-50 { background: rgba(37, 99, 235, 0.12) !important; }
+        body.theme-dark .bg-blue-100 { background: rgba(59, 130, 246, 0.18) !important; }
+        body.theme-dark .bg-emerald-50 { background: rgba(16, 185, 129, 0.12) !important; }
+        body.theme-dark .bg-emerald-100 { background: rgba(16, 185, 129, 0.18) !important; }
+        body.theme-dark .from-blue-50,
+        body.theme-dark .to-cyan-50,
+        body.theme-dark .from-emerald-50,
+        body.theme-dark .to-teal-50 { background-image: none !important; }
         body.theme-dark .text-gray-800 { color: #f8fafc !important; }
         body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
         body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
         body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
         body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .text-blue-900 { color: #dbeafe !important; }
         body.theme-dark .border,
-        body.theme-dark .border-b { border-color: #1f2937 !important; }
+        body.theme-dark .border-b,
+        body.theme-dark .border-blue-200,
+        body.theme-dark .border-gray-200,
+        body.theme-dark .border-slate-200,
+        body.theme-dark .border-emerald-200 { border-color: #243244 !important; }
         body.theme-dark select,
         body.theme-dark button:not(.bg-red-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
         body.theme-dark .shadow,
         body.theme-dark .shadow-sm { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
         body.theme-dark .tab-btn.active { border-bottom-color: #60a5fa; color: #60a5fa !important; }
+        body.theme-dark .bg-white.rounded,
+        body.theme-dark .bg-white.rounded-lg,
+        body.theme-dark .bg-white.rounded-xl,
+        body.theme-dark .bg-white.rounded-2xl,
+        body.theme-dark .bg-gray-50.rounded,
+        body.theme-dark .bg-gray-50.rounded-lg,
+        body.theme-dark .bg-gray-50.rounded-xl,
+        body.theme-dark .bg-gray-50.rounded-2xl,
+        body.theme-dark .bg-blue-50.rounded-lg,
+        body.theme-dark .bg-blue-50.rounded-2xl {
+            border: 1px solid rgba(71, 85, 105, 0.55) !important;
+            box-shadow:
+                0 18px 36px rgba(2, 6, 23, 0.34),
+                inset 0 1px 0 rgba(148, 163, 184, 0.08) !important;
+        }
+        body.theme-dark .tab-content > .bg-gray-50.rounded-lg,
+        body.theme-dark .tab-content > .bg-white.rounded-lg,
+        body.theme-dark .tab-content > .grid .bg-gray-50.rounded-lg,
+        body.theme-dark .tab-content > .grid .bg-white.rounded-lg {
+            background-image: linear-gradient(180deg, rgba(148, 163, 184, 0.04), transparent 28%) !important;
+        }
+        body.theme-dark .bg-white.p-3.rounded,
+        body.theme-dark .bg-white.p-3.rounded-lg,
+        body.theme-dark .bg-white.p-4.rounded,
+        body.theme-dark .bg-white.p-4.rounded-lg,
+        body.theme-dark .bg-gray-50.p-3.rounded,
+        body.theme-dark .bg-gray-50.p-3.rounded-lg {
+            border-color: rgba(71, 85, 105, 0.5) !important;
+        }
+        body.theme-dark code.bg-white,
+        body.theme-dark .bg-white.px-2,
+        body.theme-dark .bg-white.p-3:not(.rounded-2xl) {
+            background: #111827 !important;
+        }
+        body.theme-dark pre {
+            border: 1px solid rgba(71, 85, 105, 0.6);
+            box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
