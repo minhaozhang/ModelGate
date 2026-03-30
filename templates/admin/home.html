@@ -391,11 +391,12 @@
             let html = '';
             pending.forEach(req => {
                 const startTime = req.start_time ? new Date(req.start_time).toLocaleTimeString() : '';
+                const maskedKeyName = maskName(req.key_name || 'N/A');
                 html += `
                     <div class="flex justify-between items-center p-2 bg-orange-50 rounded border-l-4 border-orange-500 mb-2">
                         <div>
                             <div class="font-medium text-sm">${req.provider} / ${req.model}</div>
-                            <div class="text-xs text-gray-500">${startTime} | ${req.key_name}</div>
+                            <div class="text-xs text-gray-500 cursor-default" title="${req.key_name || 'N/A'}">${startTime} | ${maskedKeyName}</div>
                         </div>
                         <div class="text-right">
                             <div class="text-lg font-bold text-orange-600">${formatDuration(req.elapsed_seconds)}</div>
@@ -406,11 +407,12 @@
             completed.slice(0, 5).forEach(req => {
                 const statusClass = req.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
                 const createdAt = req.created_at ? new Date(req.created_at).toLocaleTimeString() : '';
+                const maskedKeyName = maskName(req.key_name || 'N/A');
                 html += `
                     <div class="flex justify-between items-center p-2 bg-gray-50 rounded mb-2">
                         <div>
                             <div class="font-medium text-sm">${req.provider || 'N/A'} / ${req.model}</div>
-                            <div class="text-xs text-gray-500">${createdAt} | ${req.key_name || 'N/A'}</div>
+                            <div class="text-xs text-gray-500 cursor-default" title="${req.key_name || 'N/A'}">${createdAt} | ${maskedKeyName}</div>
                         </div>
                         <div class="text-right">
                             <div class="text-sm font-bold text-orange-600">${formatDuration(req.latency_ms / 1000)}</div>

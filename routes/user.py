@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 
 from core.config import logger
 from core.database import async_session_maker, ApiKey, RequestLog
@@ -14,6 +14,7 @@ from core.i18n import render
 
 router = APIRouter(tags=["user"])
 ERROR_STATUSES = ("error", "timeout")
+ACTIVE_WINDOW_SECONDS = 30
 
 USER_SESSIONS: dict[str, dict] = {}
 USER_SESSION_EXPIRE_HOURS = 24
@@ -230,13 +231,18 @@ async def get_user_active_sessions(api_key_id: int = Depends(get_user_session)):
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    cutoff = datetime.now() - timedelta(minutes=1)
+    cutoff = get_local_now() - timedelta(seconds=ACTIVE_WINDOW_SECONDS)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(
+            select(RequestLog)
+            .where(
                 RequestLog.api_key_id == api_key_id,
-                RequestLog.created_at >= cutoff,
+                or_(
+                    RequestLog.status == "pending",
+                    RequestLog.created_at >= cutoff,
+                ),
             )
+            .order_by(RequestLog.created_at.desc())
         )
         logs = result.scalars().all()
 
@@ -247,13 +253,26 @@ async def get_user_active_sessions(api_key_id: int = Depends(get_user_session)):
 
             model = log.model
             if model not in model_sessions:
-                model_sessions[model] = {"requests": 0}
+                model_sessions[model] = {
+                    "requests": 0,
+                    "last_activity": log.created_at.isoformat(),
+                }
 
             model_sessions[model]["requests"] += 1
+            if log.created_at.isoformat() > model_sessions[model]["last_activity"]:
+                model_sessions[model]["last_activity"] = log.created_at.isoformat()
+
+        ordered_sessions = dict(
+            sorted(
+                model_sessions.items(),
+                key=lambda item: item[1]["last_activity"],
+                reverse=True,
+            )
+        )
 
         return {
-            "active_count": len(model_sessions),
-            "sessions": model_sessions,
+            "active_count": len(ordered_sessions),
+            "sessions": ordered_sessions,
         }
 
 
@@ -303,10 +322,17 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    cutoff = datetime.now() - timedelta(minutes=1)
+    cutoff = get_local_now() - timedelta(seconds=ACTIVE_WINDOW_SECONDS)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog).where(RequestLog.created_at >= cutoff)
+            select(RequestLog)
+            .where(
+                or_(
+                    RequestLog.status == "pending",
+                    RequestLog.created_at >= cutoff,
+                )
+            )
+            .order_by(RequestLog.created_at.desc())
         )
         logs = result.scalars().all()
 
@@ -314,8 +340,14 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
     for log in logs:
         key = log.api_key_id
         if key not in grouped:
-            grouped[key] = {"requests": 0, "models": {}}
+            grouped[key] = {
+                "requests": 0,
+                "models": {},
+                "last_activity": log.created_at.isoformat(),
+            }
         grouped[key]["requests"] += 1
+        if log.created_at.isoformat() > grouped[key]["last_activity"]:
+            grouped[key]["last_activity"] = log.created_at.isoformat()
         if log.model:
             grouped[key]["models"][log.model] = (
                 grouped[key]["models"].get(log.model, 0) + 1
@@ -344,11 +376,17 @@ async def get_system_active_sessions(api_key_id: int = Depends(get_user_session)
                 "is_self": is_self,
                 "requests": stats["requests"],
                 "models": stats["models"],
+                "last_activity": stats["last_activity"],
             }
         )
 
     sessions.sort(
-        key=lambda item: (not item["is_self"], -item["requests"], item["name"])
+        key=lambda item: (
+            -datetime.fromisoformat(item["last_activity"]).timestamp(),
+            not item["is_self"],
+            -item["requests"],
+            item["name"],
+        )
     )
     return {
         "active_count": len(sessions),
