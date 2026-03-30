@@ -694,7 +694,7 @@ async def get_monitor_details(
     )[:6]
     timeout_hotspots = sorted(
         [item for item in all_entries if item["requests"] >= 3 and item["timeouts"] > 0],
-        key=lambda item: (item["timeout_rate"], item["timeouts"], item["requests"]),
+        key=lambda item: (item["timeouts"], item["timeout_rate"], item["requests"]),
         reverse=True,
     )[:6]
 
