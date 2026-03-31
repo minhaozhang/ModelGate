@@ -1,163 +1,67 @@
 # ModelGate
 
-ModelGate is a FastAPI-based LLM gateway for provider routing, API key control, and usage monitoring.
+<p align="center">
+  <img src="assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
+</p>
 
-Repository / image compatibility notes:
+ModelGate is a FastAPI-based LLM gateway for provider routing, API key control, request logging, and dashboard monitoring.
 
-- Repository directory: `modelgate/`
-- Docker image tag: `modelgate`
-- Product name / dashboard name: `ModelGate`
+## Highlights
 
-## Features
+- Multi-provider routing for Zhipu, DeepSeek, Ollama, Minimax, and OpenAI-compatible APIs
+- OpenAI-compatible proxy endpoints such as `/v1/chat/completions` and `/v1/models`
+- Per-provider concurrency limits with semaphore-based rate control
+- API key management with per-key model access rules
+- Streaming request tracking with `pending`, `success`, `error`, and `timeout` states
+- Upstream status code logging for provider responses such as `200`, `429`, and `500`
+- Admin dashboards for operations, monitoring, API key management, and usage guidance
+- User dashboard with recommendations, system health score, trend charts, and model usage stats
+- English / Chinese i18n support
+- Desktop and mobile admin experiences
 
-- **Multi-Provider Support**: Zhipu, DeepSeek, Ollama, Minimax, and any OpenAI-compatible API
-- **Rate Limiting**: Per-provider concurrency control via semaphores
-- **API Key Management**: Per-key model access control
-- **Streaming Support**: Real-time streaming responses with token estimation and SSE normalization
-- **Web Dashboard**: Monitor usage, manage providers, models, and API keys (admin + mobile)
-- **User Portal**: API key holders can view their own usage statistics
-- **OpenCode Config**: Generate configuration for AI coding assistants
-- **Real-time Stats**: 10-second sliding window for requests/token rates
-- **Request Logging**: Pending status for streaming, timeout detection for stale requests
-- **i18n Support**: English/Chinese bilingual UI with Jinja2 + Babel
- language switcher
-- **Dark Mode**: Admin dashboard dark/light theme toggle
-- **Thinking Model Config**: Per-model thinking settings with configurable budget tokens
-- **Modular Architecture**: Services split into provider, auth, logging, tokens, message, sse, minimax
- streaming
-- **Mobile Responsive**: Separate mobile admin dashboard with auto-redirect
+## Screenshots
 
-- **Usage Guide**: Built-in API client configuration guide (ChatGPT-Next-Web, Python, cURL, VS Code)
+### Admin Dashboard
 
+![Admin Dashboard](image/admin-dashboard.png)
 
+### Admin Monitor
+
+![Admin Monitor](image/admin-monitor.png)
+
+### User Dashboard
+
+![User Dashboard](image/user-dashboard.png)
 
 ## Quick Start
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Run the server
 python main.py
-
-# Server: http://localhost:8765
-# Dashboard: http://localhost:8765/admin/home
 ```
 
-Windows: Use `start.bat` (auto-kills existing process on port 8765)
+Default local addresses:
 
-## Configuration
+- Server: `http://localhost:8765`
+- Admin: `http://localhost:8765/admin/home`
+- User portal: `http://localhost:8765/user/login`
 
-### Environment Variables
+Windows helper:
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `PORT` | No | Server port (default: 8765) |
-| `ADMIN_USERS` | Yes | Admin accounts, format: `user:pass,user:pass` |
-| `LOG_LEVEL` | No | Log level: DEBUG, INFO (default), WARNING, ERROR |
+- `start.bat` will prompt for log level and restart the service on port `8765`
 
-### Database Setup
+## Docker
 
-```sql
-CREATE USER "modelgate" WITH PASSWORD 'your_password';
-CREATE DATABASE "modelgate" OWNER "modelgate";
-```
-
-See `schema.sql` for full schema.
-
-## API Endpoints
-
-### Proxy (OpenAI Compatible)
-
-- `POST /v1/chat/completions` - Chat completions
-- `POST /v1/embeddings` - Embeddings
-- `GET /v1/models` - List available models
-
-### Model Format
-
-Use `provider/model` format to specify provider:
-
-```
-zhipu/glm-4      # Routes to Zhipu provider
-deepseek/chat    # Routes to DeepSeek provider
-glm-4            # Uses default provider
-```
-
-## Dashboard
-
-Access the ModelGate admin dashboard at `/admin/home` after login:
-
-- **Home**: Overview with charts and real-time statistics
-- **Config**: Manage providers and models
-- **API Keys**: Create and manage API keys with model restrictions
-- **Monitor**: Real-time request logs, slow request detection
-
-## User Portal
-
-API key holders can access their usage at `/user/login`:
-
-- View request statistics
-- See token consumption
-- Monitor model usage
-- Get OpenCode configuration
-
-## Rate Limiting
-
-Each provider has a `max_concurrent` setting (default: 3):
-
-- Requests acquire a semaphore slot before proxying
-- When limit reached, returns HTTP 429 error
-- Non-streaming: release after response
-- Streaming: release when stream completes
-
-## Project Structure
-
-```
-modelgate/
-├── main.py                  # FastAPI app, exception handlers
-├── core/
-│   ├── config.py            # Global state, caches, logging
-│   ├── database.py          # SQLAlchemy models
-│   └── i18n.py              # Jinja2 + Babel i18n renderer
-├── routes/                  # API endpoints
-│   ├── proxy.py             # /v1/chat/completions proxy handler
-│   ├── pages.py             # Admin/user page routes
-│   ├── providers.py         # Provider CRUD
-│   ├── keys.py              # API Key CRUD
-│   ├── stats.py             # Statistics endpoints
-│   ├── logs.py              # Request log queries
-│   ├── user.py              # User portal APIs
-│   └── opencode.py          # OpenCode config generator
-├── services/                # Business logic
-│   ├── proxy.py             # Core proxy orchestration
-│   ├── provider.py          # Provider loading & config
-│   ├── auth.py              # API key validation
-│   ├── logging.py           # Request logging
-│   ├── tokens.py            # Token estimation & tracking
-│   ├── message.py           # Message preprocessing
-│   ├── minimax.py            # Minimax streaming processor
-│   └── sse.py                # SSE stream normalization
-├── templates/               # Jinja2 HTML templates
-│   ├── admin/                # Admin dashboard pages
-│   ├── user/                # User portal pages
-│   ├── public/              # Public pages (opencode, query)
-│   └── components/          # Shared nav, language switcher
-├── locales/                 # Translation files
-│   ├── en/LC_MESSAGES/      # English translations
-│   └── zh/LC_MESSAGES/      # Chinese translations
-└── logs/                    # Rotating log files
-```
-
-## Docker Deployment
+Build and push to the local registry used in this project:
 
 ```bash
-# Build and push to local registry
 docker build -t localhost:5002/modelgate:latest .
 docker push localhost:5002/modelgate:latest
+```
 
-# Run on production server
-docker pull <REGISTRY_IP>:5005/modelgate:latest
+Run a container:
+
+```bash
 docker run -d --name modelgate \
   -p 8765:8765 \
   -e DATABASE_URL="postgresql+asyncpg://modelgate:password@host:5432/modelgate" \
@@ -165,8 +69,119 @@ docker run -d --name modelgate \
   -e ADMIN_USERS="admin:YourPassword" \
   -v /opt/modelgate/logs:/app/logs \
   --restart unless-stopped \
-  <REGISTRY_IP>:5005/modelgate:latest
+  localhost:5002/modelgate:latest
 ```
+
+More deployment details are in [DEPLOY.md](DEPLOY.md).
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `PORT` | No | Service port, default `8765` |
+| `ADMIN_USERS` | Recommended | Admin accounts in `user:pass,user:pass` format |
+| `ADMIN_USERNAME` | Optional | Fallback admin username when `ADMIN_USERS` is not set |
+| `ADMIN_PASSWORD` | Optional | Fallback admin password when `ADMIN_USERS` is not set |
+| `LOG_LEVEL` | No | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+
+## Database
+
+Bootstrap example:
+
+```sql
+CREATE USER "modelgate" WITH PASSWORD 'your_password';
+CREATE DATABASE "modelgate" OWNER "modelgate";
+```
+
+Schema file:
+
+- [`schema.sql`](schema.sql)
+
+The app also performs some runtime compatibility migrations during startup, such as adding newly introduced columns to `request_logs`.
+
+## API
+
+### OpenAI-compatible endpoints
+
+- `POST /v1/chat/completions`
+- `POST /v1/embeddings`
+- `GET /v1/models`
+
+### Model naming
+
+Preferred format:
+
+```text
+provider/model
+```
+
+Examples:
+
+```text
+zhipu/glm-4
+deepseek/chat
+minimax/MiniMax-M2.5
+```
+
+## Dashboards
+
+### Admin
+
+After login, the main admin pages are:
+
+- `/admin/home`: overview, realtime stats, slow requests, trends
+- `/admin/config`: providers, models, bindings
+- `/admin/api-keys`: key management and model access assignment
+- `/admin/monitor`: composition, hotspots, response-time analysis
+- `/admin/usage`: client configuration examples
+
+### User
+
+API key holders can log in at `/user/login` and access:
+
+- Personal request and token statistics
+- Model recommendation chips
+- 20-minute system health score
+- Active session visibility
+- Request trends and model usage
+- OpenCode configuration output
+
+## Request Logging
+
+`request_logs` stores operational data such as:
+
+- API key, provider, model
+- tokens and latency
+- normalized request status
+- upstream provider HTTP status code
+- error details for failed requests
+
+Streaming requests are inserted as `pending` first and updated when they complete, fail, or time out.
+
+## Project Structure
+
+```text
+modelgate/
+├── main.py
+├── core/
+├── routes/
+├── services/
+├── templates/
+├── locales/
+├── image/
+├── assets/
+├── schema.sql
+├── Dockerfile
+└── DEPLOY.md
+```
+
+## Development Notes
+
+- Python 3.10+ style codebase
+- FastAPI + SQLAlchemy async + PostgreSQL
+- Babel is used for locale compilation
+- Logs are written to `logs/proxy.log`, `logs/admin.log`, and `logs/error.log`
 
 ## License
 

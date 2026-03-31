@@ -187,9 +187,13 @@ def get_period_range(
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         intervals = [
-            ((start + timedelta(hours=i)).strftime("%H:00")) for i in range(24)
+            ((start + timedelta(minutes=30 * i)).strftime("%H:%M")) for i in range(48)
         ]
-        format_func = lambda d: d.strftime("%H:00")
+        format_func = lambda d: d.replace(
+            minute=0 if d.minute < 30 else 30,
+            second=0,
+            microsecond=0,
+        ).strftime("%H:%M")
     elif period == "week":
         start = now - timedelta(days=now.weekday())
         start = start.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -608,7 +612,10 @@ async def get_monitor_details(
         if top_models:
             latency_series = {
                 model: {
-                    "latency_ms": [None] * 24,
+                    "avg_latency_ms": [None] * 24,
+                    "p95_latency_ms": [None] * 24,
+                    "min_latency_ms": [None] * 24,
+                    "max_latency_ms": [None] * 24,
                     "samples": [0] * 24,
                 }
                 for model in top_models
@@ -618,6 +625,11 @@ async def get_monitor_details(
                     RequestLog.model,
                     func.extract("hour", RequestLog.created_at).label("hour_of_day"),
                     func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                    func.percentile_cont(0.95)
+                    .within_group(RequestLog.latency_ms)
+                    .label("p95_latency_ms"),
+                    func.min(RequestLog.latency_ms).label("min_latency_ms"),
+                    func.max(RequestLog.latency_ms).label("max_latency_ms"),
                     func.count(RequestLog.id).label("samples"),
                 )
                 .where(
@@ -636,8 +648,17 @@ async def get_monitor_details(
                 hour_of_day = int(row.hour_of_day or 0)
                 if hour_of_day < 0 or hour_of_day > 23:
                     continue
-                latency_series[model_name]["latency_ms"][hour_of_day] = round(
+                latency_series[model_name]["avg_latency_ms"][hour_of_day] = round(
                     row.avg_latency_ms or 0, 1
+                )
+                latency_series[model_name]["p95_latency_ms"][hour_of_day] = round(
+                    row.p95_latency_ms or 0, 1
+                )
+                latency_series[model_name]["min_latency_ms"][hour_of_day] = round(
+                    row.min_latency_ms or 0, 1
+                )
+                latency_series[model_name]["max_latency_ms"][hour_of_day] = round(
+                    row.max_latency_ms or 0, 1
                 )
                 latency_series[model_name]["samples"][hour_of_day] = int(
                     row.samples or 0
@@ -694,7 +715,7 @@ async def get_monitor_details(
     )[:6]
     timeout_hotspots = sorted(
         [item for item in all_entries if item["requests"] >= 3 and item["timeouts"] > 0],
-        key=lambda item: (item["timeout_rate"], item["timeouts"], item["requests"]),
+        key=lambda item: (item["timeouts"], item["timeout_rate"], item["requests"]),
         reverse=True,
     )[:6]
 

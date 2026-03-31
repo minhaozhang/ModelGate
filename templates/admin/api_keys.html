@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>{{ _('API Keys') }} - ModelGate</title>
+    <link rel="icon" href="/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .nav-link { transition: all 0.2s; }
@@ -68,20 +69,15 @@
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% set active_page = 'api-keys' %}
         {% include 'components/nav.html' %}
         
         <main class="ml-56 flex-1 p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">{{ _('API Keys') }}</h2>
-                <div class="flex items-center gap-3">
-                    <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
-                        {{ _('Dark Mode') }}
-                    </button>
-                    <button onclick="showAddApiKey()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Add API Key') }}</button>
-                </div>
-            </div>
+            {% call admin_page_header(_('API Keys')) %}
+            <button onclick="showAddApiKey()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Add API Key') }}</button>
+            {% endcall %}
             
             <div class="mb-4 flex items-center gap-4">
                 <div class="relative flex-1 max-w-md">
@@ -179,7 +175,7 @@
         }
 
         function getThemeMode() {
-            return localStorage.getItem('admin_theme') || 'light';
+            return localStorage.getItem('admin_theme') || 'dark';
         }
 
         function applyTheme(mode) {

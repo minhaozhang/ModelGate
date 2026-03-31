@@ -1,135 +1,67 @@
 # ModelGate
 
-基于 FastAPI 的 LLM API 代理服务器，支持多提供商管理、API Key 控制、用量监控和 Web 管理面板。
+<p align="center">
+  <img src="assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
+</p>
 
-## 功能特性
+ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、API Key 管控、请求日志、监控看板和用户仪表盘能力。
 
-- **多提供商支持**：智谱、DeepSeek、Ollama、Minimax 及任意 OpenAI 兼容 API
-- **并发限流**：基于信号量的提供商级并发控制
-- **API Key 管理**：支持按 Key 限制可访问的模型
-- **流式响应**：实时流式输出，支持 token 估算
-- **Web 管理面板**：用量监控、提供商/模型/API Key 管理
-- **用户门户**：API Key 持有者可查看自己的用量统计
-- **OpenCode 配置**：一键生成 AI 编程助手配置
-- **实时统计**：10 秒滑动窗口的每秒请求数/tokens 统计
-- **请求日志**：流式请求状态追踪，超时请求自动检测
+## 核心特性
+
+- 支持智谱、DeepSeek、Ollama、MiniMax 以及任意 OpenAI 兼容接口
+- 提供 OpenAI 兼容代理接口，如 `/v1/chat/completions`、`/v1/models`
+- 按供应商维度做并发控制和限流
+- 支持 API Key 管理及按 Key 分配可用模型
+- 流式请求会先记为 `pending`，完成后再更新为最终状态
+- 记录上游真实 HTTP 状态码，例如 `200`、`429`、`500`
+- 管理端支持总览、监控、配置、API Key 管理、使用指引
+- 用户端支持推荐模型、系统健康度、趋势图、模型使用分析
+- 支持中英文国际化
+- 提供桌面端和移动端管理界面
+
+## 界面截图
+
+### 管理首页
+
+![Admin Dashboard](image/admin-dashboard.png)
+
+### 监控页
+
+![Admin Monitor](image/admin-monitor.png)
+
+### 用户仪表盘
+
+![User Dashboard](image/user-dashboard.png)
 
 ## 快速开始
 
 ```bash
-# 安装依赖
 pip install -r requirements.txt
-
-# 启动服务
 python main.py
-
-# 服务地址: http://localhost:8765
-# 管理面板: http://localhost:8765/admin/home
 ```
 
-Windows 用户可使用 `start.bat`（会自动终止占用 8765 端口的进程）
+默认本地地址：
 
-## 配置
+- 服务地址：`http://localhost:8765`
+- 管理端：`http://localhost:8765/admin/home`
+- 用户端：`http://localhost:8765/user/login`
 
-### 环境变量
+Windows 可直接使用：
 
-| 变量 | 必填 | 说明 |
-|------|------|------|
-| `DATABASE_URL` | 是 | PostgreSQL 连接字符串 |
-| `PORT` | 否 | 服务端口，默认 8765 |
-| `ADMIN_USERS` | 是 | 管理员账户，格式：`用户名:密码,用户名:密码` |
+- `start.bat`
 
-### 数据库初始化
+## Docker 使用
 
-```sql
-CREATE USER "modelgate" WITH PASSWORD 'your_password';
-CREATE DATABASE "modelgate" OWNER "modelgate";
-```
-
-完整数据库结构见 `schema.sql`。
-
-## API 接口
-
-### 代理接口（OpenAI 兼容）
-
-- `POST /v1/chat/completions` - 对话补全
-- `POST /v1/embeddings` - 文本向量化
-- `GET /v1/models` - 获取可用模型列表
-
-### 模型格式
-
-使用 `提供商/模型` 格式指定提供商：
-
-```
-zhipu/glm-4      # 路由到智谱
-deepseek/chat    # 路由到 DeepSeek
-glm-4            # 使用默认提供商
-```
-
-## 管理面板
-
-登录后访问 `/admin/home`：
-
-- **首页**：总览图表、实时统计
-- **配置**：管理提供商和模型
-- **API Keys**：创建和管理 API Key，设置模型访问权限
-- **监控**：实时请求日志、慢请求检测
-
-## 用户门户
-
-API Key 持有者可访问 `/user/login` 查看：
-
-- 请求统计
-- Token 消耗
-- 模型使用情况
-- OpenCode 配置获取
-
-## 并发控制
-
-每个提供商可设置 `max_concurrent`（默认 3）：
-
-- 请求代理前先获取信号量槽位
-- 达到限制时返回 HTTP 429 错误
-- 非流式请求：响应后释放
-- 流式请求：流结束后释放（在 `finally` 块中）
-
-## 项目结构
-
-```
-modelgate/
-├── main.py                  # FastAPI 应用、异常处理
-├── core/                    # 核心模块
-│   ├── config.py            # 全局状态、缓存、日志
-│   ├── database.py          # SQLAlchemy 模型
-│   └── deps.py              # FastAPI 依赖
-├── routes/                  # API 端点
-│   ├── proxy.py             # /v1/chat/completions, /v1/models
-│   ├── providers.py         # 提供商 CRUD
-│   ├── keys.py              # API Key CRUD
-│   ├── stats.py             # 统计接口
-│   ├── logs.py              # 请求日志查询
-│   ├── user.py              # 用户门户
-│   └── opencode.py          # OpenCode 配置生成
-├── services/                # 业务逻辑
-│   ├── proxy.py             # 核心代理、流式处理、限流
-│   ├── scheduler.py         # 定时任务
-│   └── stats_aggregator.py  # 统计聚合
-├── templates/               # HTML 模板
-│   ├── admin/               # 管理面板页面
-│   ├── user/                # 用户门户页面
-│   └── public/              # 公开页面
-└── logs/                    # 日志文件（自动轮转）
-```
-
-## Docker 部署
+构建并推送到本项目使用的本地镜像仓库：
 
 ```bash
-# 构建并推送到本地镜像仓库
 docker build -t localhost:5002/modelgate:latest .
 docker push localhost:5002/modelgate:latest
+```
 
-# 生产服务器拉取并运行
-docker pull <REGISTRY_IP>:5005/modelgate:latest
+启动容器示例：
+
+```bash
 docker run -d --name modelgate \
   -p 8765:8765 \
   -e DATABASE_URL="postgresql+asyncpg://modelgate:password@host:5432/modelgate" \
@@ -137,9 +69,116 @@ docker run -d --name modelgate \
   -e ADMIN_USERS="admin:YourPassword" \
   -v /opt/modelgate/logs:/app/logs \
   --restart unless-stopped \
-  <REGISTRY_IP>:5005/modelgate:latest
+  localhost:5002/modelgate:latest
 ```
 
-## 许可证
+更完整的部署说明见 [DEPLOY.md](DEPLOY.md)。
+
+## 环境变量
+
+| 变量 | 必填 | 说明 |
+|------|------|------|
+| `DATABASE_URL` | 是 | PostgreSQL 连接串 |
+| `PORT` | 否 | 服务端口，默认 `8765` |
+| `ADMIN_USERS` | 推荐 | 管理员账号列表，格式 `user:pass,user:pass` |
+| `ADMIN_USERNAME` | 否 | 未设置 `ADMIN_USERS` 时的回退管理员用户名 |
+| `ADMIN_PASSWORD` | 否 | 未设置 `ADMIN_USERS` 时的回退管理员密码 |
+| `LOG_LEVEL` | 否 | `DEBUG`、`INFO`、`WARNING`、`ERROR` |
+
+## 数据库
+
+初始化示例：
+
+```sql
+CREATE USER "modelgate" WITH PASSWORD 'your_password';
+CREATE DATABASE "modelgate" OWNER "modelgate";
+```
+
+表结构见：
+
+- [`schema.sql`](schema.sql)
+
+应用启动时也会执行部分兼容性补列逻辑，例如给 `request_logs` 增加新字段。
+
+## API 接口
+
+### OpenAI 兼容接口
+
+- `POST /v1/chat/completions`
+- `POST /v1/embeddings`
+- `GET /v1/models`
+
+### 模型命名格式
+
+推荐使用：
+
+```text
+provider/model
+```
+
+示例：
+
+```text
+zhipu/glm-4
+deepseek/chat
+minimax/MiniMax-M2.5
+```
+
+## 管理端页面
+
+- `/admin/home`：总览、实时统计、慢请求、趋势图
+- `/admin/config`：供应商、模型、绑定关系配置
+- `/admin/api-keys`：API Key 管理与模型授权
+- `/admin/monitor`：组成分析、热点、响应时间分析
+- `/admin/usage`：客户端接入说明
+
+## 用户端页面
+
+用户通过 `/user/login` 登录后可以查看：
+
+- 自己的请求量和 token 统计
+- 推荐模型气泡
+- 最近 20 分钟系统健康度
+- 活跃请求情况
+- 请求趋势和模型使用情况
+- OpenCode 配置输出
+
+## 请求日志
+
+`request_logs` 中会记录：
+
+- API Key、供应商、模型
+- token 和响应耗时
+- 归一化后的状态字段
+- 上游供应商真实 HTTP 状态码
+- 错误详情
+
+流式请求会先写入 `pending`，结束后再更新为最终状态。
+
+## 项目结构
+
+```text
+modelgate/
+├── main.py
+├── core/
+├── routes/
+├── services/
+├── templates/
+├── locales/
+├── image/
+├── assets/
+├── schema.sql
+├── Dockerfile
+└── DEPLOY.md
+```
+
+## 开发说明
+
+- 使用 Python 3.10+ 风格
+- 基于 FastAPI + SQLAlchemy async + PostgreSQL
+- Babel 负责国际化编译
+- 日志文件位于 `logs/proxy.log`、`logs/admin.log`、`logs/error.log`
+
+## License
 
 Apache 2.0
