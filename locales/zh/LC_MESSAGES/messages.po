@@ -6,6 +6,9 @@ msgstr ""
 msgid "Dashboard"
 msgstr "仪表盘"
 
+msgid "ModelGate-dashboard"
+msgstr "ModelGate-仪表盘"
+
 msgid "API Proxy"
 msgstr "ModelGate"
 
@@ -705,3 +708,63 @@ msgstr "均值"
 
 msgid "No heatmap data"
 msgstr "暂无热力图数据"
+
+msgid "Recommended Models"
+msgstr "推荐模型"
+
+msgid "Ranked by stability, response time, and sample size"
+msgstr "按稳定性、响应速度和样本量综合排序"
+
+msgid "Loading recommendations..."
+msgstr "推荐模型加载中..."
+
+msgid "Recommendation score"
+msgstr "推荐分"
+
+msgid "Avg latency"
+msgstr "平均耗时"
+
+msgid "Error rate"
+msgstr "错误率"
+
+msgid "Based on the current period and accessible models"
+msgstr "基于当前时间范围和此 Key 可访问模型"
+
+msgid "No recommendation data yet"
+msgstr "暂无推荐数据"
+
+msgid "samples"
+msgstr "样本"
+
+msgid "System Health"
+msgstr "系统健康度"
+
+msgid "Last 20 minutes"
+msgstr "最近 20 分钟"
+
+msgid "Based on recent load, error rate, and latency"
+msgstr "基于近期负载、错误率和响应速度综合评分"
+
+msgid "No recent traffic in the last 20 minutes"
+msgstr "最近 20 分钟暂无请求流量"
+
+msgid "Active users"
+msgstr "活跃用户"
+
+msgid "Pending"
+msgstr "处理中"
+
+msgid "Excellent"
+msgstr "优秀"
+
+msgid "Healthy"
+msgstr "健康"
+
+msgid "Busy"
+msgstr "繁忙"
+
+msgid "Degraded"
+msgstr "下降"
+
+msgid "Idle"
+msgstr "空闲"

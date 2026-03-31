@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>{{ _('Monitor') }} - ModelGate</title>
+    <link rel="icon" href="/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -64,9 +65,30 @@
         }
         .heatmap-grid {
             display: grid;
-            grid-template-columns: minmax(140px, 1.4fr) repeat(24, minmax(28px, 1fr));
             gap: 0.35rem;
             align-items: stretch;
+        }
+        .heatmap-legend {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .heatmap-legend-scale {
+            width: min(260px, 100%);
+            height: 0.75rem;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #10b981 0%, #f59e0b 55%, #ef4444 100%);
+            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+        }
+        .heatmap-legend-labels {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #64748b;
         }
         .heatmap-cell {
             min-height: 2.25rem;
@@ -88,35 +110,60 @@
             font-weight: 600;
             min-height: 2.25rem;
         }
+        .heatmap-corner {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.1rem;
+            padding: 0.45rem 0.75rem;
+            border-radius: 0.75rem;
+            background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+            color: #1e3a8a;
+            min-height: 2.25rem;
+        }
+        .heatmap-corner strong {
+            font-size: 0.75rem;
+            line-height: 1rem;
+        }
+        .heatmap-corner span {
+            font-size: 0.65rem;
+            line-height: 0.85rem;
+            color: #64748b;
+        }
         body.theme-dark .heatmap-label {
             background: #111827;
             color: #e2e8f0;
         }
+        body.theme-dark .heatmap-corner {
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.16) 0%, #111827 100%);
+            color: #dbeafe;
+        }
+        body.theme-dark .heatmap-corner span {
+            color: #94a3b8;
+        }
+        body.theme-dark .heatmap-legend-labels {
+            color: #94a3b8;
+        }
+        body.theme-dark .heatmap-legend-scale {
+            box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.16);
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% set active_page = 'monitor' %}
         {% include 'components/nav.html' %}
 
         <main class="ml-56 flex-1 p-6">
-            <div class="flex justify-between items-center mb-6">
-                <div>
-                    <h2 class="text-2xl font-bold text-gray-800">{{ _('Statistics Monitor') }}</h2>
-                    <p class="text-sm text-gray-500 mt-1">{{ _('Composition, concentration, hotspots, and trend behavior') }}</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
-                        {{ _('Dark Mode') }}
-                    </button>
-                    <div class="flex bg-white rounded border overflow-hidden">
-                        <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">{{ _('Day') }}</button>
-                        <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Week') }}</button>
-                        <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Month') }}</button>
-                        <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Year') }}</button>
-                    </div>
-                </div>
+            {% call admin_page_header(_('Statistics Monitor'), _('Composition, concentration, hotspots, and trend behavior')) %}
+            <div class="flex bg-white rounded border overflow-hidden">
+                <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">{{ _('Day') }}</button>
+                <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Week') }}</button>
+                <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Month') }}</button>
+                <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Year') }}</button>
             </div>
+            {% endcall %}
 
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
@@ -271,7 +318,7 @@
         }
 
         function getThemeMode() {
-            return localStorage.getItem('admin_theme') || 'light';
+            return localStorage.getItem('admin_theme') || 'dark';
         }
 
         function getChartTheme() {
@@ -547,11 +594,48 @@
             if (firstIndex === null || lastIndex === null) {
                 return { start: 0, end: Math.max(totalHours - 1, 0) };
             }
+            let start = Math.max(firstIndex - 1, 0);
+            let end = Math.min(lastIndex + 1, totalHours - 1);
+            const minVisibleHours = 6;
+            const currentVisibleHours = end - start + 1;
+            if (currentVisibleHours < minVisibleHours) {
+                end = Math.min(end + (minVisibleHours - currentVisibleHours), totalHours - 1);
+                const stillMissing = minVisibleHours - (end - start + 1);
+                if (stillMissing > 0) {
+                    start = Math.max(start - stillMissing, 0);
+                }
+            }
 
-            return {
-                start: Math.max(firstIndex - 1, 0),
-                end: Math.min(lastIndex + 1, totalHours - 1),
-            };
+            return { start, end };
+        }
+
+        function getTrendVisibleRange(seriesList, totalBuckets) {
+            let firstIndex = null;
+            let lastIndex = null;
+            seriesList.forEach(series => {
+                (series || []).forEach((value, index) => {
+                    if (!Number(value || 0)) return;
+                    firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
+                    lastIndex = lastIndex === null ? index : Math.max(lastIndex, index);
+                });
+            });
+            if (firstIndex === null || lastIndex === null) {
+                return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            let start = Math.max(firstIndex - 1, 0);
+            let end = Math.min(lastIndex + 1, totalBuckets - 1);
+            if (currentPeriod === 'day') {
+                const minVisibleBuckets = totalBuckets >= 48 ? 12 : 6;
+                const currentVisibleBuckets = end - start + 1;
+                if (currentVisibleBuckets < minVisibleBuckets) {
+                    end = Math.min(end + (minVisibleBuckets - currentVisibleBuckets), totalBuckets - 1);
+                    const stillMissing = minVisibleBuckets - (end - start + 1);
+                    if (stillMissing > 0) {
+                        start = Math.max(start - stillMissing, 0);
+                    }
+                }
+            }
+            return { start, end };
         }
 
         function renderLatencyChart(latencyData) {
@@ -788,13 +872,41 @@
                     .filter(value => value !== null && value !== undefined)
             );
             const maxValue = Math.max(...entries, 0);
+            const minValue = Math.min(...entries, maxValue);
             if (!models.length || !maxValue) {
                 container.innerHTML = `<div class="h-full flex items-center justify-center text-gray-400">${window.I18N.noHeatmapData}</div>`;
                 return;
             }
 
+            const formatHeatmapSeconds = (value) => Number((value / 1000).toFixed(2));
+            const getHeatColor = (value) => {
+                const spread = Math.max(maxValue - minValue, 1);
+                const ratio = Math.max(0, Math.min(1, (value - minValue) / spread));
+                const hue = 150 - (ratio * 150);
+                const lightness = 90 - (ratio * 42);
+                return {
+                    background: `hsl(${hue} 78% ${lightness}%)`,
+                    text: ratio > 0.58 ? '#ffffff' : '#1f2937',
+                };
+            };
+
+            const midValue = minValue + ((maxValue - minValue) / 2);
+            const legend = `
+                <div class="heatmap-legend">
+                    <div class="heatmap-legend-labels">
+                        <span>${window.I18N.average}</span>
+                        <span>${formatHeatmapSeconds(minValue)}s</span>
+                    </div>
+                    <div class="heatmap-legend-scale"></div>
+                    <div class="heatmap-legend-labels">
+                        <span>${formatHeatmapSeconds(midValue)}s</span>
+                        <span>${formatHeatmapSeconds(maxValue)}s</span>
+                    </div>
+                </div>
+            `;
+
             const header = `
-                <div class="heatmap-label"></div>
+                <div class="heatmap-corner"><strong>${window.I18N.model}</strong><span>${window.I18N.hourOfDay}</span></div>
                 ${visibleIntervals.map(label => `<div class="heatmap-cell text-gray-500">${label.slice(0, 2)}</div>`).join('')}
             `;
             const rows = models.map(model => {
@@ -807,15 +919,13 @@
                     if (value == null) {
                         return `<div class="heatmap-cell bg-gray-100 text-gray-300">-</div>`;
                     }
-                    const ratio = Math.max(0.1, value / maxValue);
-                    const bg = `rgba(124, 58, 237, ${Math.min(0.88, ratio)})`;
-                    const text = ratio > 0.55 ? '#ffffff' : '#312e81';
-                    const title = `${model} | ${intervals[hourIndex]} | ${Number((value / 1000).toFixed(2))}s | ${window.I18N.sampleCount.replace('{count}', samples)}`;
-                    return `<div class="heatmap-cell" style="background:${bg};color:${text}" title="${title}">${Number((value / 1000).toFixed(1))}</div>`;
+                    const color = getHeatColor(value);
+                    const title = `${model} | ${intervals[hourIndex]} | ${window.I18N.average}: ${formatHeatmapSeconds(value)}s | ${window.I18N.sampleCount.replace('{count}', samples)}`;
+                    return `<div class="heatmap-cell" style="background:${color.background};color:${color.text}" title="${title}">${Number((value / 1000).toFixed(1))}</div>`;
                 }).join('');
                 return `<div class="heatmap-label" title="${model}">${model}</div>${cells}`;
             }).join('');
-            container.innerHTML = `<div class="heatmap-grid">${header}${rows}</div>`;
+            container.innerHTML = `${legend}<div class="heatmap-grid" style="grid-template-columns:minmax(140px, 1.4fr) repeat(${visibleIntervals.length}, minmax(28px, 1fr));">${header}${rows}</div>`;
         }
 
         function renderFootprintCards(providerEntries, apikeyEntries, modelEntries) {
@@ -857,6 +967,7 @@
             const rawTokens = data.intervals.map(label => data.data[label]?.tokens || 0);
             const errors = data.intervals.map(label => data.data[label]?.errors || 0);
             const timeouts = data.intervals.map(label => data.data[label]?.timeouts || 0);
+            const visibleRange = getTrendVisibleRange([requests, rawTokens, errors, timeouts], data.intervals.length);
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(value => Number((value / tokenScale.divisor).toFixed(2)));
             const tokenLabel = tokenScale.suffix ? `${window.I18N.tokens} (${tokenScale.suffix})` : window.I18N.tokens;
@@ -928,6 +1039,8 @@
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
+                            min: visibleRange.start,
+                            max: visibleRange.end,
                             grid: { color: chartTheme.gridColor },
                             ticks: {
                                 color: chartTheme.tickColor,

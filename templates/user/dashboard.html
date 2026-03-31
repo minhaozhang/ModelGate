@@ -1,8 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{{ _('Dashboard') }} - {{ name }}</title>
+    <title>ModelGate</title>
+    <link rel="icon" href="/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -20,6 +21,8 @@
         body.theme-dark .bg-blue-100 { background: rgba(59, 130, 246, 0.18) !important; }
         body.theme-dark .bg-emerald-50 { background: rgba(16, 185, 129, 0.12) !important; }
         body.theme-dark .bg-emerald-100 { background: rgba(16, 185, 129, 0.18) !important; }
+        body.theme-dark .bg-yellow-100 { background: rgba(234, 179, 8, 0.18) !important; }
+        body.theme-dark .bg-red-100 { background: rgba(239, 68, 68, 0.18) !important; }
         body.theme-dark .bg-slate-100 { background: #1e293b !important; }
         body.theme-dark .from-blue-50,
         body.theme-dark .to-cyan-50,
@@ -31,8 +34,11 @@
         body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
         body.theme-dark .text-gray-400 { color: #64748b !important; }
         body.theme-dark .text-blue-900 { color: #dbeafe !important; }
+        body.theme-dark .text-blue-700 { color: #bfdbfe !important; }
         body.theme-dark .text-slate-600 { color: #cbd5e1 !important; }
         body.theme-dark .text-emerald-700 { color: #a7f3d0 !important; }
+        body.theme-dark .text-yellow-700 { color: #fde68a !important; }
+        body.theme-dark .text-red-700 { color: #fecaca !important; }
         body.theme-dark .border,
         body.theme-dark .border-b,
         body.theme-dark .border-blue-200,
@@ -102,7 +108,7 @@
     <div class="container mx-auto px-4 py-8">
         <div class="flex justify-between items-center mb-6">
             <div>
-                <h1 class="text-3xl font-bold text-gray-800">{{ _('API Key Dashboard') }}</h1>
+                <h1 class="text-3xl font-bold text-gray-800">{{ _('ModelGate-dashboard') }}</h1>
                 <p class="text-gray-500">{{ name }}</p>
             </div>
             <div class="flex gap-2">
@@ -136,6 +142,16 @@
                         <option value="month">{{ _('This Month') }}</option>
                     </select>
                 </div>
+
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-semibold">{{ _('Recommended Models') }}</h3>
+                        <span id="recommendation-meta" class="text-xs text-gray-500">{{ _('Ranked by stability, response time, and sample size') }}</span>
+                    </div>
+                    <div id="recommendation-list" class="flex flex-wrap gap-2">
+                        <div class="w-full text-gray-400 text-center py-4">{{ _('Loading recommendations...') }}</div>
+                    </div>
+                </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div class="bg-gray-50 rounded-lg p-4">
@@ -156,7 +172,39 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-start gap-3 mb-3">
+                            <div>
+                                <h3 class="text-lg font-semibold">{{ _('System Health') }}</h3>
+                                <div class="text-xs text-gray-400">{{ _('Last 20 minutes') }}</div>
+                            </div>
+                            <span id="system-health-badge" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">--</span>
+                        </div>
+                        <div class="flex items-end gap-2 mb-4">
+                            <div id="system-health-score" class="text-3xl font-bold text-slate-700">--</div>
+                            <div class="text-sm text-gray-500">/100</div>
+                        </div>
+                        <div id="system-health-summary" class="text-sm text-gray-500 mb-4">{{ _('Based on recent load, error rate, and latency') }}</div>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div class="rounded-lg bg-white/70 px-3 py-2">
+                                <div class="text-xs text-gray-400">{{ _('Active users') }}</div>
+                                <div id="system-health-users" class="mt-1 font-semibold text-slate-700">0</div>
+                            </div>
+                            <div class="rounded-lg bg-white/70 px-3 py-2">
+                                <div class="text-xs text-gray-400">{{ _('Pending') }}</div>
+                                <div id="system-health-pending" class="mt-1 font-semibold text-slate-700">0</div>
+                            </div>
+                            <div class="rounded-lg bg-white/70 px-3 py-2">
+                                <div class="text-xs text-gray-400">{{ _('Error rate') }}</div>
+                                <div id="system-health-error-rate" class="mt-1 font-semibold text-slate-700">0.0%</div>
+                            </div>
+                            <div class="rounded-lg bg-white/70 px-3 py-2">
+                                <div class="text-xs text-gray-400">{{ _('Avg latency') }}</div>
+                                <div id="system-health-latency" class="mt-1 font-semibold text-slate-700">--</div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="bg-gray-50 rounded-lg p-4">
                         <div class="flex justify-between items-center mb-3">
                             <h3 class="text-lg font-semibold">{{ _('Active Sessions') }}</h3>
@@ -377,6 +425,26 @@ const data = await response.json();</code></pre>
         errorsLabel: {{ _('Errors') | tojson }},
         tokensLabel: {{ _('Tokens') | tojson }},
         requestsErrorsLabel: {{ _('Requests / Errors') | tojson }},
+        recommendedModels: {{ _('Recommended Models') | tojson }},
+        recommendationScore: {{ _('Recommendation score') | tojson }},
+        avgLatency: {{ _('Avg latency') | tojson }},
+        errorRate: {{ _('Error rate') | tojson }},
+        systemHealth: {{ _('System Health') | tojson }},
+        last20Minutes: {{ _('Last 20 minutes') | tojson }},
+        healthSummary: {{ _('Based on recent load, error rate, and latency') | tojson }},
+        noRecentTraffic: {{ _('No recent traffic in the last 20 minutes') | tojson }},
+        activeUsers: {{ _('Active users') | tojson }},
+        pendingLabel: {{ _('Pending') | tojson }},
+        healthExcellent: {{ _('Excellent') | tojson }},
+        healthHealthy: {{ _('Healthy') | tojson }},
+        healthBusy: {{ _('Busy') | tojson }},
+        healthDegraded: {{ _('Degraded') | tojson }},
+        healthIdle: {{ _('Idle') | tojson }},
+        rankedByStability: {{ _('Ranked by stability, response time, and sample size') | tojson }},
+        basedOnCurrentPeriod: {{ _('Based on the current period and accessible models') | tojson }},
+        noRecommendations: {{ _('No recommendation data yet') | tojson }},
+        loadingRecommendations: {{ _('Loading recommendations...') | tojson }},
+        samplesLabel: {{ _('samples') | tojson }},
         opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.opencode/opencode.json. Keep existing providers and other settings, only add or update the model-token-plan provider.') | tojson }},
         topShare: {{ _('top share') | tojson }},
         onRightAxis: {{ _('on right axis') | tojson }},
@@ -390,6 +458,7 @@ const data = await response.json();</code></pre>
     <script>
         const baseUrl = window.location.origin + '/v1';
         let trendChart = null;
+        let latestTrendData = {};
         let modelUsageChart = null;
         let systemModelChart = null;
         const ownModelPalette = ['#2563eb', '#0f766e', '#0891b2', '#1d4ed8', '#059669', '#0ea5e9', '#14b8a6', '#0284c7'];
@@ -401,7 +470,7 @@ const data = await response.json();</code></pre>
         document.getElementById('base-curl').textContent = baseUrl;
 
         function getThemeMode() {
-            return localStorage.getItem('dashboard_theme') || 'light';
+            return localStorage.getItem('dashboard_theme') || 'dark';
         }
 
         function getChartTheme() {
@@ -606,27 +675,112 @@ const data = await response.json();</code></pre>
             );
         }
 
-        function renderModelUsageChart(chartId, legendId, metaId, models, chartRef, palette, metaLabel = window.I18N.allApiKeys) {
-            const series = buildDonutSeries(models, palette, 'requests', 6);
-            const ctx = document.getElementById(chartId).getContext('2d');
-            const chartTheme = getChartTheme();
-            if (chartRef.current) chartRef.current.destroy();
+        function renderModelUsageLegend(legendId, metaId, models, series, palette, metaLabel) {
+            const totalRequests = series.entries.reduce((sum, [, stats]) => sum + (stats.requests || 0), 0) || 1;
+            const legendHtml = series.entries.slice(0, 6).map(([name, stats], index) => `
+                <div class="rounded bg-white p-3 shadow-sm">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${palette[index % palette.length]}"></span>
+                        <span class="truncate text-sm font-medium" title="${name}">${name}</span>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-500">${stats.requests.toLocaleString()} ${window.I18N.req} / ${formatCompactTokens(stats.tokens || 0)}</div>
+                    ${typeof stats.errors === 'number' ? `<div class="mt-1 text-xs text-gray-400">${window.I18N.err} ${stats.errors}</div>` : ''}
+                </div>
+            `).join('');
+            document.getElementById(legendId).innerHTML = legendHtml || `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${window.I18N.noData}</div>`;
+            document.getElementById(metaId).textContent = `${metaLabel} / ${Object.keys(models || {}).length} ${window.I18N.models} / ${window.I18N.topShare} ${
+                series.entries[0] ? (((series.entries[0][1].requests || 0) / totalRequests) * 100).toFixed(1) + '%' : '0%'
+            }`;
+        }
 
-            chartRef.current = new Chart(ctx, {
+        function renderOwnModelChart(models) {
+            const series = buildDonutSeries(models, ownModelPalette, 'requests', 6);
+            const ctx = document.getElementById('model-usage-chart').getContext('2d');
+            const chartTheme = getChartTheme();
+            if (modelUsageChart) modelUsageChart.destroy();
+
+            modelUsageChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: series.labels,
+                    datasets: [{
+                        label: window.I18N.requestsLabel,
+                        data: series.values,
+                        backgroundColor: series.colors.map(color => `${color}cc`),
+                        borderColor: series.colors,
+                        borderWidth: 1,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        maxBarThickness: 26
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
+                                    const pct = context.raw / total;
+                                    return `${context.label}: ${(context.raw || 0).toLocaleString()} ${window.I18N.req} (${(pct * 100).toFixed(1)}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: { color: chartTheme.gridColor },
+                            ticks: { color: chartTheme.tickColor }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { color: chartTheme.tickColor }
+                        }
+                    }
+                }
+            });
+
+            renderModelUsageLegend(
+                'model-stats',
+                'model-usage-meta',
+                models,
+                series,
+                ownModelPalette,
+                window.I18N.yourApiKey
+            );
+        }
+
+        function renderSystemModelChart(models) {
+            const series = buildDonutSeries(models, systemModelPalette, 'requests', 6);
+            const ctx = document.getElementById('system-model-chart').getContext('2d');
+            const chartTheme = getChartTheme();
+            if (systemModelChart) systemModelChart.destroy();
+
+            systemModelChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
                     labels: series.labels,
                     datasets: [{
                         data: series.values,
-                        backgroundColor: series.colors,
-                        borderWidth: 0,
+                        backgroundColor: series.colors.map(color => `${color}b3`),
+                        borderColor: series.colors,
+                        borderWidth: 1.5,
                         hoverOffset: 8
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '60%',
+                    cutout: '48%',
                     plugins: {
                         legend: { display: false },
                         tooltip: {
@@ -647,48 +801,11 @@ const data = await response.json();</code></pre>
                 }
             });
 
-            const totalRequests = series.entries.reduce((sum, [, stats]) => sum + (stats.requests || 0), 0) || 1;
-            const legendHtml = series.entries.slice(0, 6).map(([name, stats], index) => `
-                <div class="rounded bg-white p-3 shadow-sm">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${palette[index % palette.length]}"></span>
-                        <span class="truncate text-sm font-medium" title="${name}">${name}</span>
-                    </div>
-                    <div class="mt-2 text-xs text-gray-500">${stats.requests.toLocaleString()} ${window.I18N.req} / ${formatCompactTokens(stats.tokens || 0)}</div>
-                    ${typeof stats.errors === 'number' ? `<div class="mt-1 text-xs text-gray-400">${window.I18N.err} ${stats.errors}</div>` : ''}
-                </div>
-            `).join('');
-            document.getElementById(legendId).innerHTML = legendHtml || `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${window.I18N.noData}</div>`;
-            document.getElementById(metaId).textContent = `${metaLabel} / ${Object.keys(models || {}).length} ${window.I18N.models} / ${window.I18N.topShare} ${
-                series.entries[0] ? (((series.entries[0][1].requests || 0) / totalRequests) * 100).toFixed(1) + '%' : '0%'
-            }`;
-        }
-
-        function renderOwnModelChart(models) {
-            renderModelUsageChart(
-                'model-usage-chart',
-                'model-stats',
-                'model-usage-meta',
-                models,
-                {
-                    get current() { return modelUsageChart; },
-                    set current(value) { modelUsageChart = value; }
-                },
-                ownModelPalette,
-                window.I18N.yourApiKey
-            );
-        }
-
-        function renderSystemModelChart(models) {
-            renderModelUsageChart(
-                'system-model-chart',
+            renderModelUsageLegend(
                 'system-model-legend',
                 'system-model-meta',
                 models,
-                {
-                    get current() { return systemModelChart; },
-                    set current(value) { systemModelChart = value; }
-                },
+                series,
                 systemModelPalette,
                 window.I18N.allApiKeys
             );
@@ -721,22 +838,177 @@ const data = await response.json();</code></pre>
             }).join('');
             document.getElementById('system-active-sessions').innerHTML = html;
         }
+
+        function isCompactTrendLayout() {
+            return window.matchMedia('(max-width: 767px)').matches;
+        }
+
+        function coalesceTrendBucketPair(firstBucket, secondBucket) {
+            const merged = {};
+            const metricKeys = new Set([
+                ...Object.keys(firstBucket || {}),
+                ...Object.keys(secondBucket || {}),
+            ]);
+            metricKeys.forEach(key => {
+                merged[key] = Number(firstBucket?.[key] || 0) + Number(secondBucket?.[key] || 0);
+            });
+            return merged;
+        }
+
+        function normalizeTrendData(trendData) {
+            const labels = Object.keys(trendData || {});
+            const period = document.getElementById('period-select')?.value || 'day';
+            if (period !== 'day' || !isCompactTrendLayout() || labels.length !== 48) {
+                return trendData;
+            }
+
+            const mergedTrendData = {};
+            for (let index = 0; index < labels.length; index += 2) {
+                const hourLabel = labels[index];
+                mergedTrendData[hourLabel] = coalesceTrendBucketPair(
+                    trendData?.[labels[index]],
+                    trendData?.[labels[index + 1]],
+                );
+            }
+            return mergedTrendData;
+        }
+
+        function getTrendVisibleRange(seriesList, totalBuckets) {
+            let firstIndex = null;
+            let lastIndex = null;
+            seriesList.forEach(series => {
+                (series || []).forEach((value, index) => {
+                    if (!Number(value || 0)) return;
+                    firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
+                    lastIndex = lastIndex === null ? index : Math.max(lastIndex, index);
+                });
+            });
+            if (firstIndex === null || lastIndex === null) {
+                return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            let start = Math.max(firstIndex - 1, 0);
+            let end = Math.min(lastIndex + 1, totalBuckets - 1);
+            const period = document.getElementById('period-select')?.value || 'day';
+            if (period === 'day') {
+                const minVisibleBuckets = totalBuckets >= 48 ? 12 : 6;
+                const currentVisibleBuckets = end - start + 1;
+                if (currentVisibleBuckets < minVisibleBuckets) {
+                    end = Math.min(end + (minVisibleBuckets - currentVisibleBuckets), totalBuckets - 1);
+                    const stillMissing = minVisibleBuckets - (end - start + 1);
+                    if (stillMissing > 0) {
+                        start = Math.max(start - stillMissing, 0);
+                    }
+                }
+            }
+            return { start, end };
+        }
+
+        function formatHealthLatency(latencyMs) {
+            const value = Number(latencyMs || 0);
+            if (!value) return '--';
+            if (value >= 10000) return `${(value / 1000).toFixed(0)}s`;
+            if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
+            return `${Math.round(value)}ms`;
+        }
+
+        function renderSystemHealth(health) {
+            const badge = document.getElementById('system-health-badge');
+            const score = document.getElementById('system-health-score');
+            const summary = document.getElementById('system-health-summary');
+            const activeUsers = document.getElementById('system-health-users');
+            const pending = document.getElementById('system-health-pending');
+            const errorRate = document.getElementById('system-health-error-rate');
+            const latency = document.getElementById('system-health-latency');
+
+            const statusMap = {
+                excellent: {
+                    label: window.I18N.healthExcellent,
+                    badgeClass: 'rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700',
+                    scoreClass: 'text-3xl font-bold text-emerald-600',
+                },
+                healthy: {
+                    label: window.I18N.healthHealthy,
+                    badgeClass: 'rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-900',
+                    scoreClass: 'text-3xl font-bold text-blue-600',
+                },
+                busy: {
+                    label: window.I18N.healthBusy,
+                    badgeClass: 'rounded-full bg-yellow-100 px-2.5 py-1 text-xs font-semibold text-yellow-700',
+                    scoreClass: 'text-3xl font-bold text-yellow-600',
+                },
+                degraded: {
+                    label: window.I18N.healthDegraded,
+                    badgeClass: 'rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700',
+                    scoreClass: 'text-3xl font-bold text-red-600',
+                },
+                idle: {
+                    label: window.I18N.healthIdle,
+                    badgeClass: 'rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600',
+                    scoreClass: 'text-3xl font-bold text-slate-700',
+                }
+            };
+
+            const statusKey = statusMap[health?.status] ? health.status : 'idle';
+            const statusConfig = statusMap[statusKey];
+            badge.className = statusConfig.badgeClass;
+            badge.textContent = statusConfig.label;
+            score.className = statusConfig.scoreClass;
+            score.textContent = health?.score === null || health?.score === undefined ? '--' : Math.round(Number(health.score));
+            summary.textContent = health?.score === null || health?.score === undefined
+                ? window.I18N.noRecentTraffic
+                : window.I18N.healthSummary;
+            activeUsers.textContent = Number(health?.active_api_keys || 0).toLocaleString();
+            pending.textContent = Number(health?.pending_requests || 0).toLocaleString();
+            errorRate.textContent = `${(Number(health?.error_rate || 0) * 100).toFixed(1)}%`;
+            latency.textContent = formatHealthLatency(health?.avg_latency_ms);
+        }
          
         async function loadStats() {
             const period = document.getElementById('period-select').value;
-            const [data, systemModels] = await Promise.all([
+            const [data, systemModels, recommendations] = await Promise.all([
                 fetchJsonOrRedirect('/user/api/stats?period=' + period),
-                fetchJsonOrRedirect('/user/api/system-models?period=' + period)
+                fetchJsonOrRedirect('/user/api/system-models?period=' + period),
+                fetchJsonOrRedirect('/user/api/recommendations?period=' + period)
             ]);
              
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
             document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
             document.getElementById('total-errors').textContent = data.total_errors;
             document.getElementById('model-count').textContent = Object.keys(data.models || {}).length;
-             
-            renderTrendChart(data.trend || {});
+
+            latestTrendData = data.trend || {};
+            renderSystemHealth(data.system_health || {});
+            renderTrendChart(latestTrendData);
+            renderRecommendations(recommendations || {});
             renderOwnModelChart(data.models || {});
             renderSystemModelChart(systemModels.models || {});
+        }
+
+        function renderRecommendations(data) {
+            const items = data.items || [];
+            document.getElementById('recommendation-meta').textContent = window.I18N.basedOnCurrentPeriod;
+            if (!items.length) {
+                document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-400 text-center py-4">${window.I18N.noRecommendations}</div>`;
+                return;
+            }
+
+            const html = items.map(item => {
+                const scoreClass = item.rank === 1
+                    ? 'bg-emerald-500'
+                    : item.rank === 2
+                        ? 'bg-sky-500'
+                        : item.rank === 3
+                            ? 'bg-amber-500'
+                            : 'bg-slate-400';
+                return `
+                    <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
+                        <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full ${scoreClass} px-1.5 text-[11px] font-semibold text-white">#${item.rank}</span>
+                        <span class="max-w-[13rem] truncate font-medium" title="${item.model}">${item.display_name}</span>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('recommendation-list').innerHTML = html;
         }
 
         async function loadCatalog() {
@@ -748,11 +1020,13 @@ const data = await response.json();</code></pre>
             const ctx = document.getElementById('trend-chart').getContext('2d');
             const chartTheme = getChartTheme();
             if (trendChart) trendChart.destroy();
-             
-            const labels = Object.keys(trendData);
-            const requests = labels.map(l => trendData[l].requests || 0);
-            const rawTokens = labels.map(l => trendData[l].tokens || 0);
-            const errors = labels.map(l => trendData[l].errors || 0);
+
+            const normalizedTrendData = normalizeTrendData(trendData);
+            const labels = Object.keys(normalizedTrendData);
+            const requests = labels.map(l => normalizedTrendData[l].requests || 0);
+            const rawTokens = labels.map(l => normalizedTrendData[l].tokens || 0);
+            const errors = labels.map(l => normalizedTrendData[l].errors || 0);
+            const visibleRange = getTrendVisibleRange([requests, rawTokens, errors], labels.length);
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
             const tokenLabel = tokenScale.suffix ? `${window.I18N.tokensLabel} (${tokenScale.suffix})` : window.I18N.tokensLabel;
@@ -809,6 +1083,8 @@ const data = await response.json();</code></pre>
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
+                            min: visibleRange.start,
+                            max: visibleRange.end,
                             grid: { color: chartTheme.gridColor },
                             ticks: {
                                 color: chartTheme.tickColor,
@@ -858,6 +1134,16 @@ const data = await response.json();</code></pre>
                 }
             });
         }
+
+        let trendLayoutRaf = null;
+        window.addEventListener('resize', () => {
+            if (trendLayoutRaf) cancelAnimationFrame(trendLayoutRaf);
+            trendLayoutRaf = requestAnimationFrame(() => {
+                if (latestTrendData && Object.keys(latestTrendData).length) {
+                    renderTrendChart(latestTrendData);
+                }
+            });
+        });
         
         async function loadOpenCodeConfig() {
             try {
@@ -937,3 +1223,4 @@ const data = await response.json();</code></pre>
 {% endraw %}
 </body>
 </html>
+

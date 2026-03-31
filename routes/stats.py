@@ -187,9 +187,13 @@ def get_period_range(
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         intervals = [
-            ((start + timedelta(hours=i)).strftime("%H:00")) for i in range(24)
+            ((start + timedelta(minutes=30 * i)).strftime("%H:%M")) for i in range(48)
         ]
-        format_func = lambda d: d.strftime("%H:00")
+        format_func = lambda d: d.replace(
+            minute=0 if d.minute < 30 else 30,
+            second=0,
+            microsecond=0,
+        ).strftime("%H:%M")
     elif period == "week":
         start = now - timedelta(days=now.weekday())
         start = start.replace(hour=0, minute=0, second=0, microsecond=0)

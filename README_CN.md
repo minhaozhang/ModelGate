@@ -1,5 +1,9 @@
 # ModelGate
 
+<p align="center">
+  <img src="assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
+</p>
+
 基于 FastAPI 的 LLM API 代理服务器，支持多提供商管理、API Key 控制、用量监控和 Web 管理面板。
 
 ## 功能特性

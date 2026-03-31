@@ -1,8 +1,9 @@
 import os
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -13,11 +14,22 @@ from services.provider import load_providers
 from services.auth import load_api_keys
 
 app = FastAPI(title="ModelGate")
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 
 
 @app.get("/")
 async def root_redirect():
     return RedirectResponse(url="/admin/")
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+async def favicon_svg():
+    return FileResponse(ASSETS_DIR / "favicon.svg", media_type="image/svg+xml")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon_ico():
+    return FileResponse(ASSETS_DIR / "favicon.ico", media_type="image/x-icon")
 
 
 @app.exception_handler(StarletteHTTPException)

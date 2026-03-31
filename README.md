@@ -1,5 +1,9 @@
 # ModelGate
 
+<p align="center">
+  <img src="assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
+</p>
+
 ModelGate is a FastAPI-based LLM gateway for provider routing, API key control, and usage monitoring.
 
 Repository / image compatibility notes:
