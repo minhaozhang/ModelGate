@@ -159,6 +159,8 @@
         setupDoc: "{{ _('Setup Doc:') }}",
         openCodeSetupMd: "{{ _('OpenCode Setup') }}",
         loginLabel: "{{ _('Login') }}",
+        lastUsed: "{{ _('Last Used') }}",
+        never: "{{ _('Never') }}",
     };
     </script>
     <script>
@@ -243,6 +245,13 @@
             if (!key || key.length <= 10) return key;
             return key.slice(0, 4) + '****' + key.slice(-4);
         }
+
+        function formatLastUsed(value) {
+            if (!value) return window.I18N.never;
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value;
+            return date.toLocaleString();
+        }
         
         function renderApiKeys() {
             const baseUrl = window.location.origin;
@@ -277,6 +286,7 @@
                                 <code class="bg-gray-100 px-2 py-0.5 rounded text-xs break-all">${maskedKey}</code>
                                 <button onclick="copyKey('${k.key}')" class="text-blue-500 hover:text-blue-700 text-xs">${window.I18N.copy}</button>
                             </div>
+                            <div class="mt-2 text-xs text-gray-500">${window.I18N.lastUsed}: ${formatLastUsed(k.last_used_at)}</div>
                             ${modelsDisplay}
                         </div>
                         <div class="flex flex-wrap gap-2 shrink-0">

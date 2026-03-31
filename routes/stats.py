@@ -182,8 +182,6 @@ async def get_stats(_: bool = Depends(require_admin)):
 def get_period_range(
     period: str, now: datetime
 ) -> tuple[datetime, list[str], callable]:
-    from dateutil.relativedelta import relativedelta
-
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         intervals = [
@@ -209,9 +207,7 @@ def get_period_range(
         ).strftime("%m/%d %H:%M")
     elif period == "month":
         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        days_in_month = (
-            now.replace(month=now.month % 12 + 1, day=1) - timedelta(days=1)
-        ).day
+        days_in_month = (now.date() - start.date()).days + 1
         intervals = [
             ((start + timedelta(days=i)).strftime("%m/%d"))
             for i in range(days_in_month)
@@ -219,10 +215,14 @@ def get_period_range(
         format_func = lambda d: d.strftime("%m/%d")
     else:
         start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        weeks_elapsed = ((now.date() - start.date()).days // 7) + 1
         intervals = [
-            (start + relativedelta(months=i)).strftime("%Y-%m") for i in range(12)
+            (start + timedelta(days=7 * i)).strftime("%m/%d")
+            for i in range(weeks_elapsed)
         ]
-        format_func = lambda d: d.strftime("%Y-%m")
+        format_func = lambda d: (
+            start + timedelta(days=((d.date() - start.date()).days // 7) * 7)
+        ).strftime("%m/%d")
 
     return start, intervals, format_func
 

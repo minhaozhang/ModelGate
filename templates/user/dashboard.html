@@ -954,7 +954,7 @@ const data = await response.json();</code></pre>
             badge.textContent = statusConfig.label;
             score.className = statusConfig.scoreClass;
             score.textContent = health?.score === null || health?.score === undefined ? '--' : Math.round(Number(health.score));
-            summary.textContent = health?.score === null || health?.score === undefined
+            summary.textContent = statusKey === 'idle' || health?.score === null || health?.score === undefined
                 ? window.I18N.noRecentTraffic
                 : window.I18N.healthSummary;
             activeUsers.textContent = Number(health?.active_api_keys || 0).toLocaleString();

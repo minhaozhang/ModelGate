@@ -768,3 +768,9 @@ msgstr "下降"
 
 msgid "Idle"
 msgstr "空闲"
+
+msgid "Last Used"
+msgstr "最后使用时间"
+
+msgid "Never"
+msgstr "从未使用"

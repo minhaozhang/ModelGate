@@ -55,6 +55,9 @@ async def list_api_keys(_: bool = Depends(require_admin)):
                     "key": k.key,
                     "allowed_provider_model_ids": model_ids,
                     "is_active": k.is_active,
+                    "last_used_at": k.last_used_at.isoformat()
+                    if k.last_used_at
+                    else None,
                 }
             )
         return {"api_keys": api_keys}

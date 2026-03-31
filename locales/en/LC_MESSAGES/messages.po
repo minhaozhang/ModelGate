@@ -768,3 +768,9 @@ msgstr "Degraded"
 msgid "Idle"
 msgstr "Idle"
 
+msgid "Last Used"
+msgstr "Last Used"
+
+msgid "Never"
+msgstr "Never"
+

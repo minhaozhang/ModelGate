@@ -34,9 +34,14 @@ async def favicon_ico():
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    error_logger.error(
-        f"[HTTP ERROR] {request.method} {request.url} - Status: {exc.status_code}, Detail: {exc.detail}"
+    log_message = (
+        f"[HTTP {'WARN' if exc.status_code == 401 else 'ERROR'}] "
+        f"{request.method} {request.url} - Status: {exc.status_code}, Detail: {exc.detail}"
     )
+    if exc.status_code == 401:
+        error_logger.warning(log_message)
+    else:
+        error_logger.error(log_message)
     return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
 
 

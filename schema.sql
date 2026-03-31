@@ -82,6 +82,7 @@ CREATE TABLE public.api_keys (
     name character varying(100) NOT NULL,
     key character varying(64) NOT NULL,
     is_active boolean,
+    last_used_at timestamp without time zone,
     created_at timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now()
 );
@@ -286,6 +287,7 @@ CREATE TABLE public.request_logs (
     latency_ms double precision,
     status character varying(20) NOT NULL,
     upstream_status_code integer,
+    client_ip character varying(64),
     error text,
     created_at timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now()
@@ -430,9 +432,11 @@ COMMENT ON COLUMN public.request_logs.tokens IS 'token统计，JSON格式：{inp
 COMMENT ON COLUMN public.request_logs.latency_ms IS '响应延迟（毫秒）';
 COMMENT ON COLUMN public.request_logs.status IS '状态：pending/success/error/timeout';
 COMMENT ON COLUMN public.request_logs.upstream_status_code IS '外部供应商返回的HTTP状态码';
+COMMENT ON COLUMN public.request_logs.client_ip IS '用户请求来源IP';
 COMMENT ON COLUMN public.request_logs.error IS '错误信息';
 COMMENT ON COLUMN public.request_logs.created_at IS '创建时间';
 COMMENT ON COLUMN public.request_logs.updated_at IS '更新时间';
+COMMENT ON COLUMN public.api_keys.last_used_at IS '最近一次使用时间';
 
 -- 提供商每日统计表
 COMMENT ON TABLE public.provider_daily_stats IS '提供商每日/每小时统计';

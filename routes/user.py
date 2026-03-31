@@ -111,7 +111,7 @@ def build_system_health_summary(
         "error_count": error_count,
         "error_rate": 0.0,
         "avg_latency_ms": round(float(avg_latency_ms or 0), 2) if avg_latency_ms else None,
-        "score": None,
+        "score": 100,
         "status": "idle",
     }
 
@@ -179,9 +179,7 @@ def get_user_period_range(
         ).strftime("%m/%d %H:%M")
     else:
         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        days_in_month = (
-            now.replace(month=now.month % 12 + 1, day=1) - timedelta(days=1)
-        ).day
+        days_in_month = (now.date() - start.date()).days + 1
         intervals = [
             ((start + timedelta(days=i)).strftime("%m/%d"))
             for i in range(days_in_month)

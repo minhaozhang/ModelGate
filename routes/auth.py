@@ -4,6 +4,7 @@ from fastapi import APIRouter, Response, Cookie, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from core.client_ip import get_client_ip
 from core.config import (
     admin_users,
     validate_session,
@@ -26,7 +27,7 @@ class LoginRequest(BaseModel):
 
 @router.post("/login")
 async def login(data: LoginRequest, response: Response, request: Request):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request) or "unknown"
     username = data.username.strip()
 
     if not username and len(admin_users) == 1:

@@ -19,12 +19,18 @@ from core.log_sanitizer import (
     sanitize_payload_for_log,
     sanitize_text_for_log,
 )
+from core.client_ip import get_client_ip
 from services.provider import (
     get_provider_and_model,
     get_model_config,
 )
 from services.auth import validate_api_key
-from services.logging import create_request_log, update_request_log, log_request
+from services.logging import (
+    create_request_log,
+    update_request_log,
+    log_request,
+    update_api_key_last_used,
+)
 from services.tokens import (
     build_tokens_record,
     build_response_meta,
@@ -55,6 +61,8 @@ async def proxy_request(request: Request, endpoint: str):
     api_key_id, auth_error = await validate_api_key(auth_header, model)
     if auth_error:
         return JSONResponse({"error": auth_error}, status_code=401)
+    client_ip = get_client_ip(request)
+    _schedule_api_key_last_used_update(api_key_id)
 
     provider_config, actual_model, provider_name = await get_provider_and_model(model)
 
@@ -132,7 +140,10 @@ async def proxy_request(request: Request, endpoint: str):
         stream_log_id = None
         if stream:
             stream_log_id = await create_request_log(
-                provider_name, actual_model, api_key_id=api_key_id
+                provider_name,
+                actual_model,
+                api_key_id=api_key_id,
+                client_ip=client_ip,
             )
 
         async with httpx.AsyncClient(
@@ -149,6 +160,7 @@ async def proxy_request(request: Request, endpoint: str):
                     start_time,
                     body_json,
                     api_key_id,
+                    client_ip,
                     semaphore,
                     request_id,
                     stream_log_id,
@@ -166,6 +178,7 @@ async def proxy_request(request: Request, endpoint: str):
                     start_time,
                     body_json,
                     api_key_id,
+                    client_ip,
                     semaphore,
                     request_id,
                 )
@@ -184,6 +197,7 @@ async def proxy_request(request: Request, endpoint: str):
             latency,
             "error",
             api_key_id=api_key_id,
+            client_ip=client_ip,
             error=str(e),
         )
         error_logger.error(
@@ -204,6 +218,23 @@ def _build_headers(provider_config: dict) -> dict:
     if provider_config.get("api_key"):
         headers["authorization"] = f"Bearer {provider_config['api_key']}"
     return headers
+
+def _schedule_api_key_last_used_update(api_key_id: int | None) -> None:
+    if not api_key_id:
+        return
+
+    task = asyncio.create_task(update_api_key_last_used(api_key_id))
+
+    def _handle_task_result(done_task: asyncio.Task) -> None:
+        try:
+            done_task.result()
+        except Exception as exc:
+            logger.warning(
+                "[API KEY] Failed to update last_used_at: %s",
+                sanitize_text_for_log(exc),
+            )
+
+    task.add_done_callback(_handle_task_result)
 
 
 def _log_request_info(
@@ -306,6 +337,7 @@ async def _record_stream_result(
     provider,
     model,
     api_key_id,
+    client_ip,
     start_time,
     log_id,
     status,
@@ -331,7 +363,7 @@ async def _record_stream_result(
 
     if status == "success":
         update_stats(provider, model, total_tokens, api_key_id=api_key_id)
-        await update_request_log(
+        updated = await update_request_log(
             log_id,
             response=total_content,
             tokens=tokens_record,
@@ -339,10 +371,22 @@ async def _record_stream_result(
             status="success",
             upstream_status_code=upstream_status_code,
         )
+        if not updated:
+            await log_request(
+                provider,
+                model,
+                total_content,
+                tokens_record,
+                latency,
+                "success",
+                api_key_id=api_key_id,
+                upstream_status_code=upstream_status_code,
+                client_ip=client_ip,
+            )
         logger.info(f"[STREAM COMPLETE] ~{total_tokens} tokens | {latency:.0f}ms")
         logger.debug("[STREAM RESPONSE] Content: %s", total_content)
     elif status == "cancelled":
-        await update_request_log(
+        updated = await update_request_log(
             log_id,
             response=total_content,
             tokens=tokens_record,
@@ -350,9 +394,21 @@ async def _record_stream_result(
             status="cancelled",
             upstream_status_code=upstream_status_code,
         )
+        if not updated:
+            await log_request(
+                provider,
+                model,
+                total_content,
+                tokens_record,
+                latency,
+                "cancelled",
+                api_key_id=api_key_id,
+                upstream_status_code=upstream_status_code,
+                client_ip=client_ip,
+            )
     elif status == "error":
         update_stats(provider, model, 0, api_key_id=api_key_id, is_error=True)
-        await update_request_log(
+        updated = await update_request_log(
             log_id,
             response=total_content,
             tokens=tokens_record,
@@ -361,6 +417,19 @@ async def _record_stream_result(
             upstream_status_code=upstream_status_code,
             error=str(error) if error is not None else None,
         )
+        if not updated:
+            await log_request(
+                provider,
+                model,
+                total_content,
+                tokens_record,
+                latency,
+                "error",
+                api_key_id=api_key_id,
+                upstream_status_code=upstream_status_code,
+                client_ip=client_ip,
+                error=str(error) if error is not None else None,
+            )
         error_logger.error(
             f"[STREAM ERROR] Provider: {provider}, Model: {model}\n"
             f"  Error: {type(error).__name__ if error else 'Unknown'}: {sanitize_text_for_log(error)}\n"
@@ -380,6 +449,7 @@ async def handle_normal(
     start_time,
     req_body,
     api_key_id,
+    client_ip,
     semaphore,
     request_id,
 ):
@@ -444,6 +514,7 @@ async def handle_normal(
         "error" if is_error else "success",
         api_key_id=api_key_id,
         upstream_status_code=resp.status_code,
+        client_ip=client_ip,
         error=(
             sanitize_text_for_log(provider_error, limit=2000)
             if provider_error
@@ -483,6 +554,7 @@ async def handle_streaming(
     start_time,
     req_body,
     api_key_id,
+    client_ip,
     semaphore,
     request_id,
     log_id,
@@ -641,6 +713,7 @@ async def handle_streaming(
                                     provider,
                                     model,
                                     api_key_id,
+                                    client_ip,
                                     start_time,
                                     log_id,
                                     "cancelled",
@@ -658,6 +731,7 @@ async def handle_streaming(
                 provider,
                 model,
                 api_key_id,
+                client_ip,
                 start_time,
                 log_id,
                 "success",
@@ -674,6 +748,7 @@ async def handle_streaming(
                 provider,
                 model,
                 api_key_id,
+                client_ip,
                 start_time,
                 log_id,
                 "error",
