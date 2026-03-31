@@ -259,6 +259,43 @@ def _extract_response_fields(resp_json: dict) -> tuple[str, str, list, str]:
     return response_text, reasoning_text, tool_calls, finish_reason
 
 
+def _format_provider_error(error_obj) -> str:
+    if isinstance(error_obj, dict):
+        message = (
+            error_obj.get("message")
+            or error_obj.get("msg")
+            or error_obj.get("detail")
+            or json.dumps(error_obj, ensure_ascii=False)
+        )
+        code = error_obj.get("code") or error_obj.get("status_code")
+        return f"{message} ({code})" if code not in (None, "") else str(message)
+    return str(error_obj)
+
+
+def _extract_provider_error(payload: dict) -> str | None:
+    error_obj = payload.get("error")
+    if error_obj:
+        return _format_provider_error(error_obj)
+
+    base_resp = payload.get("base_resp")
+    if isinstance(base_resp, dict):
+        status_code = base_resp.get("status_code")
+        status_msg = (
+            base_resp.get("status_msg")
+            or base_resp.get("message")
+            or base_resp.get("detail")
+        )
+        if status_code not in (None, "", 0, "0", 200, "200") and status_msg:
+            return f"{status_msg} ({status_code})"
+
+    status_code = payload.get("status_code")
+    status_msg = payload.get("message") or payload.get("msg") or payload.get("detail")
+    if status_code not in (None, "", 0, "0", 200, "200") and status_msg:
+        return f"{status_msg} ({status_code})"
+
+    return None
+
+
 async def _record_stream_result(
     total_content,
     total_reasoning,
@@ -387,10 +424,11 @@ async def handle_normal(
             f"[API] {provider} rate limited, retry-after: {retry_after}s"
         )
 
-    if not is_error and resp_json.get("error"):
+    provider_error = _extract_provider_error(resp_json)
+    if not is_error and provider_error:
         is_error = True
         error_logger.error(
-            f"[API ERROR] Provider: {provider}, Model: {model}, API returned error: {resp_json.get('error')}"
+            f"[API ERROR] Provider: {provider}, Model: {model}, API returned error: {provider_error}"
         )
 
     update_stats(
@@ -406,7 +444,13 @@ async def handle_normal(
         "error" if is_error else "success",
         api_key_id=api_key_id,
         upstream_status_code=resp.status_code,
-        error=sanitize_text_for_log(resp.text, limit=2000) if is_error else None,
+        error=(
+            sanitize_text_for_log(provider_error, limit=2000)
+            if provider_error
+            else sanitize_text_for_log(resp.text, limit=2000)
+        )
+        if is_error
+        else None,
     )
 
     if is_error:
@@ -483,6 +527,15 @@ async def handle_streaming(
                     chunk_count = 0
                     async for line in normalize_sse_stream(resp.aiter_lines()):
                         if not line.startswith("data: "):
+                            if not line.strip() or line.startswith(":"):
+                                continue
+                            try:
+                                raw_payload = json.loads(line)
+                            except json.JSONDecodeError:
+                                continue
+                            provider_error = _extract_provider_error(raw_payload)
+                            if provider_error:
+                                raise Exception(f"API error: {provider_error}")
                             continue
                         line_content = line[6:]
                         if line_content == "[DONE]":
@@ -494,11 +547,9 @@ async def handle_streaming(
 
                             if chunk.get("usage"):
                                 last_usage = chunk["usage"]
-                            if chunk.get("error"):
-                                error_msg = chunk.get("error")
-                                if isinstance(error_msg, dict):
-                                    error_msg = error_msg.get("message", str(error_msg))
-                                raise Exception(f"API error: {error_msg}")
+                            provider_error = _extract_provider_error(chunk)
+                            if provider_error:
+                                raise Exception(f"API error: {provider_error}")
 
                             if "choices" not in chunk or not chunk["choices"]:
                                 yield f"{line.rstrip()}\n\n"
