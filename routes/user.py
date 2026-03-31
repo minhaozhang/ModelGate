@@ -15,9 +15,14 @@ from core.i18n import render, translate
 router = APIRouter(tags=["user"])
 ERROR_STATUSES = ("error", "timeout")
 ACTIVE_WINDOW_SECONDS = 30
+USER_STATS_CACHE_TTL_SECONDS = 60
+SYSTEM_HEALTH_WINDOW_MINUTES = 20
 
 USER_SESSIONS: dict[str, dict] = {}
 USER_SESSION_EXPIRE_HOURS = 24
+USER_STATS_CACHE: dict[tuple[int, str, str], dict] = {}
+SYSTEM_MODEL_STATS_CACHE: dict[tuple[str, str], dict] = {}
+USER_RECOMMENDATIONS_CACHE: dict[tuple[int, str, str], dict] = {}
 
 
 class UserLoginRequest(BaseModel):
@@ -26,6 +31,12 @@ class UserLoginRequest(BaseModel):
 
 def translated_error(request: Request, message: str, status_code: int) -> JSONResponse:
     return JSONResponse({"error": translate(request, message)}, status_code=status_code)
+
+
+def mask_name(name: str) -> str:
+    if len(name) <= 4:
+        return name
+    return f"{name[:2]}***{name[-2:]}"
 
 
 def get_user_session(user_session: Optional[str] = Cookie(None)) -> Optional[int]:
@@ -47,15 +58,112 @@ def get_local_now() -> datetime:
     return now
 
 
+def get_cache_bucket(now: datetime) -> str:
+    return now.strftime("%Y%m%d%H%M")
+
+
+def get_cached_payload(cache: dict, key: tuple, now: datetime) -> Optional[dict]:
+    cache_item = cache.get(key)
+    if not cache_item:
+        return None
+
+    created_at = cache_item.get("created_at")
+    if not isinstance(created_at, datetime):
+        cache.pop(key, None)
+        return None
+
+    if (now - created_at).total_seconds() >= USER_STATS_CACHE_TTL_SECONDS:
+        cache.pop(key, None)
+        return None
+
+    return cache_item.get("payload")
+
+
+def set_cached_payload(cache: dict, key: tuple, payload: dict, now: datetime) -> None:
+    cache[key] = {
+        "created_at": now,
+        "payload": payload,
+    }
+
+
+def get_score_by_threshold(value: float, good: float, bad: float) -> float:
+    if value <= good:
+        return 1.0
+    if value >= bad:
+        return 0.0
+    return max(0.0, 1.0 - ((value - good) / (bad - good)))
+
+
+def build_system_health_summary(
+    recent_requests: int,
+    completed_requests: int,
+    active_api_keys: int,
+    error_count: int,
+    avg_latency_ms: Optional[float],
+    pending_requests: int,
+) -> dict:
+    payload = {
+        "window_minutes": SYSTEM_HEALTH_WINDOW_MINUTES,
+        "recent_requests": recent_requests,
+        "completed_requests": completed_requests,
+        "active_api_keys": active_api_keys,
+        "pending_requests": pending_requests,
+        "error_count": error_count,
+        "error_rate": 0.0,
+        "avg_latency_ms": round(float(avg_latency_ms or 0), 2) if avg_latency_ms else None,
+        "score": None,
+        "status": "idle",
+    }
+
+    if recent_requests <= 0 and pending_requests <= 0:
+        return payload
+
+    error_rate = error_count / completed_requests if completed_requests > 0 else 0.0
+    active_user_score = get_score_by_threshold(float(active_api_keys), 4.0, 18.0)
+    pending_score = get_score_by_threshold(float(pending_requests), 1.0, 10.0)
+    load_score = (active_user_score * 0.7) + (pending_score * 0.3)
+    error_score = get_score_by_threshold(error_rate, 0.01, 0.18)
+    latency_score = (
+        get_score_by_threshold(float(avg_latency_ms), 1800.0, 15000.0)
+        if avg_latency_ms
+        else 1.0
+    )
+    score = round(
+        ((error_score * 0.45) + (latency_score * 0.35) + (load_score * 0.20)) * 100
+    )
+
+    if score >= 85:
+        status = "excellent"
+    elif score >= 70:
+        status = "healthy"
+    elif score >= 50:
+        status = "busy"
+    else:
+        status = "degraded"
+
+    payload.update(
+        {
+            "error_rate": round(error_rate, 4),
+            "score": score,
+            "status": status,
+        }
+    )
+    return payload
+
+
 def get_user_period_range(
     now: datetime, period: str
 ) -> tuple[datetime, list[str], Callable[[datetime], str]]:
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         intervals = [
-            ((start + timedelta(hours=i)).strftime("%H:00")) for i in range(24)
+            ((start + timedelta(minutes=30 * i)).strftime("%H:%M")) for i in range(48)
         ]
-        format_func = lambda d: d.strftime("%H:00")
+        format_func = lambda d: d.replace(
+            minute=0 if d.minute < 30 else 30,
+            second=0,
+            microsecond=0,
+        ).strftime("%H:%M")
     elif period == "week":
         start = now - timedelta(days=now.weekday())
         start = start.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -132,6 +240,10 @@ async def get_user_stats(
 
     now = get_local_now()
     start, intervals, format_func = get_user_period_range(now, period)
+    cache_key = (api_key_id, period, get_cache_bucket(now))
+    cached_payload = get_cached_payload(USER_STATS_CACHE, cache_key, now)
+    if cached_payload is not None:
+        return cached_payload
 
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
@@ -204,6 +316,37 @@ async def get_user_stats(
         trend_result = await session.execute(trend_query)
         trend_logs = trend_result.scalars().all()
 
+        health_start = now - timedelta(minutes=SYSTEM_HEALTH_WINDOW_MINUTES)
+        health_result = await session.execute(
+            select(
+                func.count(RequestLog.id).label("recent_requests"),
+                func.sum(case((RequestLog.status != "pending", 1), else_=0)).label(
+                    "completed_requests"
+                ),
+                func.count(func.distinct(RequestLog.api_key_id)).label("active_api_keys"),
+                func.sum(case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)).label(
+                    "error_count"
+                ),
+                func.avg(
+                    case((RequestLog.status != "pending", RequestLog.latency_ms), else_=None)
+                ).label("avg_latency_ms"),
+                func.sum(case((RequestLog.status == "pending", 1), else_=0)).label(
+                    "pending_requests"
+                ),
+            ).where(RequestLog.created_at >= health_start)
+        )
+        health_row = health_result.one()
+        system_health = build_system_health_summary(
+            recent_requests=int(health_row.recent_requests or 0),
+            completed_requests=int(health_row.completed_requests or 0),
+            active_api_keys=int(health_row.active_api_keys or 0),
+            error_count=int(health_row.error_count or 0),
+            avg_latency_ms=float(health_row.avg_latency_ms or 0)
+            if health_row.avg_latency_ms is not None
+            else None,
+            pending_requests=int(health_row.pending_requests or 0),
+        )
+
         trend_data = {
             label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals
         }
@@ -220,14 +363,17 @@ async def get_user_stats(
                 if log.status in ERROR_STATUSES:
                     trend_data[label]["errors"] += 1
 
-        return {
+        payload = {
             "name": key.name,
             "total_requests": total_requests,
             "total_tokens": total_tokens,
             "total_errors": total_errors,
             "models": model_stats,
             "trend": trend_data,
+            "system_health": system_health,
         }
+        set_cached_payload(USER_STATS_CACHE, cache_key, payload, now)
+        return payload
 
 
 @router.get("/user/api/active")
@@ -291,6 +437,10 @@ async def get_system_model_stats(
 
     now = get_local_now()
     start, _, _ = get_user_period_range(now, period)
+    cache_key = (period, get_cache_bucket(now))
+    cached_payload = get_cached_payload(SYSTEM_MODEL_STATS_CACHE, cache_key, now)
+    if cached_payload is not None:
+        return cached_payload
 
     async with async_session_maker() as session:
         result = await session.execute(
@@ -315,12 +465,170 @@ async def get_system_model_stats(
         for row in rows
         if row.model
     }
-    return {
+    payload = {
         "period": period,
         "total_requests": sum(v["requests"] for v in models.values()),
         "total_tokens": sum(v["tokens"] for v in models.values()),
         "models": models,
     }
+    set_cached_payload(SYSTEM_MODEL_STATS_CACHE, cache_key, payload, now)
+    return payload
+
+
+@router.get("/user/api/recommendations")
+async def get_user_recommendations(
+    request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+
+    from core.database import ApiKeyModel, Model, Provider, ProviderModel
+
+    now = get_local_now()
+    start, _, _ = get_user_period_range(now, period)
+    cache_key = (api_key_id, period, "v2", get_cache_bucket(now))
+    cached_payload = get_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, now)
+    if cached_payload is not None:
+        return cached_payload
+
+    async with async_session_maker() as session:
+        key_result = await session.execute(
+            select(ApiKey).where(ApiKey.id == api_key_id)
+        )
+        api_key = key_result.scalar_one_or_none()
+        if not api_key:
+            return translated_error(request, "API Key not found", 404)
+
+        providers_result = await session.execute(
+            select(Provider).where(Provider.is_active == True)
+        )
+        models_result = await session.execute(select(Model).where(Model.is_active == True))
+        provider_models_result = await session.execute(
+            select(ProviderModel).where(ProviderModel.is_active == True)
+        )
+        key_models_result = await session.execute(
+            select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key_id)
+        )
+
+        providers = providers_result.scalars().all()
+        models = models_result.scalars().all()
+        provider_models = provider_models_result.scalars().all()
+        key_models = key_models_result.scalars().all()
+
+        provider_map = {provider.id: provider for provider in providers}
+        model_map = {model.id: model for model in models}
+        active_provider_models = [
+            pm
+            for pm in provider_models
+            if pm.provider_id in provider_map and pm.model_id in model_map
+        ]
+        allowed_pm_ids = {item.provider_model_id for item in key_models}
+        full_access = len(allowed_pm_ids) == 0
+        accessible_provider_models = (
+            active_provider_models
+            if full_access
+            else [pm for pm in active_provider_models if pm.id in allowed_pm_ids]
+        )
+
+        accessible_model_meta: dict[tuple[int, str], dict] = {}
+        accessible_provider_ids: set[int] = set()
+        accessible_model_names: set[str] = set()
+        for provider_model in accessible_provider_models:
+            provider = provider_map[provider_model.provider_id]
+            model = model_map[provider_model.model_id]
+            full_name = f"{provider.name}/{model.name}"
+            accessible_model_meta[(provider.id, model.name)] = {
+                "provider": provider.name,
+                "model_name": model.name,
+                "display_name": model.display_name or model.name,
+                "full_name": full_name,
+            }
+            accessible_provider_ids.add(provider.id)
+            accessible_model_names.add(model.name)
+
+        if not accessible_model_meta:
+            payload = {
+                "period": period,
+                "generated_at": now.isoformat(),
+                "items": [],
+            }
+            set_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, payload, now)
+            return payload
+
+        rows_result = await session.execute(
+            select(
+                RequestLog.provider_id,
+                RequestLog.model,
+                func.count(RequestLog.id).label("requests"),
+                func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                func.sum(
+                    case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                ).label("errors"),
+            )
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.provider_id.in_(list(accessible_provider_ids)),
+                RequestLog.model.in_(list(accessible_model_names)),
+                RequestLog.status != "pending",
+            )
+            .group_by(RequestLog.provider_id, RequestLog.model)
+        )
+        rows = rows_result.fetchall()
+
+    recommendations = []
+    for row in rows:
+        if not row.model:
+            continue
+
+        meta = accessible_model_meta.get((row.provider_id, row.model))
+        if not meta:
+            continue
+
+        requests_count = int(row.requests or 0)
+        errors_count = int(row.errors or 0)
+        if requests_count <= 0:
+            continue
+
+        avg_latency_ms = float(row.avg_latency_ms or 0)
+        error_rate = errors_count / requests_count if requests_count else 1.0
+        reliability_score = max(0.0, 1.0 - (error_rate * 1.5))
+        latency_score = 1 / (1 + (avg_latency_ms / 2500.0)) if avg_latency_ms > 0 else 0.0
+        sample_score = min(requests_count / 20.0, 1.0)
+        score = (reliability_score * 0.55) + (latency_score * 0.30) + (sample_score * 0.15)
+
+        recommendations.append(
+            {
+                "model": meta["full_name"],
+                "display_name": meta["display_name"],
+                "provider": meta["provider"],
+                "requests": requests_count,
+                "errors": errors_count,
+                "error_rate": round(error_rate, 4),
+                "avg_latency_ms": round(avg_latency_ms, 2),
+                "score": round(score, 4),
+            }
+        )
+
+    recommendations.sort(
+        key=lambda item: (
+            -item["score"],
+            item["error_rate"],
+            item["avg_latency_ms"],
+            -item["requests"],
+            item["model"],
+        )
+    )
+
+    for index, item in enumerate(recommendations, start=1):
+        item["rank"] = index
+
+    payload = {
+        "period": period,
+        "generated_at": now.isoformat(),
+        "items": recommendations[:5],
+    }
+    set_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, payload, now)
+    return payload
 
 
 @router.get("/user/api/system-active")
@@ -343,6 +651,17 @@ async def get_system_active_sessions(
             .order_by(RequestLog.created_at.desc())
         )
         logs = result.scalars().all()
+        other_key_ids = {
+            log.api_key_id
+            for log in logs
+            if log.api_key_id is not None and log.api_key_id != api_key_id
+        }
+        api_key_names: dict[int, str] = {}
+        if other_key_ids:
+            key_result = await session.execute(
+                select(ApiKey.id, ApiKey.name).where(ApiKey.id.in_(other_key_ids))
+            )
+            api_key_names = {row.id: row.name for row in key_result.fetchall()}
 
     grouped: dict[int | None, dict] = {}
     for log in logs:
@@ -374,7 +693,11 @@ async def get_system_active_sessions(
             display_name = translate(request, "Anonymous")
             is_self = False
         else:
-            display_name = translate(request, "Other {index}", index=other_index)
+            raw_name = api_key_names.get(key)
+            if raw_name:
+                display_name = mask_name(raw_name)
+            else:
+                display_name = translate(request, "Other {index}", index=other_index)
             other_index += 1
             is_self = False
 

@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>{{ _('Monitor') }} - ModelGate</title>
+    <link rel="icon" href="/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -49,31 +50,120 @@
         body.theme-dark .bg-green-50 { background: rgba(16, 185, 129, 0.14) !important; }
         body.theme-dark .bg-amber-50 { background: rgba(245, 158, 11, 0.14) !important; }
         body.theme-dark .bg-red-50 { background: rgba(239, 68, 68, 0.14) !important; }
+        .latency-tab {
+            transition: all 0.2s;
+        }
+        .latency-tab.active {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #2563eb;
+        }
+        body.theme-dark .latency-tab.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: #ffffff;
+        }
+        .heatmap-grid {
+            display: grid;
+            gap: 0.35rem;
+            align-items: stretch;
+        }
+        .heatmap-legend {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .heatmap-legend-scale {
+            width: min(260px, 100%);
+            height: 0.75rem;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #10b981 0%, #f59e0b 55%, #ef4444 100%);
+            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+        }
+        .heatmap-legend-labels {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        .heatmap-cell {
+            min-height: 2.25rem;
+            border-radius: 0.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .heatmap-label {
+            display: flex;
+            align-items: center;
+            padding: 0 0.75rem;
+            border-radius: 0.75rem;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 0.75rem;
+            font-weight: 600;
+            min-height: 2.25rem;
+        }
+        .heatmap-corner {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.1rem;
+            padding: 0.45rem 0.75rem;
+            border-radius: 0.75rem;
+            background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+            color: #1e3a8a;
+            min-height: 2.25rem;
+        }
+        .heatmap-corner strong {
+            font-size: 0.75rem;
+            line-height: 1rem;
+        }
+        .heatmap-corner span {
+            font-size: 0.65rem;
+            line-height: 0.85rem;
+            color: #64748b;
+        }
+        body.theme-dark .heatmap-label {
+            background: #111827;
+            color: #e2e8f0;
+        }
+        body.theme-dark .heatmap-corner {
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.16) 0%, #111827 100%);
+            color: #dbeafe;
+        }
+        body.theme-dark .heatmap-corner span {
+            color: #94a3b8;
+        }
+        body.theme-dark .heatmap-legend-labels {
+            color: #94a3b8;
+        }
+        body.theme-dark .heatmap-legend-scale {
+            box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.16);
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% set active_page = 'monitor' %}
         {% include 'components/nav.html' %}
 
         <main class="ml-56 flex-1 p-6">
-            <div class="flex justify-between items-center mb-6">
-                <div>
-                    <h2 class="text-2xl font-bold text-gray-800">{{ _('Statistics Monitor') }}</h2>
-                    <p class="text-sm text-gray-500 mt-1">{{ _('Composition, concentration, hotspots, and trend behavior') }}</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
-                        {{ _('Dark Mode') }}
-                    </button>
-                    <div class="flex bg-white rounded border overflow-hidden">
-                        <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">{{ _('Day') }}</button>
-                        <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Week') }}</button>
-                        <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Month') }}</button>
-                        <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Year') }}</button>
-                    </div>
-                </div>
+            {% call admin_page_header(_('Statistics Monitor'), _('Composition, concentration, hotspots, and trend behavior')) %}
+            <div class="flex bg-white rounded border overflow-hidden">
+                <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">{{ _('Day') }}</button>
+                <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Week') }}</button>
+                <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Month') }}</button>
+                <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Year') }}</button>
             </div>
+            {% endcall %}
 
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
@@ -148,8 +238,15 @@
                     <h3 class="text-lg font-semibold">{{ _('Model Response Time') }}</h3>
                     <div id="latency-meta" class="text-sm text-gray-500">{{ _('Hourly average response time by model') }}</div>
                 </div>
+                <div class="mb-4 flex flex-wrap gap-2">
+                    <button type="button" id="latency-tab-average" onclick="setLatencyView('average')" class="latency-tab active rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Average') }}</button>
+                    <button type="button" id="latency-tab-p95" onclick="setLatencyView('p95')" class="latency-tab rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('P95') }}</button>
+                    <button type="button" id="latency-tab-range" onclick="setLatencyView('range')" class="latency-tab rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Range') }}</button>
+                    <button type="button" id="latency-tab-heatmap" onclick="setLatencyView('heatmap')" class="latency-tab rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Heatmap') }}</button>
+                </div>
                 <div class="h-80">
                     <canvas id="latencyChart"></canvas>
+                    <div id="latency-heatmap" class="hidden h-full overflow-auto"></div>
                 </div>
             </div>
         </main>
@@ -188,12 +285,24 @@
         onRightAxis: "{{ _('{label} on right axis') }}",
         responseTimeSeconds: "{{ _('Response Time (s)') }}",
         hourlyAverageResponseTime: "{{ _('Hourly average response time by model') }}",
+        hourlyP95ResponseTime: "{{ _('Hourly P95 response time by model') }}",
+        hourlyResponseTimeRange: "{{ _('Hourly response time range by model') }}",
+        responseTimeHeatmap: "{{ _('Response time heatmap by model and hour') }}",
         hourOfDay: "{{ _('Hour of day') }}",
         sampleCount: "{{ _('{count} samples') }}",
+        average: "{{ _('Average') }}",
+        p95: "{{ _('P95') }}",
+        range: "{{ _('Range') }}",
+        heatmap: "{{ _('Heatmap') }}",
+        min: "{{ _('Min') }}",
+        max: "{{ _('Max') }}",
+        avgShort: "{{ _('Avg') }}",
+        noHeatmapData: "{{ _('No heatmap data') }}",
     };
     </script>
     <script>
         let currentPeriod = 'day';
+        let currentLatencyView = 'average';
         let trendChart = null;
         let providerChart = null;
         let apikeyChart = null;
@@ -201,7 +310,7 @@
         let latencyChart = null;
         const providerPalette = ['#2563eb', '#3b82f6', '#0ea5e9', '#38bdf8', '#1d4ed8', '#60a5fa', '#0284c7', '#7dd3fc'];
         const apikeyPalette = ['#059669', '#10b981', '#14b8a6', '#34d399', '#0f766e', '#2dd4bf', '#22c55e', '#6ee7b7'];
-        const modelPalette = ['#7c3aed', '#a855f7', '#ec4899', '#f97316', '#eab308', '#8b5cf6', '#f43f5e', '#c084fc'];
+        const modelPalette = ['#2563eb', '#059669', '#ea580c', '#dc2626', '#7c3aed', '#0891b2', '#ca8a04', '#4f46e5'];
 
         async function logout() {
             await fetch('/admin/api/auth/logout', { method: 'POST' });
@@ -209,7 +318,7 @@
         }
 
         function getThemeMode() {
-            return localStorage.getItem('admin_theme') || 'light';
+            return localStorage.getItem('admin_theme') || 'dark';
         }
 
         function getChartTheme() {
@@ -259,6 +368,17 @@
             document.getElementById('btn-' + period).classList.add('bg-blue-500', 'text-white');
             document.getElementById('btn-' + period).classList.remove('text-gray-600', 'hover:bg-gray-100');
             loadData();
+        }
+
+        function setLatencyView(view) {
+            currentLatencyView = view;
+            document.querySelectorAll('[id^="latency-tab-"]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById('latency-tab-' + view).classList.add('active');
+            if (window.latestMonitorLatencyData) {
+                renderLatencyChart(window.latestMonitorLatencyData);
+            }
         }
 
         function maskName(name) {
@@ -455,22 +575,107 @@
             document.getElementById(targetId).innerHTML = html || `<div class="text-gray-400 text-center py-4">${window.I18N.noHotspots}</div>`;
         }
 
+        function getLatencyVisibleRange(models, series, totalHours) {
+            let firstIndex = null;
+            let lastIndex = null;
+            const metricKeys = ['avg_latency_ms', 'p95_latency_ms', 'min_latency_ms', 'max_latency_ms'];
+
+            models.forEach(model => {
+                const modelSeries = series[model] || {};
+                metricKeys.forEach(metricKey => {
+                    (modelSeries[metricKey] || []).forEach((value, index) => {
+                        if (value === null || value === undefined) return;
+                        firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
+                        lastIndex = lastIndex === null ? index : Math.max(lastIndex, index);
+                    });
+                });
+            });
+
+            if (firstIndex === null || lastIndex === null) {
+                return { start: 0, end: Math.max(totalHours - 1, 0) };
+            }
+            let start = Math.max(firstIndex - 1, 0);
+            let end = Math.min(lastIndex + 1, totalHours - 1);
+            const minVisibleHours = 6;
+            const currentVisibleHours = end - start + 1;
+            if (currentVisibleHours < minVisibleHours) {
+                end = Math.min(end + (minVisibleHours - currentVisibleHours), totalHours - 1);
+                const stillMissing = minVisibleHours - (end - start + 1);
+                if (stillMissing > 0) {
+                    start = Math.max(start - stillMissing, 0);
+                }
+            }
+
+            return { start, end };
+        }
+
+        function getTrendVisibleRange(seriesList, totalBuckets) {
+            let firstIndex = null;
+            let lastIndex = null;
+            seriesList.forEach(series => {
+                (series || []).forEach((value, index) => {
+                    if (!Number(value || 0)) return;
+                    firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
+                    lastIndex = lastIndex === null ? index : Math.max(lastIndex, index);
+                });
+            });
+            if (firstIndex === null || lastIndex === null) {
+                return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            let start = Math.max(firstIndex - 1, 0);
+            let end = Math.min(lastIndex + 1, totalBuckets - 1);
+            if (currentPeriod === 'day') {
+                const minVisibleBuckets = totalBuckets >= 48 ? 12 : 6;
+                const currentVisibleBuckets = end - start + 1;
+                if (currentVisibleBuckets < minVisibleBuckets) {
+                    end = Math.min(end + (minVisibleBuckets - currentVisibleBuckets), totalBuckets - 1);
+                    const stillMissing = minVisibleBuckets - (end - start + 1);
+                    if (stillMissing > 0) {
+                        start = Math.max(start - stillMissing, 0);
+                    }
+                }
+            }
+            return { start, end };
+        }
+
         function renderLatencyChart(latencyData) {
             const chartTheme = getChartTheme();
             const ctx = document.getElementById('latencyChart').getContext('2d');
             if (latencyChart) latencyChart.destroy();
+            window.latestMonitorLatencyData = latencyData;
 
             const models = latencyData.models || [];
             const intervals = latencyData.intervals || Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, '0')}:00`);
             const series = latencyData.series || {};
+            const canvas = document.getElementById('latencyChart');
+            const heatmap = document.getElementById('latency-heatmap');
+            const metaByView = {
+                average: window.I18N.hourlyAverageResponseTime,
+                p95: window.I18N.hourlyP95ResponseTime,
+                range: window.I18N.hourlyResponseTimeRange,
+                heatmap: window.I18N.responseTimeHeatmap,
+            };
             document.getElementById('latency-meta').textContent = models.length
-                ? `${window.I18N.hourlyAverageResponseTime} / ${models.length} ${window.I18N.models}`
+                ? `${metaByView[currentLatencyView]} / ${models.length} ${window.I18N.models}`
                 : window.I18N.noLatencyData;
 
             const hasLatencyData = models.some(model => {
-                const values = series[model]?.latency_ms || [];
-                return values.some(value => value !== null && value !== undefined);
+                const metrics = series[model] || {};
+                return ['avg_latency_ms', 'p95_latency_ms', 'min_latency_ms', 'max_latency_ms'].some(key =>
+                    (metrics[key] || []).some(value => value !== null && value !== undefined)
+                );
             });
+            const visibleRange = getLatencyVisibleRange(models, series, intervals.length);
+
+            if (currentLatencyView === 'heatmap') {
+                canvas.classList.add('hidden');
+                heatmap.classList.remove('hidden');
+                renderLatencyHeatmap(models, intervals, series, visibleRange);
+                return;
+            }
+
+            canvas.classList.remove('hidden');
+            heatmap.classList.add('hidden');
 
             if (!models.length || !hasLatencyData) {
                 latencyChart = new Chart(ctx, {
@@ -485,6 +690,8 @@
                         },
                         scales: {
                             x: {
+                                min: visibleRange.start,
+                                max: visibleRange.end,
                                 grid: { color: chartTheme.gridColor },
                                 ticks: {
                                     color: chartTheme.tickColor,
@@ -504,22 +711,92 @@
                 return;
             }
 
-            const datasets = models.map((model, index) => ({
-                label: model,
-                data: (series[model]?.latency_ms || []).map((value, hourIndex) => ({
-                    x: intervals[hourIndex],
-                    y: value === null || value === undefined ? null : Number((value / 1000).toFixed(2)),
-                    samples: (series[model]?.samples || [])[hourIndex] || 0,
-                })),
-                backgroundColor: modelPalette[index % modelPalette.length],
-                borderColor: modelPalette[index % modelPalette.length],
-                pointRadius: 3,
-                pointHoverRadius: 5,
-                pointHitRadius: 12,
-                borderWidth: 2,
-                spanGaps: false,
-                tension: 0.28,
-            })).filter(dataset => dataset.data.length > 0);
+            let datasets = [];
+            if (currentLatencyView === 'range') {
+                datasets = models.flatMap((model, index) => {
+                    const color = modelPalette[index % modelPalette.length];
+                    const baseData = intervals.map((label, hourIndex) => ({
+                        x: label,
+                        samples: (series[model]?.samples || [])[hourIndex] || 0,
+                    }));
+                    const minData = baseData.map((item, hourIndex) => ({
+                        ...item,
+                        metric: 'min',
+                        y: series[model]?.min_latency_ms?.[hourIndex] == null ? null : Number((series[model].min_latency_ms[hourIndex] / 1000).toFixed(2)),
+                    }));
+                    const maxData = baseData.map((item, hourIndex) => ({
+                        ...item,
+                        metric: 'max',
+                        y: series[model]?.max_latency_ms?.[hourIndex] == null ? null : Number((series[model].max_latency_ms[hourIndex] / 1000).toFixed(2)),
+                    }));
+                    const avgData = baseData.map((item, hourIndex) => ({
+                        ...item,
+                        metric: 'avg',
+                        y: series[model]?.avg_latency_ms?.[hourIndex] == null ? null : Number((series[model].avg_latency_ms[hourIndex] / 1000).toFixed(2)),
+                    }));
+                    return [
+                        {
+                            label: `${model} (${window.I18N.min})`,
+                            stackLabel: model,
+                            metric: 'min',
+                            data: minData,
+                            borderColor: 'rgba(148, 163, 184, 0.35)',
+                            backgroundColor: 'rgba(148, 163, 184, 0)',
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            borderWidth: 1,
+                            spanGaps: false,
+                            tension: 0.22,
+                        },
+                        {
+                            label: `${model} (${window.I18N.max})`,
+                            stackLabel: model,
+                            metric: 'max',
+                            data: maxData,
+                            borderColor: 'rgba(148, 163, 184, 0.35)',
+                            backgroundColor: color + '22',
+                            fill: '-1',
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            borderWidth: 1,
+                            spanGaps: false,
+                            tension: 0.22,
+                        },
+                        {
+                            label: `${model} (${window.I18N.avgShort})`,
+                            stackLabel: model,
+                            metric: 'avg',
+                            data: avgData,
+                            borderColor: color,
+                            backgroundColor: color,
+                            pointRadius: 2.5,
+                            pointHoverRadius: 5,
+                            pointHitRadius: 12,
+                            borderWidth: 2,
+                            spanGaps: false,
+                            tension: 0.28,
+                        }
+                    ];
+                }).filter(dataset => dataset.data.some(point => point.y !== null));
+            } else {
+                const metricKey = currentLatencyView === 'p95' ? 'p95_latency_ms' : 'avg_latency_ms';
+                datasets = models.map((model, index) => ({
+                    label: model,
+                    data: intervals.map((label, hourIndex) => ({
+                        x: label,
+                        y: series[model]?.[metricKey]?.[hourIndex] == null ? null : Number((series[model][metricKey][hourIndex] / 1000).toFixed(2)),
+                        samples: (series[model]?.samples || [])[hourIndex] || 0,
+                    })),
+                    backgroundColor: modelPalette[index % modelPalette.length],
+                    borderColor: modelPalette[index % modelPalette.length],
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    pointHitRadius: 12,
+                    borderWidth: 2,
+                    spanGaps: false,
+                    tension: 0.28,
+                })).filter(dataset => dataset.data.some(point => point.y !== null));
+            }
 
             latencyChart = new Chart(ctx, {
                 type: 'line',
@@ -530,7 +807,13 @@
                     plugins: {
                         legend: {
                             position: 'top',
-                            labels: { color: chartTheme.legendColor }
+                            labels: {
+                                color: chartTheme.legendColor,
+                                filter: function(item, chartData) {
+                                    const dataset = chartData.datasets[item.datasetIndex];
+                                    return currentLatencyView !== 'range' || dataset.metric === 'avg';
+                                }
+                            }
                         },
                         tooltip: {
                             backgroundColor: chartTheme.tooltipBg,
@@ -544,6 +827,9 @@
                                 },
                                 label: function(context) {
                                     const raw = context.raw || {};
+                                    if (currentLatencyView === 'range') {
+                                        return `${context.dataset.stackLabel} ${window.I18N[context.dataset.metric === 'avg' ? 'avgShort' : context.dataset.metric]}: ${(raw.y || 0).toFixed(2)}s`;
+                                    }
                                     return `${context.dataset.label}: ${(raw.y || 0).toFixed(2)}s`;
                                 },
                                 afterLabel: function(context) {
@@ -557,6 +843,8 @@
                     },
                     scales: {
                         x: {
+                            min: visibleRange.start,
+                            max: visibleRange.end,
                             grid: { color: chartTheme.gridColor },
                             ticks: {
                                 color: chartTheme.tickColor,
@@ -573,6 +861,71 @@
                     }
                 }
             });
+        }
+
+        function renderLatencyHeatmap(models, intervals, series, visibleRange) {
+            const container = document.getElementById('latency-heatmap');
+            const visibleIntervals = intervals.slice(visibleRange.start, visibleRange.end + 1);
+            const entries = models.flatMap(model =>
+                (series[model]?.avg_latency_ms || [])
+                    .slice(visibleRange.start, visibleRange.end + 1)
+                    .filter(value => value !== null && value !== undefined)
+            );
+            const maxValue = Math.max(...entries, 0);
+            const minValue = Math.min(...entries, maxValue);
+            if (!models.length || !maxValue) {
+                container.innerHTML = `<div class="h-full flex items-center justify-center text-gray-400">${window.I18N.noHeatmapData}</div>`;
+                return;
+            }
+
+            const formatHeatmapSeconds = (value) => Number((value / 1000).toFixed(2));
+            const getHeatColor = (value) => {
+                const spread = Math.max(maxValue - minValue, 1);
+                const ratio = Math.max(0, Math.min(1, (value - minValue) / spread));
+                const hue = 150 - (ratio * 150);
+                const lightness = 90 - (ratio * 42);
+                return {
+                    background: `hsl(${hue} 78% ${lightness}%)`,
+                    text: ratio > 0.58 ? '#ffffff' : '#1f2937',
+                };
+            };
+
+            const midValue = minValue + ((maxValue - minValue) / 2);
+            const legend = `
+                <div class="heatmap-legend">
+                    <div class="heatmap-legend-labels">
+                        <span>${window.I18N.average}</span>
+                        <span>${formatHeatmapSeconds(minValue)}s</span>
+                    </div>
+                    <div class="heatmap-legend-scale"></div>
+                    <div class="heatmap-legend-labels">
+                        <span>${formatHeatmapSeconds(midValue)}s</span>
+                        <span>${formatHeatmapSeconds(maxValue)}s</span>
+                    </div>
+                </div>
+            `;
+
+            const header = `
+                <div class="heatmap-corner"><strong>${window.I18N.model}</strong><span>${window.I18N.hourOfDay}</span></div>
+                ${visibleIntervals.map(label => `<div class="heatmap-cell text-gray-500">${label.slice(0, 2)}</div>`).join('')}
+            `;
+            const rows = models.map(model => {
+                const avgValues = series[model]?.avg_latency_ms || [];
+                const sampleValues = series[model]?.samples || [];
+                const cells = visibleIntervals.map((_, offset) => {
+                    const hourIndex = visibleRange.start + offset;
+                    const value = avgValues[hourIndex];
+                    const samples = sampleValues[hourIndex] || 0;
+                    if (value == null) {
+                        return `<div class="heatmap-cell bg-gray-100 text-gray-300">-</div>`;
+                    }
+                    const color = getHeatColor(value);
+                    const title = `${model} | ${intervals[hourIndex]} | ${window.I18N.average}: ${formatHeatmapSeconds(value)}s | ${window.I18N.sampleCount.replace('{count}', samples)}`;
+                    return `<div class="heatmap-cell" style="background:${color.background};color:${color.text}" title="${title}">${Number((value / 1000).toFixed(1))}</div>`;
+                }).join('');
+                return `<div class="heatmap-label" title="${model}">${model}</div>${cells}`;
+            }).join('');
+            container.innerHTML = `${legend}<div class="heatmap-grid" style="grid-template-columns:minmax(140px, 1.4fr) repeat(${visibleIntervals.length}, minmax(28px, 1fr));">${header}${rows}</div>`;
         }
 
         function renderFootprintCards(providerEntries, apikeyEntries, modelEntries) {
@@ -614,6 +967,7 @@
             const rawTokens = data.intervals.map(label => data.data[label]?.tokens || 0);
             const errors = data.intervals.map(label => data.data[label]?.errors || 0);
             const timeouts = data.intervals.map(label => data.data[label]?.timeouts || 0);
+            const visibleRange = getTrendVisibleRange([requests, rawTokens, errors, timeouts], data.intervals.length);
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(value => Number((value / tokenScale.divisor).toFixed(2)));
             const tokenLabel = tokenScale.suffix ? `${window.I18N.tokens} (${tokenScale.suffix})` : window.I18N.tokens;
@@ -685,6 +1039,8 @@
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
+                            min: visibleRange.start,
+                            max: visibleRange.end,
                             grid: { color: chartTheme.gridColor },
                             ticks: {
                                 color: chartTheme.tickColor,

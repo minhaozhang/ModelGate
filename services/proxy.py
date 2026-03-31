@@ -272,6 +272,7 @@ async def _record_stream_result(
     start_time,
     log_id,
     status,
+    upstream_status_code=None,
     error=None,
 ):
     latency = (time.time() - start_time) * 1000
@@ -299,6 +300,7 @@ async def _record_stream_result(
             tokens=tokens_record,
             latency_ms=latency,
             status="success",
+            upstream_status_code=upstream_status_code,
         )
         logger.info(f"[STREAM COMPLETE] ~{total_tokens} tokens | {latency:.0f}ms")
         logger.debug("[STREAM RESPONSE] Content: %s", total_content)
@@ -309,6 +311,7 @@ async def _record_stream_result(
             tokens=tokens_record,
             latency_ms=latency,
             status="cancelled",
+            upstream_status_code=upstream_status_code,
         )
     elif status == "error":
         update_stats(provider, model, 0, api_key_id=api_key_id, is_error=True)
@@ -318,6 +321,7 @@ async def _record_stream_result(
             tokens=tokens_record,
             latency_ms=latency,
             status="error",
+            upstream_status_code=upstream_status_code,
             error=str(error) if error is not None else None,
         )
         error_logger.error(
@@ -401,6 +405,7 @@ async def handle_normal(
         latency,
         "error" if is_error else "success",
         api_key_id=api_key_id,
+        upstream_status_code=resp.status_code,
         error=sanitize_text_for_log(resp.text, limit=2000) if is_error else None,
     )
 
@@ -453,6 +458,7 @@ async def handle_streaming(
         stream_tool_calls = []
         seen_tool_call_keys: set[str] = set()
         minimax_proc = MinimaxStreamProcessor() if provider == "minimax" else None
+        upstream_status_code = None
 
         try:
             async with httpx.AsyncClient(
@@ -461,6 +467,7 @@ async def handle_streaming(
                 async with client.stream(
                     "POST", url, headers=headers, content=body
                 ) as resp:
+                    upstream_status_code = resp.status_code
                     if resp.status_code >= 400:
                         error_body = await resp.aread()
                         retry_after = resp.headers.get("retry-after")
@@ -586,6 +593,7 @@ async def handle_streaming(
                                     start_time,
                                     log_id,
                                     "cancelled",
+                                    upstream_status_code=upstream_status_code,
                                 )
                                 return
 
@@ -602,6 +610,7 @@ async def handle_streaming(
                 start_time,
                 log_id,
                 "success",
+                upstream_status_code=upstream_status_code,
             )
         except Exception as e:
             await _record_stream_result(
@@ -617,6 +626,7 @@ async def handle_streaming(
                 start_time,
                 log_id,
                 "error",
+                upstream_status_code=upstream_status_code,
                 error=e,
             )
             yield f"data: {json.dumps({'error': {'message': str(e), 'type': type(e).__name__}})}\n\n"

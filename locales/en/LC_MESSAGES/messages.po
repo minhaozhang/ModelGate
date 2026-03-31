@@ -6,6 +6,9 @@ msgstr ""
 msgid "Dashboard"
 msgstr "Dashboard"
 
+msgid "ModelGate-dashboard"
+msgstr "ModelGate-dashboard"
+
 msgid "API Proxy"
 msgstr "ModelGate"
 
@@ -671,4 +674,97 @@ msgstr "Hour of day"
 
 msgid "{count} samples"
 msgstr "{count} samples"
+
+msgid "Hourly P95 response time by model"
+msgstr "Hourly P95 response time by model"
+
+msgid "Hourly response time range by model"
+msgstr "Hourly response time range by model"
+
+msgid "Response time heatmap by model and hour"
+msgstr "Response time heatmap by model and hour"
+
+msgid "Average"
+msgstr "Average"
+
+msgid "P95"
+msgstr "P95"
+
+msgid "Range"
+msgstr "Range"
+
+msgid "Heatmap"
+msgstr "Heatmap"
+
+msgid "Min"
+msgstr "Min"
+
+msgid "Max"
+msgstr "Max"
+
+msgid "Avg"
+msgstr "Avg"
+
+msgid "No heatmap data"
+msgstr "No heatmap data"
+
+msgid "Recommended Models"
+msgstr "Recommended Models"
+
+msgid "Ranked by stability, response time, and sample size"
+msgstr "Ranked by stability, response time, and sample size"
+
+msgid "Loading recommendations..."
+msgstr "Loading recommendations..."
+
+msgid "Recommendation score"
+msgstr "Recommendation score"
+
+msgid "Avg latency"
+msgstr "Avg latency"
+
+msgid "Error rate"
+msgstr "Error rate"
+
+msgid "Based on the current period and accessible models"
+msgstr "Based on the current period and accessible models"
+
+msgid "No recommendation data yet"
+msgstr "No recommendation data yet"
+
+msgid "samples"
+msgstr "samples"
+
+msgid "System Health"
+msgstr "System Health"
+
+msgid "Last 20 minutes"
+msgstr "Last 20 minutes"
+
+msgid "Based on recent load, error rate, and latency"
+msgstr "Based on recent load, error rate, and latency"
+
+msgid "No recent traffic in the last 20 minutes"
+msgstr "No recent traffic in the last 20 minutes"
+
+msgid "Active users"
+msgstr "Active users"
+
+msgid "Pending"
+msgstr "Pending"
+
+msgid "Excellent"
+msgstr "Excellent"
+
+msgid "Healthy"
+msgstr "Healthy"
+
+msgid "Busy"
+msgstr "Busy"
+
+msgid "Degraded"
+msgstr "Degraded"
+
+msgid "Idle"
+msgstr "Idle"
 

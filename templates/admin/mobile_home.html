@@ -4,10 +4,26 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ _('Dashboard') }} - ModelGate</title>
+    <link rel="icon" href="/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { -webkit-tap-highlight-color: transparent; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .bg-gray-200 { background: #1f2937 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-l-2 { border-color: #1f2937 !important; }
+        body.theme-dark select,
+        body.theme-dark button:not(.text-red-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow-sm { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
         .stat-card { transition: transform 0.15s; }
         .stat-card:active { transform: scale(0.97); }
         .collapsible-header { -webkit-tap-highlight-color: transparent; }
@@ -18,7 +34,7 @@
         ::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen pb-20">
+<body class="theme-dark bg-gray-50 min-h-screen pb-20">
     <nav class="bg-white shadow-sm sticky top-0 z-50">
         <div class="flex items-center justify-between px-4 py-3">
             <div>
@@ -173,6 +189,9 @@
         let currentPeriod = 'day';
         let trendChart = null;
 
+        Chart.defaults.color = '#cbd5e1';
+        Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.15)';
+
         function formatCompactTokens(tokens) {
             const value = Number(tokens || 0);
             if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
@@ -250,12 +269,79 @@
             document.getElementById('apikey-bars').innerHTML = html || `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noData}</div>`;
         }
 
+        function getTrendVisibleRange(seriesList, totalBuckets) {
+            let firstIndex = null;
+            let lastIndex = null;
+            seriesList.forEach(series => {
+                (series || []).forEach((value, index) => {
+                    if (!Number(value || 0)) return;
+                    firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
+                    lastIndex = lastIndex === null ? index : Math.max(lastIndex, index);
+                });
+            });
+            if (firstIndex === null || lastIndex === null) {
+                return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            let start = Math.max(firstIndex - 1, 0);
+            let end = Math.min(lastIndex + 1, totalBuckets - 1);
+            if (currentPeriod === 'day') {
+                const minVisibleBuckets = totalBuckets >= 48 ? 12 : 6;
+                const currentVisibleBuckets = end - start + 1;
+                if (currentVisibleBuckets < minVisibleBuckets) {
+                    end = Math.min(end + (minVisibleBuckets - currentVisibleBuckets), totalBuckets - 1);
+                    const stillMissing = minVisibleBuckets - (end - start + 1);
+                    if (stillMissing > 0) {
+                        start = Math.max(start - stillMissing, 0);
+                    }
+                }
+            }
+            return { start, end };
+        }
+
+        function coalesceTrendBucketPair(firstBucket, secondBucket) {
+            const merged = {};
+            const metricKeys = new Set([
+                ...Object.keys(firstBucket || {}),
+                ...Object.keys(secondBucket || {}),
+            ]);
+            metricKeys.forEach(key => {
+                merged[key] = Number(firstBucket?.[key] || 0) + Number(secondBucket?.[key] || 0);
+            });
+            return merged;
+        }
+
+        function normalizeTrendChartData(chartData) {
+            const labels = chartData?.intervals || [];
+            if (currentPeriod !== 'day' || labels.length !== 48) {
+                return chartData;
+            }
+
+            const mergedIntervals = [];
+            const mergedData = {};
+            for (let index = 0; index < labels.length; index += 2) {
+                const hourLabel = labels[index];
+                mergedIntervals.push(hourLabel);
+                mergedData[hourLabel] = coalesceTrendBucketPair(
+                    chartData.data?.[labels[index]],
+                    chartData.data?.[labels[index + 1]],
+                );
+            }
+
+            return {
+                ...chartData,
+                intervals: mergedIntervals,
+                data: mergedData,
+            };
+        }
+
         function renderTrendChart(chartData) {
             const ctx = document.getElementById('trendChart').getContext('2d');
             if (trendChart) trendChart.destroy();
-            const labels = chartData.intervals || [];
-            const requests = labels.map(i => chartData.data?.[i]?.requests || 0);
-            const rawTokens = labels.map(i => chartData.data?.[i]?.tokens || 0);
+            const normalizedChartData = normalizeTrendChartData(chartData);
+            const labels = normalizedChartData.intervals || [];
+            const requests = labels.map(i => normalizedChartData.data?.[i]?.requests || 0);
+            const rawTokens = labels.map(i => normalizedChartData.data?.[i]?.tokens || 0);
+            const visibleRange = getTrendVisibleRange([requests, rawTokens], labels.length);
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
             const tokenLabel = tokenScale.suffix ? `${window.I18N.tokens} (${tokenScale.suffix})` : window.I18N.tokens;
@@ -297,6 +383,8 @@
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
+                            min: visibleRange.start,
+                            max: visibleRange.end,
                             ticks: { autoSkip: true, maxRotation: 0, minRotation: 0, maxTicksLimit: 6, font: { size: 10 } }
                         },
                         yRequests: {

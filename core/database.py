@@ -117,6 +117,7 @@ class RequestLog(Base):
     tokens = Column(JSONB, nullable=True)
     latency_ms = Column(Float, nullable=True)
     status = Column(String(20), nullable=False)
+    upstream_status_code = Column(Integer, nullable=True)
     error = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -193,5 +194,11 @@ async def init_db():
             text(
                 "ALTER TABLE models "
                 "ADD COLUMN IF NOT EXISTS thinking_budget INTEGER DEFAULT 8192"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE request_logs "
+                "ADD COLUMN IF NOT EXISTS upstream_status_code INTEGER"
             )
         )

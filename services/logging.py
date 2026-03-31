@@ -35,6 +35,7 @@ async def update_request_log(
     tokens: Optional[dict] = None,
     latency_ms: Optional[float] = None,
     status: str = "success",
+    upstream_status_code: Optional[int] = None,
     error: Optional[str] = None,
 ):
     async with async_session_maker() as session:
@@ -46,6 +47,7 @@ async def update_request_log(
                 tokens=tokens or {},
                 latency_ms=latency_ms,
                 status=status,
+                upstream_status_code=upstream_status_code,
                 error=error,
                 updated_at=func.now(),
             )
@@ -61,6 +63,7 @@ async def log_request(
     latency_ms: float,
     status: str,
     api_key_id: Optional[int] = None,
+    upstream_status_code: Optional[int] = None,
     error: Optional[str] = None,
 ):
     async with async_session_maker() as session:
@@ -78,6 +81,7 @@ async def log_request(
             tokens=tokens,
             latency_ms=latency_ms,
             status=status,
+            upstream_status_code=upstream_status_code,
             error=error,
         )
         session.add(log)

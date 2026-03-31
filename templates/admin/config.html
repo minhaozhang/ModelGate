@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>{{ _('Config') }} - ModelGate</title>
+    <link rel="icon" href="/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .nav-link { transition: all 0.2s; }
@@ -34,16 +35,12 @@
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% include "components/nav.html" %}
 
         <main class="ml-56 flex-1 p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">{{ _('Provider & Model Configuration') }}</h2>
-                <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
-                    {{ _('Dark Mode') }}
-                </button>
-            </div>
+            {% call admin_page_header(_('Provider & Model Configuration')) %}{% endcall %}
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white rounded-lg shadow">
@@ -163,7 +160,7 @@
         }
 
         function getThemeMode() {
-            return localStorage.getItem('admin_theme') || 'light';
+            return localStorage.getItem('admin_theme') || 'dark';
         }
 
         function applyTheme(mode) {
