@@ -1,4 +1,5 @@
 # ModelGate
+[![star](https://gitee.com/zmh/ModelGate/badge/star.svg?theme=white)](https://gitee.com/zmh/ModelGate/stargazers)
 
 <p align="center">
   <img src="assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
