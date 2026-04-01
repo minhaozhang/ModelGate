@@ -35,6 +35,7 @@ async def get_today_logs(_: bool = Depends(require_admin)):
                     "latency_ms": log.latency_ms,
                     "tokens": log.tokens,
                     "client_ip": log.client_ip,
+                    "user_agent": log.user_agent,
                     "created_at": log.created_at.isoformat(),
                 }
                 for log in logs
@@ -61,6 +62,7 @@ async def get_all_logs(limit: int = 100, _: bool = Depends(require_admin)):
                     "latency_ms": log.latency_ms,
                     "tokens": log.tokens,
                     "client_ip": log.client_ip,
+                    "user_agent": log.user_agent,
                     "created_at": log.created_at.isoformat(),
                     "response": log.response,
                     "error": log.error,

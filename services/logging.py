@@ -1,8 +1,14 @@
 from typing import Optional
 from sqlalchemy import update, func
 
+import core.config as config_module
 from core.config import providers_cache
 from core.database import async_session_maker, ApiKey, RequestLog
+
+
+def invalidate_today_stats_cache() -> None:
+    config_module.today_stats_cache = {}
+    config_module.today_stats_cache_time = None
 
 
 async def create_request_log(
@@ -10,6 +16,7 @@ async def create_request_log(
     model: str,
     api_key_id: Optional[int] = None,
     client_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
     request_body: Optional[dict] = None,
 ) -> int:
     async with async_session_maker() as session:
@@ -25,9 +32,11 @@ async def create_request_log(
             model=model,
             status="pending",
             client_ip=client_ip,
+            user_agent=user_agent,
         )
         session.add(log)
         await session.commit()
+        invalidate_today_stats_cache()
         return log.id
 
 
@@ -55,6 +64,7 @@ async def update_request_log(
             )
         )
         await session.commit()
+        invalidate_today_stats_cache()
         return (result.rowcount or 0) > 0
 
 
@@ -68,6 +78,7 @@ async def log_request(
     api_key_id: Optional[int] = None,
     upstream_status_code: Optional[int] = None,
     client_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
     error: Optional[str] = None,
 ):
     async with async_session_maker() as session:
@@ -87,10 +98,12 @@ async def log_request(
             status=status,
             upstream_status_code=upstream_status_code,
             client_ip=client_ip,
+            user_agent=user_agent,
             error=error,
         )
         session.add(log)
         await session.commit()
+        invalidate_today_stats_cache()
 
 
 async def update_api_key_last_used(api_key_id: Optional[int]) -> None:

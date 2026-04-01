@@ -43,6 +43,7 @@ from services.sse import normalize_sse_stream
 
 REPEATED_CHUNK_LIMIT = 10
 PROVIDER_REQUEST_TIMEOUT_SECONDS = 300.0
+OUTBOUND_USER_AGENT = "opencode/1.3.13 ai-sdk/provider-utils/4.0.21 runtime/bun/1.3.11"
 
 
 async def proxy_request(request: Request, endpoint: str):
@@ -62,6 +63,7 @@ async def proxy_request(request: Request, endpoint: str):
     if auth_error:
         return JSONResponse({"error": auth_error}, status_code=401)
     client_ip = get_client_ip(request)
+    user_agent = request.headers.get("user-agent")
     _schedule_api_key_last_used_update(api_key_id)
 
     provider_config, actual_model, provider_name = await get_provider_and_model(model)
@@ -144,6 +146,7 @@ async def proxy_request(request: Request, endpoint: str):
                 actual_model,
                 api_key_id=api_key_id,
                 client_ip=client_ip,
+                user_agent=user_agent,
             )
 
         async with httpx.AsyncClient(
@@ -161,6 +164,7 @@ async def proxy_request(request: Request, endpoint: str):
                     body_json,
                     api_key_id,
                     client_ip,
+                    user_agent,
                     semaphore,
                     request_id,
                     stream_log_id,
@@ -179,6 +183,7 @@ async def proxy_request(request: Request, endpoint: str):
                     body_json,
                     api_key_id,
                     client_ip,
+                    user_agent,
                     semaphore,
                     request_id,
                 )
@@ -198,6 +203,7 @@ async def proxy_request(request: Request, endpoint: str):
             "error",
             api_key_id=api_key_id,
             client_ip=client_ip,
+            user_agent=user_agent,
             error=str(e),
         )
         error_logger.error(
@@ -211,7 +217,7 @@ async def proxy_request(request: Request, endpoint: str):
 def _build_headers(provider_config: dict) -> dict:
     headers = {
         "content-type": "application/json",
-        "user-agent": "opencode/1.2.27 ai-sdk/provider-utils/3.0.20 runtime/bun/1.3.10",
+        "user-agent": OUTBOUND_USER_AGENT,
         "connection": "keep-alive",
         "accept": "*/*",
     }
@@ -338,6 +344,7 @@ async def _record_stream_result(
     model,
     api_key_id,
     client_ip,
+    user_agent,
     start_time,
     log_id,
     status,
@@ -382,6 +389,7 @@ async def _record_stream_result(
                 api_key_id=api_key_id,
                 upstream_status_code=upstream_status_code,
                 client_ip=client_ip,
+                user_agent=user_agent,
             )
         logger.info(f"[STREAM COMPLETE] ~{total_tokens} tokens | {latency:.0f}ms")
         logger.debug("[STREAM RESPONSE] Content: %s", total_content)
@@ -405,6 +413,7 @@ async def _record_stream_result(
                 api_key_id=api_key_id,
                 upstream_status_code=upstream_status_code,
                 client_ip=client_ip,
+                user_agent=user_agent,
             )
     elif status == "error":
         update_stats(provider, model, 0, api_key_id=api_key_id, is_error=True)
@@ -428,6 +437,7 @@ async def _record_stream_result(
                 api_key_id=api_key_id,
                 upstream_status_code=upstream_status_code,
                 client_ip=client_ip,
+                user_agent=user_agent,
                 error=str(error) if error is not None else None,
             )
         error_logger.error(
@@ -450,6 +460,7 @@ async def handle_normal(
     req_body,
     api_key_id,
     client_ip,
+    user_agent,
     semaphore,
     request_id,
 ):
@@ -515,6 +526,7 @@ async def handle_normal(
         api_key_id=api_key_id,
         upstream_status_code=resp.status_code,
         client_ip=client_ip,
+        user_agent=user_agent,
         error=(
             sanitize_text_for_log(provider_error, limit=2000)
             if provider_error
@@ -555,6 +567,7 @@ async def handle_streaming(
     req_body,
     api_key_id,
     client_ip,
+    user_agent,
     semaphore,
     request_id,
     log_id,
@@ -714,6 +727,7 @@ async def handle_streaming(
                                     model,
                                     api_key_id,
                                     client_ip,
+                                    user_agent,
                                     start_time,
                                     log_id,
                                     "cancelled",
@@ -732,6 +746,7 @@ async def handle_streaming(
                 model,
                 api_key_id,
                 client_ip,
+                user_agent,
                 start_time,
                 log_id,
                 "success",
@@ -749,6 +764,7 @@ async def handle_streaming(
                 model,
                 api_key_id,
                 client_ip,
+                user_agent,
                 start_time,
                 log_id,
                 "error",

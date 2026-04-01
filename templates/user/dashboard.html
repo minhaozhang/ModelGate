@@ -98,6 +98,18 @@
             color: #dbeafe !important;
             border: 1px solid rgba(71, 85, 105, 0.45);
         }
+        body.theme-dark #recommendation-meta {
+            color: #cbd5e1 !important;
+        }
+        body.theme-dark #recommendation-list > div {
+            color: #e2e8f0;
+        }
+        body.theme-dark #recommendation-list .text-gray-400 {
+            color: #cbd5e1 !important;
+        }
+        body.theme-dark #recommendation-list .text-slate-700 {
+            color: #f8fafc !important;
+        }
         body.theme-dark pre {
             border: 1px solid rgba(71, 85, 105, 0.6);
             box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
@@ -112,6 +124,11 @@
                 <p class="text-gray-500">{{ name }}</p>
             </div>
             <div class="flex gap-2">
+                <select id="period-select" onchange="loadStats()" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm">
+                    <option value="day">{{ _('Today') }}</option>
+                    <option value="week">{{ _('This Week') }}</option>
+                    <option value="month">{{ _('This Month') }}</option>
+                </select>
                 <select id="lang-select" onchange="switchLang(this.value)" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm">
                     <option value="en">English</option>
                     <option value="zh">中文</option>
@@ -135,21 +152,13 @@
             
             <!-- Stats Tab -->
             <div id="tab-stats" class="tab-content active p-6">
-                <div class="flex justify-end mb-4">
-                    <select id="period-select" onchange="loadStats()" class="border rounded px-3 py-2 text-sm">
-                        <option value="day">{{ _('Today') }}</option>
-                        <option value="week">{{ _('This Week') }}</option>
-                        <option value="month">{{ _('This Month') }}</option>
-                    </select>
-                </div>
-
                 <div class="bg-gray-50 rounded-lg p-4 mb-6">
                     <div class="flex justify-between items-center mb-3">
                         <h3 class="text-lg font-semibold">{{ _('Recommended Models') }}</h3>
-                        <span id="recommendation-meta" class="text-xs text-gray-500">{{ _('Ranked by stability, response time, and sample size') }}</span>
+                        <span id="recommendation-meta" class="text-xs text-gray-600">{{ _('Ranked by stability, response time, and sample size') }}</span>
                     </div>
                     <div id="recommendation-list" class="flex flex-wrap gap-2">
-                        <div class="w-full text-gray-400 text-center py-4">{{ _('Loading recommendations...') }}</div>
+                        <div class="w-full text-gray-500 text-center py-4">{{ _('Loading recommendations...') }}</div>
                     </div>
                 </div>
                 
@@ -445,7 +454,7 @@ const data = await response.json();</code></pre>
         noRecommendations: {{ _('No recommendation data yet') | tojson }},
         loadingRecommendations: {{ _('Loading recommendations...') | tojson }},
         samplesLabel: {{ _('samples') | tojson }},
-        opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.opencode/opencode.json. Keep existing providers and other settings, only add or update the model-token-plan provider.') | tojson }},
+        opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider.') | tojson }},
         topShare: {{ _('top share') | tojson }},
         onRightAxis: {{ _('on right axis') | tojson }},
         yourApiKey: {{ _('Your API key') | tojson }},
@@ -985,10 +994,15 @@ const data = await response.json();</code></pre>
         }
 
         function renderRecommendations(data) {
+            const escapeAttr = (value) => String(value || '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('"', '&quot;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;');
             const items = data.items || [];
             document.getElementById('recommendation-meta').textContent = window.I18N.basedOnCurrentPeriod;
             if (!items.length) {
-                document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-400 text-center py-4">${window.I18N.noRecommendations}</div>`;
+                document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
                 return;
             }
 
@@ -998,12 +1012,15 @@ const data = await response.json();</code></pre>
                     : item.rank === 2
                         ? 'bg-sky-500'
                         : item.rank === 3
-                            ? 'bg-amber-500'
+                        ? 'bg-amber-500'
                             : 'bg-slate-400';
+                const tooltip = item.reason
+                    ? `${item.display_name}: ${item.reason}`
+                    : item.model;
                 return `
-                    <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
+                    <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm" title="${escapeAttr(tooltip)}">
                         <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full ${scoreClass} px-1.5 text-[11px] font-semibold text-white">#${item.rank}</span>
-                        <span class="max-w-[13rem] truncate font-medium" title="${item.model}">${item.display_name}</span>
+                        <span class="max-w-[13rem] truncate font-medium">${item.display_name}</span>
                     </div>
                 `;
             }).join('');

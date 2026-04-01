@@ -288,6 +288,7 @@ CREATE TABLE public.request_logs (
     status character varying(20) NOT NULL,
     upstream_status_code integer,
     client_ip character varying(64),
+    user_agent character varying(1024),
     error text,
     created_at timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now()
@@ -433,6 +434,7 @@ COMMENT ON COLUMN public.request_logs.latency_ms IS '响应延迟（毫秒）';
 COMMENT ON COLUMN public.request_logs.status IS '状态：pending/success/error/timeout';
 COMMENT ON COLUMN public.request_logs.upstream_status_code IS '外部供应商返回的HTTP状态码';
 COMMENT ON COLUMN public.request_logs.client_ip IS '用户请求来源IP';
+COMMENT ON COLUMN public.request_logs.user_agent IS '用户请求来源User-Agent';
 COMMENT ON COLUMN public.request_logs.error IS '错误信息';
 COMMENT ON COLUMN public.request_logs.created_at IS '创建时间';
 COMMENT ON COLUMN public.request_logs.updated_at IS '更新时间';

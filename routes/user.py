@@ -1,21 +1,27 @@
+import json
 import secrets
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import case, func, or_, select
 
-from core.config import logger
+from core.config import logger, providers_cache
 from core.database import async_session_maker, ApiKey, RequestLog
-from core.i18n import render, translate
+from core.i18n import get_locale, render, translate
+from services.message import preprocess_messages
+from services.provider import get_model_config
+from services.proxy import OUTBOUND_USER_AGENT
 
 router = APIRouter(tags=["user"])
 ERROR_STATUSES = ("error", "timeout")
 ACTIVE_WINDOW_SECONDS = 30
 USER_STATS_CACHE_TTL_SECONDS = 60
+USER_RECOMMENDATION_REASON_TTL_SECONDS = 3600
 SYSTEM_HEALTH_WINDOW_MINUTES = 20
 
 USER_SESSIONS: dict[str, dict] = {}
@@ -23,6 +29,7 @@ USER_SESSION_EXPIRE_HOURS = 24
 USER_STATS_CACHE: dict[tuple[int, str, str], dict] = {}
 SYSTEM_MODEL_STATS_CACHE: dict[tuple[str, str], dict] = {}
 USER_RECOMMENDATIONS_CACHE: dict[tuple[int, str, str], dict] = {}
+USER_RECOMMENDATION_REASONS_CACHE: dict[tuple[int, str, str, str, str], dict] = {}
 
 
 class UserLoginRequest(BaseModel):
@@ -62,7 +69,16 @@ def get_cache_bucket(now: datetime) -> str:
     return now.strftime("%Y%m%d%H%M")
 
 
-def get_cached_payload(cache: dict, key: tuple, now: datetime) -> Optional[dict]:
+def get_hour_cache_bucket(now: datetime) -> str:
+    return now.strftime("%Y%m%d%H")
+
+
+def get_cached_payload(
+    cache: dict,
+    key: tuple,
+    now: datetime,
+    ttl_seconds: int = USER_STATS_CACHE_TTL_SECONDS,
+) -> Optional[dict]:
     cache_item = cache.get(key)
     if not cache_item:
         return None
@@ -72,7 +88,7 @@ def get_cached_payload(cache: dict, key: tuple, now: datetime) -> Optional[dict]
         cache.pop(key, None)
         return None
 
-    if (now - created_at).total_seconds() >= USER_STATS_CACHE_TTL_SECONDS:
+    if (now - created_at).total_seconds() >= ttl_seconds:
         cache.pop(key, None)
         return None
 
@@ -84,6 +100,180 @@ def set_cached_payload(cache: dict, key: tuple, payload: dict, now: datetime) ->
         "created_at": now,
         "payload": payload,
     }
+
+
+def build_rule_based_recommendation_reason(request: Request, item: dict) -> str:
+    error_rate = float(item.get("error_rate") or 0.0)
+    avg_latency_ms = float(item.get("avg_latency_ms") or 0.0)
+    requests_count = int(item.get("requests") or 0)
+
+    if error_rate <= 0 and avg_latency_ms > 0 and avg_latency_ms <= 2500 and requests_count >= 10:
+        return translate(
+            request, "No recent errors, fast responses, and enough usage samples"
+        )
+    if error_rate <= 0.02 and requests_count >= 10:
+        return translate(request, "Low error rate and stable recent performance")
+    if avg_latency_ms > 0 and avg_latency_ms <= 2500:
+        return translate(request, "Fast recent responses and smooth overall performance")
+    if requests_count >= 15:
+        return translate(request, "Frequently used recently with relatively stable quality")
+    return translate(request, "Balanced recent stability, speed, and sample size")
+
+
+def extract_text_content(content) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                text = item.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return "\n".join(parts)
+    return ""
+
+
+def extract_json_payload(text: str) -> str:
+    raw = text.strip()
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        if lines:
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        raw = "\n".join(lines).strip()
+    return raw
+
+
+async def generate_model_recommendation_reasons(
+    request: Request, recommendations: list[dict], period: str
+) -> dict[str, str]:
+    if not recommendations:
+        return {}
+
+    fallback_map = {
+        item["model"]: build_rule_based_recommendation_reason(request, item)
+        for item in recommendations
+    }
+
+    analyzer = recommendations[0]
+    provider_name = analyzer.get("provider")
+    actual_model_name = analyzer.get("actual_model_name")
+    if not provider_name or not actual_model_name:
+        return fallback_map
+
+    provider_config = providers_cache.get(provider_name)
+    if not provider_config or not provider_config.get("base_url"):
+        return fallback_map
+
+    locale = get_locale(request)
+    language_name = "Chinese" if locale == "zh" else "English"
+    candidates = [
+        {
+            "model": item["model"],
+            "requests": item["requests"],
+            "errors": item["errors"],
+            "error_rate": item["error_rate"],
+            "avg_latency_ms": item["avg_latency_ms"],
+            "score": item["score"],
+        }
+        for item in recommendations
+    ]
+    prompt = {
+        "period": period,
+        "language": language_name,
+        "instruction": (
+            "For each candidate, write one short recommendation reason based only on "
+            "stability, error rate, response speed, and sample size. "
+            "Return strict JSON in the form "
+            '{"reasons":[{"model":"provider/model","reason":"..."}]}. '
+            "Keep each reason concise."
+        ),
+        "candidates": candidates,
+    }
+    body_json = {
+        "model": actual_model_name,
+        "temperature": 0.2,
+        "max_tokens": 220,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You summarize operational metrics for a dashboard. "
+                    "Do not invent data. Reply with JSON only."
+                ),
+            },
+            {
+                "role": "user",
+                "content": json.dumps(prompt, ensure_ascii=False),
+            },
+        ],
+    }
+
+    merge_messages = provider_config.get("merge_consecutive_messages", False)
+    model_config = get_model_config(provider_config, actual_model_name)
+    is_multimodal = (
+        model_config.get("is_multimodal", False) if model_config else False
+    )
+    body_json = preprocess_messages(body_json, merge_messages, is_multimodal)
+    if provider_name == "minimax" and merge_messages:
+        body_json.pop("thinking", None)
+        body_json.pop("stream_options", None)
+        body_json["reasoning_split"] = True
+
+    headers = {
+        "content-type": "application/json",
+        "accept": "application/json",
+        "user-agent": OUTBOUND_USER_AGENT,
+    }
+    if provider_config.get("api_key"):
+        headers["authorization"] = f"Bearer {provider_config['api_key']}"
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.post(
+                f"{provider_config['base_url']}/chat/completions",
+                headers=headers,
+                content=json.dumps(body_json).encode("utf-8"),
+            )
+        if response.status_code >= 400:
+            logger.warning(
+                "[USER] Recommendation reason generation failed for %s/%s with status %s",
+                provider_name,
+                actual_model_name,
+                response.status_code,
+            )
+            return fallback_map
+
+        payload = response.json()
+        content = extract_text_content(
+            (((payload.get("choices") or [{}])[0]).get("message") or {}).get("content")
+        )
+        raw_json = extract_json_payload(content)
+        parsed = json.loads(raw_json) if raw_json else {}
+        reasons = parsed.get("reasons") if isinstance(parsed, dict) else None
+        if not isinstance(reasons, list):
+            return fallback_map
+
+        reason_map = dict(fallback_map)
+        allowed_models = {item["model"] for item in recommendations}
+        for item in reasons:
+            if not isinstance(item, dict):
+                continue
+            model_name = item.get("model")
+            reason = item.get("reason")
+            if (
+                isinstance(model_name, str)
+                and model_name in allowed_models
+                and isinstance(reason, str)
+                and reason.strip()
+            ):
+                reason_map[model_name] = reason.strip()
+        return reason_map
+    except Exception as exc:
+        logger.warning("[USER] Failed to generate recommendation reasons: %s", exc)
+        return fallback_map
 
 
 def get_score_by_threshold(value: float, good: float, bad: float) -> float:
@@ -484,7 +674,7 @@ async def get_user_recommendations(
 
     now = get_local_now()
     start, _, _ = get_user_period_range(now, period)
-    cache_key = (api_key_id, period, "v2", get_cache_bucket(now))
+    cache_key = (api_key_id, period, "v3", get_cache_bucket(now))
     cached_payload = get_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, now)
     if cached_payload is not None:
         return cached_payload
@@ -599,6 +789,7 @@ async def get_user_recommendations(
                 "model": meta["full_name"],
                 "display_name": meta["display_name"],
                 "provider": meta["provider"],
+                "actual_model_name": meta["model_name"],
                 "requests": requests_count,
                 "errors": errors_count,
                 "error_rate": round(error_rate, 4),
@@ -620,10 +811,35 @@ async def get_user_recommendations(
     for index, item in enumerate(recommendations, start=1):
         item["rank"] = index
 
+    top_recommendations = recommendations[:5]
+    reason_cache_key = (
+        api_key_id,
+        period,
+        get_locale(request),
+        "reasons-v1",
+        get_hour_cache_bucket(now),
+    )
+    reason_map = get_cached_payload(
+        USER_RECOMMENDATION_REASONS_CACHE,
+        reason_cache_key,
+        now,
+        ttl_seconds=USER_RECOMMENDATION_REASON_TTL_SECONDS,
+    )
+    if reason_map is None:
+        reason_map = await generate_model_recommendation_reasons(
+            request, top_recommendations, period
+        )
+        set_cached_payload(USER_RECOMMENDATION_REASONS_CACHE, reason_cache_key, reason_map, now)
+
+    for item in top_recommendations:
+        item["reason"] = reason_map.get(item["model"]) or build_rule_based_recommendation_reason(
+            request, item
+        )
+
     payload = {
         "period": period,
         "generated_at": now.isoformat(),
-        "items": recommendations[:5],
+        "items": top_recommendations,
     }
     set_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, payload, now)
     return payload
@@ -918,6 +1134,7 @@ async def get_user_opencode_config(
             )
 
         config = {
+            "$schema": "https://opencode.ai/config.json",
             "provider": {
                 "model-token-plan": {
                     "name": "Model Token Plan",

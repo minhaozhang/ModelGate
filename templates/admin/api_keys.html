@@ -157,10 +157,22 @@
         query: "{{ _('Query') }}",
         userPage: "{{ _('User Page:') }}",
         setupDoc: "{{ _('Setup Doc:') }}",
-        openCodeSetupMd: "{{ _('OpenCode Setup') }}",
+        copySetup: "{{ _('Copy Setup') }}",
         loginLabel: "{{ _('Login') }}",
         lastUsed: "{{ _('Last Used') }}",
         never: "{{ _('Never') }}",
+        accessInfo: "{{ _('ModelGate Access') }}",
+        loginPage: "{{ _('Login Page:') }}",
+        apiKeyLabel: "{{ _('API Key:') }}",
+        quickStart: "{{ _('Quick Start:') }}",
+        openLoginPageAndPasteKey: "{{ _('Open the login page above and paste the API key to sign in.') }}",
+        useSetupDocForOpenCode: "{{ _('For OpenCode setup, open the setup document below or send it directly to your agent.') }}",
+        keepApiKeyPrivate: "{{ _('Keep this API key private and do not share it in public chats or repositories.') }}",
+        opencodeSendHint: "{{ _('Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter:') }}",
+        followThisDoc: "{{ _('Follow this document.') }}",
+        enabledModels: "{{ _('Enabled Models:') }}",
+        noModelsAssigned: "{{ _('No specific model restrictions. This API key can use all currently allowed models.') }}",
+        openCodeWebsiteHint: "{{ _('If OpenCode is not installed yet, please download it from the official website below.') }}",
     };
     </script>
     <script>
@@ -305,8 +317,12 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-gray-500">${window.I18N.setupDoc}</span>
-                            <a href="${setupMdUrl}" target="_blank" class="text-orange-500 hover:underline">${window.I18N.openCodeSetupMd}</a>
-                            <button onclick="copyKeyWithInstructions('${k.key}', '${userPageUrl}', '${setupMdUrl}')" class="text-orange-500 hover:text-orange-700">${window.I18N.copy}</button>
+                            <button onclick='copyKeyWithInstructions(${JSON.stringify({
+                                key: k.key,
+                                userPageUrl,
+                                setupMdUrl,
+                                modelNames
+                            })})' class="text-orange-500 hover:text-orange-700">${window.I18N.copySetup}</button>
                         </div>
                     </div>
                 </div>
@@ -405,15 +421,32 @@
             navigator.clipboard.writeText(key).then(() => alert(window.I18N.copied));
         }
         
-        function copyKeyWithInstructions(key, userPageUrl, setupMdUrl) {
-            const text = `API Key: ${key}
+        function copyKeyWithInstructions(payload) {
+            const { key, userPageUrl, setupMdUrl, modelNames } = payload;
+            const enabledModelsText = Array.isArray(modelNames) && modelNames.length > 0
+                ? modelNames.map(name => `- ${name}`).join('\n')
+                : `- ${window.I18N.noModelsAssigned}`;
+            const text = `${window.I18N.accessInfo}
 
-${window.I18N.usageInstructions}
-1. ${window.I18N.loginLabel}: ${userPageUrl}
-   ${window.I18N.pasteApiKey}
+${window.I18N.loginPage}
+${userPageUrl}
 
-2. ${window.I18N.configureOpenCode}
-   ${window.I18N.letAgentReadConfig} ${setupMdUrl}`;
+${window.I18N.apiKeyLabel}
+${key}
+
+${window.I18N.quickStart}
+1. ${window.I18N.openLoginPageAndPasteKey}
+2. ${window.I18N.keepApiKeyPrivate}
+
+${window.I18N.enabledModels}
+${enabledModelsText}
+
+${window.I18N.openCodeWebsiteHint}
+https://opencode.ai/
+
+${window.I18N.opencodeSendHint}
+${window.I18N.followThisDoc}
+${setupMdUrl}`;
             navigator.clipboard.writeText(text).then(() => alert(window.I18N.apiKeyAndUsageCopied));
         }
         

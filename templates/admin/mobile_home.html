@@ -470,7 +470,7 @@
                         .join(' ');
                     return `<div class="bg-gray-50 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate">${keyName}</div><div class="mt-1 flex flex-wrap gap-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${keyName}">${keyName}</div><div class="mt-1 flex flex-wrap gap-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
                             <span class="text-xs text-gray-500 shrink-0">${session.requests} ${window.I18N.req}</span>
                         </div>
                     </div>`;

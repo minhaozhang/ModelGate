@@ -733,6 +733,21 @@ msgstr "基于当前时间范围和此 Key 可访问模型"
 msgid "No recommendation data yet"
 msgstr "暂无推荐数据"
 
+msgid "No recent errors, fast responses, and enough usage samples"
+msgstr "最近几乎无报错，响应快，且样本量足够"
+
+msgid "Low error rate and stable recent performance"
+msgstr "近期错误率低，整体表现稳定"
+
+msgid "Fast recent responses and smooth overall performance"
+msgstr "近期响应较快，整体体验流畅"
+
+msgid "Frequently used recently with relatively stable quality"
+msgstr "近期使用频繁，质量相对稳定"
+
+msgid "Balanced recent stability, speed, and sample size"
+msgstr "近期稳定性、速度和样本量较均衡"
+
 msgid "samples"
 msgstr "样本"
 
@@ -774,3 +789,60 @@ msgstr "最后使用时间"
 
 msgid "Never"
 msgstr "从未使用"
+
+msgid "ModelGate Access"
+msgstr "ModelGate 访问信息"
+
+msgid "Login Page:"
+msgstr "登录页面："
+
+msgid "API Key:"
+msgstr "API Key："
+
+msgid "Quick Start:"
+msgstr "快速开始："
+
+msgid "Open the login page above and paste the API key to sign in."
+msgstr "打开上面的登录页面，粘贴 API Key 完成登录。"
+
+msgid "For OpenCode setup, open the setup document below or send it directly to your agent."
+msgstr "如果要配置 OpenCode，打开下面的安装文档，或者直接把文档链接发给 OpenCode。"
+
+msgid "Keep this API key private and do not share it in public chats or repositories."
+msgstr "请妥善保管这个 API Key，不要在公开聊天或代码仓库中泄露。"
+
+msgid "Suggested Prompt for OpenCode:"
+msgstr "可直接发给 OpenCode："
+
+msgid "Please open and follow this setup document to add or update the OpenCode configuration for this machine. Keep existing providers and settings, and only add or update the required provider entry."
+msgstr "请打开并按照下面的安装文档，为这台机器添加或更新 OpenCode 配置。保留现有 providers 和其他设置，只新增或更新需要的 provider 条目。"
+
+msgid "Enabled Models:"
+msgstr "已开通模型："
+
+msgid "No specific model restrictions. This API key can use all currently allowed models."
+msgstr "当前没有单独的模型限制，这个 API Key 可以使用当前允许的全部模型。"
+
+msgid "If OpenCode is not installed yet, please download it from the official website below."
+msgstr "如果还没有安装 OpenCode，请先通过下面的官网地址下载安装。"
+
+msgid "Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter:"
+msgstr "请在 OpenCode 中先选择一个免费模型，再将下面的安装链接直接发给 OpenCode 并回车："
+
+msgid "Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter. Ask OpenCode to follow this document:"
+msgstr "请在 OpenCode 中先选择一个免费模型，再将下面的安装链接直接发给 OpenCode 并回车，让它按这个文档执行："
+
+msgid "Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter: Follow this document."
+msgstr "请在 OpenCode 中先选择一个免费模型，再将下面的安装链接直接发给 OpenCode 并回车：按这个文档执行。"
+
+msgid "Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter:"
+msgstr "请在 OpenCode 中先选择一个免费模型，再将下面的安装链接直接发给 OpenCode 并回车："
+
+msgid "Follow this document."
+msgstr "按这个文档执行。"
+
+msgid "Copy Setup"
+msgstr "复制设置"
+
+msgid "Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider."
+msgstr "请帮我把下面的 provider 配置加入 ~/.config/opencode/opencode.json。 如果这个文件不存在，请先创建它。你也可以在当前项目根目录放置 opencode.json。保留现有 providers 和其他设置，只添加或更新 model-token-plan provider。"

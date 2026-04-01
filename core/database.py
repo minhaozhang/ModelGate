@@ -120,6 +120,7 @@ class RequestLog(Base):
     status = Column(String(20), nullable=False)
     upstream_status_code = Column(Integer, nullable=True)
     client_ip = Column(String(64), nullable=True)
+    user_agent = Column(String(1024), nullable=True)
     error = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -208,6 +209,12 @@ async def init_db():
             text(
                 "ALTER TABLE request_logs "
                 "ADD COLUMN IF NOT EXISTS client_ip VARCHAR(64)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE request_logs "
+                "ADD COLUMN IF NOT EXISTS user_agent VARCHAR(1024)"
             )
         )
         await conn.execute(
