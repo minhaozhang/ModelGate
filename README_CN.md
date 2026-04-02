@@ -47,6 +47,10 @@ python main.py
 - 管理端：`http://localhost:8765/admin/home`
 - 用户端：`http://localhost:8765/user/login`
 
+Production domain:
+
+- `https://leturx.cc/modelgate/`
+
 Windows 可直接使用：
 
 - `start.bat`

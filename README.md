@@ -46,6 +46,10 @@ Default local addresses:
 - Admin: `http://localhost:8765/admin/home`
 - User portal: `http://localhost:8765/user/login`
 
+Production domain:
+
+- Public entry: `https://leturx.cc/modelgate/`
+
 Windows helper:
 
 - `start.bat` will prompt for log level and restart the service on port `8765`
