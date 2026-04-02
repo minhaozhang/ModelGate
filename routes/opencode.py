@@ -93,7 +93,7 @@ async def build_opencode_config(session, api_key: str, base_url: str):
                 },
                 "models": models_config,
             }
-        }
+        },
     }
 
 
@@ -126,8 +126,8 @@ Requirements:
 - You can also place `opencode.json` in the root of the current project if you prefer a project-specific config.
 - Keep existing providers and other settings unchanged.
 - Only add or update the `model-token-plan` provider shown below.
+- If the `model-token-plan` provider already exists in the config, replace its entire content with the JSON below.
 - If OpenCode is not installed yet, download it from `https://opencode.ai/`.
-- After saving the file, restart OpenCode so the new provider and models are loaded.
 
 Models included in this provider:
 {model_list}
@@ -135,12 +135,12 @@ Models included in this provider:
 Use this provider config:
 
 ```json
-{json.dumps(config, ensure_ascii=False, indent=2)}
+{json.dumps(config, ensure_ascii=False)}
 ```
 
 After the config is updated:
 1. Save the file.
-2. Restart OpenCode.
+2. **Restart OpenCode** for the changes to take effect.
 3. Verify that the models above are available in OpenCode.
 """
         return PlainTextResponse(content=md, media_type="text/markdown; charset=utf-8")
