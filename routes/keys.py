@@ -8,7 +8,7 @@ from core.database import (
     async_session_maker,
     ApiKey,
     ApiKeyModel,
-    RequestLog,
+    RequestLogRead as RequestLog,
     generate_api_key,
 )
 from services.auth import load_api_keys

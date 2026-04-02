@@ -5,11 +5,12 @@ from sqlalchemy import select, func, and_, or_, case
 
 from core.database import (
     async_session_maker,
-    RequestLog,
+    RequestLogRead as RequestLog,
     ApiKey,
     Provider,
     ProviderDailyStat,
     ApiKeyDailyStat,
+    ApiKeyModelDailyStat,
     ModelDailyStat,
 )
 import core.config as config_module
@@ -25,6 +26,12 @@ router = APIRouter(prefix="/admin/api", tags=["stats"])
 ERROR_STATUS = "error"
 TIMEOUT_STATUS = "timeout"
 ERROR_STATUSES = (ERROR_STATUS, TIMEOUT_STATUS)
+AGGREGATED_PERIODS = {"month", "year"}
+TOKEN_COUNT_EXPR = func.coalesce(
+    RequestLog.tokens["total_tokens"].as_integer(),
+    RequestLog.tokens["estimated"].as_integer(),
+    0,
+)
 
 
 def require_admin(session: Optional[str] = Cookie(None)):
@@ -41,17 +48,113 @@ def get_local_now() -> datetime:
     return now
 
 
+def use_daily_aggregates(period: str) -> bool:
+    return period in AGGREGATED_PERIODS
+
+
+def get_day_start(dt: datetime) -> datetime:
+    return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def get_token_count(tokens_payload) -> int:
+    return (
+        (tokens_payload or {}).get("total_tokens")
+        or (tokens_payload or {}).get("estimated")
+        or 0
+    )
+
+
+def ensure_metric_bucket(stats_map: dict, key: str) -> dict:
+    if key not in stats_map:
+        stats_map[key] = {"requests": 0, "tokens": 0, "errors": 0}
+    return stats_map[key]
+
+
+def add_metric_values(
+    bucket: dict,
+    requests: int = 0,
+    tokens: int = 0,
+    errors: int = 0,
+) -> None:
+    bucket["requests"] += int(requests or 0)
+    bucket["tokens"] += int(tokens or 0)
+    bucket["errors"] += int(errors or 0)
+
+
+def merge_named_stats(target: dict[str, dict], source: dict[str, dict]) -> dict[str, dict]:
+    for key, values in source.items():
+        bucket = ensure_metric_bucket(target, key)
+        add_metric_values(
+            bucket,
+            values.get("requests", 0),
+            values.get("tokens", 0),
+            values.get("errors", 0),
+        )
+    return target
+
+
+def get_api_key_name_from_cache(api_key_id: int) -> Optional[str]:
+    for value in api_keys_cache.values():
+        if value["id"] == api_key_id:
+            return value["name"]
+    return None
+
+
+def get_api_key_id_from_cache(name: str) -> Optional[int]:
+    for value in api_keys_cache.values():
+        if value["name"] == name:
+            return value["id"]
+    return None
+
+
+async def get_provider_name_map(
+    session, provider_ids: list[int] | set[int]
+) -> dict[int, str]:
+    provider_ids = [provider_id for provider_id in provider_ids if provider_id is not None]
+    if not provider_ids:
+        return {}
+    result = await session.execute(select(Provider).where(Provider.id.in_(provider_ids)))
+    return {provider.id: provider.name for provider in result.scalars()}
+
+
+async def get_api_key_name_map(
+    session, api_key_ids: list[int] | set[int]
+) -> dict[int, str]:
+    api_key_ids = [api_key_id for api_key_id in api_key_ids if api_key_id is not None]
+    names = {
+        api_key_id: cached_name
+        for api_key_id in api_key_ids
+        if (cached_name := get_api_key_name_from_cache(api_key_id))
+    }
+    missing_ids = [api_key_id for api_key_id in api_key_ids if api_key_id not in names]
+    if missing_ids:
+        result = await session.execute(select(ApiKey).where(ApiKey.id.in_(missing_ids)))
+        names.update({api_key.id: api_key.name for api_key in result.scalars()})
+    return names
+
+
+def get_aggregate_window_bounds(start: datetime, now: datetime) -> tuple[datetime, datetime]:
+    today_start = get_day_start(now)
+    return min(today_start, now), max(start, today_start)
+
+
 def get_period_start(period: str, now: datetime) -> datetime:
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     if period == "day":
-        return now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return today_start
     if period == "week":
-        start = now - timedelta(days=now.weekday())
-        return start.replace(hour=0, minute=0, second=0, microsecond=0)
+        bucket_start = now.replace(
+            hour=0 if now.hour < 12 else 12,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        return bucket_start - timedelta(hours=12 * 13)
     if period == "month":
-        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return today_start - timedelta(days=30)
     if period == "year":
-        return now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return today_start - timedelta(days=364)
+    return today_start
 
 
 async def get_cached_today_stats(start: datetime) -> dict:
@@ -193,32 +296,39 @@ def get_period_range(
             microsecond=0,
         ).strftime("%H:%M")
     elif period == "week":
-        start = now - timedelta(days=now.weekday())
-        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-        intervals = [
-            ((start + timedelta(hours=6 * i)).strftime("%m/%d %H:%M"))
-            for i in range(28)
-        ]
-        format_func = lambda d: d.replace(
-            hour=(d.hour // 6) * 6,
+        current_bucket_start = now.replace(
+            hour=0 if now.hour < 12 else 12,
             minute=0,
             second=0,
             microsecond=0,
-        ).strftime("%m/%d %H:%M")
+        )
+        start = current_bucket_start - timedelta(hours=12 * 13)
+        intervals = [
+            ((start + timedelta(hours=12 * i)).strftime("%m/%d %H:%M"))
+            for i in range(14)
+        ]
+        def format_func(d: datetime) -> str:
+            bucket_index = max(
+                0,
+                min(
+                    int((d - start).total_seconds() // (12 * 3600)),
+                    len(intervals) - 1,
+                ),
+            )
+            return intervals[bucket_index]
     elif period == "month":
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        days_in_month = (now.date() - start.date()).days + 1
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=30)
         intervals = [
             ((start + timedelta(days=i)).strftime("%m/%d"))
-            for i in range(days_in_month)
+            for i in range(31)
         ]
         format_func = lambda d: d.strftime("%m/%d")
     else:
-        start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        weeks_elapsed = ((now.date() - start.date()).days // 7) + 1
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=364)
+        bucket_count = ((now.date() - start.date()).days // 7) + 1
         intervals = [
             (start + timedelta(days=7 * i)).strftime("%m/%d")
-            for i in range(weeks_elapsed)
+            for i in range(bucket_count)
         ]
         format_func = lambda d: (
             start + timedelta(days=((d.date() - start.date()).days // 7) * 7)
@@ -234,51 +344,143 @@ async def get_today_realtime_stats(
     return cache.get(dimension, {}), {}
 
 
-async def get_aggregated_stats(dimension: str, start: datetime, end: datetime) -> dict:
-    async with async_session_maker() as session:
-        start_str = start.strftime("%Y-%m-%d")
-        end_str = end.strftime("%Y-%m-%d")
+async def get_daily_aggregated_stats(
+    session,
+    dimension: str,
+    start: datetime,
+    end: datetime,
+) -> dict[str, dict]:
+    start_str = start.strftime("%Y-%m-%d")
+    end_str = end.strftime("%Y-%m-%d")
 
-        if dimension == "provider":
-            table = ProviderDailyStat
-            name_col = ProviderDailyStat.provider_name
-        elif dimension == "api_key":
-            table = ApiKeyDailyStat
-            name_col = ApiKeyDailyStat.api_key_id
-        else:
-            table = ModelDailyStat
-            name_col = ModelDailyStat.model_name
+    if dimension == "provider":
+        table = ProviderDailyStat
+        name_col = ProviderDailyStat.provider_name
+    elif dimension == "api_key":
+        table = ApiKeyDailyStat
+        name_col = ApiKeyDailyStat.api_key_id
+    else:
+        table = ModelDailyStat
+        name_col = ModelDailyStat.model_name
 
-        result = await session.execute(
-            select(
-                name_col,
-                func.sum(table.requests).label("requests"),
-                func.sum(table.tokens).label("tokens"),
-                func.sum(table.errors).label("errors"),
-            )
-            .where(and_(table.date >= start_str, table.date < end_str))
-            .group_by(name_col)
+    result = await session.execute(
+        select(
+            name_col.label("group_key"),
+            func.sum(table.requests).label("requests"),
+            func.sum(table.tokens).label("tokens"),
+            func.sum(table.errors).label("errors"),
         )
-        rows = result.fetchall()
+        .where(and_(table.date >= start_str, table.date < end_str))
+        .group_by(name_col)
+    )
+    rows = result.fetchall()
 
-        stats_data = {}
-        for row in rows:
-            key = row[0]
-            if dimension == "api_key" and isinstance(key, int):
-                key_info = None
-                for k, v in api_keys_cache.items():
-                    if v["id"] == key:
-                        key_info = v
-                        break
-                key = key_info["name"] if key_info else f"Key-{key}"
-
-            stats_data[key] = {
-                "requests": row.requests or 0,
-                "tokens": row.tokens or 0,
-                "errors": row.errors or 0,
+    if dimension == "provider":
+        return {
+            row.group_key: {
+                "requests": int(row.requests or 0),
+                "tokens": int(row.tokens or 0),
+                "errors": int(row.errors or 0),
             }
+            for row in rows
+            if row.group_key
+        }
 
-        return stats_data
+    if dimension == "model":
+        return {
+            row.group_key: {
+                "requests": int(row.requests or 0),
+                "tokens": int(row.tokens or 0),
+                "errors": int(row.errors or 0),
+            }
+            for row in rows
+            if row.group_key
+        }
+
+    api_key_ids = [row.group_key for row in rows if isinstance(row.group_key, int)]
+    api_key_names = await get_api_key_name_map(session, api_key_ids)
+    stats_data: dict[str, dict] = {}
+    for row in rows:
+        if row.group_key is None:
+            continue
+        key = api_key_names.get(row.group_key, f"Key-{row.group_key}")
+        stats_data[key] = {
+            "requests": int(row.requests or 0),
+            "tokens": int(row.tokens or 0),
+            "errors": int(row.errors or 0),
+        }
+    return stats_data
+
+
+async def get_raw_grouped_stats(
+    session,
+    dimension: str,
+    start: datetime,
+    *,
+    end: Optional[datetime] = None,
+) -> dict[str, dict]:
+    filters = [RequestLog.created_at >= start]
+    if end is not None:
+        filters.append(RequestLog.created_at < end)
+
+    if dimension == "provider":
+        group_expr = RequestLog.provider_id
+    elif dimension == "api_key":
+        group_expr = RequestLog.api_key_id
+    else:
+        group_expr = RequestLog.model
+
+    result = await session.execute(
+        select(
+            group_expr.label("group_key"),
+            func.count(RequestLog.id).label("requests"),
+            func.sum(TOKEN_COUNT_EXPR).label("tokens"),
+            func.sum(case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)).label(
+                "errors"
+            ),
+        )
+        .where(*filters)
+        .group_by(group_expr)
+    )
+    rows = result.fetchall()
+
+    if dimension == "provider":
+        provider_names = await get_provider_name_map(
+            session, [row.group_key for row in rows if row.group_key is not None]
+        )
+        return {
+            provider_names[row.group_key]: {
+                "requests": int(row.requests or 0),
+                "tokens": int(row.tokens or 0),
+                "errors": int(row.errors or 0),
+            }
+            for row in rows
+            if row.group_key in provider_names
+        }
+
+    if dimension == "model":
+        return {
+            row.group_key: {
+                "requests": int(row.requests or 0),
+                "tokens": int(row.tokens or 0),
+                "errors": int(row.errors or 0),
+            }
+            for row in rows
+            if row.group_key
+        }
+
+    api_key_names = await get_api_key_name_map(
+        session, [row.group_key for row in rows if row.group_key is not None]
+    )
+    return {
+        api_key_names.get(row.group_key, f"Key-{row.group_key}"): {
+            "requests": int(row.requests or 0),
+            "tokens": int(row.tokens or 0),
+            "errors": int(row.errors or 0),
+        }
+        for row in rows
+        if row.group_key is not None
+    }
 
 
 @router.get("/stats/aggregate")
@@ -288,22 +490,26 @@ async def get_aggregate_stats(
     _: bool = Depends(require_admin),
 ):
     now = get_local_now()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    start, intervals, format_func = get_period_range(period, now)
+    start = get_period_start(period, now)
 
-    stats_data = {}
-
-    if start < today_start:
-        end = today_start
-        stats_data = await get_aggregated_stats(dimension, start, end)
-
-    today_stats, _ = await get_today_realtime_stats(dimension, today_start)
-    for key, data in today_stats.items():
-        if key not in stats_data:
-            stats_data[key] = {"requests": 0, "tokens": 0, "errors": 0}
-        stats_data[key]["requests"] += data["requests"]
-        stats_data[key]["tokens"] += data["tokens"]
-        stats_data[key]["errors"] += data["errors"]
+    async with async_session_maker() as session:
+        if use_daily_aggregates(period):
+            aggregate_end, raw_start = get_aggregate_window_bounds(start, now)
+            stats_data = {}
+            if start < aggregate_end:
+                merge_named_stats(
+                    stats_data,
+                    await get_daily_aggregated_stats(
+                        session, dimension, start, aggregate_end
+                    ),
+                )
+            if raw_start < now:
+                merge_named_stats(
+                    stats_data,
+                    await get_raw_grouped_stats(session, dimension, raw_start),
+                )
+        else:
+            stats_data = await get_raw_grouped_stats(session, dimension, start)
 
     total_requests = sum(d["requests"] for d in stats_data.values())
     total_tokens = sum(d["tokens"] for d in stats_data.values())
@@ -327,15 +533,130 @@ async def get_trend_data(
     _: bool = Depends(require_admin),
 ):
     now = get_local_now()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start, intervals, format_func = get_period_range(period, now)
 
     trend_data = {
         label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals
     }
 
-    if period == "day":
-        async with async_session_maker() as session:
+    async with async_session_maker() as session:
+        if use_daily_aggregates(period):
+            aggregate_end, raw_start = get_aggregate_window_bounds(start, now)
+
+            if dimension == "provider":
+                aggregate_table = ProviderDailyStat
+                filters = []
+                if name:
+                    filters.append(ProviderDailyStat.provider_name == name)
+            elif dimension == "api_key":
+                aggregate_table = ApiKeyDailyStat
+                filters = []
+                if name:
+                    api_key_id = get_api_key_id_from_cache(name)
+                    if api_key_id is None:
+                        api_key_row = await session.execute(
+                            select(ApiKey).where(ApiKey.name == name)
+                        )
+                        api_key = api_key_row.scalar_one_or_none()
+                        api_key_id = api_key.id if api_key else None
+                    if api_key_id is None:
+                        return {
+                            "dimension": dimension,
+                            "period": period,
+                            "name": name,
+                            "intervals": intervals,
+                            "data": trend_data,
+                        }
+                    filters.append(ApiKeyDailyStat.api_key_id == api_key_id)
+            else:
+                aggregate_table = ModelDailyStat
+                filters = []
+                if name:
+                    filters.append(ModelDailyStat.model_name == name)
+
+            if start < aggregate_end:
+                result = await session.execute(
+                    select(
+                        aggregate_table.date,
+                        func.sum(aggregate_table.requests).label("requests"),
+                        func.sum(aggregate_table.tokens).label("tokens"),
+                        func.sum(aggregate_table.errors).label("errors"),
+                    )
+                    .where(
+                        aggregate_table.date >= start.strftime("%Y-%m-%d"),
+                        aggregate_table.date < aggregate_end.strftime("%Y-%m-%d"),
+                        *filters,
+                    )
+                    .group_by(aggregate_table.date)
+                    .order_by(aggregate_table.date)
+                )
+                for row in result.fetchall():
+                    bucket_dt = datetime.strptime(row.date, "%Y-%m-%d")
+                    label = format_func(bucket_dt)
+                    if label in trend_data:
+                        add_metric_values(
+                            trend_data[label],
+                            row.requests,
+                            row.tokens,
+                            row.errors,
+                        )
+
+            raw_filters = [RequestLog.created_at >= raw_start] if raw_start < now else []
+            if raw_filters:
+                if dimension == "provider" and name:
+                    provider_result = await session.execute(
+                        select(Provider).where(Provider.name == name)
+                    )
+                    provider = provider_result.scalar_one_or_none()
+                    if provider is None:
+                        return {
+                            "dimension": dimension,
+                            "period": period,
+                            "name": name,
+                            "intervals": intervals,
+                            "data": trend_data,
+                        }
+                    raw_filters.append(RequestLog.provider_id == provider.id)
+                elif dimension == "api_key" and name:
+                    api_key_id = get_api_key_id_from_cache(name)
+                    if api_key_id is None:
+                        api_key_result = await session.execute(
+                            select(ApiKey).where(ApiKey.name == name)
+                        )
+                        api_key = api_key_result.scalar_one_or_none()
+                        api_key_id = api_key.id if api_key else None
+                    if api_key_id is None:
+                        return {
+                            "dimension": dimension,
+                            "period": period,
+                            "name": name,
+                            "intervals": intervals,
+                            "data": trend_data,
+                        }
+                    raw_filters.append(RequestLog.api_key_id == api_key_id)
+                elif dimension == "model" and name:
+                    raw_filters.append(RequestLog.model == name)
+
+                result = await session.execute(
+                    select(
+                        func.count(RequestLog.id).label("requests"),
+                        func.sum(TOKEN_COUNT_EXPR).label("tokens"),
+                        func.sum(
+                            case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                        ).label("errors"),
+                    )
+                    .where(*raw_filters)
+                )
+                row = result.one()
+                label = format_func(raw_start)
+                if label in trend_data:
+                    add_metric_values(
+                        trend_data[label],
+                        row.requests,
+                        row.tokens,
+                        row.errors,
+                    )
+        else:
             query = select(RequestLog).where(RequestLog.created_at >= start)
             result = await session.execute(query)
             logs = result.scalars().all()
@@ -350,20 +671,16 @@ async def get_trend_data(
                                 select(Provider).where(Provider.id == log.provider_id)
                             )
                             prov = prov_result.scalar_one_or_none()
-                            provider_cache[log.provider_id] = (
-                                prov.name if prov else None
-                            )
+                            provider_cache[log.provider_id] = prov.name if prov else None
                         key = provider_cache.get(log.provider_id)
                 elif dimension == "api_key":
-                    if log.api_key_id:
-                        key_info = None
-                        for k, v in api_keys_cache.items():
-                            if v["id"] == log.api_key_id:
-                                key_info = v
-                                break
-                        key = key_info["name"] if key_info else f"Key-{log.api_key_id}"
-                    else:
-                        key = None
+                    key = (
+                        get_api_key_name_from_cache(log.api_key_id)
+                        if log.api_key_id
+                        else None
+                    )
+                    if key is None and log.api_key_id:
+                        key = f"Key-{log.api_key_id}"
                 else:
                     key = log.model
 
@@ -372,93 +689,12 @@ async def get_trend_data(
 
                 label = format_func(log.created_at)
                 if label in trend_data:
-                    tokens = (
-                        (log.tokens or {}).get("total_tokens")
-                        or (log.tokens or {}).get("estimated")
-                        or 0
+                    add_metric_values(
+                        trend_data[label],
+                        1,
+                        get_token_count(log.tokens),
+                        1 if log.status in ERROR_STATUSES else 0,
                     )
-                    trend_data[label]["requests"] += 1
-                    trend_data[label]["tokens"] += tokens
-                    if log.status in ERROR_STATUSES:
-                        trend_data[label]["errors"] += 1
-    else:
-        async with async_session_maker() as session:
-            if dimension == "provider":
-                table = ProviderDailyStat
-                name_col = ProviderDailyStat.provider_name
-            elif dimension == "api_key":
-                table = ApiKeyDailyStat
-                name_col = ApiKeyDailyStat.api_key_id
-            else:
-                table = ModelDailyStat
-                name_col = ModelDailyStat.model_name
-
-            start_str = start.strftime("%Y-%m-%d")
-            today_str = today_start.strftime("%Y-%m-%d")
-            query = select(table).where(
-                and_(table.date >= start_str, table.date < today_str)
-            )
-            if name:
-                query = query.where(name_col == name)
-
-            result = await session.execute(query)
-            rows = result.scalars().all()
-
-            for row in rows:
-                if dimension == "api_key":
-                    key = row.api_key_id
-                    key_info = None
-                    for k, v in api_keys_cache.items():
-                        if v["id"] == key:
-                            key_info = v
-                            break
-                    key = key_info["name"] if key_info else f"Key-{key}"
-                else:
-                    key = (
-                        row.provider_name if dimension == "provider" else row.model_name
-                    )
-
-                row_dt = datetime.strptime(row.date, "%Y-%m-%d")
-                label = format_func(row_dt)
-                if label in trend_data:
-                    trend_data[label]["requests"] += row.requests or 0
-                    trend_data[label]["tokens"] += row.tokens or 0
-                    trend_data[label]["errors"] += row.errors or 0
-
-        cache = await get_cached_today_stats(today_start)
-        today_logs = cache.get("logs", [])
-        provider_cache = cache.get("provider_cache", {})
-
-        for log in today_logs:
-            if dimension == "provider":
-                key = provider_cache.get(log.provider_id)
-            elif dimension == "api_key":
-                if log.api_key_id:
-                    key_info = None
-                    for k, v in api_keys_cache.items():
-                        if v["id"] == log.api_key_id:
-                            key_info = v
-                            break
-                    key = key_info["name"] if key_info else f"Key-{log.api_key_id}"
-                else:
-                    key = None
-            else:
-                key = log.model
-
-            if name and key != name:
-                continue
-
-            label = format_func(log.created_at)
-            if label in trend_data:
-                tokens = (
-                    (log.tokens or {}).get("total_tokens")
-                    or (log.tokens or {}).get("estimated")
-                    or 0
-                )
-                trend_data[label]["requests"] += 1
-                trend_data[label]["tokens"] += tokens
-                if log.status in ERROR_STATUSES:
-                    trend_data[label]["errors"] += 1
 
     return {
         "dimension": dimension,
@@ -741,118 +977,282 @@ async def get_monitor_details(
 @router.get("/stats/period")
 async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)):
     now = get_local_now()
-
-    if period == "day":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "week":
-        start = now - timedelta(days=now.weekday())
-        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "month":
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    elif period == "year":
-        start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-    else:
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start = get_period_start(period, now)
 
     async with async_session_maker() as session:
-        total_result = await session.execute(
-            select(func.count(RequestLog.id)).where(RequestLog.created_at >= start)
-        )
-        total_requests = total_result.scalar() or 0
-
-        tokens_result = await session.execute(
-            select(
-                func.sum(
-                    func.coalesce(
-                        RequestLog.tokens["total_tokens"].as_integer(),
-                        RequestLog.tokens["estimated"].as_integer(),
-                        0,
-                    )
-                )
-            ).where(RequestLog.created_at >= start)
-        )
-        total_tokens = tokens_result.scalar() or 0
-
-        errors_result = await session.execute(
-            select(func.count(RequestLog.id)).where(
-                RequestLog.created_at >= start,
-                RequestLog.status.in_(ERROR_STATUSES),
-            )
-        )
-        total_errors = errors_result.scalar() or 0
-
-        logs_result = await session.execute(
-            select(RequestLog).where(RequestLog.created_at >= start)
-        )
-        logs = logs_result.scalars().all()
-
-        provider_ids = {log.provider_id for log in logs if log.provider_id}
-        api_key_ids = {log.api_key_id for log in logs if log.api_key_id}
-
-        providers_map = {}
-        if provider_ids:
-            providers_result = await session.execute(
-                select(Provider).where(Provider.id.in_(provider_ids))
-            )
-            providers_map = {provider.id: provider.name for provider in providers_result.scalars()}
-
-        api_keys_map = {}
-        if api_key_ids:
-            api_keys_result = await session.execute(
-                select(ApiKey).where(ApiKey.id.in_(api_key_ids))
-            )
-            api_keys_map = {api_key.id: api_key.name for api_key in api_keys_result.scalars()}
-
         model_stats = {}
         provider_stats = {}
         api_key_stats = {}
+        total_requests = 0
+        total_tokens = 0
+        total_errors = 0
 
-        for log in logs:
-            tokens = (
-                (log.tokens or {}).get("total_tokens")
-                or (log.tokens or {}).get("estimated")
-                or 0
-            )
+        if use_daily_aggregates(period):
+            aggregate_end, raw_start = get_aggregate_window_bounds(start, now)
+            start_str = start.strftime("%Y-%m-%d")
+            aggregate_end_str = aggregate_end.strftime("%Y-%m-%d")
 
-            if log.model:
-                if log.model not in model_stats:
-                    model_stats[log.model] = {"requests": 0, "tokens": 0}
-                model_stats[log.model]["requests"] += 1
-                model_stats[log.model]["tokens"] += tokens
+            if start < aggregate_end:
+                model_rows_result = await session.execute(
+                    select(
+                        ModelDailyStat.model_name,
+                        func.sum(ModelDailyStat.requests).label("requests"),
+                        func.sum(ModelDailyStat.tokens).label("tokens"),
+                        func.sum(ModelDailyStat.errors).label("errors"),
+                    )
+                    .where(
+                        ModelDailyStat.date >= start_str,
+                        ModelDailyStat.date < aggregate_end_str,
+                    )
+                    .group_by(ModelDailyStat.model_name)
+                )
+                for row in model_rows_result.fetchall():
+                    if not row.model_name:
+                        continue
+                    model_stats[row.model_name] = {
+                        "requests": int(row.requests or 0),
+                        "tokens": int(row.tokens or 0),
+                    }
+                    total_requests += int(row.requests or 0)
+                    total_tokens += int(row.tokens or 0)
+                    total_errors += int(row.errors or 0)
 
-            provider_name = providers_map.get(log.provider_id)
-            if provider_name:
-                if provider_name not in provider_stats:
-                    provider_stats[provider_name] = {
-                        "requests": 0,
-                        "tokens": 0,
+                provider_rows_result = await session.execute(
+                    select(
+                        ProviderDailyStat.provider_name,
+                        func.sum(ProviderDailyStat.requests).label("requests"),
+                        func.sum(ProviderDailyStat.tokens).label("tokens"),
+                    )
+                    .where(
+                        ProviderDailyStat.date >= start_str,
+                        ProviderDailyStat.date < aggregate_end_str,
+                    )
+                    .group_by(ProviderDailyStat.provider_name)
+                )
+                for row in provider_rows_result.fetchall():
+                    if not row.provider_name:
+                        continue
+                    provider_stats[row.provider_name] = {
+                        "requests": int(row.requests or 0),
+                        "tokens": int(row.tokens or 0),
                         "models": {},
                     }
-                provider_stats[provider_name]["requests"] += 1
-                provider_stats[provider_name]["tokens"] += tokens
-                if log.model:
-                    models = provider_stats[provider_name]["models"]
-                    if log.model not in models:
-                        models[log.model] = {"requests": 0, "tokens": 0}
-                    models[log.model]["requests"] += 1
-                    models[log.model]["tokens"] += tokens
 
-            api_key_name = api_keys_map.get(log.api_key_id)
-            if api_key_name:
-                if api_key_name not in api_key_stats:
+                provider_model_rows_result = await session.execute(
+                    select(
+                        ModelDailyStat.provider_name,
+                        ModelDailyStat.model_name,
+                        func.sum(ModelDailyStat.requests).label("requests"),
+                        func.sum(ModelDailyStat.tokens).label("tokens"),
+                    )
+                    .where(
+                        ModelDailyStat.date >= start_str,
+                        ModelDailyStat.date < aggregate_end_str,
+                        ModelDailyStat.provider_name.is_not(None),
+                    )
+                    .group_by(ModelDailyStat.provider_name, ModelDailyStat.model_name)
+                )
+                for row in provider_model_rows_result.fetchall():
+                    if not row.provider_name or not row.model_name:
+                        continue
+                    provider_bucket = provider_stats.setdefault(
+                        row.provider_name,
+                        {"requests": 0, "tokens": 0, "models": {}},
+                    )
+                    provider_bucket["models"][row.model_name] = {
+                        "requests": int(row.requests or 0),
+                        "tokens": int(row.tokens or 0),
+                    }
+
+                api_key_rows_result = await session.execute(
+                    select(
+                        ApiKeyDailyStat.api_key_id,
+                        func.sum(ApiKeyDailyStat.requests).label("requests"),
+                        func.sum(ApiKeyDailyStat.tokens).label("tokens"),
+                    )
+                    .where(
+                        ApiKeyDailyStat.date >= start_str,
+                        ApiKeyDailyStat.date < aggregate_end_str,
+                    )
+                    .group_by(ApiKeyDailyStat.api_key_id)
+                )
+                api_key_rows = api_key_rows_result.fetchall()
+                api_key_names = await get_api_key_name_map(
+                    session, [row.api_key_id for row in api_key_rows if row.api_key_id]
+                )
+                for row in api_key_rows:
+                    if row.api_key_id is None:
+                        continue
+                    api_key_name = api_key_names.get(
+                        row.api_key_id, f"Key-{row.api_key_id}"
+                    )
                     api_key_stats[api_key_name] = {
-                        "requests": 0,
-                        "tokens": 0,
+                        "requests": int(row.requests or 0),
+                        "tokens": int(row.tokens or 0),
                         "models": {},
                     }
-                api_key_stats[api_key_name]["requests"] += 1
-                api_key_stats[api_key_name]["tokens"] += tokens
+
+                api_key_model_rows_result = await session.execute(
+                    select(
+                        ApiKeyModelDailyStat.api_key_id,
+                        ApiKeyModelDailyStat.model_name,
+                        func.sum(ApiKeyModelDailyStat.requests).label("requests"),
+                        func.sum(ApiKeyModelDailyStat.tokens).label("tokens"),
+                    )
+                    .where(
+                        ApiKeyModelDailyStat.date >= start_str,
+                        ApiKeyModelDailyStat.date < aggregate_end_str,
+                    )
+                    .group_by(
+                        ApiKeyModelDailyStat.api_key_id,
+                        ApiKeyModelDailyStat.model_name,
+                    )
+                )
+                for row in api_key_model_rows_result.fetchall():
+                    if row.api_key_id is None or not row.model_name:
+                        continue
+                    api_key_name = api_key_names.get(
+                        row.api_key_id, f"Key-{row.api_key_id}"
+                    )
+                    api_key_bucket = api_key_stats.setdefault(
+                        api_key_name,
+                        {"requests": 0, "tokens": 0, "models": {}},
+                    )
+                    api_key_bucket["models"][row.model_name] = {
+                        "requests": int(row.requests or 0),
+                        "tokens": int(row.tokens or 0),
+                    }
+
+            if raw_start < now:
+                raw_result = await session.execute(
+                    select(
+                        RequestLog.api_key_id,
+                        RequestLog.provider_id,
+                        RequestLog.model,
+                        RequestLog.tokens,
+                        RequestLog.status,
+                    ).where(RequestLog.created_at >= raw_start)
+                )
+                raw_rows = raw_result.fetchall()
+                providers_map = await get_provider_name_map(
+                    session,
+                    {row.provider_id for row in raw_rows if row.provider_id is not None},
+                )
+                api_keys_map = await get_api_key_name_map(
+                    session,
+                    {row.api_key_id for row in raw_rows if row.api_key_id is not None},
+                )
+
+                for row in raw_rows:
+                    tokens = get_token_count(row.tokens)
+                    if row.model:
+                        model_bucket = model_stats.setdefault(
+                            row.model, {"requests": 0, "tokens": 0}
+                        )
+                        model_bucket["requests"] += 1
+                        model_bucket["tokens"] += tokens
+                    total_requests += 1
+                    total_tokens += tokens
+                    if row.status in ERROR_STATUSES:
+                        total_errors += 1
+
+                    provider_name = providers_map.get(row.provider_id)
+                    if provider_name:
+                        provider_bucket = provider_stats.setdefault(
+                            provider_name,
+                            {"requests": 0, "tokens": 0, "models": {}},
+                        )
+                        provider_bucket["requests"] += 1
+                        provider_bucket["tokens"] += tokens
+                        if row.model:
+                            model_bucket = provider_bucket["models"].setdefault(
+                                row.model, {"requests": 0, "tokens": 0}
+                            )
+                            model_bucket["requests"] += 1
+                            model_bucket["tokens"] += tokens
+
+                    api_key_name = api_keys_map.get(row.api_key_id)
+                    if api_key_name:
+                        api_key_bucket = api_key_stats.setdefault(
+                            api_key_name,
+                            {"requests": 0, "tokens": 0, "models": {}},
+                        )
+                        api_key_bucket["requests"] += 1
+                        api_key_bucket["tokens"] += tokens
+                        if row.model:
+                            model_bucket = api_key_bucket["models"].setdefault(
+                                row.model, {"requests": 0, "tokens": 0}
+                            )
+                            model_bucket["requests"] += 1
+                            model_bucket["tokens"] += tokens
+        else:
+            total_result = await session.execute(
+                select(func.count(RequestLog.id)).where(RequestLog.created_at >= start)
+            )
+            total_requests = total_result.scalar() or 0
+
+            tokens_result = await session.execute(
+                select(func.sum(TOKEN_COUNT_EXPR)).where(RequestLog.created_at >= start)
+            )
+            total_tokens = tokens_result.scalar() or 0
+
+            errors_result = await session.execute(
+                select(func.count(RequestLog.id)).where(
+                    RequestLog.created_at >= start,
+                    RequestLog.status.in_(ERROR_STATUSES),
+                )
+            )
+            total_errors = errors_result.scalar() or 0
+
+            logs_result = await session.execute(
+                select(RequestLog).where(RequestLog.created_at >= start)
+            )
+            logs = logs_result.scalars().all()
+
+            provider_ids = {log.provider_id for log in logs if log.provider_id}
+            api_key_ids = {log.api_key_id for log in logs if log.api_key_id}
+            providers_map = await get_provider_name_map(session, provider_ids)
+            api_keys_map = await get_api_key_name_map(session, api_key_ids)
+
+            for log in logs:
+                tokens = get_token_count(log.tokens)
+
                 if log.model:
-                    models = api_key_stats[api_key_name]["models"]
-                    if log.model not in models:
-                        models[log.model] = {"requests": 0, "tokens": 0}
-                    models[log.model]["requests"] += 1
-                    models[log.model]["tokens"] += tokens
+                    model_bucket = model_stats.setdefault(
+                        log.model, {"requests": 0, "tokens": 0}
+                    )
+                    model_bucket["requests"] += 1
+                    model_bucket["tokens"] += tokens
+
+                provider_name = providers_map.get(log.provider_id)
+                if provider_name:
+                    provider_bucket = provider_stats.setdefault(
+                        provider_name,
+                        {"requests": 0, "tokens": 0, "models": {}},
+                    )
+                    provider_bucket["requests"] += 1
+                    provider_bucket["tokens"] += tokens
+                    if log.model:
+                        model_bucket = provider_bucket["models"].setdefault(
+                            log.model, {"requests": 0, "tokens": 0}
+                        )
+                        model_bucket["requests"] += 1
+                        model_bucket["tokens"] += tokens
+
+                api_key_name = api_keys_map.get(log.api_key_id)
+                if api_key_name:
+                    api_key_bucket = api_key_stats.setdefault(
+                        api_key_name,
+                        {"requests": 0, "tokens": 0, "models": {}},
+                    )
+                    api_key_bucket["requests"] += 1
+                    api_key_bucket["tokens"] += tokens
+                    if log.model:
+                        model_bucket = api_key_bucket["models"].setdefault(
+                            log.model, {"requests": 0, "tokens": 0}
+                        )
+                        model_bucket["requests"] += 1
+                        model_bucket["tokens"] += tokens
 
         return {
             "period": period,
@@ -875,75 +1275,130 @@ async def get_chart_data(
 ):
     now = get_local_now()
     start, intervals, format_func = get_period_range(period, now)
+    data = {label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals}
 
     async with async_session_maker() as session:
-        query = select(RequestLog).where(RequestLog.created_at >= start)
-        if provider:
-            query = query.where(RequestLog.model.ilike(f"%{provider}%"))
-        if api_key_id:
-            query = query.where(RequestLog.api_key_id == api_key_id)
-
-        result = await session.execute(query)
-        logs = result.scalars().all()
-
-        data = {label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals}
-
-        for log in logs:
-            label = format_func(log.created_at)
-            if label in data:
-                data[label]["requests"] += 1
-                tokens = (
-                    (log.tokens or {}).get("total_tokens")
-                    or (log.tokens or {}).get("estimated")
-                    or 0
-                )
-                data[label]["tokens"] += tokens
-                if log.status in ERROR_STATUSES:
-                    data[label]["errors"] += 1
-
-        provider_stats = {}
-        provider_cache = {}
-        for log in logs:
-            provider_name = None
-            if log.provider_id:
-                if log.provider_id not in provider_cache:
-                    p_result = await session.execute(
-                        select(Provider).where(Provider.id == log.provider_id)
+        if use_daily_aggregates(period) and provider is None and api_key_id is None:
+            aggregate_end, raw_start = get_aggregate_window_bounds(start, now)
+            if start < aggregate_end:
+                result = await session.execute(
+                    select(
+                        ModelDailyStat.date,
+                        func.sum(ModelDailyStat.requests).label("requests"),
+                        func.sum(ModelDailyStat.tokens).label("tokens"),
+                        func.sum(ModelDailyStat.errors).label("errors"),
                     )
-                    p = p_result.scalar_one_or_none()
-                    provider_cache[log.provider_id] = p.name if p else None
-                provider_name = provider_cache.get(log.provider_id)
-            if provider_name:
-                if provider_name not in provider_stats:
-                    provider_stats[provider_name] = {"requests": 0, "tokens": 0}
-                provider_stats[provider_name]["requests"] += 1
-                tokens = (
-                    (log.tokens or {}).get("total_tokens")
-                    or (log.tokens or {}).get("estimated")
-                    or 0
-                )
-                provider_stats[provider_name]["tokens"] += tokens
-
-        api_key_stats = {}
-        for log in logs:
-            kid = log.api_key_id
-            if kid:
-                key_info = None
-                for k, v in api_keys_cache.items():
-                    if v["id"] == kid:
-                        key_info = v
-                        break
-                if key_info:
-                    name = key_info["name"]
-                    if name not in api_key_stats:
-                        api_key_stats[name] = {"requests": 0, "tokens": 0}
-                    api_key_stats[name]["requests"] += 1
-                    tokens = (
-                        (log.tokens or {}).get("total_tokens")
-                        or (log.tokens or {}).get("estimated")
-                        or 0
+                    .where(
+                        ModelDailyStat.date >= start.strftime("%Y-%m-%d"),
+                        ModelDailyStat.date < aggregate_end.strftime("%Y-%m-%d"),
                     )
-                    api_key_stats[name]["tokens"] += tokens
+                    .group_by(ModelDailyStat.date)
+                    .order_by(ModelDailyStat.date)
+                )
+                for row in result.fetchall():
+                    label = format_func(datetime.strptime(row.date, "%Y-%m-%d"))
+                    if label in data:
+                        add_metric_values(
+                            data[label],
+                            row.requests,
+                            row.tokens,
+                            row.errors,
+                        )
+
+            if raw_start < now:
+                result = await session.execute(
+                    select(
+                        func.count(RequestLog.id).label("requests"),
+                        func.sum(TOKEN_COUNT_EXPR).label("tokens"),
+                        func.sum(
+                            case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                        ).label("errors"),
+                    ).where(RequestLog.created_at >= raw_start)
+                )
+                row = result.one()
+                label = format_func(raw_start)
+                if label in data:
+                    add_metric_values(
+                        data[label],
+                        row.requests,
+                        row.tokens,
+                        row.errors,
+                    )
+
+            provider_stats = {}
+            merge_named_stats(
+                provider_stats,
+                await get_daily_aggregated_stats(session, "provider", start, aggregate_end)
+                if start < aggregate_end
+                else {},
+            )
+            if raw_start < now:
+                merge_named_stats(
+                    provider_stats,
+                    await get_raw_grouped_stats(session, "provider", raw_start),
+                )
+
+            api_key_stats = {}
+            merge_named_stats(
+                api_key_stats,
+                await get_daily_aggregated_stats(session, "api_key", start, aggregate_end)
+                if start < aggregate_end
+                else {},
+            )
+            if raw_start < now:
+                merge_named_stats(
+                    api_key_stats,
+                    await get_raw_grouped_stats(session, "api_key", raw_start),
+                )
+        else:
+            query = select(RequestLog).where(RequestLog.created_at >= start)
+            if provider:
+                query = query.where(RequestLog.model.ilike(f"%{provider}%"))
+            if api_key_id:
+                query = query.where(RequestLog.api_key_id == api_key_id)
+
+            result = await session.execute(query)
+            logs = result.scalars().all()
+
+            for log in logs:
+                label = format_func(log.created_at)
+                if label in data:
+                    add_metric_values(
+                        data[label],
+                        1,
+                        get_token_count(log.tokens),
+                        1 if log.status in ERROR_STATUSES else 0,
+                    )
+
+            provider_stats = {}
+            provider_cache = {}
+            for log in logs:
+                provider_name = None
+                if log.provider_id:
+                    if log.provider_id not in provider_cache:
+                        p_result = await session.execute(
+                            select(Provider).where(Provider.id == log.provider_id)
+                        )
+                        p = p_result.scalar_one_or_none()
+                        provider_cache[log.provider_id] = p.name if p else None
+                    provider_name = provider_cache.get(log.provider_id)
+                if provider_name:
+                    bucket = provider_stats.setdefault(
+                        provider_name, {"requests": 0, "tokens": 0}
+                    )
+                    bucket["requests"] += 1
+                    bucket["tokens"] += get_token_count(log.tokens)
+
+            api_key_stats = {}
+            for log in logs:
+                if log.api_key_id:
+                    name = get_api_key_name_from_cache(log.api_key_id)
+                    if name:
+                        bucket = api_key_stats.setdefault(
+                            name, {"requests": 0, "tokens": 0}
+                        )
+                        bucket["requests"] += 1
+                        bucket["tokens"] += get_token_count(log.tokens)
 
         return {
             "period": period,

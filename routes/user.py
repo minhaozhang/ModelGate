@@ -11,7 +11,14 @@ from pydantic import BaseModel
 from sqlalchemy import case, func, or_, select
 
 from core.config import logger, providers_cache
-from core.database import async_session_maker, ApiKey, RequestLog
+from core.database import (
+    async_session_maker,
+    ApiKey,
+    RequestLogRead as RequestLog,
+    ApiKeyDailyStat,
+    ApiKeyModelDailyStat,
+    ModelDailyStat,
+)
 from core.i18n import get_locale, render, translate
 from services.message import preprocess_messages
 from services.provider import get_model_config
@@ -30,6 +37,7 @@ USER_STATS_CACHE: dict[tuple[int, str, str], dict] = {}
 SYSTEM_MODEL_STATS_CACHE: dict[tuple[str, str], dict] = {}
 USER_RECOMMENDATIONS_CACHE: dict[tuple[int, str, str], dict] = {}
 USER_RECOMMENDATION_REASONS_CACHE: dict[tuple[int, str, str, str, str], dict] = {}
+AGGREGATED_USER_PERIODS = {"month"}
 
 
 class UserLoginRequest(BaseModel):
@@ -63,6 +71,29 @@ def get_local_now() -> datetime:
     if now.tzinfo is not None:
         now = now.replace(tzinfo=None)
     return now
+
+
+def use_user_daily_aggregates(period: str) -> bool:
+    return period in AGGREGATED_USER_PERIODS
+
+
+def get_day_start(dt: datetime) -> datetime:
+    return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def get_user_aggregate_window_bounds(
+    start: datetime, now: datetime
+) -> tuple[datetime, datetime]:
+    today_start = get_day_start(now)
+    return min(today_start, now), max(start, today_start)
+
+
+def get_token_count(tokens_payload) -> int:
+    return (
+        (tokens_payload or {}).get("total_tokens")
+        or (tokens_payload or {}).get("estimated")
+        or 0
+    )
 
 
 def get_cache_bucket(now: datetime) -> str:
@@ -120,6 +151,75 @@ def build_rule_based_recommendation_reason(request: Request, item: dict) -> str:
     return translate(request, "Balanced recent stability, speed, and sample size")
 
 
+def format_hour_range(hour_values: list[int]) -> list[str]:
+    if not hour_values:
+        return []
+
+    sorted_hours = sorted(set(hour_values))
+    ranges: list[str] = []
+    start = sorted_hours[0]
+    end = start
+    for hour in sorted_hours[1:]:
+        if hour == end + 1:
+            end = hour
+            continue
+        ranges.append(f"{start:02d}:00-{(end + 1) % 24:02d}:00")
+        start = hour
+        end = hour
+    ranges.append(f"{start:02d}:00-{(end + 1) % 24:02d}:00")
+    return ranges
+
+
+def build_rule_based_timing_advice(request: Request, hourly_stats: list[dict]) -> str:
+    populated_hours = [item for item in hourly_stats if int(item.get("requests") or 0) > 0]
+    if not populated_hours:
+        return translate(
+            request, "Recent data is limited. Try quieter periods and check system health first"
+        )
+
+    total_requests = sum(int(item.get("requests") or 0) for item in populated_hours)
+    if total_requests < 10:
+        return translate(
+            request, "Recent data is limited. Try quieter periods and check system health first"
+        )
+
+    scored_hours: list[tuple[float, int]] = []
+    for item in populated_hours:
+        hour = int(item.get("hour") or 0)
+        requests_count = float(item.get("requests") or 0)
+        errors_count = float(item.get("errors") or 0)
+        avg_latency_ms = float(item.get("avg_latency_ms") or 0)
+        error_rate = (errors_count / requests_count) if requests_count > 0 else 0.0
+        request_score = get_score_by_threshold(requests_count, 6.0, 60.0)
+        error_score = get_score_by_threshold(error_rate, 0.01, 0.18)
+        latency_score = (
+            get_score_by_threshold(avg_latency_ms, 1800.0, 12000.0)
+            if avg_latency_ms > 0
+            else 0.7
+        )
+        score = (request_score * 0.35) + (error_score * 0.40) + (latency_score * 0.25)
+        scored_hours.append((score, hour))
+
+    best_hours = [hour for _, hour in sorted(scored_hours, reverse=True)[:3]]
+    time_ranges = format_hour_range(best_hours)[:2]
+    if not time_ranges:
+        return translate(
+            request, "Recent data is limited. Try quieter periods and check system health first"
+        )
+
+    if len(time_ranges) == 1:
+        return translate(
+            request,
+            "Based on recent daily patterns, {ranges} tends to be smoother with lower errors and faster responses",
+            ranges=time_ranges[0],
+        )
+    return translate(
+        request,
+        "Based on recent daily patterns, {ranges} tend to be smoother with lower errors and faster responses",
+        ranges=" / ".join(time_ranges),
+    )
+
+
 def extract_text_content(content) -> str:
     if isinstance(content, str):
         return content
@@ -146,26 +246,30 @@ def extract_json_payload(text: str) -> str:
     return raw
 
 
-async def generate_model_recommendation_reasons(
-    request: Request, recommendations: list[dict], period: str
-) -> dict[str, str]:
+async def generate_recommendation_insights(
+    request: Request, recommendations: list[dict], hourly_stats: list[dict], period: str
+) -> dict[str, object]:
     if not recommendations:
-        return {}
+        return {
+            "reasons": {},
+            "timing_advice": build_rule_based_timing_advice(request, hourly_stats),
+        }
 
     fallback_map = {
         item["model"]: build_rule_based_recommendation_reason(request, item)
         for item in recommendations
     }
+    fallback_timing_advice = build_rule_based_timing_advice(request, hourly_stats)
 
     analyzer = recommendations[0]
     provider_name = analyzer.get("provider")
     actual_model_name = analyzer.get("actual_model_name")
     if not provider_name or not actual_model_name:
-        return fallback_map
+        return {"reasons": fallback_map, "timing_advice": fallback_timing_advice}
 
     provider_config = providers_cache.get(provider_name)
     if not provider_config or not provider_config.get("base_url"):
-        return fallback_map
+        return {"reasons": fallback_map, "timing_advice": fallback_timing_advice}
 
     locale = get_locale(request)
     language_name = "Chinese" if locale == "zh" else "English"
@@ -180,17 +284,35 @@ async def generate_model_recommendation_reasons(
         }
         for item in recommendations
     ]
+    hourly_candidates = [
+        {
+            "hour": int(item.get("hour") or 0),
+            "requests": int(item.get("requests") or 0),
+            "errors": int(item.get("errors") or 0),
+            "error_rate": round(
+                (float(item.get("errors") or 0) / float(item.get("requests") or 1))
+                if float(item.get("requests") or 0) > 0
+                else 0.0,
+                4,
+            ),
+            "avg_latency_ms": round(float(item.get("avg_latency_ms") or 0), 2),
+        }
+        for item in hourly_stats
+        if int(item.get("requests") or 0) > 0
+    ]
     prompt = {
         "period": period,
         "language": language_name,
         "instruction": (
             "For each candidate, write one short recommendation reason based only on "
             "stability, error rate, response speed, and sample size. "
+            "Also summarize which daily time windows are usually smoother to use based on the hourly stats. "
             "Return strict JSON in the form "
-            '{"reasons":[{"model":"provider/model","reason":"..."}]}. '
-            "Keep each reason concise."
+            '{"reasons":[{"model":"provider/model","reason":"..."}],"timing_advice":"..."}. '
+            "Keep each reason concise and keep timing_advice to one short sentence."
         ),
         "candidates": candidates,
+        "hourly_stats": hourly_candidates,
     }
     body_json = {
         "model": actual_model_name,
@@ -244,7 +366,7 @@ async def generate_model_recommendation_reasons(
                 actual_model_name,
                 response.status_code,
             )
-            return fallback_map
+            return {"reasons": fallback_map, "timing_advice": fallback_timing_advice}
 
         payload = response.json()
         content = extract_text_content(
@@ -253,8 +375,9 @@ async def generate_model_recommendation_reasons(
         raw_json = extract_json_payload(content)
         parsed = json.loads(raw_json) if raw_json else {}
         reasons = parsed.get("reasons") if isinstance(parsed, dict) else None
+        timing_advice = parsed.get("timing_advice") if isinstance(parsed, dict) else None
         if not isinstance(reasons, list):
-            return fallback_map
+            return {"reasons": fallback_map, "timing_advice": fallback_timing_advice}
 
         reason_map = dict(fallback_map)
         allowed_models = {item["model"] for item in recommendations}
@@ -270,10 +393,17 @@ async def generate_model_recommendation_reasons(
                 and reason.strip()
             ):
                 reason_map[model_name] = reason.strip()
-        return reason_map
+        return {
+            "reasons": reason_map,
+            "timing_advice": (
+                timing_advice.strip()
+                if isinstance(timing_advice, str) and timing_advice.strip()
+                else fallback_timing_advice
+            ),
+        }
     except Exception as exc:
         logger.warning("[USER] Failed to generate recommendation reasons: %s", exc)
-        return fallback_map
+        return {"reasons": fallback_map, "timing_advice": fallback_timing_advice}
 
 
 def get_score_by_threshold(value: float, good: float, bad: float) -> float:
@@ -355,24 +485,31 @@ def get_user_period_range(
             microsecond=0,
         ).strftime("%H:%M")
     elif period == "week":
-        start = now - timedelta(days=now.weekday())
-        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-        intervals = [
-            ((start + timedelta(hours=6 * i)).strftime("%m/%d %H:%M"))
-            for i in range(28)
-        ]
-        format_func = lambda d: d.replace(
-            hour=(d.hour // 6) * 6,
+        current_bucket_start = now.replace(
+            hour=0 if now.hour < 12 else 12,
             minute=0,
             second=0,
             microsecond=0,
-        ).strftime("%m/%d %H:%M")
+        )
+        start = current_bucket_start - timedelta(hours=12 * 13)
+        intervals = [
+            ((start + timedelta(hours=12 * i)).strftime("%m/%d %H:%M"))
+            for i in range(14)
+        ]
+        def format_func(d: datetime) -> str:
+            bucket_index = max(
+                0,
+                min(
+                    int((d - start).total_seconds() // (12 * 3600)),
+                    len(intervals) - 1,
+                ),
+            )
+            return intervals[bucket_index]
     else:
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        days_in_month = (now.date() - start.date()).days + 1
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=30)
         intervals = [
             ((start + timedelta(days=i)).strftime("%m/%d"))
-            for i in range(days_in_month)
+            for i in range(31)
         ]
         format_func = lambda d: d.strftime("%m/%d")
 
@@ -438,71 +575,184 @@ async def get_user_stats(
         key = result.scalar_one_or_none()
         if not key:
             return translated_error(request, "API key not found", 404)
+        trend_data = {
+            label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals
+        }
+        total_requests = 0
+        total_tokens = 0
+        total_errors = 0
+        model_stats = {}
 
-        total_result = await session.execute(
-            select(func.count(RequestLog.id)).where(
-                RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
-            )
-        )
-        total_requests = total_result.scalar() or 0
+        if use_user_daily_aggregates(period):
+            aggregate_end, raw_start = get_user_aggregate_window_bounds(start, now)
+            start_str = start.strftime("%Y-%m-%d")
+            aggregate_end_str = aggregate_end.strftime("%Y-%m-%d")
 
-        tokens_result = await session.execute(
-            select(
-                func.sum(
-                    func.coalesce(
-                        RequestLog.tokens["total_tokens"].as_integer(),
-                        RequestLog.tokens["estimated"].as_integer(),
-                        0,
+            if start < aggregate_end:
+                total_result = await session.execute(
+                    select(
+                        func.sum(ApiKeyDailyStat.requests).label("requests"),
+                        func.sum(ApiKeyDailyStat.tokens).label("tokens"),
+                        func.sum(ApiKeyDailyStat.errors).label("errors"),
+                    ).where(
+                        ApiKeyDailyStat.api_key_id == api_key_id,
+                        ApiKeyDailyStat.date >= start_str,
+                        ApiKeyDailyStat.date < aggregate_end_str,
                     )
                 )
-            ).where(RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start)
-        )
-        total_tokens = tokens_result.scalar() or 0
+                total_row = total_result.one()
+                total_requests += int(total_row.requests or 0)
+                total_tokens += int(total_row.tokens or 0)
+                total_errors += int(total_row.errors or 0)
 
-        errors_result = await session.execute(
-            select(func.count(RequestLog.id)).where(
-                RequestLog.api_key_id == api_key_id,
-                RequestLog.status.in_(ERROR_STATUSES),
-                RequestLog.created_at >= start,
-            )
-        )
-        total_errors = errors_result.scalar() or 0
-
-        model_stats_result = await session.execute(
-            select(
-                RequestLog.model,
-                func.count(RequestLog.id).label("count"),
-                func.sum(
-                    func.coalesce(
-                        RequestLog.tokens["total_tokens"].as_integer(),
-                        RequestLog.tokens["estimated"].as_integer(),
-                        0,
+                model_stats_result = await session.execute(
+                    select(
+                        ApiKeyModelDailyStat.model_name,
+                        func.sum(ApiKeyModelDailyStat.requests).label("count"),
+                        func.sum(ApiKeyModelDailyStat.tokens).label("tokens"),
+                        func.sum(ApiKeyModelDailyStat.errors).label("errors"),
                     )
-                ).label("tokens"),
-                func.sum(
-                    case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
-                ).label(
-                    "errors"
-                ),
-            )
-            .where(RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start)
-            .group_by(RequestLog.model)
-        )
-        model_stats_rows = model_stats_result.fetchall()
-        model_stats = {
-            row.model: {
-                "requests": row.count,
-                "tokens": row.tokens or 0,
-                "errors": row.errors or 0,
-            }
-            for row in model_stats_rows
-        }
+                    .where(
+                        ApiKeyModelDailyStat.api_key_id == api_key_id,
+                        ApiKeyModelDailyStat.date >= start_str,
+                        ApiKeyModelDailyStat.date < aggregate_end_str,
+                    )
+                    .group_by(ApiKeyModelDailyStat.model_name)
+                )
+                for row in model_stats_result.fetchall():
+                    if not row.model_name:
+                        continue
+                    model_stats[row.model_name] = {
+                        "requests": int(row.count or 0),
+                        "tokens": int(row.tokens or 0),
+                        "errors": int(row.errors or 0),
+                    }
 
-        trend_query = select(RequestLog).where(
-            RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
-        )
-        trend_result = await session.execute(trend_query)
-        trend_logs = trend_result.scalars().all()
+                trend_result = await session.execute(
+                    select(
+                        ApiKeyDailyStat.date,
+                        func.sum(ApiKeyDailyStat.requests).label("requests"),
+                        func.sum(ApiKeyDailyStat.tokens).label("tokens"),
+                        func.sum(ApiKeyDailyStat.errors).label("errors"),
+                    )
+                    .where(
+                        ApiKeyDailyStat.api_key_id == api_key_id,
+                        ApiKeyDailyStat.date >= start_str,
+                        ApiKeyDailyStat.date < aggregate_end_str,
+                    )
+                    .group_by(ApiKeyDailyStat.date)
+                    .order_by(ApiKeyDailyStat.date)
+                )
+                for row in trend_result.fetchall():
+                    label = format_func(datetime.strptime(row.date, "%Y-%m-%d"))
+                    if label in trend_data:
+                        trend_data[label]["requests"] += int(row.requests or 0)
+                        trend_data[label]["tokens"] += int(row.tokens or 0)
+                        trend_data[label]["errors"] += int(row.errors or 0)
+
+            if raw_start < now:
+                raw_result = await session.execute(
+                    select(RequestLog).where(
+                        RequestLog.api_key_id == api_key_id,
+                        RequestLog.created_at >= raw_start,
+                    )
+                )
+                trend_logs = raw_result.scalars().all()
+                for log in trend_logs:
+                    tokens = get_token_count(log.tokens)
+                    total_requests += 1
+                    total_tokens += tokens
+                    if log.status in ERROR_STATUSES:
+                        total_errors += 1
+
+                    if log.model:
+                        model_bucket = model_stats.setdefault(
+                            log.model,
+                            {"requests": 0, "tokens": 0, "errors": 0},
+                        )
+                        model_bucket["requests"] += 1
+                        model_bucket["tokens"] += tokens
+                        if log.status in ERROR_STATUSES:
+                            model_bucket["errors"] += 1
+
+                    label = format_func(log.created_at)
+                    if label in trend_data:
+                        trend_data[label]["requests"] += 1
+                        trend_data[label]["tokens"] += tokens
+                        if log.status in ERROR_STATUSES:
+                            trend_data[label]["errors"] += 1
+        else:
+            total_result = await session.execute(
+                select(func.count(RequestLog.id)).where(
+                    RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
+                )
+            )
+            total_requests = total_result.scalar() or 0
+
+            tokens_result = await session.execute(
+                select(
+                    func.sum(
+                        func.coalesce(
+                            RequestLog.tokens["total_tokens"].as_integer(),
+                            RequestLog.tokens["estimated"].as_integer(),
+                            0,
+                        )
+                    )
+                ).where(
+                    RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
+                )
+            )
+            total_tokens = tokens_result.scalar() or 0
+
+            errors_result = await session.execute(
+                select(func.count(RequestLog.id)).where(
+                    RequestLog.api_key_id == api_key_id,
+                    RequestLog.status.in_(ERROR_STATUSES),
+                    RequestLog.created_at >= start,
+                )
+            )
+            total_errors = errors_result.scalar() or 0
+
+            model_stats_result = await session.execute(
+                select(
+                    RequestLog.model,
+                    func.count(RequestLog.id).label("count"),
+                    func.sum(
+                        func.coalesce(
+                            RequestLog.tokens["total_tokens"].as_integer(),
+                            RequestLog.tokens["estimated"].as_integer(),
+                            0,
+                        )
+                    ).label("tokens"),
+                    func.sum(
+                        case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                    ).label("errors"),
+                )
+                .where(RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start)
+                .group_by(RequestLog.model)
+            )
+            model_stats_rows = model_stats_result.fetchall()
+            model_stats = {
+                row.model: {
+                    "requests": row.count,
+                    "tokens": row.tokens or 0,
+                    "errors": row.errors or 0,
+                }
+                for row in model_stats_rows
+            }
+
+            trend_query = select(RequestLog).where(
+                RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
+            )
+            trend_result = await session.execute(trend_query)
+            trend_logs = trend_result.scalars().all()
+            for log in trend_logs:
+                label = format_func(log.created_at)
+                if label in trend_data:
+                    trend_data[label]["requests"] += 1
+                    trend_data[label]["tokens"] += get_token_count(log.tokens)
+                    if log.status in ERROR_STATUSES:
+                        trend_data[label]["errors"] += 1
 
         health_start = now - timedelta(minutes=SYSTEM_HEALTH_WINDOW_MINUTES)
         health_result = await session.execute(
@@ -534,22 +784,6 @@ async def get_user_stats(
             else None,
             pending_requests=int(health_row.pending_requests or 0),
         )
-
-        trend_data = {
-            label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals
-        }
-        for log in trend_logs:
-            label = format_func(log.created_at)
-            if label in trend_data:
-                trend_data[label]["requests"] += 1
-                tokens = (
-                    (log.tokens or {}).get("total_tokens")
-                    or (log.tokens or {}).get("estimated")
-                    or 0
-                )
-                trend_data[label]["tokens"] += tokens
-                if log.status in ERROR_STATUSES:
-                    trend_data[label]["errors"] += 1
 
         payload = {
             "name": key.name,
@@ -631,28 +865,66 @@ async def get_system_model_stats(
         return cached_payload
 
     async with async_session_maker() as session:
-        result = await session.execute(
-            select(
-                RequestLog.model,
-                func.count(RequestLog.id).label("count"),
-                func.sum(
-                    func.coalesce(
-                        RequestLog.tokens["total_tokens"].as_integer(),
-                        RequestLog.tokens["estimated"].as_integer(),
-                        0,
+        models = {}
+        if use_user_daily_aggregates(period):
+            aggregate_end, raw_start = get_user_aggregate_window_bounds(start, now)
+            if start < aggregate_end:
+                result = await session.execute(
+                    select(
+                        ModelDailyStat.model_name,
+                        func.sum(ModelDailyStat.requests).label("count"),
+                        func.sum(ModelDailyStat.tokens).label("tokens"),
                     )
-                ).label("tokens"),
-            )
-            .where(RequestLog.created_at >= start)
-            .group_by(RequestLog.model)
-        )
-        rows = result.fetchall()
+                    .where(
+                        ModelDailyStat.date >= start.strftime("%Y-%m-%d"),
+                        ModelDailyStat.date < aggregate_end.strftime("%Y-%m-%d"),
+                    )
+                    .group_by(ModelDailyStat.model_name)
+                )
+                for row in result.fetchall():
+                    if row.model_name:
+                        models[row.model_name] = {
+                            "requests": int(row.count or 0),
+                            "tokens": int(row.tokens or 0),
+                        }
 
-    models = {
-        row.model: {"requests": row.count or 0, "tokens": row.tokens or 0}
-        for row in rows
-        if row.model
-    }
+            if raw_start < now:
+                result = await session.execute(
+                    select(RequestLog.model, RequestLog.tokens).where(
+                        RequestLog.created_at >= raw_start
+                    )
+                )
+                for row in result.fetchall():
+                    if not row.model:
+                        continue
+                    bucket = models.setdefault(
+                        row.model, {"requests": 0, "tokens": 0}
+                    )
+                    bucket["requests"] += 1
+                    bucket["tokens"] += get_token_count(row.tokens)
+        else:
+            result = await session.execute(
+                select(
+                    RequestLog.model,
+                    func.count(RequestLog.id).label("count"),
+                    func.sum(
+                        func.coalesce(
+                            RequestLog.tokens["total_tokens"].as_integer(),
+                            RequestLog.tokens["estimated"].as_integer(),
+                            0,
+                        )
+                    ).label("tokens"),
+                )
+                .where(RequestLog.created_at >= start)
+                .group_by(RequestLog.model)
+            )
+            rows = result.fetchall()
+            models = {
+                row.model: {"requests": row.count or 0, "tokens": row.tokens or 0}
+                for row in rows
+                if row.model
+            }
+
     payload = {
         "period": period,
         "total_requests": sum(v["requests"] for v in models.values()),
@@ -763,6 +1035,26 @@ async def get_user_recommendations(
         )
         rows = rows_result.fetchall()
 
+        hourly_rows_result = await session.execute(
+            select(
+                func.extract("hour", RequestLog.created_at).label("hour_of_day"),
+                func.count(RequestLog.id).label("requests"),
+                func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                func.sum(
+                    case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                ).label("errors"),
+            )
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.provider_id.in_(list(accessible_provider_ids)),
+                RequestLog.model.in_(list(accessible_model_names)),
+                RequestLog.status != "pending",
+            )
+            .group_by(func.extract("hour", RequestLog.created_at))
+            .order_by(func.extract("hour", RequestLog.created_at))
+        )
+        hourly_rows = hourly_rows_result.fetchall()
+
     recommendations = []
     for row in rows:
         if not row.model:
@@ -816,20 +1108,44 @@ async def get_user_recommendations(
         api_key_id,
         period,
         get_locale(request),
-        "reasons-v1",
+        "insights-v1",
         get_hour_cache_bucket(now),
     )
-    reason_map = get_cached_payload(
+    hourly_stats = [
+        {
+            "hour": int(row.hour_of_day or 0),
+            "requests": int(row.requests or 0),
+            "errors": int(row.errors or 0),
+            "avg_latency_ms": round(float(row.avg_latency_ms or 0), 2)
+            if row.avg_latency_ms is not None
+            else None,
+        }
+        for row in hourly_rows
+    ]
+    insight_payload = get_cached_payload(
         USER_RECOMMENDATION_REASONS_CACHE,
         reason_cache_key,
         now,
         ttl_seconds=USER_RECOMMENDATION_REASON_TTL_SECONDS,
     )
-    if reason_map is None:
-        reason_map = await generate_model_recommendation_reasons(
-            request, top_recommendations, period
+    if insight_payload is None:
+        insight_payload = await generate_recommendation_insights(
+            request, top_recommendations, hourly_stats, period
         )
-        set_cached_payload(USER_RECOMMENDATION_REASONS_CACHE, reason_cache_key, reason_map, now)
+        set_cached_payload(
+            USER_RECOMMENDATION_REASONS_CACHE, reason_cache_key, insight_payload, now
+        )
+
+    reason_map = insight_payload.get("reasons") if isinstance(insight_payload, dict) else {}
+    if not isinstance(reason_map, dict):
+        reason_map = {}
+    timing_advice = (
+        insight_payload.get("timing_advice")
+        if isinstance(insight_payload, dict)
+        else None
+    )
+    if not isinstance(timing_advice, str) or not timing_advice.strip():
+        timing_advice = build_rule_based_timing_advice(request, hourly_stats)
 
     for item in top_recommendations:
         item["reason"] = reason_map.get(item["model"]) or build_rule_based_recommendation_reason(
@@ -840,6 +1156,7 @@ async def get_user_recommendations(
         "period": period,
         "generated_at": now.isoformat(),
         "items": top_recommendations,
+        "timing_advice": timing_advice,
     }
     set_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, payload, now)
     return payload

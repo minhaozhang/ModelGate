@@ -131,6 +131,10 @@
         let currentPeriod = 'day';
         let trendChart = null;
         let latestSlowRequestsData = null;
+        const HOME_OVERVIEW_REFRESH_MS = 8000;
+        const HOME_REALTIME_REFRESH_MS = 3000;
+        const HOME_ACTIVE_REFRESH_MS = 10000;
+        const HOME_SLOW_REFRESH_MS = 5000;
         const slowRequestsI18n = {
             noSlowRequests: '{{ _("No slow requests") }}',
             pending: '{{ _("pending") }}',
@@ -219,7 +223,16 @@
                 });
             });
             if (firstIndex === null || lastIndex === null) {
+                if (currentPeriod === 'month' || currentPeriod === 'year') {
+                    const minVisibleBuckets = Math.min(30, totalBuckets);
+                    return { start: Math.max(totalBuckets - minVisibleBuckets, 0), end: Math.max(totalBuckets - 1, 0) };
+                }
                 return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            if (currentPeriod === 'month' || currentPeriod === 'year') {
+                const minVisibleBuckets = Math.min(30, totalBuckets);
+                const start = Math.max(Math.min(firstIndex - 1, totalBuckets - minVisibleBuckets), 0);
+                return { start, end: Math.max(totalBuckets - 1, 0) };
             }
             let start = Math.max(firstIndex - 1, 0);
             let end = Math.min(lastIndex + 1, totalBuckets - 1);
@@ -367,9 +380,9 @@
             window.scrollTo(0, scrollY);
         }
         loadData();
-        setInterval(loadData, 10000);
+        setInterval(loadData, HOME_OVERVIEW_REFRESH_MS);
         loadActiveSessions();
-        setInterval(loadActiveSessions, 10000);
+        setInterval(loadActiveSessions, HOME_ACTIVE_REFRESH_MS);
 
         async function loadActiveSessions() {
             const data = await fetchJsonOrRedirect('/admin/api/stats/active');
@@ -473,12 +486,12 @@
         }
 
         loadSlowRequests();
-        setInterval(loadSlowRequests, 5000);
+        setInterval(loadSlowRequests, HOME_SLOW_REFRESH_MS);
         setInterval(() => {
             if (latestSlowRequestsData) renderSlowRequests(latestSlowRequestsData);
         }, 1000);
         loadRealtimeStats();
-        setInterval(loadRealtimeStats, 10000);
+        setInterval(loadRealtimeStats, HOME_REALTIME_REFRESH_MS);
     </script>
 </body>
 </html>

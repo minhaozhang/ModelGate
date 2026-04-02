@@ -620,7 +620,16 @@
                 });
             });
             if (firstIndex === null || lastIndex === null) {
+                if (currentPeriod === 'month' || currentPeriod === 'year') {
+                    const minVisibleBuckets = Math.min(30, totalBuckets);
+                    return { start: Math.max(totalBuckets - minVisibleBuckets, 0), end: Math.max(totalBuckets - 1, 0) };
+                }
                 return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            if (currentPeriod === 'month' || currentPeriod === 'year') {
+                const minVisibleBuckets = Math.min(30, totalBuckets);
+                const start = Math.max(Math.min(firstIndex - 1, totalBuckets - minVisibleBuckets), 0);
+                return { start, end: Math.max(totalBuckets - 1, 0) };
             }
             let start = Math.max(firstIndex - 1, 0);
             let end = Math.min(lastIndex + 1, totalBuckets - 1);

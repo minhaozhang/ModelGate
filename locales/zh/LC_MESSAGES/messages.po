@@ -748,6 +748,18 @@ msgstr "近期使用频繁，质量相对稳定"
 msgid "Balanced recent stability, speed, and sample size"
 msgstr "近期稳定性、速度和样本量较均衡"
 
+msgid "Recent data is limited. Try quieter periods and check system health first"
+msgstr "最近数据样本还不够多，建议优先选择相对空闲的时段，并先关注系统健康度。"
+
+msgid "Based on recent daily patterns, {ranges} tends to be smoother with lower errors and faster responses"
+msgstr "按近期每天的分布看，{ranges} 往往更顺畅，错误更少、响应也更快。"
+
+msgid "Based on recent daily patterns, {ranges} tend to be smoother with lower errors and faster responses"
+msgstr "按近期每天的分布看，{ranges} 往往更顺畅，错误更少、响应也更快。"
+
+msgid "Analyzing the best daily time windows..."
+msgstr "正在分析每天更适合使用的时间段..."
+
 msgid "samples"
 msgstr "样本"
 

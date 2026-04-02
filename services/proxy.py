@@ -36,13 +36,14 @@ from services.tokens import (
     build_response_meta,
     log_response_meta,
     _collect_tool_calls,
+    estimate_request_context_tokens,
 )
 from services.message import preprocess_messages
 from services.minimax import process_minimax_response, MinimaxStreamProcessor
 from services.sse import normalize_sse_stream
 
 REPEATED_CHUNK_LIMIT = 10
-PROVIDER_REQUEST_TIMEOUT_SECONDS = 300.0
+PROVIDER_REQUEST_TIMEOUT_SECONDS = 600.0
 OUTBOUND_USER_AGENT = "opencode/1.3.13 ai-sdk/provider-utils/4.0.21 runtime/bun/1.3.11"
 
 
@@ -123,6 +124,7 @@ async def proxy_request(request: Request, endpoint: str):
             body_json["reasoning_split"] = True
 
         body = json.dumps(body_json).encode()
+        request_context_tokens = estimate_request_context_tokens(body_json)
 
         target_url = f"{provider_config['base_url']}{endpoint}"
         headers = _build_headers(provider_config)
@@ -147,6 +149,7 @@ async def proxy_request(request: Request, endpoint: str):
                 api_key_id=api_key_id,
                 client_ip=client_ip,
                 user_agent=user_agent,
+                request_context_tokens=request_context_tokens,
             )
 
         async with httpx.AsyncClient(
@@ -165,6 +168,7 @@ async def proxy_request(request: Request, endpoint: str):
                     api_key_id,
                     client_ip,
                     user_agent,
+                    request_context_tokens,
                     semaphore,
                     request_id,
                     stream_log_id,
@@ -184,6 +188,7 @@ async def proxy_request(request: Request, endpoint: str):
                     api_key_id,
                     client_ip,
                     user_agent,
+                    request_context_tokens,
                     semaphore,
                     request_id,
                 )
@@ -204,6 +209,7 @@ async def proxy_request(request: Request, endpoint: str):
             api_key_id=api_key_id,
             client_ip=client_ip,
             user_agent=user_agent,
+            request_context_tokens=estimate_request_context_tokens(body_json),
             error=str(e),
         )
         error_logger.error(
@@ -345,6 +351,7 @@ async def _record_stream_result(
     api_key_id,
     client_ip,
     user_agent,
+    request_context_tokens,
     start_time,
     log_id,
     status,
@@ -390,6 +397,7 @@ async def _record_stream_result(
                 upstream_status_code=upstream_status_code,
                 client_ip=client_ip,
                 user_agent=user_agent,
+                request_context_tokens=request_context_tokens,
             )
         logger.info(f"[STREAM COMPLETE] ~{total_tokens} tokens | {latency:.0f}ms")
         logger.debug("[STREAM RESPONSE] Content: %s", total_content)
@@ -414,6 +422,7 @@ async def _record_stream_result(
                 upstream_status_code=upstream_status_code,
                 client_ip=client_ip,
                 user_agent=user_agent,
+                request_context_tokens=request_context_tokens,
             )
     elif status == "error":
         update_stats(provider, model, 0, api_key_id=api_key_id, is_error=True)
@@ -438,6 +447,7 @@ async def _record_stream_result(
                 upstream_status_code=upstream_status_code,
                 client_ip=client_ip,
                 user_agent=user_agent,
+                request_context_tokens=request_context_tokens,
                 error=str(error) if error is not None else None,
             )
         error_logger.error(
@@ -461,6 +471,7 @@ async def handle_normal(
     api_key_id,
     client_ip,
     user_agent,
+    request_context_tokens,
     semaphore,
     request_id,
 ):
@@ -527,6 +538,7 @@ async def handle_normal(
         upstream_status_code=resp.status_code,
         client_ip=client_ip,
         user_agent=user_agent,
+        request_context_tokens=request_context_tokens,
         error=(
             sanitize_text_for_log(provider_error, limit=2000)
             if provider_error
@@ -568,6 +580,7 @@ async def handle_streaming(
     api_key_id,
     client_ip,
     user_agent,
+    request_context_tokens,
     semaphore,
     request_id,
     log_id,
@@ -728,6 +741,7 @@ async def handle_streaming(
                                     api_key_id,
                                     client_ip,
                                     user_agent,
+                                    request_context_tokens,
                                     start_time,
                                     log_id,
                                     "cancelled",
@@ -747,6 +761,7 @@ async def handle_streaming(
                 api_key_id,
                 client_ip,
                 user_agent,
+                request_context_tokens,
                 start_time,
                 log_id,
                 "success",
@@ -765,6 +780,7 @@ async def handle_streaming(
                 api_key_id,
                 client_ip,
                 user_agent,
+                request_context_tokens,
                 start_time,
                 log_id,
                 "error",

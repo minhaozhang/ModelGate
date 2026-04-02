@@ -747,6 +747,18 @@ msgstr "Frequently used recently with relatively stable quality"
 msgid "Balanced recent stability, speed, and sample size"
 msgstr "Balanced recent stability, speed, and sample size"
 
+msgid "Recent data is limited. Try quieter periods and check system health first"
+msgstr "Recent data is limited. Try quieter periods and check system health first"
+
+msgid "Based on recent daily patterns, {ranges} tends to be smoother with lower errors and faster responses"
+msgstr "Based on recent daily patterns, {ranges} tends to be smoother with lower errors and faster responses"
+
+msgid "Based on recent daily patterns, {ranges} tend to be smoother with lower errors and faster responses"
+msgstr "Based on recent daily patterns, {ranges} tend to be smoother with lower errors and faster responses"
+
+msgid "Analyzing the best daily time windows..."
+msgstr "Analyzing the best daily time windows..."
+
 msgid "samples"
 msgstr "samples"
 

@@ -50,6 +50,34 @@ CREATE SEQUENCE public.api_key_daily_stats_id_seq
 ALTER SEQUENCE public.api_key_daily_stats_id_seq OWNED BY public.api_key_daily_stats.id;
 
 --
+-- Name: api_key_model_daily_stats; Type: TABLE; Schema: public
+--
+
+CREATE TABLE public.api_key_model_daily_stats (
+    id integer NOT NULL,
+    api_key_id integer NOT NULL,
+    model_name character varying(100) NOT NULL,
+    date character varying(10) NOT NULL,
+    requests integer,
+    tokens integer,
+    errors integer
+);
+
+--
+-- Name: api_key_model_daily_stats_id_seq; Type: SEQUENCE; Schema: public
+--
+
+CREATE SEQUENCE public.api_key_model_daily_stats_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.api_key_model_daily_stats_id_seq OWNED BY public.api_key_model_daily_stats.id;
+
+--
 -- Name: api_key_models; Type: TABLE; Schema: public
 --
 
@@ -285,6 +313,7 @@ CREATE TABLE public.request_logs (
     response text,
     tokens jsonb,
     latency_ms double precision,
+    request_context_tokens integer,
     status character varying(20) NOT NULL,
     upstream_status_code integer,
     client_ip character varying(64),
@@ -293,6 +322,41 @@ CREATE TABLE public.request_logs (
     created_at timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now()
 );
+
+--
+-- Name: request_logs_history; Type: TABLE; Schema: public
+--
+
+CREATE TABLE public.request_logs_history (
+    id integer NOT NULL,
+    api_key_id integer,
+    provider_id integer,
+    model character varying(100) NOT NULL,
+    response text,
+    tokens jsonb,
+    latency_ms double precision,
+    request_context_tokens integer,
+    status character varying(20) NOT NULL,
+    upstream_status_code integer,
+    client_ip character varying(64),
+    user_agent character varying(1024),
+    error text,
+    created_at timestamp without time zone NOT NULL,
+    updated_at timestamp without time zone,
+    archive_month character varying(7) NOT NULL,
+    archived_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: request_logs_all; Type: VIEW; Schema: public
+--
+
+CREATE VIEW public.request_logs_all AS
+ SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, request_context_tokens, status, upstream_status_code, client_ip, user_agent, error, created_at, updated_at
+   FROM public.request_logs
+UNION ALL
+ SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, request_context_tokens, status, upstream_status_code, client_ip, user_agent, error, created_at, updated_at
+   FROM public.request_logs_history;
 
 --
 -- Name: request_logs_id_seq; Type: SEQUENCE; Schema: public
@@ -313,6 +377,7 @@ ALTER SEQUENCE public.request_logs_id_seq OWNED BY public.request_logs.id;
 --
 
 ALTER TABLE ONLY public.api_key_daily_stats ALTER COLUMN id SET DEFAULT nextval('public.api_key_daily_stats_id_seq'::regclass);
+ALTER TABLE ONLY public.api_key_model_daily_stats ALTER COLUMN id SET DEFAULT nextval('public.api_key_model_daily_stats_id_seq'::regclass);
 ALTER TABLE ONLY public.api_key_models ALTER COLUMN id SET DEFAULT nextval('public.api_key_models_id_seq'::regclass);
 ALTER TABLE ONLY public.api_keys ALTER COLUMN id SET DEFAULT nextval('public.api_keys_id_seq'::regclass);
 ALTER TABLE ONLY public.hourly_stats ALTER COLUMN id SET DEFAULT nextval('public.hourly_stats_id_seq'::regclass);
@@ -328,6 +393,7 @@ ALTER TABLE ONLY public.request_logs ALTER COLUMN id SET DEFAULT nextval('public
 --
 
 ALTER TABLE ONLY public.api_key_daily_stats ADD CONSTRAINT api_key_daily_stats_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.api_key_model_daily_stats ADD CONSTRAINT api_key_model_daily_stats_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.api_key_models ADD CONSTRAINT api_key_models_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.api_keys ADD CONSTRAINT api_keys_key_key UNIQUE (key);
 ALTER TABLE ONLY public.api_keys ADD CONSTRAINT api_keys_pkey PRIMARY KEY (id);
@@ -340,6 +406,7 @@ ALTER TABLE ONLY public.provider_models ADD CONSTRAINT provider_models_pkey PRIM
 ALTER TABLE ONLY public.providers ADD CONSTRAINT providers_name_key UNIQUE (name);
 ALTER TABLE ONLY public.providers ADD CONSTRAINT providers_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.request_logs ADD CONSTRAINT request_logs_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.request_logs_history ADD CONSTRAINT request_logs_history_pkey PRIMARY KEY (id);
 
 --
 -- INDEXES
@@ -347,6 +414,8 @@ ALTER TABLE ONLY public.request_logs ADD CONSTRAINT request_logs_pkey PRIMARY KE
 
 CREATE UNIQUE INDEX idx_api_key_model ON public.api_key_models USING btree (api_key_id, provider_model_id);
 CREATE INDEX idx_apikey_stats_date ON public.api_key_daily_stats USING btree (date);
+CREATE INDEX idx_apikey_model_stats_date ON public.api_key_model_daily_stats USING btree (date);
+CREATE UNIQUE INDEX idx_apikey_model_stats_unique ON public.api_key_model_daily_stats USING btree (api_key_id, model_name, date);
 CREATE INDEX idx_model_stats_date ON public.model_daily_stats USING btree (date);
 CREATE UNIQUE INDEX idx_model_stats_unique ON public.model_daily_stats USING btree (model_name, provider_name, date);
 CREATE UNIQUE INDEX idx_provider_model ON public.provider_models USING btree (provider_id, model_id);
@@ -355,6 +424,11 @@ CREATE INDEX idx_request_logs_api_key_id ON public.request_logs USING btree (api
 CREATE INDEX idx_request_logs_created_at ON public.request_logs USING btree (created_at);
 CREATE INDEX idx_request_logs_provider_id ON public.request_logs USING btree (provider_id);
 CREATE INDEX idx_request_logs_status ON public.request_logs USING btree (status);
+CREATE INDEX idx_request_logs_history_api_key_id ON public.request_logs_history USING btree (api_key_id);
+CREATE INDEX idx_request_logs_history_archive_month ON public.request_logs_history USING btree (archive_month);
+CREATE INDEX idx_request_logs_history_created_at ON public.request_logs_history USING btree (created_at);
+CREATE INDEX idx_request_logs_history_provider_id ON public.request_logs_history USING btree (provider_id);
+CREATE INDEX idx_request_logs_history_status ON public.request_logs_history USING btree (status);
 CREATE INDEX ix_request_logs_created_at ON public.request_logs USING btree (created_at);
 
 --
@@ -362,6 +436,7 @@ CREATE INDEX ix_request_logs_created_at ON public.request_logs USING btree (crea
 --
 
 ALTER TABLE ONLY public.api_key_daily_stats ADD CONSTRAINT api_key_daily_stats_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES public.api_keys(id);
+ALTER TABLE ONLY public.api_key_model_daily_stats ADD CONSTRAINT api_key_model_daily_stats_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES public.api_keys(id);
 ALTER TABLE ONLY public.api_key_models ADD CONSTRAINT api_key_models_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES public.api_keys(id);
 ALTER TABLE ONLY public.api_key_models ADD CONSTRAINT api_key_models_provider_model_id_fkey FOREIGN KEY (provider_model_id) REFERENCES public.provider_models(id);
 ALTER TABLE ONLY public.provider_models ADD CONSTRAINT provider_models_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.models(id);
@@ -431,6 +506,7 @@ COMMENT ON COLUMN public.request_logs.model IS '模型名称';
 COMMENT ON COLUMN public.request_logs.response IS '响应内容（非流式）';
 COMMENT ON COLUMN public.request_logs.tokens IS 'token统计，JSON格式：{input, output}';
 COMMENT ON COLUMN public.request_logs.latency_ms IS '响应延迟（毫秒）';
+COMMENT ON COLUMN public.request_logs.request_context_tokens IS '请求发起前估算的输入上下文token数';
 COMMENT ON COLUMN public.request_logs.status IS '状态：pending/success/error/timeout';
 COMMENT ON COLUMN public.request_logs.upstream_status_code IS '外部供应商返回的HTTP状态码';
 COMMENT ON COLUMN public.request_logs.client_ip IS '用户请求来源IP';
@@ -438,6 +514,9 @@ COMMENT ON COLUMN public.request_logs.user_agent IS '用户请求来源User-Agen
 COMMENT ON COLUMN public.request_logs.error IS '错误信息';
 COMMENT ON COLUMN public.request_logs.created_at IS '创建时间';
 COMMENT ON COLUMN public.request_logs.updated_at IS '更新时间';
+COMMENT ON TABLE public.request_logs_history IS '请求日志历史归档表';
+COMMENT ON COLUMN public.request_logs_history.archive_month IS '按月份归档分区键，格式YYYY-MM';
+COMMENT ON COLUMN public.request_logs_history.archived_at IS '归档时间';
 COMMENT ON COLUMN public.api_keys.last_used_at IS '最近一次使用时间';
 
 -- 提供商每日统计表

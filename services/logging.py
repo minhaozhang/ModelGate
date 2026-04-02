@@ -17,6 +17,7 @@ async def create_request_log(
     api_key_id: Optional[int] = None,
     client_ip: Optional[str] = None,
     user_agent: Optional[str] = None,
+    request_context_tokens: Optional[int] = None,
     request_body: Optional[dict] = None,
 ) -> int:
     async with async_session_maker() as session:
@@ -33,6 +34,7 @@ async def create_request_log(
             status="pending",
             client_ip=client_ip,
             user_agent=user_agent,
+            request_context_tokens=request_context_tokens,
         )
         session.add(log)
         await session.commit()
@@ -79,6 +81,7 @@ async def log_request(
     upstream_status_code: Optional[int] = None,
     client_ip: Optional[str] = None,
     user_agent: Optional[str] = None,
+    request_context_tokens: Optional[int] = None,
     error: Optional[str] = None,
 ):
     async with async_session_maker() as session:
@@ -99,6 +102,7 @@ async def log_request(
             upstream_status_code=upstream_status_code,
             client_ip=client_ip,
             user_agent=user_agent,
+            request_context_tokens=request_context_tokens,
             error=error,
         )
         session.add(log)

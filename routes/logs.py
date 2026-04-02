@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, HTTPException
 from sqlalchemy import select, func
 
-from core.database import async_session_maker, RequestLog
+from core.database import async_session_maker, RequestLogRead as RequestLog
 from core.config import validate_session
 
 router = APIRouter(prefix="/admin/api", tags=["logs"])
@@ -33,6 +33,7 @@ async def get_today_logs(_: bool = Depends(require_admin)):
                     "model": log.model,
                     "status": log.status,
                     "latency_ms": log.latency_ms,
+                    "request_context_tokens": log.request_context_tokens,
                     "tokens": log.tokens,
                     "client_ip": log.client_ip,
                     "user_agent": log.user_agent,
@@ -60,6 +61,7 @@ async def get_all_logs(limit: int = 100, _: bool = Depends(require_admin)):
                     "model": log.model,
                     "status": log.status,
                     "latency_ms": log.latency_ms,
+                    "request_context_tokens": log.request_context_tokens,
                     "tokens": log.tokens,
                     "client_ip": log.client_ip,
                     "user_agent": log.user_agent,

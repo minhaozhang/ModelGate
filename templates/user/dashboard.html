@@ -110,6 +110,11 @@
         body.theme-dark #recommendation-list .text-slate-700 {
             color: #f8fafc !important;
         }
+        body.theme-dark #recommendation-timing-advice {
+            color: #cbd5e1 !important;
+            background: rgba(148, 163, 184, 0.08) !important;
+            border-color: rgba(71, 85, 105, 0.45) !important;
+        }
         body.theme-dark pre {
             border: 1px solid rgba(71, 85, 105, 0.6);
             box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
@@ -159,6 +164,9 @@
                     </div>
                     <div id="recommendation-list" class="flex flex-wrap gap-2">
                         <div class="w-full text-gray-500 text-center py-4">{{ _('Loading recommendations...') }}</div>
+                    </div>
+                    <div id="recommendation-timing-advice" class="mt-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm text-gray-600">
+                        {{ _('Analyzing the best daily time windows...') }}
                     </div>
                 </div>
                 
@@ -453,6 +461,7 @@ const data = await response.json();</code></pre>
         basedOnCurrentPeriod: {{ _('Based on the current period and accessible models') | tojson }},
         noRecommendations: {{ _('No recommendation data yet') | tojson }},
         loadingRecommendations: {{ _('Loading recommendations...') | tojson }},
+        analyzingBestTimeWindows: {{ _('Analyzing the best daily time windows...') | tojson }},
         samplesLabel: {{ _('samples') | tojson }},
         opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider.') | tojson }},
         topShare: {{ _('top share') | tojson }},
@@ -883,6 +892,7 @@ const data = await response.json();</code></pre>
         }
 
         function getTrendVisibleRange(seriesList, totalBuckets) {
+            const period = document.getElementById('period-select')?.value || 'day';
             let firstIndex = null;
             let lastIndex = null;
             seriesList.forEach(series => {
@@ -893,11 +903,19 @@ const data = await response.json();</code></pre>
                 });
             });
             if (firstIndex === null || lastIndex === null) {
+                if (period === 'month' || period === 'year') {
+                    const minVisibleBuckets = Math.min(30, totalBuckets);
+                    return { start: Math.max(totalBuckets - minVisibleBuckets, 0), end: Math.max(totalBuckets - 1, 0) };
+                }
                 return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            if (period === 'month' || period === 'year') {
+                const minVisibleBuckets = Math.min(30, totalBuckets);
+                const start = Math.max(Math.min(firstIndex - 1, totalBuckets - minVisibleBuckets), 0);
+                return { start, end: Math.max(totalBuckets - 1, 0) };
             }
             let start = Math.max(firstIndex - 1, 0);
             let end = Math.min(lastIndex + 1, totalBuckets - 1);
-            const period = document.getElementById('period-select')?.value || 'day';
             if (period === 'day') {
                 const minVisibleBuckets = totalBuckets >= 48 ? 12 : 6;
                 const currentVisibleBuckets = end - start + 1;
@@ -1000,7 +1018,9 @@ const data = await response.json();</code></pre>
                 .replaceAll('<', '&lt;')
                 .replaceAll('>', '&gt;');
             const items = data.items || [];
+            const timingAdvice = data.timing_advice || window.I18N.analyzingBestTimeWindows;
             document.getElementById('recommendation-meta').textContent = window.I18N.basedOnCurrentPeriod;
+            document.getElementById('recommendation-timing-advice').textContent = timingAdvice;
             if (!items.length) {
                 document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
                 return;
