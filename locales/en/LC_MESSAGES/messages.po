@@ -840,3 +840,42 @@ msgstr "No specific model restrictions. This API key can use all currently allow
 msgid "If OpenCode is not installed yet, please download it from the official website below."
 msgstr "If OpenCode is not installed yet, please download it from the official website below."
 
+msgid "A unified gateway for models, monitoring, and OpenCode access"
+msgstr "A unified gateway for models, monitoring, and OpenCode access"
+
+msgid "ModelGate provides a unified LLM API proxy, API key management, usage dashboards, monitoring, and OpenCode configuration in one place."
+msgstr "ModelGate provides a unified LLM API proxy, API key management, usage dashboards, monitoring, and OpenCode configuration in one place."
+
+msgid "Multi-provider API proxy"
+msgstr "Multi-provider API proxy"
+
+msgid "Usage dashboard & analytics"
+msgstr "Usage dashboard & analytics"
+
+msgid "Monitoring & error analysis"
+msgstr "Monitoring & error analysis"
+
+msgid "Quick Start"
+msgstr "Quick Start"
+
+msgid "Open the user login page and sign in with an API key."
+msgstr "Open the user login page and sign in with an API key."
+
+msgid "Use /v1/models to confirm which models are available."
+msgstr "Use /v1/models to confirm which models are available."
+
+msgid "If needed, generate OpenCode settings from the dashboard or API key page."
+msgstr "If needed, generate OpenCode settings from the dashboard or API key page."
+
+msgid "Use the admin panel to review monitoring, logs, and daily analysis reports."
+msgstr "Use the admin panel to review monitoring, logs, and daily analysis reports."
+
+msgid "Example Base URL"
+msgstr "Example Base URL"
+
+msgid "After obtaining an API key, you can generate OpenCode configuration from the dashboard or admin API key page."
+msgstr "After obtaining an API key, you can generate OpenCode configuration from the dashboard or admin API key page."
+
+msgid "Visit OpenCode"
+msgstr "Visit OpenCode"
+

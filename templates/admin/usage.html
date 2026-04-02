@@ -3,8 +3,9 @@
 <html>
 <head>
     <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
     <title>{{ _('Usage Guide') }} - ModelGate</title>
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .nav-link { transition: all 0.2s; }
@@ -58,7 +59,7 @@
                     </div>
                     <div class="flex items-center">
                         <span class="text-gray-600 w-32">{{ _('API Endpoint:') }}</span>
-                        <code class="bg-gray-100 px-3 py-1 rounded text-sm">/v1/chat/completions</code>
+                        <code class="bg-gray-100 px-3 py-1 rounded text-sm">{{ app_base_path }}/v1/chat/completions</code>
                     </div>
                     <div class="flex items-center">
                         <span class="text-gray-600 w-32">{{ _('Auth Header:') }}</span>
@@ -185,9 +186,9 @@ console.log(data.choices[0].message.content);</code></pre>
             <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
                 <h4 class="font-semibold text-yellow-800 mb-2">{{ _('Tips') }}</h4>
                 <ul class="text-sm text-yellow-700 space-y-1">
-                    <li>- {{ _('Get your API key from') }} <a href="/admin/api-keys" class="underline">{{ _('API Keys') }}</a> {{ _('page') }}</li>
-                    <li>- {{ _('Check available models in') }} <a href="/admin/config" class="underline">{{ _('Config') }}</a> {{ _('page') }}</li>
-                    <li>- {{ _('Monitor usage in') }} <a href="/admin/monitor" class="underline">{{ _('Monitor') }}</a> {{ _('page') }}</li>
+                    <li>- {{ _('Get your API key from') }} <a href="{{ app_base_path }}/admin/api-keys" class="underline">{{ _('API Keys') }}</a> {{ _('page') }}</li>
+                    <li>- {{ _('Check available models in') }} <a href="{{ app_base_path }}/admin/config" class="underline">{{ _('Config') }}</a> {{ _('page') }}</li>
+                    <li>- {{ _('Monitor usage in') }} <a href="{{ app_base_path }}/admin/monitor" class="underline">{{ _('Monitor') }}</a> {{ _('page') }}</li>
                     <li>- {{ _('Each provider has its own concurrency limit') }}</li>
                 </ul>
             </div>
@@ -202,8 +203,8 @@ console.log(data.choices[0].message.content);</code></pre>
     </script>
     <script>
         async function logout() {
-            await fetch('/admin/api/auth/logout', {method: 'POST'});
-            window.location.href = '/admin/login';
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
         }
 
         function getThemeMode() {
@@ -231,7 +232,8 @@ console.log(data.choices[0].message.content);</code></pre>
             });
         }
 
-        const baseUrl = window.location.origin + '/v1';
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+        const baseUrl = window.location.origin + APP_BASE_PATH + '/v1';
         document.getElementById('proxy-url').textContent = baseUrl;
         document.getElementById('endpoint-nextweb').textContent = baseUrl;
         document.getElementById('base-python').textContent = baseUrl;

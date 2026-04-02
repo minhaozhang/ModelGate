@@ -2,8 +2,9 @@
 <html>
 <head>
     <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
     <title>{{ _('API Keys') }} - ModelGate</title>
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .nav-link { transition: all 0.2s; }
@@ -177,6 +178,7 @@
     </script>
     <script>
         let selectedModelIds = [];
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
         let providerModels = [];
         let apiKeysData = [];
         let filteredData = [];
@@ -184,8 +186,8 @@
         const pageSize = 10;
         
         async function logout() {
-            await fetch('/admin/api/auth/logout', {method: 'POST'});
-            window.location.href = '/admin/login';
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
         }
 
         function getThemeMode() {
@@ -209,7 +211,7 @@
         async function fetchOrRedirect(url, options) {
             const resp = await fetch(url, options);
             if (resp.status === 401) {
-                window.location.href = '/admin/login';
+                window.location.href = `${APP_BASE_PATH}/admin/login`;
                 throw new Error('Unauthorized');
             }
             return resp;
@@ -221,7 +223,7 @@
         }
         
         async function loadApiKeys() {
-            const data = await fetchJsonOrRedirect('/admin/api/keys');
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys`);
             apiKeysData = data.api_keys || [];
             handleSearch();
         }
@@ -243,7 +245,7 @@
         }
         
         async function loadProviderModels() {
-            const data = await fetchJsonOrRedirect('/admin/api/provider-models');
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models`);
             providerModels = data.provider_models || [];
             renderModelCheckboxes();
         }
@@ -287,8 +289,8 @@
                             <span class="model-chip model-chip-neutral">${window.I18N.allModels}</span>
                         </div>
                     `;
-                const userPageUrl = `${baseUrl}/user/login`;
-                const setupMdUrl = `${baseUrl}/opencode/setup.md?api_key=${k.key}`;
+                const userPageUrl = `${baseUrl}${APP_BASE_PATH}/user/login`;
+                const setupMdUrl = `${baseUrl}${APP_BASE_PATH}/opencode/setup.md?api_key=${k.key}`;
                 return `
                 <div class="p-4">
                     <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -489,13 +491,13 @@ ${setupMdUrl}`;
             
             try {
                 if (id) {
-                    await fetchOrRedirect('/admin/api/keys/' + id, {
+                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/` + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
                     });
                 } else {
-                    const result = await fetchJsonOrRedirect('/admin/api/keys', {
+                    const result = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
@@ -511,7 +513,7 @@ ${setupMdUrl}`;
         
         async function deleteApiKey(id) {
             if (!confirm(window.I18N.deleteConfirm)) return;
-            await fetchOrRedirect('/admin/api/keys/' + id, {method: 'DELETE'});
+            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/` + id, {method: 'DELETE'});
             loadApiKeys();
         }
         

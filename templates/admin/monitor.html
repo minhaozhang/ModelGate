@@ -2,8 +2,9 @@
 <html>
 <head>
     <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
     <title>{{ _('Monitor') }} - ModelGate</title>
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -301,6 +302,7 @@
     };
     </script>
     <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
         let currentPeriod = 'day';
         let currentLatencyView = 'average';
         let trendChart = null;
@@ -313,8 +315,8 @@
         const modelPalette = ['#2563eb', '#059669', '#ea580c', '#dc2626', '#7c3aed', '#0891b2', '#ca8a04', '#4f46e5'];
 
         async function logout() {
-            await fetch('/admin/api/auth/logout', { method: 'POST' });
-            window.location.href = '/admin/login';
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, { method: 'POST' });
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
         }
 
         function getThemeMode() {
@@ -353,7 +355,7 @@
         async function fetchJsonOrRedirect(url, options) {
             const resp = await fetch(url, options);
             if (resp.status === 401) {
-                window.location.href = '/admin/login';
+                window.location.href = `${APP_BASE_PATH}/admin/login`;
                 throw new Error('Unauthorized');
             }
             return await resp.json();
@@ -1099,10 +1101,10 @@
 
         async function loadData() {
             const [providerData, apikeyData, modelData, monitorData] = await Promise.all([
-                fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=provider&period=' + currentPeriod),
-                fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=api_key&period=' + currentPeriod),
-                fetchJsonOrRedirect('/admin/api/stats/aggregate?dimension=model&period=' + currentPeriod),
-                fetchJsonOrRedirect('/admin/api/stats/monitor-details?period=' + currentPeriod)
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=provider&period=` + currentPeriod),
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=api_key&period=` + currentPeriod),
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=model&period=` + currentPeriod),
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/monitor-details?period=` + currentPeriod)
             ]);
 
             const totalRequests = providerData.total_requests || 0;

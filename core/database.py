@@ -267,6 +267,33 @@ class ModelDailyStat(Base):
     )
 
 
+class AnalysisRecord(Base):
+    __tablename__ = "analysis_records"
+
+    id = Column(Integer, primary_key=True)
+    analysis_type = Column(String(50), nullable=False)
+    scope_key = Column(String(255), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    language = Column(String(10), nullable=True)
+    model_used = Column(String(150), nullable=True)
+    content = Column(Text, nullable=True)
+    error = Column(Text, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index(
+            "idx_analysis_records_type_scope",
+            "analysis_type",
+            "scope_key",
+            unique=True,
+        ),
+        Index("idx_analysis_records_status", "status"),
+        Index("idx_analysis_records_expires_at", "expires_at"),
+    )
+
+
 def generate_api_key():
     return "sk-" + secrets.token_hex(24)
 

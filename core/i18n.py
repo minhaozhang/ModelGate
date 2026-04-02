@@ -7,6 +7,7 @@ from jinja2.ext import i18n as i18n_ext
 from babel.messages.mofile import write_mo
 from babel.messages.pofile import read_po
 from babel.support import NullTranslations, Translations
+from core.app_paths import get_app_base_path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = str(BASE_DIR / "templates")
@@ -90,6 +91,9 @@ def render(request, template_name: str, **kwargs) -> str:
         "_": translations.gettext,
         "gettext": translations.gettext,
         "ngettext": translations.ngettext,
+        "current_locale": locale,
+        "request": request,
+        "app_base_path": get_app_base_path(request),
         **kwargs,
     }
     return template.render(**context)

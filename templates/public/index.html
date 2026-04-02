@@ -3,7 +3,8 @@
 <head>
     <meta charset="utf-8">
     {% include 'components/site_head_meta.html' %}
-    <title>{{ _('API Key Login') }} - ModelGate</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -16,114 +17,124 @@
             height: 100%;
             z-index: -1;
         }
-        .login-card {
-            background: rgba(10, 10, 20, 0.2);
-            backdrop-filter: blur(2px);
-            -webkit-backdrop-filter: blur(2px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        .glass {
+            background: rgba(10, 10, 20, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-        }
-        .login-card label {
-            color: rgba(255, 255, 255, 0.85);
-        }
-        .login-card input[type="password"] {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: #fff;
-        }
-        .login-card input[type="password"]::placeholder {
-            color: rgba(255, 255, 255, 0.4);
-        }
-        .login-card input[type="password"]:focus {
-            border-color: rgba(100, 150, 255, 0.6);
-            background: rgba(255, 255, 255, 0.12);
-        }
-        .login-card input[type="checkbox"] {
-            accent-color: #6366f1;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center overflow-hidden">
+<body class="min-h-screen text-slate-100">
+    {% set is_zh = current_locale == 'zh' %}
     <div id="particles-container"></div>
 
-    <div class="fixed top-4 right-4 z-50">
+    <div class="fixed top-4 right-4 z-50 flex items-center gap-3">
+        <a href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" class="text-white/50 hover:text-white/80 text-sm transition">Gitee</a>
         <select id="lang-select" onchange="switchLang(this.value)" class="bg-transparent text-white/60 border border-white/20 rounded px-2 py-1 text-sm cursor-pointer focus:outline-none">
             <option value="en">English</option>
-            <option value="zh">中文</option>
+            <option value="zh">{{ "中文" if is_zh else "Chinese" }}</option>
         </select>
     </div>
 
-    <div class="login-card rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
-        <h1 class="text-2xl font-bold text-white mb-2 text-center">ModelGate</h1>
-        <p class="text-sm text-white/65 mb-6 text-center">{{ _('One gateway for all your LLM providers') }}</p>
-        
-        <form id="login-form" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium mb-1" style="color: rgba(255,255,255,0.8)">{{ _('API Key') }}</label>
-                <input type="password" id="api-key" required
-                    class="w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    placeholder="sk-...">
-            </div>
-            <div class="flex items-center">
-                <input type="checkbox" id="remember" class="mr-2" checked>
-                <label for="remember" class="text-sm" style="color: rgba(255,255,255,0.7)">{{ _('Remember API Key') }}</label>
-            </div>
-            <div id="error-msg" class="text-red-400 text-sm hidden"></div>
-            <button type="submit" id="login-btn" class="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-2.5 rounded-lg hover:from-blue-600 hover:to-purple-600 font-medium transition-all shadow-lg hover:shadow-xl">
-                {{ _('Login') }}
-            </button>
-        </form>
-        
-        <p class="text-sm text-center mt-4" style="color: rgba(255,255,255,0.5)">
-            {{ _('Enter your API Key to view usage statistics') }}
-        </p>
-    </div>
+    <main class="mx-auto flex min-h-screen max-w-6xl items-center px-6 py-12">
+        <div class="grid w-full gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+            <section class="glass rounded-3xl p-8 lg:p-10">
+                <div class="mb-6 inline-flex items-center gap-3 rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm text-sky-200">
+                    <img src="{{ app_base_path }}/favicon.svg" alt="ModelGate" class="h-5 w-5">
+                    <span>ModelGate</span>
+                </div>
+                <h1 class="max-w-3xl text-4xl font-bold tracking-tight text-white lg:text-5xl">
+                    {{ "统一的模型网关、监控与 OpenCode 访问入口" if is_zh else "A unified gateway for models, monitoring, and OpenCode access" }}
+                </h1>
+                <p class="mt-5 max-w-2xl text-base leading-8 text-slate-300 lg:text-lg">
+                    {{ "ModelGate 在一个入口中提供统一的 LLM API 代理、API Key 管理、使用仪表盘、监控分析与 OpenCode 配置。" if is_zh else "ModelGate provides a unified LLM API proxy, API key management, usage dashboards, monitoring, and OpenCode configuration in one place." }}
+                </p>
+
+                <div class="mt-8 flex flex-wrap gap-3">
+                    <a href="{{ app_base_path }}/user/login" class="rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 px-6 py-3 font-medium text-white transition hover:from-blue-600 hover:to-purple-600 shadow-lg hover:shadow-xl">
+                        {{ "用户登录" if is_zh else "User Login" }}
+                    </a>
+                </div>
+
+                <div class="mt-10 flex flex-wrap gap-3">
+                    <span class="rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm text-sky-200">{{ "多供应商 API 代理" if is_zh else "Multi-provider API proxy" }}</span>
+                    <span class="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200">{{ "使用仪表盘与分析" if is_zh else "Usage dashboard & analytics" }}</span>
+                    <span class="rounded-full border border-purple-400/30 bg-purple-400/10 px-4 py-2 text-sm text-purple-200">{{ "监控与错误分析" if is_zh else "Monitoring & error analysis" }}</span>
+                </div>
+            </section>
+
+            <aside class="glass rounded-3xl p-8 lg:p-10">
+                <h2 class="text-xl font-semibold text-white">{{ "快速开始" if is_zh else "Quick Start" }}</h2>
+                <ol class="mt-5 space-y-4 text-sm leading-7 text-slate-300">
+                    <li>1. {{ "打开用户登录页，并使用 API Key 登录。" if is_zh else "Open the user login page and sign in with an API key." }}</li>
+                    <li>2. {{ "通过 /v1/models 确认可用模型列表。" if is_zh else "Use /v1/models to confirm which models are available." }} <span class="text-sky-200">({{ app_base_path }}/v1/models)</span></li>
+                    <li>3. {{ "如有需要，可在仪表盘或 API Key 页面生成 OpenCode 配置。" if is_zh else "If needed, generate OpenCode settings from the dashboard or API key page." }}</li>
+                    <li>4. {{ "通过管理面板查看监控、日志和每日报告分析。" if is_zh else "Use the admin panel to review monitoring, logs, and daily analysis reports." }}</li>
+                </ol>
+
+                <div class="mt-8 rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4">
+                    <div class="text-sm text-slate-400">{{ "示例 Base URL" if is_zh else "Example Base URL" }}</div>
+                    <code class="mt-2 block break-all text-sm text-sky-200">{{ base_url }}/v1</code>
+                </div>
+
+                <div class="mt-4 rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4">
+                    <div class="text-sm text-slate-400">{{ _('OpenCode') }}</div>
+                    <p class="mt-2 text-sm leading-7 text-slate-300">
+                        {{ "获取 API Key 后，你可以在仪表盘或管理端 API Key 页面生成 OpenCode 配置。" if is_zh else "After obtaining an API key, you can generate OpenCode configuration from the dashboard or admin API key page." }}
+                    </p>
+                    <a href="https://opencode.ai/" target="_blank" rel="noreferrer" class="mt-3 inline-flex text-sm font-medium text-emerald-300 hover:text-emerald-200">
+                        {{ "访问 OpenCode" if is_zh else "Visit OpenCode" }}
+                    </a>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    {% if icp_number %}
+    <footer class="fixed bottom-0 left-0 right-0 py-3 text-center text-sm text-white/40">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" class="hover:text-white/60 transition">{{ icp_number }}</a>
+    </footer>
+    {% endif %}
 
     {% include 'components/lang_switch.html' %}
     <script>
-        window.I18N = {
-            loggingIn: {{ _('Logging in...') | tojson }},
-            login: {{ _('Login') | tojson }},
-            loginFailed: {{ _('Login failed') | tojson }},
-            networkError: {{ _('Network error') | tojson }}
-        };
-
-        // Three.js Particle System
         let scene, camera, renderer, particles;
         let mouseX = 0, mouseY = 0;
-        
+
         function init() {
             const container = document.getElementById('particles-container');
-            
+
             scene = new THREE.Scene();
-            
+
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.z = 50;
-            
+
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.setClearColor(0x0d1117, 1);
             container.appendChild(renderer.domElement);
-            
+
             createParticles();
-            
+
             document.addEventListener('mousemove', onMouseMove);
             window.addEventListener('resize', onWindowResize);
-            
+
             animate();
         }
-        
+
         function createParticles() {
             const particleCount = window.innerWidth < 768 ? 600 : 1800;
             const geometry = new THREE.BufferGeometry();
-            
+
             const positions = new Float32Array(particleCount * 3);
             const colors = new Float32Array(particleCount * 3);
             const sizes = new Float32Array(particleCount);
             const rotations = new Float32Array(particleCount);
             const particleData = [];
-            
+
             const colorPalette = [
                 [0.26, 0.52, 0.96],
                 [0.96, 0.26, 0.21],
@@ -132,37 +143,37 @@
                 [0.55, 0.36, 0.96],
                 [0.0, 0.73, 0.83],
             ];
-            
+
             const rings = 10;
             const particlesPerRing = Math.floor(particleCount / rings);
-            
+
             for (let ring = 0; ring < rings; ring++) {
                 const ringRadius = 10 + ring * 10;
                 const particlesInThisRing = particlesPerRing + (ring === rings - 1 ? particleCount % rings : 0);
-                
+
                 for (let i = 0; i < particlesInThisRing; i++) {
                     const idx = ring * particlesPerRing + i;
                     if (idx >= particleCount) break;
-                    
+
                     const angle = (i / particlesInThisRing) * Math.PI * 2;
                     const x = Math.cos(angle) * ringRadius;
                     const y = Math.sin(angle) * ringRadius * 0.6;
                     const z = (Math.random() - 0.5) * 25;
-                    
+
                     positions[idx * 3] = x;
                     positions[idx * 3 + 1] = y;
                     positions[idx * 3 + 2] = z;
-                    
+
                     const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
                     colors[idx * 3] = color[0] + (Math.random() - 0.5) * 0.1;
                     colors[idx * 3 + 1] = color[1] + (Math.random() - 0.5) * 0.1;
                     colors[idx * 3 + 2] = color[2] + (Math.random() - 0.5) * 0.1;
-                    
+
                     const depthFactor = (z + 10) / 20;
                     sizes[idx] = (2 + Math.random() * 2.5) * (0.7 + depthFactor * 0.3);
-                    
+
                     rotations[idx] = angle + Math.PI / 2;
-                    
+
                     particleData.push({
                         x: x, y: y, z: z,
                         ringRadius: ringRadius,
@@ -175,14 +186,14 @@
                     });
                 }
             }
-            
+
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
             geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
             geometry.setAttribute('rotation', new THREE.BufferAttribute(rotations, 1));
-            
+
             geometry.userData.particleData = particleData;
-            
+
             const vertexShader = `
                 attribute float size;
                 attribute vec3 color;
@@ -190,7 +201,7 @@
                 varying vec3 vColor;
                 varying float vAlpha;
                 varying float vRotation;
-                
+
                 void main() {
                     vColor = color;
                     vRotation = rotation;
@@ -200,32 +211,32 @@
                     vAlpha = smoothstep(-100.0, -10.0, mvPosition.z);
                 }
             `;
-            
+
             const fragmentShader = `
                 varying vec3 vColor;
                 varying float vAlpha;
                 varying float vRotation;
-                
+
                 void main() {
                     vec2 uv = gl_PointCoord - vec2(0.5);
                     float c = cos(vRotation);
                     float s = sin(vRotation);
                     vec2 rotUV = vec2(uv.x * c - uv.y * s, uv.x * s + uv.y * c);
-                    
+
                     float aspect = 3.0;
                     rotUV.y *= aspect;
-                    
+
                     float n = 2.2;
                     float dist = pow(abs(rotUV.x)/0.35, n) + pow(abs(rotUV.y)/0.35, n);
                     float alpha = 1.0 - smoothstep(0.8, 1.2, dist);
-                    
+
                     if (alpha < 0.01) discard;
-                    
+
                     float shade = 1.0 - abs(rotUV.x) * 0.5 - abs(rotUV.y / aspect) * 0.2;
                     gl_FragColor = vec4(vColor * shade, alpha * vAlpha * 0.9);
                 }
             `;
-            
+
             const material = new THREE.ShaderMaterial({
                 vertexShader: vertexShader,
                 fragmentShader: fragmentShader,
@@ -233,142 +244,67 @@
                 blending: THREE.AdditiveBlending,
                 depthWrite: false
             });
-            
+
             particles = new THREE.Points(geometry, material);
             scene.add(particles);
         }
-        
+
         function onMouseMove(event) {
             mouseX = (event.clientX / window.innerWidth) * 2 - 1;
             mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
         }
-        
+
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
-        
+
         let time = 0;
         let centerX = 0, centerY = 0;
-        
+
         function animate() {
             requestAnimationFrame(animate);
             time += 0.016;
-            
+
             const positions = particles.geometry.attributes.position.array;
             const rotations = particles.geometry.attributes.rotation.array;
             const particleData = particles.geometry.userData.particleData;
             const particleCount = positions.length / 3;
-            
+
             centerX += (mouseX * 55 - centerX) * 0.002;
             centerY += (mouseY * 40 - centerY) * 0.002;
-            
+
             for (let i = 0; i < particleCount; i++) {
                 const data = particleData[i];
-                
+
                 const angle = data.baseAngle + time * data.angularSpeed * (1 + Math.sin(time * 0.5) * 0.3);
                 const pulse = Math.sin(time * 0.8 + data.pulsePhase) * 2;
                 const radius = data.ringRadius + pulse;
-                
+
                 const x = Math.cos(angle) * radius + centerX;
                 const y = Math.sin(angle) * radius * 0.85 + centerY;
-                
+
                 const wobbleX = Math.sin(time * data.wobbleSpeed + data.wobblePhase) * data.wobbleAmount;
                 const wobbleZ = Math.cos(time * data.wobbleSpeed * 0.7 + data.wobblePhase) * data.wobbleAmount * 0.5;
-                
+
                 positions[i * 3] = x + wobbleX;
                 positions[i * 3 + 1] = y;
                 positions[i * 3 + 2] = data.z + wobbleZ;
-                
+
                 rotations[i] = angle;
             }
-            
+
             particles.geometry.attributes.position.needsUpdate = true;
             particles.geometry.attributes.rotation.needsUpdate = true;
-            
+
             particles.rotation.x += (mouseY * 0.15 - particles.rotation.x) * 0.02;
             particles.rotation.y += (mouseX * 0.1 - particles.rotation.y) * 0.02;
-            
+
             renderer.render(scene, camera);
         }
-        
+
         init();
-        
-        // Login form handler
-        const STORAGE_KEY = 'user_api_key';
-        const APP_BASE_PATH = {{ app_base_path | tojson }};
-        const errorMsg = document.getElementById('error-msg');
-        const loginBtn = document.getElementById('login-btn');
-        
-        async function tryAutoLogin(apiKey) {
-            loginBtn.textContent = window.I18N.loggingIn;
-            loginBtn.disabled = true;
-            try {
-                const resp = await fetch(`${APP_BASE_PATH}/user/api/login`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({api_key: apiKey})
-                });
-                if (resp.ok) {
-                    window.location.href = `${APP_BASE_PATH}/user/dashboard`;
-                    return true;
-                } else {
-                    localStorage.removeItem(STORAGE_KEY);
-                }
-            } catch (err) {
-                console.error('Auto login failed:', err);
-            }
-            loginBtn.textContent = window.I18N.login;
-            loginBtn.disabled = false;
-            return false;
-        }
-        
-        (async function() {
-            const savedKey = localStorage.getItem(STORAGE_KEY);
-            if (savedKey) {
-                document.getElementById('api-key').value = savedKey;
-                await tryAutoLogin(savedKey);
-            }
-        })();
-        
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const apiKey = document.getElementById('api-key').value;
-            const remember = document.getElementById('remember').checked;
-            errorMsg.classList.add('hidden');
-            
-            loginBtn.textContent = window.I18N.loggingIn;
-            loginBtn.disabled = true;
-            
-            try {
-                const resp = await fetch(`${APP_BASE_PATH}/user/api/login`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({api_key: apiKey})
-                });
-                const data = await resp.json();
-                
-                if (resp.ok) {
-                    if (remember) {
-                        localStorage.setItem(STORAGE_KEY, apiKey);
-                    } else {
-                        localStorage.removeItem(STORAGE_KEY);
-                    }
-                    window.location.href = `${APP_BASE_PATH}/user/dashboard`;
-                } else {
-                    errorMsg.textContent = data.error || window.I18N.loginFailed;
-                    errorMsg.classList.remove('hidden');
-                    loginBtn.textContent = window.I18N.login;
-                    loginBtn.disabled = false;
-                }
-            } catch (err) {
-                errorMsg.textContent = window.I18N.networkError;
-                errorMsg.classList.remove('hidden');
-                loginBtn.textContent = window.I18N.login;
-                loginBtn.disabled = false;
-            }
-        });
     </script>
 </body>
 </html>

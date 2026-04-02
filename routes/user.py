@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import case, func, or_, select
 
+from core.app_paths import build_app_url, get_app_base_path
 from core.config import logger, providers_cache
 from core.database import (
     async_session_maker,
@@ -20,6 +21,16 @@ from core.database import (
     ModelDailyStat,
 )
 from core.i18n import get_locale, render, translate
+from services.analysis_store import (
+    ANALYSIS_STATUS_FAILED,
+    ANALYSIS_STATUS_PENDING,
+    ANALYSIS_STATUS_RUNNING,
+    ANALYSIS_STATUS_SUCCESS,
+    ANALYSIS_TYPE_USER_RECOMMENDATION,
+    get_analysis_record,
+    start_analysis_task,
+    upsert_analysis_record,
+)
 from services.message import preprocess_messages
 from services.provider import get_model_config
 from services.proxy import OUTBOUND_USER_AGENT
@@ -36,7 +47,6 @@ USER_SESSION_EXPIRE_HOURS = 24
 USER_STATS_CACHE: dict[tuple[int, str, str], dict] = {}
 SYSTEM_MODEL_STATS_CACHE: dict[tuple[str, str], dict] = {}
 USER_RECOMMENDATIONS_CACHE: dict[tuple[int, str, str], dict] = {}
-USER_RECOMMENDATION_REASONS_CACHE: dict[tuple[int, str, str, str, str], dict] = {}
 AGGREGATED_USER_PERIODS = {"month"}
 
 
@@ -102,6 +112,10 @@ def get_cache_bucket(now: datetime) -> str:
 
 def get_hour_cache_bucket(now: datetime) -> str:
     return now.strftime("%Y%m%d%H")
+
+
+def build_recommendation_scope_key(api_key_id: int, period: str, locale: str) -> str:
+    return f"{api_key_id}:{period}:{locale}"
 
 
 def get_cached_payload(
@@ -247,31 +261,36 @@ def extract_json_payload(text: str) -> str:
 
 
 async def generate_recommendation_insights(
-    request: Request, recommendations: list[dict], hourly_stats: list[dict], period: str
+    locale: str, recommendations: list[dict], hourly_stats: list[dict], period: str
 ) -> dict[str, object]:
     if not recommendations:
         return {
+            "source": "unavailable",
+            "model_used": None,
             "reasons": {},
-            "timing_advice": build_rule_based_timing_advice(request, hourly_stats),
+            "timing_advice": None,
         }
-
-    fallback_map = {
-        item["model"]: build_rule_based_recommendation_reason(request, item)
-        for item in recommendations
-    }
-    fallback_timing_advice = build_rule_based_timing_advice(request, hourly_stats)
 
     analyzer = recommendations[0]
     provider_name = analyzer.get("provider")
     actual_model_name = analyzer.get("actual_model_name")
     if not provider_name or not actual_model_name:
-        return {"reasons": fallback_map, "timing_advice": fallback_timing_advice}
+        return {
+            "source": "unavailable",
+            "model_used": None,
+            "reasons": {},
+            "timing_advice": None,
+        }
 
     provider_config = providers_cache.get(provider_name)
     if not provider_config or not provider_config.get("base_url"):
-        return {"reasons": fallback_map, "timing_advice": fallback_timing_advice}
+        return {
+            "source": "unavailable",
+            "model_used": None,
+            "reasons": {},
+            "timing_advice": None,
+        }
 
-    locale = get_locale(request)
     language_name = "Chinese" if locale == "zh" else "English"
     candidates = [
         {
@@ -361,25 +380,72 @@ async def generate_recommendation_insights(
             )
         if response.status_code >= 400:
             logger.warning(
-                "[USER] Recommendation reason generation failed for %s/%s with status %s",
+                "[USER] Recommendation reason generation failed for %s/%s with status %s, body=%s",
                 provider_name,
                 actual_model_name,
                 response.status_code,
+                response.text[:800],
             )
-            return {"reasons": fallback_map, "timing_advice": fallback_timing_advice}
+            return {
+                "source": "unavailable",
+                "model_used": f"{provider_name}/{actual_model_name}",
+                "reasons": {},
+                "timing_advice": None,
+            }
 
-        payload = response.json()
+        try:
+            payload = response.json()
+        except Exception as exc:
+            logger.warning(
+                "[USER] Recommendation reason generation returned non-JSON for %s/%s: %s, body=%s",
+                provider_name,
+                actual_model_name,
+                exc,
+                response.text[:800],
+            )
+            return {
+                "source": "unavailable",
+                "model_used": f"{provider_name}/{actual_model_name}",
+                "reasons": {},
+                "timing_advice": None,
+            }
         content = extract_text_content(
             (((payload.get("choices") or [{}])[0]).get("message") or {}).get("content")
         )
         raw_json = extract_json_payload(content)
-        parsed = json.loads(raw_json) if raw_json else {}
+        try:
+            parsed = json.loads(raw_json) if raw_json else {}
+        except Exception as exc:
+            logger.warning(
+                "[USER] Recommendation reason generation returned invalid JSON content for %s/%s: %s, content=%s",
+                provider_name,
+                actual_model_name,
+                exc,
+                content[:800],
+            )
+            return {
+                "source": "unavailable",
+                "model_used": f"{provider_name}/{actual_model_name}",
+                "reasons": {},
+                "timing_advice": None,
+            }
         reasons = parsed.get("reasons") if isinstance(parsed, dict) else None
         timing_advice = parsed.get("timing_advice") if isinstance(parsed, dict) else None
         if not isinstance(reasons, list):
-            return {"reasons": fallback_map, "timing_advice": fallback_timing_advice}
+            logger.warning(
+                "[USER] Recommendation reason generation missing reasons list for %s/%s, parsed=%s",
+                provider_name,
+                actual_model_name,
+                json.dumps(parsed, ensure_ascii=False)[:800] if isinstance(parsed, dict) else str(parsed)[:800],
+            )
+            return {
+                "source": "unavailable",
+                "model_used": f"{provider_name}/{actual_model_name}",
+                "reasons": {},
+                "timing_advice": None,
+            }
 
-        reason_map = dict(fallback_map)
+        reason_map = {}
         allowed_models = {item["model"] for item in recommendations}
         for item in reasons:
             if not isinstance(item, dict):
@@ -394,16 +460,141 @@ async def generate_recommendation_insights(
             ):
                 reason_map[model_name] = reason.strip()
         return {
+            "source": "ai",
+            "model_used": f"{provider_name}/{actual_model_name}",
             "reasons": reason_map,
             "timing_advice": (
                 timing_advice.strip()
                 if isinstance(timing_advice, str) and timing_advice.strip()
-                else fallback_timing_advice
+                else None
             ),
         }
     except Exception as exc:
-        logger.warning("[USER] Failed to generate recommendation reasons: %s", exc)
-        return {"reasons": fallback_map, "timing_advice": fallback_timing_advice}
+        logger.warning(
+            "[USER] Failed to generate recommendation reasons for %s/%s: %r",
+            provider_name,
+            actual_model_name,
+            exc,
+        )
+        return {
+            "source": "unavailable",
+            "model_used": f"{provider_name}/{actual_model_name}",
+            "reasons": {},
+            "timing_advice": None,
+        }
+
+
+def parse_recommendation_analysis_record(record) -> dict[str, object]:
+    if not record:
+        return {
+            "source": "pending",
+            "model_used": None,
+            "reasons": {},
+            "timing_advice": None,
+        }
+
+    if record.status in {ANALYSIS_STATUS_PENDING, ANALYSIS_STATUS_RUNNING}:
+        return {
+            "source": "pending",
+            "model_used": record.model_used,
+            "reasons": {},
+            "timing_advice": None,
+        }
+
+    if record.status != ANALYSIS_STATUS_SUCCESS or not record.content:
+        return {
+            "source": "unavailable",
+            "model_used": record.model_used,
+            "reasons": {},
+            "timing_advice": None,
+        }
+
+    try:
+        payload = json.loads(record.content)
+    except Exception:
+        return {
+            "source": "unavailable",
+            "model_used": record.model_used,
+            "reasons": {},
+            "timing_advice": None,
+        }
+
+    reasons = payload.get("reasons")
+    if not isinstance(reasons, dict):
+        reasons = {}
+    timing_advice = payload.get("timing_advice")
+    if not isinstance(timing_advice, str) or not timing_advice.strip():
+        timing_advice = None
+    return {
+        "source": "ai",
+        "model_used": record.model_used,
+        "reasons": reasons,
+        "timing_advice": timing_advice,
+    }
+
+
+async def run_user_recommendation_analysis(
+    scope_key: str,
+    locale: str,
+    recommendations: list[dict],
+    hourly_stats: list[dict],
+    period: str,
+) -> None:
+    try:
+        await upsert_analysis_record(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+            status=ANALYSIS_STATUS_RUNNING,
+            language=locale,
+        )
+        result = await generate_recommendation_insights(
+            locale,
+            recommendations,
+            hourly_stats,
+            period,
+        )
+        if result.get("source") != "ai":
+            await upsert_analysis_record(
+                ANALYSIS_TYPE_USER_RECOMMENDATION,
+                scope_key,
+                status=ANALYSIS_STATUS_FAILED,
+                language=locale,
+                model_used=result.get("model_used"),
+                content=None,
+                error="analysis_unavailable",
+                expires_at=datetime.now() + timedelta(hours=1),
+            )
+            return
+
+        content = json.dumps(
+            {
+                "reasons": result.get("reasons") or {},
+                "timing_advice": result.get("timing_advice"),
+            },
+            ensure_ascii=False,
+        )
+        await upsert_analysis_record(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+            status=ANALYSIS_STATUS_SUCCESS,
+            language=locale,
+            model_used=result.get("model_used"),
+            content=content,
+            error=None,
+            expires_at=datetime.now() + timedelta(hours=1),
+        )
+    except Exception as exc:
+        logger.warning("[USER] Failed to run recommendation analysis: %s", exc)
+        await upsert_analysis_record(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+            status=ANALYSIS_STATUS_FAILED,
+            language=locale,
+            model_used=None,
+            content=None,
+            error=str(exc),
+            expires_at=datetime.now() + timedelta(hours=1),
+        )
 
 
 def get_score_by_threshold(value: float, good: float, bad: float) -> float:
@@ -949,192 +1140,247 @@ async def get_user_recommendations(
     cache_key = (api_key_id, period, "v3", get_cache_bucket(now))
     cached_payload = get_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, now)
     if cached_payload is not None:
-        return cached_payload
-
-    async with async_session_maker() as session:
-        key_result = await session.execute(
-            select(ApiKey).where(ApiKey.id == api_key_id)
-        )
-        api_key = key_result.scalar_one_or_none()
-        if not api_key:
-            return translated_error(request, "API Key not found", 404)
-
-        providers_result = await session.execute(
-            select(Provider).where(Provider.is_active == True)
-        )
-        models_result = await session.execute(select(Model).where(Model.is_active == True))
-        provider_models_result = await session.execute(
-            select(ProviderModel).where(ProviderModel.is_active == True)
-        )
-        key_models_result = await session.execute(
-            select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key_id)
-        )
-
-        providers = providers_result.scalars().all()
-        models = models_result.scalars().all()
-        provider_models = provider_models_result.scalars().all()
-        key_models = key_models_result.scalars().all()
-
-        provider_map = {provider.id: provider for provider in providers}
-        model_map = {model.id: model for model in models}
-        active_provider_models = [
-            pm
-            for pm in provider_models
-            if pm.provider_id in provider_map and pm.model_id in model_map
+        top_recommendations = [
+            dict(item) for item in (cached_payload.get("items") or [])
         ]
-        allowed_pm_ids = {item.provider_model_id for item in key_models}
-        full_access = len(allowed_pm_ids) == 0
-        accessible_provider_models = (
-            active_provider_models
-            if full_access
-            else [pm for pm in active_provider_models if pm.id in allowed_pm_ids]
+        hourly_stats = cached_payload.get("hourly_stats") or []
+        base_generated_at = cached_payload.get("generated_at") or now.isoformat()
+    else:
+        top_recommendations = []
+        hourly_stats = []
+        base_generated_at = now.isoformat()
+
+    if cached_payload is None:
+        async with async_session_maker() as session:
+            key_result = await session.execute(
+                select(ApiKey).where(ApiKey.id == api_key_id)
+            )
+            api_key = key_result.scalar_one_or_none()
+            if not api_key:
+                return translated_error(request, "API Key not found", 404)
+
+            providers_result = await session.execute(
+                select(Provider).where(Provider.is_active == True)
+            )
+            models_result = await session.execute(select(Model).where(Model.is_active == True))
+            provider_models_result = await session.execute(
+                select(ProviderModel).where(ProviderModel.is_active == True)
+            )
+            key_models_result = await session.execute(
+                select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key_id)
+            )
+
+            providers = providers_result.scalars().all()
+            models = models_result.scalars().all()
+            provider_models = provider_models_result.scalars().all()
+            key_models = key_models_result.scalars().all()
+
+            provider_map = {provider.id: provider for provider in providers}
+            model_map = {model.id: model for model in models}
+            active_provider_models = [
+                pm
+                for pm in provider_models
+                if pm.provider_id in provider_map and pm.model_id in model_map
+            ]
+            allowed_pm_ids = {item.provider_model_id for item in key_models}
+            full_access = len(allowed_pm_ids) == 0
+            accessible_provider_models = (
+                active_provider_models
+                if full_access
+                else [pm for pm in active_provider_models if pm.id in allowed_pm_ids]
+            )
+
+            accessible_model_meta: dict[tuple[int, str], dict] = {}
+            accessible_provider_ids: set[int] = set()
+            accessible_model_names: set[str] = set()
+            for provider_model in accessible_provider_models:
+                provider = provider_map[provider_model.provider_id]
+                model = model_map[provider_model.model_id]
+                full_name = f"{provider.name}/{model.name}"
+                accessible_model_meta[(provider.id, model.name)] = {
+                    "provider": provider.name,
+                    "model_name": model.name,
+                    "display_name": model.display_name or model.name,
+                    "full_name": full_name,
+                }
+                accessible_provider_ids.add(provider.id)
+                accessible_model_names.add(model.name)
+
+            if not accessible_model_meta:
+                payload = {
+                    "period": period,
+                    "generated_at": now.isoformat(),
+                    "items": [],
+                }
+                set_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, payload, now)
+                return payload
+
+            rows_result = await session.execute(
+                select(
+                    RequestLog.provider_id,
+                    RequestLog.model,
+                    func.count(RequestLog.id).label("requests"),
+                    func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                    func.sum(
+                        case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                    ).label("errors"),
+                )
+                .where(
+                    RequestLog.created_at >= start,
+                    RequestLog.provider_id.in_(list(accessible_provider_ids)),
+                    RequestLog.model.in_(list(accessible_model_names)),
+                    RequestLog.status != "pending",
+                )
+                .group_by(RequestLog.provider_id, RequestLog.model)
+            )
+            rows = rows_result.fetchall()
+
+            hourly_rows_result = await session.execute(
+                select(
+                    func.extract("hour", RequestLog.created_at).label("hour_of_day"),
+                    func.count(RequestLog.id).label("requests"),
+                    func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                    func.sum(
+                        case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                    ).label("errors"),
+                )
+                .where(
+                    RequestLog.created_at >= start,
+                    RequestLog.provider_id.in_(list(accessible_provider_ids)),
+                    RequestLog.model.in_(list(accessible_model_names)),
+                    RequestLog.status != "pending",
+                )
+                .group_by(func.extract("hour", RequestLog.created_at))
+                .order_by(func.extract("hour", RequestLog.created_at))
+            )
+            hourly_rows = hourly_rows_result.fetchall()
+
+        recommendations = []
+        for row in rows:
+            if not row.model:
+                continue
+
+            meta = accessible_model_meta.get((row.provider_id, row.model))
+            if not meta:
+                continue
+
+            requests_count = int(row.requests or 0)
+            errors_count = int(row.errors or 0)
+            if requests_count <= 0:
+                continue
+
+            avg_latency_ms = float(row.avg_latency_ms or 0)
+            error_rate = errors_count / requests_count if requests_count else 1.0
+            reliability_score = max(0.0, 1.0 - (error_rate * 1.5))
+            latency_score = 1 / (1 + (avg_latency_ms / 2500.0)) if avg_latency_ms > 0 else 0.0
+            sample_score = min(requests_count / 20.0, 1.0)
+            score = (reliability_score * 0.55) + (latency_score * 0.30) + (sample_score * 0.15)
+
+            recommendations.append(
+                {
+                    "model": meta["full_name"],
+                    "display_name": meta["display_name"],
+                    "provider": meta["provider"],
+                    "actual_model_name": meta["model_name"],
+                    "requests": requests_count,
+                    "errors": errors_count,
+                    "error_rate": round(error_rate, 4),
+                    "avg_latency_ms": round(avg_latency_ms, 2),
+                    "score": round(score, 4),
+                }
+            )
+
+        recommendations.sort(
+            key=lambda item: (
+                -item["score"],
+                item["error_rate"],
+                item["avg_latency_ms"],
+                -item["requests"],
+                item["model"],
+            )
         )
 
-        accessible_model_meta: dict[tuple[int, str], dict] = {}
-        accessible_provider_ids: set[int] = set()
-        accessible_model_names: set[str] = set()
-        for provider_model in accessible_provider_models:
-            provider = provider_map[provider_model.provider_id]
-            model = model_map[provider_model.model_id]
-            full_name = f"{provider.name}/{model.name}"
-            accessible_model_meta[(provider.id, model.name)] = {
-                "provider": provider.name,
-                "model_name": model.name,
-                "display_name": model.display_name or model.name,
-                "full_name": full_name,
-            }
-            accessible_provider_ids.add(provider.id)
-            accessible_model_names.add(model.name)
+        for index, item in enumerate(recommendations, start=1):
+            item["rank"] = index
 
-        if not accessible_model_meta:
-            payload = {
-                "period": period,
-                "generated_at": now.isoformat(),
-                "items": [],
-            }
-            set_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, payload, now)
-            return payload
-
-        rows_result = await session.execute(
-            select(
-                RequestLog.provider_id,
-                RequestLog.model,
-                func.count(RequestLog.id).label("requests"),
-                func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
-                func.sum(
-                    case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
-                ).label("errors"),
-            )
-            .where(
-                RequestLog.created_at >= start,
-                RequestLog.provider_id.in_(list(accessible_provider_ids)),
-                RequestLog.model.in_(list(accessible_model_names)),
-                RequestLog.status != "pending",
-            )
-            .group_by(RequestLog.provider_id, RequestLog.model)
-        )
-        rows = rows_result.fetchall()
-
-        hourly_rows_result = await session.execute(
-            select(
-                func.extract("hour", RequestLog.created_at).label("hour_of_day"),
-                func.count(RequestLog.id).label("requests"),
-                func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
-                func.sum(
-                    case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
-                ).label("errors"),
-            )
-            .where(
-                RequestLog.created_at >= start,
-                RequestLog.provider_id.in_(list(accessible_provider_ids)),
-                RequestLog.model.in_(list(accessible_model_names)),
-                RequestLog.status != "pending",
-            )
-            .group_by(func.extract("hour", RequestLog.created_at))
-            .order_by(func.extract("hour", RequestLog.created_at))
-        )
-        hourly_rows = hourly_rows_result.fetchall()
-
-    recommendations = []
-    for row in rows:
-        if not row.model:
-            continue
-
-        meta = accessible_model_meta.get((row.provider_id, row.model))
-        if not meta:
-            continue
-
-        requests_count = int(row.requests or 0)
-        errors_count = int(row.errors or 0)
-        if requests_count <= 0:
-            continue
-
-        avg_latency_ms = float(row.avg_latency_ms or 0)
-        error_rate = errors_count / requests_count if requests_count else 1.0
-        reliability_score = max(0.0, 1.0 - (error_rate * 1.5))
-        latency_score = 1 / (1 + (avg_latency_ms / 2500.0)) if avg_latency_ms > 0 else 0.0
-        sample_score = min(requests_count / 20.0, 1.0)
-        score = (reliability_score * 0.55) + (latency_score * 0.30) + (sample_score * 0.15)
-
-        recommendations.append(
+        top_recommendations = recommendations[:5]
+        hourly_stats = [
             {
-                "model": meta["full_name"],
-                "display_name": meta["display_name"],
-                "provider": meta["provider"],
-                "actual_model_name": meta["model_name"],
-                "requests": requests_count,
-                "errors": errors_count,
-                "error_rate": round(error_rate, 4),
-                "avg_latency_ms": round(avg_latency_ms, 2),
-                "score": round(score, 4),
+                "hour": int(row.hour_of_day or 0),
+                "requests": int(row.requests or 0),
+                "errors": int(row.errors or 0),
+                "avg_latency_ms": round(float(row.avg_latency_ms or 0), 2)
+                if row.avg_latency_ms is not None
+                else None,
             }
-        )
-
-    recommendations.sort(
-        key=lambda item: (
-            -item["score"],
-            item["error_rate"],
-            item["avg_latency_ms"],
-            -item["requests"],
-            item["model"],
-        )
-    )
-
-    for index, item in enumerate(recommendations, start=1):
-        item["rank"] = index
-
-    top_recommendations = recommendations[:5]
-    reason_cache_key = (
-        api_key_id,
-        period,
-        get_locale(request),
-        "insights-v1",
-        get_hour_cache_bucket(now),
-    )
-    hourly_stats = [
-        {
-            "hour": int(row.hour_of_day or 0),
-            "requests": int(row.requests or 0),
-            "errors": int(row.errors or 0),
-            "avg_latency_ms": round(float(row.avg_latency_ms or 0), 2)
-            if row.avg_latency_ms is not None
-            else None,
-        }
-        for row in hourly_rows
-    ]
-    insight_payload = get_cached_payload(
-        USER_RECOMMENDATION_REASONS_CACHE,
-        reason_cache_key,
-        now,
-        ttl_seconds=USER_RECOMMENDATION_REASON_TTL_SECONDS,
-    )
-    if insight_payload is None:
-        insight_payload = await generate_recommendation_insights(
-            request, top_recommendations, hourly_stats, period
-        )
+            for row in hourly_rows
+        ]
+        base_generated_at = now.isoformat()
         set_cached_payload(
-            USER_RECOMMENDATION_REASONS_CACHE, reason_cache_key, insight_payload, now
+            USER_RECOMMENDATIONS_CACHE,
+            cache_key,
+            {
+                "generated_at": base_generated_at,
+                "items": top_recommendations,
+                "hourly_stats": hourly_stats,
+            },
+            now,
         )
+    if not top_recommendations:
+        payload = {
+            "period": period,
+            "generated_at": base_generated_at,
+            "items": [],
+            "timing_advice": None,
+            "analysis_source": "unavailable",
+            "analysis_model_used": None,
+        }
+        set_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, payload, now)
+        return payload
+
+    locale = get_locale(request)
+    scope_key = build_recommendation_scope_key(api_key_id, period, locale)
+    analysis_record = await get_analysis_record(
+        ANALYSIS_TYPE_USER_RECOMMENDATION,
+        scope_key,
+    )
+    insight_payload = parse_recommendation_analysis_record(analysis_record)
+
+    should_refresh_analysis = (
+        analysis_record is None
+        or analysis_record.status in {ANALYSIS_STATUS_FAILED}
+        or (
+            analysis_record.expires_at is not None
+            and analysis_record.expires_at <= now
+        )
+    )
+    if should_refresh_analysis and top_recommendations:
+        await upsert_analysis_record(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+            status=ANALYSIS_STATUS_PENDING,
+            language=locale,
+            model_used=analysis_record.model_used if analysis_record else None,
+            content=analysis_record.content if analysis_record else None,
+            error=None,
+            expires_at=datetime.now() + timedelta(hours=1),
+        )
+        start_analysis_task(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+            lambda: run_user_recommendation_analysis(
+                scope_key,
+                locale,
+                top_recommendations,
+                hourly_stats,
+                period,
+            ),
+        )
+        analysis_record = await get_analysis_record(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+        )
+        insight_payload = parse_recommendation_analysis_record(analysis_record)
 
     reason_map = insight_payload.get("reasons") if isinstance(insight_payload, dict) else {}
     if not isinstance(reason_map, dict):
@@ -1145,18 +1391,25 @@ async def get_user_recommendations(
         else None
     )
     if not isinstance(timing_advice, str) or not timing_advice.strip():
-        timing_advice = build_rule_based_timing_advice(request, hourly_stats)
+        timing_advice = None
 
     for item in top_recommendations:
-        item["reason"] = reason_map.get(item["model"]) or build_rule_based_recommendation_reason(
-            request, item
-        )
+        item["reason"] = reason_map.get(item["model"])
 
     payload = {
         "period": period,
-        "generated_at": now.isoformat(),
+        "generated_at": base_generated_at,
         "items": top_recommendations,
+        "hourly_stats": hourly_stats,
         "timing_advice": timing_advice,
+        "analysis_source": (
+            insight_payload.get("source")
+            if isinstance(insight_payload, dict)
+            else "unavailable"
+        ),
+        "analysis_model_used": (
+            insight_payload.get("model_used") if isinstance(insight_payload, dict) else None
+        ),
     }
     set_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, payload, now)
     return payload
@@ -1363,13 +1616,13 @@ async def get_user_catalog(request: Request, api_key_id: int = Depends(get_user_
 @router.get("/user/dashboard", response_class=HTMLResponse)
 async def user_dashboard(request: Request, api_key_id: int = Depends(get_user_session)):
     if not api_key_id:
-        return RedirectResponse(url="/user/login")
+        return RedirectResponse(url=build_app_url(request, "/user/login"))
 
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
         key = result.scalar_one_or_none()
         if not key:
-            return RedirectResponse(url="/user/login")
+            return RedirectResponse(url=build_app_url(request, "/user/login"))
 
         html = render(
             request, "user/dashboard.html", name=key.name, api_key_id=api_key_id
@@ -1450,13 +1703,14 @@ async def get_user_opencode_config(
                 {"name": model_key, "context": context_window, "output": max_output}
             )
 
+        base_path = get_app_base_path(request)
         config = {
             "$schema": "https://opencode.ai/config.json",
             "provider": {
                 "model-token-plan": {
                     "name": "Model Token Plan",
                     "options": {
-                        "baseURL": "BASEURL_PLACEHOLDER",
+                        "baseURL": f"BASEURL_PLACEHOLDER{base_path}/v1",
                         "apiKey": api_key.key,
                     },
                     "models": models_config,

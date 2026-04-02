@@ -1,0 +1,504 @@
+{% set active_page = 'errors' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('Error Analysis') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        .summary-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid #e5e7eb;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.55rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-error { background: #fee2e2; color: #b91c1c; }
+        .badge-timeout { background: #ffedd5; color: #c2410c; }
+        .badge-report { background: #dbeafe; color: #1d4ed8; }
+        .log-grid {
+            display: grid;
+            grid-template-columns: minmax(135px, 150px) minmax(70px, 90px) minmax(110px, 130px) minmax(170px, 1fr) minmax(90px, 110px) minmax(90px, 120px) minmax(90px, 110px) minmax(260px, 2fr);
+            gap: 0.75rem;
+            align-items: start;
+        }
+        .log-row + .log-row {
+            border-top: 1px solid #e5e7eb;
+        }
+        .mono {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        }
+        .markdown-body h1,
+        .markdown-body h2,
+        .markdown-body h3 {
+            color: #111827;
+            font-weight: 700;
+            margin-top: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+        .markdown-body h1 { font-size: 1.45rem; }
+        .markdown-body h2 { font-size: 1.1rem; }
+        .markdown-body h3 { font-size: 1rem; }
+        .markdown-body p,
+        .markdown-body li {
+            color: #374151;
+            line-height: 1.8;
+        }
+        .markdown-body ul {
+            list-style: disc;
+            padding-left: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .markdown-body code {
+            background: #e5e7eb;
+            padding: 0.15rem 0.35rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+        }
+        .markdown-body pre {
+            background: #111827;
+            color: #e5e7eb;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 9999px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #ffffff;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white,
+        body.theme-dark .summary-card { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50,
+        body.theme-dark .bg-blue-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .summary-card,
+        body.theme-dark .log-row + .log-row { border-color: #1f2937 !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark input,
+        body.theme-dark select,
+        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-600):not(.bg-slate-700) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .badge-error { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+        body.theme-dark .badge-timeout { background: rgba(249, 115, 22, 0.16); color: #fdba74; }
+        body.theme-dark .badge-report { background: rgba(59, 130, 246, 0.16); color: #93c5fd; }
+        body.theme-dark .markdown-body h1,
+        body.theme-dark .markdown-body h2,
+        body.theme-dark .markdown-body h3,
+        body.theme-dark .markdown-body p,
+        body.theme-dark .markdown-body li { color: #e5e7eb !important; }
+        body.theme-dark .markdown-body code { background: #1f2937; color: #e5e7eb; }
+        body.theme-dark .markdown-body pre { background: #020617; color: #e5e7eb; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header(_('Error Analysis'), _("Review today's error and timeout logs, then generate an AI-assisted analysis report on demand")) %}
+                <button id="refresh-btn" onclick="loadErrorLogs()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                    {{ _('Refresh') }}
+                </button>
+                <button id="report-btn" onclick="generateReport()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 inline-flex items-center gap-2">
+                    <span id="report-spinner" class="spinner hidden"></span>
+                    <span id="report-btn-text">{{ _('Generate Report') }}</span>
+                </button>
+            {% endcall %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+                <div class="summary-card rounded-xl shadow p-5">
+                    <div class="text-sm text-gray-500">{{ _("Today's Error Logs") }}</div>
+                    <div id="metric-total" class="text-3xl font-bold text-gray-800 mt-2">-</div>
+                </div>
+                <div class="summary-card rounded-xl shadow p-5">
+                    <div class="text-sm text-gray-500">{{ _('Timeouts') }}</div>
+                    <div id="metric-timeouts" class="text-3xl font-bold text-gray-800 mt-2">-</div>
+                </div>
+                <div class="summary-card rounded-xl shadow p-5">
+                    <div class="text-sm text-gray-500">{{ _('Top Provider') }}</div>
+                    <div id="metric-provider" class="text-xl font-semibold text-gray-800 mt-2">-</div>
+                </div>
+                <div class="summary-card rounded-xl shadow p-5">
+                    <div class="text-sm text-gray-500">{{ _('Top Upstream Code') }}</div>
+                    <div id="metric-status-code" class="text-xl font-semibold text-gray-800 mt-2">-</div>
+                </div>
+                <div class="summary-card rounded-xl shadow p-5">
+                    <div class="text-sm text-gray-500">{{ _('Max Context Tokens') }}</div>
+                    <div id="metric-context" class="text-xl font-semibold text-gray-800 mt-2">-</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+                <section class="xl:col-span-2 bg-white rounded-xl shadow p-6">
+                    <div class="flex items-start justify-between gap-4 mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">{{ _("Today's Analysis Report") }}</h3>
+                            <p class="text-sm text-gray-500 mt-1" id="report-meta">{{ _('The report is generated manually, so it is suitable for incident review and shift handoff.') }}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="report-language" class="badge badge-report">{{ _('Language') }}: --</span>
+                            <span id="report-source" class="badge badge-report hidden"></span>
+                        </div>
+                    </div>
+                    <div id="report-empty" class="bg-gray-50 rounded-lg p-5 text-sm text-gray-600">
+                        {{ _("Click Generate Report to summarize today's dominant error patterns, likely causes, and follow-up actions.") }}
+                    </div>
+                    <div id="report-panel" class="hidden">
+                        <article id="report-markdown" class="markdown-body bg-gray-50 rounded-lg p-5"></article>
+                    </div>
+                </section>
+
+                <section class="bg-white rounded-xl shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ _('Hotspots') }}</h3>
+                    <div class="space-y-5">
+                        <div>
+                            <div class="text-sm text-gray-500 mb-2">{{ _('Providers With Most Failures') }}</div>
+                            <div id="top-providers" class="flex flex-wrap gap-2"></div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500 mb-2">{{ _('Models With Most Failures') }}</div>
+                            <div id="top-models" class="flex flex-wrap gap-2"></div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500 mb-2">{{ _('Upstream Status Codes') }}</div>
+                            <div id="top-status-codes" class="flex flex-wrap gap-2"></div>
+                        </div>
+                        <div class="pt-2 border-t border-gray-200">
+                            <div class="text-sm text-gray-500">{{ _('Average Timeout Context') }}</div>
+                            <div id="avg-timeout-context" class="text-lg font-semibold text-gray-800 mt-2">-</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <section class="bg-white rounded-xl shadow">
+                <div class="p-6 border-b border-gray-200 flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">{{ _("Today's Error and Timeout Logs") }}</h3>
+                        <p class="text-sm text-gray-500 mt-1">{{ _("This list focuses on today's error and timeout records, including upstream status code, context size, and error details.") }}</p>
+                    </div>
+                    <div id="logs-count" class="text-sm text-gray-500">-</div>
+                </div>
+                <div id="logs-empty" class="hidden p-6 text-sm text-gray-500">{{ _('No error or timeout logs have been recorded today.') }}</div>
+                <div id="logs-list" class="divide-y divide-gray-200"></div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+        window.I18N = {
+            lightMode: "{{ _('Light Mode') }}",
+            darkMode: "{{ _('Dark Mode') }}",
+            generateReport: "{{ _('Generate Report') }}",
+            generating: "{{ _('Generating...') }}",
+            aiGenerated: "{{ _('AI Generated') }}",
+            aiPending: "{{ _('AI Analysis Pending') }}",
+            aiUnavailable: "{{ _('AI Analysis Unavailable') }}",
+            noDataReport: "{{ _('No Data') }}",
+            languageLabel: "{{ _('Language') }}",
+            languageZh: "{{ _('Chinese') }}",
+            languageEn: "{{ _('English') }}",
+            generatedAt: "{{ _('Generated At') }}",
+            modelUsed: "{{ _('Model Used') }}",
+            reportReady: "{{ _('The report is generated manually, so it is suitable for incident review and shift handoff.') }}",
+            reportUnavailable: "{{ _('AI analysis is currently unavailable. Please retry after checking the analysis model or provider status.') }}",
+            upstreamCode: "{{ _('Upstream') }}",
+            latency: "{{ _('Latency') }}",
+            context: "{{ _('Context') }}",
+            apiKey: "{{ _('API Key') }}",
+            provider: "{{ _('Provider') }}",
+            errorDetail: "{{ _('Error Detail') }}",
+            requestAt: "{{ _('Created At') }}",
+            loadingFailed: "{{ _('Failed to load data') }}"
+        };
+
+        let reportPollTimer = null;
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'dark';
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
+        }
+
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+        }
+
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, { method: 'POST' });
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
+
+        function formatNumber(value) {
+            if (value === null || value === undefined || value === '') {
+                return '-';
+            }
+            return Number(value).toLocaleString();
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatListChips(containerId, items, badgeClass = 'badge-report') {
+            const container = document.getElementById(containerId);
+            if (!Array.isArray(items) || items.length === 0) {
+                container.innerHTML = '<span class="text-sm text-gray-500">-</span>';
+                return;
+            }
+            container.innerHTML = items.map(([label, count]) => (
+                `<span class="badge ${badgeClass}">${escapeHtml(label)} · ${formatNumber(count)}</span>`
+            )).join('');
+        }
+
+        async function fetchJsonOrRedirect(url, options = {}) {
+            const response = await fetch(url, options);
+            if (response.status === 401) {
+                window.location.href = `${APP_BASE_PATH}/admin/login`;
+                return null;
+            }
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+            return response.json();
+        }
+
+        function renderSummary(summary) {
+            document.getElementById('metric-total').textContent = formatNumber(summary.total_logs);
+            document.getElementById('metric-timeouts').textContent = formatNumber(summary.total_timeouts);
+            document.getElementById('metric-provider').textContent = summary.top_providers?.[0]?.[0] || '-';
+            document.getElementById('metric-status-code').textContent = summary.top_status_codes?.[0]?.[0] || '-';
+            document.getElementById('metric-context').textContent = summary.max_context_tokens ? formatNumber(summary.max_context_tokens) : '-';
+            document.getElementById('avg-timeout-context').textContent = summary.avg_timeout_context_tokens ? formatNumber(summary.avg_timeout_context_tokens) : '-';
+            document.getElementById('logs-count').textContent = formatNumber(summary.total_logs);
+            formatListChips('top-providers', summary.top_providers, 'badge-report');
+            formatListChips('top-models', summary.top_models, 'badge-report');
+            formatListChips('top-status-codes', summary.top_status_codes, 'badge-report');
+        }
+
+        function renderLogs(logs) {
+            const emptyEl = document.getElementById('logs-empty');
+            const listEl = document.getElementById('logs-list');
+            if (!Array.isArray(logs) || logs.length === 0) {
+                emptyEl.classList.remove('hidden');
+                listEl.innerHTML = '';
+                return;
+            }
+
+            emptyEl.classList.add('hidden');
+            listEl.innerHTML = logs.map((log) => {
+                const statusClass = log.status === 'timeout' ? 'badge-timeout' : 'badge-error';
+                return `
+                    <article class="log-row p-6">
+                        <div class="log-grid text-sm">
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.requestAt}</div>
+                                <div class="font-medium text-gray-800">${escapeHtml(new Date(log.created_at).toLocaleString())}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">{{ _('Status') }}</div>
+                                <span class="badge ${statusClass}">${escapeHtml(log.status)}</span>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.provider}</div>
+                                <div class="font-medium text-gray-800">${escapeHtml(log.provider || '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">{{ _('Model') }}</div>
+                                <div class="font-medium text-gray-800 break-all">${escapeHtml(log.model || '-')}</div>
+                                <div class="text-xs text-gray-500 mt-1">${window.I18N.apiKey}: ${escapeHtml(log.api_key || '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.upstreamCode}</div>
+                                <div class="font-medium text-gray-800">${escapeHtml(log.upstream_status_code ?? '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.latency}</div>
+                                <div class="font-medium text-gray-800">${log.latency_ms ? `${formatNumber(Math.round(log.latency_ms))} ms` : '-'}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.context}</div>
+                                <div class="font-medium text-gray-800">${log.request_context_tokens ? formatNumber(log.request_context_tokens) : '-'}</div>
+                                <div class="text-xs text-gray-500 mt-1 mono break-all">${escapeHtml(log.client_ip || '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.errorDetail}</div>
+                                <div class="text-gray-700 whitespace-pre-wrap break-words">${escapeHtml(log.error || '-')}</div>
+                                <div class="text-xs text-gray-500 mt-2 mono break-all">${escapeHtml(log.user_agent || '-')}</div>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function renderReport(report) {
+            if (!report) {
+                return;
+            }
+            document.getElementById('report-empty').classList.add('hidden');
+            document.getElementById('report-panel').classList.remove('hidden');
+
+            let sourceLabel = window.I18N.noDataReport;
+            if (report.source === 'ai') {
+                sourceLabel = window.I18N.aiGenerated;
+            } else if (report.source === 'pending') {
+                sourceLabel = window.I18N.aiPending;
+            } else if (report.source === 'unavailable') {
+                sourceLabel = window.I18N.aiUnavailable;
+            }
+
+            const metadataLines = [`> ${sourceLabel}`];
+            if (report.model_used) {
+                metadataLines.push(`> ${window.I18N.modelUsed}: ${report.model_used}`);
+            }
+            metadataLines.push('');
+
+            let markdown = report.markdown || '';
+            if (!markdown && report.source === 'pending') {
+                markdown = `# {{ _('Daily Error Analysis Report') }}\n\n${window.I18N.generating}`;
+            }
+            if (!markdown && report.source === 'unavailable') {
+                markdown = `# {{ _('Daily Error Analysis Report') }}\n\n${window.I18N.reportUnavailable}`;
+            }
+
+            const renderedMarkdown = `${metadataLines.join('\n')}${markdown}`;
+            document.getElementById('report-markdown').innerHTML = window.marked
+                ? window.marked.parse(renderedMarkdown)
+                : `<pre>${escapeHtml(renderedMarkdown)}</pre>`;
+
+            const lang = document.documentElement.lang === 'zh' ? window.I18N.languageZh : window.I18N.languageEn;
+            document.getElementById('report-language').textContent = `${window.I18N.languageLabel}: ${lang}`;
+
+            const sourceEl = document.getElementById('report-source');
+            sourceEl.classList.remove('hidden');
+            sourceEl.textContent = sourceLabel;
+
+            const metaParts = [];
+            if (report.generated_at) {
+                metaParts.push(`${window.I18N.generatedAt}: ${new Date(report.generated_at).toLocaleString()}`);
+            }
+            if (report.model_used) {
+                metaParts.push(`${window.I18N.modelUsed}: ${report.model_used}`);
+            }
+            document.getElementById('report-meta').textContent = metaParts.join(' · ') || window.I18N.reportReady;
+
+            if (report.source === 'pending') {
+                scheduleReportPoll();
+            } else if (reportPollTimer) {
+                clearTimeout(reportPollTimer);
+                reportPollTimer = null;
+            }
+        }
+
+        function scheduleReportPoll() {
+            if (reportPollTimer) {
+                clearTimeout(reportPollTimer);
+            }
+            reportPollTimer = setTimeout(loadReportStatus, 3000);
+        }
+
+        async function loadReportStatus() {
+            try {
+                const payload = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/errors/analyze`);
+                if (!payload) return;
+                renderSummary(payload.summary || {});
+                if (payload.report) {
+                    renderReport(payload.report);
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function loadErrorLogs() {
+            try {
+                const payload = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/errors/today`);
+                if (!payload) {
+                    return;
+                }
+                renderSummary(payload.summary || {});
+                renderLogs(payload.logs || []);
+            } catch (error) {
+                console.error(error);
+                alert(window.I18N.loadingFailed);
+            }
+        }
+
+        async function generateReport() {
+            const btn = document.getElementById('report-btn');
+            const btnText = document.getElementById('report-btn-text');
+            const spinner = document.getElementById('report-spinner');
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            btnText.textContent = window.I18N.generating;
+
+            try {
+                const payload = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/errors/analyze`, { method: 'POST' });
+                if (!payload) {
+                    return;
+                }
+                renderSummary(payload.summary || {});
+                if (payload.report) {
+                    renderReport(payload.report);
+                }
+            } catch (error) {
+                console.error(error);
+                alert(window.I18N.loadingFailed);
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+                btnText.textContent = window.I18N.generateReport;
+            }
+        }
+
+        applyTheme(getThemeMode());
+        loadErrorLogs();
+        loadReportStatus();
+    </script>
+</body>
+</html>

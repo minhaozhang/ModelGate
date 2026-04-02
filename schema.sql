@@ -116,6 +116,38 @@ CREATE TABLE public.api_keys (
 );
 
 --
+-- Name: analysis_records; Type: TABLE; Schema: public
+--
+
+CREATE TABLE public.analysis_records (
+    id integer NOT NULL,
+    analysis_type character varying(50) NOT NULL,
+    scope_key character varying(255) NOT NULL,
+    status character varying(20) NOT NULL,
+    language character varying(10),
+    model_used character varying(150),
+    content text,
+    error text,
+    expires_at timestamp without time zone,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+--
+-- Name: analysis_records_id_seq; Type: SEQUENCE; Schema: public
+--
+
+CREATE SEQUENCE public.analysis_records_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.analysis_records_id_seq OWNED BY public.analysis_records.id;
+
+--
 -- Name: api_keys_id_seq; Type: SEQUENCE; Schema: public
 --
 
@@ -377,6 +409,7 @@ ALTER SEQUENCE public.request_logs_id_seq OWNED BY public.request_logs.id;
 --
 
 ALTER TABLE ONLY public.api_key_daily_stats ALTER COLUMN id SET DEFAULT nextval('public.api_key_daily_stats_id_seq'::regclass);
+ALTER TABLE ONLY public.analysis_records ALTER COLUMN id SET DEFAULT nextval('public.analysis_records_id_seq'::regclass);
 ALTER TABLE ONLY public.api_key_model_daily_stats ALTER COLUMN id SET DEFAULT nextval('public.api_key_model_daily_stats_id_seq'::regclass);
 ALTER TABLE ONLY public.api_key_models ALTER COLUMN id SET DEFAULT nextval('public.api_key_models_id_seq'::regclass);
 ALTER TABLE ONLY public.api_keys ALTER COLUMN id SET DEFAULT nextval('public.api_keys_id_seq'::regclass);
@@ -393,6 +426,7 @@ ALTER TABLE ONLY public.request_logs ALTER COLUMN id SET DEFAULT nextval('public
 --
 
 ALTER TABLE ONLY public.api_key_daily_stats ADD CONSTRAINT api_key_daily_stats_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.analysis_records ADD CONSTRAINT analysis_records_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.api_key_model_daily_stats ADD CONSTRAINT api_key_model_daily_stats_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.api_key_models ADD CONSTRAINT api_key_models_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.api_keys ADD CONSTRAINT api_keys_key_key UNIQUE (key);
@@ -413,6 +447,9 @@ ALTER TABLE ONLY public.request_logs_history ADD CONSTRAINT request_logs_history
 --
 
 CREATE UNIQUE INDEX idx_api_key_model ON public.api_key_models USING btree (api_key_id, provider_model_id);
+CREATE INDEX idx_analysis_records_expires_at ON public.analysis_records USING btree (expires_at);
+CREATE INDEX idx_analysis_records_status ON public.analysis_records USING btree (status);
+CREATE UNIQUE INDEX idx_analysis_records_type_scope ON public.analysis_records USING btree (analysis_type, scope_key);
 CREATE INDEX idx_apikey_stats_date ON public.api_key_daily_stats USING btree (date);
 CREATE INDEX idx_apikey_model_stats_date ON public.api_key_model_daily_stats USING btree (date);
 CREATE UNIQUE INDEX idx_apikey_model_stats_unique ON public.api_key_model_daily_stats USING btree (api_key_id, model_name, date);

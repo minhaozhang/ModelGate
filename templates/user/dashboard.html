@@ -2,8 +2,9 @@
 <html>
 <head>
     <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
     <title>ModelGate</title>
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -101,6 +102,9 @@
         body.theme-dark #recommendation-meta {
             color: #cbd5e1 !important;
         }
+        body.theme-dark #recommendation-analysis-meta {
+            color: #93c5fd !important;
+        }
         body.theme-dark #recommendation-list > div {
             color: #e2e8f0;
         }
@@ -158,9 +162,12 @@
             <!-- Stats Tab -->
             <div id="tab-stats" class="tab-content active p-6">
                 <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <div class="flex justify-between items-center mb-3">
+                    <div class="flex justify-between items-start gap-3 mb-3">
                         <h3 class="text-lg font-semibold">{{ _('Recommended Models') }}</h3>
-                        <span id="recommendation-meta" class="text-xs text-gray-600">{{ _('Ranked by stability, response time, and sample size') }}</span>
+                        <div class="text-right">
+                            <div id="recommendation-meta" class="text-xs text-gray-600">{{ _('Ranked by stability, response time, and sample size') }}</div>
+                            <div id="recommendation-analysis-meta" class="mt-1 text-xs text-blue-600"></div>
+                        </div>
                     </div>
                     <div id="recommendation-list" class="flex flex-wrap gap-2">
                         <div class="w-full text-gray-500 text-center py-4">{{ _('Loading recommendations...') }}</div>
@@ -331,7 +338,7 @@
                     <h3 class="font-semibold mb-3">{{ _('Basic Information') }}</h3>
                     <div class="space-y-2 text-sm">
                         <div class="flex"><span class="text-gray-500 w-32">{{ _('Proxy URL') }}:</span><code class="bg-white px-2 py-1 rounded" id="proxy-url"></code></div>
-                        <div class="flex"><span class="text-gray-500 w-32">{{ _('API Endpoint') }}:</span><code class="bg-white px-2 py-1 rounded">/v1/chat/completions</code></div>
+                        <div class="flex"><span class="text-gray-500 w-32">{{ _('API Endpoint') }}:</span><code class="bg-white px-2 py-1 rounded">{{ app_base_path }}/v1/chat/completions</code></div>
                         <div class="flex"><span class="text-gray-500 w-32">{{ _('Auth Header') }}:</span><code class="bg-white px-2 py-1 rounded">Authorization: Bearer YOUR_API_KEY</code></div>
                     </div>
                 </div>
@@ -462,6 +469,9 @@ const data = await response.json();</code></pre>
         noRecommendations: {{ _('No recommendation data yet') | tojson }},
         loadingRecommendations: {{ _('Loading recommendations...') | tojson }},
         analyzingBestTimeWindows: {{ _('Analyzing the best daily time windows...') | tojson }},
+        modelUsed: {{ _('Model Used') | tojson }},
+        aiGenerated: {{ _('AI Generated') | tojson }},
+        aiUnavailable: {{ _('AI analysis unavailable') | tojson }},
         samplesLabel: {{ _('samples') | tojson }},
         opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider.') | tojson }},
         topShare: {{ _('top share') | tojson }},
@@ -472,13 +482,18 @@ const data = await response.json();</code></pre>
     </script>
 
     {% include 'components/lang_switch.html' %}
+    <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+    </script>
 {% raw %}
     <script>
-        const baseUrl = window.location.origin + '/v1';
+        const baseUrl = window.location.origin + APP_BASE_PATH + '/v1';
         let trendChart = null;
         let latestTrendData = {};
         let modelUsageChart = null;
         let systemModelChart = null;
+        let statsRequestVersion = 0;
+        let catalogLoaded = false;
         const ownModelPalette = ['#2563eb', '#0f766e', '#0891b2', '#1d4ed8', '#059669', '#0ea5e9', '#14b8a6', '#0284c7'];
         const systemModelPalette = ['#f59e0b', '#ef4444', '#f97316', '#dc2626', '#eab308', '#fb7185', '#ea580c', '#f43f5e'];
         
@@ -525,7 +540,7 @@ const data = await response.json();</code></pre>
         async function fetchJsonOrRedirect(url, options) {
             const resp = await fetch(url, options);
             if (resp.status === 401) {
-                window.location.href = '/user/login';
+                window.location.href = `${APP_BASE_PATH}/user/login`;
                 throw new Error(window.I18N.unauthorized);
             }
             return await resp.json();
@@ -538,7 +553,7 @@ const data = await response.json();</code></pre>
             document.getElementById('tab-' + tab).classList.add('active');
             
             if (tab === 'opencode') loadOpenCodeConfig();
-            if (tab === 'catalog') loadCatalog();
+            if (tab === 'catalog' && !catalogLoaded) loadCatalog();
         }
 
         function formatCompactTokens(tokens) {
@@ -990,12 +1005,36 @@ const data = await response.json();</code></pre>
             latency.textContent = formatHealthLatency(health?.avg_latency_ms);
         }
          
+        let recommendationPollTimer = null;
+        let recommendationsInitialized = false;
+
+        function scheduleRecommendationPoll(period, requestVersion) {
+            if (recommendationPollTimer) {
+                clearTimeout(recommendationPollTimer);
+            }
+            recommendationPollTimer = setTimeout(() => {
+                const activePeriod = document.getElementById('period-select')?.value || 'day';
+                if (requestVersion !== statsRequestVersion || activePeriod !== period) return;
+                fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/recommendations?period=' + period)
+                    .then(recommendations => {
+                        const latestPeriod = document.getElementById('period-select')?.value || 'day';
+                        if (requestVersion !== statsRequestVersion || latestPeriod !== period) return;
+                        renderRecommendations(recommendations || {}, period, requestVersion);
+                    })
+                    .catch(() => {});
+            }, 3000);
+        }
+
         async function loadStats() {
             const period = document.getElementById('period-select').value;
-            const [data, systemModels, recommendations] = await Promise.all([
-                fetchJsonOrRedirect('/user/api/stats?period=' + period),
-                fetchJsonOrRedirect('/user/api/system-models?period=' + period),
-                fetchJsonOrRedirect('/user/api/recommendations?period=' + period)
+            const requestVersion = ++statsRequestVersion;
+            if (recommendationPollTimer) {
+                clearTimeout(recommendationPollTimer);
+                recommendationPollTimer = null;
+            }
+            const [data, systemModels] = await Promise.all([
+                fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/stats?period=' + period),
+                fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-models?period=' + period)
             ]);
              
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
@@ -1006,21 +1045,64 @@ const data = await response.json();</code></pre>
             latestTrendData = data.trend || {};
             renderSystemHealth(data.system_health || {});
             renderTrendChart(latestTrendData);
-            renderRecommendations(recommendations || {});
             renderOwnModelChart(data.models || {});
             renderSystemModelChart(systemModels.models || {});
+
+            if (!recommendationsInitialized) {
+                document.getElementById('recommendation-meta').textContent = window.I18N.basedOnCurrentPeriod;
+                document.getElementById('recommendation-analysis-meta').textContent = '';
+                document.getElementById('recommendation-timing-advice').textContent = window.I18N.analyzingBestTimeWindows;
+                document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.loadingRecommendations}</div>`;
+            }
+
+            fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/recommendations?period=' + period)
+                .then(recommendations => {
+                    const activePeriod = document.getElementById('period-select')?.value || 'day';
+                    if (requestVersion !== statsRequestVersion || activePeriod !== period) return;
+                    renderRecommendations(recommendations || {}, period, requestVersion);
+                })
+                .catch(() => {
+                    if (requestVersion !== statsRequestVersion) return;
+                    if (!recommendationsInitialized) {
+                        document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
+                    }
+                });
         }
 
-        function renderRecommendations(data) {
+        function renderRecommendations(data, period, requestVersion) {
             const escapeAttr = (value) => String(value || '')
                 .replaceAll('&', '&amp;')
                 .replaceAll('"', '&quot;')
                 .replaceAll('<', '&lt;')
                 .replaceAll('>', '&gt;');
             const items = data.items || [];
-            const timingAdvice = data.timing_advice || window.I18N.analyzingBestTimeWindows;
+            const isPending = data.analysis_source === 'pending';
+            recommendationsInitialized = true;
+            const timingAdvice = data.timing_advice || (data.analysis_source === 'unavailable'
+                ? window.I18N.aiUnavailable
+                : window.I18N.analyzingBestTimeWindows);
             document.getElementById('recommendation-meta').textContent = window.I18N.basedOnCurrentPeriod;
+            const analysisMetaParts = [];
+            if (data.analysis_source) {
+                if (data.analysis_source === 'ai') {
+                    analysisMetaParts.push(window.I18N.aiGenerated);
+                } else if (isPending) {
+                    analysisMetaParts.push(window.I18N.loadingRecommendations);
+                } else {
+                    analysisMetaParts.push(window.I18N.aiUnavailable);
+                }
+            }
+            if (data.analysis_model_used) {
+                analysisMetaParts.push(`${window.I18N.modelUsed}: ${data.analysis_model_used}`);
+            }
+            document.getElementById('recommendation-analysis-meta').textContent = analysisMetaParts.join(' · ');
             document.getElementById('recommendation-timing-advice').textContent = timingAdvice;
+            if (isPending && period) {
+                scheduleRecommendationPoll(period, requestVersion);
+            } else if (recommendationPollTimer) {
+                clearTimeout(recommendationPollTimer);
+                recommendationPollTimer = null;
+            }
             if (!items.length) {
                 document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
                 return;
@@ -1049,8 +1131,9 @@ const data = await response.json();</code></pre>
         }
 
         async function loadCatalog() {
-            const data = await fetchJsonOrRedirect('/user/api/catalog');
+            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/catalog');
             renderCatalogSections(data);
+            catalogLoaded = true;
         }
          
         function renderTrendChart(trendData) {
@@ -1184,10 +1267,10 @@ const data = await response.json();</code></pre>
         
         async function loadOpenCodeConfig() {
             try {
-                const data = await fetchJsonOrRedirect('/user/api/opencode-config');
+                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/opencode-config');
                 
                 const config = data.config;
-                config.provider['model-token-plan'].options.baseURL = window.location.origin + '/v1';
+                config.provider['model-token-plan'].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
                 
                 const prompt = "# " + window.I18N.opencodePrompt + "\n\n";
                 document.getElementById('config-output').textContent = prompt + JSON.stringify(config, null, 2);
@@ -1217,12 +1300,12 @@ const data = await response.json();</code></pre>
         async function logout() {
             const clearSaved = confirm(window.I18N.clearSavedApiKey);
             if (clearSaved) localStorage.removeItem('user_api_key');
-            await fetch('/user/api/logout', {method: 'POST'});
-            window.location.href = '/user/login';
+            await fetch(APP_BASE_PATH + '/user/api/logout', {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/user/login`;
         }
         
         async function loadActiveSessions() {
-            const data = await fetchJsonOrRedirect('/user/api/active');
+            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active');
             
             document.getElementById('active-count').textContent = data.active_count + ' ' + window.I18N.active;
             
@@ -1245,12 +1328,11 @@ const data = await response.json();</code></pre>
         }
 
         async function loadSystemActiveSessions() {
-            const data = await fetchJsonOrRedirect('/user/api/system-active');
+            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-active');
             renderSystemActiveSessions(data);
         }
         
         loadStats();
-        loadCatalog();
         loadActiveSessions();
         loadSystemActiveSessions();
         setInterval(loadStats, 30000);

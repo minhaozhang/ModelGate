@@ -2,8 +2,9 @@
 <html>
 <head>
     <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
     <title>{{ _('Config') }} - ModelGate</title>
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .nav-link { transition: all 0.2s; }
@@ -150,13 +151,14 @@
     </div>
 
     <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
         let allProviders = [];
         let allModels = [];
         let selectedProviderId = null;
 
         async function logout() {
-            await fetch('/admin/api/auth/logout', {method: 'POST'});
-            window.location.href = '/admin/login';
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
         }
 
         function getThemeMode() {
@@ -180,7 +182,7 @@
         async function fetchOrRedirect(url, options) {
             const resp = await fetch(url, options);
             if (resp.status === 401) {
-                window.location.href = '/admin/login';
+                window.location.href = `${APP_BASE_PATH}/admin/login`;
                 throw new Error('Unauthorized');
             }
             return resp;
@@ -192,7 +194,7 @@
         }
 
         async function loadProviders() {
-            const data = await fetchJsonOrRedirect('/admin/api/providers');
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers`);
             allProviders = data.providers || [];
             const html = allProviders.map(p => `
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded cursor-pointer hover:bg-blue-50 ${selectedProviderId === p.id ? 'ring-2 ring-blue-500' : ''}" onclick="selectProvider(${p.id})">
@@ -211,7 +213,7 @@
         }
 
         async function loadModels() {
-            const data = await fetchJsonOrRedirect('/admin/api/models');
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models`);
             allModels = data.models || [];
             const html = allModels.map(m => `
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
@@ -237,7 +239,7 @@
 
         async function loadProviderBindings(providerId) {
             const provider = allProviders.find(p => p.id === providerId);
-            const data = await fetchJsonOrRedirect('/admin/api/providers/' + providerId + '/models');
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/models');
             const bindings = data.models || [];
             const unboundModels = allModels.filter(m => m.is_active && !bindings.find(b => b.model_id === m.id));
             let html = `<div class="mb-4"><span class="font-medium">${provider.name}</span> - Bound Models</div>`;
@@ -271,7 +273,7 @@
         async function bindModel() {
             const modelId = document.getElementById('bind-model-select').value;
             if (!modelId || !selectedProviderId) return;
-            await fetchOrRedirect('/admin/api/providers/' + selectedProviderId + '/models', {
+            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({model_id: parseInt(modelId), is_active: true})
@@ -280,7 +282,7 @@
         }
 
         async function unbindModel(pmId) {
-            await fetchOrRedirect('/admin/api/providers/' + selectedProviderId + '/models/' + pmId, {method: 'DELETE'});
+            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {method: 'DELETE'});
             loadProviderBindings(selectedProviderId);
         }
 
@@ -293,7 +295,7 @@
             btn.disabled = true;
             btn.textContent = 'Syncing...';
             try {
-                const data = await fetchJsonOrRedirect('/admin/api/providers/' + selectedProviderId + '/sync-models', {method: 'POST'});
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/sync-models', {method: 'POST'});
                 if (data.synced) {
                     alert('Synced ' + data.total + ' models: ' + data.synced.join(', '));
                     loadModels();
@@ -353,13 +355,13 @@
             };
             try {
                 if (id) {
-                    await fetchOrRedirect('/admin/api/providers/' + id, {
+                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({base_url: data.base_url, api_key: data.api_key, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages})
                     });
                 } else {
-                    await fetchOrRedirect('/admin/api/providers', {
+                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
@@ -374,7 +376,7 @@
 
         async function deleteProvider(id) {
             if (!confirm('Delete this provider?')) return;
-            await fetchOrRedirect('/admin/api/providers/' + id, {method: 'DELETE'});
+            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + id, {method: 'DELETE'});
             if (selectedProviderId === id) {
                 selectedProviderId = null;
                 document.getElementById('bindings-container').innerHTML = '<div class="text-gray-400 text-center py-4">Select a provider to view bindings</div>';
@@ -427,7 +429,7 @@
             };
             try {
                 if (id) {
-                    await fetchOrRedirect('/admin/api/models/' + id, {
+                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models/` + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
@@ -438,7 +440,7 @@
                         })
                     });
                 } else {
-                    await fetchOrRedirect('/admin/api/models', {
+                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
@@ -453,7 +455,7 @@
 
         async function deleteModel(id) {
             if (!confirm('Delete this model?')) return;
-            await fetchOrRedirect('/admin/api/models/' + id, {method: 'DELETE'});
+            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'});
             loadModels();
         }
 

@@ -2,9 +2,10 @@
 <html>
 <head>
     <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ _('Login') }} - ModelGate</title>
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -81,6 +82,7 @@
     };
     </script>
     <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('login-btn');
@@ -89,7 +91,7 @@
             btn.textContent = window.I18N.signingIn;
             errEl.classList.add('hidden');
             try {
-                const resp = await fetch('/admin/api/auth/login', {
+                const resp = await fetch(`${APP_BASE_PATH}/admin/api/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -99,7 +101,7 @@
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    window.location.href = '/admin/m';
+                    window.location.href = `${APP_BASE_PATH}/admin/m`;
                 } else {
                     errEl.textContent = data.error || data.detail || window.I18N.loginFailed;
                     errEl.classList.remove('hidden');

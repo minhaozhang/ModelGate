@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 
+from core.app_paths import get_app_base_path
 from core.database import (
     ApiKey,
     ApiKeyModel,
@@ -102,7 +103,9 @@ async def get_opencode_setup_markdown(request: Request, api_key: Optional[str] =
         return PlainTextResponse("# Error\n\nAPI Key is required", status_code=400)
 
     async with async_session_maker() as session:
-        base_url = str(request.base_url).rstrip("/") + "/v1"
+        base_url = (
+            str(request.base_url).rstrip("/") + get_app_base_path(request) + "/v1"
+        )
         config = await build_opencode_config(session, api_key, base_url)
         if not config:
             return PlainTextResponse("# Error\n\nInvalid API Key", status_code=401)
