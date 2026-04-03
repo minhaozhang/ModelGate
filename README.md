@@ -4,20 +4,25 @@
   <img src="assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
 </p>
 
-ModelGate is a FastAPI-based LLM gateway for provider routing, API key control, request logging, and dashboard monitoring.
+ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key management, request logging, and dashboard monitoring.
 
 ## Highlights
 
-- Multi-provider routing for Zhipu, DeepSeek, Ollama, Minimax, and OpenAI-compatible APIs
-- OpenAI-compatible proxy endpoints such as `/v1/chat/completions` and `/v1/models`
-- Per-provider concurrency limits with semaphore-based rate control
-- API key management with per-key model access rules
-- Streaming request tracking with `pending`, `success`, `error`, and `timeout` states
-- Upstream status code logging for provider responses such as `200`, `429`, and `500`
-- Admin dashboards for operations, monitoring, API key management, and usage guidance
-- User dashboard with recommendations, system health score, trend charts, and model usage stats
-- English / Chinese i18n support
-- Desktop and mobile admin experiences
+- Multi-provider routing: Zhipu, DeepSeek, Ollama, Minimax, and any OpenAI-compatible API
+- OpenAI-compatible proxy endpoints: `/v1/chat/completions`, `/v1/embeddings`, `/v1/models`
+- Per-provider concurrency limits with asyncio semaphore-based rate control
+- API key management with per-key model access control
+- Streaming request lifecycle tracking: `pending` -> `success` / `error` / `timeout`
+- Upstream status code logging (200, 429, 500, etc.)
+- AI-powered daily error analysis with persisted reports
+- AI-powered model recommendations and timing advice for users
+- Admin dashboards: overview, monitoring, configuration, error analysis, usage guide
+- User portal: personal stats, health score, recommendations, OpenCode config export
+- OpenCode integration: auto-generated config with per-model context/output limits
+- English / Chinese i18n with Babel
+- Desktop and mobile admin UI
+- Reverse proxy support via configurable base path
+- Daily stats aggregation and 30-day log archiving
 
 ## Screenshots
 
@@ -46,26 +51,14 @@ Default local addresses:
 - Admin: `http://localhost:8765/admin/home`
 - User portal: `http://localhost:8765/user/login`
 
-Production domain:
-
-- Public entry: `https://leturx.cc/modelgate/`
-
-Windows helper:
-
-- `start.bat` will prompt for log level and restart the service on port `8765`
+Windows helper: `start.bat` prompts for log level and restarts the service on port 8765.
 
 ## Docker
-
-Build and push to the local registry used in this project:
 
 ```bash
 docker build -t localhost:5002/modelgate:latest .
 docker push localhost:5002/modelgate:latest
-```
 
-Run a container:
-
-```bash
 docker run -d --name modelgate \
   -p 8765:8765 \
   -e DATABASE_URL="postgresql+asyncpg://modelgate:password@host:5432/modelgate" \
@@ -76,7 +69,7 @@ docker run -d --name modelgate \
   localhost:5002/modelgate:latest
 ```
 
-More deployment details are in [DEPLOY.md](DEPLOY.md).
+See [DEPLOY.md](DEPLOY.md) for full deployment instructions.
 
 ## Environment Variables
 
@@ -84,108 +77,130 @@ More deployment details are in [DEPLOY.md](DEPLOY.md).
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `PORT` | No | Service port, default `8765` |
-| `ADMIN_USERS` | Recommended | Admin accounts in `user:pass,user:pass` format |
-| `ADMIN_USERNAME` | Optional | Fallback admin username when `ADMIN_USERS` is not set |
-| `ADMIN_PASSWORD` | Optional | Fallback admin password when `ADMIN_USERS` is not set |
+| `ADMIN_USERS` | Recommended | Admin accounts, format: `user:pass,user:pass` |
+| `ADMIN_USERNAME` | No | Fallback admin username |
+| `ADMIN_PASSWORD` | No | Fallback admin password |
 | `LOG_LEVEL` | No | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `ICP_NUMBER` | No | ICP filing number shown on landing page |
 
 ## Database
-
-Bootstrap example:
 
 ```sql
 CREATE USER "modelgate" WITH PASSWORD 'your_password';
 CREATE DATABASE "modelgate" OWNER "modelgate";
 ```
 
-Schema file:
+Schema: [`schema.sql`](schema.sql)
 
-- [`schema.sql`](schema.sql)
-
-The app also performs some runtime compatibility migrations during startup, such as adding newly introduced columns to `request_logs`.
+The app performs runtime compatibility migrations on startup (e.g., adding new columns to `request_logs`).
 
 ## API
 
-### OpenAI-compatible endpoints
+### OpenAI-compatible Endpoints
 
-- `POST /v1/chat/completions`
-- `POST /v1/embeddings`
-- `GET /v1/models`
+- `POST /v1/chat/completions` - Chat completions (streaming and non-streaming)
+- `POST /v1/embeddings` - Text embeddings
+- `GET /v1/models` - List available models
 
-### Model naming
-
-Preferred format:
+### Model Naming
 
 ```text
 provider/model
 ```
 
-Examples:
-
-```text
-zhipu/glm-4
-deepseek/chat
-minimax/MiniMax-M2.5
-```
+Examples: `zhipu/glm-4`, `deepseek/chat`, `minimax/MiniMax-M2.5`
 
 ## Dashboards
 
 ### Admin
 
-After login, the main admin pages are:
+- `/admin/home` - Overview, realtime stats, slow requests, trends
+- `/admin/config` - Provider, model, and binding configuration
+- `/admin/api-keys` - API key management and per-key model access
+- `/admin/monitor` - Composition, hotspots, response-time analysis
+- `/admin/errors` - Daily error log viewer with AI-powered analysis reports
+- `/admin/usage` - Client configuration examples and setup guides
+- `/admin/m` - Mobile admin dashboard
 
-- `/admin/home`: overview, realtime stats, slow requests, trends
-- `/admin/config`: providers, models, bindings
-- `/admin/api-keys`: key management and model access assignment
-- `/admin/monitor`: composition, hotspots, response-time analysis
-- `/admin/usage`: client configuration examples
+### User Portal
 
-### User
+API key holders log in at `/user/login` to access:
 
-API key holders can log in at `/user/login` and access:
-
-- Personal request and token statistics
-- Model recommendation chips
-- 20-minute system health score
-- Active session visibility
-- Request trends and model usage
-- OpenCode configuration output
+- Personal request and token statistics (day/week/month)
+- 20-minute system health score (error rate, latency, load, active users)
+- AI-powered model recommendations with scored reasons
+- AI-generated timing advice based on hourly usage patterns
+- Active session tracking
+- Model catalog with context/output limits and multimodal info
+- OpenCode configuration export (`/opencode/setup.md?api_key=...`)
 
 ## Request Logging
 
-`request_logs` stores operational data such as:
+`request_logs` stores: API key, provider, model, tokens, latency, status, upstream HTTP status code, client IP, user agent, and error details.
 
-- API key, provider, model
-- tokens and latency
-- normalized request status
-- upstream provider HTTP status code
-- error details for failed requests
+Streaming requests are inserted as `pending` first, then updated to `success`, `error`, `timeout`, or `cancelled`.
 
-Streaming requests are inserted as `pending` first and updated when they complete, fail, or time out.
+Logs older than 30 days are automatically archived to `request_logs_history`. A `request_logs_all` view unions both tables for transparent querying.
+
+## Scheduled Tasks
+
+| Task | Schedule | Description |
+|------|----------|-------------|
+| Timeout cleanup | Every 10 minutes | Mark stale pending requests (>10 min) as `timeout` |
+| Daily aggregation | 00:05 | Aggregate request counts into daily/hourly stats tables |
+| Log archival | 00:20 | Archive request logs older than 30 days |
 
 ## Project Structure
 
 ```text
 modelgate/
-├── main.py
+├── main.py                  # App init, middleware, routers, exception handlers
 ├── core/
+│   ├── config.py            # Logging, caches, stats, session management
+│   ├── database.py          # SQLAlchemy async engine, all ORM models
+│   ├── deps.py              # Auth dependencies
+│   ├── i18n.py              # Internationalization
+│   ├── app_paths.py         # Base path for reverse proxy
+│   ├── client_ip.py         # Multi-header client IP extraction
+│   └── log_sanitizer.py     # Sensitive data redaction for logs
 ├── routes/
+│   ├── proxy.py             # /v1/chat/completions, /v1/embeddings, /v1/models
+│   ├── auth.py              # Admin login/logout
+│   ├── providers.py         # Provider CRUD
+│   ├── models.py            # Model CRUD
+│   ├── provider_models.py   # Provider-model bindings + auto-sync
+│   ├── keys.py              # API key CRUD + per-key stats/logs
+│   ├── stats.py             # Statistics and aggregation endpoints
+│   ├── logs.py              # Log viewer + AI error analysis
+│   ├── pages.py             # Admin HTML pages
+│   ├── user.py              # User portal API + pages
+│   └── opencode.py          # OpenCode config generation
 ├── services/
-├── templates/
-├── locales/
-├── image/
-├── assets/
+│   ├── proxy.py             # Main proxy logic, streaming, provider dispatch
+│   ├── auth.py              # API key validation
+│   ├── provider.py          # Provider/model resolution
+│   ├── scheduler.py         # APScheduler tasks
+│   ├── stats_aggregator.py  # Daily stats aggregation, archiving
+│   ├── logging.py           # Request log CRUD
+│   ├── tokens.py            # Token estimation and response parsing
+│   ├── message.py           # Message preprocessing (merge, truncate)
+│   ├── minimax.py           # MiniMax-specific response/tool_call parsing
+│   ├── sse.py               # SSE stream normalization
+│   └── analysis_store.py    # AI analysis task persistence
+├── templates/               # Jinja2 HTML (admin/, user/, public/, components/)
+├── locales/                 # i18n: en, zh
 ├── schema.sql
 ├── Dockerfile
 └── DEPLOY.md
 ```
 
-## Development Notes
+## Development
 
-- Python 3.10+ style codebase
-- FastAPI + SQLAlchemy async + PostgreSQL
-- Babel is used for locale compilation
-- Logs are written to `logs/proxy.log`, `logs/admin.log`, and `logs/error.log`
+- Python 3.10+ | FastAPI | SQLAlchemy async | PostgreSQL
+- Lint & format: `ruff check . && ruff format .`
+- Type check: `mypy main.py core/*.py --ignore-missing-imports`
+- i18n compile: `pybabel compile -d locales`
+- Logs: `logs/proxy.log`, `logs/admin.log`, `logs/error.log`
 
 ## License
 
