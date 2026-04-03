@@ -1,4 +1,5 @@
 import json
+import re
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -564,6 +565,31 @@ def _extract_text_content(content) -> str:
     return ""
 
 
+_COT_LINE_RE = re.compile(r"^\d+\.\s+\*\*")
+_SUB_BULLET_RE = re.compile(r"^\s+\*\*")
+_GENERIC_COT_RE = re.compile(r"^\s*[-*]\s+\*")
+
+
+def _strip_cot_from_content(text: str) -> str:
+    if not text or not isinstance(text, str):
+        return text
+    lines = text.splitlines()
+    has_cot = any(_COT_LINE_RE.match(line) for line in lines[:5])
+    if not has_cot:
+        return text
+    non_cot_lines = [
+        line
+        for line in lines
+        if not _COT_LINE_RE.match(line)
+        and not _SUB_BULLET_RE.match(line)
+        and not _GENERIC_COT_RE.match(line)
+        and line.strip()
+    ]
+    if non_cot_lines:
+        return "\n".join(non_cot_lines).strip()
+    return ""
+
+
 def _strip_code_fence(text: str) -> str:
     raw = text.strip()
     if raw.startswith("```"):
@@ -675,7 +701,7 @@ async def _call_analysis_model(
             return None, "invalid_payload"
 
         message = ((payload.get("choices") or [{}])[0]).get("message") or {}
-        content = _extract_text_content(message.get("content"))
+        content = _strip_cot_from_content(_extract_text_content(message.get("content")))
         if not content:
             content = _extract_text_content(message.get("reasoning_content"))
         text = _strip_code_fence(content)

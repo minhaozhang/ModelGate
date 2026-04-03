@@ -36,6 +36,7 @@ TOKEN_COUNT_EXPR = func.coalesce(
 
 def require_admin(session: Optional[str] = Cookie(None)):
     from core.config import validate_session
+
     if not validate_session(session):
         raise HTTPException(status_code=401, detail="Unauthorized")
     return True
@@ -81,7 +82,9 @@ def add_metric_values(
     bucket["errors"] += int(errors or 0)
 
 
-def merge_named_stats(target: dict[str, dict], source: dict[str, dict]) -> dict[str, dict]:
+def merge_named_stats(
+    target: dict[str, dict], source: dict[str, dict]
+) -> dict[str, dict]:
     for key, values in source.items():
         bucket = ensure_metric_bucket(target, key)
         add_metric_values(
@@ -110,10 +113,14 @@ def get_api_key_id_from_cache(name: str) -> Optional[int]:
 async def get_provider_name_map(
     session, provider_ids: list[int] | set[int]
 ) -> dict[int, str]:
-    provider_ids = [provider_id for provider_id in provider_ids if provider_id is not None]
+    provider_ids = [
+        provider_id for provider_id in provider_ids if provider_id is not None
+    ]
     if not provider_ids:
         return {}
-    result = await session.execute(select(Provider).where(Provider.id.in_(provider_ids)))
+    result = await session.execute(
+        select(Provider).where(Provider.id.in_(provider_ids))
+    )
     return {provider.id: provider.name for provider in result.scalars()}
 
 
@@ -133,7 +140,9 @@ async def get_api_key_name_map(
     return names
 
 
-def get_aggregate_window_bounds(start: datetime, now: datetime) -> tuple[datetime, datetime]:
+def get_aggregate_window_bounds(
+    start: datetime, now: datetime
+) -> tuple[datetime, datetime]:
     today_start = get_day_start(now)
     return min(today_start, now), max(start, today_start)
 
@@ -307,6 +316,7 @@ def get_period_range(
             ((start + timedelta(hours=12 * i)).strftime("%m/%d %H:%M"))
             for i in range(14)
         ]
+
         def format_func(d: datetime) -> str:
             bucket_index = max(
                 0,
@@ -317,14 +327,15 @@ def get_period_range(
             )
             return intervals[bucket_index]
     elif period == "month":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=30)
-        intervals = [
-            ((start + timedelta(days=i)).strftime("%m/%d"))
-            for i in range(31)
-        ]
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+            days=30
+        )
+        intervals = [((start + timedelta(days=i)).strftime("%m/%d")) for i in range(31)]
         format_func = lambda d: d.strftime("%m/%d")
     else:
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=364)
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+            days=364
+        )
         bucket_count = ((now.date() - start.date()).days // 7) + 1
         intervals = [
             (start + timedelta(days=7 * i)).strftime("%m/%d")
@@ -403,7 +414,7 @@ async def get_daily_aggregated_stats(
     for row in rows:
         if row.group_key is None:
             continue
-        key = api_key_names.get(row.group_key, f"Key-{row.group_key}")
+        key = api_key_names.get(row.group_key, f"Deleted Key #{row.group_key}")
         stats_data[key] = {
             "requests": int(row.requests or 0),
             "tokens": int(row.tokens or 0),
@@ -473,7 +484,7 @@ async def get_raw_grouped_stats(
         session, [row.group_key for row in rows if row.group_key is not None]
     )
     return {
-        api_key_names.get(row.group_key, f"Key-{row.group_key}"): {
+        api_key_names.get(row.group_key, f"Deleted Key #{row.group_key}"): {
             "requests": int(row.requests or 0),
             "tokens": int(row.tokens or 0),
             "errors": int(row.errors or 0),
@@ -601,7 +612,9 @@ async def get_trend_data(
                             row.errors,
                         )
 
-            raw_filters = [RequestLog.created_at >= raw_start] if raw_start < now else []
+            raw_filters = (
+                [RequestLog.created_at >= raw_start] if raw_start < now else []
+            )
             if raw_filters:
                 if dimension == "provider" and name:
                     provider_result = await session.execute(
@@ -644,8 +657,7 @@ async def get_trend_data(
                         func.sum(
                             case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
                         ).label("errors"),
-                    )
-                    .where(*raw_filters)
+                    ).where(*raw_filters)
                 )
                 row = result.one()
                 label = format_func(raw_start)
@@ -671,7 +683,9 @@ async def get_trend_data(
                                 select(Provider).where(Provider.id == log.provider_id)
                             )
                             prov = prov_result.scalar_one_or_none()
-                            provider_cache[log.provider_id] = prov.name if prov else None
+                            provider_cache[log.provider_id] = (
+                                prov.name if prov else None
+                            )
                         key = provider_cache.get(log.provider_id)
                 elif dimension == "api_key":
                     key = (
@@ -739,12 +753,12 @@ async def get_monitor_details(
             select(
                 RequestLog.provider_id.label("group_key"),
                 func.count(RequestLog.id).label("requests"),
-                func.sum(
-                    case((RequestLog.status == ERROR_STATUS, 1), else_=0)
-                ).label("errors"),
-                func.sum(
-                    case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)
-                ).label("timeouts"),
+                func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label(
+                    "errors"
+                ),
+                func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label(
+                    "timeouts"
+                ),
             )
             .where(RequestLog.created_at >= start)
             .group_by(RequestLog.provider_id)
@@ -755,12 +769,12 @@ async def get_monitor_details(
             select(
                 RequestLog.api_key_id.label("group_key"),
                 func.count(RequestLog.id).label("requests"),
-                func.sum(
-                    case((RequestLog.status == ERROR_STATUS, 1), else_=0)
-                ).label("errors"),
-                func.sum(
-                    case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)
-                ).label("timeouts"),
+                func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label(
+                    "errors"
+                ),
+                func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label(
+                    "timeouts"
+                ),
             )
             .where(RequestLog.created_at >= start)
             .group_by(RequestLog.api_key_id)
@@ -771,12 +785,12 @@ async def get_monitor_details(
             select(
                 RequestLog.model.label("group_key"),
                 func.count(RequestLog.id).label("requests"),
-                func.sum(
-                    case((RequestLog.status == ERROR_STATUS, 1), else_=0)
-                ).label("errors"),
-                func.sum(
-                    case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)
-                ).label("timeouts"),
+                func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label(
+                    "errors"
+                ),
+                func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label(
+                    "timeouts"
+                ),
             )
             .where(RequestLog.created_at >= start)
             .group_by(RequestLog.model)
@@ -816,9 +830,11 @@ async def get_monitor_details(
             label = format_func(log.created_at)
             if label not in trend_data:
                 continue
-            tokens = (log.tokens or {}).get("total_tokens") or (
-                log.tokens or {}
-            ).get("estimated") or 0
+            tokens = (
+                (log.tokens or {}).get("total_tokens")
+                or (log.tokens or {}).get("estimated")
+                or 0
+            )
             trend_data[label]["requests"] += 1
             trend_data[label]["tokens"] += tokens
             if log.status == ERROR_STATUS:
@@ -900,7 +916,9 @@ async def get_monitor_details(
                     row.samples or 0
                 )
 
-    def build_status_entries(rows, scope: str, resolver, masked: bool = False) -> list[dict]:
+    def build_status_entries(
+        rows, scope: str, resolver, masked: bool = False
+    ) -> list[dict]:
         entries = []
         for row in rows:
             group_key = row.group_key
@@ -934,7 +952,7 @@ async def get_monitor_details(
     api_key_entries = build_status_entries(
         api_key_rows,
         "api_key",
-        lambda api_key_id: api_keys_map.get(api_key_id, f"Key-{api_key_id}"),
+        lambda api_key_id: api_keys_map.get(api_key_id, f"Deleted Key #{api_key_id}"),
         masked=True,
     )
     model_entries = build_status_entries(
@@ -950,7 +968,11 @@ async def get_monitor_details(
         reverse=True,
     )[:6]
     timeout_hotspots = sorted(
-        [item for item in all_entries if item["requests"] >= 3 and item["timeouts"] > 0],
+        [
+            item
+            for item in all_entries
+            if item["requests"] >= 3 and item["timeouts"] > 0
+        ],
         key=lambda item: (item["timeouts"], item["timeout_rate"], item["requests"]),
         reverse=True,
     )[:6]
@@ -1136,7 +1158,11 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                 raw_rows = raw_result.fetchall()
                 providers_map = await get_provider_name_map(
                     session,
-                    {row.provider_id for row in raw_rows if row.provider_id is not None},
+                    {
+                        row.provider_id
+                        for row in raw_rows
+                        if row.provider_id is not None
+                    },
                 )
                 api_keys_map = await get_api_key_name_map(
                     session,
@@ -1328,7 +1354,9 @@ async def get_chart_data(
             provider_stats = {}
             merge_named_stats(
                 provider_stats,
-                await get_daily_aggregated_stats(session, "provider", start, aggregate_end)
+                await get_daily_aggregated_stats(
+                    session, "provider", start, aggregate_end
+                )
                 if start < aggregate_end
                 else {},
             )
@@ -1341,7 +1369,9 @@ async def get_chart_data(
             api_key_stats = {}
             merge_named_stats(
                 api_key_stats,
-                await get_daily_aggregated_stats(session, "api_key", start, aggregate_end)
+                await get_daily_aggregated_stats(
+                    session, "api_key", start, aggregate_end
+                )
                 if start < aggregate_end
                 else {},
             )

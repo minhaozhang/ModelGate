@@ -224,7 +224,12 @@
         
         async function loadApiKeys() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys`);
-            apiKeysData = data.api_keys || [];
+            apiKeysData = (data.api_keys || []).sort((a, b) => {
+                if (a.last_used_at && !b.last_used_at) return -1;
+                if (!a.last_used_at && b.last_used_at) return 1;
+                if (!a.last_used_at && !b.last_used_at) return 0;
+                return new Date(b.last_used_at) - new Date(a.last_used_at);
+            });
             handleSearch();
         }
         

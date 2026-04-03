@@ -294,6 +294,58 @@ class AnalysisRecord(Base):
     )
 
 
+class WeixinAccount(Base):
+    __tablename__ = "weixin_accounts"
+
+    id = Column(Integer, primary_key=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=True)
+    bot_token = Column(String(512), nullable=True)
+    ilink_bot_id = Column(String(128), nullable=True)
+    ilink_user_id = Column(String(128), nullable=True)
+    get_updates_buf = Column(Text, default="")
+    is_active = Column(Boolean, default=True)
+    reply_mode = Column(String(10), default="manual")
+    system_prompt = Column(Text, default="你是一个有帮助的AI助手。")
+    model_name = Column(String(100), default="zhipu/glm-4-flash")
+    login_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class WeixinContextToken(Base):
+    __tablename__ = "weixin_context_tokens"
+
+    id = Column(Integer, primary_key=True)
+    account_id = Column(Integer, ForeignKey("weixin_accounts.id"), nullable=False)
+    user_id = Column(String(128), nullable=False)
+    context_token = Column(Text, default="")
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_weixin_ctx_account_user", "account_id", "user_id", unique=True),
+    )
+
+
+class WeixinMessage(Base):
+    __tablename__ = "weixin_messages"
+
+    id = Column(Integer, primary_key=True)
+    account_id = Column(Integer, ForeignKey("weixin_accounts.id"), nullable=False)
+    direction = Column(String(3), nullable=False)
+    from_user = Column(String(128), nullable=False)
+    to_user = Column(String(128), nullable=False)
+    text = Column(Text, nullable=True)
+    context_token = Column(Text, nullable=True)
+    status = Column(String(20), default="pending")
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_weixin_msg_account", "account_id"),
+        Index("idx_weixin_msg_status", "status"),
+        Index("idx_weixin_msg_created", "created_at"),
+    )
+
+
 def generate_api_key():
     return "sk-" + secrets.token_hex(24)
 
@@ -338,9 +390,12 @@ async def init_db():
             )
         )
         await conn.execute(
+            text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP")
+        )
+        await conn.execute(
             text(
-                "ALTER TABLE api_keys "
-                "ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP"
+                "ALTER TABLE weixin_accounts "
+                "ADD COLUMN IF NOT EXISTS api_key_id INTEGER REFERENCES api_keys(id)"
             )
         )
         await conn.execute(

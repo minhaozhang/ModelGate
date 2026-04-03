@@ -122,12 +122,28 @@ async def startup():
 
     await startup_scheduler()
 
+    from services.weixin import start_polling
+
+    await start_polling()
+
+    from routes.weixin import start_mcp
+
+    await start_mcp()
+
 
 @app.on_event("shutdown")
 async def shutdown():
     from services.scheduler import shutdown_scheduler
 
     shutdown_scheduler()
+
+    from services.weixin import stop_polling
+
+    await stop_polling()
+
+    from routes.weixin import stop_mcp
+
+    await stop_mcp()
 
 
 from routes import (
@@ -155,6 +171,10 @@ app.include_router(logs.router)
 app.include_router(pages.router)
 app.include_router(user.router)
 app.include_router(opencode.router)
+
+from routes.weixin import get_mcp_asgi_app
+
+app.mount("/weixin", get_mcp_asgi_app())
 
 
 if __name__ == "__main__":

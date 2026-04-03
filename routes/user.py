@@ -247,6 +247,31 @@ def build_rule_based_timing_advice(request: Request, hourly_stats: list[dict]) -
     )
 
 
+_COT_LINE_RE = re.compile(r"^\d+\.\s+\*\*")
+_SUB_BULLET_RE = re.compile(r"^\s+\*\*")
+_GENERIC_COT_RE = re.compile(r"^\s*[-*]\s+\*")
+
+
+def _strip_cot_from_content(text: str) -> str:
+    if not text or not isinstance(text, str):
+        return text
+    lines = text.splitlines()
+    has_cot = any(_COT_LINE_RE.match(line) for line in lines[:5])
+    if not has_cot:
+        return text
+    non_cot_lines = [
+        line
+        for line in lines
+        if not _COT_LINE_RE.match(line)
+        and not _SUB_BULLET_RE.match(line)
+        and not _GENERIC_COT_RE.match(line)
+        and line.strip()
+    ]
+    if non_cot_lines:
+        return "\n".join(non_cot_lines).strip()
+    return ""
+
+
 def extract_text_content(content) -> str:
     if isinstance(content, str):
         return content
@@ -411,7 +436,7 @@ async def generate_recommendation_insights(
                 )
                 continue
             msg = ((payload.get("choices") or [{}])[0]).get("message") or {}
-            content = extract_text_content(msg.get("content"))
+            content = _strip_cot_from_content(extract_text_content(msg.get("content")))
             if not content:
                 content = extract_text_content(msg.get("reasoning_content"))
             if not isinstance(content, str) or not content.strip():
@@ -502,7 +527,9 @@ async def generate_recommendation_insights(
                         ((timing_payload.get("choices") or [{}])[0]).get("message")
                         or {}
                     )
-                    timing_content = extract_text_content(timing_msg.get("content"))
+                    timing_content = _strip_cot_from_content(
+                        extract_text_content(timing_msg.get("content"))
+                    )
                     if not timing_content:
                         timing_content = extract_text_content(
                             timing_msg.get("reasoning_content")
