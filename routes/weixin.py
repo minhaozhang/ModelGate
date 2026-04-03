@@ -57,7 +57,7 @@ async def wechat_login() -> str:
         qr_ascii = buf.getvalue()
 
         asyncio.create_task(_wait_for_scan(qrcode_key, api_key_id))
-        return f"Scan this QR code in WeChat:\n\n{qr_ascii}\n\nWaiting for scan..."
+        return f"Scan this QR code in WeChat:\n\nQR Link: {qrcode_url}\n\n{qr_ascii}\n\nWaiting for scan..."
     except Exception as e:
         return f"Login failed: {e}"
 
