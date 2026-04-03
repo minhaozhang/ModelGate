@@ -5,6 +5,7 @@ import asyncio
 import httpx
 from fastapi import Request
 from fastapi.responses import Response, JSONResponse, StreamingResponse
+from sqlalchemy import select
 
 from core.config import (
     providers_cache,
@@ -20,6 +21,7 @@ from core.log_sanitizer import (
     sanitize_text_for_log,
 )
 from core.client_ip import get_client_ip
+from core.database import async_session_maker, ApiKey
 from services.provider import (
     get_provider_and_model,
     get_model_config,
@@ -45,6 +47,9 @@ from services.sse import normalize_sse_stream
 REPEATED_CHUNK_LIMIT = 10
 PROVIDER_REQUEST_TIMEOUT_SECONDS = 600.0
 OUTBOUND_USER_AGENT = "opencode/1.3.13 ai-sdk/provider-utils/4.0.21 runtime/bun/1.3.11"
+INTERNAL_ANALYSIS_API_KEY_ID = 1
+INTERNAL_ANALYSIS_CLIENT_IP = "internal"
+INTERNAL_ANALYSIS_USER_AGENT = "modelgate/internal-analysis"
 
 
 async def proxy_request(request: Request, endpoint: str):
@@ -218,6 +223,210 @@ async def proxy_request(request: Request, endpoint: str):
             f"  Request Body: {sanitize_payload_for_log(body_json)}"
         )
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def _ensure_internal_api_key_exists(api_key_id: int) -> bool:
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(ApiKey.id).where(ApiKey.id == api_key_id, ApiKey.is_active == True)
+        )
+        return result.scalar_one_or_none() is not None
+
+
+async def call_internal_model_via_proxy(
+    requested_model: str,
+    body_json: dict,
+    api_key_id: int = INTERNAL_ANALYSIS_API_KEY_ID,
+    purpose: str = "analysis",
+    timeout_seconds: float | None = None,
+) -> dict:
+    start_time = time.time()
+    client_ip = INTERNAL_ANALYSIS_CLIENT_IP
+    user_agent = f"{INTERNAL_ANALYSIS_USER_AGENT}:{purpose}"
+
+    if not await _ensure_internal_api_key_exists(api_key_id):
+        return {
+            "ok": False,
+            "provider_name": None,
+            "actual_model_name": None,
+            "status_code": None,
+            "payload": None,
+            "error": f"Internal API key {api_key_id} not found or inactive",
+        }
+
+    req_body = dict(body_json)
+    provider_config, actual_model, provider_name = await get_provider_and_model(
+        requested_model
+    )
+    if not provider_config:
+        return {
+            "ok": False,
+            "provider_name": None,
+            "actual_model_name": None,
+            "status_code": None,
+            "payload": None,
+            "error": f"Unknown provider for model: {requested_model}",
+        }
+
+    semaphore = provider_semaphores.get(provider_name)
+    if semaphore is None:
+        max_concurrent = provider_config.get("max_concurrent", 3)
+        semaphore = asyncio.Semaphore(max_concurrent)
+        provider_semaphores[provider_name] = semaphore
+
+    acquired = False
+    try:
+        await asyncio.wait_for(semaphore.acquire(), timeout=0.001)
+        acquired = True
+    except asyncio.TimeoutError:
+        return {
+            "ok": False,
+            "provider_name": provider_name,
+            "actual_model_name": actual_model,
+            "status_code": 429,
+            "payload": None,
+            "error": f"Provider '{provider_name}' reached max concurrency",
+        }
+
+    try:
+        _schedule_api_key_last_used_update(api_key_id)
+
+        req_body["model"] = actual_model
+        model_config = get_model_config(provider_config, actual_model)
+        is_multimodal = (
+            model_config.get("is_multimodal", False) if model_config else False
+        )
+        merge_messages = provider_config.get("merge_consecutive_messages", False)
+        req_body = preprocess_messages(req_body, merge_messages, is_multimodal)
+
+        if req_body.get("stream"):
+            req_body["stream"] = False
+        req_body.pop("stream_options", None)
+
+        if provider_name == "minimax" and merge_messages:
+            req_body.pop("thinking", None)
+            req_body["reasoning_split"] = True
+
+        request_context_tokens = estimate_request_context_tokens(req_body)
+        headers = _build_headers(provider_config)
+        target_url = f"{provider_config['base_url']}/chat/completions"
+        body = json.dumps(req_body).encode("utf-8")
+
+        async with httpx.AsyncClient(
+            timeout=timeout_seconds or PROVIDER_REQUEST_TIMEOUT_SECONDS
+        ) as client:
+            resp = await client.post(target_url, headers=headers, content=body)
+
+        latency = (time.time() - start_time) * 1000
+        try:
+            resp_json = resp.json()
+        except json.JSONDecodeError:
+            resp_json = {}
+
+        if provider_name == "minimax":
+            process_minimax_response(resp_json)
+
+        response_text, reasoning_text, tool_calls, finish_reason = _extract_response_fields(
+            resp_json
+        )
+        response_meta = build_response_meta(
+            response_text=response_text,
+            reasoning_text=reasoning_text,
+            tool_calls=tool_calls,
+            finish_reason=finish_reason,
+        )
+        tokens_record = build_tokens_record(
+            resp_json.get("usage"),
+            req_body=req_body,
+            response_text=response_text,
+            reasoning_text=reasoning_text,
+            response_meta=response_meta,
+        )
+        total_tokens = tokens_record["total_tokens"]
+        provider_error = _extract_provider_error(resp_json)
+        is_error = resp.status_code >= 400 or bool(provider_error)
+
+        update_stats(
+            provider_name,
+            actual_model,
+            total_tokens,
+            api_key_id=api_key_id,
+            is_error=is_error,
+        )
+        log_response_meta(provider_name, actual_model, response_meta)
+        await log_request(
+            provider_name,
+            actual_model,
+            response_text,
+            tokens_record,
+            latency,
+            "error" if is_error else "success",
+            api_key_id=api_key_id,
+            upstream_status_code=resp.status_code,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            request_context_tokens=request_context_tokens,
+            error=(
+                sanitize_text_for_log(provider_error, limit=2000)
+                if provider_error
+                else sanitize_text_for_log(resp.text, limit=2000)
+            )
+            if is_error
+            else None,
+        )
+
+        if is_error:
+            logger.warning(
+                "[INTERNAL %s] %s/%s failed with status %s: %s",
+                purpose.upper(),
+                provider_name,
+                actual_model,
+                resp.status_code,
+                sanitize_text_for_log(provider_error or resp.text, limit=800),
+            )
+
+        return {
+            "ok": not is_error,
+            "provider_name": provider_name,
+            "actual_model_name": actual_model,
+            "status_code": resp.status_code,
+            "payload": resp_json,
+            "error": provider_error if provider_error else (resp.text if is_error else None),
+        }
+    except Exception as exc:
+        latency = (time.time() - start_time) * 1000
+        update_stats(provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True)
+        await log_request(
+            provider_name,
+            actual_model,
+            "",
+            {},
+            latency,
+            "error",
+            api_key_id=api_key_id,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            request_context_tokens=estimate_request_context_tokens(req_body),
+            error=str(exc),
+        )
+        logger.warning(
+            "[INTERNAL %s] %s/%s exception: %s",
+            purpose.upper(),
+            provider_name,
+            actual_model,
+            sanitize_text_for_log(exc, limit=800),
+        )
+        return {
+            "ok": False,
+            "provider_name": provider_name,
+            "actual_model_name": actual_model,
+            "status_code": None,
+            "payload": None,
+            "error": str(exc),
+        }
+    finally:
+        if acquired:
+            semaphore.release()
 
 
 def _build_headers(provider_config: dict) -> dict:

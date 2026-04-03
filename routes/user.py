@@ -4,7 +4,6 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Optional
 
-import httpx
 from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
@@ -31,9 +30,7 @@ from services.analysis_store import (
     start_analysis_task,
     upsert_analysis_record,
 )
-from services.message import preprocess_messages
-from services.provider import get_model_config
-from services.proxy import OUTBOUND_USER_AGENT
+from services.proxy import call_internal_model_via_proxy
 
 router = APIRouter(tags=["user"])
 ERROR_STATUSES = ("error", "timeout")
@@ -282,8 +279,7 @@ async def generate_recommendation_insights(
             "timing_advice": None,
         }
 
-    provider_config = providers_cache.get(provider_name)
-    if not provider_config or not provider_config.get("base_url"):
+    if not providers_cache.get(provider_name):
         return {
             "source": "unavailable",
             "model_used": None,
@@ -333,8 +329,9 @@ async def generate_recommendation_insights(
         "candidates": candidates,
         "hourly_stats": hourly_candidates,
     }
+    requested_model = f"{provider_name}/{actual_model_name}"
     body_json = {
-        "model": actual_model_name,
+        "model": requested_model,
         "temperature": 0.2,
         "max_tokens": 220,
         "messages": [
@@ -352,39 +349,20 @@ async def generate_recommendation_insights(
         ],
     }
 
-    merge_messages = provider_config.get("merge_consecutive_messages", False)
-    model_config = get_model_config(provider_config, actual_model_name)
-    is_multimodal = (
-        model_config.get("is_multimodal", False) if model_config else False
-    )
-    body_json = preprocess_messages(body_json, merge_messages, is_multimodal)
-    if provider_name == "minimax" and merge_messages:
-        body_json.pop("thinking", None)
-        body_json.pop("stream_options", None)
-        body_json["reasoning_split"] = True
-
-    headers = {
-        "content-type": "application/json",
-        "accept": "application/json",
-        "user-agent": OUTBOUND_USER_AGENT,
-    }
-    if provider_config.get("api_key"):
-        headers["authorization"] = f"Bearer {provider_config['api_key']}"
-
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post(
-                f"{provider_config['base_url']}/chat/completions",
-                headers=headers,
-                content=json.dumps(body_json).encode("utf-8"),
-            )
-        if response.status_code >= 400:
+        result = await call_internal_model_via_proxy(
+            requested_model=requested_model,
+            body_json=body_json,
+            purpose="user-recommendation",
+            timeout_seconds=20.0,
+        )
+        if not result.get("ok"):
             logger.warning(
                 "[USER] Recommendation reason generation failed for %s/%s with status %s, body=%s",
                 provider_name,
                 actual_model_name,
-                response.status_code,
-                response.text[:800],
+                result.get("status_code"),
+                str(result.get("error") or "")[:800],
             )
             return {
                 "source": "unavailable",
@@ -393,15 +371,13 @@ async def generate_recommendation_insights(
                 "timing_advice": None,
             }
 
-        try:
-            payload = response.json()
-        except Exception as exc:
+        payload = result.get("payload")
+        if not isinstance(payload, dict):
             logger.warning(
-                "[USER] Recommendation reason generation returned non-JSON for %s/%s: %s, body=%s",
+                "[USER] Recommendation reason generation returned invalid payload for %s/%s: %s",
                 provider_name,
                 actual_model_name,
-                exc,
-                response.text[:800],
+                str(payload)[:800],
             )
             return {
                 "source": "unavailable",

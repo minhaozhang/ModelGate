@@ -3,7 +3,6 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-import httpx
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
 from sqlalchemy import select, func
 
@@ -23,9 +22,7 @@ from services.analysis_store import (
     upsert_analysis_record,
     write_report_markdown,
 )
-from services.message import preprocess_messages
-from services.provider import get_model_config
-from services.proxy import OUTBOUND_USER_AGENT
+from services.proxy import call_internal_model_via_proxy
 
 router = APIRouter(prefix="/admin/api", tags=["logs"])
 ERROR_STATUSES = ("error", "timeout")
@@ -586,15 +583,15 @@ def _chunk_list(items: list, chunk_size: int) -> list[list]:
 
 async def _call_analysis_model(
     provider_name: str,
-    provider_config: dict,
     actual_model_name: str,
     system_prompt: str,
     prompt_payload: dict,
     max_tokens: int,
     temperature: float = 0.2,
 ) -> tuple[Optional[str], Optional[str]]:
+    requested_model = f"{provider_name}/{actual_model_name}"
     body_json = {
-        "model": actual_model_name,
+        "model": requested_model,
         "temperature": temperature,
         "max_tokens": max_tokens,
         "messages": [
@@ -609,34 +606,19 @@ async def _call_analysis_model(
         ],
     }
 
-    merge_messages = provider_config.get("merge_consecutive_messages", False)
-    model_config = get_model_config(provider_config, actual_model_name)
-    is_multimodal = model_config.get("is_multimodal", False) if model_config else False
-    body_json = preprocess_messages(body_json, merge_messages, is_multimodal)
-    if provider_name == "minimax" and merge_messages:
-        body_json.pop("thinking", None)
-        body_json.pop("stream_options", None)
-        body_json["reasoning_split"] = True
-
-    headers = {
-        "content-type": "application/json",
-        "accept": "application/json",
-        "user-agent": OUTBOUND_USER_AGENT,
-    }
-    if provider_config.get("api_key"):
-        headers["authorization"] = f"Bearer {provider_config['api_key']}"
-
     try:
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            response = await client.post(
-                f"{provider_config['base_url']}/chat/completions",
-                headers=headers,
-                content=json.dumps(body_json).encode("utf-8"),
-            )
-        if response.status_code >= 400:
-            return None, f"HTTP {response.status_code}"
+        result = await call_internal_model_via_proxy(
+            requested_model=requested_model,
+            body_json=body_json,
+            purpose="error-analysis",
+            timeout_seconds=45.0,
+        )
+        if not result.get("ok"):
+            return None, str(result.get("error") or f"HTTP {result.get('status_code')}")
 
-        payload = response.json()
+        payload = result.get("payload")
+        if not isinstance(payload, dict):
+            return None, "invalid_payload"
         content = _extract_text_content(
             (((payload.get("choices") or [{}])[0]).get("message") or {}).get("content")
         )
@@ -730,7 +712,6 @@ async def _generate_error_report_with_ai(
         }
         content, error = await _call_analysis_model(
             provider_name=provider_name,
-            provider_config=provider_config,
             actual_model_name=actual_model_name,
             system_prompt=(
                 "You analyze operational incident logs for an LLM proxy dashboard. "
@@ -787,7 +768,6 @@ async def _generate_error_report_with_ai(
     }
     markdown, error = await _call_analysis_model(
         provider_name=provider_name,
-        provider_config=provider_config,
         actual_model_name=actual_model_name,
         system_prompt=(
             "You analyze operational incident logs for an LLM proxy dashboard. "
