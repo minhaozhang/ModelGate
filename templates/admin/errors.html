@@ -120,6 +120,8 @@
         body.theme-dark .markdown-body li { color: #e5e7eb !important; }
         body.theme-dark .markdown-body code { background: #1f2937; color: #e5e7eb; }
         body.theme-dark .markdown-body pre { background: #020617; color: #e5e7eb; }
+        body.theme-dark #report-modal > div { background: #0f172a !important; }
+        body.theme-dark #report-modal label { color: #e5e8eb !important; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -131,7 +133,7 @@
                 <button id="refresh-btn" onclick="loadErrorLogs()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
                     {{ _('Refresh') }}
                 </button>
-                <button id="report-btn" onclick="generateReport()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 inline-flex items-center gap-2">
+                <button id="report-btn" onclick="openReportModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 inline-flex items-center gap-2">
                     <span id="report-spinner" class="spinner hidden"></span>
                     <span id="report-btn-text">{{ _('Generate Report') }}</span>
                 </button>
@@ -181,23 +183,31 @@
                 </section>
 
                 <section class="bg-white rounded-xl shadow p-6">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ _('Hotspots') }}</h3>
-                    <div class="space-y-5">
-                        <div>
-                            <div class="text-sm text-gray-500 mb-2">{{ _('Providers With Most Failures') }}</div>
-                            <div id="top-providers" class="flex flex-wrap gap-2"></div>
-                        </div>
-                        <div>
-                            <div class="text-sm text-gray-500 mb-2">{{ _('Models With Most Failures') }}</div>
-                            <div id="top-models" class="flex flex-wrap gap-2"></div>
-                        </div>
-                        <div>
-                            <div class="text-sm text-gray-500 mb-2">{{ _('Upstream Status Codes') }}</div>
-                            <div id="top-status-codes" class="flex flex-wrap gap-2"></div>
-                        </div>
-                        <div class="pt-2 border-t border-gray-200">
-                            <div class="text-sm text-gray-500">{{ _('Average Timeout Context') }}</div>
-                            <div id="avg-timeout-context" class="text-lg font-semibold text-gray-800 mt-2">-</div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">{{ _('Report History') }}</h3>
+                        <span id="report-history-count" class="text-sm text-gray-500"></span>
+                    </div>
+                    <div id="report-history-empty" class="hidden text-sm text-gray-500 mb-4">{{ _('No reports yet') }}</div>
+                    <div id="report-history-list" class="space-y-2 max-h-64 overflow-y-auto mb-4"></div>
+                    <div class="pt-3 border-t border-gray-200">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-3">{{ _('Hotspots') }}</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="text-xs text-gray-500 mb-1">{{ _('Providers With Most Failures') }}</div>
+                                <div id="top-providers" class="flex flex-wrap gap-1"></div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-500 mb-1">{{ _('Models With Most Failures') }}</div>
+                                <div id="top-models" class="flex flex-wrap gap-1"></div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-500 mb-1">{{ _('Upstream Status Codes') }}</div>
+                                <div id="top-status-codes" class="flex flex-wrap gap-1"></div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-500">{{ _('Average Timeout Context') }}</div>
+                                <div id="avg-timeout-context" class="text-base font-semibold text-gray-800">-</div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -215,6 +225,30 @@
                 <div id="logs-list" class="divide-y divide-gray-200"></div>
             </section>
         </main>
+    </div>
+
+    <div id="report-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background:rgba(0,0,0,0.4)">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative" style="margin:1rem">
+            <button onclick="closeReportModal()" class="absolute top-3 right-4 text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+            <h3 class="text-lg font-semibold text-gray-800 mb-5">{{ _('Generate Report') }}</h3>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Language') }}</label>
+                <select id="modal-language" class="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <option value="zh">{{ _('Chinese') }}</option>
+                    <option value="en">{{ _('English') }}</option>
+                </select>
+            </div>
+            <div class="mb-5">
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Analysis Model') }}</label>
+                <select id="modal-model" class="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <option value="">{{ _('Auto (Recommended)') }}</option>
+                </select>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeReportModal()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">{{ _('Cancel') }}</button>
+                <button id="modal-confirm-btn" onclick="confirmGenerateReport()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">{{ _('Generate') }}</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -242,10 +276,15 @@
             provider: "{{ _('Provider') }}",
             errorDetail: "{{ _('Error Detail') }}",
             requestAt: "{{ _('Created At') }}",
-            loadingFailed: "{{ _('Failed to load data') }}"
+            loadingFailed: "{{ _('Failed to load data') }}",
+            autoRecommended: "{{ _('Auto (Recommended)') }}",
+            reportHistory: "{{ _('Report History') }}",
+            noReports: "{{ _('No reports yet') }}",
+            viewReport: "{{ _('View') }}"
         };
 
         let reportPollTimer = null;
+        let currentReportLanguage = null;
 
         function getThemeMode() {
             return localStorage.getItem('admin_theme') || 'dark';
@@ -411,7 +450,7 @@
                 ? window.marked.parse(renderedMarkdown)
                 : `<pre>${escapeHtml(renderedMarkdown)}</pre>`;
 
-            const lang = document.documentElement.lang === 'zh' ? window.I18N.languageZh : window.I18N.languageEn;
+            const lang = currentReportLanguage === 'zh' ? window.I18N.languageZh : window.I18N.languageEn;
             document.getElementById('report-language').textContent = `${window.I18N.languageLabel}: ${lang}`;
 
             const sourceEl = document.getElementById('report-source');
@@ -429,9 +468,12 @@
 
             if (report.source === 'pending') {
                 scheduleReportPoll();
-            } else if (reportPollTimer) {
-                clearTimeout(reportPollTimer);
-                reportPollTimer = null;
+            } else {
+                if (reportPollTimer) {
+                    clearTimeout(reportPollTimer);
+                    reportPollTimer = null;
+                }
+                loadReportHistory();
             }
         }
 
@@ -444,7 +486,8 @@
 
         async function loadReportStatus() {
             try {
-                const payload = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/errors/analyze`);
+                const lang = currentReportLanguage || (document.documentElement.lang === 'zh' ? 'zh' : 'en');
+                const payload = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/errors/analyze?language=${lang}`);
                 if (!payload) return;
                 renderSummary(payload.summary || {});
                 if (payload.report) {
@@ -452,6 +495,64 @@
                 }
             } catch (error) {
                 console.error(error);
+            }
+        }
+
+        async function loadReportHistory() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/errors/reports`);
+                if (!data) return;
+                renderReportHistory(data.reports || []);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderReportHistory(reports) {
+            const listEl = document.getElementById('report-history-list');
+            const emptyEl = document.getElementById('report-history-empty');
+            const countEl = document.getElementById('report-history-count');
+
+            if (!reports.length) {
+                emptyEl.classList.remove('hidden');
+                listEl.innerHTML = '';
+                countEl.textContent = '';
+                return;
+            }
+
+            emptyEl.classList.add('hidden');
+            countEl.textContent = reports.length;
+
+            listEl.innerHTML = reports.map(r => {
+                const statusClass = r.status === 'success' ? 'bg-green-100 text-green-700' :
+                                    r.status === 'pending' || r.status === 'running' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-red-100 text-red-700';
+                const statusText = r.status === 'success' ? 'AI' :
+                                   r.status === 'pending' || r.status === 'running' ? '...' : 'ERR';
+                const langLabel = r.language === 'zh' ? window.I18N.languageZh : window.I18N.languageEn;
+                const dateStr = r.date ? new Date(r.date + 'T00:00:00').toLocaleDateString() : '-';
+                const isActive = currentReportLanguage === r.language && dateStr === new Date().toLocaleDateString();
+                const seqLabel = r.seq && r.seq > 1 ? ` #${r.seq}` : '';
+                return `
+                    <div class="flex items-center justify-between p-2 rounded hover:bg-gray-50 cursor-pointer text-sm ${isActive ? 'bg-blue-50' : ''}" onclick="loadHistoryReport(${r.id})">
+                        <div class="flex items-center gap-2">
+                            <span class="badge ${statusClass}" style="font-size:0.65rem;padding:0.1rem 0.4rem">${statusText}</span>
+                            <span class="text-gray-800 font-medium">${escapeHtml(dateStr)}${escapeHtml(seqLabel)}</span>
+                            <span class="text-gray-400 text-xs">${escapeHtml(langLabel)}</span>
+                        </div>
+                        <span class="text-xs text-gray-400">${r.model_used ? escapeHtml(r.model_used.split('/')[1] || r.model_used) : '-'}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadHistoryReport(reportId) {
+            try {
+                const report = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/errors/reports/${reportId}`);
+                if (!report) return;
+                renderReport(report);
+            } catch (e) {
+                console.error(e);
             }
         }
 
@@ -469,7 +570,53 @@
             }
         }
 
-        async function generateReport() {
+        let cachedAnalysisModels = null;
+
+        async function openReportModal() {
+            const modal = document.getElementById('report-modal');
+            const langSelect = document.getElementById('modal-language');
+            const modelSelect = document.getElementById('modal-model');
+
+            langSelect.value = document.documentElement.lang === 'zh' ? 'zh' : 'en';
+
+            if (!cachedAnalysisModels) {
+                try {
+                    const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/analysis/models`);
+                    if (!data) return;
+                    cachedAnalysisModels = data;
+                } catch (e) {
+                    console.error(e);
+                    return;
+                }
+            }
+
+            modelSelect.innerHTML = `<option value="">${window.I18N.autoRecommended}</option>`;
+            for (const m of cachedAnalysisModels.models) {
+                const opt = document.createElement('option');
+                opt.value = m.display;
+                opt.textContent = m.display;
+                if (cachedAnalysisModels.default && m.model === cachedAnalysisModels.default) {
+                    opt.textContent += ` (${window.I18N.autoRecommended.split('(')[0].trim()})`;
+                }
+                modelSelect.appendChild(opt);
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeReportModal() {
+            document.getElementById('report-modal').classList.add('hidden');
+        }
+
+        function confirmGenerateReport() {
+            const language = document.getElementById('modal-language').value;
+            const model = document.getElementById('modal-model').value || null;
+            currentReportLanguage = language;
+            closeReportModal();
+            generateReport(language, model);
+        }
+
+        async function generateReport(language, model) {
             const btn = document.getElementById('report-btn');
             const btnText = document.getElementById('report-btn-text');
             const spinner = document.getElementById('report-spinner');
@@ -478,7 +625,14 @@
             btnText.textContent = window.I18N.generating;
 
             try {
-                const payload = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/errors/analyze`, { method: 'POST' });
+                const fetchOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
+                const payload_body = {};
+                if (language) payload_body.language = language;
+                if (model) payload_body.model = model;
+                if (Object.keys(payload_body).length > 0) {
+                    fetchOpts.body = JSON.stringify(payload_body);
+                }
+                const payload = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/errors/analyze`, fetchOpts);
                 if (!payload) {
                     return;
                 }
@@ -499,6 +653,7 @@
         applyTheme(getThemeMode());
         loadErrorLogs();
         loadReportStatus();
+        loadReportHistory();
     </script>
 </body>
 </html>

@@ -4,10 +4,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy import select, func
 
 from core.config import validate_session, providers_cache, logger
-from core.database import async_session_maker, RequestLogRead as RequestLog, Provider, ApiKey
+from core.database import (
+    async_session_maker,
+    RequestLogRead as RequestLog,
+    AnalysisRecord,
+    Provider,
+    ApiKey,
+)
 from core.i18n import get_locale, translate
 from services.analysis_store import (
     ANALYSIS_STATUS_FAILED,
@@ -28,6 +35,13 @@ router = APIRouter(prefix="/admin/api", tags=["logs"])
 ERROR_STATUSES = ("error", "timeout")
 ERROR_REPORT_SAMPLE_LIMIT = 120
 ERROR_REPORT_LOG_LIMIT = 200
+
+
+class AnalysisRequest(BaseModel):
+    language: Optional[str] = None
+    model: Optional[str] = None
+
+
 CONTEXT_BUCKETS = [
     (0, 8192, "0-8k"),
     (8192, 16384, "8k-16k"),
@@ -53,7 +67,9 @@ def get_token_count(tokens_payload) -> int:
     )
 
 
-async def _get_maps(session, logs: list[RequestLog]) -> tuple[dict[int, str], dict[int, str]]:
+async def _get_maps(
+    session, logs: list[RequestLog]
+) -> tuple[dict[int, str], dict[int, str]]:
     provider_ids = {log.provider_id for log in logs if log.provider_id is not None}
     api_key_ids = {log.api_key_id for log in logs if log.api_key_id is not None}
 
@@ -62,7 +78,9 @@ async def _get_maps(session, logs: list[RequestLog]) -> tuple[dict[int, str], di
         provider_result = await session.execute(
             select(Provider).where(Provider.id.in_(provider_ids))
         )
-        provider_map = {provider.id: provider.name for provider in provider_result.scalars()}
+        provider_map = {
+            provider.id: provider.name for provider in provider_result.scalars()
+        }
 
     api_key_map: dict[int, str] = {}
     if api_key_ids:
@@ -81,8 +99,12 @@ def _serialize_error_log(
 ) -> dict:
     return {
         "id": log.id,
-        "provider": provider_map.get(log.provider_id, "-") if log.provider_id is not None else "-",
-        "api_key": api_key_map.get(log.api_key_id, f"Key-{log.api_key_id}") if log.api_key_id is not None else "-",
+        "provider": provider_map.get(log.provider_id, "-")
+        if log.provider_id is not None
+        else "-",
+        "api_key": api_key_map.get(log.api_key_id, f"Key-{log.api_key_id}")
+        if log.api_key_id is not None
+        else "-",
         "model": log.model,
         "status": log.status,
         "upstream_status_code": log.upstream_status_code,
@@ -116,7 +138,8 @@ def _build_error_summary(logs: list[dict]) -> dict:
     timeout_context_values = [
         int(log.get("request_context_tokens") or 0)
         for log in logs
-        if log.get("status") == "timeout" and int(log.get("request_context_tokens") or 0) > 0
+        if log.get("status") == "timeout"
+        and int(log.get("request_context_tokens") or 0) > 0
     ]
 
     return {
@@ -236,11 +259,7 @@ def _build_context_risk_summary(logs: list[dict]) -> list[dict]:
                 and timeout_rate >= 0.05
             ):
                 timeout_threshold = bucket_label
-            if (
-                error_threshold is None
-                and requests_count >= 5
-                and error_rate >= 0.08
-            ):
+            if error_threshold is None and requests_count >= 5 and error_rate >= 0.08:
                 error_threshold = bucket_label
 
         total_requests = sum(item["requests"] for item in bucket_rows)
@@ -477,7 +496,9 @@ def _build_rule_based_markdown(
     lines.append(f"## {translate(request, 'Key Findings')}")
     lines.extend(
         [f"- {item}" for item in findings]
-        or [f"- {translate(request, 'No dominant anomaly is visible from the current rule-based summary.')}"]
+        or [
+            f"- {translate(request, 'No dominant anomaly is visible from the current rule-based summary.')}"
+        ]
     )
     lines.append("")
     lines.append(f"## {translate(request, 'OpenCode Configuration Suggestions')}")
@@ -556,20 +577,32 @@ def _strip_code_fence(text: str) -> str:
 
 
 def _choose_analysis_model() -> tuple[Optional[str], Optional[dict], Optional[str]]:
+    preferred_models = ("glm-5-turbo", "glm-5", "glm-4.6", "glm-4.7")
     preferred_providers = ("zhipu", "deepseek", "minimax", "ollama")
     for provider_name in preferred_providers:
         provider_config = providers_cache.get(provider_name)
         if not provider_config:
             continue
         models = provider_config.get("models") or []
+        for preferred in preferred_models:
+            for model in models:
+                actual_model_name = model.get("actual_model_name") or model.get(
+                    "model_name"
+                )
+                if actual_model_name == preferred:
+                    return provider_name, provider_config, actual_model_name
         for model in models:
-            actual_model_name = model.get("actual_model_name") or model.get("model_name")
+            actual_model_name = model.get("actual_model_name") or model.get(
+                "model_name"
+            )
             if actual_model_name:
                 return provider_name, provider_config, actual_model_name
     for provider_name, provider_config in providers_cache.items():
         models = provider_config.get("models") or []
         for model in models:
-            actual_model_name = model.get("actual_model_name") or model.get("model_name")
+            actual_model_name = model.get("actual_model_name") or model.get(
+                "model_name"
+            )
             if actual_model_name:
                 return provider_name, provider_config, actual_model_name
     return None, None, None
@@ -578,7 +611,9 @@ def _choose_analysis_model() -> tuple[Optional[str], Optional[dict], Optional[st
 def _chunk_list(items: list, chunk_size: int) -> list[list]:
     if chunk_size <= 0:
         return [items]
-    return [items[index : index + chunk_size] for index in range(0, len(items), chunk_size)]
+    return [
+        items[index : index + chunk_size] for index in range(0, len(items), chunk_size)
+    ]
 
 
 async def _call_analysis_model(
@@ -586,14 +621,33 @@ async def _call_analysis_model(
     actual_model_name: str,
     system_prompt: str,
     prompt_payload: dict,
-    max_tokens: int,
+    max_tokens: int = 4096,
     temperature: float = 0.2,
 ) -> tuple[Optional[str], Optional[str]]:
     requested_model = f"{provider_name}/{actual_model_name}"
+
+    model_config = None
+    provider_cfg = providers_cache.get(provider_name)
+    if provider_cfg:
+        for m in provider_cfg.get("models", []):
+            if m.get("actual_model_name") == actual_model_name:
+                model_config = m
+                break
+
+    db_max_tokens = (model_config or {}).get("max_tokens", 16384)
+    thinking_enabled = (model_config or {}).get("thinking_enabled", False)
+
+    if thinking_enabled:
+        effective_max_tokens = max(db_max_tokens, max_tokens)
+    else:
+        effective_max_tokens = (
+            min(max_tokens, db_max_tokens) if max_tokens else db_max_tokens
+        )
+
     body_json = {
         "model": requested_model,
         "temperature": temperature,
-        "max_tokens": max_tokens,
+        "max_tokens": effective_max_tokens,
         "messages": [
             {
                 "role": "system",
@@ -611,7 +665,7 @@ async def _call_analysis_model(
             requested_model=requested_model,
             body_json=body_json,
             purpose="error-analysis",
-            timeout_seconds=45.0,
+            timeout_seconds=90.0,
         )
         if not result.get("ok"):
             return None, str(result.get("error") or f"HTTP {result.get('status_code')}")
@@ -619,9 +673,11 @@ async def _call_analysis_model(
         payload = result.get("payload")
         if not isinstance(payload, dict):
             return None, "invalid_payload"
-        content = _extract_text_content(
-            (((payload.get("choices") or [{}])[0]).get("message") or {}).get("content")
-        )
+
+        message = ((payload.get("choices") or [{}])[0]).get("message") or {}
+        content = _extract_text_content(message.get("content"))
+        if not content:
+            content = _extract_text_content(message.get("reasoning_content"))
         text = _strip_code_fence(content)
         if not text:
             return None, "empty_response"
@@ -630,12 +686,31 @@ async def _call_analysis_model(
         return None, str(exc)
 
 
-def _build_error_report_scope(report_date: str, locale: str) -> str:
-    return f"{report_date}:{locale}"
+def _build_error_report_scope(report_date: str, locale: str, seq: int = 1) -> str:
+    return f"{report_date}:{locale}:{seq}"
 
 
-def _build_error_report_file_path(report_date: str, locale: str) -> Path:
-    return get_report_root() / "errors" / report_date / f"{locale}.md"
+async def _next_error_report_seq(report_date: str, locale: str) -> int:
+    prefix = f"{report_date}:{locale}:"
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(AnalysisRecord.scope_key).where(
+                AnalysisRecord.analysis_type == ANALYSIS_TYPE_DAILY_ERROR_REPORT,
+                AnalysisRecord.scope_key.startswith(prefix),
+            )
+        )
+        existing = result.scalars().all()
+    max_seq = 0
+    for sk in existing:
+        try:
+            max_seq = max(max_seq, int(sk.split(":")[-1]))
+        except (ValueError, IndexError):
+            pass
+    return max_seq + 1
+
+
+def _build_error_report_file_path(report_date: str, locale: str, seq: int = 1) -> Path:
+    return get_report_root() / "errors" / report_date / locale / f"{seq}.md"
 
 
 def _serialize_report_record(record, markdown: Optional[str] = None) -> dict:
@@ -657,9 +732,25 @@ def _serialize_report_record(record, markdown: Optional[str] = None) -> dict:
 
 
 async def _generate_error_report_with_ai(
-    locale: str, summary: dict, logs: list[dict], context_summary: list[dict]
+    locale: str,
+    summary: dict,
+    logs: list[dict],
+    context_summary: list[dict],
+    model_override: Optional[str] = None,
 ) -> dict:
-    provider_name, provider_config, actual_model_name = _choose_analysis_model()
+    if model_override and "/" in model_override:
+        override_provider, override_actual = model_override.split("/", 1)
+        override_config = providers_cache.get(override_provider)
+        if override_config:
+            provider_name, provider_config, actual_model_name = (
+                override_provider,
+                override_config,
+                override_actual,
+            )
+        else:
+            provider_name, provider_config, actual_model_name = _choose_analysis_model()
+    else:
+        provider_name, provider_config, actual_model_name = _choose_analysis_model()
     if not provider_name or not provider_config or not actual_model_name:
         return {
             "source": "unavailable",
@@ -707,7 +798,9 @@ async def _generate_error_report_with_ai(
             "total_chunks": total_chunks,
             "summary_metrics": summary if index == 0 else None,
             "context_buckets_definition": [bucket[2] for bucket in CONTEXT_BUCKETS],
-            "model_context_risk_summary": chunked_context[index] if index < len(chunked_context) else [],
+            "model_context_risk_summary": chunked_context[index]
+            if index < len(chunked_context)
+            else [],
             "sample_logs": chunked_logs[index] if index < len(chunked_logs) else [],
         }
         content, error = await _call_analysis_model(
@@ -718,7 +811,7 @@ async def _generate_error_report_with_ai(
                 "Do not invent facts. Reply with strict JSON only."
             ),
             prompt_payload=prompt,
-            max_tokens=420,
+            max_tokens=2000,
         )
         if not content:
             logger.warning(
@@ -733,6 +826,19 @@ async def _generate_error_report_with_ai(
                 "generated_at": datetime.now().isoformat(),
                 "markdown": "",
                 "error": error or "chunk_generation_failed",
+            }
+
+        try:
+            parsed = json.loads(_strip_code_fence(content))
+        except Exception:
+            parsed = None
+        if not isinstance(parsed, dict):
+            return {
+                "source": "unavailable",
+                "model_used": f"{provider_name}/{actual_model_name}",
+                "generated_at": datetime.now().isoformat(),
+                "markdown": "",
+                "error": "invalid_chunk_response",
             }
         try:
             parsed = json.loads(_strip_code_fence(content))
@@ -775,7 +881,7 @@ async def _generate_error_report_with_ai(
             "Use headings and bullet lists. Do not wrap the result in code fences."
         ),
         prompt_payload=final_prompt,
-        max_tokens=900,
+        max_tokens=4000,
     )
     if not markdown:
         logger.warning(
@@ -800,7 +906,9 @@ async def _generate_error_report_with_ai(
     }
 
 
-async def _load_today_error_logs(session, limit: int = ERROR_REPORT_LOG_LIMIT) -> tuple[list[RequestLog], list[dict], dict]:
+async def _load_today_error_logs(
+    session, limit: int = ERROR_REPORT_LOG_LIMIT
+) -> tuple[list[RequestLog], list[dict], dict]:
     today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     result = await session.execute(
         select(RequestLog)
@@ -814,8 +922,7 @@ async def _load_today_error_logs(session, limit: int = ERROR_REPORT_LOG_LIMIT) -
     logs = result.scalars().all()
     provider_map, api_key_map = await _get_maps(session, logs)
     serialized_logs = [
-        _serialize_error_log(log, provider_map, api_key_map)
-        for log in logs
+        _serialize_error_log(log, provider_map, api_key_map) for log in logs
     ]
     return logs, serialized_logs, _build_error_summary(serialized_logs)
 
@@ -841,8 +948,10 @@ async def _run_daily_error_report_analysis(
     summary: dict,
     serialized_logs: list[dict],
     context_summary: list[dict],
+    model_override: Optional[str] = None,
+    seq: int = 1,
 ) -> None:
-    scope_key = _build_error_report_scope(report_date, locale)
+    scope_key = _build_error_report_scope(report_date, locale, seq)
     try:
         await upsert_analysis_record(
             ANALYSIS_TYPE_DAILY_ERROR_REPORT,
@@ -855,6 +964,7 @@ async def _run_daily_error_report_analysis(
             summary,
             serialized_logs,
             context_summary,
+            model_override=model_override,
         )
         if report.get("source") != "ai":
             await upsert_analysis_record(
@@ -868,7 +978,7 @@ async def _run_daily_error_report_analysis(
             )
             return
 
-        output_path = _build_error_report_file_path(report_date, locale)
+        output_path = _build_error_report_file_path(report_date, locale, seq)
         stored_path = write_report_markdown(output_path, report.get("markdown") or "")
         await upsert_analysis_record(
             ANALYSIS_TYPE_DAILY_ERROR_REPORT,
@@ -934,11 +1044,12 @@ async def get_today_error_logs(_: bool = Depends(require_admin)):
 @router.get("/logs/errors/analyze")
 async def get_today_error_report(
     request: Request,
+    language: Optional[str] = None,
     _: bool = Depends(require_admin),
 ):
     async with async_session_maker() as session:
         _, serialized_logs, summary = await _load_today_error_logs(session)
-    locale = get_locale(request)
+    locale = language if language else get_locale(request)
     report_date = datetime.now().strftime("%Y-%m-%d")
 
     if not serialized_logs:
@@ -953,7 +1064,9 @@ async def get_today_error_report(
                         f"# {translate(request, 'Daily Error Analysis Report')}",
                         "",
                         f"## {translate(request, 'Executive Summary')}",
-                        translate(request, "No error or timeout logs have been recorded today"),
+                        translate(
+                            request, "No error or timeout logs have been recorded today"
+                        ),
                         "",
                         f"## {translate(request, 'Recommended Actions')}",
                         f"- {translate(request, 'No action is needed right now, but keep monitoring for new failures')}",
@@ -962,10 +1075,19 @@ async def get_today_error_report(
             },
         }
 
-    record = await get_analysis_record(
-        ANALYSIS_TYPE_DAILY_ERROR_REPORT,
-        _build_error_report_scope(report_date, locale),
-    )
+    prefix = f"{report_date}:{locale}:"
+    record = None
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(AnalysisRecord)
+            .where(
+                AnalysisRecord.analysis_type == ANALYSIS_TYPE_DAILY_ERROR_REPORT,
+                AnalysisRecord.scope_key.startswith(prefix),
+            )
+            .order_by(AnalysisRecord.id.desc())
+            .limit(1)
+        )
+        record = result.scalar_one_or_none()
     if not record:
         return {"summary": summary, "report": None}
 
@@ -980,18 +1102,100 @@ async def get_today_error_report(
     }
 
 
+@router.get("/logs/errors/reports")
+async def list_error_reports(
+    language: Optional[str] = None,
+    limit: int = 30,
+    _: bool = Depends(require_admin),
+):
+    async with async_session_maker() as session:
+        query = (
+            select(AnalysisRecord)
+            .where(AnalysisRecord.analysis_type == ANALYSIS_TYPE_DAILY_ERROR_REPORT)
+            .order_by(AnalysisRecord.scope_key.desc())
+            .limit(limit)
+        )
+        if language:
+            query = query.where(AnalysisRecord.language == language)
+        result = await session.execute(query)
+        records = result.scalars().all()
+
+    items: list[dict] = []
+    for r in records:
+        parts = r.scope_key.split(":") if r.scope_key else []
+        date_part = parts[0] if len(parts) >= 1 else ""
+        lang_part = parts[1] if len(parts) >= 2 else ""
+        seq_part = parts[2] if len(parts) >= 3 else ""
+        items.append(
+            {
+                "id": r.id,
+                "date": date_part,
+                "language": lang_part,
+                "seq": int(seq_part) if seq_part.isdigit() else 1,
+                "status": r.status,
+                "model_used": r.model_used,
+                "generated_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+        )
+    return {"reports": items}
+
+
+@router.get("/logs/errors/reports/{report_id:int}")
+async def get_error_report_by_id(
+    report_id: int,
+    _: bool = Depends(require_admin),
+):
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(AnalysisRecord).where(
+                AnalysisRecord.analysis_type == ANALYSIS_TYPE_DAILY_ERROR_REPORT,
+                AnalysisRecord.id == report_id,
+            )
+        )
+        record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="Report not found")
+    markdown = (
+        read_report_markdown(record.content)
+        if record.status == ANALYSIS_STATUS_SUCCESS
+        else None
+    )
+    return _serialize_report_record(record, markdown)
+
+
+@router.get("/analysis/models")
+async def get_analysis_models(_: bool = Depends(require_admin)):
+    models: list[dict] = []
+    for provider_name, provider_config in providers_cache.items():
+        for model in provider_config.get("models") or []:
+            actual = model.get("actual_model_name") or model.get("model_name")
+            if actual:
+                models.append(
+                    {
+                        "provider": provider_name,
+                        "model": actual,
+                        "display": f"{provider_name}/{actual}",
+                    }
+                )
+    _, _, default_model = _choose_analysis_model()
+    return {"models": models, "default": default_model}
+
+
 @router.post("/logs/errors/analyze")
 async def analyze_today_error_logs(
     request: Request,
+    body: Optional[AnalysisRequest] = None,
     _: bool = Depends(require_admin),
 ):
     async with async_session_maker() as session:
         _, serialized_logs, summary = await _load_today_error_logs(session)
         analysis_logs = await _load_today_analysis_logs(session)
     context_summary = _build_context_risk_summary(analysis_logs)
-    locale = get_locale(request)
+    locale = (body.language if body and body.language else None) or get_locale(request)
+    model_override = body.model if body and body.model else None
     report_date = datetime.now().strftime("%Y-%m-%d")
-    scope_key = _build_error_report_scope(report_date, locale)
+    seq = await _next_error_report_seq(report_date, locale)
+    scope_key = _build_error_report_scope(report_date, locale, seq)
 
     if not serialized_logs:
         return {
@@ -1005,7 +1209,9 @@ async def analyze_today_error_logs(
                         f"# {translate(request, 'Daily Error Analysis Report')}",
                         "",
                         f"## {translate(request, 'Executive Summary')}",
-                        translate(request, "No error or timeout logs have been recorded today"),
+                        translate(
+                            request, "No error or timeout logs have been recorded today"
+                        ),
                         "",
                         f"## {translate(request, 'Recommended Actions')}",
                         f"- {translate(request, 'No action is needed right now, but keep monitoring for new failures')}",
@@ -1032,6 +1238,8 @@ async def analyze_today_error_logs(
             summary,
             serialized_logs,
             context_summary,
+            model_override=model_override,
+            seq=seq,
         ),
     )
     record = await get_analysis_record(ANALYSIS_TYPE_DAILY_ERROR_REPORT, scope_key)

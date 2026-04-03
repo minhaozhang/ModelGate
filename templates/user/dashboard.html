@@ -1078,9 +1078,9 @@ const data = await response.json();</code></pre>
             const items = data.items || [];
             const isPending = data.analysis_source === 'pending';
             recommendationsInitialized = true;
-            const timingAdvice = data.timing_advice || (data.analysis_source === 'unavailable'
-                ? window.I18N.aiUnavailable
-                : window.I18N.analyzingBestTimeWindows);
+            const timingAdvice = data.timing_advice || (isPending
+                ? window.I18N.analyzingBestTimeWindows
+                : window.I18N.aiUnavailable);
             document.getElementById('recommendation-meta').textContent = window.I18N.basedOnCurrentPeriod;
             const analysisMetaParts = [];
             if (data.analysis_source) {
