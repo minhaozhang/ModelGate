@@ -447,8 +447,8 @@ msgstr "User Page:"
 msgid "Setup Doc:"
 msgstr "Setup Doc:"
 
-msgid "OpenCode Setup"
-msgstr "OpenCode Setup"
+msgid "Copy Setup"
+msgstr "Copy Setup"
 
 msgid "API Key Login"
 msgstr "API Key Login"
@@ -642,8 +642,8 @@ msgstr "alias"
 msgid "Clear saved API Key?"
 msgstr "Clear saved API Key?"
 
-msgid "Please help me add the following provider configuration to ~/.opencode/opencode.json. Keep existing providers and other settings, only add or update the model-token-plan provider."
-msgstr "Please help me add the following provider configuration to ~/.opencode/opencode.json. Keep existing providers and other settings, only add or update the model-token-plan provider."
+msgid "Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider."
+msgstr "Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider."
 
 msgid "Yourself"
 msgstr "Yourself"
@@ -732,6 +732,33 @@ msgstr "Based on the current period and accessible models"
 msgid "No recommendation data yet"
 msgstr "No recommendation data yet"
 
+msgid "No recent errors, fast responses, and enough usage samples"
+msgstr "No recent errors, fast responses, and enough usage samples"
+
+msgid "Low error rate and stable recent performance"
+msgstr "Low error rate and stable recent performance"
+
+msgid "Fast recent responses and smooth overall performance"
+msgstr "Fast recent responses and smooth overall performance"
+
+msgid "Frequently used recently with relatively stable quality"
+msgstr "Frequently used recently with relatively stable quality"
+
+msgid "Balanced recent stability, speed, and sample size"
+msgstr "Balanced recent stability, speed, and sample size"
+
+msgid "Recent data is limited. Try quieter periods and check system health first"
+msgstr "Recent data is limited. Try quieter periods and check system health first"
+
+msgid "Based on recent daily patterns, {ranges} tends to be smoother with lower errors and faster responses"
+msgstr "Based on recent daily patterns, {ranges} tends to be smoother with lower errors and faster responses"
+
+msgid "Based on recent daily patterns, {ranges} tend to be smoother with lower errors and faster responses"
+msgstr "Based on recent daily patterns, {ranges} tend to be smoother with lower errors and faster responses"
+
+msgid "Analyzing the best daily time windows..."
+msgstr "Analyzing the best daily time windows..."
+
 msgid "samples"
 msgstr "samples"
 
@@ -767,4 +794,88 @@ msgstr "Degraded"
 
 msgid "Idle"
 msgstr "Idle"
+
+msgid "Last Used"
+msgstr "Last Used"
+
+msgid "Never"
+msgstr "Never"
+
+msgid "ModelGate Access"
+msgstr "ModelGate Access"
+
+msgid "Login Page:"
+msgstr "Login Page:"
+
+msgid "API Key:"
+msgstr "API Key:"
+
+msgid "Quick Start:"
+msgstr "Quick Start:"
+
+msgid "Open the login page above and paste the API key to sign in."
+msgstr "Open the login page above and paste the API key to sign in."
+
+msgid "For OpenCode setup, open the setup document below or send it directly to your agent."
+msgstr "For OpenCode setup, open the setup document below or send it directly to your agent."
+
+msgid "Keep this API key private and do not share it in public chats or repositories."
+msgstr "Keep this API key private and do not share it in public chats or repositories."
+
+msgid "OpenCode Setup Doc:"
+msgstr "OpenCode Setup Doc:"
+
+msgid "Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter:"
+msgstr "Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter:"
+
+msgid "Follow this document."
+msgstr "Follow this document."
+
+msgid "Enabled Models:"
+msgstr "Enabled Models:"
+
+msgid "No specific model restrictions. This API key can use all currently allowed models."
+msgstr "No specific model restrictions. This API key can use all currently allowed models."
+
+msgid "If OpenCode is not installed yet, please download it from the official website below."
+msgstr "If OpenCode is not installed yet, please download it from the official website below."
+
+msgid "A unified gateway for models, monitoring, and OpenCode access"
+msgstr "A unified gateway for models, monitoring, and OpenCode access"
+
+msgid "ModelGate provides a unified LLM API proxy, API key management, usage dashboards, monitoring, and OpenCode configuration in one place."
+msgstr "ModelGate provides a unified LLM API proxy, API key management, usage dashboards, monitoring, and OpenCode configuration in one place."
+
+msgid "Multi-provider API proxy"
+msgstr "Multi-provider API proxy"
+
+msgid "Usage dashboard & analytics"
+msgstr "Usage dashboard & analytics"
+
+msgid "Monitoring & error analysis"
+msgstr "Monitoring & error analysis"
+
+msgid "Quick Start"
+msgstr "Quick Start"
+
+msgid "Open the user login page and sign in with an API key."
+msgstr "Open the user login page and sign in with an API key."
+
+msgid "Use /v1/models to confirm which models are available."
+msgstr "Use /v1/models to confirm which models are available."
+
+msgid "If needed, generate OpenCode settings from the dashboard or API key page."
+msgstr "If needed, generate OpenCode settings from the dashboard or API key page."
+
+msgid "Use the admin panel to review monitoring, logs, and daily analysis reports."
+msgstr "Use the admin panel to review monitoring, logs, and daily analysis reports."
+
+msgid "Example Base URL"
+msgstr "Example Base URL"
+
+msgid "After obtaining an API key, you can generate OpenCode configuration from the dashboard or admin API key page."
+msgstr "After obtaining an API key, you can generate OpenCode configuration from the dashboard or admin API key page."
+
+msgid "Visit OpenCode"
+msgstr "Visit OpenCode"
 

@@ -1,25 +1,55 @@
-import os
 from pathlib import Path
+
+import os
 
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from core.app_paths import APP_BASE_PATH
 from core.config import CONFIG, error_logger
 from core.database import init_db
+from core.i18n import render
 from core.log_sanitizer import sanitize_text_for_log
 from services.provider import load_providers
 from services.auth import load_api_keys
 
+
+class BasePathMiddleware:
+    def __init__(self, app, base_path: str):
+        self.app = app
+        self.base_path = base_path.rstrip("/")
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in {"http", "websocket"}:
+            path = scope.get("path", "")
+            if path == self.base_path or path.startswith(self.base_path + "/"):
+                child_path = path[len(self.base_path) :] or "/"
+                root_path = scope.get("root_path", "")
+                scope = dict(scope)
+                scope["root_path"] = f"{root_path}{self.base_path}"
+                scope["path"] = child_path
+        await self.app(scope, receive, send)
+
+
 app = FastAPI(title="ModelGate")
+app.add_middleware(BasePathMiddleware, base_path=APP_BASE_PATH)
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 
 
 @app.get("/")
-async def root_redirect():
-    return RedirectResponse(url="/admin/")
+async def root_page(request: Request):
+    base_url = str(request.base_url).rstrip("/")
+    return HTMLResponse(
+        render(
+            request,
+            "public/index.html",
+            base_url=base_url,
+            icp_number=os.getenv("ICP_NUMBER", ""),
+        )
+    )
 
 
 @app.get("/favicon.svg", include_in_schema=False)
@@ -34,9 +64,14 @@ async def favicon_ico():
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    error_logger.error(
-        f"[HTTP ERROR] {request.method} {request.url} - Status: {exc.status_code}, Detail: {exc.detail}"
+    log_message = (
+        f"[HTTP {'WARN' if exc.status_code == 401 else 'ERROR'}] "
+        f"{request.method} {request.url} - Status: {exc.status_code}, Detail: {exc.detail}"
     )
+    if exc.status_code == 401:
+        error_logger.warning(log_message)
+    else:
+        error_logger.error(log_message)
     return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
 
 
@@ -87,12 +122,28 @@ async def startup():
 
     await startup_scheduler()
 
+    from services.weixin import start_polling
+
+    await start_polling()
+
+    from routes.weixin import start_mcp
+
+    await start_mcp()
+
 
 @app.on_event("shutdown")
 async def shutdown():
     from services.scheduler import shutdown_scheduler
 
     shutdown_scheduler()
+
+    from services.weixin import stop_polling
+
+    await stop_polling()
+
+    from routes.weixin import stop_mcp
+
+    await stop_mcp()
 
 
 from routes import (
@@ -116,10 +167,15 @@ app.include_router(models.router)
 app.include_router(provider_models.router)
 app.include_router(keys.router)
 app.include_router(stats.router)
+app.include_router(stats.public_router)
 app.include_router(logs.router)
 app.include_router(pages.router)
 app.include_router(user.router)
 app.include_router(opencode.router)
+
+from routes.weixin import get_mcp_asgi_app
+
+app.mount("/weixin", get_mcp_asgi_app())
 
 
 if __name__ == "__main__":
@@ -129,8 +185,8 @@ if __name__ == "__main__":
     print(f"""
 ╔════════════════════════════════════════════════════════════╗
 ║  ModelGate Started                                        ║
-║  Dashboard: http://localhost:{CONFIG["port"]}/admin/home          ║
-║  API: http://localhost:{CONFIG["port"]}/v1/chat/completions         ║
+║  Dashboard: http://localhost:{CONFIG["port"]}{APP_BASE_PATH}/admin/home          ║
+║  API: http://localhost:{CONFIG["port"]}{APP_BASE_PATH}/v1/chat/completions         ║
 ║  Admin Users: {users_str:<43} ║
 ╚════════════════════════════════════════════════════════════╝
     """)

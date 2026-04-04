@@ -13,3 +13,6 @@ venv
 logs/*
 !logs/.gitkeep
 *.tar
+docker-compose.yml
+Dockerfile
+.dockerignore

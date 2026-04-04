@@ -1,14 +1,23 @@
 from typing import Optional
 from sqlalchemy import update, func
 
+import core.config as config_module
 from core.config import providers_cache
-from core.database import async_session_maker, RequestLog
+from core.database import async_session_maker, ApiKey, RequestLog
+
+
+def invalidate_today_stats_cache() -> None:
+    config_module.today_stats_cache = {}
+    config_module.today_stats_cache_time = None
 
 
 async def create_request_log(
     provider_name: str,
     model: str,
     api_key_id: Optional[int] = None,
+    client_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
+    request_context_tokens: Optional[int] = None,
     request_body: Optional[dict] = None,
 ) -> int:
     async with async_session_maker() as session:
@@ -23,9 +32,13 @@ async def create_request_log(
             provider_id=provider_id,
             model=model,
             status="pending",
+            client_ip=client_ip,
+            user_agent=user_agent,
+            request_context_tokens=request_context_tokens,
         )
         session.add(log)
         await session.commit()
+        invalidate_today_stats_cache()
         return log.id
 
 
@@ -37,9 +50,9 @@ async def update_request_log(
     status: str = "success",
     upstream_status_code: Optional[int] = None,
     error: Optional[str] = None,
-):
+) -> bool:
     async with async_session_maker() as session:
-        await session.execute(
+        result = await session.execute(
             update(RequestLog)
             .where(RequestLog.id == log_id)
             .values(
@@ -53,6 +66,8 @@ async def update_request_log(
             )
         )
         await session.commit()
+        invalidate_today_stats_cache()
+        return (result.rowcount or 0) > 0
 
 
 async def log_request(
@@ -64,6 +79,9 @@ async def log_request(
     status: str,
     api_key_id: Optional[int] = None,
     upstream_status_code: Optional[int] = None,
+    client_ip: Optional[str] = None,
+    user_agent: Optional[str] = None,
+    request_context_tokens: Optional[int] = None,
     error: Optional[str] = None,
 ):
     async with async_session_maker() as session:
@@ -82,7 +100,24 @@ async def log_request(
             latency_ms=latency_ms,
             status=status,
             upstream_status_code=upstream_status_code,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            request_context_tokens=request_context_tokens,
             error=error,
         )
         session.add(log)
+        await session.commit()
+        invalidate_today_stats_cache()
+
+
+async def update_api_key_last_used(api_key_id: Optional[int]) -> None:
+    if not api_key_id:
+        return
+
+    async with async_session_maker() as session:
+        await session.execute(
+            update(ApiKey)
+            .where(ApiKey.id == api_key_id)
+            .values(last_used_at=func.now())
+        )
         await session.commit()

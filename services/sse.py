@@ -4,7 +4,10 @@ async def normalize_sse_stream(aiter_lines):
     def flush_event():
         if not data_lines:
             return None
-        payload = "\n".join(data_lines)
+        if len(data_lines) == 1:
+            payload = data_lines[0]
+        else:
+            payload = "".join(data_lines)
         data_lines.clear()
         return f"data: {payload}"
 

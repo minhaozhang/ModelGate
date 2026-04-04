@@ -7,6 +7,7 @@ from services.stats_aggregator import (
     aggregate_yesterday_stats,
     backfill_historical_stats,
     cleanup_stale_pending_requests,
+    archive_old_request_logs,
 )
 
 logger = proxy_logger
@@ -26,9 +27,15 @@ async def startup_scheduler():
         id="cleanup_stale_pending",
         replace_existing=True,
     )
+    scheduler.add_job(
+        archive_old_request_logs,
+        CronTrigger(hour=0, minute=20),
+        id="archive_old_request_logs",
+        replace_existing=True,
+    )
     scheduler.start()
     logger.info(
-        "[SCHEDULER] Scheduler started: aggregate at 00:05, cleanup pending every 10 min"
+        "[SCHEDULER] Scheduler started: aggregate at 00:05, archive old logs at 00:20, cleanup pending every 10 min"
     )
 
     import asyncio
@@ -42,6 +49,7 @@ async def run_backfill():
     await asyncio.sleep(5)
     logger.info("[SCHEDULER] Running backfill for missing dates...")
     await backfill_historical_stats()
+    await archive_old_request_logs()
 
 
 def shutdown_scheduler():

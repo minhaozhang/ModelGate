@@ -9,3 +9,5 @@ apscheduler
 python-dateutil
 jinja2
 babel
+mcp[cli]
+qrcode

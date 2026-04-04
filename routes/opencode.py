@@ -1,22 +1,18 @@
-from typing import Optional
 import json
-from fastapi import APIRouter, Cookie, Request
-from fastapi.responses import (
-    HTMLResponse,
-    JSONResponse,
-    PlainTextResponse,
-    RedirectResponse,
-)
+from typing import Optional
+
+from fastapi import APIRouter, Request
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 
-from core.config import validate_session
+from core.app_paths import get_app_base_path
 from core.database import (
-    async_session_maker,
     ApiKey,
-    Provider,
-    Model,
-    ProviderModel,
     ApiKeyModel,
+    Model,
+    Provider,
+    ProviderModel,
+    async_session_maker,
 )
 
 router = APIRouter(tags=["docs"])
@@ -87,6 +83,7 @@ async def build_opencode_config(session, api_key: str, base_url: str):
         models_config[model_key] = model_entry
 
     return {
+        "$schema": "https://opencode.ai/config.json",
         "provider": {
             "model-token-plan": {
                 "name": "Model Token Plan",
@@ -96,7 +93,7 @@ async def build_opencode_config(session, api_key: str, base_url: str):
                 },
                 "models": models_config,
             }
-        }
+        },
     }
 
 
@@ -106,15 +103,44 @@ async def get_opencode_setup_markdown(request: Request, api_key: Optional[str] =
         return PlainTextResponse("# Error\n\nAPI Key is required", status_code=400)
 
     async with async_session_maker() as session:
-        base_url = str(request.base_url).rstrip("/") + "/v1"
+        base_url = (
+            str(request.base_url).rstrip("/") + get_app_base_path(request) + "/v1"
+        )
         config = await build_opencode_config(session, api_key, base_url)
         if not config:
             return PlainTextResponse("# Error\n\nInvalid API Key", status_code=401)
 
-        md = f"""请帮我将以下 provider 配置添加到 `~/.opencode/opencode.json` 中。保留现有的 providers 和其他设置，只添加或更新 `model-token-plan` 这个 provider：
+        provider_config = config["provider"]["model-token-plan"]
+        model_names = sorted(provider_config.get("models", {}).keys())
+        model_list = "\n".join(f"- `{model_name}`" for model_name in model_names)
+        if not model_list:
+            model_list = "- No models are currently available for this API key."
+
+        md = f"""# OpenCode Setup Instructions
+
+Please update the OpenCode configuration for this machine.
+
+Requirements:
+- Preferred global config file: `~/.config/opencode/opencode.json`
+- If `~/.config/opencode/opencode.json` does not exist, create it first.
+- You can also place `opencode.json` in the root of the current project if you prefer a project-specific config.
+- Keep existing providers and other settings unchanged.
+- Only add or update the `model-token-plan` provider shown below.
+- If the `model-token-plan` provider already exists in the config, replace its entire content with the JSON below.
+- If OpenCode is not installed yet, download it from `https://opencode.ai/`.
+
+Models included in this provider:
+{model_list}
+
+Use this provider config:
 
 ```json
-{json.dumps(config, ensure_ascii=False, indent=2)}
+{json.dumps(config, ensure_ascii=False)}
 ```
+
+After the config is updated:
+1. Save the file.
+2. **Restart OpenCode** for the changes to take effect.
+3. Verify that the models above are available in OpenCode.
 """
         return PlainTextResponse(content=md, media_type="text/markdown; charset=utf-8")

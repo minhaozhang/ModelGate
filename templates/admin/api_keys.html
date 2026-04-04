@@ -2,8 +2,9 @@
 <html>
 <head>
     <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
     <title>{{ _('API Keys') }} - ModelGate</title>
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .nav-link { transition: all 0.2s; }
@@ -157,12 +158,27 @@
         query: "{{ _('Query') }}",
         userPage: "{{ _('User Page:') }}",
         setupDoc: "{{ _('Setup Doc:') }}",
-        openCodeSetupMd: "{{ _('OpenCode Setup') }}",
+        copySetup: "{{ _('Copy Setup') }}",
         loginLabel: "{{ _('Login') }}",
+        lastUsed: "{{ _('Last Used') }}",
+        never: "{{ _('Never') }}",
+        accessInfo: "{{ _('ModelGate Access') }}",
+        loginPage: "{{ _('Login Page:') }}",
+        apiKeyLabel: "{{ _('API Key:') }}",
+        quickStart: "{{ _('Quick Start:') }}",
+        openLoginPageAndPasteKey: "{{ _('Open the login page above and paste the API key to sign in.') }}",
+        useSetupDocForOpenCode: "{{ _('For OpenCode setup, open the setup document below or send it directly to your agent.') }}",
+        keepApiKeyPrivate: "{{ _('Keep this API key private and do not share it in public chats or repositories.') }}",
+        opencodeSendHint: "{{ _('Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter:') }}",
+        followThisDoc: "{{ _('Follow this document.') }}",
+        enabledModels: "{{ _('Enabled Models:') }}",
+        noModelsAssigned: "{{ _('No specific model restrictions. This API key can use all currently allowed models.') }}",
+        openCodeWebsiteHint: "{{ _('If OpenCode is not installed yet, please download it from the official website below.') }}",
     };
     </script>
     <script>
         let selectedModelIds = [];
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
         let providerModels = [];
         let apiKeysData = [];
         let filteredData = [];
@@ -170,8 +186,8 @@
         const pageSize = 10;
         
         async function logout() {
-            await fetch('/admin/api/auth/logout', {method: 'POST'});
-            window.location.href = '/admin/login';
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
         }
 
         function getThemeMode() {
@@ -195,7 +211,7 @@
         async function fetchOrRedirect(url, options) {
             const resp = await fetch(url, options);
             if (resp.status === 401) {
-                window.location.href = '/admin/login';
+                window.location.href = `${APP_BASE_PATH}/admin/login`;
                 throw new Error('Unauthorized');
             }
             return resp;
@@ -207,8 +223,13 @@
         }
         
         async function loadApiKeys() {
-            const data = await fetchJsonOrRedirect('/admin/api/keys');
-            apiKeysData = data.api_keys || [];
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys`);
+            apiKeysData = (data.api_keys || []).sort((a, b) => {
+                if (a.last_used_at && !b.last_used_at) return -1;
+                if (!a.last_used_at && b.last_used_at) return 1;
+                if (!a.last_used_at && !b.last_used_at) return 0;
+                return new Date(b.last_used_at) - new Date(a.last_used_at);
+            });
             handleSearch();
         }
         
@@ -229,7 +250,7 @@
         }
         
         async function loadProviderModels() {
-            const data = await fetchJsonOrRedirect('/admin/api/provider-models');
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models`);
             providerModels = data.provider_models || [];
             renderModelCheckboxes();
         }
@@ -242,6 +263,13 @@
         function maskApiKey(key) {
             if (!key || key.length <= 10) return key;
             return key.slice(0, 4) + '****' + key.slice(-4);
+        }
+
+        function formatLastUsed(value) {
+            if (!value) return window.I18N.never;
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value;
+            return date.toLocaleString();
         }
         
         function renderApiKeys() {
@@ -266,8 +294,8 @@
                             <span class="model-chip model-chip-neutral">${window.I18N.allModels}</span>
                         </div>
                     `;
-                const userPageUrl = `${baseUrl}/user/login`;
-                const setupMdUrl = `${baseUrl}/opencode/setup.md?api_key=${k.key}`;
+                const userPageUrl = `${baseUrl}${APP_BASE_PATH}/user/login`;
+                const setupMdUrl = `${baseUrl}${APP_BASE_PATH}/opencode/setup.md?api_key=${k.key}`;
                 return `
                 <div class="p-4">
                     <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -277,6 +305,7 @@
                                 <code class="bg-gray-100 px-2 py-0.5 rounded text-xs break-all">${maskedKey}</code>
                                 <button onclick="copyKey('${k.key}')" class="text-blue-500 hover:text-blue-700 text-xs">${window.I18N.copy}</button>
                             </div>
+                            <div class="mt-2 text-xs text-gray-500">${window.I18N.lastUsed}: ${formatLastUsed(k.last_used_at)}</div>
                             ${modelsDisplay}
                         </div>
                         <div class="flex flex-wrap gap-2 shrink-0">
@@ -295,8 +324,12 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-gray-500">${window.I18N.setupDoc}</span>
-                            <a href="${setupMdUrl}" target="_blank" class="text-orange-500 hover:underline">${window.I18N.openCodeSetupMd}</a>
-                            <button onclick="copyKeyWithInstructions('${k.key}', '${userPageUrl}', '${setupMdUrl}')" class="text-orange-500 hover:text-orange-700">${window.I18N.copy}</button>
+                            <button onclick='copyKeyWithInstructions(${JSON.stringify({
+                                key: k.key,
+                                userPageUrl,
+                                setupMdUrl,
+                                modelNames
+                            })})' class="text-orange-500 hover:text-orange-700">${window.I18N.copySetup}</button>
                         </div>
                     </div>
                 </div>
@@ -395,15 +428,32 @@
             navigator.clipboard.writeText(key).then(() => alert(window.I18N.copied));
         }
         
-        function copyKeyWithInstructions(key, userPageUrl, setupMdUrl) {
-            const text = `API Key: ${key}
+        function copyKeyWithInstructions(payload) {
+            const { key, userPageUrl, setupMdUrl, modelNames } = payload;
+            const enabledModelsText = Array.isArray(modelNames) && modelNames.length > 0
+                ? modelNames.map(name => `- ${name}`).join('\n')
+                : `- ${window.I18N.noModelsAssigned}`;
+            const text = `${window.I18N.accessInfo}
 
-${window.I18N.usageInstructions}
-1. ${window.I18N.loginLabel}: ${userPageUrl}
-   ${window.I18N.pasteApiKey}
+${window.I18N.loginPage}
+${userPageUrl}
 
-2. ${window.I18N.configureOpenCode}
-   ${window.I18N.letAgentReadConfig} ${setupMdUrl}`;
+${window.I18N.apiKeyLabel}
+${key}
+
+${window.I18N.quickStart}
+1. ${window.I18N.openLoginPageAndPasteKey}
+2. ${window.I18N.keepApiKeyPrivate}
+
+${window.I18N.enabledModels}
+${enabledModelsText}
+
+${window.I18N.openCodeWebsiteHint}
+https://opencode.ai/
+
+${window.I18N.opencodeSendHint}
+${window.I18N.followThisDoc}
+${setupMdUrl}`;
             navigator.clipboard.writeText(text).then(() => alert(window.I18N.apiKeyAndUsageCopied));
         }
         
@@ -446,13 +496,13 @@ ${window.I18N.usageInstructions}
             
             try {
                 if (id) {
-                    await fetchOrRedirect('/admin/api/keys/' + id, {
+                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/` + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
                     });
                 } else {
-                    const result = await fetchJsonOrRedirect('/admin/api/keys', {
+                    const result = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
@@ -468,7 +518,7 @@ ${window.I18N.usageInstructions}
         
         async function deleteApiKey(id) {
             if (!confirm(window.I18N.deleteConfirm)) return;
-            await fetchOrRedirect('/admin/api/keys/' + id, {method: 'DELETE'});
+            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/` + id, {method: 'DELETE'});
             loadApiKeys();
         }
         

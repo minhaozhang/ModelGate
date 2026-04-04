@@ -3,10 +3,10 @@ services:
     build: .
     ports:
       - "8765:8765"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://modelgate:Zaq1%403edc@192.168.58.128/modelgate
-      - PORT=8765
-      - ADMIN_PASSWORD=ZxcvbnmZaq1#)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped

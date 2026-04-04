@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{{ _('Dashboard') }} - ModelGate</title>
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -15,12 +16,21 @@
         body.theme-dark .bg-gray-50 { background: #111827 !important; }
         body.theme-dark .bg-gray-100 { background: #020617 !important; }
         body.theme-dark .bg-gray-200 { background: #1f2937 !important; }
+        body.theme-dark .bg-orange-50 { background: rgba(249, 115, 22, 0.12) !important; }
+        body.theme-dark .bg-orange-100 { background: rgba(249, 115, 22, 0.18) !important; }
+        body.theme-dark .bg-green-100 { background: rgba(34, 197, 94, 0.18) !important; }
+        body.theme-dark .bg-red-100 { background: rgba(239, 68, 68, 0.18) !important; }
         body.theme-dark .text-gray-800 { color: #f8fafc !important; }
         body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
         body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
         body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .text-orange-600 { color: #fdba74 !important; }
+        body.theme-dark .text-orange-700 { color: #fed7aa !important; }
+        body.theme-dark .text-green-700 { color: #bbf7d0 !important; }
+        body.theme-dark .text-red-700 { color: #fecaca !important; }
         body.theme-dark .border,
-        body.theme-dark .border-l-2 { border-color: #1f2937 !important; }
+        body.theme-dark .border-l-2,
+        body.theme-dark .border-orange-200 { border-color: rgba(249, 115, 22, 0.28) !important; }
         body.theme-dark select,
         body.theme-dark button:not(.text-red-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
         body.theme-dark .shadow-sm { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
@@ -188,6 +198,10 @@
     <script>
         let currentPeriod = 'day';
         let trendChart = null;
+        const MOBILE_HOME_OVERVIEW_REFRESH_MS = 8000;
+        const MOBILE_HOME_REALTIME_REFRESH_MS = 3000;
+        const MOBILE_HOME_ACTIVE_REFRESH_MS = 10000;
+        const MOBILE_HOME_SLOW_REFRESH_MS = 5000;
 
         Chart.defaults.color = '#cbd5e1';
         Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.15)';
@@ -280,7 +294,16 @@
                 });
             });
             if (firstIndex === null || lastIndex === null) {
+                if (currentPeriod === 'month' || currentPeriod === 'year') {
+                    const minVisibleBuckets = Math.min(30, totalBuckets);
+                    return { start: Math.max(totalBuckets - minVisibleBuckets, 0), end: Math.max(totalBuckets - 1, 0) };
+                }
                 return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            if (currentPeriod === 'month' || currentPeriod === 'year') {
+                const minVisibleBuckets = Math.min(30, totalBuckets);
+                const start = Math.max(Math.min(firstIndex - 1, totalBuckets - minVisibleBuckets), 0);
+                return { start, end: Math.max(totalBuckets - 1, 0) };
             }
             let start = Math.max(firstIndex - 1, 0);
             let end = Math.min(lastIndex + 1, totalBuckets - 1);
@@ -419,12 +442,14 @@
             });
         }
 
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+
         async function loadData() {
             const period = document.getElementById('period-select').value;
             try {
                 const [statsResp, chartResp] = await Promise.all([
-                    fetchJsonOrRedirect('/admin/api/stats/period?period=' + period),
-                    fetchJsonOrRedirect('/admin/api/stats/chart?period=' + period)
+                    fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/period?period=` + period),
+                    fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/chart?period=` + period)
                 ]);
                 const data = statsResp;
                 const chartData = chartResp;
@@ -445,7 +470,7 @@
 
         async function loadRealtimeStats() {
             try {
-                const data = await fetchJsonOrRedirect('/admin/api/stats/realtime');
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/realtime`);
                 document.getElementById('rps').textContent = data.requests_per_second || 0;
                 document.getElementById('tps').textContent = formatCompactTokens(data.tokens_per_second || 0);
             } catch (e) {}
@@ -453,7 +478,7 @@
 
         async function loadActiveSessions() {
             try {
-                const data = await fetchJsonOrRedirect('/admin/api/stats/active');
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/active`);
                 const sessions = data.sessions || {};
                 const count = Object.keys(sessions).length;
                 document.getElementById('active-count').textContent = count;
@@ -470,7 +495,7 @@
                         .join(' ');
                     return `<div class="bg-gray-50 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate">${keyName}</div><div class="mt-1 flex flex-wrap gap-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${keyName}">${keyName}</div><div class="mt-1 flex flex-wrap gap-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
                             <span class="text-xs text-gray-500 shrink-0">${session.requests} ${window.I18N.req}</span>
                         </div>
                     </div>`;
@@ -481,7 +506,7 @@
 
         async function loadSlowRequests() {
             try {
-                const data = await fetchJsonOrRedirect('/admin/api/stats/slow');
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/slow`);
                 const pending = data.pending || [];
                 const recent = data.recent || [];
                 const count = pending.length + recent.length;
@@ -492,7 +517,9 @@
                 }
                 let html = '';
                 for (const req of pending) {
-                    const elapsed = Math.round((Date.now() - new Date(req.created_at).getTime()) / 1000);
+                    const elapsed = Number.isFinite(Number(req.elapsed_seconds))
+                        ? Math.max(0, Math.round(Number(req.elapsed_seconds)))
+                        : 0;
                     const elapsedText = window.I18N.elapsed.replace('{seconds}', elapsed);
                     const rawKeyName = req.api_key || req.key_name || '-';
                     const maskedKeyName = maskName(rawKeyName);
@@ -519,14 +546,14 @@
         }
 
         async function logout() {
-            await fetch('/admin/api/auth/logout', { method: 'POST' });
-            window.location.href = '/admin/m/login';
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, { method: 'POST' });
+            window.location.href = `${APP_BASE_PATH}/admin/m/login`;
         }
 
         async function fetchJsonOrRedirect(url, options) {
             const resp = await fetch(url, options);
             if (resp.status === 401) {
-                window.location.href = '/admin/m/login';
+                window.location.href = `${APP_BASE_PATH}/admin/m/login`;
                 throw new Error('Unauthorized');
             }
             return await resp.json();
@@ -537,10 +564,10 @@
         loadActiveSessions();
         loadSlowRequests();
 
-        setInterval(loadData, 10000);
-        setInterval(loadRealtimeStats, 10000);
-        setInterval(loadActiveSessions, 10000);
-        setInterval(loadSlowRequests, 5000);
+        setInterval(loadData, MOBILE_HOME_OVERVIEW_REFRESH_MS);
+        setInterval(loadRealtimeStats, MOBILE_HOME_REALTIME_REFRESH_MS);
+        setInterval(loadActiveSessions, MOBILE_HOME_ACTIVE_REFRESH_MS);
+        setInterval(loadSlowRequests, MOBILE_HOME_SLOW_REFRESH_MS);
     </script>
 </body>
 </html>

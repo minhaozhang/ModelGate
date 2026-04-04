@@ -2,8 +2,9 @@
 <html>
 <head>
     <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
     <title>{{ _('OpenCode Configuration') }} - ModelGate</title>
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .nav-link { transition: all 0.2s; }
@@ -74,15 +75,17 @@
             copied: {{ _('Copied!') | tojson }},
             copy: {{ _('Copy') | tojson }},
             failedToGenerateConfig: {{ _('Failed to generate config') | tojson }},
-            promptText: {{ _('# Please add the following provider config to ~/.opencode/opencode.json. Keep existing providers and settings, only add or update the model-token-plan provider.') | tojson }},
+            promptText: {{ _('# Please add the following provider config to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and settings, only add or update the model-token-plan provider.') | tojson }},
             contextLabel: {{ _('context') | tojson }},
             outputLabel: {{ _('output') | tojson }}
         };
     </script>
     <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+
         async function logout() {
-            await fetch('/admin/api/auth/logout', {method: 'POST'});
-            window.location.href = '/login';
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
         }
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -100,7 +103,7 @@
             }
 
             try {
-                const resp = await fetch('/opencode/config?api_key=' + encodeURIComponent(apiKey));
+                const resp = await fetch(`${APP_BASE_PATH}/opencode/config?api_key=` + encodeURIComponent(apiKey));
                 const data = await resp.json();
 
                 if (data.error) {
@@ -112,7 +115,7 @@
                 document.getElementById('error-section').classList.add('hidden');
 
                 const config = data.config;
-                config.provider['model-token-plan'].options.baseURL = window.location.origin + '/v1';
+                config.provider['model-token-plan'].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
 
                 const prompt = window.I18N.promptText + "\n\n";
                 const configJson = prompt + JSON.stringify(config, null, 2);

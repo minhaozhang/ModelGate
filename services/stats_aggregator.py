@@ -1,13 +1,15 @@
 from datetime import datetime, timedelta
-from sqlalchemy import select, func, and_, delete, update
+from sqlalchemy import select, func, and_, delete, update, text
 from sqlalchemy.orm import joinedload
 
 from core.config import proxy_logger
 from core.database import (
     async_session_maker,
     RequestLog,
+    RequestLogRead,
     ProviderDailyStat,
     ApiKeyDailyStat,
+    ApiKeyModelDailyStat,
     ModelDailyStat,
     ApiKey,
     Provider,
@@ -22,8 +24,11 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
     end_dt = start_dt + timedelta(days=1)
 
     async with async_session_maker() as session:
-        logs_query = select(RequestLog).where(
-            and_(RequestLog.created_at >= start_dt, RequestLog.created_at < end_dt)
+        logs_query = select(RequestLogRead).where(
+            and_(
+                RequestLogRead.created_at >= start_dt,
+                RequestLogRead.created_at < end_dt,
+            )
         )
         result = await session.execute(logs_query)
         logs = result.scalars().all()
@@ -31,6 +36,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
         provider_cache = {}
         provider_stats = {}
         api_key_stats = {}
+        api_key_model_stats = {}
         model_stats = {}
 
         for log in logs:
@@ -74,6 +80,18 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 api_key_stats[log.api_key_id]["tokens"] += tokens
                 if is_error:
                     api_key_stats[log.api_key_id]["errors"] += 1
+                if log.model:
+                    api_key_model_key = (log.api_key_id, log.model)
+                    if api_key_model_key not in api_key_model_stats:
+                        api_key_model_stats[api_key_model_key] = {
+                            "requests": 0,
+                            "tokens": 0,
+                            "errors": 0,
+                        }
+                    api_key_model_stats[api_key_model_key]["requests"] += 1
+                    api_key_model_stats[api_key_model_key]["tokens"] += tokens
+                    if is_error:
+                        api_key_model_stats[api_key_model_key]["errors"] += 1
 
             model_key = (log.model, provider_name)
             if model_key not in model_stats:
@@ -88,6 +106,9 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
         )
         await session.execute(
             delete(ApiKeyDailyStat).where(ApiKeyDailyStat.date == date_str)
+        )
+        await session.execute(
+            delete(ApiKeyModelDailyStat).where(ApiKeyModelDailyStat.date == date_str)
         )
         await session.execute(
             delete(ModelDailyStat).where(ModelDailyStat.date == date_str)
@@ -106,6 +127,17 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
         for api_key_id, stats in api_key_stats.items():
             stat = ApiKeyDailyStat(
                 api_key_id=api_key_id,
+                date=date_str,
+                requests=stats["requests"],
+                tokens=stats["tokens"],
+                errors=stats["errors"],
+            )
+            session.add(stat)
+
+        for (api_key_id, model_name), stats in api_key_model_stats.items():
+            stat = ApiKeyModelDailyStat(
+                api_key_id=api_key_id,
+                model_name=model_name,
                 date=date_str,
                 requests=stats["requests"],
                 tokens=stats["tokens"],
@@ -143,7 +175,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
 async def get_missing_dates() -> list[str]:
     async with async_session_maker() as session:
         first_log_result = await session.execute(
-            select(func.min(RequestLog.created_at))
+            select(func.min(RequestLogRead.created_at))
         )
         first_log_date = first_log_result.scalar()
 
@@ -206,6 +238,85 @@ async def cleanup_stale_pending_requests() -> None:
             logger.info(
                 f"[AGGREGATOR] Marked {len(updated_ids)} stale pending requests as timeout"
             )
+
+
+async def archive_old_request_logs() -> int:
+    cutoff = datetime.now() - timedelta(days=30)
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            text(
+                """
+                WITH moved AS (
+                    INSERT INTO request_logs_history (
+                        id,
+                        api_key_id,
+                        provider_id,
+                        model,
+                        response,
+                        tokens,
+                        latency_ms,
+                        request_context_tokens,
+                        status,
+                        upstream_status_code,
+                        client_ip,
+                        user_agent,
+                        error,
+                        created_at,
+                        updated_at,
+                        archive_month,
+                        archived_at
+                    )
+                    SELECT
+                        rl.id,
+                        rl.api_key_id,
+                        rl.provider_id,
+                        rl.model,
+                        rl.response,
+                        rl.tokens,
+                        rl.latency_ms,
+                        rl.request_context_tokens,
+                        rl.status,
+                        rl.upstream_status_code,
+                        rl.client_ip,
+                        rl.user_agent,
+                        rl.error,
+                        rl.created_at,
+                        rl.updated_at,
+                        to_char(rl.created_at, 'YYYY-MM'),
+                        now()
+                    FROM request_logs rl
+                    WHERE rl.created_at < :cutoff
+                      AND EXISTS (
+                        SELECT 1
+                        FROM model_daily_stats mds
+                        WHERE mds.date = to_char(rl.created_at, 'YYYY-MM-DD')
+                      )
+                    ON CONFLICT (id) DO NOTHING
+                    RETURNING id
+                )
+                DELETE FROM request_logs rl
+                WHERE rl.created_at < :cutoff
+                  AND EXISTS (
+                    SELECT 1
+                    FROM request_logs_history rh
+                    WHERE rh.id = rl.id
+                  )
+                RETURNING id
+                """
+            ),
+            {"cutoff": cutoff},
+        )
+        archived_ids = result.scalars().all()
+        await session.commit()
+
+    if archived_ids:
+        logger.info(
+            "[AGGREGATOR] Archived %s request logs older than 30 days",
+            len(archived_ids),
+        )
+
+    return len(archived_ids)
 
 
 async def aggregate_yesterday_stats() -> None:

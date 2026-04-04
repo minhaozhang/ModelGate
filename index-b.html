@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="baidu-site-verification" content="codeva-0hVPJ6H1HZ" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ModelGate</title>
+    <link rel="icon" href="/modelgate/favicon.ico" sizes="any">
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?b4ffde061f8a692390379ea2bde40805";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                fontFamily: {
+                    heading: ['Space Grotesk', 'sans-serif'],
+                    body: ['DM Sans', 'sans-serif'],
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        body { font-family: 'DM Sans', sans-serif; }
+        .font-heading { font-family: 'Space Grotesk', sans-serif; }
+        .stat-number { font-variant-numeric: tabular-nums; }
+        .gradient-text {
+            background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        #particles-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+    <div id="particles-container"></div>
+
+    <nav class="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.04] bg-slate-950/80 backdrop-blur-xl">
+        <div class="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center gap-2.5">
+                <img src="/modelgate/favicon.svg" alt="ModelGate" class="h-7 w-7">
+                <span class="font-heading text-lg font-bold text-white">ModelGate</span>
+            </div>
+            <div class="flex items-center gap-5">
+                <a href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" class="text-sm text-slate-400 transition-colors duration-200 hover:text-white">Gitee</a>
+                <select id="lang-select" class="cursor-pointer rounded-lg border border-slate-700/50 bg-slate-800/50 px-2.5 py-1 text-sm text-slate-400 focus:outline-none transition-colors duration-200 hover:text-white">
+                    <option value="en">EN</option>
+                    <option value="zh">中文</option>
+                </select>
+            </div>
+        </div>
+    </nav>
+
+    <main class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-32 pb-24">
+        <section class="max-w-3xl">
+            <h1 class="font-heading text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-[3.5rem]">
+                <span id="hero-title-line1"></span>
+                <span class="gradient-text" id="hero-title-line2"></span>
+            </h1>
+            <p id="hero-desc" class="mt-6 max-w-xl text-lg leading-8 text-slate-400"></p>
+
+            <div class="mt-8 flex flex-wrap gap-3">
+                <a id="user-login-btn" href="/modelgate/user/login" class="cursor-pointer rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 shadow-lg shadow-white/[0.05] transition-all duration-200 hover:bg-slate-100"></a>
+                <a id="docs-btn" href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" class="cursor-pointer rounded-lg border border-slate-700 bg-slate-800/50 px-5 py-2.5 text-sm font-semibold text-slate-300 transition-all duration-200 hover:border-slate-600 hover:bg-slate-800"></a>
+            </div>
+
+            <div class="mt-6 flex flex-wrap gap-2">
+                <span id="chip-1" class="rounded-full border border-sky-500/20 bg-sky-500/[0.06] px-3 py-1 text-xs text-sky-300"></span>
+                <span id="chip-2" class="rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-1 text-xs text-emerald-300"></span>
+                <span id="chip-3" class="rounded-full border border-violet-500/20 bg-violet-500/[0.06] px-3 py-1 text-xs text-violet-300"></span>
+            </div>
+        </section>
+
+        <section class="mt-20 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-slate-800 bg-slate-800">
+            <div class="bg-slate-900 p-8 text-center">
+                <div class="font-heading text-4xl font-bold text-white stat-number" id="stat-requests">--</div>
+                <div class="mt-2 text-sm text-slate-500" id="stat-requests-label"></div>
+            </div>
+            <div class="bg-slate-900 p-8 text-center">
+                <div class="font-heading text-4xl font-bold text-white stat-number" id="stat-tokens">--</div>
+                <div class="mt-2 text-sm text-slate-500" id="stat-tokens-label"></div>
+            </div>
+        </section>
+
+        <section class="mt-20">
+            <h2 id="features-title" class="font-heading text-2xl font-bold text-white"></h2>
+            <div class="mt-8 grid gap-6 sm:grid-cols-3">
+                <div class="group cursor-pointer rounded-xl border border-slate-800 bg-slate-900/50 p-6 transition-all duration-300 hover:border-slate-700 hover:bg-slate-900">
+                    <div class="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-blue-500/10">
+                        <svg class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
+                    </div>
+                    <h3 id="feat-1-title" class="mt-4 font-heading font-semibold text-white"></h3>
+                    <p id="feat-1-desc" class="mt-2 text-sm leading-6 text-slate-400"></p>
+                </div>
+                <div class="group cursor-pointer rounded-xl border border-slate-800 bg-slate-900/50 p-6 transition-all duration-300 hover:border-slate-700 hover:bg-slate-900">
+                    <div class="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-emerald-500/10">
+                        <svg class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
+                    </div>
+                    <h3 id="feat-2-title" class="mt-4 font-heading font-semibold text-white"></h3>
+                    <p id="feat-2-desc" class="mt-2 text-sm leading-6 text-slate-400"></p>
+                </div>
+                <div class="group cursor-pointer rounded-xl border border-slate-800 bg-slate-900/50 p-6 transition-all duration-300 hover:border-slate-700 hover:bg-slate-900">
+                    <div class="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-violet-500/10">
+                        <svg class="h-5 w-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>
+                    </div>
+                    <h3 id="feat-3-title" class="mt-4 font-heading font-semibold text-white"></h3>
+                    <p id="feat-3-desc" class="mt-2 text-sm leading-6 text-slate-400"></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mt-20">
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-8">
+                <h2 id="quick-start-title" class="font-heading text-xl font-bold text-white"></h2>
+                <div class="mt-6 grid gap-8 sm:grid-cols-2">
+                    <ol class="space-y-4 text-sm text-slate-300" id="steps-list">
+                    </ol>
+                    <div class="flex flex-col gap-4">
+                        <div class="rounded-xl bg-slate-950 border border-slate-800 p-4">
+                            <div class="text-xs text-slate-500 mb-2" id="base-url-label"></div>
+                            <code class="text-sm text-blue-300 break-all" id="base-url-value"></code>
+                        </div>
+                        <div class="rounded-xl bg-slate-950 border border-slate-800 p-4">
+                            <div class="text-xs text-slate-500 mb-2">OpenCode</div>
+                            <p id="opencode-desc" class="text-sm text-slate-400"></p>
+                            <a id="opencode-link" href="https://opencode.ai/" target="_blank" rel="noreferrer" class="mt-2 inline-flex text-sm font-medium text-indigo-400 transition-colors duration-200 hover:text-indigo-300"></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="border-t border-slate-800/50 py-6 text-center text-sm text-slate-600">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" class="transition-colors duration-200 hover:text-slate-400">
+            浙ICP备2026019680号-1
+        </a>
+    </footer>
+
+    <script>
+        (function() {
+            var scene, camera, renderer, particles;
+            var mouseX = 0, mouseY = 0;
+
+            function init() {
+                var container = document.getElementById('particles-container');
+                scene = new THREE.Scene();
+                camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.z = 50;
+
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.setClearColor(0x020617, 1);
+                container.appendChild(renderer.domElement);
+
+                createParticles();
+                document.addEventListener('mousemove', function(e) {
+                    mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+                    mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+                });
+                window.addEventListener('resize', function() {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+                animate();
+            }
+
+            function createParticles() {
+                var particleCount = window.innerWidth < 768 ? 600 : 1800;
+                var geometry = new THREE.BufferGeometry();
+                var positions = new Float32Array(particleCount * 3);
+                var colors = new Float32Array(particleCount * 3);
+                var sizes = new Float32Array(particleCount);
+                var rotations = new Float32Array(particleCount);
+                var particleData = [];
+
+                var colorPalette = [
+                    [0.22, 0.47, 0.97],
+                    [0.50, 0.55, 0.98],
+                    [0.65, 0.55, 0.98],
+                    [0.0, 0.73, 0.83],
+                    [0.26, 0.83, 0.47],
+                ];
+
+                var rings = 10;
+                var particlesPerRing = Math.floor(particleCount / rings);
+
+                for (var ring = 0; ring < rings; ring++) {
+                    var ringRadius = 10 + ring * 10;
+                    var particlesInThisRing = particlesPerRing + (ring === rings - 1 ? particleCount % rings : 0);
+                    for (var i = 0; i < particlesInThisRing; i++) {
+                        var idx = ring * particlesPerRing + i;
+                        if (idx >= particleCount) break;
+                        var angle = (i / particlesInThisRing) * Math.PI * 2;
+                        var x = Math.cos(angle) * ringRadius;
+                        var y = Math.sin(angle) * ringRadius * 0.6;
+                        var z = (Math.random() - 0.5) * 25;
+                        positions[idx * 3] = x;
+                        positions[idx * 3 + 1] = y;
+                        positions[idx * 3 + 2] = z;
+                        var color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+                        colors[idx * 3] = color[0] + (Math.random() - 0.5) * 0.08;
+                        colors[idx * 3 + 1] = color[1] + (Math.random() - 0.5) * 0.08;
+                        colors[idx * 3 + 2] = color[2] + (Math.random() - 0.5) * 0.08;
+                        var depthFactor = (z + 10) / 20;
+                        sizes[idx] = (2 + Math.random() * 2.5) * (0.7 + depthFactor * 0.3);
+                        rotations[idx] = angle + Math.PI / 2;
+                        particleData.push({
+                            x: x, y: y, z: z,
+                            ringRadius: ringRadius,
+                            baseAngle: angle,
+                            angularSpeed: 0.0003 + Math.random() * 0.0005,
+                            wobblePhase: Math.random() * Math.PI * 2,
+                            wobbleSpeed: 0.5 + Math.random(),
+                            wobbleAmount: 0.3 + Math.random() * 0.5,
+                            pulsePhase: Math.random() * Math.PI * 2
+                        });
+                    }
+                }
+
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+                geometry.setAttribute('rotation', new THREE.BufferAttribute(rotations, 1));
+                geometry.userData.particleData = particleData;
+
+                var vertexShader = [
+                    'attribute float size;',
+                    'attribute vec3 color;',
+                    'attribute float rotation;',
+                    'varying vec3 vColor;',
+                    'varying float vAlpha;',
+                    'varying float vRotation;',
+                    'void main() {',
+                    '  vColor = color;',
+                    '  vRotation = rotation;',
+                    '  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);',
+                    '  gl_PointSize = size * (300.0 / -mvPosition.z);',
+                    '  gl_Position = projectionMatrix * mvPosition;',
+                    '  vAlpha = smoothstep(-100.0, -10.0, mvPosition.z);',
+                    '}'
+                ].join('\n');
+
+                var fragmentShader = [
+                    'varying vec3 vColor;',
+                    'varying float vAlpha;',
+                    'varying float vRotation;',
+                    'void main() {',
+                    '  vec2 uv = gl_PointCoord - vec2(0.5);',
+                    '  float c = cos(vRotation);',
+                    '  float s = sin(vRotation);',
+                    '  vec2 rotUV = vec2(uv.x * c - uv.y * s, uv.x * s + uv.y * c);',
+                    '  float aspect = 3.0;',
+                    '  rotUV.y *= aspect;',
+                    '  float n = 2.2;',
+                    '  float dist = pow(abs(rotUV.x)/0.35, n) + pow(abs(rotUV.y)/0.35, n);',
+                    '  float alpha = 1.0 - smoothstep(0.8, 1.2, dist);',
+                    '  if (alpha < 0.01) discard;',
+                    '  float shade = 1.0 - abs(rotUV.x) * 0.5 - abs(rotUV.y / aspect) * 0.2;',
+                    '  gl_FragColor = vec4(vColor * shade, alpha * vAlpha * 0.9);',
+                    '}'
+                ].join('\n');
+
+                var material = new THREE.ShaderMaterial({
+                    vertexShader: vertexShader,
+                    fragmentShader: fragmentShader,
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+
+                particles = new THREE.Points(geometry, material);
+                scene.add(particles);
+            }
+
+            var time = 0;
+            var centerX = 0, centerY = 0;
+
+            function animate() {
+                requestAnimationFrame(animate);
+                time += 0.016;
+
+                var positions = particles.geometry.attributes.position.array;
+                var rotations = particles.geometry.attributes.rotation.array;
+                var particleData = particles.geometry.userData.particleData;
+                var particleCount = positions.length / 3;
+
+                centerX += (mouseX * 55 - centerX) * 0.002;
+                centerY += (mouseY * 40 - centerY) * 0.002;
+
+                for (var i = 0; i < particleCount; i++) {
+                    var data = particleData[i];
+                    var angle = data.baseAngle + time * data.angularSpeed * (1 + Math.sin(time * 0.5) * 0.3);
+                    var pulse = Math.sin(time * 0.8 + data.pulsePhase) * 2;
+                    var radius = data.ringRadius + pulse;
+                    var x = Math.cos(angle) * radius + centerX;
+                    var y = Math.sin(angle) * radius * 0.85 + centerY;
+                    var wobbleX = Math.sin(time * data.wobbleSpeed + data.wobblePhase) * data.wobbleAmount;
+                    var wobbleZ = Math.cos(time * data.wobbleSpeed * 0.7 + data.wobblePhase) * data.wobbleAmount * 0.5;
+                    positions[i * 3] = x + wobbleX;
+                    positions[i * 3 + 1] = y;
+                    positions[i * 3 + 2] = data.z + wobbleZ;
+                    rotations[i] = angle;
+                }
+
+                particles.geometry.attributes.position.needsUpdate = true;
+                particles.geometry.attributes.rotation.needsUpdate = true;
+                particles.rotation.x += (mouseY * 0.15 - particles.rotation.x) * 0.02;
+                particles.rotation.y += (mouseX * 0.1 - particles.rotation.y) * 0.02;
+                renderer.render(scene, camera);
+            }
+
+            init();
+        })();
+    </script>
+
+    <script>
+        var APP_BASE_PATH = "/modelgate";
+        var translations = {
+            en: {
+                heroLine1: "The unified gateway for ",
+                heroLine2: "LLM APIs.",
+                heroDesc: "Proxy, monitor, and manage every model provider through a single OpenAI-compatible endpoint. Built for developers.",
+                userLogin: "Get Started",
+                docsBtn: "View Source",
+                chip1: "Multi-provider proxy",
+                chip2: "Usage analytics",
+                chip3: "Access control",
+                totalRequests: "Total Requests",
+                totalTokens: "Tokens Consumed",
+                featuresTitle: "Built for Production",
+                feat1Title: "Multi-Provider Proxy",
+                feat1Desc: "Route requests to Zhipu, DeepSeek, Ollama, Minimax and more through a single OpenAI-compatible API.",
+                feat2Title: "Usage Analytics",
+                feat2Desc: "Real-time dashboards with per-provider, per-model, and per-key metrics and monitoring.",
+                feat3Title: "Access Control",
+                feat3Desc: "API key management with granular model-level permissions and concurrency limits.",
+                quickStart: "Quick Start",
+                step1: "1. Sign in with an API key",
+                step2: "2. Check /v1/models for available models",
+                step3: "3. Generate OpenCode config if needed",
+                step4: "4. Monitor usage via admin panel",
+                baseUrl: "Base URL",
+                opencodeDesc: "Generate OpenCode configuration from the dashboard.",
+                visitOpenCode: "Visit OpenCode \u2192"
+            },
+            zh: {
+                heroLine1: "\u7EDF\u4E00\u7684 ",
+                heroLine2: "LLM API \u7F51\u5173\u3002",
+                heroDesc: "\u901A\u8FC7\u5355\u4E2A OpenAI \u517C\u5BB9\u7AEF\u70B9\u4EE3\u7406\u3001\u76D1\u63A7\u548C\u7BA1\u7406\u6240\u6709\u6A21\u578B\u4F9B\u5E94\u5546\u3002\u4E3A\u5F00\u53D1\u8005\u800C\u751F\u3002",
+                userLogin: "\u5F00\u59CB\u4F7F\u7528",
+                docsBtn: "\u67E5\u770B\u6E90\u7801",
+                chip1: "\u591A\u4F9B\u5E94\u5546\u4EE3\u7406",
+                chip2: "\u4F7F\u7528\u5206\u6790",
+                chip3: "\u8BBF\u95EE\u63A7\u5236",
+                totalRequests: "\u603B\u8C03\u7528\u91CF",
+                totalTokens: "\u6D88\u8017 Tokens",
+                featuresTitle: "\u4E3A\u751F\u4EA7\u73AF\u5883\u800C\u8BBE\u8BA1",
+                feat1Title: "\u591A\u4F9B\u5E94\u5546\u4EE3\u7406",
+                feat1Desc: "\u901A\u8FC7\u5355\u4E2A OpenAI \u517C\u5BB9 API \u8F6C\u53D1\u8BF7\u6C42\u81F3\u667A\u8C31\u3001DeepSeek\u3001Ollama\u3001Minimax \u7B49\u3002",
+                feat2Title: "\u4F7F\u7528\u5206\u6790",
+                feat2Desc: "\u5B9E\u65F6\u4EEA\u8868\u76D8\uFF0C\u6309\u4F9B\u5E94\u5546\u3001\u6A21\u578B\u3001\u5BC6\u94A5\u7EF4\u5EA6\u76D1\u63A7\u3002",
+                feat3Title: "\u8BBF\u95EE\u63A7\u5236",
+                feat3Desc: "API Key \u7BA1\u7406\uFF0C\u7EC6\u7C92\u5EA6\u6A21\u578B\u7EA7\u6743\u9650\u548C\u5E76\u53D1\u9650\u5236\u3002",
+                quickStart: "\u5FEB\u901F\u5F00\u59CB",
+                step1: "1. \u4F7F\u7528 API Key \u767B\u5F55",
+                step2: "2. \u901A\u8FC7 /v1/models \u786E\u8BA4\u53EF\u7528\u6A21\u578B",
+                step3: "3. \u5982\u9700\u8981\uFF0C\u751F\u6210 OpenCode \u914D\u7F6E",
+                step4: "4. \u901A\u8FC7\u7BA1\u7406\u9762\u677F\u67E5\u770B\u76D1\u63A7",
+                baseUrl: "\u793A\u4F8B Base URL",
+                opencodeDesc: "\u4ECE\u4EEA\u8868\u76D8\u751F\u6210 OpenCode \u914D\u7F6E\u3002",
+                visitOpenCode: "\u8BBF\u95EE OpenCode \u2192"
+            }
+        };
+
+        function readCookie(name) {
+            var cookies = document.cookie.split(";").map(function(item) { return item.trim(); });
+            var found = cookies.find(function(item) { return item.startsWith(name + "="); });
+            return found ? decodeURIComponent(found.split("=")[1]) : "";
+        }
+
+        function getCurrentLang() {
+            var cookieLang = readCookie("lang");
+            if (cookieLang === "zh" || cookieLang === "en") return cookieLang;
+            return navigator.language && navigator.language.toLowerCase().includes("zh") ? "zh" : "en";
+        }
+
+        function formatNumber(n) {
+            if (n == null) return '-';
+            return n.toLocaleString();
+        }
+
+        function applyLang(lang) {
+            var t = translations[lang] || translations.en;
+            document.documentElement.lang = lang;
+            document.getElementById("lang-select").value = lang;
+            document.getElementById("hero-title-line1").textContent = t.heroLine1;
+            document.getElementById("hero-title-line2").textContent = t.heroLine2;
+            document.getElementById("hero-desc").textContent = t.heroDesc;
+            document.getElementById("user-login-btn").textContent = t.userLogin;
+            document.getElementById("docs-btn").textContent = t.docsBtn;
+            document.getElementById("chip-1").textContent = t.chip1;
+            document.getElementById("chip-2").textContent = t.chip2;
+            document.getElementById("chip-3").textContent = t.chip3;
+            document.getElementById("stat-requests-label").textContent = t.totalRequests;
+            document.getElementById("stat-tokens-label").textContent = t.totalTokens;
+            document.getElementById("features-title").textContent = t.featuresTitle;
+            document.getElementById("feat-1-title").textContent = t.feat1Title;
+            document.getElementById("feat-1-desc").textContent = t.feat1Desc;
+            document.getElementById("feat-2-title").textContent = t.feat2Title;
+            document.getElementById("feat-2-desc").textContent = t.feat2Desc;
+            document.getElementById("feat-3-title").textContent = t.feat3Title;
+            document.getElementById("feat-3-desc").textContent = t.feat3Desc;
+            document.getElementById("quick-start-title").textContent = t.quickStart;
+            document.getElementById("steps-list").innerHTML = '<li>' + t.step1 + '</li><li>' + t.step2 + '</li><li>' + t.step3 + '</li><li>' + t.step4 + '</li>';
+            document.getElementById("base-url-label").textContent = t.baseUrl;
+            document.getElementById("base-url-value").textContent = window.location.origin + APP_BASE_PATH + "/v1";
+            document.getElementById("opencode-desc").textContent = t.opencodeDesc;
+            document.getElementById("opencode-link").textContent = t.visitOpenCode;
+        }
+
+        function refreshStats() {
+            fetch('https://leturx.cc/modelgate/api/public/stats')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    document.getElementById('stat-requests').textContent = formatNumber(data.total_requests);
+                    document.getElementById('stat-tokens').textContent = formatNumber(data.total_tokens);
+                })
+                .catch(function() {
+                    document.getElementById('stat-requests').textContent = '-';
+                    document.getElementById('stat-tokens').textContent = '-';
+                });
+        }
+
+        document.getElementById("lang-select").addEventListener("change", function(event) {
+            var lang = event.target.value;
+            document.cookie = "lang=" + lang + ";path=/;max-age=31536000";
+            applyLang(lang);
+        });
+
+        applyLang(getCurrentLang());
+        refreshStats();
+        setInterval(refreshStats, 600000);
+    </script>
+</body>
+</html>

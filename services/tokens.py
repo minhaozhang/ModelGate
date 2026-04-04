@@ -60,6 +60,10 @@ def _estimate_prompt_tokens(req_body: Optional[dict]) -> int:
     return _estimate_text_tokens(serialized)
 
 
+def estimate_request_context_tokens(req_body: Optional[dict]) -> int:
+    return _estimate_prompt_tokens(req_body)
+
+
 def _tool_call_key(tool_call: dict) -> str:
     if not isinstance(tool_call, dict):
         return ""

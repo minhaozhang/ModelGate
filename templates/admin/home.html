@@ -2,8 +2,9 @@
 <html>
 <head>
     <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
     <title>{{ _('Dashboard') }} - ModelGate</title>
-    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -131,11 +132,16 @@
         let currentPeriod = 'day';
         let trendChart = null;
         let latestSlowRequestsData = null;
+        const HOME_OVERVIEW_REFRESH_MS = 8000;
+        const HOME_REALTIME_REFRESH_MS = 3000;
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+        const HOME_ACTIVE_REFRESH_MS = 10000;
+        const HOME_SLOW_REFRESH_MS = 5000;
         const slowRequestsI18n = {
             noSlowRequests: '{{ _("No slow requests") }}',
             pending: '{{ _("pending") }}',
         };
-        async function logout() { await fetch('/admin/api/auth/logout', {method: 'POST'}); window.location.href = '/admin/login'; }
+        async function logout() { await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'}); window.location.href = `${APP_BASE_PATH}/admin/login`; }
         function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
         function getChartTheme() {
             const isDark = document.body.classList.contains('theme-dark');
@@ -165,14 +171,14 @@
         async function fetchJsonOrRedirect(url, options) {
             const resp = await fetch(url, options);
             if (resp.status === 401) {
-                window.location.href = '/admin/login';
+                window.location.href = `${APP_BASE_PATH}/admin/login`;
                 throw new Error('Unauthorized');
             }
             return await resp.json();
         }
         function changePeriod() { currentPeriod = document.getElementById('period-select').value; loadData(); }
         async function loadData() {
-            const data = await fetchJsonOrRedirect('/admin/api/stats/period?period=' + currentPeriod);
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/period?period=` + currentPeriod);
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
             document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
             document.getElementById('total-errors').textContent = data.total_errors;
@@ -219,7 +225,16 @@
                 });
             });
             if (firstIndex === null || lastIndex === null) {
+                if (currentPeriod === 'month' || currentPeriod === 'year') {
+                    const minVisibleBuckets = Math.min(30, totalBuckets);
+                    return { start: Math.max(totalBuckets - minVisibleBuckets, 0), end: Math.max(totalBuckets - 1, 0) };
+                }
                 return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            if (currentPeriod === 'month' || currentPeriod === 'year') {
+                const minVisibleBuckets = Math.min(30, totalBuckets);
+                const start = Math.max(Math.min(firstIndex - 1, totalBuckets - minVisibleBuckets), 0);
+                return { start, end: Math.max(totalBuckets - 1, 0) };
             }
             let start = Math.max(firstIndex - 1, 0);
             let end = Math.min(lastIndex + 1, totalBuckets - 1);
@@ -268,7 +283,7 @@
             document.getElementById('apikey-bars').innerHTML = html || '<div class="text-gray-400 text-center py-2 text-xs">No data</div>';
         }
         async function loadChart() {
-            const data = await fetchJsonOrRedirect('/admin/api/stats/chart?period=' + currentPeriod);
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/chart?period=` + currentPeriod);
             const ctx = document.getElementById('trendChart').getContext('2d');
             const chartTheme = getChartTheme();
             const scrollY = window.scrollY;
@@ -367,12 +382,12 @@
             window.scrollTo(0, scrollY);
         }
         loadData();
-        setInterval(loadData, 10000);
+        setInterval(loadData, HOME_OVERVIEW_REFRESH_MS);
         loadActiveSessions();
-        setInterval(loadActiveSessions, 10000);
+        setInterval(loadActiveSessions, HOME_ACTIVE_REFRESH_MS);
 
         async function loadActiveSessions() {
-            const data = await fetchJsonOrRedirect('/admin/api/stats/active');
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/active`);
             document.getElementById('active-count').textContent = data.active_count;
 
             if (data.active_count === 0) {
@@ -390,7 +405,7 @@
                 return `
                     <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
                         <div>
-                            <div class="font-medium">${maskedName}</div>
+                            <div class="font-medium truncate cursor-default" title="${name}">${maskedName}</div>
                             <div class="text-xs text-gray-500 mt-1">${modelsHtml}</div>
                         </div>
                         <div class="text-right">
@@ -461,24 +476,24 @@
         }
 
         async function loadSlowRequests() {
-            const data = await fetchJsonOrRedirect('/admin/api/stats/slow');
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/slow`);
             latestSlowRequestsData = data;
             renderSlowRequests(data);
         }
 
         async function loadRealtimeStats() {
-            const data = await fetchJsonOrRedirect('/admin/api/stats/realtime');
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/realtime`);
             document.getElementById('rps').textContent = data.requests_per_second;
             document.getElementById('tps').textContent = formatCompactTokens(data.tokens_per_second || 0);
         }
 
         loadSlowRequests();
-        setInterval(loadSlowRequests, 5000);
+        setInterval(loadSlowRequests, HOME_SLOW_REFRESH_MS);
         setInterval(() => {
             if (latestSlowRequestsData) renderSlowRequests(latestSlowRequestsData);
         }, 1000);
         loadRealtimeStats();
-        setInterval(loadRealtimeStats, 10000);
+        setInterval(loadRealtimeStats, HOME_REALTIME_REFRESH_MS);
     </script>
 </body>
 </html>

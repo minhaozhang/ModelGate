@@ -4,6 +4,7 @@ __pycache__/
 logs/
 .ruff_cache/
 .env
+.env.*
 nul
 test_screenshots/
 .idea/

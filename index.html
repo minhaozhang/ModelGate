@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="baidu-site-verification" content="codeva-0hVPJ6H1HZ" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ModelGate</title>
+    <link rel="icon" href="/modelgate/favicon.ico" sizes="any">
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?b4ffde061f8a692390379ea2bde40805";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-a: #08121f;
+            --bg-b: #111827;
+            --panel: rgba(10, 15, 27, 0.68);
+            --panel-border: rgba(255, 255, 255, 0.12);
+            --text-main: #f8fafc;
+            --text-muted: #cbd5e1;
+            --chip-blue: rgba(56, 189, 248, 0.18);
+            --chip-green: rgba(74, 222, 128, 0.18);
+            --chip-orange: rgba(251, 146, 60, 0.18);
+        }
+
+        body {
+            min-height: 100vh;
+            color: var(--text-main);
+            background:
+                radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.24), transparent 30%),
+                radial-gradient(circle at 80% 15%, rgba(16, 185, 129, 0.18), transparent 28%),
+                radial-gradient(circle at 65% 75%, rgba(249, 115, 22, 0.14), transparent 26%),
+                linear-gradient(135deg, var(--bg-a), var(--bg-b));
+        }
+
+        .glass {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+    </style>
+</head>
+<body class="text-slate-100">
+    <div class="fixed inset-0 -z-10 overflow-hidden">
+        <div class="absolute left-[-8rem] top-[-8rem] h-72 w-72 rounded-full bg-sky-500/20 blur-3xl"></div>
+        <div class="absolute right-[-4rem] top-16 h-64 w-64 rounded-full bg-emerald-500/20 blur-3xl"></div>
+        <div class="absolute bottom-[-7rem] left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-orange-500/10 blur-3xl"></div>
+    </div>
+
+    <div class="fixed right-4 top-4 z-50 flex items-center gap-3">
+        <a href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" class="text-sm text-white/50 transition hover:text-white/80">Gitee</a>
+        <select id="lang-select" class="cursor-pointer rounded border border-white/20 bg-transparent px-2 py-1 text-sm text-white/70 focus:outline-none">
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+        </select>
+    </div>
+
+    <main class="mx-auto flex min-h-screen max-w-6xl items-center px-6 py-12">
+        <div class="grid w-full gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+            <section class="glass rounded-3xl p-8 lg:p-10">
+                <div class="mb-6 inline-flex items-center gap-3 rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm text-sky-200">
+                    <img src="/modelgate/favicon.svg" alt="ModelGate" class="h-5 w-5">
+                    <span>ModelGate</span>
+                </div>
+
+                <h1 id="hero-title" class="max-w-3xl text-4xl font-bold tracking-tight text-white lg:text-5xl"></h1>
+                <p id="hero-desc" class="mt-5 max-w-2xl text-base leading-8 text-slate-300 lg:text-lg"></p>
+
+                <div class="mt-8 flex flex-wrap gap-3">
+                    <a id="user-login-btn" href="/modelgate/user/login" class="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-3 font-medium text-white shadow-lg transition hover:from-blue-600 hover:to-cyan-600 hover:shadow-xl"></a>
+                </div>
+
+                <div class="mt-10 flex flex-wrap gap-3">
+                    <span id="chip-1" class="rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm text-sky-200"></span>
+                    <span id="chip-2" class="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200"></span>
+                    <span id="chip-3" class="rounded-full border border-orange-400/30 bg-orange-400/10 px-4 py-2 text-sm text-orange-200"></span>
+                </div>
+
+                <div class="mt-8 grid grid-cols-2 gap-4">
+                    <div class="rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="stat-requests">--</div>
+                        <div class="mt-1 text-xs text-slate-400" id="stat-requests-label"></div>
+                    </div>
+                    <div class="rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="stat-tokens">--</div>
+                        <div class="mt-1 text-xs text-slate-400" id="stat-tokens-label"></div>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="glass rounded-3xl p-8 lg:p-10">
+                <h2 id="quick-start-title" class="text-xl font-semibold text-white"></h2>
+                <ol class="mt-5 space-y-4 text-sm leading-7 text-slate-300">
+                    <li><span id="step-1"></span></li>
+                    <li><span id="step-2-prefix"></span> <span class="text-sky-200">(/modelgate/v1/models)</span></li>
+                    <li><span id="step-3"></span></li>
+                    <li><span id="step-4"></span></li>
+                </ol>
+
+                <div class="mt-8 rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4">
+                    <div id="base-url-label" class="text-sm text-slate-400"></div>
+                    <code id="base-url-value" class="mt-2 block break-all text-sm text-sky-200"></code>
+                </div>
+
+                <div class="mt-4 rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4">
+                    <div class="text-sm text-slate-400">OpenCode</div>
+                    <p id="opencode-desc" class="mt-2 text-sm leading-7 text-slate-300"></p>
+                    <a id="opencode-link" href="https://opencode.ai/" target="_blank" rel="noreferrer" class="mt-3 inline-flex text-sm font-medium text-emerald-300 transition hover:text-emerald-200"></a>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 py-3 text-center text-sm text-white/40">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" class="transition hover:text-white/60">
+            浙ICP备2026019680号-1
+        </a>
+    </footer>
+
+    <script>
+        const APP_BASE_PATH = "/modelgate";
+        const translations = {
+            en: {
+                heroTitle: "A unified gateway for models, monitoring, and OpenCode access",
+                heroDesc: "ModelGate provides a unified LLM API proxy, API key management, usage dashboards, monitoring, and OpenCode configuration in one place.",
+                userLogin: "User Login",
+                chip1: "Multi-provider API proxy",
+                chip2: "Usage dashboard & analytics",
+                chip3: "Monitoring & error analysis",
+                quickStart: "Quick Start",
+                step1: "1. Open the user login page and sign in with an API key.",
+                step2: "2. Use /v1/models to confirm which models are available.",
+                step3: "3. If needed, generate OpenCode settings from the dashboard or API key page.",
+                step4: "4. Use the admin panel to review monitoring, logs, and daily analysis reports.",
+                baseUrl: "Example Base URL",
+                totalRequests: "Total Requests",
+                totalTokens: "Total Tokens",
+                opencodeDesc: "After obtaining an API key, you can generate OpenCode configuration from the dashboard or admin API key page.",
+                visitOpenCode: "Visit OpenCode"
+            },
+            zh: {
+                heroTitle: "统一的模型网关、监控与 OpenCode 访问入口",
+                heroDesc: "ModelGate 在一个入口中提供统一的 LLM API 代理、API Key 管理、使用仪表盘、监控分析与 OpenCode 配置。",
+                userLogin: "用户登录",
+                chip1: "多供应商 API 代理",
+                chip2: "使用仪表盘与分析",
+                chip3: "监控与错误分析",
+                quickStart: "快速开始",
+                step1: "1. 打开用户登录页，并使用 API Key 登录。",
+                step2: "2. 通过 /v1/models 确认可用模型列表。",
+                step3: "3. 如有需要，可在仪表盘或 API Key 页面生成 OpenCode 配置。",
+                step4: "4. 通过管理面板查看监控、日志和每日报告分析。",
+                baseUrl: "示例 Base URL",
+                totalRequests: "总调用量",
+                totalTokens: "总消耗 Tokens",
+                opencodeDesc: "获取 API Key 后，你可以在仪表盘或管理端 API Key 页面生成 OpenCode 配置。",
+                visitOpenCode: "访问 OpenCode"
+            }
+        };
+
+        function readCookie(name) {
+            const cookies = document.cookie.split(";").map((item) => item.trim());
+            const found = cookies.find((item) => item.startsWith(name + "="));
+            return found ? decodeURIComponent(found.split("=")[1]) : "";
+        }
+
+        function getCurrentLang() {
+            const cookieLang = readCookie("lang");
+            if (cookieLang === "zh" || cookieLang === "en") {
+                return cookieLang;
+            }
+            return navigator.language && navigator.language.toLowerCase().includes("zh") ? "zh" : "en";
+        }
+
+        function applyLang(lang) {
+            const t = translations[lang] || translations.en;
+            document.documentElement.lang = lang;
+            document.getElementById("lang-select").value = lang;
+            document.getElementById("hero-title").textContent = t.heroTitle;
+            document.getElementById("hero-desc").textContent = t.heroDesc;
+            document.getElementById("user-login-btn").textContent = t.userLogin;
+            document.getElementById("chip-1").textContent = t.chip1;
+            document.getElementById("chip-2").textContent = t.chip2;
+            document.getElementById("chip-3").textContent = t.chip3;
+            document.getElementById("quick-start-title").textContent = t.quickStart;
+            document.getElementById("step-1").textContent = t.step1;
+            document.getElementById("step-2-prefix").textContent = t.step2;
+            document.getElementById("step-3").textContent = t.step3;
+            document.getElementById("step-4").textContent = t.step4;
+            document.getElementById("base-url-label").textContent = t.baseUrl;
+            document.getElementById("stat-requests-label").textContent = t.totalRequests;
+            document.getElementById("stat-tokens-label").textContent = t.totalTokens;
+            document.getElementById("base-url-value").textContent = window.location.origin + APP_BASE_PATH + "/v1";
+            document.getElementById("opencode-desc").textContent = t.opencodeDesc;
+            document.getElementById("opencode-link").textContent = t.visitOpenCode;
+        }
+
+        document.getElementById("lang-select").addEventListener("change", (event) => {
+            const lang = event.target.value;
+            document.cookie = "lang=" + lang + ";path=/;max-age=31536000";
+            applyLang(lang);
+        refreshStats();
+        setInterval(refreshStats, 600000);
+        });
+
+        applyLang(getCurrentLang());
+
+        function formatNumber(n) {
+            if (n == null) return '-';
+            return n.toLocaleString();
+        }
+
+        function refreshStats() {
+            fetch('https://leturx.cc/modelgate/api/public/stats')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('stat-requests').textContent = formatNumber(data.total_requests);
+                    document.getElementById('stat-tokens').textContent = formatNumber(data.total_tokens);
+                })
+                .catch(() => {
+                    document.getElementById('stat-requests').textContent = '-';
+                    document.getElementById('stat-tokens').textContent = '-';
+                });
+        }
+
+        refreshStats();
+    </script>
+</body>
+</html>

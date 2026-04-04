@@ -12,7 +12,13 @@ from core.config import (
     logger,
     provider_semaphores,
 )
-from core.database import async_session_maker, RequestLog, Provider, ProviderModel, Model
+from core.database import (
+    async_session_maker,
+    RequestLog,
+    Provider,
+    ProviderModel,
+    Model,
+)
 
 
 def parse_model(model: str) -> tuple[str, str]:
@@ -48,6 +54,9 @@ async def load_providers():
                         or (model.display_name if model else None),
                         "actual_model_name": model.name if model else None,
                         "is_multimodal": model.is_multimodal if model else False,
+                        "max_tokens": model.max_tokens if model else 16384,
+                        "thinking_enabled": model.thinking_enabled if model else False,
+                        "thinking_budget": model.thinking_budget if model else 8192,
                     }
                 )
 
