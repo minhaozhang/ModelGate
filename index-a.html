@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="baidu-site-verification" content="codeva-0hVPJ6H1HZ" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ModelGate</title>
+    <link rel="icon" href="/modelgate/favicon.ico" sizes="any">
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?b4ffde061f8a692390379ea2bde40805";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                fontFamily: {
+                    display: ['Orbitron', 'sans-serif'],
+                    body: ['Exo 2', 'sans-serif'],
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        body { font-family: 'Exo 2', sans-serif; }
+        .font-display { font-family: 'Orbitron', sans-serif; }
+        @keyframes grid-scroll {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(50px); }
+        }
+        .grid-bg {
+            background-image:
+                linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: grid-scroll 20s linear infinite;
+        }
+        @keyframes glow-pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+        }
+        .glow-line {
+            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.6), transparent);
+            height: 1px;
+            animation: glow-pulse 3s ease-in-out infinite;
+        }
+        .stat-number { font-variant-numeric: tabular-nums; }
+        @keyframes scan-line {
+            0% { top: -10%; }
+            100% { top: 110%; }
+        }
+        .scan-effect::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.3), transparent);
+            animation: scan-line 4s linear infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-[#050a14] text-slate-100 overflow-x-hidden">
+    <div class="fixed inset-0 -z-10 grid-bg"></div>
+    <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div class="absolute left-[-10%] top-[-5%] h-[500px] w-[500px] rounded-full bg-sky-500/[0.07] blur-[120px]"></div>
+        <div class="absolute right-[-5%] bottom-[10%] h-[400px] w-[400px] rounded-full bg-cyan-500/[0.05] blur-[100px]"></div>
+        <div class="absolute left-[40%] top-[60%] h-[300px] w-[300px] rounded-full bg-violet-500/[0.04] blur-[80px]"></div>
+    </div>
+
+    <nav class="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 pt-4">
+        <div class="mx-auto max-w-6xl flex items-center justify-between rounded-2xl border border-white/[0.06] bg-[#0a1020]/80 px-5 py-3 backdrop-blur-xl">
+            <div class="flex items-center gap-3">
+                <img src="/modelgate/favicon.svg" alt="ModelGate" class="h-6 w-6">
+                <span class="font-display text-sm font-semibold tracking-wider text-sky-300">MODELGATE</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" class="text-sm text-white/40 transition-colors duration-200 hover:text-white/70">Gitee</a>
+                <select id="lang-select" class="cursor-pointer rounded-lg border border-white/10 bg-transparent px-2 py-1 text-sm text-white/50 focus:outline-none transition-colors duration-200 hover:text-white/80">
+                    <option value="en">EN</option>
+                    <option value="zh">中文</option>
+                </select>
+            </div>
+        </div>
+    </nav>
+
+    <main class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-28 pb-20">
+        <section class="text-center">
+            <div class="mx-auto inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/[0.08] px-4 py-1.5 text-xs font-medium tracking-wider text-sky-300 font-display mb-8">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                <span>LLM API GATEWAY</span>
+            </div>
+
+            <h1 class="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
+                <span id="hero-title-line1"></span>
+            </h1>
+            <p id="hero-desc" class="mx-auto mt-6 max-w-2xl text-base leading-8 text-slate-400 lg:text-lg"></p>
+
+            <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
+                <a id="user-login-btn" href="/modelgate/user/login" class="cursor-pointer rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-8 py-3.5 font-semibold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-sky-500/30 hover:from-sky-400 hover:to-cyan-400"></a>
+                <a href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" id="docs-btn" class="cursor-pointer rounded-xl border border-white/10 bg-white/[0.03] px-8 py-3.5 font-semibold text-slate-300 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.06]"></a>
+            </div>
+        </section>
+
+        <div class="mt-6 glow-line"></div>
+
+        <section class="mt-16 grid grid-cols-2 gap-4 sm:gap-6">
+            <div class="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a1020]/60 p-6 text-center backdrop-blur-sm scan-effect">
+                <div class="font-display text-3xl font-bold text-white stat-number sm:text-4xl" id="stat-requests">--</div>
+                <div class="mt-2 text-xs font-medium uppercase tracking-wider text-slate-500" id="stat-requests-label"></div>
+            </div>
+            <div class="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a1020]/60 p-6 text-center backdrop-blur-sm scan-effect">
+                <div class="font-display text-3xl font-bold text-white stat-number sm:text-4xl" id="stat-tokens">--</div>
+                <div class="mt-2 text-xs font-medium uppercase tracking-wider text-slate-500" id="stat-tokens-label"></div>
+            </div>
+        </section>
+
+        <section class="mt-16">
+            <div class="grid gap-4 sm:grid-cols-3">
+                <div class="group cursor-pointer rounded-2xl border border-white/[0.06] bg-[#0a1020]/40 p-6 backdrop-blur-sm transition-all duration-300 hover:border-sky-500/20 hover:bg-[#0a1020]/70">
+                    <div class="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-sky-500/10 text-sky-400 transition-colors duration-300 group-hover:bg-sky-500/20">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
+                    </div>
+                    <h3 id="feat-1-title" class="mt-4 font-semibold text-white"></h3>
+                    <p id="feat-1-desc" class="mt-2 text-sm leading-6 text-slate-400"></p>
+                </div>
+                <div class="group cursor-pointer rounded-2xl border border-white/[0.06] bg-[#0a1020]/40 p-6 backdrop-blur-sm transition-all duration-300 hover:border-emerald-500/20 hover:bg-[#0a1020]/70">
+                    <div class="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-400 transition-colors duration-300 group-hover:bg-emerald-500/20">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
+                    </div>
+                    <h3 id="feat-2-title" class="mt-4 font-semibold text-white"></h3>
+                    <p id="feat-2-desc" class="mt-2 text-sm leading-6 text-slate-400"></p>
+                </div>
+                <div class="group cursor-pointer rounded-2xl border border-white/[0.06] bg-[#0a1020]/40 p-6 backdrop-blur-sm transition-all duration-300 hover:border-violet-500/20 hover:bg-[#0a1020]/70">
+                    <div class="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-violet-500/10 text-violet-400 transition-colors duration-300 group-hover:bg-violet-500/20">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>
+                    </div>
+                    <h3 id="feat-3-title" class="mt-4 font-semibold text-white"></h3>
+                    <p id="feat-3-desc" class="mt-2 text-sm leading-6 text-slate-400"></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mt-16">
+            <div class="rounded-2xl border border-white/[0.06] bg-[#0a1020]/60 p-6 backdrop-blur-sm">
+                <div class="flex items-center gap-2 mb-4">
+                    <span class="inline-block h-2 w-2 rounded-full bg-emerald-400"></span>
+                    <span class="font-display text-xs font-medium tracking-wider text-slate-400">QUICK START</span>
+                </div>
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <ol class="space-y-3 text-sm text-slate-300" id="steps-list">
+                        </ol>
+                    </div>
+                    <div class="flex flex-col gap-3">
+                        <div class="rounded-xl border border-white/[0.06] bg-[#060c18] p-4">
+                            <div class="text-xs text-slate-500 mb-2" id="base-url-label"></div>
+                            <code class="text-sm text-sky-300 break-all" id="base-url-value"></code>
+                        </div>
+                        <div class="rounded-xl border border-white/[0.06] bg-[#060c18] p-4">
+                            <div class="text-xs text-slate-500 mb-2">OpenCode</div>
+                            <p id="opencode-desc" class="text-sm text-slate-400"></p>
+                            <a id="opencode-link" href="https://opencode.ai/" target="_blank" rel="noreferrer" class="mt-2 inline-flex text-sm font-medium text-cyan-400 transition-colors duration-200 hover:text-cyan-300"></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="border-t border-white/[0.04] py-6 text-center text-sm text-white/30">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" class="transition-colors duration-200 hover:text-white/50">
+            浙ICP备2026019680号-1
+        </a>
+    </footer>
+
+    <script>
+        var APP_BASE_PATH = "/modelgate";
+        var translations = {
+            en: {
+                heroTitle: "UNIFIED MODEL GATEWAY",
+                heroDesc: "One endpoint for all your LLM APIs. Proxy, monitor, and manage every provider through a single unified interface.",
+                userLogin: "Get Started",
+                docsBtn: "View Source",
+                totalRequests: "TOTAL REQUESTS",
+                totalTokens: "TOKENS CONSUMED",
+                feat1Title: "Multi-Provider Proxy",
+                feat1Desc: "Route requests to Zhipu, DeepSeek, Ollama, Minimax and more through a single OpenAI-compatible API.",
+                feat2Title: "Usage Analytics",
+                feat2Desc: "Real-time dashboards with per-provider, per-model, and per-key metrics and monitoring.",
+                feat3Title: "Access Control",
+                feat3Desc: "API key management with granular model-level permissions and concurrency limits.",
+                step1: "1. Sign in with an API key",
+                step2: "2. Check /v1/models for available models",
+                step3: "3. Generate OpenCode config if needed",
+                step4: "4. Monitor usage via admin panel",
+                baseUrl: "Base URL",
+                opencodeDesc: "Generate OpenCode configuration from the dashboard.",
+                visitOpenCode: "Visit OpenCode \u2192"
+            },
+            zh: {
+                heroTitle: "统一的模型网关",
+                heroDesc: "一个端点接入所有 LLM API。通过统一接口代理、监控和管理每一个模型供应商。",
+                userLogin: "\u5F00\u59CB\u4F7F\u7528",
+                docsBtn: "\u67E5\u770B\u6E90\u7801",
+                totalRequests: "\u603B\u8C03\u7528\u91CF",
+                totalTokens: "\u6D88\u8017 TOKENS",
+                feat1Title: "\u591A\u4F9B\u5E94\u5546\u4EE3\u7406",
+                feat1Desc: "\u901A\u8FC7\u5355\u4E2A OpenAI \u517C\u5BB9 API \u8F6C\u53D1\u8BF7\u6C42\u81F3\u667A\u8C31\u3001DeepSeek\u3001Ollama\u3001Minimax \u7B49\u3002",
+                feat2Title: "\u4F7F\u7528\u5206\u6790",
+                feat2Desc: "\u5B9E\u65F6\u4EEA\u8868\u76D8\uFF0C\u6309\u4F9B\u5E94\u5546\u3001\u6A21\u578B\u3001\u5BC6\u94A5\u7EF4\u5EA6\u76D1\u63A7\u3002",
+                feat3Title: "\u8BBF\u95EE\u63A7\u5236",
+                feat3Desc: "API Key \u7BA1\u7406\uFF0C\u7EC6\u7C92\u5EA6\u6A21\u578B\u7EA7\u6743\u9650\u548C\u5E76\u53D1\u9650\u5236\u3002",
+                step1: "1. \u4F7F\u7528 API Key \u767B\u5F55",
+                step2: "2. \u901A\u8FC7 /v1/models \u786E\u8BA4\u53EF\u7528\u6A21\u578B",
+                step3: "3. \u5982\u9700\u8981\uFF0C\u751F\u6210 OpenCode \u914D\u7F6E",
+                step4: "4. \u901A\u8FC7\u7BA1\u7406\u9762\u677F\u67E5\u770B\u76D1\u63A7",
+                baseUrl: "\u793A\u4F8B Base URL",
+                opencodeDesc: "\u4ECE\u4EEA\u8868\u76D8\u751F\u6210 OpenCode \u914D\u7F6E\u3002",
+                visitOpenCode: "\u8BBF\u95EE OpenCode \u2192"
+            }
+        };
+
+        function readCookie(name) {
+            var cookies = document.cookie.split(";").map(function(item) { return item.trim(); });
+            var found = cookies.find(function(item) { return item.startsWith(name + "="); });
+            return found ? decodeURIComponent(found.split("=")[1]) : "";
+        }
+
+        function getCurrentLang() {
+            var cookieLang = readCookie("lang");
+            if (cookieLang === "zh" || cookieLang === "en") return cookieLang;
+            return navigator.language && navigator.language.toLowerCase().includes("zh") ? "zh" : "en";
+        }
+
+        function formatNumber(n) {
+            if (n == null) return '-';
+            return n.toLocaleString();
+        }
+
+        function applyLang(lang) {
+            var t = translations[lang] || translations.en;
+            document.documentElement.lang = lang;
+            document.getElementById("lang-select").value = lang;
+            document.getElementById("hero-title-line1").textContent = t.heroTitle;
+            document.getElementById("hero-desc").textContent = t.heroDesc;
+            document.getElementById("user-login-btn").textContent = t.userLogin;
+            document.getElementById("docs-btn").textContent = t.docsBtn;
+            document.getElementById("stat-requests-label").textContent = t.totalRequests;
+            document.getElementById("stat-tokens-label").textContent = t.totalTokens;
+            document.getElementById("feat-1-title").textContent = t.feat1Title;
+            document.getElementById("feat-1-desc").textContent = t.feat1Desc;
+            document.getElementById("feat-2-title").textContent = t.feat2Title;
+            document.getElementById("feat-2-desc").textContent = t.feat2Desc;
+            document.getElementById("feat-3-title").textContent = t.feat3Title;
+            document.getElementById("feat-3-desc").textContent = t.feat3Desc;
+            document.getElementById("steps-list").innerHTML = '<li>' + t.step1 + '</li><li>' + t.step2 + '</li><li>' + t.step3 + '</li><li>' + t.step4 + '</li>';
+            document.getElementById("base-url-label").textContent = t.baseUrl;
+            document.getElementById("base-url-value").textContent = window.location.origin + APP_BASE_PATH + "/v1";
+            document.getElementById("opencode-desc").textContent = t.opencodeDesc;
+            document.getElementById("opencode-link").textContent = t.visitOpenCode;
+        }
+
+        function refreshStats() {
+            fetch('https://leturx.cc/modelgate/api/public/stats')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    document.getElementById('stat-requests').textContent = formatNumber(data.total_requests);
+                    document.getElementById('stat-tokens').textContent = formatNumber(data.total_tokens);
+                })
+                .catch(function() {
+                    document.getElementById('stat-requests').textContent = '-';
+                    document.getElementById('stat-tokens').textContent = '-';
+                });
+        }
+
+        document.getElementById("lang-select").addEventListener("change", function(event) {
+            var lang = event.target.value;
+            document.cookie = "lang=" + lang + ";path=/;max-age=31536000";
+            applyLang(lang);
+        });
+
+        applyLang(getCurrentLang());
+        refreshStats();
+        setInterval(refreshStats, 600000);
+    </script>
+</body>
+</html>

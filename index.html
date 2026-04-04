@@ -83,6 +83,17 @@
                     <span id="chip-2" class="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200"></span>
                     <span id="chip-3" class="rounded-full border border-orange-400/30 bg-orange-400/10 px-4 py-2 text-sm text-orange-200"></span>
                 </div>
+
+                <div class="mt-8 grid grid-cols-2 gap-4">
+                    <div class="rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="stat-requests">--</div>
+                        <div class="mt-1 text-xs text-slate-400" id="stat-requests-label"></div>
+                    </div>
+                    <div class="rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="stat-tokens">--</div>
+                        <div class="mt-1 text-xs text-slate-400" id="stat-tokens-label"></div>
+                    </div>
+                </div>
             </section>
 
             <aside class="glass rounded-3xl p-8 lg:p-10">
@@ -130,6 +141,8 @@
                 step3: "3. If needed, generate OpenCode settings from the dashboard or API key page.",
                 step4: "4. Use the admin panel to review monitoring, logs, and daily analysis reports.",
                 baseUrl: "Example Base URL",
+                totalRequests: "Total Requests",
+                totalTokens: "Total Tokens",
                 opencodeDesc: "After obtaining an API key, you can generate OpenCode configuration from the dashboard or admin API key page.",
                 visitOpenCode: "Visit OpenCode"
             },
@@ -146,6 +159,8 @@
                 step3: "3. 如有需要，可在仪表盘或 API Key 页面生成 OpenCode 配置。",
                 step4: "4. 通过管理面板查看监控、日志和每日报告分析。",
                 baseUrl: "示例 Base URL",
+                totalRequests: "总调用量",
+                totalTokens: "总消耗 Tokens",
                 opencodeDesc: "获取 API Key 后，你可以在仪表盘或管理端 API Key 页面生成 OpenCode 配置。",
                 visitOpenCode: "访问 OpenCode"
             }
@@ -181,6 +196,8 @@
             document.getElementById("step-3").textContent = t.step3;
             document.getElementById("step-4").textContent = t.step4;
             document.getElementById("base-url-label").textContent = t.baseUrl;
+            document.getElementById("stat-requests-label").textContent = t.totalRequests;
+            document.getElementById("stat-tokens-label").textContent = t.totalTokens;
             document.getElementById("base-url-value").textContent = window.location.origin + APP_BASE_PATH + "/v1";
             document.getElementById("opencode-desc").textContent = t.opencodeDesc;
             document.getElementById("opencode-link").textContent = t.visitOpenCode;
@@ -190,9 +207,31 @@
             const lang = event.target.value;
             document.cookie = "lang=" + lang + ";path=/;max-age=31536000";
             applyLang(lang);
+        refreshStats();
+        setInterval(refreshStats, 600000);
         });
 
         applyLang(getCurrentLang());
+
+        function formatNumber(n) {
+            if (n == null) return '-';
+            return n.toLocaleString();
+        }
+
+        function refreshStats() {
+            fetch('https://leturx.cc/modelgate/api/public/stats')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('stat-requests').textContent = formatNumber(data.total_requests);
+                    document.getElementById('stat-tokens').textContent = formatNumber(data.total_tokens);
+                })
+                .catch(() => {
+                    document.getElementById('stat-requests').textContent = '-';
+                    document.getElementById('stat-tokens').textContent = '-';
+                });
+        }
+
+        refreshStats();
     </script>
 </body>
 </html>

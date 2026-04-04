@@ -63,6 +63,17 @@
                     <span class="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200">{{ "使用仪表盘与分析" if is_zh else "Usage dashboard & analytics" }}</span>
                     <span class="rounded-full border border-purple-400/30 bg-purple-400/10 px-4 py-2 text-sm text-purple-200">{{ "监控与错误分析" if is_zh else "Monitoring & error analysis" }}</span>
                 </div>
+
+                <div class="mt-8 grid grid-cols-2 gap-4">
+                    <div class="rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="stat-requests">--</div>
+                        <div class="mt-1 text-xs text-slate-400">{{ "总调用量" if is_zh else "Total Requests" }}</div>
+                    </div>
+                    <div class="rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4 text-center">
+                        <div class="text-2xl font-bold text-white" id="stat-tokens">--</div>
+                        <div class="mt-1 text-xs text-slate-400">{{ "总消耗 Tokens" if is_zh else "Total Tokens" }}</div>
+                    </div>
+                </div>
             </section>
 
             <aside class="glass rounded-3xl p-8 lg:p-10">
@@ -303,6 +314,31 @@
 
             renderer.render(scene, camera);
         }
+
+        function formatNumber(n) {
+            if (n == null) return '-';
+            return n.toLocaleString();
+        }
+
+        fetch('{{ app_base_path }}/api/public/stats')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('stat-requests').textContent = formatNumber(data.total_requests);
+                document.getElementById('stat-tokens').textContent = formatNumber(data.total_tokens);
+            })
+            .catch(() => {
+                document.getElementById('stat-requests').textContent = '-';
+                document.getElementById('stat-tokens').textContent = '-';
+            });
+
+        setInterval(function() {
+            fetch('{{ app_base_path }}/api/public/stats')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    document.getElementById('stat-requests').textContent = formatNumber(data.total_requests);
+                    document.getElementById('stat-tokens').textContent = formatNumber(data.total_tokens);
+                });
+        }, 600000);
 
         init();
     </script>

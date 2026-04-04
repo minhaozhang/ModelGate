@@ -22,6 +22,7 @@ from core.config import (
     tokens_per_second,
 )
 
+public_router = APIRouter(prefix="/api/public", tags=["public"])
 router = APIRouter(prefix="/admin/api", tags=["stats"])
 ERROR_STATUS = "error"
 TIMEOUT_STATUS = "timeout"
@@ -32,6 +33,9 @@ TOKEN_COUNT_EXPR = func.coalesce(
     RequestLog.tokens["estimated"].as_integer(),
     0,
 )
+
+historical_stats_cache: dict = {}
+historical_stats_cache_date: Optional[str] = None
 
 
 def require_admin(session: Optional[str] = Cookie(None)):
@@ -1684,4 +1688,40 @@ async def get_slow_requests(_: bool = Depends(require_admin)):
     return {
         "pending": slow_pending,
         "completed": slow_completed,
+    }
+
+
+@public_router.get("/stats")
+async def get_public_stats():
+    global historical_stats_cache, historical_stats_cache_date
+
+    today_str = get_local_now().strftime("%Y-%m-%d")
+
+    if historical_stats_cache_date != today_str:
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(
+                    func.coalesce(func.sum(ProviderDailyStat.requests), 0),
+                    func.coalesce(func.sum(ProviderDailyStat.tokens), 0),
+                ).where(ProviderDailyStat.date < today_str)
+            )
+            row = result.one()
+            historical_stats_cache = {
+                "total_requests": row[0],
+                "total_tokens": row[1],
+            }
+            historical_stats_cache_date = today_str
+
+    today_start = get_day_start(get_local_now())
+    today_data = await get_cached_today_stats(today_start)
+
+    today_requests = 0
+    today_tokens = 0
+    for provider_metrics in today_data.get("provider", {}).values():
+        today_requests += provider_metrics.get("requests", 0)
+        today_tokens += provider_metrics.get("tokens", 0)
+
+    return {
+        "total_requests": historical_stats_cache["total_requests"] + today_requests,
+        "total_tokens": historical_stats_cache["total_tokens"] + today_tokens,
     }
