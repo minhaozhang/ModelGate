@@ -75,7 +75,11 @@ def _check_time_rules(time_rules: list[dict]) -> bool:
             start_t = datetime.time(parts[0], parts[1], parts[2] if len(parts) > 2 else 0)
             parts = [int(p) for p in end_str.split(":")]
             end_t = datetime.time(parts[0], parts[1], parts[2] if len(parts) > 2 else 0)
-            if start_t <= current_time <= end_t:
+            if start_t > end_t:
+                in_range = current_time >= start_t or current_time <= end_t
+            else:
+                in_range = start_t <= current_time <= end_t
+            if in_range:
                 return allowed
 
         elif rule_type == "date_range":
