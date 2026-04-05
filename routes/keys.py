@@ -1,3 +1,5 @@
+from datetime import time as dt_time, date as dt_date
+
 from fastapi import APIRouter, Depends, Cookie, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -8,6 +10,7 @@ from core.database import (
     async_session_maker,
     ApiKey,
     ApiKeyModel,
+    ApiKeyTimeRule,
     RequestLogRead as RequestLog,
     generate_api_key,
 )
@@ -48,12 +51,32 @@ async def list_api_keys(_: bool = Depends(require_admin)):
                 )
             )
             model_ids = [row[0] for row in models_result.fetchall()]
+
+            rules_result = await session.execute(
+                select(ApiKeyTimeRule).where(ApiKeyTimeRule.api_key_id == k.id)
+            )
+            rules = rules_result.scalars().all()
+            time_rules = [
+                {
+                    "id": r.id,
+                    "rule_type": r.rule_type,
+                    "allowed": r.allowed,
+                    "start_time": _serialize_time(r.start_time),
+                    "end_time": _serialize_time(r.end_time),
+                    "start_date": _serialize_date(r.start_date),
+                    "end_date": _serialize_date(r.end_date),
+                    "weekdays": r.weekdays,
+                }
+                for r in rules
+            ]
+
             api_keys.append(
                 {
                     "id": k.id,
                     "name": k.name,
                     "key": k.key,
                     "allowed_provider_model_ids": model_ids,
+                    "time_rules": time_rules,
                     "is_active": k.is_active,
                     "last_used_at": k.last_used_at.isoformat()
                     if k.last_used_at
@@ -213,3 +236,158 @@ async def get_api_key_logs(
                 for log in logs
             ]
         }
+
+
+class TimeRuleCreate(BaseModel):
+    rule_type: str
+    allowed: bool = True
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    weekdays: Optional[str] = None
+
+
+class TimeRuleUpdate(BaseModel):
+    rule_type: Optional[str] = None
+    allowed: Optional[bool] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    weekdays: Optional[str] = None
+
+
+def _parse_time(val: str | None) -> dt_time | None:
+    if not val:
+        return None
+    parts = val.split(":")
+    return dt_time(int(parts[0]), int(parts[1]), int(parts[2]) if len(parts) > 2 else 0)
+
+
+def _parse_date(val: str | None) -> dt_date | None:
+    if not val:
+        return None
+    return dt_date.fromisoformat(val)
+
+
+def _serialize_time(val: dt_time | None) -> str | None:
+    return val.strftime("%H:%M:%S") if val else None
+
+
+def _serialize_date(val: dt_date | None) -> str | None:
+    return val.isoformat() if val else None
+
+
+@router.get("/keys/{key_id}/time-rules")
+async def list_time_rules(key_id: int, _: bool = Depends(require_admin)):
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(ApiKeyTimeRule).where(ApiKeyTimeRule.api_key_id == key_id)
+        )
+        rules = result.scalars().all()
+        return {
+            "rules": [
+                {
+                    "id": r.id,
+                    "rule_type": r.rule_type,
+                    "allowed": r.allowed,
+                    "start_time": _serialize_time(r.start_time),
+                    "end_time": _serialize_time(r.end_time),
+                    "start_date": _serialize_date(r.start_date),
+                    "end_date": _serialize_date(r.end_date),
+                    "weekdays": r.weekdays,
+                }
+                for r in rules
+            ]
+        }
+
+
+@router.post("/keys/{key_id}/time-rules")
+async def create_time_rule(
+    key_id: int, data: TimeRuleCreate, _: bool = Depends(require_admin)
+):
+    async with async_session_maker() as session:
+        result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
+        if not result.scalar_one_or_none():
+            return JSONResponse({"error": "API key not found"}, status_code=404)
+
+        rule = ApiKeyTimeRule(
+            api_key_id=key_id,
+            rule_type=data.rule_type,
+            allowed=data.allowed,
+            start_time=_parse_time(data.start_time),
+            end_time=_parse_time(data.end_time),
+            start_date=_parse_date(data.start_date),
+            end_date=_parse_date(data.end_date),
+            weekdays=data.weekdays,
+        )
+        session.add(rule)
+        await session.commit()
+        await session.refresh(rule)
+        await load_api_keys()
+        return {
+            "id": rule.id,
+            "rule_type": rule.rule_type,
+            "allowed": rule.allowed,
+            "start_time": _serialize_time(rule.start_time),
+            "end_time": _serialize_time(rule.end_time),
+            "start_date": _serialize_date(rule.start_date),
+            "end_date": _serialize_date(rule.end_date),
+            "weekdays": rule.weekdays,
+        }
+
+
+@router.put("/keys/{key_id}/time-rules/{rule_id}")
+async def update_time_rule(
+    key_id: int, rule_id: int, data: TimeRuleUpdate, _: bool = Depends(require_admin)
+):
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(ApiKeyTimeRule).where(
+                ApiKeyTimeRule.id == rule_id,
+                ApiKeyTimeRule.api_key_id == key_id,
+            )
+        )
+        rule = result.scalar_one_or_none()
+        if not rule:
+            return JSONResponse({"error": "Time rule not found"}, status_code=404)
+
+        if data.rule_type is not None:
+            rule.rule_type = data.rule_type
+        if data.allowed is not None:
+            rule.allowed = data.allowed
+        if data.start_time is not None:
+            rule.start_time = _parse_time(data.start_time)
+        if data.end_time is not None:
+            rule.end_time = _parse_time(data.end_time)
+        if data.start_date is not None:
+            rule.start_date = _parse_date(data.start_date)
+        if data.end_date is not None:
+            rule.end_date = _parse_date(data.end_date)
+        if data.weekdays is not None:
+            rule.weekdays = data.weekdays
+
+        await session.commit()
+        await load_api_keys()
+        return {"id": rule.id}
+
+
+@router.delete("/keys/{key_id}/time-rules/{rule_id}")
+async def delete_time_rule(
+    key_id: int, rule_id: int, _: bool = Depends(require_admin)
+):
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(ApiKeyTimeRule).where(
+                ApiKeyTimeRule.id == rule_id,
+                ApiKeyTimeRule.api_key_id == key_id,
+            )
+        )
+        rule = result.scalar_one_or_none()
+        if not rule:
+            return JSONResponse({"error": "Time rule not found"}, status_code=404)
+        await session.delete(rule)
+        await session.commit()
+        await load_api_keys()
+        return {"deleted": True}

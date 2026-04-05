@@ -1,8 +1,10 @@
+import datetime
 from typing import Optional
+
 from sqlalchemy import select
 
-from core.config import api_keys_cache
-from core.database import async_session_maker, ApiKey, ApiKeyModel
+from core.config import api_keys_cache, logger
+from core.database import async_session_maker, ApiKey, ApiKeyModel, ApiKeyTimeRule
 from services.provider import parse_model, get_provider_config
 
 
@@ -19,11 +21,82 @@ async def load_api_keys():
                 )
             )
             model_ids = [row[0] for row in models_result.fetchall()]
+
+            rules_result = await session.execute(
+                select(ApiKeyTimeRule).where(ApiKeyTimeRule.api_key_id == k.id)
+            )
+            rules = rules_result.scalars().all()
+            time_rules = []
+            for r in rules:
+                rule_data = {
+                    "id": r.id,
+                    "rule_type": r.rule_type,
+                    "allowed": r.allowed,
+                }
+                if r.start_time is not None:
+                    rule_data["start_time"] = r.start_time.strftime("%H:%M:%S")
+                if r.end_time is not None:
+                    rule_data["end_time"] = r.end_time.strftime("%H:%M:%S")
+                if r.start_date is not None:
+                    rule_data["start_date"] = r.start_date.isoformat()
+                if r.end_date is not None:
+                    rule_data["end_date"] = r.end_date.isoformat()
+                if r.weekdays is not None:
+                    rule_data["weekdays"] = r.weekdays
+                time_rules.append(rule_data)
+
             api_keys_cache[k.key] = {
                 "id": k.id,
                 "name": k.name,
                 "allowed_provider_model_ids": model_ids,
+                "time_rules": time_rules,
             }
+
+
+def _check_time_rules(time_rules: list[dict]) -> bool:
+    if not time_rules:
+        return True
+
+    now = datetime.datetime.now()
+    current_time = now.time()
+    current_date = now.date()
+    current_weekday = now.weekday()
+
+    for rule in time_rules:
+        rule_type = rule.get("rule_type")
+        allowed = rule.get("allowed", True)
+
+        if rule_type == "time_range":
+            start_str = rule.get("start_time")
+            end_str = rule.get("end_time")
+            if not start_str or not end_str:
+                continue
+            parts = [int(p) for p in start_str.split(":")]
+            start_t = datetime.time(parts[0], parts[1], parts[2] if len(parts) > 2 else 0)
+            parts = [int(p) for p in end_str.split(":")]
+            end_t = datetime.time(parts[0], parts[1], parts[2] if len(parts) > 2 else 0)
+            if start_t <= current_time <= end_t:
+                return allowed
+
+        elif rule_type == "date_range":
+            start_str = rule.get("start_date")
+            end_str = rule.get("end_date")
+            if not start_str or not end_str:
+                continue
+            start_d = datetime.date.fromisoformat(start_str)
+            end_d = datetime.date.fromisoformat(end_str)
+            if start_d <= current_date <= end_d:
+                return allowed
+
+        elif rule_type == "weekday":
+            weekdays_str = rule.get("weekdays")
+            if not weekdays_str:
+                continue
+            days = [int(d) for d in weekdays_str.split(",") if d.strip()]
+            if current_weekday in days:
+                return allowed
+
+    return True
 
 
 async def validate_api_key(
@@ -40,6 +113,9 @@ async def validate_api_key(
     key_info = api_keys_cache.get(key)
     if not key_info:
         return None, "Invalid API key"
+
+    if not _check_time_rules(key_info.get("time_rules", [])):
+        return None, "API key not allowed at this time"
 
     allowed_models = key_info.get("allowed_provider_model_ids", [])
 

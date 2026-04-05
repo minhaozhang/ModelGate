@@ -9,6 +9,8 @@ from sqlalchemy import (
     Boolean,
     Text,
     DateTime,
+    Date,
+    Time,
     Index,
     ForeignKey,
     func,
@@ -105,6 +107,25 @@ class ApiKey(Base):
     last_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ApiKeyTimeRule(Base):
+    __tablename__ = "api_key_time_rules"
+
+    id = Column(Integer, primary_key=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id", ondelete="CASCADE"), nullable=False)
+    rule_type = Column(String(20), nullable=False)
+    allowed = Column(Boolean, default=True)
+    start_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    weekdays = Column(String(20), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_api_key_time_rules_key", "api_key_id"),
+    )
 
 
 class RequestLog(Base):
@@ -396,6 +417,28 @@ async def init_db():
             text(
                 "ALTER TABLE weixin_accounts "
                 "ADD COLUMN IF NOT EXISTS api_key_id INTEGER REFERENCES api_keys(id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS api_key_time_rules ("
+                "id SERIAL PRIMARY KEY, "
+                "api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE, "
+                "rule_type VARCHAR(20) NOT NULL, "
+                "allowed BOOLEAN DEFAULT TRUE, "
+                "start_time TIME, "
+                "end_time TIME, "
+                "start_date DATE, "
+                "end_date DATE, "
+                "weekdays VARCHAR(20), "
+                "created_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_api_key_time_rules_key "
+                "ON api_key_time_rules (api_key_id)"
             )
         )
         await conn.execute(

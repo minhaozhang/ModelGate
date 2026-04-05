@@ -879,3 +879,87 @@ msgstr "After obtaining an API key, you can generate OpenCode configuration from
 msgid "Visit OpenCode"
 msgstr "Visit OpenCode"
 
+msgid "Time Rules"
+msgstr "Time Rules"
+
+msgid "Add Time Rule"
+msgstr "Add Time Rule"
+
+msgid "Edit Time Rule"
+msgstr "Edit Time Rule"
+
+msgid "Rule Type"
+msgstr "Rule Type"
+
+msgid "Time Range"
+msgstr "Time Range"
+
+msgid "Date Range"
+msgstr "Date Range"
+
+msgid "Weekday"
+msgstr "Weekday"
+
+msgid "Start Time"
+msgstr "Start Time"
+
+msgid "End Time"
+msgstr "End Time"
+
+msgid "Start Date"
+msgstr "Start Date"
+
+msgid "End Date"
+msgstr "End Date"
+
+msgid "Weekdays"
+msgstr "Weekdays"
+
+msgid "Allowed"
+msgstr "Allowed"
+
+msgid "Blocked"
+msgstr "Blocked"
+
+msgid "No time rules"
+msgstr "No time rules"
+
+msgid "Delete this time rule?"
+msgstr "Delete this time rule?"
+
+msgid "Failed to save time rule"
+msgstr "Failed to save time rule"
+
+msgid "Time rule created"
+msgstr "Time rule created"
+
+msgid "HH:MM"
+msgstr "HH:MM"
+
+msgid "YYYY-MM-DD"
+msgstr "YYYY-MM-DD"
+
+msgid "Mon"
+msgstr "Mon"
+
+msgid "Tue"
+msgstr "Tue"
+
+msgid "Wed"
+msgstr "Wed"
+
+msgid "Thu"
+msgstr "Thu"
+
+msgid "Fri"
+msgstr "Fri"
+
+msgid "Sat"
+msgstr "Sat"
+
+msgid "Sun"
+msgstr "Sun"
+
+msgid "Control when this API key can be used"
+msgstr "Control when this API key can be used"
+
