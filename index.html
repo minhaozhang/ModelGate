@@ -313,7 +313,7 @@
             font-size: clamp(28px, 3vw, 40px);
             font-weight: 600;
             letter-spacing: -0.02em;
-            color: var(--text);
+            color: var(--accent);
             font-variant-numeric: tabular-nums;
         }
 
@@ -880,16 +880,30 @@
         return navigator.language && navigator.language.toLowerCase().includes("zh") ? "zh" : "en";
     }
 
-    function animateCounter(el, target) {
+    function springCounter(el, target) {
         if (!target && target !== 0) { el.textContent = "-"; return; }
-        var duration = 1800;
-        var startTime = null;
+        var stiffness = 280;
+        var damping = 50;
+        var mass = 1;
+        var precision = 0.5;
+        var position = 0;
+        var velocity = 0;
+        var lastTime = null;
         function step(ts) {
-            if (!startTime) startTime = ts;
-            var progress = Math.min((ts - startTime) / duration, 1);
-            var eased = 1 - Math.pow(1 - progress, 3);
-            el.textContent = Math.floor(eased * target).toLocaleString();
-            if (progress < 1) requestAnimationFrame(step);
+            if (lastTime === null) lastTime = ts;
+            var dt = Math.min((ts - lastTime) / 1000, 0.064);
+            lastTime = ts;
+            var springForce = -stiffness * (position - target);
+            var dampingForce = -damping * velocity;
+            var acceleration = (springForce + dampingForce) / mass;
+            velocity += acceleration * dt;
+            position += velocity * dt;
+            el.textContent = Math.round(position).toLocaleString();
+            if (Math.abs(velocity) > precision || Math.abs(position - target) > precision) {
+                requestAnimationFrame(step);
+            } else {
+                el.textContent = target.toLocaleString();
+            }
         }
         requestAnimationFrame(step);
     }
@@ -960,10 +974,10 @@
         fetch("https://leturx.cc/modelgate/api/public/stats")
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                animateCounter(document.getElementById("stat-requests"), data.total_requests);
-                animateCounter(document.getElementById("stat-tokens"), data.total_tokens);
-                animateCounter(document.getElementById("stat-today-requests"), data.today_requests || 0);
-                animateCounter(document.getElementById("stat-today-tokens"), data.today_tokens || 0);
+                springCounter(document.getElementById("stat-requests"), data.total_requests);
+                springCounter(document.getElementById("stat-tokens"), data.total_tokens);
+                springCounter(document.getElementById("stat-today-requests"), data.today_requests || 0);
+                springCounter(document.getElementById("stat-today-tokens"), data.today_tokens || 0);
                 startFlipCycle();
             })
             .catch(function() {
