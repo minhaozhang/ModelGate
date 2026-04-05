@@ -1724,4 +1724,6 @@ async def get_public_stats():
     return {
         "total_requests": historical_stats_cache["total_requests"] + today_requests,
         "total_tokens": historical_stats_cache["total_tokens"] + today_tokens,
+        "today_requests": today_requests,
+        "today_tokens": today_tokens,
     }
