@@ -53,7 +53,9 @@ async def list_api_keys(_: bool = Depends(require_admin)):
             model_ids = [row[0] for row in models_result.fetchall()]
 
             rules_result = await session.execute(
-                select(ApiKeyTimeRule).where(ApiKeyTimeRule.api_key_id == k.id)
+                select(ApiKeyTimeRule)
+                .where(ApiKeyTimeRule.api_key_id == k.id)
+                .order_by(ApiKeyTimeRule.rule_type, ApiKeyTimeRule.id)
             )
             rules = rules_result.scalars().all()
             time_rules = [
@@ -283,7 +285,9 @@ def _serialize_date(val: dt_date | None) -> str | None:
 async def list_time_rules(key_id: int, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(
-            select(ApiKeyTimeRule).where(ApiKeyTimeRule.api_key_id == key_id)
+            select(ApiKeyTimeRule)
+            .where(ApiKeyTimeRule.api_key_id == key_id)
+            .order_by(ApiKeyTimeRule.rule_type, ApiKeyTimeRule.id)
         )
         rules = result.scalars().all()
         return {
