@@ -79,8 +79,6 @@ async def build_opencode_config(
             thinking_config = {
                 "type": "enabled",
             }
-            if model.thinking_budget:
-                thinking_config["budgetTokens"] = model.thinking_budget
 
         model_entry = {
             "name": f"{provider.name}/{display_name}",
