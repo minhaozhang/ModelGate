@@ -304,28 +304,20 @@
             <!-- OpenCode Config Tab -->
             <div id="tab-opencode" class="tab-content p-6">
                 <h2 class="text-xl font-bold mb-4">{{ _('OpenCode Configuration') }}</h2>
-                <p class="text-gray-600 mb-4">{{ _('Generate opencode.json config for this proxy') }}</p>
+                <p class="text-gray-600 mb-4">{{ _('Copy the text below and send it to OpenCode for configuration') }}</p>
                 
                 <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <h3 class="font-semibold mb-2">opencode.json</h3>
                     <div class="relative">
                         <button onclick="copyConfig()" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
-                        <pre id="config-output" class="text-sm"></pre>
+                        <pre id="config-output" class="text-sm whitespace-pre-wrap"></pre>
                     </div>
-                </div>
-                
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <h3 class="font-semibold mb-3">{{ _('Available Models') }}</h3>
-                    <div id="models-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
                 
                 <div class="bg-blue-50 rounded-lg p-4">
                     <h3 class="font-semibold text-blue-800 mb-2">{{ _('How to use') }}</h3>
                     <ol class="list-decimal list-inside text-sm text-blue-700 space-y-1">
-                        <li>{{ _('Copy the generated <code class="bg-blue-100 px-1 rounded">opencode.json</code>') }}</li>
-                        <li>{{ _('Create <code class="bg-blue-100 px-1 rounded">opencode.json</code> in your project root') }}</li>
-                        <li>{{ _('Paste the configuration and save') }}</li>
-                        <li>{{ _('OpenCode will now use this proxy for API requests') }}</li>
+                        <li>{{ _('Copy the content above and send it to OpenCode') }}</li>
+                        <li>{{ _('OpenCode will automatically configure the provider') }}</li>
                     </ol>
                 </div>
             </div>
@@ -473,7 +465,6 @@ const data = await response.json();</code></pre>
         aiGenerated: {{ _('AI Generated') | tojson }},
         aiUnavailable: {{ _('AI analysis unavailable') | tojson }},
         samplesLabel: {{ _('samples') | tojson }},
-        opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider.') | tojson }},
         topShare: {{ _('top share') | tojson }},
         onRightAxis: {{ _('on right axis') | tojson }},
         yourApiKey: {{ _('Your API key') | tojson }},
@@ -1267,21 +1258,9 @@ const data = await response.json();</code></pre>
         
         async function loadOpenCodeConfig() {
             try {
-                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/opencode-config');
-                
-                const config = data.config;
-                config.provider['model-token-plan'].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
-                
-                const prompt = "# " + window.I18N.opencodePrompt + "\n\n";
-                document.getElementById('config-output').textContent = prompt + JSON.stringify(config, null, 2);
-                
-                const modelsHtml = data.models.map(m => `
-                    <div class="flex justify-between items-center p-2 bg-white rounded">
-                        <span class="font-medium text-sm">${m.name}</span>
-                        <span class="text-xs text-gray-500">${window.I18N.ctx}: ${m.context.toLocaleString()} | ${window.I18N.out}: ${m.output.toLocaleString()}</span>
-                    </div>
-                `).join('');
-                document.getElementById('models-list').innerHTML = modelsHtml || `<div class="text-gray-400">${window.I18N.noModels}</div>`;
+                const resp = await fetch(APP_BASE_PATH + '/opencode/setup.md');
+                const text = await resp.text();
+                document.getElementById('config-output').textContent = text;
             } catch (e) {
                 console.error('Failed to load OpenCode config:', e);
             }

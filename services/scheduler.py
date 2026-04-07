@@ -33,14 +33,32 @@ async def startup_scheduler():
         id="archive_old_request_logs",
         replace_existing=True,
     )
+    scheduler.add_job(
+        _run_daily_recommendation_analysis,
+        CronTrigger(hour=1, minute=0),
+        id="daily_recommendation_analysis",
+        replace_existing=True,
+    )
     scheduler.start()
     logger.info(
-        "[SCHEDULER] Scheduler started: aggregate at 00:05, archive old logs at 00:20, cleanup pending every 10 min"
+        "[SCHEDULER] Scheduler started: aggregate at 00:05, archive at 00:20, cleanup pending every 10 min, recommendation analysis at 01:00"
     )
 
     import asyncio
 
     asyncio.create_task(run_backfill())
+
+
+async def _run_daily_recommendation_analysis():
+    from routes.user import scheduled_daily_recommendation_analysis
+
+    logger.info("[SCHEDULER] Starting daily recommendation analysis...")
+    try:
+        await scheduled_daily_recommendation_analysis()
+    except Exception as exc:
+        logger.error("[SCHEDULER] Daily recommendation analysis failed: %s", exc)
+    else:
+        logger.info("[SCHEDULER] Daily recommendation analysis completed")
 
 
 async def run_backfill():

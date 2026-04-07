@@ -1699,92 +1699,200 @@ async def user_dashboard(request: Request, api_key_id: int = Depends(get_user_se
         return HTMLResponse(content=html)
 
 
-@router.get("/user/api/opencode-config")
-async def get_user_opencode_config(
-    request: Request, api_key_id: int = Depends(get_user_session)
-):
-    if not api_key_id:
-        return translated_error(request, "Not authenticated", 401)
+async def scheduled_daily_recommendation_analysis():
+    from core.database import ApiKeyModel, Model, Provider, ProviderModel
 
-    from core.database import Provider, Model, ProviderModel, ApiKeyModel
+    default_locale = "zh"
+    period = "day"
+    now = get_local_now()
+    start, _, _ = get_user_period_range(now, period)
 
     async with async_session_maker() as session:
-        key_result = await session.execute(
-            select(ApiKey).where(ApiKey.id == api_key_id)
+        keys_result = await session.execute(
+            select(ApiKey).where(ApiKey.is_active == True)
         )
-        api_key = key_result.scalar_one_or_none()
-        if not api_key:
-            return translated_error(request, "API Key not found", 404)
+        api_keys = keys_result.scalars().all()
 
+        providers_result = await session.execute(
+            select(Provider).where(Provider.is_active == True)
+        )
         models_result = await session.execute(
-            select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key_id)
+            select(Model).where(Model.is_active == True)
         )
-        key_models = models_result.scalars().all()
+        provider_models_result = await session.execute(
+            select(ProviderModel).where(ProviderModel.is_active == True)
+        )
 
-        allowed_pm_ids = [km.provider_model_id for km in key_models]
+        providers = providers_result.scalars().all()
+        models = models_result.scalars().all()
+        provider_models = provider_models_result.scalars().all()
+        provider_map = {p.id: p for p in providers}
+        model_map = {m.id: m for m in models}
 
-        if allowed_pm_ids:
-            pm_result = await session.execute(
-                select(ProviderModel).where(ProviderModel.id.in_(allowed_pm_ids))
-            )
-        else:
-            pm_result = await session.execute(select(ProviderModel))
+        active_provider_models = [
+            pm
+            for pm in provider_models
+            if pm.provider_id in provider_map and pm.model_id in model_map
+        ]
 
-        provider_models = pm_result.scalars().all()
+    for api_key in api_keys:
+        try:
+            async with async_session_maker() as session:
+                key_models_result = await session.execute(
+                    select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key.id)
+                )
+                key_models = key_models_result.scalars().all()
+                allowed_pm_ids = {item.provider_model_id for item in key_models}
+                full_access = len(allowed_pm_ids) == 0
+                accessible_provider_models = (
+                    active_provider_models
+                    if full_access
+                    else [
+                        pm for pm in active_provider_models if pm.id in allowed_pm_ids
+                    ]
+                )
 
-        models_data = []
-        models_config = {}
-
-        for pm in provider_models:
-            provider_result = await session.execute(
-                select(Provider).where(Provider.id == pm.provider_id)
-            )
-            provider = provider_result.scalar_one_or_none()
-            if not provider:
-                continue
-
-            model_result = await session.execute(
-                select(Model).where(Model.id == pm.model_id)
-            )
-            model = model_result.scalar_one_or_none()
-            if not model:
-                continue
-
-            model_key = f"{provider.name}/{model.name}"
-            display_name = model.display_name or model.name
-
-            max_output = model.max_tokens or 16384
-            context_window = model.context_length or (max_output * 8)
-
-            models_config[model_key] = {
-                "name": f"{provider.name}/{display_name}",
-                "modalities": {"input": ["text"], "output": ["text"]},
-                "limit": {"context": context_window, "output": max_output},
-            }
-            if model.thinking_enabled:
-                models_config[model_key]["options"] = {
-                    "thinking": {
-                        "type": "enabled",
+                accessible_model_meta: dict[tuple[int, str], dict] = {}
+                accessible_provider_ids: set[int] = set()
+                accessible_model_names: set[str] = set()
+                for provider_model in accessible_provider_models:
+                    provider = provider_map[provider_model.provider_id]
+                    model = model_map[provider_model.model_id]
+                    full_name = f"{provider.name}/{model.name}"
+                    accessible_model_meta[(provider.id, model.name)] = {
+                        "provider": provider.name,
+                        "model_name": model.name,
+                        "display_name": model.display_name or model.name,
+                        "full_name": full_name,
                     }
-                }
+                    accessible_provider_ids.add(provider.id)
+                    accessible_model_names.add(model.name)
 
-            models_data.append(
-                {"name": model_key, "context": context_window, "output": max_output}
+                if not accessible_model_meta:
+                    continue
+
+                rows_result = await session.execute(
+                    select(
+                        RequestLog.provider_id,
+                        RequestLog.model,
+                        func.count(RequestLog.id).label("requests"),
+                        func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                        func.sum(
+                            case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                        ).label("errors"),
+                    )
+                    .where(
+                        RequestLog.created_at >= start,
+                        RequestLog.provider_id.in_(list(accessible_provider_ids)),
+                        RequestLog.model.in_(list(accessible_model_names)),
+                        RequestLog.status != "pending",
+                    )
+                    .group_by(RequestLog.provider_id, RequestLog.model)
+                )
+                rows = rows_result.fetchall()
+
+                hourly_rows_result = await session.execute(
+                    select(
+                        func.extract("hour", RequestLog.created_at).label(
+                            "hour_of_day"
+                        ),
+                        func.count(RequestLog.id).label("requests"),
+                        func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                        func.sum(
+                            case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                        ).label("errors"),
+                    )
+                    .where(
+                        RequestLog.created_at >= start,
+                        RequestLog.provider_id.in_(list(accessible_provider_ids)),
+                        RequestLog.model.in_(list(accessible_model_names)),
+                        RequestLog.status != "pending",
+                    )
+                    .group_by(func.extract("hour", RequestLog.created_at))
+                    .order_by(func.extract("hour", RequestLog.created_at))
+                )
+                hourly_rows = hourly_rows_result.fetchall()
+
+            recommendations = []
+            for row in rows:
+                if not row.model:
+                    continue
+                meta = accessible_model_meta.get((row.provider_id, row.model))
+                if not meta:
+                    continue
+                requests_count = int(row.requests or 0)
+                errors_count = int(row.errors or 0)
+                if requests_count <= 0:
+                    continue
+                avg_latency_ms = float(row.avg_latency_ms or 0)
+                error_rate = errors_count / requests_count if requests_count else 1.0
+                reliability_score = max(0.0, 1.0 - (error_rate * 1.5))
+                latency_score = (
+                    1 / (1 + (avg_latency_ms / 2500.0)) if avg_latency_ms > 0 else 0.0
+                )
+                sample_score = min(requests_count / 20.0, 1.0)
+                score = (
+                    (reliability_score * 0.55)
+                    + (latency_score * 0.30)
+                    + (sample_score * 0.15)
+                )
+                recommendations.append(
+                    {
+                        "model": meta["full_name"],
+                        "display_name": meta["display_name"],
+                        "provider": meta["provider"],
+                        "actual_model_name": meta["model_name"],
+                        "requests": requests_count,
+                        "errors": errors_count,
+                        "error_rate": round(error_rate, 4),
+                        "avg_latency_ms": round(avg_latency_ms, 2),
+                        "score": round(score, 4),
+                    }
+                )
+
+            recommendations.sort(
+                key=lambda item: (
+                    -item["score"],
+                    item["error_rate"],
+                    item["avg_latency_ms"],
+                    -item["requests"],
+                    item["model"],
+                )
             )
-
-        base_path = get_app_base_path(request)
-        config = {
-            "$schema": "https://opencode.ai/config.json",
-            "provider": {
-                "model-token-plan": {
-                    "name": "Model Token Plan",
-                    "options": {
-                        "baseURL": f"BASEURL_PLACEHOLDER{base_path}/v1",
-                        "apiKey": api_key.key,
-                    },
-                    "models": models_config,
+            top_recommendations = recommendations[:5]
+            hourly_stats = [
+                {
+                    "hour": int(row.hour_of_day or 0),
+                    "requests": int(row.requests or 0),
+                    "errors": int(row.errors or 0),
+                    "avg_latency_ms": round(float(row.avg_latency_ms or 0), 2)
+                    if row.avg_latency_ms is not None
+                    else None,
                 }
-            },
-        }
+                for row in hourly_rows
+            ]
 
-        return {"config": config, "models": models_data}
+            if not top_recommendations:
+                continue
+
+            scope_key = build_recommendation_scope_key(
+                api_key.id, period, default_locale
+            )
+            await run_user_recommendation_analysis(
+                scope_key,
+                default_locale,
+                top_recommendations,
+                hourly_stats,
+                period,
+            )
+            logger.info(
+                "[SCHEDULER] Recommendation analysis completed for API key %d (%d recommendations)",
+                api_key.id,
+                len(top_recommendations),
+            )
+        except Exception as exc:
+            logger.warning(
+                "[SCHEDULER] Failed to run recommendation analysis for API key %d: %s",
+                api_key.id,
+                exc,
+            )

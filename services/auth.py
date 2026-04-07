@@ -13,45 +13,51 @@ async def load_api_keys():
         result = await session.execute(select(ApiKey).where(ApiKey.is_active == True))
         keys = result.scalars().all()
 
+        key_ids = [k.id for k in keys]
+        if not key_ids:
+            api_keys_cache.clear()
+            return
+
+        all_models_result = await session.execute(
+            select(ApiKeyModel.api_key_id, ApiKeyModel.provider_model_id).where(
+                ApiKeyModel.api_key_id.in_(key_ids)
+            )
+        )
+        key_models_map: dict[int, list[int]] = {k.id: [] for k in keys}
+        for row in all_models_result.fetchall():
+            key_models_map[row[0]].append(row[1])
+
+        all_rules_result = await session.execute(
+            select(ApiKeyTimeRule)
+            .where(ApiKeyTimeRule.api_key_id.in_(key_ids))
+            .order_by(ApiKeyTimeRule.rule_type, ApiKeyTimeRule.id)
+        )
+        key_rules_map: dict[int, list] = {k.id: [] for k in keys}
+        for r in all_rules_result.scalars().all():
+            rule_data = {
+                "id": r.id,
+                "rule_type": r.rule_type,
+                "allowed": r.allowed,
+            }
+            if r.start_time is not None:
+                rule_data["start_time"] = r.start_time.strftime("%H:%M:%S")
+            if r.end_time is not None:
+                rule_data["end_time"] = r.end_time.strftime("%H:%M:%S")
+            if r.start_date is not None:
+                rule_data["start_date"] = r.start_date.isoformat()
+            if r.end_date is not None:
+                rule_data["end_date"] = r.end_date.isoformat()
+            if r.weekdays is not None:
+                rule_data["weekdays"] = r.weekdays
+            key_rules_map[r.api_key_id].append(rule_data)
+
         api_keys_cache.clear()
         for k in keys:
-            models_result = await session.execute(
-                select(ApiKeyModel.provider_model_id).where(
-                    ApiKeyModel.api_key_id == k.id
-                )
-            )
-            model_ids = [row[0] for row in models_result.fetchall()]
-
-            rules_result = await session.execute(
-                select(ApiKeyTimeRule)
-                .where(ApiKeyTimeRule.api_key_id == k.id)
-                .order_by(ApiKeyTimeRule.rule_type, ApiKeyTimeRule.id)
-            )
-            rules = rules_result.scalars().all()
-            time_rules = []
-            for r in rules:
-                rule_data = {
-                    "id": r.id,
-                    "rule_type": r.rule_type,
-                    "allowed": r.allowed,
-                }
-                if r.start_time is not None:
-                    rule_data["start_time"] = r.start_time.strftime("%H:%M:%S")
-                if r.end_time is not None:
-                    rule_data["end_time"] = r.end_time.strftime("%H:%M:%S")
-                if r.start_date is not None:
-                    rule_data["start_date"] = r.start_date.isoformat()
-                if r.end_date is not None:
-                    rule_data["end_date"] = r.end_date.isoformat()
-                if r.weekdays is not None:
-                    rule_data["weekdays"] = r.weekdays
-                time_rules.append(rule_data)
-
             api_keys_cache[k.key] = {
                 "id": k.id,
                 "name": k.name,
-                "allowed_provider_model_ids": model_ids,
-                "time_rules": time_rules,
+                "allowed_provider_model_ids": key_models_map[k.id],
+                "time_rules": key_rules_map[k.id],
             }
 
 

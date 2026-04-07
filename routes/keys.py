@@ -258,19 +258,46 @@ class TimeRuleUpdate(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     weekdays: Optional[str] = None
+    clear_fields: Optional[list[str]] = []
+
+
+VALID_RULE_TYPES = {"time_range", "date_range", "weekday"}
 
 
 def _parse_time(val: str | None) -> dt_time | None:
     if not val:
         return None
-    parts = val.split(":")
-    return dt_time(int(parts[0]), int(parts[1]), int(parts[2]) if len(parts) > 2 else 0)
+    try:
+        parts = val.split(":")
+        hour = int(parts[0])
+        minute = int(parts[1])
+        second = int(parts[2]) if len(parts) > 2 else 0
+        if not (0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
+            return None
+        return dt_time(hour, minute, second)
+    except (ValueError, IndexError):
+        return None
 
 
 def _parse_date(val: str | None) -> dt_date | None:
     if not val:
         return None
-    return dt_date.fromisoformat(val)
+    try:
+        return dt_date.fromisoformat(val)
+    except ValueError:
+        return None
+
+
+def _validate_weekdays(val: str | None) -> str | None:
+    if not val:
+        return None
+    days = [d.strip() for d in val.split(",") if d.strip()]
+    for d in days:
+        if not d.isdigit():
+            return None
+        if not (0 <= int(d) <= 6):
+            return None
+    return ",".join(days)
 
 
 def _serialize_time(val: dt_time | None) -> str | None:
@@ -316,15 +343,56 @@ async def create_time_rule(
         if not result.scalar_one_or_none():
             return JSONResponse({"error": "API key not found"}, status_code=404)
 
+        if data.rule_type not in VALID_RULE_TYPES:
+            return JSONResponse(
+                {
+                    "error": f"Invalid rule_type, must be one of: {', '.join(sorted(VALID_RULE_TYPES))}"
+                },
+                status_code=422,
+            )
+
+        if data.weekdays is not None:
+            validated_weekdays = _validate_weekdays(data.weekdays)
+            if data.weekdays and validated_weekdays is None:
+                return JSONResponse(
+                    {"error": "Invalid weekdays, must be comma-separated numbers 0-6"},
+                    status_code=422,
+                )
+
+        parsed_start_time = _parse_time(data.start_time)
+        parsed_end_time = _parse_time(data.end_time)
+        if data.start_time and parsed_start_time is None:
+            return JSONResponse(
+                {"error": "Invalid start_time format, expected HH:MM:SS"},
+                status_code=422,
+            )
+        if data.end_time and parsed_end_time is None:
+            return JSONResponse(
+                {"error": "Invalid end_time format, expected HH:MM:SS"}, status_code=422
+            )
+
+        parsed_start_date = _parse_date(data.start_date)
+        parsed_end_date = _parse_date(data.end_date)
+        if data.start_date and parsed_start_date is None:
+            return JSONResponse(
+                {"error": "Invalid start_date format, expected YYYY-MM-DD"},
+                status_code=422,
+            )
+        if data.end_date and parsed_end_date is None:
+            return JSONResponse(
+                {"error": "Invalid end_date format, expected YYYY-MM-DD"},
+                status_code=422,
+            )
+
         rule = ApiKeyTimeRule(
             api_key_id=key_id,
             rule_type=data.rule_type,
             allowed=data.allowed,
-            start_time=_parse_time(data.start_time),
-            end_time=_parse_time(data.end_time),
-            start_date=_parse_date(data.start_date),
-            end_date=_parse_date(data.end_date),
-            weekdays=data.weekdays,
+            start_time=parsed_start_time,
+            end_time=parsed_end_time,
+            start_date=parsed_start_date,
+            end_date=parsed_end_date,
+            weekdays=_validate_weekdays(data.weekdays),
         )
         session.add(rule)
         await session.commit()
@@ -357,20 +425,75 @@ async def update_time_rule(
         if not rule:
             return JSONResponse({"error": "Time rule not found"}, status_code=404)
 
+        CLEARABLE_FIELDS = {
+            "start_time",
+            "end_time",
+            "start_date",
+            "end_date",
+            "weekdays",
+        }
+
+        if data.clear_fields:
+            invalid = set(data.clear_fields) - CLEARABLE_FIELDS
+            if invalid:
+                return JSONResponse(
+                    {"error": f"Cannot clear fields: {', '.join(sorted(invalid))}"},
+                    status_code=422,
+                )
+            for field in data.clear_fields:
+                setattr(rule, field, None)
+
         if data.rule_type is not None:
+            if data.rule_type not in VALID_RULE_TYPES:
+                return JSONResponse(
+                    {
+                        "error": f"Invalid rule_type, must be one of: {', '.join(sorted(VALID_RULE_TYPES))}"
+                    },
+                    status_code=422,
+                )
             rule.rule_type = data.rule_type
         if data.allowed is not None:
             rule.allowed = data.allowed
         if data.start_time is not None:
-            rule.start_time = _parse_time(data.start_time)
+            parsed = _parse_time(data.start_time)
+            if parsed is None:
+                return JSONResponse(
+                    {"error": "Invalid start_time format, expected HH:MM:SS"},
+                    status_code=422,
+                )
+            rule.start_time = parsed
         if data.end_time is not None:
-            rule.end_time = _parse_time(data.end_time)
+            parsed = _parse_time(data.end_time)
+            if parsed is None:
+                return JSONResponse(
+                    {"error": "Invalid end_time format, expected HH:MM:SS"},
+                    status_code=422,
+                )
+            rule.end_time = parsed
         if data.start_date is not None:
-            rule.start_date = _parse_date(data.start_date)
+            parsed = _parse_date(data.start_date)
+            if parsed is None:
+                return JSONResponse(
+                    {"error": "Invalid start_date format, expected YYYY-MM-DD"},
+                    status_code=422,
+                )
+            rule.start_date = parsed
         if data.end_date is not None:
-            rule.end_date = _parse_date(data.end_date)
+            parsed = _parse_date(data.end_date)
+            if parsed is None:
+                return JSONResponse(
+                    {"error": "Invalid end_date format, expected YYYY-MM-DD"},
+                    status_code=422,
+                )
+            rule.end_date = parsed
         if data.weekdays is not None:
-            rule.weekdays = data.weekdays
+            validated = _validate_weekdays(data.weekdays)
+            if data.weekdays and validated is None:
+                return JSONResponse(
+                    {"error": "Invalid weekdays, must be comma-separated numbers 0-6"},
+                    status_code=422,
+                )
+            rule.weekdays = validated
 
         await session.commit()
         await load_api_keys()
@@ -378,9 +501,7 @@ async def update_time_rule(
 
 
 @router.delete("/keys/{key_id}/time-rules/{rule_id}")
-async def delete_time_rule(
-    key_id: int, rule_id: int, _: bool = Depends(require_admin)
-):
+async def delete_time_rule(key_id: int, rule_id: int, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ApiKeyTimeRule).where(
