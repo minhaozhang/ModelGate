@@ -9,4 +9,5 @@ services:
       - .env
     volumes:
       - ./logs:/app/logs
+      - ./reports:/app/reports
     restart: unless-stopped

@@ -174,7 +174,264 @@
         enabledModels: "{{ _('Enabled Models:') }}",
         noModelsAssigned: "{{ _('No specific model restrictions. This API key can use all currently allowed models.') }}",
         openCodeWebsiteHint: "{{ _('If OpenCode is not installed yet, please download it from the official website below.') }}",
+        timeRules: "{{ _('Time Rules') }}",
+        addTimeRule: "{{ _('Add Time Rule') }}",
+        editTimeRule: "{{ _('Edit Time Rule') }}",
+        ruleType: "{{ _('Rule Type') }}",
+        timeRange: "{{ _('Time Range') }}",
+        dateRange: "{{ _('Date Range') }}",
+        weekday: "{{ _('Weekday') }}",
+        startTime: "{{ _('Start Time') }}",
+        endTime: "{{ _('End Time') }}",
+        startDate: "{{ _('Start Date') }}",
+        endDate: "{{ _('End Date') }}",
+        weekdays: "{{ _('Weekdays') }}",
+        allowed: "{{ _('Allowed') }}",
+        blocked: "{{ _('Blocked') }}",
+        noTimeRules: "{{ _('No time rules') }}",
+        deleteTimeRuleConfirm: "{{ _('Delete this time rule?') }}",
+        failedToSaveTimeRule: "{{ _('Failed to save time rule') }}",
+        timeRuleCreated: "{{ _('Time rule created') }}",
+        timeRuleHHMM: "{{ _('HH:MM') }}",
+        timeRuleYYYYMMDD: "{{ _('YYYY-MM-DD') }}",
+        weekdayMon: "{{ _('Mon') }}",
+        weekdayTue: "{{ _('Tue') }}",
+        weekdayWed: "{{ _('Wed') }}",
+        weekdayThu: "{{ _('Thu') }}",
+        weekdayFri: "{{ _('Fri') }}",
+        weekdaySat: "{{ _('Sat') }}",
+        weekdaySun: "{{ _('Sun') }}",
+        timeRulesHint: "{{ _('Control when this API key can be used') }}",
     };
+    </script>
+
+    <div id="timerule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 id="timerule-modal-title" class="font-semibold">{{ _('Time Rules') }}</h3>
+                <button onclick="closeTimeRuleModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="p-4">
+                <div id="timerule-list" class="space-y-2 mb-4"></div>
+                <button onclick="showAddTimeRuleForm()" class="text-blue-500 hover:text-blue-700 text-sm mb-4">+ {{ _('Add Time Rule') }}</button>
+                <form id="timerule-form" class="hidden space-y-3 border-t pt-4 mt-2">
+                    <input type="hidden" id="timerule-id">
+                    <input type="hidden" id="timerule-key-id">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Rule Type') }}</label>
+                        <select id="timerule-type" class="w-full border rounded px-3 py-2" onchange="onRuleTypeChange()">
+                            <option value="time_range">{{ _('Time Range') }}</option>
+                            <option value="date_range">{{ _('Date Range') }}</option>
+                            <option value="weekday">{{ _('Weekday') }}</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm font-medium text-gray-700">{{ _('Allowed') }}</label>
+                        <input type="checkbox" id="timerule-allowed" checked>
+                    </div>
+                    <div id="timerule-time-fields" class="flex gap-2">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Start Time') }}</label>
+                            <input type="text" id="timerule-start-time" class="w-full border rounded px-3 py-2" placeholder="{{ _('HH:MM') }}">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('End Time') }}</label>
+                            <input type="text" id="timerule-end-time" class="w-full border rounded px-3 py-2" placeholder="{{ _('HH:MM') }}">
+                        </div>
+                    </div>
+                    <div id="timerule-date-fields" class="hidden flex gap-2">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Start Date') }}</label>
+                            <input type="date" id="timerule-start-date" class="w-full border rounded px-3 py-2">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('End Date') }}</label>
+                            <input type="date" id="timerule-end-date" class="w-full border rounded px-3 py-2">
+                        </div>
+                    </div>
+                    <div id="timerule-weekday-fields" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Weekdays') }}</label>
+                        <div id="weekday-checkboxes" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" onclick="cancelTimeRuleForm()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const WEEKDAY_LABELS = [
+        window.I18N.weekdayMon, window.I18N.weekdayTue, window.I18N.weekdayWed,
+        window.I18N.weekdayThu, window.I18N.weekdayFri, window.I18N.weekdaySat,
+        window.I18N.weekdaySun
+    ];
+    let currentTimeruleKeyId = null;
+    let currentTimerules = [];
+
+    function renderTimeRulesBadges(rules) {
+        if (!rules || rules.length === 0) return '';
+        const badges = rules.map(r => {
+            const color = r.allowed ? 'background:#ecfdf5;color:#065f46;border-color:#a7f3d0' : 'background:#fef2f2;color:#991b1b;border-color:#fecaca';
+            let label = '';
+            if (r.rule_type === 'time_range') {
+                label = (r.start_time || '').substring(0, 5) + ' - ' + (r.end_time || '').substring(0, 5);
+            } else if (r.rule_type === 'date_range') {
+                label = (r.start_date || '') + ' ~ ' + (r.end_date || '');
+            } else if (r.rule_type === 'weekday') {
+                if (r.weekdays) {
+                    label = r.weekdays.split(',').map(d => WEEKDAY_LABELS[parseInt(d)] || d).join(', ');
+                }
+            }
+            const prefix = r.allowed ? '✓' : '✗';
+            return `<span class="model-chip" style="${color}" title="${r.rule_type}: ${label}">${prefix} ${label}</span>`;
+        }).join('');
+        return `<div class="mt-2 flex flex-wrap gap-1">${badges}</div>`;
+    }
+
+    async function showTimeRulesModal(keyId) {
+        currentTimeruleKeyId = keyId;
+        const resp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${keyId}/time-rules`);
+        currentTimerules = resp.rules || [];
+        renderTimeRulesList();
+        document.getElementById('timerule-form').classList.add('hidden');
+        document.getElementById('timerule-modal').classList.remove('hidden');
+        document.getElementById('timerule-modal').classList.add('flex');
+    }
+
+    function closeTimeRuleModal() {
+        document.getElementById('timerule-modal').classList.add('hidden');
+        document.getElementById('timerule-modal').classList.remove('flex');
+        currentTimeruleKeyId = null;
+        loadApiKeys();
+    }
+
+    function renderTimeRulesList() {
+        const container = document.getElementById('timerule-list');
+        if (currentTimerules.length === 0) {
+            container.innerHTML = `<div class="text-gray-400 text-center py-2">${window.I18N.noTimeRules}</div>`;
+            return;
+        }
+        container.innerHTML = currentTimerules.map(r => {
+            let desc = '';
+            if (r.rule_type === 'time_range') desc = (r.start_time || '').substring(0, 5) + ' - ' + (r.end_time || '').substring(0, 5);
+            else if (r.rule_type === 'date_range') desc = (r.start_date || '') + ' ~ ' + (r.end_date || '');
+            else if (r.rule_type === 'weekday') {
+                desc = r.weekdays ? r.weekdays.split(',').map(d => WEEKDAY_LABELS[parseInt(d)] || d).join(', ') : '';
+            }
+            const statusLabel = r.allowed ? window.I18N.allowed : window.I18N.blocked;
+            const typeLabel = r.rule_type === 'time_range' ? window.I18N.timeRange : r.rule_type === 'date_range' ? window.I18N.dateRange : window.I18N.weekday;
+            return `<div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                <div>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded bg-blue-100 text-blue-700">${typeLabel}</span>
+                    <span class="ml-2 text-sm">${desc}</span>
+                    <span class="ml-2 text-xs ${r.allowed ? 'text-green-600' : 'text-red-600'}">${statusLabel}</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="editTimeRuleForm(${r.id})" class="text-blue-500 hover:text-blue-700 text-xs">${window.I18N.edit}</button>
+                    <button onclick="deleteTimeRule(${r.id})" class="text-red-500 hover:text-red-700 text-xs">${window.I18N.delete}</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function onRuleTypeChange() {
+        const type = document.getElementById('timerule-type').value;
+        document.getElementById('timerule-time-fields').classList.toggle('hidden', type !== 'time_range');
+        document.getElementById('timerule-date-fields').classList.toggle('hidden', type !== 'date_range');
+        document.getElementById('timerule-weekday-fields').classList.toggle('hidden', type !== 'weekday');
+        if (type === 'weekday') renderWeekdayCheckboxes();
+    }
+
+    function renderWeekdayCheckboxes(selected) {
+        const sel = selected || '';
+        const container = document.getElementById('weekday-checkboxes');
+        container.innerHTML = WEEKDAY_LABELS.map((label, i) => {
+            const checked = sel.split(',').includes(String(i));
+            return `<label class="flex items-center gap-1 text-sm"><input type="checkbox" class="weekday-cb" value="${i}" ${checked ? 'checked' : ''}>${label}</label>`;
+        }).join('');
+    }
+
+    function showAddTimeRuleForm() {
+        document.getElementById('timerule-id').value = '';
+        document.getElementById('timerule-type').value = 'time_range';
+        document.getElementById('timerule-allowed').checked = true;
+        document.getElementById('timerule-start-time').value = '';
+        document.getElementById('timerule-end-time').value = '';
+        document.getElementById('timerule-start-date').value = '';
+        document.getElementById('timerule-end-date').value = '';
+        onRuleTypeChange();
+        document.getElementById('timerule-form').classList.remove('hidden');
+    }
+
+    function editTimeRuleForm(ruleId) {
+        const rule = currentTimerules.find(r => r.id === ruleId);
+        if (!rule) return;
+        document.getElementById('timerule-id').value = rule.id;
+        document.getElementById('timerule-type').value = rule.rule_type;
+        document.getElementById('timerule-allowed').checked = rule.allowed;
+        document.getElementById('timerule-start-time').value = (rule.start_time || '').substring(0, 5);
+        document.getElementById('timerule-end-time').value = (rule.end_time || '').substring(0, 5);
+        document.getElementById('timerule-start-date').value = rule.start_date || '';
+        document.getElementById('timerule-end-date').value = rule.end_date || '';
+        onRuleTypeChange();
+        if (rule.rule_type === 'weekday') renderWeekdayCheckboxes(rule.weekdays || '');
+        document.getElementById('timerule-form').classList.remove('hidden');
+    }
+
+    function cancelTimeRuleForm() {
+        document.getElementById('timerule-form').classList.add('hidden');
+    }
+
+    document.getElementById('timerule-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const ruleId = document.getElementById('timerule-id').value;
+        const ruleType = document.getElementById('timerule-type').value;
+        const data = {
+            rule_type: ruleType,
+            allowed: document.getElementById('timerule-allowed').checked,
+            start_time: document.getElementById('timerule-start-time').value || null,
+            end_time: document.getElementById('timerule-end-time').value || null,
+            start_date: document.getElementById('timerule-start-date').value || null,
+            end_date: document.getElementById('timerule-end-date').value || null,
+            weekdays: null,
+        };
+        if (ruleType === 'weekday') {
+            const checked = Array.from(document.querySelectorAll('.weekday-cb:checked')).map(cb => cb.value);
+            data.weekdays = checked.join(',') || null;
+        }
+        try {
+            if (ruleId) {
+                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules/${ruleId}`, {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+                });
+            } else {
+                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+                });
+            }
+            const resp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`);
+            currentTimerules = resp.rules || [];
+            renderTimeRulesList();
+            cancelTimeRuleForm();
+        } catch (err) {
+            alert(window.I18N.failedToSaveTimeRule);
+        }
+    });
+
+    async function deleteTimeRule(ruleId) {
+        if (!confirm(window.I18N.deleteTimeRuleConfirm)) return;
+        await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules/${ruleId}`, {method: 'DELETE'});
+        const resp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`);
+        currentTimerules = resp.rules || [];
+        renderTimeRulesList();
+    }
+
+    document.getElementById('timerule-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'timerule-modal') closeTimeRuleModal();
+    });
     </script>
     <script>
         let selectedModelIds = [];
@@ -294,6 +551,7 @@
                             <span class="model-chip model-chip-neutral">${window.I18N.allModels}</span>
                         </div>
                     `;
+                const timeRulesDisplay = renderTimeRulesBadges(k.time_rules || []);
                 const userPageUrl = `${baseUrl}${APP_BASE_PATH}/user/login`;
                 const setupMdUrl = `${baseUrl}${APP_BASE_PATH}/opencode/setup.md?api_key=${k.key}`;
                 return `
@@ -307,8 +565,10 @@
                             </div>
                             <div class="mt-2 text-xs text-gray-500">${window.I18N.lastUsed}: ${formatLastUsed(k.last_used_at)}</div>
                             ${modelsDisplay}
+                            ${timeRulesDisplay}
                         </div>
                         <div class="flex flex-wrap gap-2 shrink-0">
+                            <button onclick="showTimeRulesModal(${k.id})" class="text-purple-500 hover:text-purple-700 text-sm">${window.I18N.timeRules}</button>
                             <a href="/api-keys/${k.id}/query" target="_blank" class="text-green-500 hover:text-green-700 text-sm">${window.I18N.query}</a>
                             <button onclick="editApiKey(${k.id})" class="text-blue-500 hover:text-blue-700 text-sm">${window.I18N.edit}</button>
                             <button onclick="deleteApiKey(${k.id})" class="text-red-500 hover:text-red-700 text-sm">${window.I18N.delete}</button>

@@ -522,8 +522,8 @@ msgstr "加载权限中..."
 msgid "OpenCode Configuration"
 msgstr "OpenCode 配置"
 
-msgid "Generate opencode.json config for this proxy"
-msgstr "为此代理生成 opencode.json 配置"
+msgid "Copy the text below and send it to OpenCode for configuration"
+msgstr "复制下面的文本给 opencode 让他配置"
 
 msgid "Available Models"
 msgstr "可用模型"
@@ -858,3 +858,87 @@ msgstr "复制设置"
 
 msgid "Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider."
 msgstr "请帮我把下面的 provider 配置加入 ~/.config/opencode/opencode.json。 如果这个文件不存在，请先创建它。你也可以在当前项目根目录放置 opencode.json。保留现有 providers 和其他设置，只添加或更新 model-token-plan provider。"
+
+msgid "Time Rules"
+msgstr "时间规则"
+
+msgid "Add Time Rule"
+msgstr "添加时间规则"
+
+msgid "Edit Time Rule"
+msgstr "编辑时间规则"
+
+msgid "Rule Type"
+msgstr "规则类型"
+
+msgid "Time Range"
+msgstr "时间段"
+
+msgid "Date Range"
+msgstr "日期范围"
+
+msgid "Weekday"
+msgstr "星期"
+
+msgid "Start Time"
+msgstr "开始时间"
+
+msgid "End Time"
+msgstr "结束时间"
+
+msgid "Start Date"
+msgstr "开始日期"
+
+msgid "End Date"
+msgstr "结束日期"
+
+msgid "Weekdays"
+msgstr "星期"
+
+msgid "Allowed"
+msgstr "允许"
+
+msgid "Blocked"
+msgstr "阻止"
+
+msgid "No time rules"
+msgstr "暂无时间规则"
+
+msgid "Delete this time rule?"
+msgstr "删除此时间规则？"
+
+msgid "Failed to save time rule"
+msgstr "保存时间规则失败"
+
+msgid "Time rule created"
+msgstr "时间规则已创建"
+
+msgid "HH:MM"
+msgstr "HH:MM"
+
+msgid "YYYY-MM-DD"
+msgstr "YYYY-MM-DD"
+
+msgid "Mon"
+msgstr "周一"
+
+msgid "Tue"
+msgstr "周二"
+
+msgid "Wed"
+msgstr "周三"
+
+msgid "Thu"
+msgstr "周四"
+
+msgid "Fri"
+msgstr "周五"
+
+msgid "Sat"
+msgstr "周六"
+
+msgid "Sun"
+msgstr "周日"
+
+msgid "Control when this API key can be used"
+msgstr "控制此 API 密钥何时可用"
