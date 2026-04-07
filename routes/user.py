@@ -40,6 +40,7 @@ USER_STATS_CACHE_TTL_SECONDS = 60
 USER_RECOMMENDATION_REASON_TTL_SECONDS = 3600
 SYSTEM_HEALTH_WINDOW_MINUTES = 20
 ANALYSIS_PENDING_STALE_SECONDS = 30
+RECOMMENDATION_ANALYSIS_EXPIRES_HOURS = 26
 
 USER_SESSIONS: dict[str, dict] = {}
 USER_SESSION_EXPIRE_HOURS = 24
@@ -637,7 +638,8 @@ async def run_user_recommendation_analysis(
                 model_used=result.get("model_used"),
                 content=None,
                 error="analysis_unavailable",
-                expires_at=datetime.now() + timedelta(hours=1),
+                expires_at=datetime.now()
+                + timedelta(hours=RECOMMENDATION_ANALYSIS_EXPIRES_HOURS),
             )
             return
 
@@ -656,7 +658,8 @@ async def run_user_recommendation_analysis(
             model_used=result.get("model_used"),
             content=content,
             error=None,
-            expires_at=datetime.now() + timedelta(hours=1),
+            expires_at=datetime.now()
+            + timedelta(hours=RECOMMENDATION_ANALYSIS_EXPIRES_HOURS),
         )
     except Exception as exc:
         logger.warning("[USER] Failed to run recommendation analysis: %s", exc)
@@ -668,7 +671,8 @@ async def run_user_recommendation_analysis(
             model_used=None,
             content=None,
             error=str(exc),
-            expires_at=datetime.now() + timedelta(hours=1),
+            expires_at=datetime.now()
+            + timedelta(hours=RECOMMENDATION_ANALYSIS_EXPIRES_HOURS),
         )
 
 
@@ -1440,47 +1444,6 @@ async def get_user_recommendations(
         scope_key,
     )
     insight_payload = parse_recommendation_analysis_record(analysis_record)
-
-    should_refresh_analysis = (
-        analysis_record is None
-        or analysis_record.status in {ANALYSIS_STATUS_FAILED}
-        or (
-            analysis_record.status in {ANALYSIS_STATUS_PENDING, ANALYSIS_STATUS_RUNNING}
-            and analysis_record.updated_at is not None
-            and analysis_record.updated_at
-            <= now - timedelta(seconds=ANALYSIS_PENDING_STALE_SECONDS)
-        )
-        or (
-            analysis_record.expires_at is not None and analysis_record.expires_at <= now
-        )
-    )
-    if should_refresh_analysis and top_recommendations:
-        await upsert_analysis_record(
-            ANALYSIS_TYPE_USER_RECOMMENDATION,
-            scope_key,
-            status=ANALYSIS_STATUS_PENDING,
-            language=locale,
-            model_used=analysis_record.model_used if analysis_record else None,
-            content=analysis_record.content if analysis_record else None,
-            error=None,
-            expires_at=datetime.now() + timedelta(hours=1),
-        )
-        start_analysis_task(
-            ANALYSIS_TYPE_USER_RECOMMENDATION,
-            scope_key,
-            lambda: run_user_recommendation_analysis(
-                scope_key,
-                locale,
-                top_recommendations,
-                hourly_stats,
-                period,
-            ),
-        )
-        analysis_record = await get_analysis_record(
-            ANALYSIS_TYPE_USER_RECOMMENDATION,
-            scope_key,
-        )
-        insight_payload = parse_recommendation_analysis_record(analysis_record)
 
     reason_map = (
         insight_payload.get("reasons") if isinstance(insight_payload, dict) else {}
