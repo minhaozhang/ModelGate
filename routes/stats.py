@@ -26,6 +26,7 @@ public_router = APIRouter(prefix="/api/public", tags=["public"])
 router = APIRouter(prefix="/admin/api", tags=["stats"])
 ERROR_STATUS = "error"
 TIMEOUT_STATUS = "timeout"
+RATE_LIMITED_STATUS = "rate_limited"
 ERROR_STATUSES = (ERROR_STATUS, TIMEOUT_STATUS)
 AGGREGATED_PERIODS = {"month", "year"}
 TOKEN_COUNT_EXPR = func.coalesce(
@@ -71,7 +72,13 @@ def get_token_count(tokens_payload) -> int:
 
 def ensure_metric_bucket(stats_map: dict, key: str) -> dict:
     if key not in stats_map:
-        stats_map[key] = {"requests": 0, "tokens": 0, "errors": 0}
+        stats_map[key] = {
+            "requests": 0,
+            "tokens": 0,
+            "errors": 0,
+            "timeouts": 0,
+            "rate_limited": 0,
+        }
     return stats_map[key]
 
 
@@ -80,10 +87,14 @@ def add_metric_values(
     requests: int = 0,
     tokens: int = 0,
     errors: int = 0,
+    timeouts: int = 0,
+    rate_limited: int = 0,
 ) -> None:
     bucket["requests"] += int(requests or 0)
     bucket["tokens"] += int(tokens or 0)
     bucket["errors"] += int(errors or 0)
+    bucket["timeouts"] += int(timeouts or 0)
+    bucket["rate_limited"] += int(rate_limited or 0)
 
 
 def merge_named_stats(
@@ -96,6 +107,8 @@ def merge_named_stats(
             values.get("requests", 0),
             values.get("tokens", 0),
             values.get("errors", 0),
+            values.get("timeouts", 0),
+            values.get("rate_limited", 0),
         )
     return target
 
@@ -197,12 +210,17 @@ async def get_cached_today_stats(start: datetime) -> dict:
         model_stats = {}
 
         for log in logs:
+            is_rate_limited = log.status == RATE_LIMITED_STATUS
+            if is_rate_limited:
+                continue
+
             tokens = (
                 (log.tokens or {}).get("total_tokens")
                 or (log.tokens or {}).get("estimated")
                 or 0
             )
             is_error = log.status in ERROR_STATUSES
+            is_timeout = log.status == TIMEOUT_STATUS
 
             provider_name = None
             if log.provider_id:
@@ -220,11 +238,15 @@ async def get_cached_today_stats(start: datetime) -> dict:
                         "requests": 0,
                         "tokens": 0,
                         "errors": 0,
+                        "timeouts": 0,
+                        "rate_limited": 0,
                     }
                 provider_stats[provider_name]["requests"] += 1
                 provider_stats[provider_name]["tokens"] += tokens
                 if is_error:
                     provider_stats[provider_name]["errors"] += 1
+                if is_timeout:
+                    provider_stats[provider_name]["timeouts"] += 1
 
             if log.api_key_id:
                 key_info = None
@@ -234,19 +256,35 @@ async def get_cached_today_stats(start: datetime) -> dict:
                         break
                 key_name = key_info["name"] if key_info else f"Key-{log.api_key_id}"
                 if key_name not in api_key_stats:
-                    api_key_stats[key_name] = {"requests": 0, "tokens": 0, "errors": 0}
+                    api_key_stats[key_name] = {
+                        "requests": 0,
+                        "tokens": 0,
+                        "errors": 0,
+                        "timeouts": 0,
+                        "rate_limited": 0,
+                    }
                 api_key_stats[key_name]["requests"] += 1
                 api_key_stats[key_name]["tokens"] += tokens
                 if is_error:
                     api_key_stats[key_name]["errors"] += 1
+                if is_timeout:
+                    api_key_stats[key_name]["timeouts"] += 1
 
             if log.model:
                 if log.model not in model_stats:
-                    model_stats[log.model] = {"requests": 0, "tokens": 0, "errors": 0}
+                    model_stats[log.model] = {
+                        "requests": 0,
+                        "tokens": 0,
+                        "errors": 0,
+                        "timeouts": 0,
+                        "rate_limited": 0,
+                    }
                 model_stats[log.model]["requests"] += 1
                 model_stats[log.model]["tokens"] += tokens
                 if is_error:
                     model_stats[log.model]["errors"] += 1
+                if is_timeout:
+                    model_stats[log.model]["timeouts"] += 1
 
         cache_data = {
             "date": cache_key,
@@ -266,11 +304,17 @@ async def get_cached_today_stats(start: datetime) -> dict:
 @router.get("/stats")
 async def get_stats(_: bool = Depends(require_admin)):
     async with async_session_maker() as session:
-        total_result = await session.execute(select(func.count(RequestLog.id)))
+        total_result = await session.execute(
+            select(func.count(RequestLog.id)).where(
+                RequestLog.status != RATE_LIMITED_STATUS
+            )
+        )
         total_requests = total_result.scalar() or 0
 
         tokens_result = await session.execute(
-            select(func.sum(RequestLog.tokens["total_tokens"].as_integer()))
+            select(func.sum(RequestLog.tokens["total_tokens"].as_integer())).where(
+                RequestLog.status != RATE_LIMITED_STATUS
+            )
         )
         total_tokens = tokens_result.scalar() or 0
 
@@ -281,6 +325,13 @@ async def get_stats(_: bool = Depends(require_admin)):
         )
         total_errors = errors_result.scalar() or 0
 
+        rate_limited_result = await session.execute(
+            select(func.count(RequestLog.id)).where(
+                RequestLog.status == RATE_LIMITED_STATUS
+            )
+        )
+        total_rate_limited = rate_limited_result.scalar() or 0
+
         now = datetime.now()
         minute_key = now.strftime("%Y%m%d_%H%M")
         rpm = stats["requests_per_minute"].count(minute_key)
@@ -289,6 +340,7 @@ async def get_stats(_: bool = Depends(require_admin)):
             "total_requests": total_requests,
             "total_tokens": total_tokens,
             "total_errors": total_errors,
+            "total_rate_limited": total_rate_limited,
             "requests_per_minute": rpm,
             "providers": dict(stats["providers"]),
             "models": dict(stats["models"]),
@@ -396,6 +448,8 @@ async def get_daily_aggregated_stats(
                 "requests": int(row.requests or 0),
                 "tokens": int(row.tokens or 0),
                 "errors": int(row.errors or 0),
+                "timeouts": 0,
+                "rate_limited": 0,
             }
             for row in rows
             if row.group_key
@@ -407,6 +461,8 @@ async def get_daily_aggregated_stats(
                 "requests": int(row.requests or 0),
                 "tokens": int(row.tokens or 0),
                 "errors": int(row.errors or 0),
+                "timeouts": 0,
+                "rate_limited": 0,
             }
             for row in rows
             if row.group_key
@@ -423,6 +479,8 @@ async def get_daily_aggregated_stats(
             "requests": int(row.requests or 0),
             "tokens": int(row.tokens or 0),
             "errors": int(row.errors or 0),
+            "timeouts": 0,
+            "rate_limited": 0,
         }
     return stats_data
 
@@ -453,8 +511,14 @@ async def get_raw_grouped_stats(
             func.sum(case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)).label(
                 "errors"
             ),
+            func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label(
+                "timeouts"
+            ),
+            func.sum(
+                case((RequestLog.status == RATE_LIMITED_STATUS, 1), else_=0)
+            ).label("rate_limited"),
         )
-        .where(*filters)
+        .where(RequestLog.status != RATE_LIMITED_STATUS, *filters)
         .group_by(group_expr)
     )
     rows = result.fetchall()
@@ -468,6 +532,8 @@ async def get_raw_grouped_stats(
                 "requests": int(row.requests or 0),
                 "tokens": int(row.tokens or 0),
                 "errors": int(row.errors or 0),
+                "timeouts": int(row.timeouts or 0),
+                "rate_limited": int(row.rate_limited or 0),
             }
             for row in rows
             if row.group_key in provider_names
@@ -479,6 +545,8 @@ async def get_raw_grouped_stats(
                 "requests": int(row.requests or 0),
                 "tokens": int(row.tokens or 0),
                 "errors": int(row.errors or 0),
+                "timeouts": int(row.timeouts or 0),
+                "rate_limited": int(row.rate_limited or 0),
             }
             for row in rows
             if row.group_key
@@ -492,6 +560,8 @@ async def get_raw_grouped_stats(
             "requests": int(row.requests or 0),
             "tokens": int(row.tokens or 0),
             "errors": int(row.errors or 0),
+            "timeouts": int(row.timeouts or 0),
+            "rate_limited": int(row.rate_limited or 0),
         }
         for row in rows
         if row.group_key is not None
@@ -529,6 +599,7 @@ async def get_aggregate_stats(
     total_requests = sum(d["requests"] for d in stats_data.values())
     total_tokens = sum(d["tokens"] for d in stats_data.values())
     total_errors = sum(d["errors"] for d in stats_data.values())
+    total_rate_limited = sum(d.get("rate_limited", 0) for d in stats_data.values())
 
     return {
         "dimension": dimension,
@@ -536,6 +607,7 @@ async def get_aggregate_stats(
         "total_requests": total_requests,
         "total_tokens": total_tokens,
         "total_errors": total_errors,
+        "total_rate_limited": total_rate_limited,
         "data": stats_data,
     }
 
@@ -551,7 +623,14 @@ async def get_trend_data(
     start, intervals, format_func = get_period_range(period, now)
 
     trend_data = {
-        label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals
+        label: {
+            "requests": 0,
+            "tokens": 0,
+            "errors": 0,
+            "timeouts": 0,
+            "rate_limited": 0,
+        }
+        for label in intervals
     }
 
     async with async_session_maker() as session:
@@ -661,7 +740,16 @@ async def get_trend_data(
                         func.sum(
                             case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
                         ).label("errors"),
-                    ).where(*raw_filters)
+                        func.sum(
+                            case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)
+                        ).label("timeouts"),
+                        func.sum(
+                            case((RequestLog.status == RATE_LIMITED_STATUS, 1), else_=0)
+                        ).label("rate_limited"),
+                    ).where(
+                        RequestLog.status != RATE_LIMITED_STATUS,
+                        *raw_filters,
+                    )
                 )
                 row = result.one()
                 label = format_func(raw_start)
@@ -671,6 +759,8 @@ async def get_trend_data(
                         row.requests,
                         row.tokens,
                         row.errors,
+                        row.timeouts,
+                        row.rate_limited,
                     )
         else:
             query = select(RequestLog).where(RequestLog.created_at >= start)
@@ -707,12 +797,16 @@ async def get_trend_data(
 
                 label = format_func(log.created_at)
                 if label in trend_data:
-                    add_metric_values(
-                        trend_data[label],
-                        1,
-                        get_token_count(log.tokens),
-                        1 if log.status in ERROR_STATUSES else 0,
-                    )
+                    if log.status == RATE_LIMITED_STATUS:
+                        add_metric_values(trend_data[label], rate_limited=1)
+                    else:
+                        add_metric_values(
+                            trend_data[label],
+                            1,
+                            get_token_count(log.tokens),
+                            1 if log.status in ERROR_STATUSES else 0,
+                            1 if log.status == TIMEOUT_STATUS else 0,
+                        )
 
     return {
         "dimension": dimension,
@@ -732,7 +826,13 @@ async def get_monitor_details(
     start = get_period_start(period, now)
     _, intervals, format_func = get_period_range(period, now)
     trend_data = {
-        label: {"requests": 0, "tokens": 0, "errors": 0, "timeouts": 0}
+        label: {
+            "requests": 0,
+            "tokens": 0,
+            "errors": 0,
+            "timeouts": 0,
+            "rate_limited": 0,
+        }
         for label in intervals
     }
 
@@ -753,6 +853,14 @@ async def get_monitor_details(
         )
         total_timeouts = total_timeouts_result.scalar() or 0
 
+        total_rate_limited_result = await session.execute(
+            select(func.count(RequestLog.id)).where(
+                RequestLog.created_at >= start,
+                RequestLog.status == RATE_LIMITED_STATUS,
+            )
+        )
+        total_rate_limited = total_rate_limited_result.scalar() or 0
+
         provider_rows_result = await session.execute(
             select(
                 RequestLog.provider_id.label("group_key"),
@@ -763,6 +871,9 @@ async def get_monitor_details(
                 func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label(
                     "timeouts"
                 ),
+                func.sum(
+                    case((RequestLog.status == RATE_LIMITED_STATUS, 1), else_=0)
+                ).label("rate_limited"),
             )
             .where(RequestLog.created_at >= start)
             .group_by(RequestLog.provider_id)
@@ -779,6 +890,9 @@ async def get_monitor_details(
                 func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label(
                     "timeouts"
                 ),
+                func.sum(
+                    case((RequestLog.status == RATE_LIMITED_STATUS, 1), else_=0)
+                ).label("rate_limited"),
             )
             .where(RequestLog.created_at >= start)
             .group_by(RequestLog.api_key_id)
@@ -795,6 +909,9 @@ async def get_monitor_details(
                 func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label(
                     "timeouts"
                 ),
+                func.sum(
+                    case((RequestLog.status == RATE_LIMITED_STATUS, 1), else_=0)
+                ).label("rate_limited"),
             )
             .where(RequestLog.created_at >= start)
             .group_by(RequestLog.model)
@@ -833,6 +950,9 @@ async def get_monitor_details(
         for log in trend_logs:
             label = format_func(log.created_at)
             if label not in trend_data:
+                continue
+            if log.status == RATE_LIMITED_STATUS:
+                trend_data[label]["rate_limited"] += 1
                 continue
             tokens = (
                 (log.tokens or {}).get("total_tokens")
@@ -934,6 +1054,7 @@ async def get_monitor_details(
             requests = row.requests or 0
             errors = row.errors or 0
             timeouts = row.timeouts or 0
+            rate_limited = row.rate_limited or 0
             entries.append(
                 {
                     "scope": scope,
@@ -942,8 +1063,10 @@ async def get_monitor_details(
                     "requests": requests,
                     "errors": errors,
                     "timeouts": timeouts,
+                    "rate_limited": rate_limited,
                     "error_rate": (errors / requests) if requests else 0,
                     "timeout_rate": (timeouts / requests) if requests else 0,
+                    "rate_limited_rate": ((rate_limited / requests) if requests else 0),
                 }
             )
         return entries
@@ -986,6 +1109,7 @@ async def get_monitor_details(
         "start": start.isoformat(),
         "total_errors": total_errors,
         "total_timeouts": total_timeouts,
+        "total_rate_limited": total_rate_limited,
         "trend": {
             "intervals": intervals,
             "data": trend_data,
@@ -1012,6 +1136,8 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
         total_requests = 0
         total_tokens = 0
         total_errors = 0
+        total_timeouts = 0
+        total_rate_limited = 0
 
         if use_daily_aggregates(period):
             aggregate_end, raw_start = get_aggregate_window_bounds(start, now)
@@ -1174,6 +1300,9 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                 )
 
                 for row in raw_rows:
+                    if row.status == RATE_LIMITED_STATUS:
+                        total_rate_limited += 1
+                        continue
                     tokens = get_token_count(row.tokens)
                     if row.model:
                         model_bucket = model_stats.setdefault(
@@ -1183,8 +1312,10 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                         model_bucket["tokens"] += tokens
                     total_requests += 1
                     total_tokens += tokens
-                    if row.status in ERROR_STATUSES:
+                    if row.status == ERROR_STATUS:
                         total_errors += 1
+                    elif row.status == TIMEOUT_STATUS:
+                        total_timeouts += 1
 
                     provider_name = providers_map.get(row.provider_id)
                     if provider_name:
@@ -1217,22 +1348,44 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                             model_bucket["tokens"] += tokens
         else:
             total_result = await session.execute(
-                select(func.count(RequestLog.id)).where(RequestLog.created_at >= start)
+                select(func.count(RequestLog.id)).where(
+                    RequestLog.created_at >= start,
+                    RequestLog.status != RATE_LIMITED_STATUS,
+                )
             )
             total_requests = total_result.scalar() or 0
 
             tokens_result = await session.execute(
-                select(func.sum(TOKEN_COUNT_EXPR)).where(RequestLog.created_at >= start)
+                select(func.sum(TOKEN_COUNT_EXPR)).where(
+                    RequestLog.created_at >= start,
+                    RequestLog.status != RATE_LIMITED_STATUS,
+                )
             )
             total_tokens = tokens_result.scalar() or 0
 
             errors_result = await session.execute(
                 select(func.count(RequestLog.id)).where(
                     RequestLog.created_at >= start,
-                    RequestLog.status.in_(ERROR_STATUSES),
+                    RequestLog.status == ERROR_STATUS,
                 )
             )
             total_errors = errors_result.scalar() or 0
+
+            timeouts_result = await session.execute(
+                select(func.count(RequestLog.id)).where(
+                    RequestLog.created_at >= start,
+                    RequestLog.status == TIMEOUT_STATUS,
+                )
+            )
+            total_timeouts = timeouts_result.scalar() or 0
+
+            rate_limited_result = await session.execute(
+                select(func.count(RequestLog.id)).where(
+                    RequestLog.created_at >= start,
+                    RequestLog.status == RATE_LIMITED_STATUS,
+                )
+            )
+            total_rate_limited = rate_limited_result.scalar() or 0
 
             logs_result = await session.execute(
                 select(RequestLog).where(RequestLog.created_at >= start)
@@ -1245,6 +1398,8 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
             api_keys_map = await get_api_key_name_map(session, api_key_ids)
 
             for log in logs:
+                if log.status == RATE_LIMITED_STATUS:
+                    continue
                 tokens = get_token_count(log.tokens)
 
                 if log.model:
@@ -1284,12 +1439,39 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                         model_bucket["requests"] += 1
                         model_bucket["tokens"] += tokens
 
+        if use_daily_aggregates(period):
+            errors_result = await session.execute(
+                select(func.count(RequestLog.id)).where(
+                    RequestLog.created_at >= start,
+                    RequestLog.status == ERROR_STATUS,
+                )
+            )
+            total_errors = errors_result.scalar() or 0
+
+            timeouts_result = await session.execute(
+                select(func.count(RequestLog.id)).where(
+                    RequestLog.created_at >= start,
+                    RequestLog.status == TIMEOUT_STATUS,
+                )
+            )
+            total_timeouts = timeouts_result.scalar() or 0
+
+            rate_limited_result = await session.execute(
+                select(func.count(RequestLog.id)).where(
+                    RequestLog.created_at >= start,
+                    RequestLog.status == RATE_LIMITED_STATUS,
+                )
+            )
+            total_rate_limited = rate_limited_result.scalar() or 0
+
         return {
             "period": period,
             "start": start.isoformat(),
             "total_requests": total_requests,
             "total_tokens": total_tokens,
             "total_errors": total_errors,
+            "total_timeouts": total_timeouts,
+            "total_rate_limited": total_rate_limited,
             "providers": provider_stats,
             "api_keys": api_key_stats,
             "models": model_stats,
@@ -1305,7 +1487,16 @@ async def get_chart_data(
 ):
     now = get_local_now()
     start, intervals, format_func = get_period_range(period, now)
-    data = {label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals}
+    data = {
+        label: {
+            "requests": 0,
+            "tokens": 0,
+            "errors": 0,
+            "timeouts": 0,
+            "rate_limited": 0,
+        }
+        for label in intervals
+    }
 
     async with async_session_maker() as session:
         if use_daily_aggregates(period) and provider is None and api_key_id is None:
@@ -1332,7 +1523,6 @@ async def get_chart_data(
                             data[label],
                             row.requests,
                             row.tokens,
-                            row.errors,
                         )
 
             if raw_start < now:
@@ -1340,10 +1530,10 @@ async def get_chart_data(
                     select(
                         func.count(RequestLog.id).label("requests"),
                         func.sum(TOKEN_COUNT_EXPR).label("tokens"),
-                        func.sum(
-                            case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
-                        ).label("errors"),
-                    ).where(RequestLog.created_at >= raw_start)
+                    ).where(
+                        RequestLog.created_at >= raw_start,
+                        RequestLog.status != RATE_LIMITED_STATUS,
+                    )
                 )
                 row = result.one()
                 label = format_func(raw_start)
@@ -1352,8 +1542,23 @@ async def get_chart_data(
                         data[label],
                         row.requests,
                         row.tokens,
-                        row.errors,
                     )
+
+            status_rows_result = await session.execute(
+                select(RequestLog.created_at, RequestLog.status).where(
+                    RequestLog.created_at >= start
+                )
+            )
+            for row in status_rows_result.fetchall():
+                label = format_func(row.created_at)
+                if label not in data:
+                    continue
+                add_metric_values(
+                    data[label],
+                    errors=1 if row.status in ERROR_STATUSES else 0,
+                    timeouts=1 if row.status == TIMEOUT_STATUS else 0,
+                    rate_limited=1 if row.status == RATE_LIMITED_STATUS else 0,
+                )
 
             provider_stats = {}
             merge_named_stats(
@@ -1397,16 +1602,22 @@ async def get_chart_data(
             for log in logs:
                 label = format_func(log.created_at)
                 if label in data:
-                    add_metric_values(
-                        data[label],
-                        1,
-                        get_token_count(log.tokens),
-                        1 if log.status in ERROR_STATUSES else 0,
-                    )
+                    if log.status == RATE_LIMITED_STATUS:
+                        add_metric_values(data[label], rate_limited=1)
+                    else:
+                        add_metric_values(
+                            data[label],
+                            1,
+                            get_token_count(log.tokens),
+                            1 if log.status in ERROR_STATUSES else 0,
+                            1 if log.status == TIMEOUT_STATUS else 0,
+                        )
 
             provider_stats = {}
             provider_cache = {}
             for log in logs:
+                if log.status == RATE_LIMITED_STATUS:
+                    continue
                 provider_name = None
                 if log.provider_id:
                     if log.provider_id not in provider_cache:
@@ -1425,6 +1636,8 @@ async def get_chart_data(
 
             api_key_stats = {}
             for log in logs:
+                if log.status == RATE_LIMITED_STATUS:
+                    continue
                 if log.api_key_id:
                     name = get_api_key_name_from_cache(log.api_key_id)
                     if name:
@@ -1441,6 +1654,53 @@ async def get_chart_data(
             "providers": provider_stats,
             "api_keys": api_key_stats,
         }
+
+
+@router.get("/stats/error-trend")
+async def get_error_trend(_: bool = Depends(require_admin)):
+    now = get_local_now()
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=29)
+    days = [(start + timedelta(days=i)).strftime("%m/%d") for i in range(30)]
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(
+                func.date(RequestLog.created_at).label("day"),
+                func.count(RequestLog.id).label("requests"),
+                func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label(
+                    "errors"
+                ),
+                func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label(
+                    "timeouts"
+                ),
+                func.sum(
+                    case((RequestLog.status == RATE_LIMITED_STATUS, 1), else_=0)
+                ).label("rate_limited"),
+            )
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.status != RATE_LIMITED_STATUS,
+            )
+            .group_by(func.date(RequestLog.created_at))
+            .order_by(func.date(RequestLog.created_at))
+        )
+        rows = result.fetchall()
+
+    data = {}
+    for row in rows:
+        day_str = row.day.strftime("%m/%d")
+        data[day_str] = {
+            "requests": row.requests,
+            "errors": row.errors or 0,
+            "timeouts": row.timeouts or 0,
+            "rate_limited": row.rate_limited or 0,
+        }
+
+    for d in days:
+        if d not in data:
+            data[d] = {"requests": 0, "errors": 0, "timeouts": 0, "rate_limited": 0}
+
+    return {"intervals": days, "data": data}
 
 
 @router.post("/stats/reaggregate")

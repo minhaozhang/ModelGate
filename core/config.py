@@ -96,13 +96,16 @@ provider_semaphores: dict[str, "asyncio.Semaphore"] = {}
 stats = {
     "total_requests": 0,
     "total_tokens": 0,
-    "providers": defaultdict(lambda: {"requests": 0, "tokens": 0, "errors": 0}),
+    "providers": defaultdict(
+        lambda: {"requests": 0, "tokens": 0, "errors": 0, "rate_limited": 0}
+    ),
     "models": defaultdict(lambda: {"requests": 0, "tokens": 0}),
     "api_keys": defaultdict(
         lambda: {
             "requests": 0,
             "tokens": 0,
             "errors": 0,
+            "rate_limited": 0,
             "models": defaultdict(lambda: {"requests": 0, "tokens": 0}),
         }
     ),
@@ -147,23 +150,31 @@ def update_stats(
     tokens: int,
     api_key_id: Optional[int] = None,
     is_error: bool = False,
+    is_rate_limited: bool = False,
 ):
-    stats["total_requests"] += 1
-    stats["total_tokens"] += tokens
-    stats["providers"][provider]["requests"] += 1
-    stats["providers"][provider]["tokens"] += tokens
+    if not is_rate_limited:
+        stats["total_requests"] += 1
+        stats["total_tokens"] += tokens
+        stats["providers"][provider]["requests"] += 1
+        stats["providers"][provider]["tokens"] += tokens
+        stats["models"][model]["requests"] += 1
+        stats["models"][model]["tokens"] += tokens
+
+        if api_key_id:
+            stats["api_keys"][api_key_id]["requests"] += 1
+            stats["api_keys"][api_key_id]["tokens"] += tokens
+            stats["api_keys"][api_key_id]["models"][model]["requests"] += 1
+            stats["api_keys"][api_key_id]["models"][model]["tokens"] += tokens
+
     if is_error:
         stats["providers"][provider]["errors"] += 1
-    stats["models"][model]["requests"] += 1
-    stats["models"][model]["tokens"] += tokens
-
+    if is_rate_limited:
+        stats["providers"][provider]["rate_limited"] += 1
     if api_key_id:
-        stats["api_keys"][api_key_id]["requests"] += 1
-        stats["api_keys"][api_key_id]["tokens"] += tokens
         if is_error:
             stats["api_keys"][api_key_id]["errors"] += 1
-        stats["api_keys"][api_key_id]["models"][model]["requests"] += 1
-        stats["api_keys"][api_key_id]["models"][model]["tokens"] += tokens
+        if is_rate_limited:
+            stats["api_keys"][api_key_id]["rate_limited"] += 1
 
     now = datetime.now()
     minute_key = now.strftime("%Y%m%d_%H%M")

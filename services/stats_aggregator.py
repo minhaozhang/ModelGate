@@ -40,6 +40,9 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
         model_stats = {}
 
         for log in logs:
+            if log.status == "rate_limited":
+                continue
+
             provider_name = None
             if log.provider_id:
                 if log.provider_id not in provider_cache:
@@ -226,7 +229,8 @@ async def cleanup_stale_pending_requests() -> None:
             .values(
                 status="timeout",
                 error="Request timed out",
-                latency_ms=func.extract("epoch", func.now() - RequestLog.created_at) * 1000,
+                latency_ms=func.extract("epoch", func.now() - RequestLog.created_at)
+                * 1000,
                 updated_at=func.now(),
             )
             .returning(RequestLog.id)
