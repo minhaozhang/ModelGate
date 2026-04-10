@@ -79,10 +79,14 @@ def _openai_error_response(
     )
 
 
+def _is_rate_limited_status(status_code: int) -> bool:
+    return status_code in (429, 529)
+
+
 def _resolve_request_status(
     status_code: int, provider_error: str | None = None
 ) -> str:
-    if status_code == 429:
+    if _is_rate_limited_status(status_code):
         return RATE_LIMITED_STATUS
     if status_code >= 400 or provider_error:
         return "error"
@@ -645,14 +649,14 @@ def _normalize_upstream_error(
         return json.dumps(resp_json).encode()
     provider_error = _extract_provider_error(resp_json)
     if provider_error:
-        error_type = "rate_limit_error" if status_code == 429 else "api_error"
+        error_type = "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
         return json.dumps(_openai_error(provider_error, error_type)).encode()
     if raw_error_text:
-        error_type = "rate_limit_error" if status_code == 429 else "api_error"
+        error_type = "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
         return json.dumps(_openai_error(raw_error_text, error_type)).encode()
     if resp_json:
         return json.dumps(resp_json).encode()
-    error_type = "rate_limit_error" if status_code == 429 else "api_error"
+    error_type = "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
     return json.dumps(
         _openai_error(f"Upstream request failed with status {status_code}", error_type)
     ).encode()
@@ -922,7 +926,7 @@ async def handle_normal(
     semaphore.release()
 
     resp_headers = {"content-type": "application/json"}
-    if resp.status_code == 429:
+    if _is_rate_limited_status(resp.status_code):
         retry_after = resp.headers.get("retry-after")
         if retry_after:
             resp_headers["retry-after"] = retry_after
@@ -1028,7 +1032,7 @@ async def handle_streaming(
                 f"  Response: {sanitize_text_for_log(error_text)}"
             )
             resp_headers = {"content-type": "application/json"}
-            if resp.status_code == 429:
+            if _is_rate_limited_status(resp.status_code):
                 if retry_after:
                     resp_headers["retry-after"] = retry_after
                 else:
