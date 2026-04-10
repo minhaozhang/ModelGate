@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional, Literal
-from fastapi import APIRouter, Cookie, Depends, HTTPException
+from fastapi import APIRouter, Cookie, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy import select, func, and_, or_, case
 
 from core.database import (
@@ -15,7 +15,12 @@ from core.database import (
 )
 import core.config as config_module
 from core.config import (
+    add_live_stats_subscriber,
     api_keys_cache,
+    build_live_stats_snapshot,
+    get_api_key_name,
+    prune_stale_active_requests,
+    remove_live_stats_subscriber,
     stats,
     TODAY_STATS_CACHE_TTL_SECONDS,
     requests_per_second,
@@ -114,10 +119,7 @@ def merge_named_stats(
 
 
 def get_api_key_name_from_cache(api_key_id: int) -> Optional[str]:
-    for value in api_keys_cache.values():
-        if value["id"] == api_key_id:
-            return value["name"]
-    return None
+    return get_api_key_name(api_key_id)
 
 
 def get_api_key_id_from_cache(name: str) -> Optional[int]:
@@ -211,14 +213,7 @@ async def get_cached_today_stats(start: datetime) -> dict:
 
         for log in logs:
             is_rate_limited = log.status == RATE_LIMITED_STATUS
-            if is_rate_limited:
-                continue
-
-            tokens = (
-                (log.tokens or {}).get("total_tokens")
-                or (log.tokens or {}).get("estimated")
-                or 0
-            )
+            tokens = 0 if is_rate_limited else get_token_count(log.tokens)
             is_error = log.status in ERROR_STATUSES
             is_timeout = log.status == TIMEOUT_STATUS
 
@@ -241,7 +236,10 @@ async def get_cached_today_stats(start: datetime) -> dict:
                         "timeouts": 0,
                         "rate_limited": 0,
                     }
-                provider_stats[provider_name]["requests"] += 1
+                if is_rate_limited:
+                    provider_stats[provider_name]["rate_limited"] += 1
+                else:
+                    provider_stats[provider_name]["requests"] += 1
                 provider_stats[provider_name]["tokens"] += tokens
                 if is_error:
                     provider_stats[provider_name]["errors"] += 1
@@ -263,7 +261,10 @@ async def get_cached_today_stats(start: datetime) -> dict:
                         "timeouts": 0,
                         "rate_limited": 0,
                     }
-                api_key_stats[key_name]["requests"] += 1
+                if is_rate_limited:
+                    api_key_stats[key_name]["rate_limited"] += 1
+                else:
+                    api_key_stats[key_name]["requests"] += 1
                 api_key_stats[key_name]["tokens"] += tokens
                 if is_error:
                     api_key_stats[key_name]["errors"] += 1
@@ -279,7 +280,10 @@ async def get_cached_today_stats(start: datetime) -> dict:
                         "timeouts": 0,
                         "rate_limited": 0,
                     }
-                model_stats[log.model]["requests"] += 1
+                if is_rate_limited:
+                    model_stats[log.model]["rate_limited"] += 1
+                else:
+                    model_stats[log.model]["requests"] += 1
                 model_stats[log.model]["tokens"] += tokens
                 if is_error:
                     model_stats[log.model]["errors"] += 1
@@ -355,11 +359,13 @@ def get_period_range(
         intervals = [
             ((start + timedelta(minutes=30 * i)).strftime("%H:%M")) for i in range(48)
         ]
-        format_func = lambda d: d.replace(
-            minute=0 if d.minute < 30 else 30,
-            second=0,
-            microsecond=0,
-        ).strftime("%H:%M")
+
+        def format_func(d: datetime) -> str:
+            return d.replace(
+                minute=0 if d.minute < 30 else 30,
+                second=0,
+                microsecond=0,
+            ).strftime("%H:%M")
     elif period == "week":
         current_bucket_start = now.replace(
             hour=0 if now.hour < 12 else 12,
@@ -387,7 +393,9 @@ def get_period_range(
             days=30
         )
         intervals = [((start + timedelta(days=i)).strftime("%m/%d")) for i in range(31)]
-        format_func = lambda d: d.strftime("%m/%d")
+
+        def format_func(d: datetime) -> str:
+            return d.strftime("%m/%d")
     else:
         start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
             days=364
@@ -397,9 +405,11 @@ def get_period_range(
             (start + timedelta(days=7 * i)).strftime("%m/%d")
             for i in range(bucket_count)
         ]
-        format_func = lambda d: (
-            start + timedelta(days=((d.date() - start.date()).days // 7) * 7)
-        ).strftime("%m/%d")
+
+        def format_func(d: datetime) -> str:
+            return (
+                start + timedelta(days=((d.date() - start.date()).days // 7) * 7)
+            ).strftime("%m/%d")
 
     return start, intervals, format_func
 
@@ -436,6 +446,7 @@ async def get_daily_aggregated_stats(
             func.sum(table.requests).label("requests"),
             func.sum(table.tokens).label("tokens"),
             func.sum(table.errors).label("errors"),
+            func.sum(table.rate_limited).label("rate_limited"),
         )
         .where(and_(table.date >= start_str, table.date < end_str))
         .group_by(name_col)
@@ -449,7 +460,7 @@ async def get_daily_aggregated_stats(
                 "tokens": int(row.tokens or 0),
                 "errors": int(row.errors or 0),
                 "timeouts": 0,
-                "rate_limited": 0,
+                "rate_limited": int(row.rate_limited or 0),
             }
             for row in rows
             if row.group_key
@@ -462,7 +473,7 @@ async def get_daily_aggregated_stats(
                 "tokens": int(row.tokens or 0),
                 "errors": int(row.errors or 0),
                 "timeouts": 0,
-                "rate_limited": 0,
+                "rate_limited": int(row.rate_limited or 0),
             }
             for row in rows
             if row.group_key
@@ -480,7 +491,7 @@ async def get_daily_aggregated_stats(
             "tokens": int(row.tokens or 0),
             "errors": int(row.errors or 0),
             "timeouts": 0,
-            "rate_limited": 0,
+            "rate_limited": int(row.rate_limited or 0),
         }
     return stats_data
 
@@ -506,8 +517,12 @@ async def get_raw_grouped_stats(
     result = await session.execute(
         select(
             group_expr.label("group_key"),
-            func.count(RequestLog.id).label("requests"),
-            func.sum(TOKEN_COUNT_EXPR).label("tokens"),
+            func.sum(
+                case((RequestLog.status != RATE_LIMITED_STATUS, 1), else_=0)
+            ).label("requests"),
+            func.sum(
+                case((RequestLog.status != RATE_LIMITED_STATUS, TOKEN_COUNT_EXPR), else_=0)
+            ).label("tokens"),
             func.sum(case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)).label(
                 "errors"
             ),
@@ -518,7 +533,7 @@ async def get_raw_grouped_stats(
                 case((RequestLog.status == RATE_LIMITED_STATUS, 1), else_=0)
             ).label("rate_limited"),
         )
-        .where(RequestLog.status != RATE_LIMITED_STATUS, *filters)
+        .where(*filters)
         .group_by(group_expr)
     )
     rows = result.fetchall()
@@ -675,6 +690,7 @@ async def get_trend_data(
                         func.sum(aggregate_table.requests).label("requests"),
                         func.sum(aggregate_table.tokens).label("tokens"),
                         func.sum(aggregate_table.errors).label("errors"),
+                        func.sum(aggregate_table.rate_limited).label("rate_limited"),
                     )
                     .where(
                         aggregate_table.date >= start.strftime("%Y-%m-%d"),
@@ -693,6 +709,7 @@ async def get_trend_data(
                             row.requests,
                             row.tokens,
                             row.errors,
+                            rate_limited=row.rate_limited,
                         )
 
             raw_filters = (
@@ -735,8 +752,15 @@ async def get_trend_data(
 
                 result = await session.execute(
                     select(
-                        func.count(RequestLog.id).label("requests"),
-                        func.sum(TOKEN_COUNT_EXPR).label("tokens"),
+                        func.sum(
+                            case((RequestLog.status != RATE_LIMITED_STATUS, 1), else_=0)
+                        ).label("requests"),
+                        func.sum(
+                            case(
+                                (RequestLog.status != RATE_LIMITED_STATUS, TOKEN_COUNT_EXPR),
+                                else_=0,
+                            )
+                        ).label("tokens"),
                         func.sum(
                             case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
                         ).label("errors"),
@@ -746,10 +770,7 @@ async def get_trend_data(
                         func.sum(
                             case((RequestLog.status == RATE_LIMITED_STATUS, 1), else_=0)
                         ).label("rate_limited"),
-                    ).where(
-                        RequestLog.status != RATE_LIMITED_STATUS,
-                        *raw_filters,
-                    )
+                    ).where(*raw_filters)
                 )
                 row = result.one()
                 label = format_func(raw_start)
@@ -1151,6 +1172,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                         func.sum(ModelDailyStat.requests).label("requests"),
                         func.sum(ModelDailyStat.tokens).label("tokens"),
                         func.sum(ModelDailyStat.errors).label("errors"),
+                        func.sum(ModelDailyStat.rate_limited).label("rate_limited"),
                     )
                     .where(
                         ModelDailyStat.date >= start_str,
@@ -1164,16 +1186,19 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                     model_stats[row.model_name] = {
                         "requests": int(row.requests or 0),
                         "tokens": int(row.tokens or 0),
+                        "rate_limited": int(row.rate_limited or 0),
                     }
                     total_requests += int(row.requests or 0)
                     total_tokens += int(row.tokens or 0)
                     total_errors += int(row.errors or 0)
+                    total_rate_limited += int(row.rate_limited or 0)
 
                 provider_rows_result = await session.execute(
                     select(
                         ProviderDailyStat.provider_name,
                         func.sum(ProviderDailyStat.requests).label("requests"),
                         func.sum(ProviderDailyStat.tokens).label("tokens"),
+                        func.sum(ProviderDailyStat.rate_limited).label("rate_limited"),
                     )
                     .where(
                         ProviderDailyStat.date >= start_str,
@@ -1187,6 +1212,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                     provider_stats[row.provider_name] = {
                         "requests": int(row.requests or 0),
                         "tokens": int(row.tokens or 0),
+                        "rate_limited": int(row.rate_limited or 0),
                         "models": {},
                     }
 
@@ -1196,6 +1222,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                         ModelDailyStat.model_name,
                         func.sum(ModelDailyStat.requests).label("requests"),
                         func.sum(ModelDailyStat.tokens).label("tokens"),
+                        func.sum(ModelDailyStat.rate_limited).label("rate_limited"),
                     )
                     .where(
                         ModelDailyStat.date >= start_str,
@@ -1214,6 +1241,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                     provider_bucket["models"][row.model_name] = {
                         "requests": int(row.requests or 0),
                         "tokens": int(row.tokens or 0),
+                        "rate_limited": int(row.rate_limited or 0),
                     }
 
                 api_key_rows_result = await session.execute(
@@ -1221,6 +1249,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                         ApiKeyDailyStat.api_key_id,
                         func.sum(ApiKeyDailyStat.requests).label("requests"),
                         func.sum(ApiKeyDailyStat.tokens).label("tokens"),
+                        func.sum(ApiKeyDailyStat.rate_limited).label("rate_limited"),
                     )
                     .where(
                         ApiKeyDailyStat.date >= start_str,
@@ -1241,6 +1270,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                     api_key_stats[api_key_name] = {
                         "requests": int(row.requests or 0),
                         "tokens": int(row.tokens or 0),
+                        "rate_limited": int(row.rate_limited or 0),
                         "models": {},
                     }
 
@@ -1250,6 +1280,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                         ApiKeyModelDailyStat.model_name,
                         func.sum(ApiKeyModelDailyStat.requests).label("requests"),
                         func.sum(ApiKeyModelDailyStat.tokens).label("tokens"),
+                        func.sum(ApiKeyModelDailyStat.rate_limited).label("rate_limited"),
                     )
                     .where(
                         ApiKeyModelDailyStat.date >= start_str,
@@ -1273,6 +1304,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                     api_key_bucket["models"][row.model_name] = {
                         "requests": int(row.requests or 0),
                         "tokens": int(row.tokens or 0),
+                        "rate_limited": int(row.rate_limited or 0),
                     }
 
             if raw_start < now:
@@ -1508,6 +1540,7 @@ async def get_chart_data(
                         func.sum(ModelDailyStat.requests).label("requests"),
                         func.sum(ModelDailyStat.tokens).label("tokens"),
                         func.sum(ModelDailyStat.errors).label("errors"),
+                        func.sum(ModelDailyStat.rate_limited).label("rate_limited"),
                     )
                     .where(
                         ModelDailyStat.date >= start.strftime("%Y-%m-%d"),
@@ -1523,16 +1556,23 @@ async def get_chart_data(
                             data[label],
                             row.requests,
                             row.tokens,
+                            rate_limited=row.rate_limited,
                         )
 
             if raw_start < now:
                 result = await session.execute(
                     select(
-                        func.count(RequestLog.id).label("requests"),
-                        func.sum(TOKEN_COUNT_EXPR).label("tokens"),
+                        func.sum(
+                            case((RequestLog.status != RATE_LIMITED_STATUS, 1), else_=0)
+                        ).label("requests"),
+                        func.sum(
+                            case(
+                                (RequestLog.status != RATE_LIMITED_STATUS, TOKEN_COUNT_EXPR),
+                                else_=0,
+                            )
+                        ).label("tokens"),
                     ).where(
                         RequestLog.created_at >= raw_start,
-                        RequestLog.status != RATE_LIMITED_STATUS,
                     )
                 )
                 row = result.one()
@@ -1666,7 +1706,9 @@ async def get_error_trend(_: bool = Depends(require_admin)):
         result = await session.execute(
             select(
                 func.date(RequestLog.created_at).label("day"),
-                func.count(RequestLog.id).label("requests"),
+                func.sum(
+                    case((RequestLog.status != RATE_LIMITED_STATUS, 1), else_=0)
+                ).label("requests"),
                 func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label(
                     "errors"
                 ),
@@ -1677,10 +1719,7 @@ async def get_error_trend(_: bool = Depends(require_admin)):
                     case((RequestLog.status == RATE_LIMITED_STATUS, 1), else_=0)
                 ).label("rate_limited"),
             )
-            .where(
-                RequestLog.created_at >= start,
-                RequestLog.status != RATE_LIMITED_STATUS,
-            )
+            .where(RequestLog.created_at >= start)
             .group_by(func.date(RequestLog.created_at))
             .order_by(func.date(RequestLog.created_at))
         )
@@ -1719,62 +1758,12 @@ async def reaggregate_all_stats(_: bool = Depends(require_admin)):
 
 @router.get("/stats/active")
 async def get_active_sessions(_: bool = Depends(require_admin)):
-    recent_cutoff = get_local_now() - timedelta(seconds=30)
-    async with async_session_maker() as session:
-        result = await session.execute(
-            select(RequestLog)
-            .where(
-                or_(
-                    RequestLog.status == "pending",
-                    RequestLog.created_at >= recent_cutoff,
-                )
-            )
-            .order_by(RequestLog.created_at.desc())
-        )
-        logs = result.scalars().all()
-
-        active_sessions = {}
-        for log in logs:
-            if not log.api_key_id:
-                continue
-
-            key_info = None
-            for k, v in api_keys_cache.items():
-                if v["id"] == log.api_key_id:
-                    key_info = v
-                    break
-
-            key_name = key_info["name"] if key_info else f"Key-{log.api_key_id}"
-
-            if key_name not in active_sessions:
-                active_sessions[key_name] = {
-                    "api_key_id": log.api_key_id,
-                    "models": {},
-                    "requests": 0,
-                    "last_activity": log.created_at.isoformat(),
-                }
-
-            active_sessions[key_name]["requests"] += 1
-            if log.created_at.isoformat() > active_sessions[key_name]["last_activity"]:
-                active_sessions[key_name]["last_activity"] = log.created_at.isoformat()
-
-            if log.model:
-                if log.model not in active_sessions[key_name]["models"]:
-                    active_sessions[key_name]["models"][log.model] = 0
-                active_sessions[key_name]["models"][log.model] += 1
-
-        ordered_sessions = dict(
-            sorted(
-                active_sessions.items(),
-                key=lambda item: item[1]["last_activity"],
-                reverse=True,
-            )
-        )
-
-        return {
-            "active_count": len(ordered_sessions),
-            "sessions": ordered_sessions,
-        }
+    snapshot = await build_live_stats_snapshot()
+    return {
+        "active_count": snapshot["active_users"],
+        "active_requests": snapshot["active_requests"],
+        "sessions": snapshot["sessions"],
+    }
 
 
 @router.get("/stats/active/models")
@@ -1825,6 +1814,7 @@ async def get_active_sessions_by_model(_: bool = Depends(require_admin)):
 
 @router.get("/stats/realtime")
 async def get_realtime_stats(_: bool = Depends(require_admin)):
+    snapshot = await build_live_stats_snapshot()
     now = datetime.now()
     cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
 
@@ -1846,7 +1836,31 @@ async def get_realtime_stats(_: bool = Depends(require_admin)):
     return {
         "requests_per_second": round(total_requests / req_active_seconds, 1),
         "tokens_per_second": round(total_tokens / token_active_seconds, 1),
+        "active_requests": snapshot["active_requests"],
+        "active_users": snapshot["active_users"],
     }
+
+
+@router.websocket("/stats/live")
+async def stats_live_websocket(websocket: WebSocket):
+    from core.config import validate_session
+
+    if not validate_session(websocket.cookies.get("session")):
+        await websocket.close(code=4401)
+        return
+
+    await websocket.accept()
+    await add_live_stats_subscriber(websocket)
+
+    try:
+        await websocket.send_json(await build_live_stats_snapshot())
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await remove_live_stats_subscriber(websocket)
+        await prune_stale_active_requests()
 
 
 @router.get("/stats/slow")

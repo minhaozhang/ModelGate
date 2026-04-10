@@ -45,6 +45,12 @@ msgstr "TPS"
 msgid "Err Rate"
 msgstr "错误率"
 
+msgid "Active Requests"
+msgstr "活跃请求"
+
+msgid "Active Users"
+msgstr "活跃用户"
+
 msgid "Active Sessions"
 msgstr "活跃会话"
 
@@ -65,6 +71,9 @@ msgstr "暂无数据"
 
 msgid "No active sessions"
 msgstr "无活跃会话"
+
+msgid "No active users"
+msgstr "无活跃用户"
 
 msgid "No slow requests"
 msgstr "无慢请求"
@@ -113,6 +122,9 @@ msgstr "慢请求 (>60秒)"
 
 msgid "Login"
 msgstr "登录"
+
+msgid "Empower every developer to harness the power of AI."
+msgstr "赋予每个开发者，驾驭智能的力量。"
 
 msgid "API Proxy Login"
 msgstr "ModelGate 登录"

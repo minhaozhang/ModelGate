@@ -10,10 +10,12 @@ from sqlalchemy import select
 from core.config import (
     providers_cache,
     api_keys_cache,
+    finish_active_request,
     update_stats,
     logger,
     error_logger,
     provider_semaphores,
+    register_active_request,
 )
 from core.log_sanitizer import (
     sanitize_headers_for_log,
@@ -304,7 +306,7 @@ async def proxy_request(request: Request, endpoint: str):
 async def _ensure_internal_api_key_exists(api_key_id: int) -> bool:
     async with async_session_maker() as session:
         result = await session.execute(
-            select(ApiKey.id).where(ApiKey.id == api_key_id, ApiKey.is_active == True)
+            select(ApiKey.id).where(ApiKey.id == api_key_id, ApiKey.is_active)
         )
         return result.scalar_one_or_none() is not None
 
@@ -834,120 +836,134 @@ async def handle_normal(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
     )
 
-    resp = await client.post(url, headers=headers, content=body)
-    latency = (time.time() - start_time) * 1000
-
+    is_active_request_registered = False
     try:
-        resp_json = resp.json()
-    except json.JSONDecodeError:
-        resp_json = {}
+        await register_active_request(
+            request_id,
+            provider,
+            model,
+            api_key_id,
+            client_ip=client_ip,
+        )
+        is_active_request_registered = True
 
-    if provider == "minimax":
-        process_minimax_response(resp_json)
+        resp = await client.post(url, headers=headers, content=body)
+        latency = (time.time() - start_time) * 1000
 
-    response_text, reasoning_text, tool_calls, finish_reason = _extract_response_fields(
-        resp_json
-    )
+        try:
+            resp_json = resp.json()
+        except json.JSONDecodeError:
+            resp_json = {}
 
-    response_meta = build_response_meta(
-        response_text=response_text,
-        reasoning_text=reasoning_text,
-        tool_calls=tool_calls,
-        finish_reason=finish_reason,
-    )
-    tokens_record = build_tokens_record(
-        resp_json.get("usage"),
-        req_body=req_body,
-        response_text=response_text,
-        reasoning_text=reasoning_text,
-        response_meta=response_meta,
-    )
-    total_tokens = tokens_record["total_tokens"]
+        if provider == "minimax":
+            process_minimax_response(resp_json)
 
-    request_status = _resolve_request_status(resp.status_code)
-    is_error = request_status == "error"
-    retry_after = resp.headers.get("retry-after")
-    if retry_after:
-        error_logger.warning(
-            f"[API] {provider} rate limited, retry-after: {retry_after}s"
+        response_text, reasoning_text, tool_calls, finish_reason = (
+            _extract_response_fields(resp_json)
         )
 
-    provider_error = _extract_provider_error(resp_json)
-    if provider_error:
-        request_status = _resolve_request_status(resp.status_code, provider_error)
+        response_meta = build_response_meta(
+            response_text=response_text,
+            reasoning_text=reasoning_text,
+            tool_calls=tool_calls,
+            finish_reason=finish_reason,
+        )
+        tokens_record = build_tokens_record(
+            resp_json.get("usage"),
+            req_body=req_body,
+            response_text=response_text,
+            reasoning_text=reasoning_text,
+            response_meta=response_meta,
+        )
+        total_tokens = tokens_record["total_tokens"]
+
+        request_status = _resolve_request_status(resp.status_code)
         is_error = request_status == "error"
-    if is_error and provider_error:
-        error_logger.error(
-            f"[API ERROR] Provider: {provider}, Model: {model}, API returned error: {provider_error}"
-        )
-
-    update_stats(
-        provider,
-        model,
-        total_tokens,
-        api_key_id=api_key_id,
-        is_error=is_error,
-        is_rate_limited=request_status == RATE_LIMITED_STATUS,
-    )
-    log_response_meta(provider, model, response_meta)
-    await log_request(
-        provider,
-        model,
-        response_text,
-        tokens_record,
-        latency,
-        request_status,
-        api_key_id=api_key_id,
-        upstream_status_code=resp.status_code,
-        client_ip=client_ip,
-        user_agent=user_agent,
-        request_context_tokens=request_context_tokens,
-        error=(
-            sanitize_text_for_log(provider_error, limit=2000)
-            if provider_error
-            else sanitize_text_for_log(resp.text, limit=2000)
-        )
-        if request_status != "success"
-        else None,
-    )
-
-    if is_error:
-        error_logger.error(
-            f"[API ERROR] Provider: {provider}, Model: {model}, Status: {resp.status_code}\n"
-            f"  Request Body: {sanitize_payload_for_log(req_body)}\n"
-            f"  Response: {sanitize_text_for_log(resp.text)}"
-        )
-
-    logger.info(
-        f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms"
-    )
-    logger.debug("[RESPONSE] Body: %s", sanitize_text_for_log(resp.text))
-
-    semaphore.release()
-
-    resp_headers = {"content-type": "application/json"}
-    if _is_rate_limited_status(resp.status_code):
         retry_after = resp.headers.get("retry-after")
         if retry_after:
-            resp_headers["retry-after"] = retry_after
-        else:
-            resp_headers["retry-after"] = str(SEMAPHORE_RETRY_AFTER_SECONDS)
+            error_logger.warning(
+                f"[API] {provider} rate limited, retry-after: {retry_after}s"
+            )
 
-    if request_status != "success":
-        resp_content = _normalize_upstream_error(
-            resp_json,
-            resp.status_code,
+        provider_error = _extract_provider_error(resp_json)
+        if provider_error:
+            request_status = _resolve_request_status(resp.status_code, provider_error)
+            is_error = request_status == "error"
+        if is_error and provider_error:
+            error_logger.error(
+                f"[API ERROR] Provider: {provider}, Model: {model}, API returned error: {provider_error}"
+            )
+
+        update_stats(
             provider,
-            raw_error_text=sanitize_text_for_log(resp.text, limit=2000),
+            model,
+            total_tokens,
+            api_key_id=api_key_id,
+            is_error=is_error,
+            is_rate_limited=request_status == RATE_LIMITED_STATUS,
         )
-    else:
-        resp_content = resp.content
+        log_response_meta(provider, model, response_meta)
+        await log_request(
+            provider,
+            model,
+            response_text,
+            tokens_record,
+            latency,
+            request_status,
+            api_key_id=api_key_id,
+            upstream_status_code=resp.status_code,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            request_context_tokens=request_context_tokens,
+            error=(
+                sanitize_text_for_log(provider_error, limit=2000)
+                if provider_error
+                else sanitize_text_for_log(resp.text, limit=2000)
+            )
+            if request_status != "success"
+            else None,
+        )
 
-    return Response(
-        content=resp_content,
-        status_code=resp.status_code,
-        headers=resp_headers,
-    )
+        if is_error:
+            error_logger.error(
+                f"[API ERROR] Provider: {provider}, Model: {model}, Status: {resp.status_code}\n"
+                f"  Request Body: {sanitize_payload_for_log(req_body)}\n"
+                f"  Response: {sanitize_text_for_log(resp.text)}"
+            )
+
+        logger.info(
+            f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms"
+        )
+        logger.debug("[RESPONSE] Body: %s", sanitize_text_for_log(resp.text))
+
+        semaphore.release()
+
+        resp_headers = {"content-type": "application/json"}
+        if _is_rate_limited_status(resp.status_code):
+            retry_after = resp.headers.get("retry-after")
+            if retry_after:
+                resp_headers["retry-after"] = retry_after
+            else:
+                resp_headers["retry-after"] = str(SEMAPHORE_RETRY_AFTER_SECONDS)
+
+        if request_status != "success":
+            resp_content = _normalize_upstream_error(
+                resp_json,
+                resp.status_code,
+                provider,
+                raw_error_text=sanitize_text_for_log(resp.text, limit=2000),
+            )
+        else:
+            resp_content = resp.content
+
+        return Response(
+            content=resp_content,
+            status_code=resp.status_code,
+            headers=resp_headers,
+        )
+    finally:
+        if is_active_request_registered:
+            await finish_active_request(request_id)
 
 
 async def handle_streaming(
@@ -973,7 +989,16 @@ async def handle_streaming(
     )
 
     client = httpx.AsyncClient(timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS)
+    is_active_request_registered = False
     try:
+        await register_active_request(
+            request_id,
+            provider,
+            model,
+            api_key_id,
+            client_ip=client_ip,
+        )
+        is_active_request_registered = True
         req = client.build_request("POST", url, headers=headers, content=body)
         resp = await client.send(req, stream=True)
 
@@ -1026,6 +1051,8 @@ async def handle_streaming(
                 )
             semaphore.release()
             await client.aclose()
+            if is_active_request_registered:
+                await finish_active_request(request_id)
             log_fn = error_logger.warning if request_status == RATE_LIMITED_STATUS else error_logger.error
             log_fn(
                 f"[STREAM ERROR] Provider: {provider}, Model: {model}, Status: {resp.status_code}\n"
@@ -1049,6 +1076,8 @@ async def handle_streaming(
                 headers=resp_headers,
             )
     except Exception as e:
+        if is_active_request_registered:
+            await finish_active_request(request_id)
         await client.aclose()
         raise e
 
@@ -1232,6 +1261,7 @@ async def handle_streaming(
             )
             yield f"data: {json.dumps({'error': {'message': str(e), 'type': type(e).__name__}})}\n\n"
         finally:
+            await finish_active_request(request_id)
             semaphore.release()
             await client.aclose()
 

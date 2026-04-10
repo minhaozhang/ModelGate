@@ -45,6 +45,12 @@ msgstr "TPS"
 msgid "Err Rate"
 msgstr "Err Rate"
 
+msgid "Active Requests"
+msgstr "Active Requests"
+
+msgid "Active Users"
+msgstr "Active Users"
+
 msgid "Active Sessions"
 msgstr "Active Sessions"
 
@@ -65,6 +71,9 @@ msgstr "No data"
 
 msgid "No active sessions"
 msgstr "No active sessions"
+
+msgid "No active users"
+msgstr "No active users"
 
 msgid "No slow requests"
 msgstr "No slow requests"
@@ -113,6 +122,9 @@ msgstr "Slow Requests (>60s)"
 
 msgid "Login"
 msgstr "Login"
+
+msgid "Empower every developer to harness the power of AI."
+msgstr "Empower every developer to harness the power of AI."
 
 msgid "API Proxy Login"
 msgstr "ModelGate Login"
@@ -962,4 +974,3 @@ msgstr "Sun"
 
 msgid "Control when this API key can be used"
 msgstr "Control when this API key can be used"
-

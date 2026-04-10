@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
+
 from sqlalchemy import select, func, and_, delete, update, text
-from sqlalchemy.orm import joinedload
 
 from core.config import proxy_logger
 from core.database import (
@@ -11,12 +11,12 @@ from core.database import (
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
     ModelDailyStat,
-    ApiKey,
     Provider,
 )
 
 logger = proxy_logger
 ERROR_STATUSES = {"error", "timeout"}
+RATE_LIMITED_STATUS = "rate_limited"
 
 
 async def aggregate_stats_for_date(date_str: str) -> dict:
@@ -40,9 +40,6 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
         model_stats = {}
 
         for log in logs:
-            if log.status == "rate_limited":
-                continue
-
             provider_name = None
             if log.provider_id:
                 if log.provider_id not in provider_cache:
@@ -59,6 +56,9 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 or 0
             )
             is_error = log.status in ERROR_STATUSES
+            is_rate_limited = log.status == RATE_LIMITED_STATUS
+            if is_rate_limited:
+                tokens = 0
 
             if provider_name:
                 if provider_name not in provider_stats:
@@ -66,8 +66,12 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                         "requests": 0,
                         "tokens": 0,
                         "errors": 0,
+                        "rate_limited": 0,
                     }
-                provider_stats[provider_name]["requests"] += 1
+                if is_rate_limited:
+                    provider_stats[provider_name]["rate_limited"] += 1
+                else:
+                    provider_stats[provider_name]["requests"] += 1
                 provider_stats[provider_name]["tokens"] += tokens
                 if is_error:
                     provider_stats[provider_name]["errors"] += 1
@@ -78,8 +82,12 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                         "requests": 0,
                         "tokens": 0,
                         "errors": 0,
+                        "rate_limited": 0,
                     }
-                api_key_stats[log.api_key_id]["requests"] += 1
+                if is_rate_limited:
+                    api_key_stats[log.api_key_id]["rate_limited"] += 1
+                else:
+                    api_key_stats[log.api_key_id]["requests"] += 1
                 api_key_stats[log.api_key_id]["tokens"] += tokens
                 if is_error:
                     api_key_stats[log.api_key_id]["errors"] += 1
@@ -90,16 +98,28 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                             "requests": 0,
                             "tokens": 0,
                             "errors": 0,
+                            "rate_limited": 0,
                         }
-                    api_key_model_stats[api_key_model_key]["requests"] += 1
+                    if is_rate_limited:
+                        api_key_model_stats[api_key_model_key]["rate_limited"] += 1
+                    else:
+                        api_key_model_stats[api_key_model_key]["requests"] += 1
                     api_key_model_stats[api_key_model_key]["tokens"] += tokens
                     if is_error:
                         api_key_model_stats[api_key_model_key]["errors"] += 1
 
             model_key = (log.model, provider_name)
             if model_key not in model_stats:
-                model_stats[model_key] = {"requests": 0, "tokens": 0, "errors": 0}
-            model_stats[model_key]["requests"] += 1
+                model_stats[model_key] = {
+                    "requests": 0,
+                    "tokens": 0,
+                    "errors": 0,
+                    "rate_limited": 0,
+                }
+            if is_rate_limited:
+                model_stats[model_key]["rate_limited"] += 1
+            else:
+                model_stats[model_key]["requests"] += 1
             model_stats[model_key]["tokens"] += tokens
             if is_error:
                 model_stats[model_key]["errors"] += 1
@@ -124,6 +144,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 requests=stats["requests"],
                 tokens=stats["tokens"],
                 errors=stats["errors"],
+                rate_limited=stats["rate_limited"],
             )
             session.add(stat)
 
@@ -134,6 +155,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 requests=stats["requests"],
                 tokens=stats["tokens"],
                 errors=stats["errors"],
+                rate_limited=stats["rate_limited"],
             )
             session.add(stat)
 
@@ -145,6 +167,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 requests=stats["requests"],
                 tokens=stats["tokens"],
                 errors=stats["errors"],
+                rate_limited=stats["rate_limited"],
             )
             session.add(stat)
 
@@ -156,6 +179,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 requests=stats["requests"],
                 tokens=stats["tokens"],
                 errors=stats["errors"],
+                rate_limited=stats["rate_limited"],
             )
             session.add(stat)
 
@@ -291,6 +315,7 @@ async def archive_old_request_logs() -> int:
                         now()
                     FROM request_logs rl
                     WHERE rl.created_at < :cutoff
+                      AND rl.status != 'rate_limited'
                       AND EXISTS (
                         SELECT 1
                         FROM model_daily_stats mds
@@ -303,8 +328,16 @@ async def archive_old_request_logs() -> int:
                 WHERE rl.created_at < :cutoff
                   AND EXISTS (
                     SELECT 1
-                    FROM request_logs_history rh
-                    WHERE rh.id = rl.id
+                    FROM model_daily_stats mds
+                    WHERE mds.date = to_char(rl.created_at, 'YYYY-MM-DD')
+                  )
+                  AND (
+                    rl.status = 'rate_limited'
+                    OR EXISTS (
+                      SELECT 1
+                      FROM request_logs_history rh
+                      WHERE rh.id = rl.id
+                    )
                   )
                 RETURNING id
                 """

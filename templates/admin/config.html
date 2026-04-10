@@ -152,6 +152,10 @@
 
     <script>
         const APP_BASE_PATH = {{ app_base_path | tojson }};
+        const CONFIG_I18N = {
+            lightMode: '{{ _("Light Mode") }}',
+            darkMode: '{{ _("Dark Mode") }}',
+        };
         let allProviders = [];
         let allModels = [];
         let selectedProviderId = null;
@@ -169,7 +173,7 @@
             const isDark = mode === 'dark';
             document.body.classList.toggle('theme-dark', isDark);
             localStorage.setItem('admin_theme', mode);
-            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+            document.getElementById('theme-toggle').textContent = isDark ? CONFIG_I18N.lightMode : CONFIG_I18N.darkMode;
         }
 
         function toggleTheme() {

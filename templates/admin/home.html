@@ -82,11 +82,11 @@
                     <div id="total-tokens" class="text-3xl font-bold text-green-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Req/sec') }}</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Active Requests') }}</div>
                     <div id="rps" class="text-3xl font-bold text-orange-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Tokens/sec') }}</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Active Users') }}</div>
                     <div id="tps" class="text-3xl font-bold text-teal-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
@@ -107,10 +107,10 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-lg font-semibold">{{ _('Active Sessions') }}</h3>
+                        <h3 class="text-lg font-semibold">{{ _('Active Users') }}</h3>
                         <span id="active-count" class="text-xs text-gray-500">0</span>
                     </div>
-                    <div id="active-sessions" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No active sessions') }}</div>
+                    <div id="active-sessions" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No active users') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
@@ -138,14 +138,18 @@
         let currentPeriod = 'day';
         let trendChart = null;
         let latestSlowRequestsData = null;
+        let liveStatsSocket = null;
+        let liveStatsReconnectTimer = null;
         const HOME_OVERVIEW_REFRESH_MS = 8000;
-        const HOME_REALTIME_REFRESH_MS = 3000;
         const APP_BASE_PATH = {{ app_base_path | tojson }};
-        const HOME_ACTIVE_REFRESH_MS = 10000;
         const HOME_SLOW_REFRESH_MS = 5000;
-        const slowRequestsI18n = {
+        const homeI18n = {
             noSlowRequests: '{{ _("No slow requests") }}',
+            noActiveUsers: '{{ _("No active users") }}',
             pending: '{{ _("pending") }}',
+            req: '{{ _("req") }}',
+            lightMode: '{{ _("Light Mode") }}',
+            darkMode: '{{ _("Dark Mode") }}',
         };
         async function logout() { await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'}); window.location.href = `${APP_BASE_PATH}/admin/login`; }
         function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
@@ -166,7 +170,7 @@
             const isDark = mode === 'dark';
             document.body.classList.toggle('theme-dark', isDark);
             localStorage.setItem('admin_theme', mode);
-            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+            document.getElementById('theme-toggle').textContent = isDark ? homeI18n.lightMode : homeI18n.darkMode;
         }
         function toggleTheme() {
             const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
@@ -437,21 +441,19 @@
             });
             window.scrollTo(0, scrollY);
         }
-        loadData();
-        setInterval(loadData, HOME_OVERVIEW_REFRESH_MS);
-        loadActiveSessions();
-        setInterval(loadActiveSessions, HOME_ACTIVE_REFRESH_MS);
+        function renderLiveStats(data) {
+            const activeRequests = data.active_requests || 0;
+            const activeUsers = data.active_count ?? data.active_users ?? 0;
+            document.getElementById('rps').textContent = activeRequests;
+            document.getElementById('tps').textContent = activeUsers;
+            document.getElementById('active-count').textContent = activeUsers;
 
-        async function loadActiveSessions() {
-            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/active`);
-            document.getElementById('active-count').textContent = data.active_count;
-
-            if (data.active_count === 0) {
-                document.getElementById('active-sessions').innerHTML = '<div class="text-gray-400 text-center py-4">No active sessions</div>';
+            if (activeUsers === 0) {
+                document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`;
                 return;
             }
 
-            const html = Object.entries(data.sessions)
+            const html = Object.entries(data.sessions || {})
                 .sort((a, b) => new Date(b[1].last_activity || 0) - new Date(a[1].last_activity || 0))
                 .map(([name, session]) => {
                 const maskedName = maskName(name);
@@ -465,12 +467,48 @@
                             <div class="text-xs text-gray-500 mt-1">${modelsHtml}</div>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm font-medium">${session.requests} req</div>
+                            <div class="text-sm font-medium">${session.requests} ${homeI18n.req}</div>
                         </div>
                     </div>
                 `;
             }).join('');
             document.getElementById('active-sessions').innerHTML = html;
+        }
+
+        async function loadLiveStatsFallback() {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/active`);
+            renderLiveStats(data);
+        }
+
+        function scheduleLiveStatsReconnect() {
+            if (liveStatsReconnectTimer) return;
+            liveStatsReconnectTimer = setTimeout(() => {
+                liveStatsReconnectTimer = null;
+                connectLiveStats();
+            }, 2000);
+        }
+
+        function connectLiveStats() {
+            if (liveStatsSocket) {
+                liveStatsSocket.close();
+            }
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            liveStatsSocket = new WebSocket(`${protocol}//${window.location.host}${APP_BASE_PATH}/admin/api/stats/live`);
+            liveStatsSocket.onmessage = (event) => {
+                try {
+                    renderLiveStats(JSON.parse(event.data));
+                } catch (e) {}
+            };
+            liveStatsSocket.onclose = () => {
+                liveStatsSocket = null;
+                scheduleLiveStatsReconnect();
+            };
+            liveStatsSocket.onerror = () => {
+                if (liveStatsSocket) {
+                    liveStatsSocket.close();
+                }
+                loadLiveStatsFallback();
+            };
         }
 
         function formatDuration(seconds) {
@@ -489,7 +527,7 @@
             const total = pending.length + completed.length;
             document.getElementById('slow-count').textContent = total;
             if (total === 0) {
-                document.getElementById('slow-requests').innerHTML = `<div class="text-gray-400 text-center py-4">${slowRequestsI18n.noSlowRequests}</div>`;
+                document.getElementById('slow-requests').innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noSlowRequests}</div>`;
                 return;
             }
             let html = '';
@@ -506,7 +544,7 @@
                         </div>
                         <div class="text-right">
                             <div class="text-lg font-bold text-orange-600">${formatDuration(elapsedSeconds)}</div>
-                            <span class="px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-700">${slowRequestsI18n.pending}</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-700">${homeI18n.pending}</span>
                         </div>
                     </div>
                 `;
@@ -537,19 +575,15 @@
             renderSlowRequests(data);
         }
 
-        async function loadRealtimeStats() {
-            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/realtime`);
-            document.getElementById('rps').textContent = data.requests_per_second;
-            document.getElementById('tps').textContent = formatCompactTokens(data.tokens_per_second || 0);
-        }
-
+        loadData();
+        setInterval(loadData, HOME_OVERVIEW_REFRESH_MS);
+        loadLiveStatsFallback();
+        connectLiveStats();
         loadSlowRequests();
         setInterval(loadSlowRequests, HOME_SLOW_REFRESH_MS);
         setInterval(() => {
             if (latestSlowRequestsData) renderSlowRequests(latestSlowRequestsData);
         }, 1000);
-        loadRealtimeStats();
-        setInterval(loadRealtimeStats, HOME_REALTIME_REFRESH_MS);
     </script>
 </body>
 </html>
