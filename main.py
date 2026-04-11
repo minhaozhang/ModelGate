@@ -158,6 +158,7 @@ from routes import (
     pages,
     user,
     opencode,
+    reports,
 )
 
 app.include_router(proxy.router)
@@ -172,6 +173,7 @@ app.include_router(logs.router)
 app.include_router(pages.router)
 app.include_router(user.router)
 app.include_router(opencode.router)
+app.include_router(reports.router)
 
 from routes.weixin import get_mcp_asgi_app
 
