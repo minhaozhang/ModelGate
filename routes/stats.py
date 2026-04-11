@@ -31,7 +31,7 @@ from core.config import (
     stats,
     TODAY_STATS_CACHE_TTL_SECONDS,
     requests_per_second,
-    tokens_per_second,
+    get_avg_tokens_per_second,
 )
 
 public_router = APIRouter(prefix="/api/public", tags=["public"])
@@ -1834,6 +1834,7 @@ async def get_active_sessions_by_model(_: bool = Depends(require_admin)):
 @router.get("/stats/realtime")
 async def get_realtime_stats(_: bool = Depends(require_admin)):
     snapshot = await build_live_stats_snapshot()
+
     now = datetime.now()
     cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
 
@@ -1842,19 +1843,12 @@ async def get_realtime_stats(_: bool = Depends(require_admin)):
         if k >= cutoff:
             reqs_by_second[k] = reqs_by_second.get(k, 0) + v
 
-    tokens_by_second: dict[str, int] = {}
-    for k, v in tokens_per_second:
-        if k >= cutoff:
-            tokens_by_second[k] = tokens_by_second.get(k, 0) + v
-
     req_active_seconds = max(len(reqs_by_second), 1)
-    token_active_seconds = max(len([v for v in tokens_by_second.values() if v > 0]), 1)
     total_requests = sum(reqs_by_second.values())
-    total_tokens = sum(tokens_by_second.values())
 
     return {
         "requests_per_second": round(total_requests / req_active_seconds, 1),
-        "tokens_per_second": round(total_tokens / token_active_seconds, 1),
+        "tokens_per_second": get_avg_tokens_per_second(),
         "active_requests": snapshot["active_requests"],
         "active_users": snapshot["active_users"],
     }

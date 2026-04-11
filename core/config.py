@@ -113,7 +113,7 @@ stats = {
 }
 
 requests_per_second: list[tuple[str, int]] = []
-tokens_per_second: list[tuple[str, int]] = []
+completed_request_rates: list[tuple[str, float]] = []
 
 today_stats_cache: dict = {}
 today_stats_cache_time: Optional[datetime] = None
@@ -188,10 +188,30 @@ def update_stats(
 
     second_key = now.strftime("%Y%m%d_%H%M%S")
     requests_per_second.append((second_key, 1))
-    tokens_per_second.append((second_key, tokens))
     cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
     requests_per_second[:] = [(k, v) for k, v in requests_per_second if k >= cutoff]
-    tokens_per_second[:] = [(k, v) for k, v in tokens_per_second if k >= cutoff]
+
+
+def record_request_rate(tokens: int, latency_ms: float) -> None:
+    if tokens <= 0 or latency_ms <= 0:
+        return
+    rate = tokens / (latency_ms / 1000)
+    now = datetime.now()
+    second_key = now.strftime("%Y%m%d_%H%M%S")
+    completed_request_rates.append((second_key, rate))
+    cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
+    completed_request_rates[:] = [
+        (k, v) for k, v in completed_request_rates if k >= cutoff
+    ]
+
+
+def get_avg_tokens_per_second() -> float:
+    now = datetime.now()
+    cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
+    rates = [v for k, v in completed_request_rates if k >= cutoff]
+    if not rates:
+        return 0
+    return round(sum(rates) / len(rates), 1)
 
 
 def get_api_key_name(api_key_id: int | None) -> str | None:
@@ -279,19 +299,10 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             else:
                 bucket["tokens"] = 0
 
-        now = datetime.now()
-        cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
-        t_by_second: dict[str, int] = {}
-        for k, v in tokens_per_second:
-            if k >= cutoff:
-                t_by_second[k] = t_by_second.get(k, 0) + v
-        token_active_seconds = max(len([v for v in t_by_second.values() if v > 0]), 1)
-        total_tokens = sum(t_by_second.values())
-
         return {
             "active_requests": len(active_requests),
             "active_users": len(grouped_users),
-            "tokens_per_second": round(total_tokens / token_active_seconds, 1),
+            "tokens_per_second": get_avg_tokens_per_second(),
             "sessions": dict(
                 sorted(
                     grouped_users.items(),
