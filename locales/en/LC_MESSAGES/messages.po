@@ -983,3 +983,54 @@ msgstr "Tokens/s"
 
 msgid "Tokens"
 msgstr "Tokens"
+
+msgid "Usage Report"
+msgstr "Usage Report"
+
+msgid "Generate Report"
+msgstr "Generate Report"
+
+msgid "Start Date"
+msgstr "Start Date"
+
+msgid "End Date"
+msgstr "End Date"
+
+msgid "Exclude Keys"
+msgstr "Exclude Keys"
+
+msgid "Generate"
+msgstr "Generate"
+
+msgid "Generating report..."
+msgstr "Generating report..."
+
+msgid "Report History"
+msgstr "Report History"
+
+msgid "No reports yet"
+msgstr "No reports yet"
+
+msgid "Select API Keys to Exclude"
+msgstr "Select API Keys to Exclude"
+
+msgid "Confirm"
+msgstr "Confirm"
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "Download"
+msgstr "Download"
+
+msgid "Completed"
+msgstr "Completed"
+
+msgid "Running"
+msgstr "Running"
+
+msgid "Failed"
+msgstr "Failed"
+
+msgid "Pending"
+msgstr "Pending"

@@ -963,3 +963,54 @@ msgstr "Tokens/s"
 
 msgid "Tokens"
 msgstr "Tokens"
+
+msgid "Usage Report"
+msgstr "使用报告"
+
+msgid "Generate Report"
+msgstr "生成报告"
+
+msgid "Start Date"
+msgstr "开始日期"
+
+msgid "End Date"
+msgstr "结束日期"
+
+msgid "Exclude Keys"
+msgstr "排除 Key"
+
+msgid "Generate"
+msgstr "生成"
+
+msgid "Generating report..."
+msgstr "正在生成报告..."
+
+msgid "Report History"
+msgstr "报告历史"
+
+msgid "No reports yet"
+msgstr "暂无报告"
+
+msgid "Select API Keys to Exclude"
+msgstr "选择要排除的 API Key"
+
+msgid "Confirm"
+msgstr "确认"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Download"
+msgstr "下载"
+
+msgid "Completed"
+msgstr "已完成"
+
+msgid "Running"
+msgstr "生成中"
+
+msgid "Failed"
+msgstr "失败"
+
+msgid "Pending"
+msgstr "等待中"
