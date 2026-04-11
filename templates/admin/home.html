@@ -57,8 +57,10 @@
         body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
         body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
         body.theme-dark .ring-blue-500 { --tw-ring-color: rgba(96, 165, 250, 0.75) !important; }
-        @keyframes stat-bump { 0% { transform: scale(1); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }
-        .stat-bump { animation: stat-bump 0.3s ease; }
+        .fd { display:inline-block; height:1em; overflow:hidden; vertical-align:text-bottom; font-variant-numeric:tabular-nums; }
+        .fr { display:block; transition:transform .6s cubic-bezier(.25,1,.5,1); }
+        .fc { display:block; height:1em; line-height:1em; text-align:center; }
+        @media(prefers-reduced-motion:reduce){ .fr{transition-duration:.01ms!important;} }
     </style>
 </head>
 <body class="theme-dark bg-gray-100 min-h-screen">
@@ -190,26 +192,50 @@
             return await resp.json();
         }
         function changePeriod() { currentPeriod = document.getElementById('period-select').value; loadData(); }
-        function animateStatValue(elementId, newValue) {
+        function flipCounter(elementId, newValue) {
             const el = document.getElementById(elementId);
             if (!el) return;
-            const currentText = el.textContent;
             const newText = String(newValue);
-            if (currentText === newText) return;
-            el.textContent = newText;
-            el.classList.remove('stat-bump');
-            void el.offsetWidth;
-            el.classList.add('stat-bump');
+            const oldText = el.getAttribute('data-value') || '';
+            if (oldText === newText) return;
+            el.setAttribute('data-value', newText);
+            const oldD = oldText.replace(/[^\d]/g, '');
+            const newD = newText.replace(/[^\d]/g, '');
+            const len = Math.max(oldD.length, newD.length);
+            const paddedOld = oldD.padStart(len, 'X');
+            let html = '', dIdx = 0;
+            for (let i = 0; i < newText.length; i++) {
+                const ch = newText[i];
+                if (/\d/.test(ch)) {
+                    const target = parseInt(ch);
+                    const oldCh = paddedOld[dIdx];
+                    const start = (oldCh >= '0' && oldCh <= '9') ? parseInt(oldCh) : target;
+                    html += '<span class="fd"><span class="fr" data-t="' + target + '" style="transform:translateY(-' + start + '00%)">';
+                    for (let d = 0; d <= 9; d++) html += '<span class="fc">' + d + '</span>';
+                    html += '</span></span>';
+                    dIdx++;
+                } else {
+                    html += '<span class="fs">' + ch + '</span>';
+                }
+            }
+            el.innerHTML = html;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    el.querySelectorAll('.fr').forEach(r => {
+                        r.style.transform = 'translateY(-' + r.dataset.t + '00%)';
+                    });
+                });
+            });
         }
         async function loadData() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/period?period=` + currentPeriod);
-            animateStatValue('total-requests', data.total_requests.toLocaleString());
-            animateStatValue('total-tokens', formatCompactTokens(data.total_tokens || 0));
-            animateStatValue('total-errors', data.total_errors);
-            animateStatValue('total-timeouts', data.total_timeouts);
-            animateStatValue('total-rate-limited', data.total_rate_limited || 0);
+            flipCounter('total-requests', data.total_requests.toLocaleString());
+            flipCounter('total-tokens', formatCompactTokens(data.total_tokens || 0));
+            flipCounter('total-errors', data.total_errors);
+            flipCounter('total-timeouts', data.total_timeouts);
+            flipCounter('total-rate-limited', data.total_rate_limited || 0);
             const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
-            animateStatValue('error-rate', errorRate + '%');
+            flipCounter('error-rate', errorRate + '%');
             renderProviderBars(data.providers || {});
             renderApiKeyBars(data.api_keys || {});
             loadChart();
@@ -495,9 +521,9 @@
             const activeRequests = data.active_requests || 0;
             const activeUsers = data.active_count ?? data.active_users ?? 0;
             const tokensPerSecond = data.tokens_per_second || 0;
-            animateStatValue('rps', activeRequests);
-            animateStatValue('tps', tokensPerSecond.toLocaleString());
-            animateStatValue('active-count', activeUsers);
+            flipCounter('rps', activeRequests);
+            flipCounter('tps', tokensPerSecond.toLocaleString());
+            flipCounter('active-count', activeUsers);
 
             if (activeUsers === 0) {
                 document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`;
