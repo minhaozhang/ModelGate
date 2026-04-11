@@ -1,0 +1,356 @@
+{% set active_page = 'reports' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('Usage Report') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 9999px;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-top-color: #3b82f6;
+            animation: spin 0.9s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .border-gray-200 { border-color: #1f2937 !important; }
+        body.theme-dark input,
+        body.theme-dark select { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-600):not(.bg-blue-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark #exclude-modal > div { background: #0f172a !important; }
+        body.theme-dark #exclude-modal label { color: #e5e7eb !important; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header(_('Usage Report'), _("Generate usage reports for a given date range with optional API key exclusion")) %}{% endcall %}
+
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ _('Generate Report') }}</h3>
+                <div class="flex flex-wrap items-end gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">{{ _('Start Date') }}</label>
+                        <input type="date" id="start-date" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">{{ _('End Date') }}</label>
+                        <input type="date" id="end-date" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    </div>
+                    <button id="exclude-btn" onclick="openExcludeModal()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">
+                        {{ _('Exclude Keys') }}
+                        <span id="exclude-count" class="ml-1 bg-gray-200 text-gray-700 text-xs font-semibold px-1.5 py-0.5 rounded-full hidden">0</span>
+                    </button>
+                    <button id="generate-btn" onclick="generateReport()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm inline-flex items-center gap-2">
+                        <span id="generate-spinner" class="spinner hidden"></span>
+                        <span id="generate-btn-text">{{ _('Generate') }}</span>
+                    </button>
+                </div>
+                <div id="progress-area" class="hidden mt-4 flex items-center gap-3 text-sm text-gray-600">
+                    <span class="spinner"></span>
+                    <span id="progress-text">{{ _('Generating report...') }}</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ _('Report History') }}</h3>
+                <div id="history-empty" class="hidden text-sm text-gray-500">{{ _('No reports yet') }}</div>
+                <div id="history-list" class="space-y-2"></div>
+            </div>
+        </main>
+    </div>
+
+    <div id="exclude-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background:rgba(0,0,0,0.5)">
+        <div class="bg-white rounded-xl shadow-2xl w-96 max-h-[70vh] flex flex-col" style="margin:1rem">
+            <div class="p-5 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">{{ _('Select API Keys to Exclude') }}</h3>
+            </div>
+            <div id="exclude-list" class="flex-1 overflow-y-auto p-4 space-y-2">
+            </div>
+            <div class="p-4 border-t border-gray-200 flex justify-end gap-3">
+                <button onclick="closeExcludeModal()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">{{ _('Cancel') }}</button>
+                <button onclick="confirmExclude()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">{{ _('Confirm') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE = {{ app_base_path | tojson }};
+        window.I18N = {
+            lightMode: "{{ _('Light Mode') }}",
+            darkMode: "{{ _('Dark Mode') }}",
+            generating: "{{ _('Generating report...') }}",
+            reportReady: "{{ _('Report ready, downloading...') }}",
+            generateReport: "{{ _('Generate') }}",
+            alreadyRunning: "{{ _('A report is already being generated. Please wait.') }}",
+            generateFailed: "{{ _('Failed to generate report') }}",
+            noReports: "{{ _('No reports yet') }}",
+            download: "{{ _('Download') }}",
+            createdAt: "{{ _('Created At') }}",
+            dateRange: "{{ _('Date Range') }}",
+            status: "{{ _('Status') }}"
+        };
+
+        let excludeIds = [];
+        let allKeys = [];
+        let pollTimer = null;
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'dark';
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
+        }
+
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+        }
+
+        applyTheme(getThemeMode());
+
+        function switchLang(lang) {
+            document.cookie = "lang=" + lang + ";path=/;max-age=31536000";
+            window.location.reload();
+        }
+
+        async function logout() {
+            await fetch(`${BASE}/admin/api/auth/logout`, { method: 'POST' });
+            window.location.href = `${BASE}/admin/login`;
+        }
+
+        async function fetchJsonOrRedirect(url, opts) {
+            const r = await fetch(url, opts);
+            if (r.status === 401) {
+                window.location.href = BASE + '/admin/login';
+                return null;
+            }
+            return r.json();
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function updateExcludeBadge() {
+            const badge = document.getElementById('exclude-count');
+            if (excludeIds.length > 0) {
+                badge.textContent = excludeIds.length;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        async function loadKeys() {
+            try {
+                const data = await fetchJsonOrRedirect(`${BASE}/admin/api/keys`);
+                if (!data) return;
+                allKeys = Array.isArray(data) ? data : (data.keys || []);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function openExcludeModal() {
+            const listEl = document.getElementById('exclude-list');
+            if (allKeys.length === 0) {
+                listEl.innerHTML = '<div class="text-sm text-gray-500">' + escapeHtml(window.I18N.noReports) + '</div>';
+            } else {
+                listEl.innerHTML = allKeys.map(key => {
+                    const checked = excludeIds.includes(key.id) ? 'checked' : '';
+                    return `<label class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer text-sm text-gray-700">
+                        <input type="checkbox" class="exclude-checkbox" data-key-id="${key.id}" ${checked}>
+                        <span>${escapeHtml(key.name || key.key_prefix || key.id)}</span>
+                    </label>`;
+                }).join('');
+            }
+            document.getElementById('exclude-modal').classList.remove('hidden');
+        }
+
+        function closeExcludeModal() {
+            document.getElementById('exclude-modal').classList.add('hidden');
+        }
+
+        function confirmExclude() {
+            const checkboxes = document.querySelectorAll('.exclude-checkbox:checked');
+            excludeIds = Array.from(checkboxes).map(cb => parseInt(cb.dataset.keyId));
+            updateExcludeBadge();
+            closeExcludeModal();
+        }
+
+        async function generateReport() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            if (!startDate || !endDate) {
+                alert('{{ _("Please select start and end dates") }}');
+                return;
+            }
+
+            const btn = document.getElementById('generate-btn');
+            const btnText = document.getElementById('generate-btn-text');
+            const spinner = document.getElementById('generate-spinner');
+            const progressArea = document.getElementById('progress-area');
+            const progressText = document.getElementById('progress-text');
+
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            progressArea.classList.remove('hidden');
+            progressText.textContent = window.I18N.generating;
+
+            try {
+                const body = {
+                    start_date: startDate,
+                    end_date: endDate,
+                    exclude_api_key_ids: excludeIds
+                };
+                const r = await fetch(`${BASE}/admin/api/reports/usage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                if (r.status === 401) {
+                    window.location.href = BASE + '/admin/login';
+                    return;
+                }
+
+                if (r.status === 409) {
+                    alert(window.I18N.alreadyRunning);
+                    return;
+                }
+
+                startPolling(startDate, endDate);
+            } catch (e) {
+                console.error(e);
+                alert(window.I18N.generateFailed);
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+                btnText.textContent = window.I18N.generateReport;
+            }
+        }
+
+        function startPolling(startDate, endDate) {
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(async () => {
+                try {
+                    const data = await fetchJsonOrRedirect(
+                        `${BASE}/admin/api/reports/usage/status?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`
+                    );
+                    if (!data) return;
+
+                    if (data.status === 'success') {
+                        clearInterval(pollTimer);
+                        pollTimer = null;
+                        document.getElementById('progress-area').classList.add('hidden');
+                        loadHistory();
+                        if (data.download_url) {
+                            window.location.href = data.download_url;
+                        }
+                    } else if (data.status === 'failed') {
+                        clearInterval(pollTimer);
+                        pollTimer = null;
+                        document.getElementById('progress-area').classList.add('hidden');
+                        alert(data.error || window.I18N.generateFailed);
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }, 3000);
+        }
+
+        async function loadHistory() {
+            try {
+                const data = await fetchJsonOrRedirect(`${BASE}/admin/api/reports/usage/history`);
+                if (!data) return;
+                renderHistory(data.reports || data || []);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderHistory(reports) {
+            const listEl = document.getElementById('history-list');
+            const emptyEl = document.getElementById('history-empty');
+
+            if (!Array.isArray(reports) || reports.length === 0) {
+                emptyEl.classList.remove('hidden');
+                listEl.innerHTML = '';
+                return;
+            }
+
+            emptyEl.classList.add('hidden');
+            listEl.innerHTML = reports.map(r => {
+                let statusClass = 'bg-gray-100 text-gray-700';
+                let statusLabel = r.status || '-';
+                if (r.status === 'success') {
+                    statusClass = 'bg-green-100 text-green-700';
+                } else if (r.status === 'running' || r.status === 'pending') {
+                    statusClass = 'bg-yellow-100 text-yellow-700';
+                } else if (r.status === 'failed') {
+                    statusClass = 'bg-red-100 text-red-700';
+                }
+                const created = r.created_at ? new Date(r.created_at).toLocaleString() : '-';
+                const range = (r.start_date || '-') + ' ~ ' + (r.end_date || '-');
+                const downloadLink = r.download_url
+                    ? `<a href="${escapeHtml(r.download_url)}" class="text-blue-600 hover:underline text-sm">${window.I18N.download}</a>`
+                    : '';
+                return `<div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                    <div class="flex items-center gap-4">
+                        <div>
+                            <div class="text-sm font-medium text-gray-800">${window.I18N.dateRange}: ${escapeHtml(range)}</div>
+                            <div class="text-xs text-gray-500 mt-1">${window.I18N.createdAt}: ${escapeHtml(created)}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${statusClass}">${escapeHtml(statusLabel)}</span>
+                        ${downloadLink}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        loadKeys();
+        loadHistory();
+    </script>
+</body>
+</html>
