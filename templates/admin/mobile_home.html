@@ -42,6 +42,8 @@
         .chevron { transition: transform 0.3s; }
         .chevron.open { transform: rotate(180deg); }
         ::-webkit-scrollbar { display: none; }
+        @keyframes stat-bump { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+        .stat-bump { animation: stat-bump 0.3s ease; }
     </style>
 </head>
 <body class="theme-dark bg-gray-50 min-h-screen pb-20">
@@ -358,8 +360,6 @@
         }
 
         function renderTrendChart(chartData) {
-            const ctx = document.getElementById('trendChart').getContext('2d');
-            if (trendChart) trendChart.destroy();
             const normalizedChartData = normalizeTrendChartData(chartData);
             const labels = normalizedChartData.intervals || [];
             const requests = labels.map(i => normalizedChartData.data?.[i]?.requests || 0);
@@ -370,6 +370,27 @@
             const tokenLabel = tokenScale.suffix ? `${window.I18N.tokens} (${tokenScale.suffix})` : window.I18N.tokens;
             document.getElementById('trend-meta').textContent = window.I18N.onRightAxis.replace('{label}', tokenLabel);
 
+            if (trendChart && trendChart.data.labels.length === labels.length) {
+                trendChart.data.labels = labels;
+                trendChart.data.datasets[0].data = requests;
+                trendChart.data.datasets[1].data = tokens;
+                trendChart.data.datasets[1].label = tokenLabel;
+                trendChart.options.scales.x.min = visibleRange.start;
+                trendChart.options.scales.x.max = visibleRange.end;
+                trendChart.options.scales.yTokens.title.text = tokenLabel;
+                trendChart.options.plugins.tooltip.callbacks.label = function(context) {
+                    if (context.dataset.yAxisID === 'yTokens') {
+                        const raw = rawTokens[context.dataIndex] || 0;
+                        return `${tokenLabel}: ${formatCompactTokens(raw)}`;
+                    }
+                    return `${window.I18N.requests}: ${(context.parsed.y || 0).toLocaleString()}`;
+                };
+                trendChart.update('none');
+                return;
+            }
+
+            if (trendChart) trendChart.destroy();
+            const ctx = document.getElementById('trendChart').getContext('2d');
             trendChart = new Chart(ctx, {
                 data: {
                     labels: labels,
@@ -403,6 +424,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
@@ -444,6 +466,18 @@
 
         const APP_BASE_PATH = {{ app_base_path | tojson }};
 
+        function animateStatValue(elementId, newValue) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const currentText = el.textContent;
+            const newText = String(newValue);
+            if (currentText === newText) return;
+            el.textContent = newText;
+            el.classList.remove('stat-bump');
+            void el.offsetWidth;
+            el.classList.add('stat-bump');
+        }
+
         async function loadData() {
             const period = document.getElementById('period-select').value;
             try {
@@ -454,11 +488,11 @@
                 const data = statsResp;
                 const chartData = chartResp;
 
-                document.getElementById('total-requests').textContent = (data.total_requests || 0).toLocaleString();
-                document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
-                document.getElementById('total-errors').textContent = data.total_errors || 0;
+                animateStatValue('total-requests', (data.total_requests || 0).toLocaleString());
+                animateStatValue('total-tokens', formatCompactTokens(data.total_tokens || 0));
+                animateStatValue('total-errors', data.total_errors || 0);
                 const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
-                document.getElementById('error-rate').textContent = errorRate + '%';
+                animateStatValue('error-rate', errorRate + '%');
 
                 renderProviderBars(data.providers || {});
                 renderApiKeyBars(data.api_keys || {});
@@ -473,9 +507,9 @@
             const activeUsers = data.active_count ?? data.active_users ?? 0;
             const tokensPerSecond = data.tokens_per_second || 0;
             const sessions = data.sessions || {};
-            document.getElementById('rps').textContent = activeRequests;
-            document.getElementById('tps').textContent = tokensPerSecond.toLocaleString();
-            document.getElementById('active-count').textContent = activeUsers;
+            animateStatValue('rps', activeRequests);
+            animateStatValue('tps', tokensPerSecond.toLocaleString());
+            animateStatValue('active-count', activeUsers);
             if (activeUsers === 0) {
                 document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noActiveUsers}</div>`;
                 return;

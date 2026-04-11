@@ -57,6 +57,8 @@
         body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
         body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
         body.theme-dark .ring-blue-500 { --tw-ring-color: rgba(96, 165, 250, 0.75) !important; }
+        @keyframes stat-bump { 0% { transform: scale(1); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }
+        .stat-bump { animation: stat-bump 0.3s ease; }
     </style>
 </head>
 <body class="theme-dark bg-gray-100 min-h-screen">
@@ -188,15 +190,26 @@
             return await resp.json();
         }
         function changePeriod() { currentPeriod = document.getElementById('period-select').value; loadData(); }
+        function animateStatValue(elementId, newValue) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const currentText = el.textContent;
+            const newText = String(newValue);
+            if (currentText === newText) return;
+            el.textContent = newText;
+            el.classList.remove('stat-bump');
+            void el.offsetWidth;
+            el.classList.add('stat-bump');
+        }
         async function loadData() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/period?period=` + currentPeriod);
-            document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
-            document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
-            document.getElementById('total-errors').textContent = data.total_errors;
-            document.getElementById('total-timeouts').textContent = data.total_timeouts;
-            document.getElementById('total-rate-limited').textContent = data.total_rate_limited || 0;
+            animateStatValue('total-requests', data.total_requests.toLocaleString());
+            animateStatValue('total-tokens', formatCompactTokens(data.total_tokens || 0));
+            animateStatValue('total-errors', data.total_errors);
+            animateStatValue('total-timeouts', data.total_timeouts);
+            animateStatValue('total-rate-limited', data.total_rate_limited || 0);
             const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
-            document.getElementById('error-rate').textContent = errorRate + '%';
+            animateStatValue('error-rate', errorRate + '%');
             renderProviderBars(data.providers || {});
             renderApiKeyBars(data.api_keys || {});
             loadChart();
@@ -297,10 +310,7 @@
         }
         async function loadChart() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/chart?period=` + currentPeriod);
-            const ctx = document.getElementById('trendChart').getContext('2d');
             const chartTheme = getChartTheme();
-            const scrollY = window.scrollY;
-            if (trendChart) trendChart.destroy();
             const requests = data.intervals.map(i => data.data[i]?.requests || 0);
             const rawTokens = data.intervals.map(i => data.data[i]?.tokens || 0);
             const errors = data.intervals.map(i => data.data[i]?.errors || 0);
@@ -310,6 +320,44 @@
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
             const tokenLabel = tokenScale.suffix ? `Tokens (${tokenScale.suffix})` : 'Tokens';
+
+            if (trendChart && trendChart.data.labels.length === data.intervals.length) {
+                trendChart.data.labels = data.intervals;
+                trendChart.data.datasets[0].data = requests;
+                trendChart.data.datasets[1].data = tokens;
+                trendChart.data.datasets[1].label = tokenLabel;
+                trendChart.data.datasets[2].data = errors;
+                trendChart.data.datasets[3].data = timeouts;
+                trendChart.data.datasets[4].data = rateLimited;
+                trendChart.options.scales.x.min = visibleRange.start;
+                trendChart.options.scales.x.max = visibleRange.end;
+                trendChart.options.scales.x.grid.color = chartTheme.gridColor;
+                trendChart.options.scales.x.ticks.color = chartTheme.tickColor;
+                trendChart.options.scales.yRequests.grid.color = chartTheme.gridColor;
+                trendChart.options.scales.yRequests.ticks.color = chartTheme.tickColor;
+                trendChart.options.scales.yRequests.title.color = chartTheme.titleColor;
+                trendChart.options.scales.yTokens.ticks.color = chartTheme.tickColor;
+                trendChart.options.scales.yTokens.title.text = tokenLabel;
+                trendChart.options.scales.yTokens.title.color = chartTheme.titleColor;
+                trendChart.options.plugins.legend.labels.color = chartTheme.legendColor;
+                trendChart.options.plugins.tooltip.backgroundColor = chartTheme.tooltipBg;
+                trendChart.options.plugins.tooltip.titleColor = chartTheme.tooltipTitle;
+                trendChart.options.plugins.tooltip.bodyColor = chartTheme.tooltipBody;
+                trendChart.options.plugins.tooltip.borderColor = chartTheme.tooltipBorder;
+                trendChart.options.plugins.tooltip.callbacks.label = function(context) {
+                    if (context.dataset.yAxisID === 'yTokens') {
+                        const rawValue = rawTokens[context.dataIndex] || 0;
+                        return `${tokenLabel}: ${formatCompactTokens(rawValue)} (${rawValue.toLocaleString()})`;
+                    }
+                    return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
+                };
+                trendChart.update('none');
+                return;
+            }
+
+            const scrollY = window.scrollY;
+            if (trendChart) trendChart.destroy();
+            const ctx = document.getElementById('trendChart').getContext('2d');
             trendChart = new Chart(ctx, {
                 data: {
                     labels: data.intervals,
@@ -390,6 +438,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
@@ -446,9 +495,9 @@
             const activeRequests = data.active_requests || 0;
             const activeUsers = data.active_count ?? data.active_users ?? 0;
             const tokensPerSecond = data.tokens_per_second || 0;
-            document.getElementById('rps').textContent = activeRequests;
-            document.getElementById('tps').textContent = tokensPerSecond.toLocaleString();
-            document.getElementById('active-count').textContent = activeUsers;
+            animateStatValue('rps', activeRequests);
+            animateStatValue('tps', tokensPerSecond.toLocaleString());
+            animateStatValue('active-count', activeUsers);
 
             if (activeUsers === 0) {
                 document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`;

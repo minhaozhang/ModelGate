@@ -44,9 +44,12 @@
 ```json
 {
   "start_date": "2026-04-01",
-  "end_date": "2026-04-11"
+  "end_date": "2026-04-11",
+  "exclude_api_key_ids": [1, 3]
 }
 ```
+
+`exclude_api_key_ids` 为可选字段，包含要从报告中排除的 API Key ID 列表。
 
 **响应：**
 ```json
@@ -93,7 +96,7 @@
 
 ## 数据查询
 
-从 `request_logs_all` 按 `api_key_id` 聚合，时间范围由 `created_at` 过滤。
+从 `request_logs_all` 按 `api_key_id` 聚合，时间范围由 `created_at` 过滤。排除 `exclude_api_key_ids` 中的 Key。
 
 每个 API Key 收集的指标：
 
@@ -184,6 +187,11 @@ python-docx>=1.1.0
 在 admin 导航栏新增"使用报告"入口，页面包含：
 - 日期范围选择器（起止日期）
 - "生成报告"按钮
+- 点击"生成报告"后弹出 Modal 对话框：
+  - 加载所有 API Key 列表（调用 GET /admin/api/keys）
+  - 复选框勾选要**排除**的 Key（默认全不排除）
+  - 显示 Key 名称和 ID
+  - "确认生成" / "取消"按钮
 - 生成进度提示（轮询状态）
 - 完成后显示"下载"按钮
 - 历史报告列表（最近生成的几份）
