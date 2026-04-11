@@ -1,6 +1,5 @@
 import os
 import secrets
-from datetime import datetime
 from sqlalchemy import (
     Column,
     Integer,
@@ -228,6 +227,7 @@ class ProviderDailyStat(Base):
     requests = Column(Integer, default=0)
     tokens = Column(Integer, default=0)
     errors = Column(Integer, default=0)
+    rate_limited = Column(Integer, default=0)
 
     __table_args__ = (Index("idx_provider_stats_date", "date"),)
 
@@ -242,6 +242,7 @@ class ApiKeyDailyStat(Base):
     requests = Column(Integer, default=0)
     tokens = Column(Integer, default=0)
     errors = Column(Integer, default=0)
+    rate_limited = Column(Integer, default=0)
 
     __table_args__ = (Index("idx_apikey_stats_date", "date"),)
 
@@ -256,6 +257,7 @@ class ApiKeyModelDailyStat(Base):
     requests = Column(Integer, default=0)
     tokens = Column(Integer, default=0)
     errors = Column(Integer, default=0)
+    rate_limited = Column(Integer, default=0)
 
     __table_args__ = (
         Index("idx_apikey_model_stats_date", "date"),
@@ -279,6 +281,7 @@ class ModelDailyStat(Base):
     requests = Column(Integer, default=0)
     tokens = Column(Integer, default=0)
     errors = Column(Integer, default=0)
+    rate_limited = Column(Integer, default=0)
 
     __table_args__ = (
         Index("idx_model_stats_date", "date"),
@@ -408,6 +411,30 @@ async def init_db():
             text(
                 "ALTER TABLE request_logs "
                 "ADD COLUMN IF NOT EXISTS request_context_tokens INTEGER"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE provider_daily_stats "
+                "ADD COLUMN IF NOT EXISTS rate_limited INTEGER DEFAULT 0"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE api_key_daily_stats "
+                "ADD COLUMN IF NOT EXISTS rate_limited INTEGER DEFAULT 0"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE api_key_model_daily_stats "
+                "ADD COLUMN IF NOT EXISTS rate_limited INTEGER DEFAULT 0"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE model_daily_stats "
+                "ADD COLUMN IF NOT EXISTS rate_limited INTEGER DEFAULT 0"
             )
         )
         await conn.execute(

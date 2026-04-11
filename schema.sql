@@ -32,7 +32,8 @@ CREATE TABLE public.api_key_daily_stats (
     hour integer,
     requests integer,
     tokens integer,
-    errors integer
+    errors integer,
+    rate_limited integer
 );
 
 --
@@ -60,7 +61,8 @@ CREATE TABLE public.api_key_model_daily_stats (
     date character varying(10) NOT NULL,
     requests integer,
     tokens integer,
-    errors integer
+    errors integer,
+    rate_limited integer
 );
 
 --
@@ -199,7 +201,8 @@ CREATE TABLE public.model_daily_stats (
     date character varying(10) NOT NULL,
     requests integer,
     tokens integer,
-    errors integer
+    errors integer,
+    rate_limited integer
 );
 
 --
@@ -259,7 +262,8 @@ CREATE TABLE public.provider_daily_stats (
     hour integer,
     requests integer,
     tokens integer,
-    errors integer
+    errors integer,
+    rate_limited integer
 );
 
 --

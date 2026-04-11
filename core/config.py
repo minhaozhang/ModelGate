@@ -1,11 +1,11 @@
-import os
-import sys
 import asyncio
+import os
 import logging
-from logging.handlers import RotatingFileHandler
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Optional
+from logging.handlers import RotatingFileHandler
+import sys
+from typing import Any, Optional
 
 os.makedirs("logs", exist_ok=True)
 
@@ -96,13 +96,16 @@ provider_semaphores: dict[str, "asyncio.Semaphore"] = {}
 stats = {
     "total_requests": 0,
     "total_tokens": 0,
-    "providers": defaultdict(lambda: {"requests": 0, "tokens": 0, "errors": 0}),
+    "providers": defaultdict(
+        lambda: {"requests": 0, "tokens": 0, "errors": 0, "rate_limited": 0}
+    ),
     "models": defaultdict(lambda: {"requests": 0, "tokens": 0}),
     "api_keys": defaultdict(
         lambda: {
             "requests": 0,
             "tokens": 0,
             "errors": 0,
+            "rate_limited": 0,
             "models": defaultdict(lambda: {"requests": 0, "tokens": 0}),
         }
     ),
@@ -115,6 +118,11 @@ tokens_per_second: list[tuple[str, int]] = []
 today_stats_cache: dict = {}
 today_stats_cache_time: Optional[datetime] = None
 TODAY_STATS_CACHE_TTL_SECONDS = 600
+LIVE_REQUEST_STALE_SECONDS = 660
+active_requests: dict[str, dict[str, Any]] = {}
+active_requests_lock = asyncio.Lock()
+live_stats_subscribers: set[Any] = set()
+live_stats_subscribers_lock = asyncio.Lock()
 
 
 def create_session() -> str:
@@ -147,23 +155,31 @@ def update_stats(
     tokens: int,
     api_key_id: Optional[int] = None,
     is_error: bool = False,
+    is_rate_limited: bool = False,
 ):
-    stats["total_requests"] += 1
-    stats["total_tokens"] += tokens
-    stats["providers"][provider]["requests"] += 1
-    stats["providers"][provider]["tokens"] += tokens
+    if not is_rate_limited:
+        stats["total_requests"] += 1
+        stats["total_tokens"] += tokens
+        stats["providers"][provider]["requests"] += 1
+        stats["providers"][provider]["tokens"] += tokens
+        stats["models"][model]["requests"] += 1
+        stats["models"][model]["tokens"] += tokens
+
+        if api_key_id:
+            stats["api_keys"][api_key_id]["requests"] += 1
+            stats["api_keys"][api_key_id]["tokens"] += tokens
+            stats["api_keys"][api_key_id]["models"][model]["requests"] += 1
+            stats["api_keys"][api_key_id]["models"][model]["tokens"] += tokens
+
     if is_error:
         stats["providers"][provider]["errors"] += 1
-    stats["models"][model]["requests"] += 1
-    stats["models"][model]["tokens"] += tokens
-
+    if is_rate_limited:
+        stats["providers"][provider]["rate_limited"] += 1
     if api_key_id:
-        stats["api_keys"][api_key_id]["requests"] += 1
-        stats["api_keys"][api_key_id]["tokens"] += tokens
         if is_error:
             stats["api_keys"][api_key_id]["errors"] += 1
-        stats["api_keys"][api_key_id]["models"][model]["requests"] += 1
-        stats["api_keys"][api_key_id]["models"][model]["tokens"] += tokens
+        if is_rate_limited:
+            stats["api_keys"][api_key_id]["rate_limited"] += 1
 
     now = datetime.now()
     minute_key = now.strftime("%Y%m%d_%H%M")
@@ -176,3 +192,137 @@ def update_stats(
     cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
     requests_per_second[:] = [(k, v) for k, v in requests_per_second if k >= cutoff]
     tokens_per_second[:] = [(k, v) for k, v in tokens_per_second if k >= cutoff]
+
+
+def get_api_key_name(api_key_id: int | None) -> str | None:
+    if not api_key_id:
+        return None
+    for key_data in api_keys_cache.values():
+        if key_data["id"] == api_key_id:
+            return key_data["name"]
+    return None
+
+
+async def register_active_request(
+    request_id: str,
+    provider: str,
+    model: str,
+    api_key_id: int | None,
+    client_ip: str | None = None,
+) -> None:
+    now = datetime.now()
+    async with active_requests_lock:
+        active_requests[request_id] = {
+            "request_id": request_id,
+            "provider": provider,
+            "model": model,
+            "api_key_id": api_key_id,
+            "client_ip": client_ip,
+            "started_at": now,
+        }
+    asyncio.create_task(broadcast_live_stats())
+
+
+async def finish_active_request(request_id: str) -> None:
+    removed = False
+    async with active_requests_lock:
+        removed = active_requests.pop(request_id, None) is not None
+    if removed:
+        asyncio.create_task(broadcast_live_stats())
+
+
+async def prune_stale_active_requests() -> bool:
+    cutoff = datetime.now() - timedelta(seconds=LIVE_REQUEST_STALE_SECONDS)
+    removed = False
+    async with active_requests_lock:
+        stale_ids = [
+            request_id
+            for request_id, request_data in active_requests.items()
+            if request_data.get("started_at") and request_data["started_at"] < cutoff
+        ]
+        for request_id in stale_ids:
+            active_requests.pop(request_id, None)
+            removed = True
+    if removed:
+        asyncio.create_task(broadcast_live_stats())
+    return removed
+
+
+async def build_live_stats_snapshot() -> dict[str, Any]:
+    await prune_stale_active_requests()
+    async with active_requests_lock:
+        grouped_users: dict[str, dict[str, Any]] = {}
+        for request_data in active_requests.values():
+            key_name = get_api_key_name(request_data.get("api_key_id")) or "Unknown"
+            bucket = grouped_users.setdefault(
+                key_name,
+                {
+                    "api_key_id": request_data.get("api_key_id"),
+                    "models": {},
+                    "requests": 0,
+                    "last_activity": request_data["started_at"].isoformat(),
+                },
+            )
+            bucket["requests"] += 1
+            bucket["last_activity"] = max(
+                bucket["last_activity"],
+                request_data["started_at"].isoformat(),
+            )
+            model_name = request_data.get("model")
+            if model_name:
+                bucket["models"][model_name] = bucket["models"].get(model_name, 0) + 1
+
+        for key_name, bucket in grouped_users.items():
+            api_key_id = bucket.get("api_key_id")
+            if api_key_id and api_key_id in stats["api_keys"]:
+                bucket["tokens"] = stats["api_keys"][api_key_id].get("tokens", 0)
+            else:
+                bucket["tokens"] = 0
+
+        now = datetime.now()
+        cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
+        t_by_second: dict[str, int] = {}
+        for k, v in tokens_per_second:
+            if k >= cutoff:
+                t_by_second[k] = t_by_second.get(k, 0) + v
+        token_active_seconds = max(len([v for v in t_by_second.values() if v > 0]), 1)
+        total_tokens = sum(t_by_second.values())
+
+        return {
+            "active_requests": len(active_requests),
+            "active_users": len(grouped_users),
+            "tokens_per_second": round(total_tokens / token_active_seconds, 1),
+            "sessions": dict(
+                sorted(
+                    grouped_users.items(),
+                    key=lambda item: item[1]["last_activity"],
+                    reverse=True,
+                )
+            ),
+        }
+
+
+async def add_live_stats_subscriber(subscriber: Any) -> None:
+    async with live_stats_subscribers_lock:
+        live_stats_subscribers.add(subscriber)
+
+
+async def remove_live_stats_subscriber(subscriber: Any) -> None:
+    async with live_stats_subscribers_lock:
+        live_stats_subscribers.discard(subscriber)
+
+
+async def broadcast_live_stats() -> None:
+    snapshot = await build_live_stats_snapshot()
+    async with live_stats_subscribers_lock:
+        subscribers = list(live_stats_subscribers)
+    stale_subscribers = []
+    for subscriber in subscribers:
+        try:
+            await subscriber.send_json(snapshot)
+        except Exception:
+            stale_subscribers.append(subscriber)
+    if stale_subscribers:
+        async with live_stats_subscribers_lock:
+            for subscriber in stale_subscribers:
+                live_stats_subscribers.discard(subscriber)

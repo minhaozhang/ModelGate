@@ -10,10 +10,12 @@ from sqlalchemy import select
 from core.config import (
     providers_cache,
     api_keys_cache,
+    finish_active_request,
     update_stats,
     logger,
     error_logger,
     provider_semaphores,
+    register_active_request,
 )
 from core.log_sanitizer import (
     sanitize_headers_for_log,
@@ -50,6 +52,47 @@ OUTBOUND_USER_AGENT = "opencode/1.3.13 ai-sdk/provider-utils/4.0.21 runtime/bun/
 INTERNAL_ANALYSIS_API_KEY_ID = 1
 INTERNAL_ANALYSIS_CLIENT_IP = "internal"
 INTERNAL_ANALYSIS_USER_AGENT = "modelgate/internal-analysis"
+SEMAPHORE_RETRY_AFTER_SECONDS = 5
+RATE_LIMITED_STATUS = "rate_limited"
+
+
+def _openai_error(
+    message: str, error_type: str = "api_error", code: str | None = None
+) -> dict:
+    return {
+        "error": {"message": message, "type": error_type, "code": code or error_type}
+    }
+
+
+def _openai_error_response(
+    message: str,
+    status_code: int,
+    error_type: str = "api_error",
+    code: str | None = None,
+    headers: dict | None = None,
+) -> JSONResponse:
+    resp_headers = {"content-type": "application/json"}
+    if headers:
+        resp_headers.update(headers)
+    return JSONResponse(
+        _openai_error(message, error_type, code),
+        status_code=status_code,
+        headers=resp_headers,
+    )
+
+
+def _is_rate_limited_status(status_code: int) -> bool:
+    return status_code in (429, 529)
+
+
+def _resolve_request_status(
+    status_code: int, provider_error: str | None = None
+) -> str:
+    if _is_rate_limited_status(status_code):
+        return RATE_LIMITED_STATUS
+    if status_code >= 400 or provider_error:
+        return "error"
+    return "success"
 
 
 async def proxy_request(request: Request, endpoint: str):
@@ -67,7 +110,9 @@ async def proxy_request(request: Request, endpoint: str):
     auth_header = request.headers.get("authorization", "")
     api_key_id, auth_error = await validate_api_key(auth_header, model)
     if auth_error:
-        return JSONResponse({"error": auth_error}, status_code=401)
+        return _openai_error_response(
+            auth_error, 401, "authentication_error", "invalid_api_key"
+        )
     client_ip = get_client_ip(request)
     user_agent = request.headers.get("user-agent")
     _schedule_api_key_last_used_update(api_key_id)
@@ -79,8 +124,11 @@ async def proxy_request(request: Request, endpoint: str):
         logger.debug(
             f"[PROXY ERROR] Available providers: {list(providers_cache.keys())}"
         )
-        return JSONResponse(
-            {"error": f"Unknown provider for model: {model}"}, status_code=400
+        return _openai_error_response(
+            f"Unknown provider for model: {model}",
+            400,
+            "invalid_request_error",
+            "model_not_found",
         )
 
     semaphore = provider_semaphores.get(provider_name)
@@ -94,10 +142,37 @@ async def proxy_request(request: Request, endpoint: str):
         await asyncio.wait_for(semaphore.acquire(), timeout=0.001)
         acquired = True
     except asyncio.TimeoutError:
+        message = (
+            f"Provider '{provider_name}' is at max concurrency, please retry later"
+        )
         logger.warning(f"[RATE LIMIT] Provider {provider_name} at max concurrency")
-        return JSONResponse(
-            {"error": f"提供商 '{provider_name}' 达到最大并发数，请稍后重试"},
-            status_code=429,
+        update_stats(
+            provider_name,
+            actual_model,
+            0,
+            api_key_id=api_key_id,
+            is_rate_limited=True,
+        )
+        await log_request(
+            provider_name,
+            actual_model,
+            "",
+            {},
+            (time.time() - start_time) * 1000,
+            RATE_LIMITED_STATUS,
+            api_key_id=api_key_id,
+            upstream_status_code=429,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            request_context_tokens=estimate_request_context_tokens(body_json),
+            error=message,
+        )
+        return _openai_error_response(
+            message,
+            429,
+            "rate_limit_error",
+            "max_concurrency_reached",
+            headers={"retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS)},
         )
 
     try:
@@ -222,13 +297,16 @@ async def proxy_request(request: Request, endpoint: str):
             f"  Error: {type(e).__name__}: {sanitize_text_for_log(e)}\n"
             f"  Request Body: {sanitize_payload_for_log(body_json)}"
         )
-        return JSONResponse({"error": str(e)}, status_code=500)
+        err_msg = (
+            f"Proxy error: {type(e).__name__}: {sanitize_text_for_log(e, limit=500)}"
+        )
+        return _openai_error_response(err_msg, 502, "api_error", "proxy_error")
 
 
 async def _ensure_internal_api_key_exists(api_key_id: int) -> bool:
     async with async_session_maker() as session:
         result = await session.execute(
-            select(ApiKey.id).where(ApiKey.id == api_key_id, ApiKey.is_active == True)
+            select(ApiKey.id).where(ApiKey.id == api_key_id, ApiKey.is_active)
         )
         return result.scalar_one_or_none() is not None
 
@@ -279,6 +357,27 @@ async def call_internal_model_via_proxy(
         await asyncio.wait_for(semaphore.acquire(), timeout=0.001)
         acquired = True
     except asyncio.TimeoutError:
+        update_stats(
+            provider_name,
+            actual_model,
+            0,
+            api_key_id=api_key_id,
+            is_rate_limited=True,
+        )
+        await log_request(
+            provider_name,
+            actual_model,
+            "",
+            {},
+            (time.time() - start_time) * 1000,
+            RATE_LIMITED_STATUS,
+            api_key_id=api_key_id,
+            upstream_status_code=429,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            request_context_tokens=estimate_request_context_tokens(req_body),
+            error=f"Provider '{provider_name}' reached max concurrency",
+        )
         return {
             "ok": False,
             "provider_name": provider_name,
@@ -326,8 +425,8 @@ async def call_internal_model_via_proxy(
         if provider_name == "minimax":
             process_minimax_response(resp_json)
 
-        response_text, reasoning_text, tool_calls, finish_reason = _extract_response_fields(
-            resp_json
+        response_text, reasoning_text, tool_calls, finish_reason = (
+            _extract_response_fields(resp_json)
         )
         response_meta = build_response_meta(
             response_text=response_text,
@@ -344,7 +443,8 @@ async def call_internal_model_via_proxy(
         )
         total_tokens = tokens_record["total_tokens"]
         provider_error = _extract_provider_error(resp_json)
-        is_error = resp.status_code >= 400 or bool(provider_error)
+        request_status = _resolve_request_status(resp.status_code, provider_error)
+        is_error = request_status == "error"
 
         update_stats(
             provider_name,
@@ -352,6 +452,7 @@ async def call_internal_model_via_proxy(
             total_tokens,
             api_key_id=api_key_id,
             is_error=is_error,
+            is_rate_limited=request_status == RATE_LIMITED_STATUS,
         )
         log_response_meta(provider_name, actual_model, response_meta)
         await log_request(
@@ -360,7 +461,7 @@ async def call_internal_model_via_proxy(
             response_text,
             tokens_record,
             latency,
-            "error" if is_error else "success",
+            request_status,
             api_key_id=api_key_id,
             upstream_status_code=resp.status_code,
             client_ip=client_ip,
@@ -371,7 +472,7 @@ async def call_internal_model_via_proxy(
                 if provider_error
                 else sanitize_text_for_log(resp.text, limit=2000)
             )
-            if is_error
+            if request_status != "success"
             else None,
         )
 
@@ -384,18 +485,31 @@ async def call_internal_model_via_proxy(
                 resp.status_code,
                 sanitize_text_for_log(provider_error or resp.text, limit=800),
             )
+        elif request_status == RATE_LIMITED_STATUS:
+            logger.warning(
+                "[INTERNAL %s] %s/%s rate limited with status %s: %s",
+                purpose.upper(),
+                provider_name,
+                actual_model,
+                resp.status_code,
+                sanitize_text_for_log(provider_error or resp.text, limit=800),
+            )
 
         return {
-            "ok": not is_error,
+            "ok": request_status == "success",
             "provider_name": provider_name,
             "actual_model_name": actual_model,
             "status_code": resp.status_code,
             "payload": resp_json,
-            "error": provider_error if provider_error else (resp.text if is_error else None),
+            "error": provider_error
+            if provider_error
+            else (resp.text if is_error else None),
         }
     except Exception as exc:
         latency = (time.time() - start_time) * 1000
-        update_stats(provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True)
+        update_stats(
+            provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True
+        )
         await log_request(
             provider_name,
             actual_model,
@@ -439,6 +553,7 @@ def _build_headers(provider_config: dict) -> dict:
     if provider_config.get("api_key"):
         headers["authorization"] = f"Bearer {provider_config['api_key']}"
     return headers
+
 
 def _schedule_api_key_last_used_update(api_key_id: int | None) -> None:
     if not api_key_id:
@@ -522,6 +637,31 @@ def _format_provider_error(error_obj) -> str:
         code = error_obj.get("code") or error_obj.get("status_code")
         return f"{message} ({code})" if code not in (None, "") else str(message)
     return str(error_obj)
+
+
+def _normalize_upstream_error(
+    resp_json: dict,
+    status_code: int,
+    provider: str,
+    raw_error_text: str | None = None,
+) -> bytes:
+    if provider == "minimax" and resp_json:
+        process_minimax_response(resp_json)
+    if isinstance(resp_json.get("error"), dict) and "message" in resp_json["error"]:
+        return json.dumps(resp_json).encode()
+    provider_error = _extract_provider_error(resp_json)
+    if provider_error:
+        error_type = "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
+        return json.dumps(_openai_error(provider_error, error_type)).encode()
+    if raw_error_text:
+        error_type = "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
+        return json.dumps(_openai_error(raw_error_text, error_type)).encode()
+    if resp_json:
+        return json.dumps(resp_json).encode()
+    error_type = "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
+    return json.dumps(
+        _openai_error(f"Upstream request failed with status {status_code}", error_type)
+    ).encode()
 
 
 def _extract_provider_error(payload: dict) -> str | None:
@@ -633,14 +773,21 @@ async def _record_stream_result(
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,
             )
-    elif status == "error":
-        update_stats(provider, model, 0, api_key_id=api_key_id, is_error=True)
+    elif status in {"error", RATE_LIMITED_STATUS}:
+        update_stats(
+            provider,
+            model,
+            0,
+            api_key_id=api_key_id,
+            is_error=status == "error",
+            is_rate_limited=status == RATE_LIMITED_STATUS,
+        )
         updated = await update_request_log(
             log_id,
             response=total_content,
             tokens=tokens_record,
             latency_ms=latency,
-            status="error",
+            status=status,
             upstream_status_code=upstream_status_code,
             error=str(error) if error is not None else None,
         )
@@ -651,7 +798,7 @@ async def _record_stream_result(
                 total_content,
                 tokens_record,
                 latency,
-                "error",
+                status,
                 api_key_id=api_key_id,
                 upstream_status_code=upstream_status_code,
                 client_ip=client_ip,
@@ -659,7 +806,8 @@ async def _record_stream_result(
                 request_context_tokens=request_context_tokens,
                 error=str(error) if error is not None else None,
             )
-        error_logger.error(
+        log_fn = error_logger.warning if status == RATE_LIMITED_STATUS else error_logger.error
+        log_fn(
             f"[STREAM ERROR] Provider: {provider}, Model: {model}\n"
             f"  Error: {type(error).__name__ if error else 'Unknown'}: {sanitize_text_for_log(error)}\n"
             f"  Request Body: {sanitize_payload_for_log(req_body)}"
@@ -688,93 +836,134 @@ async def handle_normal(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
     )
 
-    resp = await client.post(url, headers=headers, content=body)
-    latency = (time.time() - start_time) * 1000
-
+    is_active_request_registered = False
     try:
-        resp_json = resp.json()
-    except json.JSONDecodeError:
-        resp_json = {}
+        await register_active_request(
+            request_id,
+            provider,
+            model,
+            api_key_id,
+            client_ip=client_ip,
+        )
+        is_active_request_registered = True
 
-    if provider == "minimax":
-        process_minimax_response(resp_json)
+        resp = await client.post(url, headers=headers, content=body)
+        latency = (time.time() - start_time) * 1000
 
-    response_text, reasoning_text, tool_calls, finish_reason = _extract_response_fields(
-        resp_json
-    )
+        try:
+            resp_json = resp.json()
+        except json.JSONDecodeError:
+            resp_json = {}
 
-    response_meta = build_response_meta(
-        response_text=response_text,
-        reasoning_text=reasoning_text,
-        tool_calls=tool_calls,
-        finish_reason=finish_reason,
-    )
-    tokens_record = build_tokens_record(
-        resp_json.get("usage"),
-        req_body=req_body,
-        response_text=response_text,
-        reasoning_text=reasoning_text,
-        response_meta=response_meta,
-    )
-    total_tokens = tokens_record["total_tokens"]
+        if provider == "minimax":
+            process_minimax_response(resp_json)
 
-    is_error = resp.status_code >= 400
-    retry_after = resp.headers.get("retry-after")
-    if retry_after:
-        error_logger.warning(
-            f"[API] {provider} rate limited, retry-after: {retry_after}s"
+        response_text, reasoning_text, tool_calls, finish_reason = (
+            _extract_response_fields(resp_json)
         )
 
-    provider_error = _extract_provider_error(resp_json)
-    if not is_error and provider_error:
-        is_error = True
-        error_logger.error(
-            f"[API ERROR] Provider: {provider}, Model: {model}, API returned error: {provider_error}"
+        response_meta = build_response_meta(
+            response_text=response_text,
+            reasoning_text=reasoning_text,
+            tool_calls=tool_calls,
+            finish_reason=finish_reason,
+        )
+        tokens_record = build_tokens_record(
+            resp_json.get("usage"),
+            req_body=req_body,
+            response_text=response_text,
+            reasoning_text=reasoning_text,
+            response_meta=response_meta,
+        )
+        total_tokens = tokens_record["total_tokens"]
+
+        request_status = _resolve_request_status(resp.status_code)
+        is_error = request_status == "error"
+        retry_after = resp.headers.get("retry-after")
+        if retry_after:
+            error_logger.warning(
+                f"[API] {provider} rate limited, retry-after: {retry_after}s"
+            )
+
+        provider_error = _extract_provider_error(resp_json)
+        if provider_error:
+            request_status = _resolve_request_status(resp.status_code, provider_error)
+            is_error = request_status == "error"
+        if is_error and provider_error:
+            error_logger.error(
+                f"[API ERROR] Provider: {provider}, Model: {model}, API returned error: {provider_error}"
+            )
+
+        update_stats(
+            provider,
+            model,
+            total_tokens,
+            api_key_id=api_key_id,
+            is_error=is_error,
+            is_rate_limited=request_status == RATE_LIMITED_STATUS,
+        )
+        log_response_meta(provider, model, response_meta)
+        await log_request(
+            provider,
+            model,
+            response_text,
+            tokens_record,
+            latency,
+            request_status,
+            api_key_id=api_key_id,
+            upstream_status_code=resp.status_code,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            request_context_tokens=request_context_tokens,
+            error=(
+                sanitize_text_for_log(provider_error, limit=2000)
+                if provider_error
+                else sanitize_text_for_log(resp.text, limit=2000)
+            )
+            if request_status != "success"
+            else None,
         )
 
-    update_stats(
-        provider, model, total_tokens, api_key_id=api_key_id, is_error=is_error
-    )
-    log_response_meta(provider, model, response_meta)
-    await log_request(
-        provider,
-        model,
-        response_text,
-        tokens_record,
-        latency,
-        "error" if is_error else "success",
-        api_key_id=api_key_id,
-        upstream_status_code=resp.status_code,
-        client_ip=client_ip,
-        user_agent=user_agent,
-        request_context_tokens=request_context_tokens,
-        error=(
-            sanitize_text_for_log(provider_error, limit=2000)
-            if provider_error
-            else sanitize_text_for_log(resp.text, limit=2000)
+        if is_error:
+            error_logger.error(
+                f"[API ERROR] Provider: {provider}, Model: {model}, Status: {resp.status_code}\n"
+                f"  Request Body: {sanitize_payload_for_log(req_body)}\n"
+                f"  Response: {sanitize_text_for_log(resp.text)}"
+            )
+
+        logger.info(
+            f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms"
         )
-        if is_error
-        else None,
-    )
+        logger.debug("[RESPONSE] Body: %s", sanitize_text_for_log(resp.text))
 
-    if is_error:
-        error_logger.error(
-            f"[API ERROR] Provider: {provider}, Model: {model}, Status: {resp.status_code}\n"
-            f"  Request Body: {sanitize_payload_for_log(req_body)}\n"
-            f"  Response: {sanitize_text_for_log(resp.text)}"
+        semaphore.release()
+
+        resp_headers = {"content-type": "application/json"}
+        if _is_rate_limited_status(resp.status_code):
+            retry_after = resp.headers.get("retry-after")
+            if retry_after:
+                resp_headers["retry-after"] = retry_after
+            else:
+                resp_headers["retry-after"] = str(SEMAPHORE_RETRY_AFTER_SECONDS)
+
+        if request_status != "success":
+            resp_content = _normalize_upstream_error(
+                resp_json,
+                resp.status_code,
+                provider,
+                raw_error_text=sanitize_text_for_log(resp.text, limit=2000),
+            )
+        else:
+            resp_content = resp.content
+
+        return Response(
+            content=resp_content,
+            status_code=resp.status_code,
+            headers=resp_headers,
         )
-
-    logger.info(
-        f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms"
-    )
-    logger.debug("[RESPONSE] Body: %s", sanitize_text_for_log(resp.text))
-
-    semaphore.release()
-    return Response(
-        content=resp.content,
-        status_code=resp.status_code,
-        headers={"content-type": "application/json"},
-    )
+    finally:
+        if is_active_request_registered:
+            await finish_active_request(request_id)
 
 
 async def handle_streaming(
@@ -799,6 +988,99 @@ async def handle_streaming(
         "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
     )
 
+    client = httpx.AsyncClient(timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS)
+    is_active_request_registered = False
+    try:
+        await register_active_request(
+            request_id,
+            provider,
+            model,
+            api_key_id,
+            client_ip=client_ip,
+        )
+        is_active_request_registered = True
+        req = client.build_request("POST", url, headers=headers, content=body)
+        resp = await client.send(req, stream=True)
+
+        if resp.status_code >= 400:
+            error_body = await resp.aread()
+            await resp.aclose()
+            latency = (time.time() - start_time) * 1000
+            error_text = error_body.decode("utf-8", errors="replace")
+            retry_after = resp.headers.get("retry-after")
+            if retry_after:
+                error_logger.warning(
+                    f"[STREAM ERROR] {provider} rate limited, retry-after: {retry_after}s"
+                )
+            try:
+                resp_json = json.loads(error_body)
+            except json.JSONDecodeError:
+                resp_json = {}
+            provider_error = _extract_provider_error(resp_json)
+            request_status = _resolve_request_status(resp.status_code, provider_error)
+            update_stats(
+                provider,
+                model,
+                0,
+                api_key_id=api_key_id,
+                is_error=request_status == "error",
+                is_rate_limited=request_status == RATE_LIMITED_STATUS,
+            )
+            await log_request(
+                provider,
+                model,
+                "",
+                {},
+                latency,
+                request_status,
+                api_key_id=api_key_id,
+                upstream_status_code=resp.status_code,
+                client_ip=client_ip,
+                user_agent=user_agent,
+                request_context_tokens=request_context_tokens,
+                error=sanitize_text_for_log(provider_error or error_text, limit=2000),
+            )
+            if log_id:
+                await update_request_log(
+                    log_id,
+                    status=request_status,
+                    upstream_status_code=resp.status_code,
+                    error=sanitize_text_for_log(
+                        provider_error or error_text, limit=2000
+                    ),
+                )
+            semaphore.release()
+            await client.aclose()
+            if is_active_request_registered:
+                await finish_active_request(request_id)
+            log_fn = error_logger.warning if request_status == RATE_LIMITED_STATUS else error_logger.error
+            log_fn(
+                f"[STREAM ERROR] Provider: {provider}, Model: {model}, Status: {resp.status_code}\n"
+                f"  Response: {sanitize_text_for_log(error_text)}"
+            )
+            resp_headers = {"content-type": "application/json"}
+            if _is_rate_limited_status(resp.status_code):
+                if retry_after:
+                    resp_headers["retry-after"] = retry_after
+                else:
+                    resp_headers["retry-after"] = str(SEMAPHORE_RETRY_AFTER_SECONDS)
+            normalized_body = _normalize_upstream_error(
+                resp_json,
+                resp.status_code,
+                provider,
+                raw_error_text=sanitize_text_for_log(error_text, limit=2000),
+            )
+            return Response(
+                content=normalized_body,
+                status_code=resp.status_code,
+                headers=resp_headers,
+            )
+    except Exception as e:
+        if is_active_request_registered:
+            await finish_active_request(request_id)
+        await client.aclose()
+        raise e
+
     async def stream_generator():
         total_content = ""
         total_reasoning = ""
@@ -809,154 +1091,135 @@ async def handle_streaming(
         stream_tool_calls = []
         seen_tool_call_keys: set[str] = set()
         minimax_proc = MinimaxStreamProcessor() if provider == "minimax" else None
-        upstream_status_code = None
+        upstream_status_code = resp.status_code
 
         try:
-            async with httpx.AsyncClient(
-                timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS
-            ) as client:
-                async with client.stream(
-                    "POST", url, headers=headers, content=body
-                ) as resp:
-                    upstream_status_code = resp.status_code
-                    if resp.status_code >= 400:
-                        error_body = await resp.aread()
-                        retry_after = resp.headers.get("retry-after")
-                        if retry_after:
-                            error_logger.warning(
-                                f"[STREAM ERROR] {provider} rate limited, retry-after: {retry_after}s"
-                            )
-                        error_text = sanitize_text_for_log(error_body.decode("utf-8", errors="replace"))
-                        raise Exception(
-                            f"HTTP {resp.status_code}: {error_text}"
-                        )
+            chunk_count = 0
+            async for line in normalize_sse_stream(resp.aiter_lines()):
+                if not line.startswith("data: "):
+                    if not line.strip() or line.startswith(":"):
+                        continue
+                    try:
+                        raw_payload = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    provider_error = _extract_provider_error(raw_payload)
+                    if provider_error:
+                        raise Exception(f"API error: {provider_error}")
+                    continue
+                line_content = line[6:]
+                if line_content == "[DONE]":
+                    yield "data: [DONE]\n\n"
+                    break
+                try:
+                    chunk = json.loads(line_content)
+                    chunk_count += 1
 
-                    chunk_count = 0
-                    async for line in normalize_sse_stream(resp.aiter_lines()):
-                        if not line.startswith("data: "):
-                            if not line.strip() or line.startswith(":"):
-                                continue
-                            try:
-                                raw_payload = json.loads(line)
-                            except json.JSONDecodeError:
-                                continue
-                            provider_error = _extract_provider_error(raw_payload)
-                            if provider_error:
-                                raise Exception(f"API error: {provider_error}")
-                            continue
-                        line_content = line[6:]
-                        if line_content == "[DONE]":
-                            yield "data: [DONE]\n\n"
-                            break
-                        try:
-                            chunk = json.loads(line_content)
-                            chunk_count += 1
+                    if chunk.get("usage"):
+                        last_usage = chunk["usage"]
+                    provider_error = _extract_provider_error(chunk)
+                    if provider_error:
+                        raise Exception(f"API error: {provider_error}")
 
-                            if chunk.get("usage"):
-                                last_usage = chunk["usage"]
-                            provider_error = _extract_provider_error(chunk)
-                            if provider_error:
-                                raise Exception(f"API error: {provider_error}")
-
-                            if "choices" not in chunk or not chunk["choices"]:
-                                yield f"{line.rstrip()}\n\n"
-                                continue
-
-                            choice = chunk["choices"][0]
-                            finish_reason = choice.get("finish_reason")
-                            if finish_reason:
-                                final_finish_reason = finish_reason
-                            if finish_reason == "error":
-                                raise Exception("Stream finished with error status")
-
-                            delta = choice.get("delta", {})
-                            _collect_tool_calls(
-                                delta.get("tool_calls"),
-                                seen_tool_call_keys,
-                                stream_tool_calls,
-                            )
-                            content = delta.get("content", "")
-
-                            if minimax_proc and content:
-                                result = minimax_proc.process_content(
-                                    content,
-                                    chunk,
-                                    delta,
-                                    seen_tool_call_keys,
-                                    stream_tool_calls,
-                                    _collect_tool_calls,
-                                )
-                                if result is None:
-                                    continue
-                                if result[0] == "yield":
-                                    final_finish_reason = "tool_calls"
-                                    yield result[1]
-                                    continue
-                                elif result[0] == "skip":
-                                    data = json.dumps(chunk)
-                                    line = f"data: {data}"
-                                elif result[0] == "content":
-                                    total_content += result[1]
-                                    total_reasoning += result[2]
-                                    data = json.dumps(chunk)
-                                    line = f"data: {data}"
-                            elif content:
-                                if content == last_content and content.strip():
-                                    repeated_count += 1
-                                    if repeated_count >= REPEATED_CHUNK_LIMIT:
-                                        logger.warning(
-                                            f"[STREAM] Detected repeated content ({repeated_count}x), aborting"
-                                        )
-                                        raise Exception(
-                                            f"Model repeating same content: {content[:50]}..."
-                                        )
-                                else:
-                                    repeated_count = 0
-                                last_content = content
-                                total_content += content
-
-                            reasoning = delta.get("reasoning_content", "")
-                            if reasoning and provider != "minimax":
-                                total_reasoning += reasoning
-
-                        except json.JSONDecodeError as e:
-                            line_preview = sanitize_text_for_log(
-                                line_content[:200].replace("\n", "\\n"),
-                                limit=300,
-                            )
-                            logger.warning(
-                                f"[SSE] Invalid JSON, skipping line: {sanitize_text_for_log(line, limit=150)}... Error: {sanitize_text_for_log(e)}"
-                            )
-                            raise Exception(
-                                f"SSE JSON parse error: {e}; chunk={line_preview}"
-                            ) from e
-
+                    if "choices" not in chunk or not chunk["choices"]:
                         yield f"{line.rstrip()}\n\n"
+                        continue
 
-                        if chunk_count % 10 == 0:
-                            if await request.is_disconnected():
-                                logger.info(
-                                    f"[STREAM] Client disconnected at chunk {chunk_count}"
+                    choice = chunk["choices"][0]
+                    finish_reason = choice.get("finish_reason")
+                    if finish_reason:
+                        final_finish_reason = finish_reason
+                    if finish_reason == "error":
+                        raise Exception("Stream finished with error status")
+
+                    delta = choice.get("delta", {})
+                    _collect_tool_calls(
+                        delta.get("tool_calls"),
+                        seen_tool_call_keys,
+                        stream_tool_calls,
+                    )
+                    content = delta.get("content", "")
+
+                    if minimax_proc and content:
+                        result = minimax_proc.process_content(
+                            content,
+                            chunk,
+                            delta,
+                            seen_tool_call_keys,
+                            stream_tool_calls,
+                            _collect_tool_calls,
+                        )
+                        if result is None:
+                            continue
+                        if result[0] == "yield":
+                            final_finish_reason = "tool_calls"
+                            yield result[1]
+                            continue
+                        elif result[0] == "skip":
+                            data = json.dumps(chunk)
+                            line = f"data: {data}"
+                        elif result[0] == "content":
+                            total_content += result[1]
+                            total_reasoning += result[2]
+                            data = json.dumps(chunk)
+                            line = f"data: {data}"
+                    elif content:
+                        if content == last_content and content.strip():
+                            repeated_count += 1
+                            if repeated_count >= REPEATED_CHUNK_LIMIT:
+                                logger.warning(
+                                    f"[STREAM] Detected repeated content ({repeated_count}x), aborting"
                                 )
-                                await _record_stream_result(
-                                    total_content,
-                                    total_reasoning,
-                                    stream_tool_calls,
-                                    final_finish_reason,
-                                    last_usage,
-                                    req_body,
-                                    provider,
-                                    model,
-                                    api_key_id,
-                                    client_ip,
-                                    user_agent,
-                                    request_context_tokens,
-                                    start_time,
-                                    log_id,
-                                    "cancelled",
-                                    upstream_status_code=upstream_status_code,
+                                raise Exception(
+                                    f"Model repeating same content: {content[:50]}..."
                                 )
-                                return
+                        else:
+                            repeated_count = 0
+                        last_content = content
+                        total_content += content
+
+                    reasoning = delta.get("reasoning_content", "")
+                    if reasoning and provider != "minimax":
+                        total_reasoning += reasoning
+
+                except json.JSONDecodeError as e:
+                    line_preview = sanitize_text_for_log(
+                        line_content[:200].replace("\n", "\\n"),
+                        limit=300,
+                    )
+                    logger.warning(
+                        f"[SSE] Invalid JSON, skipping line: {sanitize_text_for_log(line, limit=150)}... Error: {sanitize_text_for_log(e)}"
+                    )
+                    raise Exception(
+                        f"SSE JSON parse error: {e}; chunk={line_preview}"
+                    ) from e
+
+                yield f"{line.rstrip()}\n\n"
+
+                if chunk_count % 10 == 0:
+                    if await request.is_disconnected():
+                        logger.info(
+                            f"[STREAM] Client disconnected at chunk {chunk_count}"
+                        )
+                        await _record_stream_result(
+                            total_content,
+                            total_reasoning,
+                            stream_tool_calls,
+                            final_finish_reason,
+                            last_usage,
+                            req_body,
+                            provider,
+                            model,
+                            api_key_id,
+                            client_ip,
+                            user_agent,
+                            request_context_tokens,
+                            start_time,
+                            log_id,
+                            "cancelled",
+                            upstream_status_code=upstream_status_code,
+                        )
+                        return
 
             await _record_stream_result(
                 total_content,
@@ -998,6 +1261,8 @@ async def handle_streaming(
             )
             yield f"data: {json.dumps({'error': {'message': str(e), 'type': type(e).__name__}})}\n\n"
         finally:
+            await finish_active_request(request_id)
             semaphore.release()
+            await client.aclose()
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")

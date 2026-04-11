@@ -5,8 +5,8 @@
     {% include 'components/site_head_meta.html' %}
     <title>{{ _('Dashboard') }} - ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/output.css">
+    <script src="/static/js/chart.min.js"></script>
     <style>
         .nav-link { transition: all 0.2s; }
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
@@ -59,7 +59,7 @@
         body.theme-dark .ring-blue-500 { --tw-ring-color: rgba(96, 165, 250, 0.75) !important; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="theme-dark bg-gray-100 min-h-screen">
     {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% include "components/nav.html" %}
@@ -75,50 +75,56 @@
             <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
-                    <div id="total-requests" class="text-2xl font-bold text-blue-600">0</div>
+                    <div id="total-requests" class="text-3xl font-bold text-blue-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Tokens') }}</div>
-                    <div id="total-tokens" class="text-2xl font-bold text-green-600">0</div>
+                    <div id="total-tokens" class="text-3xl font-bold text-green-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Req/sec') }}</div>
-                    <div id="rps" class="text-2xl font-bold text-orange-600">0</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Active Requests') }}</div>
+                    <div id="rps" class="text-3xl font-bold text-orange-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Tokens/sec') }}</div>
-                    <div id="tps" class="text-2xl font-bold text-teal-600">0</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Tokens/s') }}</div>
+                    <div id="tps" class="text-3xl font-bold text-teal-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Errors') }}</div>
-                    <div id="total-errors" class="text-2xl font-bold text-red-600">0</div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Errors/Timeouts/429') }}</div>
+                    <div class="flex items-baseline gap-1">
+                        <span id="total-errors" class="text-3xl font-bold text-red-600">0</span>
+                        <span class="text-gray-400 text-3xl">/</span>
+                        <span id="total-timeouts" class="text-3xl font-bold text-amber-600">0</span>
+                        <span class="text-gray-400 text-3xl">/</span>
+                        <span id="total-rate-limited" class="text-3xl font-bold text-sky-600">0</span>
+                    </div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>
-                    <div id="error-rate" class="text-2xl font-bold text-purple-600">0%</div>
+                    <div id="error-rate" class="text-3xl font-bold text-purple-600">0%</div>
                 </div>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-sm font-semibold">{{ _('Active Sessions') }}</h3>
+                        <h3 class="text-lg font-semibold">{{ _('Active Users') }}</h3>
                         <span id="active-count" class="text-xs text-gray-500">0</span>
                     </div>
-                    <div id="active-sessions" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No active sessions') }}</div>
+                    <div id="active-sessions" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No active users') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-sm font-semibold text-orange-600">{{ _('Slow Requests (>60s)') }}</h3>
+                        <h3 class="text-lg font-semibold text-orange-600">{{ _('Slow Requests (>60s)') }}</h3>
                         <span id="slow-count" class="text-xs text-gray-500">0</span>
                     </div>
                     <div id="slow-requests" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No slow requests') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
-                    <h3 class="text-sm font-semibold mb-3">{{ _('Provider Usage') }}</h3>
+                    <h3 class="text-lg font-semibold mb-3">{{ _('Provider Usage') }}</h3>
                     <div id="provider-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
-                    <h3 class="text-sm font-semibold mb-3">{{ _('API Key Usage') }}</h3>
+                    <h3 class="text-lg font-semibold mb-3">{{ _('API Key Usage') }}</h3>
                     <div id="apikey-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
                 </div>
             </div>
@@ -132,14 +138,19 @@
         let currentPeriod = 'day';
         let trendChart = null;
         let latestSlowRequestsData = null;
+        let liveStatsSocket = null;
+        let liveStatsReconnectTimer = null;
         const HOME_OVERVIEW_REFRESH_MS = 8000;
-        const HOME_REALTIME_REFRESH_MS = 3000;
         const APP_BASE_PATH = {{ app_base_path | tojson }};
-        const HOME_ACTIVE_REFRESH_MS = 10000;
         const HOME_SLOW_REFRESH_MS = 5000;
-        const slowRequestsI18n = {
+        const homeI18n = {
             noSlowRequests: '{{ _("No slow requests") }}',
+            noActiveUsers: '{{ _("No active users") }}',
             pending: '{{ _("pending") }}',
+            req: '{{ _("req") }}',
+            tokens: '{{ _("Tokens") }}',
+            lightMode: '{{ _("Light Mode") }}',
+            darkMode: '{{ _("Dark Mode") }}',
         };
         async function logout() { await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'}); window.location.href = `${APP_BASE_PATH}/admin/login`; }
         function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
@@ -160,7 +171,7 @@
             const isDark = mode === 'dark';
             document.body.classList.toggle('theme-dark', isDark);
             localStorage.setItem('admin_theme', mode);
-            document.getElementById('theme-toggle').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+            document.getElementById('theme-toggle').textContent = isDark ? homeI18n.lightMode : homeI18n.darkMode;
         }
         function toggleTheme() {
             const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
@@ -182,6 +193,8 @@
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
             document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
             document.getElementById('total-errors').textContent = data.total_errors;
+            document.getElementById('total-timeouts').textContent = data.total_timeouts;
+            document.getElementById('total-rate-limited').textContent = data.total_rate_limited || 0;
             const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
             document.getElementById('error-rate').textContent = errorRate + '%';
             renderProviderBars(data.providers || {});
@@ -290,7 +303,10 @@
             if (trendChart) trendChart.destroy();
             const requests = data.intervals.map(i => data.data[i]?.requests || 0);
             const rawTokens = data.intervals.map(i => data.data[i]?.tokens || 0);
-            const visibleRange = getTrendVisibleRange([requests, rawTokens], data.intervals.length);
+            const errors = data.intervals.map(i => data.data[i]?.errors || 0);
+            const timeouts = data.intervals.map(i => data.data[i]?.timeouts || 0);
+            const rateLimited = data.intervals.map(i => data.data[i]?.rate_limited || 0);
+            const visibleRange = getTrendVisibleRange([requests, rawTokens, errors, timeouts, rateLimited], data.intervals.length);
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
             const tokenLabel = tokenScale.suffix ? `Tokens (${tokenScale.suffix})` : 'Tokens';
@@ -323,6 +339,51 @@
                             tension: 0.25,
                             fill: true,
                             yAxisID: 'yTokens'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Errors',
+                            data: errors,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [6, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Timeouts',
+                            data: timeouts,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                            pointBackgroundColor: '#f59e0b',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [2, 5],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: '429',
+                            data: rateLimited,
+                            borderColor: '#0ea5e9',
+                            backgroundColor: 'rgba(14, 165, 233, 0.08)',
+                            pointBackgroundColor: '#0ea5e9',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [10, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
                         }
                     ]
                 },
@@ -348,7 +409,7 @@
                             position: 'left',
                             grid: { color: chartTheme.gridColor },
                             ticks: { color: chartTheme.tickColor },
-                            title: { display: true, text: 'Requests', color: chartTheme.titleColor }
+                            title: { display: true, text: 'Requests / Errors / Timeouts / 429', color: chartTheme.titleColor }
                         },
                         yTokens: {
                             beginAtZero: true,
@@ -372,7 +433,7 @@
                                         const rawValue = rawTokens[context.dataIndex] || 0;
                                         return `${tokenLabel}: ${formatCompactTokens(rawValue)} (${rawValue.toLocaleString()})`;
                                     }
-                                    return `Requests: ${(context.parsed.y || 0).toLocaleString()}`;
+                                    return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
                                 }
                             }
                         }
@@ -381,21 +442,20 @@
             });
             window.scrollTo(0, scrollY);
         }
-        loadData();
-        setInterval(loadData, HOME_OVERVIEW_REFRESH_MS);
-        loadActiveSessions();
-        setInterval(loadActiveSessions, HOME_ACTIVE_REFRESH_MS);
+        function renderLiveStats(data) {
+            const activeRequests = data.active_requests || 0;
+            const activeUsers = data.active_count ?? data.active_users ?? 0;
+            const tokensPerSecond = data.tokens_per_second || 0;
+            document.getElementById('rps').textContent = activeRequests;
+            document.getElementById('tps').textContent = tokensPerSecond.toLocaleString();
+            document.getElementById('active-count').textContent = activeUsers;
 
-        async function loadActiveSessions() {
-            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/active`);
-            document.getElementById('active-count').textContent = data.active_count;
-
-            if (data.active_count === 0) {
-                document.getElementById('active-sessions').innerHTML = '<div class="text-gray-400 text-center py-4">No active sessions</div>';
+            if (activeUsers === 0) {
+                document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`;
                 return;
             }
 
-            const html = Object.entries(data.sessions)
+            const html = Object.entries(data.sessions || {})
                 .sort((a, b) => new Date(b[1].last_activity || 0) - new Date(a[1].last_activity || 0))
                 .map(([name, session]) => {
                 const maskedName = maskName(name);
@@ -409,12 +469,49 @@
                             <div class="text-xs text-gray-500 mt-1">${modelsHtml}</div>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm font-medium">${session.requests} req</div>
+                            <div class="text-sm font-medium">${session.requests} ${homeI18n.req}</div>
+                            <div class="text-xs text-gray-400">${(session.tokens || 0).toLocaleString()} ${homeI18n.tokens}</div>
                         </div>
                     </div>
                 `;
             }).join('');
             document.getElementById('active-sessions').innerHTML = html;
+        }
+
+        async function loadLiveStatsFallback() {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/active`);
+            renderLiveStats(data);
+        }
+
+        function scheduleLiveStatsReconnect() {
+            if (liveStatsReconnectTimer) return;
+            liveStatsReconnectTimer = setTimeout(() => {
+                liveStatsReconnectTimer = null;
+                connectLiveStats();
+            }, 2000);
+        }
+
+        function connectLiveStats() {
+            if (liveStatsSocket) {
+                liveStatsSocket.close();
+            }
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            liveStatsSocket = new WebSocket(`${protocol}//${window.location.host}${APP_BASE_PATH}/admin/api/stats/live`);
+            liveStatsSocket.onmessage = (event) => {
+                try {
+                    renderLiveStats(JSON.parse(event.data));
+                } catch (e) {}
+            };
+            liveStatsSocket.onclose = () => {
+                liveStatsSocket = null;
+                scheduleLiveStatsReconnect();
+            };
+            liveStatsSocket.onerror = () => {
+                if (liveStatsSocket) {
+                    liveStatsSocket.close();
+                }
+                loadLiveStatsFallback();
+            };
         }
 
         function formatDuration(seconds) {
@@ -433,7 +530,7 @@
             const total = pending.length + completed.length;
             document.getElementById('slow-count').textContent = total;
             if (total === 0) {
-                document.getElementById('slow-requests').innerHTML = `<div class="text-gray-400 text-center py-4">${slowRequestsI18n.noSlowRequests}</div>`;
+                document.getElementById('slow-requests').innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noSlowRequests}</div>`;
                 return;
             }
             let html = '';
@@ -446,11 +543,11 @@
                     <div class="flex justify-between items-center p-2 bg-orange-50 rounded border-l-4 border-orange-500 mb-2">
                         <div>
                             <div class="font-medium text-sm">${req.provider} / ${req.model}</div>
-                            <div class="text-xs text-gray-500 cursor-default" title="${req.key_name || 'N/A'}">${startTime} | ${maskedKeyName}</div>
+                            <div class="text-xs text-gray-500 cursor-default" title="${req.key_name || 'N/A'}">${startTime} | ${maskedKeyName}${req.input_tokens ? ' | ' + req.input_tokens.toLocaleString() + ' tokens' : ''}</div>
                         </div>
                         <div class="text-right">
                             <div class="text-lg font-bold text-orange-600">${formatDuration(elapsedSeconds)}</div>
-                            <span class="px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-700">${slowRequestsI18n.pending}</span>
+                            <span class="px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-700">${homeI18n.pending}</span>
                         </div>
                     </div>
                 `;
@@ -463,10 +560,10 @@
                     <div class="flex justify-between items-center p-2 bg-gray-50 rounded mb-2">
                         <div>
                             <div class="font-medium text-sm">${req.provider || 'N/A'} / ${req.model}</div>
-                            <div class="text-xs text-gray-500 cursor-default" title="${req.key_name || 'N/A'}">${createdAt} | ${maskedKeyName}</div>
+                            <div class="text-xs text-gray-500 cursor-default" title="${req.key_name || 'N/A'}">${createdAt} | ${maskedKeyName}${req.input_tokens ? ' | ' + req.input_tokens.toLocaleString() + ' tokens' : ''}</div>
                         </div>
                         <div class="text-right">
-                            <div class="text-sm font-bold text-orange-600">${formatDuration(req.latency_ms / 1000)}</div>
+                            <div class="text-lg font-bold text-orange-600">${formatDuration(req.latency_ms / 1000)}</div>
                             <span class="px-1.5 py-0.5 rounded text-xs ${statusClass}">${req.status}</span>
                         </div>
                     </div>
@@ -481,19 +578,15 @@
             renderSlowRequests(data);
         }
 
-        async function loadRealtimeStats() {
-            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/realtime`);
-            document.getElementById('rps').textContent = data.requests_per_second;
-            document.getElementById('tps').textContent = formatCompactTokens(data.tokens_per_second || 0);
-        }
-
+        loadData();
+        setInterval(loadData, HOME_OVERVIEW_REFRESH_MS);
+        loadLiveStatsFallback();
+        connectLiveStats();
         loadSlowRequests();
         setInterval(loadSlowRequests, HOME_SLOW_REFRESH_MS);
         setInterval(() => {
             if (latestSlowRequestsData) renderSlowRequests(latestSlowRequestsData);
         }, 1000);
-        loadRealtimeStats();
-        setInterval(loadRealtimeStats, HOME_REALTIME_REFRESH_MS);
     </script>
 </body>
 </html>

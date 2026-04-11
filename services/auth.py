@@ -125,13 +125,21 @@ def _check_time_rules(time_rules: list[dict]) -> bool:
             continue
         grouped_rules.setdefault(rule_type, []).append(rule)
 
-    for rules in grouped_rules.values():
-        if any(
-            _matches_rule(rule, current_time, current_date, current_weekday)
-            for rule in rules
-            if not rule.get("allowed", True)
-        ):
-            return False
+        if rule_type == "time_range":
+            start_str = rule.get("start_time")
+            end_str = rule.get("end_time")
+            if not start_str or not end_str:
+                continue
+            parts = [int(p) for p in start_str.split(":")]
+            start_t = datetime.time(parts[0], parts[1], parts[2] if len(parts) > 2 else 0)
+            parts = [int(p) for p in end_str.split(":")]
+            end_t = datetime.time(parts[0], parts[1], parts[2] if len(parts) > 2 else 0)
+            if start_t > end_t:
+                in_range = current_time >= start_t or current_time <= end_t
+            else:
+                in_range = start_t <= current_time <= end_t
+            if in_range:
+                return allowed
 
     for rules in grouped_rules.values():
         allow_rules = [rule for rule in rules if rule.get("allowed", True)]

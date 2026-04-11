@@ -166,7 +166,7 @@
             </div>
             {% endcall %}
 
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
                     <div id="total-requests" class="text-3xl font-bold text-blue-600">0</div>
@@ -182,6 +182,10 @@
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Timeouts') }}</div>
                     <div id="total-timeouts" class="text-3xl font-bold text-amber-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">{{ _('429') }}</div>
+                    <div id="total-rate-limited" class="text-3xl font-bold text-sky-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>
@@ -1111,11 +1115,13 @@
             const totalTokens = providerData.total_tokens || 0;
             const totalErrors = monitorData.total_errors || 0;
             const totalTimeouts = monitorData.total_timeouts || 0;
+            const totalRateLimited = monitorData.total_rate_limited || 0;
 
             document.getElementById('total-requests').textContent = totalRequests.toLocaleString();
             document.getElementById('total-tokens').textContent = formatCompactTokens(totalTokens);
             document.getElementById('total-errors').textContent = totalErrors.toLocaleString();
             document.getElementById('total-timeouts').textContent = totalTimeouts.toLocaleString();
+            document.getElementById('total-rate-limited').textContent = totalRateLimited.toLocaleString();
             document.getElementById('error-rate').textContent = (totalRequests > 0 ? ((totalErrors / totalRequests) * 100).toFixed(1) : '0.0') + '%';
 
             const providerResult = renderUsageChart(providerChart, 'providerChart', 'provider-legend', providerData.data || {}, {

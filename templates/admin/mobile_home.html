@@ -88,11 +88,11 @@
         </div>
         <div class="grid grid-cols-3 gap-3">
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
-                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('RPS') }}</div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Active Requests') }}</div>
                 <div id="rps" class="text-lg font-bold text-orange-500 mt-1">0</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
-                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('TPS') }}</div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Tokens/s') }}</div>
                 <div id="tps" class="text-lg font-bold text-teal-600 mt-1">0</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
@@ -115,7 +115,7 @@
             <div class="collapsible-header flex items-center justify-between p-4" onclick="toggleSection('active')">
                 <div class="flex items-center gap-2">
                     <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <span class="font-medium text-sm text-gray-800">{{ _('Active Sessions') }}</span>
+                    <span class="font-medium text-sm text-gray-800">{{ _('Active Users') }}</span>
                     <span id="active-count" class="text-xs text-gray-400">0</span>
                 </div>
                 <svg id="chevron-active" class="chevron w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,7 +187,7 @@
         tokens: "{{ _('Tokens') }}",
         errors: "{{ _('Errors') }}",
         noData: "{{ _('No data') }}",
-        noActiveSessions: "{{ _('No active sessions') }}",
+        noActiveUsers: "{{ _('No active users') }}",
         noSlowRequests: "{{ _('No slow requests') }}",
         req: "{{ _('req') }}",
         pending: "{{ _('pending') }}",
@@ -198,9 +198,9 @@
     <script>
         let currentPeriod = 'day';
         let trendChart = null;
+        let liveStatsSocket = null;
+        let liveStatsReconnectTimer = null;
         const MOBILE_HOME_OVERVIEW_REFRESH_MS = 8000;
-        const MOBILE_HOME_REALTIME_REFRESH_MS = 3000;
-        const MOBILE_HOME_ACTIVE_REFRESH_MS = 10000;
         const MOBILE_HOME_SLOW_REFRESH_MS = 5000;
 
         Chart.defaults.color = '#cbd5e1';
@@ -468,25 +468,19 @@
             }
         }
 
-        async function loadRealtimeStats() {
-            try {
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/realtime`);
-                document.getElementById('rps').textContent = data.requests_per_second || 0;
-                document.getElementById('tps').textContent = formatCompactTokens(data.tokens_per_second || 0);
-            } catch (e) {}
-        }
-
-        async function loadActiveSessions() {
-            try {
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/active`);
-                const sessions = data.sessions || {};
-                const count = Object.keys(sessions).length;
-                document.getElementById('active-count').textContent = count;
-                if (count === 0) {
-                    document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noActiveSessions}</div>`;
-                    return;
-                }
-                const html = Object.entries(sessions)
+        function renderLiveStats(data) {
+            const activeRequests = data.active_requests || 0;
+            const activeUsers = data.active_count ?? data.active_users ?? 0;
+            const tokensPerSecond = data.tokens_per_second || 0;
+            const sessions = data.sessions || {};
+            document.getElementById('rps').textContent = activeRequests;
+            document.getElementById('tps').textContent = tokensPerSecond.toLocaleString();
+            document.getElementById('active-count').textContent = activeUsers;
+            if (activeUsers === 0) {
+                document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noActiveUsers}</div>`;
+                return;
+            }
+            const html = Object.entries(sessions)
                     .sort((a, b) => new Date(b[1].last_activity || 0) - new Date(a[1].last_activity || 0))
                     .map(([keyName, session]) => {
                     const models = Object.entries(session.models || {})
@@ -496,12 +490,49 @@
                     return `<div class="bg-gray-50 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
                             <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${keyName}">${keyName}</div><div class="mt-1 flex flex-wrap gap-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
-                            <span class="text-xs text-gray-500 shrink-0">${session.requests} ${window.I18N.req}</span>
+                            <div class="text-right shrink-0"><span class="text-xs text-gray-500">${session.requests} ${window.I18N.req}</span><div class="text-[10px] text-gray-400">${(session.tokens || 0).toLocaleString()} ${window.I18N.tokens}</div></div>
                         </div>
                     </div>`;
                 }).join('');
-                document.getElementById('active-sessions').innerHTML = html;
+            document.getElementById('active-sessions').innerHTML = html;
+        }
+
+        async function loadLiveStatsFallback() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/active`);
+                renderLiveStats(data);
             } catch (e) {}
+        }
+
+        function scheduleLiveStatsReconnect() {
+            if (liveStatsReconnectTimer) return;
+            liveStatsReconnectTimer = setTimeout(() => {
+                liveStatsReconnectTimer = null;
+                connectLiveStats();
+            }, 2000);
+        }
+
+        function connectLiveStats() {
+            if (liveStatsSocket) {
+                liveStatsSocket.close();
+            }
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            liveStatsSocket = new WebSocket(`${protocol}//${window.location.host}${APP_BASE_PATH}/admin/api/stats/live`);
+            liveStatsSocket.onmessage = (event) => {
+                try {
+                    renderLiveStats(JSON.parse(event.data));
+                } catch (e) {}
+            };
+            liveStatsSocket.onclose = () => {
+                liveStatsSocket = null;
+                scheduleLiveStatsReconnect();
+            };
+            liveStatsSocket.onerror = () => {
+                if (liveStatsSocket) {
+                    liveStatsSocket.close();
+                }
+                loadLiveStatsFallback();
+            };
         }
 
         async function loadSlowRequests() {
@@ -525,7 +556,7 @@
                     const maskedKeyName = maskName(rawKeyName);
                     html += `<div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-orange-600 mt-1">${elapsedText}</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-orange-600 mt-1">${elapsedText}${req.input_tokens ? ' | ' + req.input_tokens.toLocaleString() + ' tokens' : ''}</div></div>
                             <span class="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">${window.I18N.pending}</span>
                         </div>
                     </div>`;
@@ -536,7 +567,7 @@
                     const maskedKeyName = maskName(rawKeyName);
                     html += `<div class="bg-gray-50 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-gray-500 mt-1">${Math.round(req.latency_ms / 1000)}s</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-gray-500 mt-1">${Math.round(req.latency_ms / 1000)}s${req.input_tokens ? ' | ' + req.input_tokens.toLocaleString() + ' tokens' : ''}</div></div>
                             <span class="text-[10px] ${statusClass} px-1.5 py-0.5 rounded">${req.status}</span>
                         </div>
                     </div>`;
@@ -560,13 +591,11 @@
         }
 
         loadData();
-        loadRealtimeStats();
-        loadActiveSessions();
+        loadLiveStatsFallback();
+        connectLiveStats();
         loadSlowRequests();
 
         setInterval(loadData, MOBILE_HOME_OVERVIEW_REFRESH_MS);
-        setInterval(loadRealtimeStats, MOBILE_HOME_REALTIME_REFRESH_MS);
-        setInterval(loadActiveSessions, MOBILE_HOME_ACTIVE_REFRESH_MS);
         setInterval(loadSlowRequests, MOBILE_HOME_SLOW_REFRESH_MS);
     </script>
 </body>
