@@ -57,7 +57,8 @@
         body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
         body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
         body.theme-dark .ring-blue-500 { --tw-ring-color: rgba(96, 165, 250, 0.75) !important; }
-        .fd { display:inline-block; height:1em; overflow:hidden; vertical-align:text-bottom; font-variant-numeric:tabular-nums; }
+        .fd,.fs { display:inline-block; height:1em; line-height:1em; overflow:hidden; vertical-align:bottom; }
+        .fd { font-variant-numeric:tabular-nums; }
         .fr { display:block; transition:transform .6s cubic-bezier(.25,1,.5,1); }
         .fc { display:block; height:1em; line-height:1em; text-align:center; }
         @media(prefers-reduced-motion:reduce){ .fr{transition-duration:.01ms!important;} }
@@ -210,7 +211,7 @@
                     const target = parseInt(ch);
                     const oldCh = paddedOld[dIdx];
                     const start = (oldCh >= '0' && oldCh <= '9') ? parseInt(oldCh) : target;
-                    html += '<span class="fd"><span class="fr" data-t="' + target + '" style="transform:translateY(-' + start + '00%)">';
+                    html += '<span class="fd"><span class="fr" data-t="' + target + '" style="transform:translateY(-' + start + '0%)">';
                     for (let d = 0; d <= 9; d++) html += '<span class="fc">' + d + '</span>';
                     html += '</span></span>';
                     dIdx++;
@@ -222,7 +223,7 @@
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     el.querySelectorAll('.fr').forEach(r => {
-                        r.style.transform = 'translateY(-' + r.dataset.t + '00%)';
+                        r.style.transform = 'translateY(-' + r.dataset.t + '0%)';
                     });
                 });
             });

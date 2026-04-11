@@ -42,7 +42,8 @@
         .chevron { transition: transform 0.3s; }
         .chevron.open { transform: rotate(180deg); }
         ::-webkit-scrollbar { display: none; }
-        .fd { display:inline-block; height:1em; overflow:hidden; vertical-align:text-bottom; font-variant-numeric:tabular-nums; }
+        .fd,.fs { display:inline-block; height:1em; line-height:1em; overflow:hidden; vertical-align:bottom; }
+        .fd { font-variant-numeric:tabular-nums; }
         .fr { display:block; transition:transform .6s cubic-bezier(.25,1,.5,1); }
         .fc { display:block; height:1em; line-height:1em; text-align:center; }
         @media(prefers-reduced-motion:reduce){ .fr{transition-duration:.01ms!important;} }
@@ -486,7 +487,7 @@
                     const target = parseInt(ch);
                     const oldCh = paddedOld[dIdx];
                     const start = (oldCh >= '0' && oldCh <= '9') ? parseInt(oldCh) : target;
-                    html += '<span class="fd"><span class="fr" data-t="' + target + '" style="transform:translateY(-' + start + '00%)">';
+                    html += '<span class="fd"><span class="fr" data-t="' + target + '" style="transform:translateY(-' + start + '0%)">';
                     for (let d = 0; d <= 9; d++) html += '<span class="fc">' + d + '</span>';
                     html += '</span></span>';
                     dIdx++;
@@ -498,7 +499,7 @@
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     el.querySelectorAll('.fr').forEach(r => {
-                        r.style.transform = 'translateY(-' + r.dataset.t + '00%)';
+                        r.style.transform = 'translateY(-' + r.dataset.t + '0%)';
                     });
                 });
             });
