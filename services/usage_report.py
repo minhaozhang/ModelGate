@@ -6,7 +6,7 @@ from pathlib import Path
 from docx import Document
 from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import QN
+from docx.oxml.ns import qn as QN
 from sqlalchemy import select, func, and_, literal_column
 
 from core.config import providers_cache, proxy_logger as logger, api_keys_cache
