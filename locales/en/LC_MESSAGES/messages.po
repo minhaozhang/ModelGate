@@ -974,3 +974,12 @@ msgstr "Sun"
 
 msgid "Control when this API key can be used"
 msgstr "Control when this API key can be used"
+
+msgid "Error Analysis"
+msgstr "Error Analysis"
+
+msgid "Tokens/s"
+msgstr "Tokens/s"
+
+msgid "Tokens"
+msgstr "Tokens"

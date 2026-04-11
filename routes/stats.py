@@ -1,6 +1,13 @@
 from datetime import datetime, timedelta
 from typing import Optional, Literal
-from fastapi import APIRouter, Cookie, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Cookie,
+    Depends,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from sqlalchemy import select, func, and_, or_, case
 
 from core.database import (
@@ -521,7 +528,10 @@ async def get_raw_grouped_stats(
                 case((RequestLog.status != RATE_LIMITED_STATUS, 1), else_=0)
             ).label("requests"),
             func.sum(
-                case((RequestLog.status != RATE_LIMITED_STATUS, TOKEN_COUNT_EXPR), else_=0)
+                case(
+                    (RequestLog.status != RATE_LIMITED_STATUS, TOKEN_COUNT_EXPR),
+                    else_=0,
+                )
             ).label("tokens"),
             func.sum(case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)).label(
                 "errors"
@@ -757,7 +767,10 @@ async def get_trend_data(
                         ).label("requests"),
                         func.sum(
                             case(
-                                (RequestLog.status != RATE_LIMITED_STATUS, TOKEN_COUNT_EXPR),
+                                (
+                                    RequestLog.status != RATE_LIMITED_STATUS,
+                                    TOKEN_COUNT_EXPR,
+                                ),
                                 else_=0,
                             )
                         ).label("tokens"),
@@ -1280,7 +1293,9 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
                         ApiKeyModelDailyStat.model_name,
                         func.sum(ApiKeyModelDailyStat.requests).label("requests"),
                         func.sum(ApiKeyModelDailyStat.tokens).label("tokens"),
-                        func.sum(ApiKeyModelDailyStat.rate_limited).label("rate_limited"),
+                        func.sum(ApiKeyModelDailyStat.rate_limited).label(
+                            "rate_limited"
+                        ),
                     )
                     .where(
                         ApiKeyModelDailyStat.date >= start_str,
@@ -1567,7 +1582,10 @@ async def get_chart_data(
                         ).label("requests"),
                         func.sum(
                             case(
-                                (RequestLog.status != RATE_LIMITED_STATUS, TOKEN_COUNT_EXPR),
+                                (
+                                    RequestLog.status != RATE_LIMITED_STATUS,
+                                    TOKEN_COUNT_EXPR,
+                                ),
                                 else_=0,
                             )
                         ).label("tokens"),
@@ -1762,6 +1780,7 @@ async def get_active_sessions(_: bool = Depends(require_admin)):
     return {
         "active_count": snapshot["active_users"],
         "active_requests": snapshot["active_requests"],
+        "tokens_per_second": snapshot.get("tokens_per_second", 0),
         "sessions": snapshot["sessions"],
     }
 
@@ -1910,6 +1929,7 @@ async def get_slow_requests(_: bool = Depends(require_admin)):
                     "elapsed_seconds": round(elapsed, 1),
                     "stream": True,
                     "start_time": log.created_at.isoformat(),
+                    "input_tokens": log.request_context_tokens,
                 }
             )
 
@@ -1956,6 +1976,7 @@ async def get_slow_requests(_: bool = Depends(require_admin)):
                     "latency_ms": round(log.latency_ms, 0),
                     "status": log.status,
                     "created_at": log.created_at.isoformat(),
+                    "input_tokens": log.request_context_tokens,
                 }
             )
 

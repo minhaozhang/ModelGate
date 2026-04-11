@@ -92,7 +92,7 @@
                 <div id="rps" class="text-lg font-bold text-orange-500 mt-1">0</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
-                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Active Users') }}</div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Tokens/s') }}</div>
                 <div id="tps" class="text-lg font-bold text-teal-600 mt-1">0</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
@@ -471,9 +471,10 @@
         function renderLiveStats(data) {
             const activeRequests = data.active_requests || 0;
             const activeUsers = data.active_count ?? data.active_users ?? 0;
+            const tokensPerSecond = data.tokens_per_second || 0;
             const sessions = data.sessions || {};
             document.getElementById('rps').textContent = activeRequests;
-            document.getElementById('tps').textContent = activeUsers;
+            document.getElementById('tps').textContent = tokensPerSecond.toLocaleString();
             document.getElementById('active-count').textContent = activeUsers;
             if (activeUsers === 0) {
                 document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noActiveUsers}</div>`;
@@ -489,7 +490,7 @@
                     return `<div class="bg-gray-50 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
                             <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${keyName}">${keyName}</div><div class="mt-1 flex flex-wrap gap-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
-                            <span class="text-xs text-gray-500 shrink-0">${session.requests} ${window.I18N.req}</span>
+                            <div class="text-right shrink-0"><span class="text-xs text-gray-500">${session.requests} ${window.I18N.req}</span><div class="text-[10px] text-gray-400">${(session.tokens || 0).toLocaleString()} ${window.I18N.tokens}</div></div>
                         </div>
                     </div>`;
                 }).join('');
@@ -555,7 +556,7 @@
                     const maskedKeyName = maskName(rawKeyName);
                     html += `<div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-orange-600 mt-1">${elapsedText}</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-orange-600 mt-1">${elapsedText}${req.input_tokens ? ' | ' + req.input_tokens.toLocaleString() + ' tokens' : ''}</div></div>
                             <span class="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">${window.I18N.pending}</span>
                         </div>
                     </div>`;
@@ -566,7 +567,7 @@
                     const maskedKeyName = maskName(rawKeyName);
                     html += `<div class="bg-gray-50 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-gray-500 mt-1">${Math.round(req.latency_ms / 1000)}s</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-gray-500 mt-1">${Math.round(req.latency_ms / 1000)}s${req.input_tokens ? ' | ' + req.input_tokens.toLocaleString() + ' tokens' : ''}</div></div>
                             <span class="text-[10px] ${statusClass} px-1.5 py-0.5 rounded">${req.status}</span>
                         </div>
                     </div>`;

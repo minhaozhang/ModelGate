@@ -954,3 +954,12 @@ msgstr "周日"
 
 msgid "Control when this API key can be used"
 msgstr "控制此 API 密钥何时可用"
+
+msgid "Error Analysis"
+msgstr "错误分析"
+
+msgid "Tokens/s"
+msgstr "Tokens/s"
+
+msgid "Tokens"
+msgstr "Tokens"

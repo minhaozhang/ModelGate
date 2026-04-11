@@ -272,9 +272,26 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             if model_name:
                 bucket["models"][model_name] = bucket["models"].get(model_name, 0) + 1
 
+        for key_name, bucket in grouped_users.items():
+            api_key_id = bucket.get("api_key_id")
+            if api_key_id and api_key_id in stats["api_keys"]:
+                bucket["tokens"] = stats["api_keys"][api_key_id].get("tokens", 0)
+            else:
+                bucket["tokens"] = 0
+
+        now = datetime.now()
+        cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
+        t_by_second: dict[str, int] = {}
+        for k, v in tokens_per_second:
+            if k >= cutoff:
+                t_by_second[k] = t_by_second.get(k, 0) + v
+        token_active_seconds = max(len([v for v in t_by_second.values() if v > 0]), 1)
+        total_tokens = sum(t_by_second.values())
+
         return {
             "active_requests": len(active_requests),
             "active_users": len(grouped_users),
+            "tokens_per_second": round(total_tokens / token_active_seconds, 1),
             "sessions": dict(
                 sorted(
                     grouped_users.items(),
