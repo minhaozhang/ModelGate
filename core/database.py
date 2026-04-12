@@ -112,7 +112,9 @@ class ApiKeyTimeRule(Base):
     __tablename__ = "api_key_time_rules"
 
     id = Column(Integer, primary_key=True)
-    api_key_id = Column(Integer, ForeignKey("api_keys.id", ondelete="CASCADE"), nullable=False)
+    api_key_id = Column(
+        Integer, ForeignKey("api_keys.id", ondelete="CASCADE"), nullable=False
+    )
     rule_type = Column(String(20), nullable=False)
     allowed = Column(Boolean, default=True)
     start_time = Column(Time, nullable=True)
@@ -122,9 +124,7 @@ class ApiKeyTimeRule(Base):
     weekdays = Column(String(20), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
-    __table_args__ = (
-        Index("idx_api_key_time_rules_key", "api_key_id"),
-    )
+    __table_args__ = (Index("idx_api_key_time_rules_key", "api_key_id"),)
 
 
 class RequestLog(Base):
@@ -300,9 +300,13 @@ class AnalysisRecord(Base):
     status = Column(String(20), nullable=False, default="pending")
     language = Column(String(10), nullable=True)
     model_used = Column(String(150), nullable=True)
+    template_id = Column(String(100), nullable=True)
+    template_version = Column(String(50), nullable=True)
+    params_json = Column(JSONB, nullable=True)
     content = Column(Text, nullable=True)
     error = Column(Text, nullable=True)
     expires_at = Column(DateTime, nullable=True)
+    progress = Column(String(200), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -315,6 +319,67 @@ class AnalysisRecord(Base):
         ),
         Index("idx_analysis_records_status", "status"),
         Index("idx_analysis_records_expires_at", "expires_at"),
+    )
+
+
+class AnalysisSubtask(Base):
+    __tablename__ = "analysis_subtasks"
+
+    id = Column(Integer, primary_key=True)
+    analysis_record_id = Column(
+        Integer, ForeignKey("analysis_records.id", ondelete="CASCADE"), nullable=False
+    )
+    step_key = Column(String(100), nullable=False)
+    step_label = Column(String(150), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")
+    sort_order = Column(Integer, default=0)
+    attempt_count = Column(Integer, default=0)
+    max_attempts = Column(Integer, default=1)
+    output = Column(JSONB, nullable=True)
+    error = Column(Text, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index(
+            "idx_analysis_subtasks_record_step",
+            "analysis_record_id",
+            "step_key",
+            unique=True,
+        ),
+        Index("idx_analysis_subtasks_status", "status"),
+    )
+
+
+class AnalysisArtifact(Base):
+    __tablename__ = "analysis_artifacts"
+
+    id = Column(Integer, primary_key=True)
+    analysis_record_id = Column(
+        Integer, ForeignKey("analysis_records.id", ondelete="CASCADE"), nullable=False
+    )
+    subtask_id = Column(
+        Integer, ForeignKey("analysis_subtasks.id", ondelete="SET NULL"), nullable=True
+    )
+    artifact_key = Column(String(100), nullable=False)
+    artifact_type = Column(String(50), nullable=False)
+    title = Column(String(150), nullable=True)
+    path = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="pending")
+    meta = Column(JSONB, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index(
+            "idx_analysis_artifacts_record_key",
+            "analysis_record_id",
+            "artifact_key",
+            unique=True,
+        ),
+        Index("idx_analysis_artifacts_status", "status"),
     )
 
 
@@ -480,5 +545,90 @@ async def init_db():
                 "request_context_tokens, status, upstream_status_code, client_ip, user_agent, "
                 "error, created_at, updated_at "
                 "FROM request_logs_history"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE analysis_records "
+                "ADD COLUMN IF NOT EXISTS progress VARCHAR(200)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE analysis_records "
+                "ADD COLUMN IF NOT EXISTS template_id VARCHAR(100)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE analysis_records "
+                "ADD COLUMN IF NOT EXISTS template_version VARCHAR(50)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE analysis_records "
+                "ADD COLUMN IF NOT EXISTS params_json JSONB"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS analysis_subtasks ("
+                "id SERIAL PRIMARY KEY, "
+                "analysis_record_id INTEGER NOT NULL REFERENCES analysis_records(id) ON DELETE CASCADE, "
+                "step_key VARCHAR(100) NOT NULL, "
+                "step_label VARCHAR(150) NOT NULL, "
+                "status VARCHAR(20) NOT NULL DEFAULT 'pending', "
+                "sort_order INTEGER DEFAULT 0, "
+                "attempt_count INTEGER DEFAULT 0, "
+                "max_attempts INTEGER DEFAULT 1, "
+                "output JSONB, "
+                "error TEXT, "
+                "started_at TIMESTAMP, "
+                "finished_at TIMESTAMP, "
+                "created_at TIMESTAMP DEFAULT NOW(), "
+                "updated_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_analysis_subtasks_record_step "
+                "ON analysis_subtasks (analysis_record_id, step_key)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_analysis_subtasks_status "
+                "ON analysis_subtasks (status)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS analysis_artifacts ("
+                "id SERIAL PRIMARY KEY, "
+                "analysis_record_id INTEGER NOT NULL REFERENCES analysis_records(id) ON DELETE CASCADE, "
+                "subtask_id INTEGER REFERENCES analysis_subtasks(id) ON DELETE SET NULL, "
+                "artifact_key VARCHAR(100) NOT NULL, "
+                "artifact_type VARCHAR(50) NOT NULL, "
+                "title VARCHAR(150), "
+                "path TEXT, "
+                "status VARCHAR(20) NOT NULL DEFAULT 'pending', "
+                "meta JSONB, "
+                "created_at TIMESTAMP DEFAULT NOW(), "
+                "updated_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_analysis_artifacts_record_key "
+                "ON analysis_artifacts (analysis_record_id, artifact_key)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_analysis_artifacts_status "
+                "ON analysis_artifacts (status)"
             )
         )

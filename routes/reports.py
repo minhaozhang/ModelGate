@@ -9,6 +9,7 @@ from sqlalchemy import select
 from core.config import validate_session
 from core.database import AnalysisRecord, async_session_maker
 from services.usage_report import (
+    get_usage_report_template,
     get_usage_report_status,
     list_usage_reports,
     start_usage_report,
@@ -34,27 +35,28 @@ async def create_usage_report(
     data: UsageReportRequest,
     _: bool = Depends(require_admin),
 ):
-    started = start_usage_report(
+    started, task = await start_usage_report(
         data.start_date,
         data.end_date,
         exclude_api_key_ids=data.exclude_api_key_ids or None,
     )
     if not started:
         return JSONResponse(
-            {"error": "A usage report for this date range is already running"},
+            {
+                "error": "A usage report for this parameter set is already running",
+                "task": task,
+            },
             status_code=409,
         )
-    status = get_usage_report_status(data.start_date, data.end_date)
-    return {"task_id": status["task_id"], "status": status["status"]}
+    return {"task_id": task["id"], "status": task["status"], "task": task}
 
 
 @router.get("/reports/usage/status")
 async def get_report_status(
-    start_date: str = Query(...),
-    end_date: str = Query(...),
+    task_id: int = Query(..., ge=1),
     _: bool = Depends(require_admin),
 ):
-    status = get_usage_report_status(start_date, end_date)
+    status = await get_usage_report_status(task_id)
     if not status:
         return JSONResponse({"error": "Report not found"}, status_code=404)
     return status
@@ -97,5 +99,10 @@ async def get_report_history(
     limit: int = Query(10, ge=1, le=100),
     _: bool = Depends(require_admin),
 ):
-    reports = list_usage_reports(limit)
+    reports = await list_usage_reports(limit)
     return {"reports": reports}
+
+
+@router.get("/reports/usage/template")
+async def get_report_template(_: bool = Depends(require_admin)):
+    return {"template": get_usage_report_template()}

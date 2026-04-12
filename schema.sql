@@ -128,12 +128,83 @@ CREATE TABLE public.analysis_records (
     status character varying(20) NOT NULL,
     language character varying(10),
     model_used character varying(150),
+    template_id character varying(100),
+    template_version character varying(50),
+    params_json jsonb,
     content text,
     error text,
     expires_at timestamp without time zone,
+    progress character varying(200),
     created_at timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now()
 );
+
+--
+-- Name: analysis_subtasks; Type: TABLE; Schema: public
+--
+
+CREATE TABLE public.analysis_subtasks (
+    id integer NOT NULL,
+    analysis_record_id integer NOT NULL,
+    step_key character varying(100) NOT NULL,
+    step_label character varying(150) NOT NULL,
+    status character varying(20) NOT NULL,
+    sort_order integer,
+    attempt_count integer,
+    max_attempts integer,
+    output jsonb,
+    error text,
+    started_at timestamp without time zone,
+    finished_at timestamp without time zone,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+--
+-- Name: analysis_subtasks_id_seq; Type: SEQUENCE; Schema: public
+--
+
+CREATE SEQUENCE public.analysis_subtasks_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.analysis_subtasks_id_seq OWNED BY public.analysis_subtasks.id;
+
+--
+-- Name: analysis_artifacts; Type: TABLE; Schema: public
+--
+
+CREATE TABLE public.analysis_artifacts (
+    id integer NOT NULL,
+    analysis_record_id integer NOT NULL,
+    subtask_id integer,
+    artifact_key character varying(100) NOT NULL,
+    artifact_type character varying(50) NOT NULL,
+    title character varying(150),
+    path text,
+    status character varying(20) NOT NULL,
+    meta jsonb,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);
+
+--
+-- Name: analysis_artifacts_id_seq; Type: SEQUENCE; Schema: public
+--
+
+CREATE SEQUENCE public.analysis_artifacts_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.analysis_artifacts_id_seq OWNED BY public.analysis_artifacts.id;
 
 --
 -- Name: analysis_records_id_seq; Type: SEQUENCE; Schema: public

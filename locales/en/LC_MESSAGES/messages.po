@@ -120,6 +120,60 @@ msgstr "Error Rate"
 msgid "Slow Requests (>60s)"
 msgstr "Slow Requests (>60s)"
 
+msgid "Generate usage reports as reusable task pipelines with CSV, Markdown, and DOCX outputs"
+msgstr "Generate usage reports as reusable task pipelines with CSV, Markdown, and DOCX outputs"
+
+msgid "Create Report Task"
+msgstr "Create Report Task"
+
+msgid "Task orchestration mode"
+msgstr "Task orchestration mode"
+
+msgid "Each report now runs as subtasks with retries, self-checks, and reusable artifacts before DOCX assembly."
+msgstr "Each report now runs as subtasks with retries, self-checks, and reusable artifacts before DOCX assembly."
+
+msgid "Template Preview"
+msgstr "Template Preview"
+
+msgid "Loading template..."
+msgstr "Loading template..."
+
+msgid "Current Task"
+msgstr "Current Task"
+
+msgid "Artifacts"
+msgstr "Artifacts"
+
+msgid "Task ID"
+msgstr "Task ID"
+
+msgid "Attempts"
+msgstr "Attempts"
+
+msgid "No artifacts yet"
+msgstr "No artifacts yet"
+
+msgid "No API Keys found"
+msgstr "No API Keys found"
+
+msgid "Reusable outputs are generated first, then assembled into the final report."
+msgstr "Reusable outputs are generated first, then assembled into the final report."
+
+msgid "Subtasks"
+msgstr "Subtasks"
+
+msgid "Planned Outputs"
+msgstr "Planned Outputs"
+
+msgid "completed"
+msgstr "completed"
+
+msgid "running"
+msgstr "running"
+
+msgid "failed"
+msgstr "failed"
+
 msgid "Login"
 msgstr "Login"
 
