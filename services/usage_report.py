@@ -1,6 +1,7 @@
 import asyncio
 import csv
 import json
+import re
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -658,6 +659,26 @@ def _write_markdown(path: Path, markdown: str) -> str:
     return _normalize_output_path(path)
 
 
+def _render_inline_markdown(paragraph, text: str) -> None:
+    if not text:
+        return
+
+    parts = re.split(r"(\*\*.*?\*\*|`.*?`)", text)
+    for part in parts:
+        if not part:
+            continue
+        if part.startswith("**") and part.endswith("**") and len(part) >= 4:
+            run = paragraph.add_run(part[2:-2])
+            run.bold = True
+            continue
+        if part.startswith("`") and part.endswith("`") and len(part) >= 2:
+            run = paragraph.add_run(part[1:-1])
+            run.font.name = "Consolas"
+            run._element.rPr.rFonts.set(QN("w:eastAsia"), "Consolas")
+            continue
+        paragraph.add_run(part)
+
+
 def _append_markdown_to_doc(doc: Document, markdown_text: str) -> None:
     for raw_line in markdown_text.splitlines():
         line = raw_line.strip()
@@ -671,11 +692,14 @@ def _append_markdown_to_doc(doc: Document, markdown_text: str) -> None:
         elif line.startswith("### "):
             doc.add_heading(line[4:], level=3)
         elif line.startswith("- "):
-            doc.add_paragraph(line[2:], style="List Bullet")
-        elif line[:2].isdigit() and ". " in line:
-            doc.add_paragraph(line, style="List Number")
+            paragraph = doc.add_paragraph(style="List Bullet")
+            _render_inline_markdown(paragraph, line[2:])
+        elif re.match(r"^\d+\.\s+", line):
+            paragraph = doc.add_paragraph(style="List Number")
+            _render_inline_markdown(paragraph, re.sub(r"^\d+\.\s+", "", line))
         else:
-            doc.add_paragraph(line)
+            paragraph = doc.add_paragraph()
+            _render_inline_markdown(paragraph, line)
 
 
 def _generate_docx(
