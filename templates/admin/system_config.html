@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     {% include 'components/site_head_meta.html' %}
-    <title>{{ _('System Config') }} - ModelGate</title>
+    <title>{{ '系统设置' if current_locale == 'zh' else 'System Config' }} - ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/output.css">
     <style>
@@ -13,15 +13,20 @@
         body.theme-dark .bg-gray-50 { background: #111827 !important; }
         body.theme-dark .bg-gray-100 { background: #1f2937 !important; }
         body.theme-dark .bg-gray-200 { background: #2d3748 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
         body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
         body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
         body.theme-dark .text-gray-400 { color: #64748b !important; }
-        body.theme-dark .border { border-color: #1f2937 !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t { border-color: #1f2937 !important; }
         body.theme-dark input,
         body.theme-dark select,
         body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
         body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
-        body.theme-dark .shadow { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
         body.theme-dark .nav-link { color: #cbd5e1 !important; }
         body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right: 3px solid #60a5fa; }
         body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
@@ -36,7 +41,7 @@
     <div class="flex">
         {% include "components/nav.html" %}
         <main class="ml-56 flex-1 p-6">
-            {% call admin_page_header(_('System Config')) %}{% endcall %}
+            {% call admin_page_header('系统设置' if current_locale == 'zh' else 'System Config') %}{% endcall %}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-lg font-semibold mb-4">{{ _('Proxy User-Agent') }}</h2>
@@ -59,6 +64,28 @@
     </div>
     <script>
         const APP_BASE_PATH = "{{ app_base_path }}";
+        const SYSTEM_CONFIG_I18N = {
+            lightMode: '{{ _("Light Mode") }}',
+            darkMode: '{{ _("Dark Mode") }}',
+        };
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'dark';
+        }
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? SYSTEM_CONFIG_I18N.lightMode : SYSTEM_CONFIG_I18N.darkMode;
+        }
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+        }
+        applyTheme(getThemeMode());
         async function loadConfig() {
             const r = await fetch(APP_BASE_PATH + '/admin/api/system/config');
             const d = await r.json();

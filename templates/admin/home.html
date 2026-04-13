@@ -61,6 +61,7 @@
         .fd { font-variant-numeric:tabular-nums; }
         .fr { display:block; transition:transform .6s cubic-bezier(.25,1,.5,1) !important; }
         .fc { display:block; height:1em; line-height:1em; text-align:center; }
+        .metric-flip { display:inline-flex; align-items:flex-end; min-height:1em; line-height:1; white-space:nowrap; }
         @media(prefers-reduced-motion:reduce){ .fr{transition-duration:.01ms!important;} }
     </style>
 </head>
@@ -80,33 +81,33 @@
             <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
-                    <div id="total-requests" class="text-3xl font-bold text-blue-600">0</div>
+                    <div id="total-requests" class="metric-flip text-3xl font-bold leading-none text-blue-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Tokens') }}</div>
-                    <div id="total-tokens" class="text-3xl font-bold text-green-600">0</div>
+                    <div id="total-tokens" class="metric-flip text-3xl font-bold leading-none text-green-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Active Requests') }}</div>
-                    <div id="rps" class="text-3xl font-bold text-orange-600">0</div>
+                    <div id="rps" class="metric-flip text-3xl font-bold leading-none text-orange-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Tokens/s') }}</div>
-                    <div id="tps" class="text-3xl font-bold text-teal-600">0</div>
+                    <div id="tps" class="metric-flip text-3xl font-bold leading-none text-teal-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Errors/Timeouts/429') }}</div>
-                    <div class="flex items-baseline gap-1">
-                        <span id="total-errors" class="text-3xl font-bold text-red-600">0</span>
-                        <span class="text-gray-400 text-3xl">/</span>
-                        <span id="total-timeouts" class="text-3xl font-bold text-amber-600">0</span>
-                        <span class="text-gray-400 text-3xl">/</span>
-                        <span id="total-rate-limited" class="text-3xl font-bold text-sky-600">0</span>
+                    <div class="flex items-end gap-1 leading-none">
+                        <span id="total-errors" class="metric-flip text-3xl font-bold leading-none text-red-600">0</span>
+                        <span class="text-gray-400 text-3xl leading-none">/</span>
+                        <span id="total-timeouts" class="metric-flip text-3xl font-bold leading-none text-amber-600">0</span>
+                        <span class="text-gray-400 text-3xl leading-none">/</span>
+                        <span id="total-rate-limited" class="metric-flip text-3xl font-bold leading-none text-sky-600">0</span>
                     </div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>
-                    <div id="error-rate" class="text-3xl font-bold text-purple-600">0%</div>
+                    <div id="error-rate" class="metric-flip text-3xl font-bold leading-none text-purple-600">0%</div>
                 </div>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -193,6 +194,9 @@
             return await resp.json();
         }
         function changePeriod() { currentPeriod = document.getElementById('period-select').value; loadData(); }
+        function getCounterSkeleton(text) {
+            return String(text ?? '').replace(/\d/g, '#');
+        }
         function flipCounter(elementId, newValue) {
             const el = document.getElementById(elementId);
             if (!el) return;
@@ -200,6 +204,10 @@
             const oldText = el.getAttribute('data-value') || '';
             if (oldText === newText) return;
             el.setAttribute('data-value', newText);
+            if (!oldText || getCounterSkeleton(oldText) !== getCounterSkeleton(newText)) {
+                el.textContent = newText;
+                return;
+            }
             const oldD = oldText.replace(/[^\d]/g, '');
             const newD = newText.replace(/[^\d]/g, '');
             const len = Math.max(oldD.length, newD.length);
@@ -220,9 +228,12 @@
                 }
             }
             el.innerHTML = html;
-            el.offsetHeight;
-            el.querySelectorAll('.fr').forEach(r => {
-                r.style.transform = 'translateY(-' + r.dataset.t + '0%)';
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    el.querySelectorAll('.fr').forEach(r => {
+                        r.style.transform = 'translateY(-' + r.dataset.t + '0%)';
+                    });
+                });
             });
         }
         async function loadData() {

@@ -46,6 +46,7 @@
         .fd { font-variant-numeric:tabular-nums; }
         .fr { display:block; transition:transform .6s cubic-bezier(.25,1,.5,1) !important; }
         .fc { display:block; height:1em; line-height:1em; text-align:center; }
+        .metric-flip { display:inline-flex; align-items:flex-end; min-height:1em; line-height:1; white-space:nowrap; }
         @media(prefers-reduced-motion:reduce){ .fr{transition-duration:.01ms!important;} }
     </style>
 </head>
@@ -80,29 +81,29 @@
         <div class="grid grid-cols-3 gap-3">
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Requests') }}</div>
-                <div id="total-requests" class="text-lg font-bold text-blue-600 mt-1">0</div>
+                <div id="total-requests" class="metric-flip mt-1 text-lg font-bold leading-none text-blue-600">0</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Tokens') }}</div>
-                <div id="total-tokens" class="text-lg font-bold text-green-600 mt-1">0</div>
+                <div id="total-tokens" class="metric-flip mt-1 text-lg font-bold leading-none text-green-600">0</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Errors') }}</div>
-                <div id="total-errors" class="text-lg font-bold text-red-500 mt-1">0</div>
+                <div id="total-errors" class="metric-flip mt-1 text-lg font-bold leading-none text-red-500">0</div>
             </div>
         </div>
         <div class="grid grid-cols-3 gap-3">
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Active Requests') }}</div>
-                <div id="rps" class="text-lg font-bold text-orange-500 mt-1">0</div>
+                <div id="rps" class="metric-flip mt-1 text-lg font-bold leading-none text-orange-500">0</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Tokens/s') }}</div>
-                <div id="tps" class="text-lg font-bold text-teal-600 mt-1">0</div>
+                <div id="tps" class="metric-flip mt-1 text-lg font-bold leading-none text-teal-600">0</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Err Rate') }}</div>
-                <div id="error-rate" class="text-lg font-bold text-purple-600 mt-1">0%</div>
+                <div id="error-rate" class="metric-flip mt-1 text-lg font-bold leading-none text-purple-600">0%</div>
             </div>
         </div>
 
@@ -210,6 +211,10 @@
 
         Chart.defaults.color = '#cbd5e1';
         Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.15)';
+
+        function getCounterSkeleton(text) {
+            return String(text ?? '').replace(/\d/g, '#');
+        }
 
         function formatCompactTokens(tokens) {
             const value = Number(tokens || 0);
@@ -476,6 +481,10 @@
             const oldText = el.getAttribute('data-value') || '';
             if (oldText === newText) return;
             el.setAttribute('data-value', newText);
+            if (!oldText || getCounterSkeleton(oldText) !== getCounterSkeleton(newText)) {
+                el.textContent = newText;
+                return;
+            }
             const oldD = oldText.replace(/[^\d]/g, '');
             const newD = newText.replace(/[^\d]/g, '');
             const len = Math.max(oldD.length, newD.length);
@@ -496,9 +505,12 @@
                 }
             }
             el.innerHTML = html;
-            el.offsetHeight;
-            el.querySelectorAll('.fr').forEach(r => {
-                r.style.transform = 'translateY(-' + r.dataset.t + '0%)';
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    el.querySelectorAll('.fr').forEach(r => {
+                        r.style.transform = 'translateY(-' + r.dataset.t + '0%)';
+                    });
+                });
             });
         }
 
