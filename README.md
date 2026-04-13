@@ -17,11 +17,15 @@ ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key man
 - AI-powered daily error analysis with persisted reports
 - AI-powered model recommendations and timing advice for users
 - Admin dashboards: overview, monitoring, configuration, error analysis, usage guide
+- AI-powered usage report generation (DOCX export with stats, trends, and fun awards)
+- API key time-based access rules (time windows, date ranges, weekday restrictions)
 - User portal: personal stats, health score, recommendations, OpenCode config export
 - OpenCode integration: auto-generated config with per-model context/output limits
+- WeChat iLink Bot integration via MCP (QR login, auto-reply, message persistence)
 - English / Chinese i18n with Babel
 - Desktop and mobile admin UI
 - Reverse proxy support via configurable base path
+- Docker Compose with Nginx reverse proxy and static file serving
 - Daily stats aggregation and 30-day log archiving
 
 ## Screenshots
@@ -37,6 +41,15 @@ ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key man
 ### User Dashboard
 
 ![User Dashboard](image/user-dashboard.png)
+
+### User Report
+
+![User Report](image/user-report.png)
+
+
+### Mobile Dashboard
+
+![Mobile Dashboard](image/mobile-dashboard.png)
 
 ## Quick Start
 
@@ -55,6 +68,8 @@ Windows helper: `start.bat` prompts for log level and restarts the service on po
 
 ## Docker
 
+### Docker Run
+
 ```bash
 docker build -t localhost:5002/modelgate:latest .
 docker push localhost:5002/modelgate:latest
@@ -65,8 +80,17 @@ docker run -d --name modelgate \
   -e PORT=8765 \
   -e ADMIN_USERS="admin:YourPassword" \
   -v /opt/modelgate/logs:/app/logs \
+  -v /opt/modelgate/reports:/app/reports \
   --restart unless-stopped \
   localhost:5002/modelgate:latest
+```
+
+### Docker Compose
+
+The repository includes a `docker-compose.yml` with ModelGate + Nginx services. Nginx handles static file serving and reverse proxying with WebSocket support.
+
+```bash
+docker compose up -d
 ```
 
 See [DEPLOY.md](DEPLOY.md) for full deployment instructions.
@@ -119,6 +143,8 @@ Examples: `zhipu/glm-4`, `deepseek/chat`, `minimax/MiniMax-M2.5`
 - `/admin/api-keys` - API key management and per-key model access
 - `/admin/monitor` - Composition, hotspots, response-time analysis
 - `/admin/errors` - Daily error log viewer with AI-powered analysis reports
+- `/admin/reports` - AI-powered usage report generation and DOCX download
+- `/admin/system-config` - Outbound User-Agent management and UA stats
 - `/admin/usage` - Client configuration examples and setup guides
 - `/admin/m` - Mobile admin dashboard
 
@@ -133,6 +159,25 @@ API key holders log in at `/user/login` to access:
 - Active session tracking
 - Model catalog with context/output limits and multimodal info
 - OpenCode configuration export (`/opencode/setup.md?api_key=...`)
+
+## API Key Time-Based Access Rules
+
+API keys can be restricted by time of day, date ranges, and weekdays. Rules are validated on every request:
+
+- **Time windows** — `start_time` / `end_time` (e.g., only allow 09:00–18:00)
+- **Date ranges** — `start_date` / `end_date`
+- **Weekday filters** — restrict to specific days of the week
+- **Allow/deny semantics** — explicit `allowed` flag per rule
+
+## WeChat iLink Bot (MCP)
+
+ModelGate includes an MCP (Model Context Protocol) server for WeChat iLink Bot integration at `/weixin`:
+
+- QR code login flow
+- Message polling, sending, and auto-reply via internal LLM proxy
+- Message persistence to database
+- Per-user context threading for conversations
+- See [docs/guides/weixin-mcp.md](docs/guides/weixin-mcp.md) for setup instructions
 
 ## Request Logging
 
@@ -169,15 +214,18 @@ modelgate/
 │   ├── providers.py         # Provider CRUD
 │   ├── models.py            # Model CRUD
 │   ├── provider_models.py   # Provider-model bindings + auto-sync
-│   ├── keys.py              # API key CRUD + per-key stats/logs
+│   ├── keys.py              # API key CRUD + per-key stats/logs + time rules
 │   ├── stats.py             # Statistics and aggregation endpoints
 │   ├── logs.py              # Log viewer + AI error analysis
 │   ├── pages.py             # Admin HTML pages
 │   ├── user.py              # User portal API + pages
-│   └── opencode.py          # OpenCode config generation
+│   ├── opencode.py          # OpenCode config generation
+│   ├── reports.py           # Usage report generation + DOCX export
+│   ├── system_config.py     # System config (outbound UA management)
+│   └── weixin.py            # WeChat MCP server endpoints
 ├── services/
 │   ├── proxy.py             # Main proxy logic, streaming, provider dispatch
-│   ├── auth.py              # API key validation
+│   ├── auth.py              # API key validation + time-based access rules
 │   ├── provider.py          # Provider/model resolution
 │   ├── scheduler.py         # APScheduler tasks
 │   ├── stats_aggregator.py  # Daily stats aggregation, archiving
@@ -186,7 +234,10 @@ modelgate/
 │   ├── message.py           # Message preprocessing (merge, truncate)
 │   ├── minimax.py           # MiniMax-specific response/tool_call parsing
 │   ├── sse.py               # SSE stream normalization
-│   └── analysis_store.py    # AI analysis task persistence
+│   ├── analysis_store.py    # AI analysis task persistence
+│   ├── usage_report.py      # DOCX usage report generation
+│   ├── system_config.py     # Outbound UA auto-detection
+│   └── weixin.py            # WeChat iLink Bot client
 ├── templates/               # Jinja2 HTML (admin/, user/, public/, components/)
 ├── locales/                 # i18n: en, zh
 ├── schema.sql

@@ -17,11 +17,15 @@ ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、AP
 - AI 驱动的每日错误分析，自动生成持久化报告
 - AI 驱动的用户模型推荐和使用时段建议
 - 管理端：总览、监控、配置、错误分析、使用指引
+- AI 驱动的使用报告生成（DOCX 导出，含统计、趋势和趣味奖项）
+- API Key 时段访问规则（时间段、日期范围、星期限制）
 - 用户端：个人统计、健康度、推荐模型、OpenCode 配置导出
 - OpenCode 集成：自动生成配置，包含每个模型的上下文/输出限制
+- 微信 iLink 机器人集成（MCP 协议，QR 登录，自动回复，消息持久化）
 - 中英文国际化（Babel）
 - 桌面端和移动端管理界面
 - 可配置 base path，支持反向代理
+- Docker Compose + Nginx 反向代理与静态资源服务
 - 每日统计聚合和 30 天日志自动归档
 
 ## 界面截图
@@ -37,6 +41,10 @@ ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、AP
 ### 用户仪表盘
 
 ![User Dashboard](image/user-dashboard.png)
+
+### 用户报告
+
+![User Report](image/user-report.png)
 
 ## 快速开始
 
@@ -55,6 +63,8 @@ Windows 可直接使用 `start.bat`，会提示选择日志级别并自动重启
 
 ## Docker
 
+### Docker Run
+
 ```bash
 docker build -t localhost:5002/modelgate:latest .
 docker push localhost:5002/modelgate:latest
@@ -65,8 +75,17 @@ docker run -d --name modelgate \
   -e PORT=8765 \
   -e ADMIN_USERS="admin:YourPassword" \
   -v /opt/modelgate/logs:/app/logs \
+  -v /opt/modelgate/reports:/app/reports \
   --restart unless-stopped \
   localhost:5002/modelgate:latest
+```
+
+### Docker Compose
+
+仓库内置 `docker-compose.yml`，包含 ModelGate + Nginx 两个服务。Nginx 负责静态资源服务和反向代理，支持 WebSocket。
+
+```bash
+docker compose up -d
 ```
 
 更完整的部署说明见 [DEPLOY.md](DEPLOY.md)。
@@ -117,6 +136,8 @@ provider/model
 - `/admin/api-keys` - API Key 管理与按 Key 分配可用模型
 - `/admin/monitor` - 组成分析、热点、响应时间分析
 - `/admin/errors` - 每日错误日志查看，AI 驱动的错误分析报告
+- `/admin/reports` - AI 驱动的使用报告生成与 DOCX 下载
+- `/admin/system-config` - 出站 User-Agent 管理与 UA 统计
 - `/admin/usage` - 客户端接入说明和配置示例
 - `/admin/m` - 移动端管理页面
 
@@ -131,6 +152,25 @@ provider/model
 - 活跃请求追踪
 - 模型目录，展示上下文长度、输出限制、多模态信息
 - OpenCode 配置导出（`/opencode/setup.md?api_key=...`）
+
+## API Key 时段访问规则
+
+API Key 支持按时间段、日期范围和星期进行访问限制，每次请求都会校验：
+
+- **时间窗口** — `start_time` / `end_time`（如仅允许 09:00–18:00）
+- **日期范围** — `start_date` / `end_date`
+- **星期过滤** — 限制到特定星期几
+- **允许/拒绝语义** — 每条规则有 `allowed` 标志
+
+## 微信 iLink 机器人（MCP）
+
+ModelGate 内置 MCP（Model Context Protocol）服务器，支持微信 iLink 机器人集成，挂载路径 `/weixin`：
+
+- QR 码扫码登录
+- 消息轮询、发送和基于内部 LLM 代理的自动回复
+- 消息持久化存储
+- 按用户上下文线程管理对话
+- 详见 [docs/guides/weixin-mcp.md](docs/guides/weixin-mcp.md)
 
 ## 请求日志
 
@@ -167,15 +207,18 @@ modelgate/
 │   ├── providers.py         # 供应商增删改查
 │   ├── models.py            # 模型增删改查
 │   ├── provider_models.py   # 供应商-模型绑定 + 自动同步
-│   ├── keys.py              # API Key 增删改查 + 按 Key 查统计/日志
+│   ├── keys.py              # API Key 增删改查 + 按 Key 查统计/日志 + 时段规则
 │   ├── stats.py             # 统计与聚合接口
 │   ├── logs.py              # 日志查看 + AI 错误分析
 │   ├── pages.py             # 管理端 HTML 页面
 │   ├── user.py              # 用户端 API + 页面
-│   └── opencode.py          # OpenCode 配置生成
+│   ├── opencode.py          # OpenCode 配置生成
+│   ├── reports.py           # 使用报告生成 + DOCX 导出
+│   ├── system_config.py     # 系统配置（出站 UA 管理）
+│   └── weixin.py            # 微信 MCP 服务端点
 ├── services/
 │   ├── proxy.py             # 核心代理逻辑、流式处理、供应商分发
-│   ├── auth.py              # API Key 验证
+│   ├── auth.py              # API Key 验证 + 时段访问规则校验
 │   ├── provider.py          # 供应商/模型解析
 │   ├── scheduler.py         # APScheduler 定时任务
 │   ├── stats_aggregator.py  # 每日统计聚合、日志归档
@@ -184,7 +227,10 @@ modelgate/
 │   ├── message.py           # 消息预处理（合并、截断）
 │   ├── minimax.py           # MiniMax 响应/tool_call 解析
 │   ├── sse.py               # SSE 流式数据规范化
-│   └── analysis_store.py    # AI 分析任务持久化
+│   ├── analysis_store.py    # AI 分析任务持久化
+│   ├── usage_report.py      # DOCX 使用报告生成
+│   ├── system_config.py     # 出站 UA 自动探测
+│   └── weixin.py            # 微信 iLink 机器人客户端
 ├── templates/               # Jinja2 模板 (admin/, user/, public/, components/)
 ├── locales/                 # 国际化：en, zh
 ├── schema.sql
