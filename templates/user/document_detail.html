@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ doc.title }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .markdown-body { line-height: 1.75; font-size: 0.95rem; }
+        .markdown-body h1 { font-size: 1.75rem; font-weight: 700; margin: 1.5rem 0 0.75rem; padding-bottom: 0.3rem; border-bottom: 1px solid #e5e7eb; }
+        .markdown-body h2 { font-size: 1.4rem; font-weight: 600; margin: 1.25rem 0 0.6rem; }
+        .markdown-body h3 { font-size: 1.15rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+        .markdown-body h4 { font-size: 1rem; font-weight: 600; margin: 0.8rem 0 0.4rem; }
+        .markdown-body p { margin: 0.6rem 0; }
+        .markdown-body a { color: #3b82f6; text-decoration: underline; }
+        .markdown-body ul, .markdown-body ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+        .markdown-body li { margin: 0.25rem 0; }
+        .markdown-body blockquote { border-left: 4px solid #3b82f6; padding: 0.5rem 1rem; margin: 0.75rem 0; background: #f8fafc; color: #475569; }
+        .markdown-body pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.75rem 0; }
+        .markdown-body code { font-family: 'JetBrains Mono', 'Monaco', 'Menlo', monospace; font-size: 0.875em; }
+        .markdown-body :not(pre) > code { background: #f1f5f9; padding: 0.15rem 0.4rem; border-radius: 0.25rem; color: #be185d; }
+        .markdown-body table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; }
+        .markdown-body th, .markdown-body td { border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; text-align: left; }
+        .markdown-body th { background: #f8fafc; font-weight: 600; }
+        .markdown-body img { max-width: 100%; border-radius: 0.5rem; }
+        .markdown-body hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border-gray-200 { border-color: #243244 !important; }
+        body.theme-dark select, body.theme-dark button:not(.bg-blue-600) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .bg-white.rounded-lg { border: 1px solid rgba(71, 85, 105, 0.55) !important; }
+        body.theme-dark .markdown-body h1 { border-bottom-color: #334155; }
+        body.theme-dark .markdown-body blockquote { background: rgba(59, 130, 246, 0.08); color: #94a3b8; }
+        body.theme-dark .markdown-body :not(pre) > code { background: #1e293b; color: #f472b6; }
+        body.theme-dark .markdown-body th { background: #1e293b; }
+        body.theme-dark .markdown-body th, body.theme-dark .markdown-body td { border-color: #334155; }
+        body.theme-dark .markdown-body hr { border-top-color: #334155; }
+        body.theme-dark .markdown-body pre { border: 1px solid rgba(71, 85, 105, 0.6); }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <div class="flex justify-between items-center mb-6">
+            <a href="{{ app_base_path }}/user/documents" class="text-blue-600 hover:underline text-sm flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                {{ _('Back to Documents') }}
+            </a>
+            <select id="lang-select" onchange="switchLang(this.value)" class="border border-gray-200 bg-white text-gray-700 px-2 py-2 rounded text-sm">
+                <option value="en">English</option>
+                <option value="zh">中文</option>
+            </select>
+        </div>
+
+        <article class="bg-white rounded-lg shadow p-8">
+            <header class="mb-6 pb-4 border-b border-gray-200">
+                <h1 class="text-2xl font-bold text-gray-800">{{ doc.title }}</h1>
+                <div class="flex items-center gap-3 mt-2">
+                    {% if doc.category %}
+                    <span class="text-xs rounded-full bg-blue-50 text-blue-600 px-2 py-0.5">{{ doc.category }}</span>
+                    {% endif %}
+                    <span class="text-xs text-gray-400">{{ doc.created_at or '' }}</span>
+                </div>
+            </header>
+            <div id="doc-content" class="markdown-body"></div>
+        </article>
+    </div>
+
+    <script src="{{ app_base_path }}/static/js/marked.min.js"></script>
+    <script>
+        const content = {{ doc.content | tojson }};
+        document.getElementById('doc-content').innerHTML = marked.parse(content);
+
+        function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
+        function applyTheme(mode) {
+            document.body.classList.toggle('theme-dark', mode === 'dark');
+            localStorage.setItem('admin_theme', mode);
+        }
+        applyTheme(getThemeMode());
+        function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }
+    </script>
+</body>
+</html>

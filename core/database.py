@@ -81,7 +81,7 @@ class ProviderModel(Base):
     provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
     model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
     model_name_override = Column(String(100), nullable=True)
-    max_concurrent = Column(Integer, nullable=True)
+    max_concurrent = Column(Integer, default=2)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
 
@@ -388,6 +388,25 @@ class AnalysisArtifact(Base):
             unique=True,
         ),
         Index("idx_analysis_artifacts_status", "status"),
+    )
+
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String(200), nullable=False)
+    slug = Column(String(200), unique=True, nullable=False)
+    content = Column(Text, nullable=False, default="")
+    category = Column(String(50), nullable=True)
+    filename = Column(String(255), nullable=True)
+    is_published = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_documents_slug", "slug", unique=True),
+        Index("idx_documents_category", "category"),
     )
 
 

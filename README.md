@@ -81,6 +81,7 @@ docker run -d --name modelgate \
   -e ADMIN_USERS="admin:YourPassword" \
   -v /opt/modelgate/logs:/app/logs \
   -v /opt/modelgate/reports:/app/reports \
+  -v /opt/modelgate/uploads:/app/uploads/documents \
   --restart unless-stopped \
   localhost:5002/modelgate:latest
 ```

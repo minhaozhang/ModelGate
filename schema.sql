@@ -360,7 +360,7 @@ CREATE TABLE public.provider_models (
     provider_id integer NOT NULL,
     model_id integer NOT NULL,
     model_name_override character varying(100),
-    max_concurrent integer,
+    max_concurrent integer DEFAULT 2,
     is_active boolean,
     created_at timestamp without time zone DEFAULT now()
 );

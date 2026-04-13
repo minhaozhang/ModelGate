@@ -1825,3 +1825,65 @@ async def get_user_opencode_config(
         }
 
         return {"config": config, "models": models_data}
+
+
+@router.get("/user/documents", response_class=HTMLResponse)
+async def user_documents_page(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
+    if not api_key_id:
+        return RedirectResponse(url=build_app_url(request, "/user/login"))
+    html = render(request, "user/documents.html")
+    return HTMLResponse(content=html)
+
+
+@router.get("/user/documents/{doc_id}", response_class=HTMLResponse)
+async def user_document_detail_page(
+    request: Request, doc_id: int, api_key_id: int = Depends(get_user_session)
+):
+    if not api_key_id:
+        return RedirectResponse(url=build_app_url(request, "/user/login"))
+    from services.documents import get_document
+
+    doc = await get_document(doc_id)
+    if not doc or not doc.get("is_published"):
+        return RedirectResponse(url=build_app_url(request, "/user/documents"))
+    html = render(request, "user/document_detail.html", doc=doc)
+    return HTMLResponse(content=html)
+
+
+@router.get("/user/api/documents")
+async def user_api_documents(
+    request: Request,
+    api_key_id: int = Depends(get_user_session),
+    category: Optional[str] = None,
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+    from services.documents import list_documents, list_categories
+
+    docs = await list_documents(published_only=True, category=category)
+    categories = await list_categories(published_only=True)
+    return {"documents": docs, "categories": categories}
+
+
+@router.get("/user/api/documents/{doc_id}")
+async def user_api_document_detail(
+    request: Request,
+    doc_id: int,
+    api_key_id: int = Depends(get_user_session),
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+    from services.documents import get_document
+
+    doc = await get_document(doc_id)
+    if not doc or not doc.get("is_published"):
+        return translated_error(request, "Document not found", 404)
+    return {
+        "id": doc.get("id"),
+        "title": doc.get("title"),
+        "category": doc.get("category"),
+        "content": doc.get("content"),
+        "updated_at": doc.get("updated_at") or "",
+    }

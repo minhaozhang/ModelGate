@@ -7,6 +7,7 @@
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ app_base_path }}/static/js/marked.min.js"></script>
     <style>
         .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
         .tab-content { display: none; }
@@ -157,6 +158,7 @@
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('catalog')">{{ _('Models') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('opencode')">{{ _('OpenCode Config') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('documents')">{{ _('Documents') }}</button>
             </div>
             
             <!-- Stats Tab -->
@@ -412,6 +414,25 @@ const data = await response.json();</code></pre>
                     </div>
                 </div>
             </div>
+
+            <div id="tab-documents" class="tab-content p-6">
+                <div id="doc-list-view">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">{{ _('Documents') }}</h2>
+                        <select id="doc-category-select" onchange="loadDocList()" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm">
+                            <option value="">{{ _('All Categories') }}</option>
+                        </select>
+                    </div>
+                    <div id="doc-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                    <div id="doc-empty" class="text-center py-12 text-gray-400" style="display:none;">{{ _('No documents available') }}</div>
+                </div>
+                <div id="doc-detail-view" style="display:none;">
+                    <button onclick="closeDocDetail()" class="mb-4 text-blue-600 hover:underline text-sm">&larr; {{ _('Back to Documents') }}</button>
+                    <h2 id="doc-detail-title" class="text-2xl font-bold mb-1"></h2>
+                    <div id="doc-detail-meta" class="text-sm text-gray-400 mb-4"></div>
+                    <div id="doc-detail-content" class="prose max-w-none"></div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -432,6 +453,8 @@ const data = await response.json();</code></pre>
         platformProviderCatalog: {{ _('Platform provider catalog') | tojson }},
         modelsThisKeyCanUse: {{ _('Models this key can use') | tojson }},
         noData: {{ _('No data') | tojson }},
+        allCategories: {{ _('All Categories') | tojson }},
+        noDocuments: {{ _('No documents available') | tojson }},
         noActiveSessions: {{ _('No active sessions') | tojson }},
         noModels: {{ _('No models') | tojson }},
         copied: {{ _('Copied!') | tojson }},
@@ -554,6 +577,60 @@ const data = await response.json();</code></pre>
             
             if (tab === 'opencode') loadOpenCodeConfig();
             if (tab === 'catalog' && !catalogLoaded) loadCatalog();
+            if (tab === 'documents') loadDocList();
+        }
+
+        async function loadDocList() {
+            const category = document.getElementById('doc-category-select').value;
+            const url = APP_BASE_PATH + '/user/api/documents' + (category ? '?category=' + encodeURIComponent(category) : '');
+            const res = await fetch(url);
+            if (res.status === 401) { logout(); return; }
+            const data = await res.json();
+            const catSelect = document.getElementById('doc-category-select');
+            const currentCat = catSelect.value;
+            catSelect.innerHTML = '<option value="">' + (window.I18N.allCategories || 'All Categories') + '</option>';
+            (data.categories || []).forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                catSelect.appendChild(opt);
+            });
+            catSelect.value = currentCat;
+            const docs = data.documents || [];
+            const listEl = document.getElementById('doc-list');
+            const emptyEl = document.getElementById('doc-empty');
+            if (!docs.length) {
+                listEl.innerHTML = '';
+                emptyEl.style.display = '';
+                return;
+            }
+            emptyEl.style.display = 'none';
+            listEl.innerHTML = docs.map(doc => `
+                <div onclick="openDocDetail(${doc.id})" class="cursor-pointer bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow border border-transparent hover:border-blue-200">
+                    <h3 class="font-semibold text-gray-800 mb-1">${doc.title}</h3>
+                    ${doc.category ? '<span class="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mb-2">' + doc.category + '</span>' : ''}
+                    ${doc.summary ? '<p class="text-sm text-gray-500">' + doc.summary + '</p>' : ''}
+                    <div class="text-xs text-gray-400 mt-2">${doc.updated_at || ''}</div>
+                </div>
+            `).join('');
+        }
+
+        async function openDocDetail(docId) {
+            const res = await fetch(APP_BASE_PATH + '/user/api/documents/' + docId);
+            if (res.status === 401) { logout(); return; }
+            const doc = await res.json();
+            document.getElementById('doc-detail-title').textContent = doc.title || '';
+            document.getElementById('doc-detail-meta').innerHTML =
+                (doc.category ? '<span class="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mr-2">' + doc.category + '</span>' : '') +
+                (doc.updated_at || '');
+            document.getElementById('doc-detail-content').innerHTML = marked.parse(doc.content || '');
+            document.getElementById('doc-list-view').style.display = 'none';
+            document.getElementById('doc-detail-view').style.display = '';
+        }
+
+        function closeDocDetail() {
+            document.getElementById('doc-detail-view').style.display = 'none';
+            document.getElementById('doc-list-view').style.display = '';
         }
 
         function formatCompactTokens(tokens) {

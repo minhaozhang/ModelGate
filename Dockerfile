@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p logs \
+RUN mkdir -p logs uploads/documents \
     && pybabel compile -d locales
 
 EXPOSE 8765
