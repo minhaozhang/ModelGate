@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from core.config import admin_logger, validate_session
 from core.database import async_session_maker, Provider, Model, ProviderModel
+from services.provider import load_providers
 
 router = APIRouter(prefix="/admin/api", tags=["provider-models"])
 
@@ -66,6 +67,7 @@ async def add_provider_model(
         )
         session.add(pm)
         await session.commit()
+        await load_providers()
         return {"id": pm.id}
 
 
@@ -92,6 +94,7 @@ async def update_provider_model(
         if data.is_active is not None:
             pm.is_active = data.is_active
         await session.commit()
+        await load_providers()
         return {"id": pm.id}
 
 
@@ -110,6 +113,7 @@ async def remove_provider_model(
             return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
         await session.delete(pm)
         await session.commit()
+        await load_providers()
         return {"deleted": True}
 
 
@@ -229,6 +233,7 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
                     synced.append(model_name)
 
                 await session.commit()
+                await load_providers()
                 return {"synced": synced, "total": len(synced)}
             except Exception as e:
                 admin_logger.error(f"[SYNC MODELS ERROR] {e}")

@@ -29,7 +29,7 @@ from core.database import async_session_maker, ApiKey
 from services.provider import (
     get_provider_and_model,
     get_model_config,
-    get_semaphore_key,
+    get_or_create_provider_semaphore,
 )
 from services.auth import validate_api_key
 from services.logging import (
@@ -55,6 +55,7 @@ INTERNAL_ANALYSIS_API_KEY_ID = 1
 INTERNAL_ANALYSIS_CLIENT_IP = "internal"
 INTERNAL_ANALYSIS_USER_AGENT = "modelgate/internal-analysis"
 SEMAPHORE_RETRY_AFTER_SECONDS = 5
+SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS = 1
 RATE_LIMITED_STATUS = "rate_limited"
 
 
@@ -131,19 +132,15 @@ async def proxy_request(request: Request, endpoint: str):
             "model_not_found",
         )
 
-    sem_key = get_semaphore_key(provider_name, actual_model, provider_config)
-    semaphore = provider_semaphores.get(sem_key)
-    if semaphore is None:
-        model_cfg = get_model_config(provider_config, actual_model)
-        max_concurrent = (
-            model_cfg.get("max_concurrent") if model_cfg else None
-        ) or provider_config.get("max_concurrent", 3)
-        semaphore = asyncio.Semaphore(max_concurrent)
-        provider_semaphores[sem_key] = semaphore
+    sem_key, semaphore = get_or_create_provider_semaphore(
+        provider_name, actual_model, provider_config
+    )
 
     acquired = False
     try:
-        await asyncio.wait_for(semaphore.acquire(), timeout=3)
+        await asyncio.wait_for(
+            semaphore.acquire(), timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS
+        )
         acquired = True
     except asyncio.TimeoutError:
         message = f"Provider '{provider_name}/{actual_model}' is at max concurrency, please retry later"
@@ -348,19 +345,15 @@ async def call_internal_model_via_proxy(
             "error": f"Unknown provider for model: {requested_model}",
         }
 
-    sem_key = get_semaphore_key(provider_name, actual_model, provider_config)
-    semaphore = provider_semaphores.get(sem_key)
-    if semaphore is None:
-        model_cfg = get_model_config(provider_config, actual_model)
-        max_concurrent = (
-            model_cfg.get("max_concurrent") if model_cfg else None
-        ) or provider_config.get("max_concurrent", 3)
-        semaphore = asyncio.Semaphore(max_concurrent)
-        provider_semaphores[sem_key] = semaphore
+    sem_key, semaphore = get_or_create_provider_semaphore(
+        provider_name, actual_model, provider_config
+    )
 
     acquired = False
     try:
-        await asyncio.wait_for(semaphore.acquire(), timeout=3)
+        await asyncio.wait_for(
+            semaphore.acquire(), timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS
+        )
         acquired = True
     except asyncio.TimeoutError:
         update_stats(
