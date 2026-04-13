@@ -104,3 +104,10 @@ async def reports_page(request: Request, session: Optional[str] = Cookie(None)):
     if not _check_auth(session):
         return RedirectResponse(url=build_app_url(request, "/admin/login"))
     return HTMLResponse(content=render(request, "admin/reports.html"))
+
+
+@router.get("/documents", response_class=HTMLResponse)
+async def documents_page(request: Request, session: Optional[str] = Cookie(None)):
+    if not _check_auth(session):
+        return RedirectResponse(url=build_app_url(request, "/admin/login"))
+    return HTMLResponse(content=render(request, "admin/documents.html"))

@@ -1,0 +1,120 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('Documents') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .bg-blue-50 { background: rgba(37, 99, 235, 0.12) !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border, body.theme-dark .border-gray-200 { border-color: #243244 !important; }
+        body.theme-dark select, body.theme-dark button:not(.bg-blue-600) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow, body.theme-dark .shadow-sm { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .bg-white.rounded-lg { border: 1px solid rgba(71, 85, 105, 0.55) !important; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">{{ _('Documents') }}</h1>
+                <p class="text-gray-500 mt-1">{{ _('Shared articles and documents') }}</p>
+            </div>
+            <div class="flex gap-2">
+                <select id="category-select" onchange="loadDocuments()" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm">
+                    <option value="">{{ _('All Categories') }}</option>
+                </select>
+                <a href="{{ app_base_path }}/user/dashboard" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">
+                    {{ _('Back to Dashboard') }}
+                </a>
+                <select id="lang-select" onchange="switchLang(this.value)" class="border border-gray-200 bg-white text-gray-700 px-2 py-2 rounded text-sm">
+                    <option value="en">English</option>
+                    <option value="zh">涓枃</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="doc-empty" class="hidden bg-white rounded-lg shadow p-12 text-center">
+            <div class="text-gray-400 text-4xl mb-4">馃搫</div>
+            <p class="text-gray-500">{{ _('No documents available') }}</p>
+        </div>
+
+        <div id="doc-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </div>
+
+    <script>
+        const BASE = {{ app_base_path | tojson }};
+        const current_locale = {{ current_locale | tojson }};
+        window.I18N = {
+            lightMode: {{ _('Light Mode') | tojson }},
+            darkMode: {{ _('Dark Mode') | tojson }},
+            noDocuments: {{ _('No documents available') | tojson }},
+            readMore: {{ _('Read More') | tojson }},
+        };
+
+        function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
+        function applyTheme(mode) {
+            document.body.classList.toggle('theme-dark', mode === 'dark');
+            localStorage.setItem('admin_theme', mode);
+        }
+        function toggleTheme() { applyTheme(getThemeMode() === 'dark' ? 'light' : 'dark'); }
+        applyTheme(getThemeMode());
+
+        function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        async function loadDocuments() {
+            const category = document.getElementById('category-select').value;
+            const url = `${BASE}/user/api/documents` + (category ? `?category=${encodeURIComponent(category)}` : '');
+            const r = await fetch(url);
+            if (r.status === 401) { window.location.href = `${BASE}/user/login`; return; }
+            const data = await r.json();
+
+            const categories = data.categories || [];
+            const catSelect = document.getElementById('category-select');
+            const currentCat = catSelect.value;
+            catSelect.innerHTML = '<option value="">' + (current_locale === 'zh' ? '鍏ㄩ儴鍒嗙被' : 'All Categories') + '</option>';
+            categories.forEach(c => {
+                catSelect.innerHTML += `<option value="${escapeHtml(c)}" ${c === currentCat ? 'selected' : ''}>${escapeHtml(c)}</option>`;
+            });
+
+            const docs = data.documents || [];
+            const listEl = document.getElementById('doc-list');
+            const emptyEl = document.getElementById('doc-empty');
+            if (!docs.length) { emptyEl.classList.remove('hidden'); listEl.innerHTML = ''; return; }
+            emptyEl.classList.add('hidden');
+
+            listEl.innerHTML = docs.map(doc => {
+                const categoryBadge = doc.category
+                    ? `<span class="inline-block text-xs rounded-full bg-blue-50 text-blue-600 px-2 py-0.5 mb-2">${escapeHtml(doc.category)}</span>`
+                    : '';
+                const preview = (doc.content || '').substring(0, 120).replace(/[#*_`]/g, '');
+                return `
+                    <a href="${BASE}/user/documents/${doc.id}" class="block bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow border border-transparent hover:border-blue-200">
+                        ${categoryBadge}
+                        <h3 class="text-base font-semibold text-gray-800 mb-2">${escapeHtml(doc.title)}</h3>
+                        <p class="text-sm text-gray-500 line-clamp-2">${escapeHtml(preview)}...</p>
+                        <div class="flex items-center justify-between mt-3">
+                            <span class="text-xs text-gray-400">${escapeHtml(doc.created_at || '')}</span>
+                            <span class="text-xs text-blue-600">${window.I18N.readMore} &rarr;</span>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        }
+
+        loadDocuments();
+    </script>
+</body>
+</html>

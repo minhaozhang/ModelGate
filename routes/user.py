@@ -1445,6 +1445,47 @@ async def get_user_recommendations(
     )
     insight_payload = parse_recommendation_analysis_record(analysis_record)
 
+    should_refresh_analysis = (
+        analysis_record is None
+        or analysis_record.status in {ANALYSIS_STATUS_FAILED}
+        or (
+            analysis_record.status in {ANALYSIS_STATUS_PENDING, ANALYSIS_STATUS_RUNNING}
+            and analysis_record.updated_at is not None
+            and analysis_record.updated_at
+            <= now - timedelta(seconds=ANALYSIS_PENDING_STALE_SECONDS)
+        )
+        or (
+            analysis_record.expires_at is not None and analysis_record.expires_at <= now
+        )
+    )
+    if should_refresh_analysis and top_recommendations:
+        await upsert_analysis_record(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+            status=ANALYSIS_STATUS_PENDING,
+            language=locale,
+            model_used=analysis_record.model_used if analysis_record else None,
+            content=analysis_record.content if analysis_record else None,
+            error=None,
+            expires_at=datetime.now() + timedelta(hours=1),
+        )
+        start_analysis_task(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+            lambda: run_user_recommendation_analysis(
+                scope_key,
+                locale,
+                top_recommendations,
+                hourly_stats,
+                period,
+            ),
+        )
+        analysis_record = await get_analysis_record(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+        )
+        insight_payload = parse_recommendation_analysis_record(analysis_record)
+
     reason_map = (
         insight_payload.get("reasons") if isinstance(insight_payload, dict) else {}
     )
@@ -1896,3 +1937,65 @@ async def scheduled_daily_recommendation_analysis():
                 api_key.id,
                 exc,
             )
+
+
+@router.get("/user/documents", response_class=HTMLResponse)
+async def user_documents_page(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
+    if not api_key_id:
+        return RedirectResponse(url=build_app_url(request, "/user/login"))
+    html = render(request, "user/documents.html")
+    return HTMLResponse(content=html)
+
+
+@router.get("/user/documents/{doc_id}", response_class=HTMLResponse)
+async def user_document_detail_page(
+    request: Request, doc_id: int, api_key_id: int = Depends(get_user_session)
+):
+    if not api_key_id:
+        return RedirectResponse(url=build_app_url(request, "/user/login"))
+    from services.documents import get_document
+
+    doc = await get_document(doc_id)
+    if not doc or not doc.get("is_published"):
+        return RedirectResponse(url=build_app_url(request, "/user/documents"))
+    html = render(request, "user/document_detail.html", doc=doc)
+    return HTMLResponse(content=html)
+
+
+@router.get("/user/api/documents")
+async def user_api_documents(
+    request: Request,
+    api_key_id: int = Depends(get_user_session),
+    category: Optional[str] = None,
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+    from services.documents import list_documents, list_categories
+
+    docs = await list_documents(published_only=True, category=category)
+    categories = await list_categories(published_only=True)
+    return {"documents": docs, "categories": categories}
+
+
+@router.get("/user/api/documents/{doc_id}")
+async def user_api_document_detail(
+    request: Request,
+    doc_id: int,
+    api_key_id: int = Depends(get_user_session),
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+    from services.documents import get_document
+
+    doc = await get_document(doc_id)
+    if not doc or not doc.get("is_published"):
+        return translated_error(request, "Document not found", 404)
+    return {
+        "id": doc.get("id"),
+        "title": doc.get("title"),
+        "category": doc.get("category"),
+        "content": doc.get("content"),
+        "updated_at": doc.get("updated_at") or "",
+    }

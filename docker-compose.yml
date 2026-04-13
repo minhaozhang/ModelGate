@@ -6,6 +6,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./reports:/app/reports
+      - ./uploads/documents:/app/uploads/documents
     restart: unless-stopped
 
   nginx:

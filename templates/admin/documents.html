@@ -1,0 +1,328 @@
+{% set active_page = 'documents' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('Documents') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        .spinner { width: 1rem; height: 1rem; border-radius: 9999px; border: 2px solid rgba(59,130,246,0.3); border-top-color: #3b82f6; animation: spin 0.9s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav, body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .bg-blue-50 { background: rgba(37, 99, 235, 0.12) !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border, body.theme-dark .border-b, body.theme-dark .border-t, body.theme-dark .border-gray-200 { border-color: #1f2937 !important; }
+        body.theme-dark input, body.theme-dark select, body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-600):not(.bg-blue-500):not(.bg-emerald-600):not(.bg-red-600) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow, body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        #edit-modal > div, #upload-modal > div { background: #fff; }
+        body.theme-dark #edit-modal > div, body.theme-dark #upload-modal > div { background: #0f172a !important; }
+        body.theme-dark #edit-modal label, body.theme-dark #upload-modal label { color: #e5e7eb !important; }
+        .md-preview { line-height: 1.7; }
+        .md-preview h1 { font-size: 1.5rem; font-weight: 700; margin: 1rem 0 0.5rem; }
+        .md-preview h2 { font-size: 1.25rem; font-weight: 600; margin: 0.8rem 0 0.4rem; }
+        .md-preview h3 { font-size: 1.1rem; font-weight: 600; margin: 0.6rem 0 0.3rem; }
+        .md-preview p { margin: 0.4rem 0; }
+        .md-preview pre { background: #f5f5f5; padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.5rem 0; }
+        .md-preview code { font-family: monospace; font-size: 0.9em; }
+        .md-preview ul, .md-preview ol { padding-left: 1.5rem; margin: 0.4rem 0; }
+        .md-preview blockquote { border-left: 3px solid #3b82f6; padding-left: 1rem; color: #6b7280; margin: 0.5rem 0; }
+        body.theme-dark .md-preview pre { background: #1e293b !important; }
+        body.theme-dark .md-preview blockquote { color: #94a3b8; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header(_('Documents'), _("Upload and manage Markdown documents for users")) %}{% endcall %}
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+                <section class="xl:col-span-2 bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">{{ _('Document List') }}</h3>
+                        <div class="flex gap-2">
+                            <button onclick="openUploadModal()" class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 text-sm inline-flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                {{ _('Upload') }}
+                            </button>
+                            <button onclick="openCreateModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm inline-flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                {{ _('Create') }}
+                            </button>
+                        </div>
+                    </div>
+                    <div id="doc-empty" class="hidden text-sm text-gray-500 py-8 text-center">{{ _('No documents yet') }}</div>
+                    <div id="doc-list" class="space-y-3"></div>
+                </section>
+
+                <section class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">{{ _('Preview') }}</h3>
+                    <div id="doc-preview" class="text-sm text-gray-500">{{ _('Select a document to preview') }}</div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <div id="edit-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background:rgba(0,0,0,0.5)">
+        <div class="bg-white rounded-xl shadow-2xl w-[800px] max-h-[85vh] flex flex-col" style="margin:1rem">
+            <div class="p-5 border-b border-gray-200">
+                <h3 id="edit-modal-title" class="text-lg font-semibold text-gray-800">{{ _('Create Document') }}</h3>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 space-y-4">
+                <input type="hidden" id="edit-doc-id" value="">
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">{{ _('Title') }}</label>
+                    <input type="text" id="edit-title" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">{{ _('Category') }}</label>
+                        <input type="text" id="edit-category" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full" placeholder="e.g. Guide, Tutorial">
+                    </div>
+                    <div class="flex items-end">
+                        <label class="flex items-center gap-2 text-sm text-gray-600">
+                            <input type="checkbox" id="edit-published" class="rounded">
+                            {{ _('Published') }}
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">{{ _('Content (Markdown)') }}</label>
+                    <textarea id="edit-content" rows="16" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full font-mono"></textarea>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-200 flex justify-end gap-3">
+                <button onclick="closeEditModal()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">{{ _('Cancel') }}</button>
+                <button id="edit-save-btn" onclick="saveDocument()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">{{ _('Save') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="upload-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background:rgba(0,0,0,0.5)">
+        <div class="bg-white rounded-xl shadow-2xl w-[480px] flex flex-col" style="margin:1rem">
+            <div class="p-5 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">{{ _('Upload Markdown File') }}</h3>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">{{ _('Select .md file') }}</label>
+                    <input type="file" id="upload-file" accept=".md" class="border border-gray-200 rounded px-3 py-2 text-sm w-full">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">{{ _('Category') }}</label>
+                    <input type="text" id="upload-category" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full" placeholder="e.g. Guide, Tutorial">
+                </div>
+                <label class="flex items-center gap-2 text-sm text-gray-600">
+                    <input type="checkbox" id="upload-published" class="rounded">
+                    {{ _('Published') }}
+                </label>
+            </div>
+            <div class="p-4 border-t border-gray-200 flex justify-end gap-3">
+                <button onclick="closeUploadModal()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">{{ _('Cancel') }}</button>
+                <button onclick="uploadFile()" class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 text-sm">{{ _('Upload') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ app_base_path }}/static/js/marked.min.js"></script>
+    <script>
+        const BASE = {{ app_base_path | tojson }};
+        window.I18N = {
+            lightMode: {{ _('Light Mode') | tojson }},
+            darkMode: {{ _('Dark Mode') | tojson }},
+            noDocuments: {{ _('No documents yet') | tojson }},
+            published: {{ _('Published') | tojson }},
+            draft: {{ _('Draft') | tojson }},
+            delete: {{ _('Delete') | tojson }},
+            edit: {{ _('Edit') | tojson }},
+            save: {{ _('Save') | tojson }},
+            createDocument: {{ _('Create Document') | tojson }},
+            editDocument: {{ _('Edit Document') | tojson }},
+            titleRequired: {{ _('Title is required') | tojson }},
+            saveFailed: {{ _('Save failed') | tojson }},
+            deleteConfirm: {{ _('Are you sure you want to delete this document?') | tojson }},
+            deleteFailed: {{ _('Delete failed') | tojson }},
+            uploadFailed: {{ _('Upload failed') | tojson }},
+            selectToPreview: {{ _('Select a document to preview') | tojson }},
+            publishedAt: {{ _('Created') | tojson }},
+        };
+
+        function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
+        }
+        function toggleTheme() { applyTheme(getThemeMode() === 'dark' ? 'light' : 'dark'); }
+        applyTheme(getThemeMode());
+
+        function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }
+        async function logout() { await fetch(`${BASE}/admin/api/auth/logout`, { method: 'POST' }); window.location.href = `${BASE}/admin/login`; }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        async function fetchJson(url, opts) {
+            const r = await fetch(url, opts);
+            if (r.status === 401) { window.location.href = `${BASE}/admin/login`; return null; }
+            return r.json();
+        }
+
+        async function loadDocuments() {
+            const data = await fetchJson(`${BASE}/admin/api/documents`);
+            if (!data) return;
+            const docs = data.documents || [];
+            const listEl = document.getElementById('doc-list');
+            const emptyEl = document.getElementById('doc-empty');
+            if (!docs.length) { emptyEl.classList.remove('hidden'); listEl.innerHTML = ''; return; }
+            emptyEl.classList.add('hidden');
+            listEl.innerHTML = docs.map(doc => {
+                const statusBadge = doc.is_published
+                    ? '<span class="text-xs font-semibold rounded px-2 py-1 bg-emerald-100 text-emerald-700">' + window.I18N.published + '</span>'
+                    : '<span class="text-xs font-semibold rounded px-2 py-1 bg-gray-100 text-gray-500">' + window.I18N.draft + '</span>';
+                const categoryBadge = doc.category
+                    ? '<span class="text-xs rounded-full bg-blue-50 text-blue-600 px-2 py-0.5">' + escapeHtml(doc.category) + '</span>'
+                    : '';
+                return `
+                    <div class="rounded-lg border border-gray-200 p-4 hover:border-blue-300 cursor-pointer transition-colors" onclick="previewDoc(${doc.id})">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="min-w-0">
+                                <div class="text-sm font-semibold text-gray-800">${escapeHtml(doc.title)}</div>
+                                <div class="flex items-center gap-2 mt-1">
+                                    ${categoryBadge}
+                                    <span class="text-xs text-gray-400">${escapeHtml(doc.created_at || '')}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                ${statusBadge}
+                                <button onclick="event.stopPropagation();openEditModalWith(${doc.id})" class="text-blue-600 hover:underline text-xs">${window.I18N.edit}</button>
+                                <button onclick="event.stopPropagation();deleteDoc(${doc.id})" class="text-red-600 hover:underline text-xs">${window.I18N.delete}</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        let currentDocs = {};
+        async function previewDoc(id) {
+            const data = await fetchJson(`${BASE}/admin/api/documents`);
+            if (!data) return;
+            const doc = (data.documents || []).find(d => d.id === id);
+            if (!doc) return;
+            currentDocs[id] = doc;
+            const preview = document.getElementById('doc-preview');
+            const html = marked.parse(doc.content || '');
+            preview.innerHTML = `<div class="text-lg font-semibold text-gray-800 mb-3">${escapeHtml(doc.title)}</div><div class="md-preview">${html}</div>`;
+        }
+
+        function openCreateModal() {
+            document.getElementById('edit-modal-title').textContent = window.I18N.createDocument;
+            document.getElementById('edit-doc-id').value = '';
+            document.getElementById('edit-title').value = '';
+            document.getElementById('edit-category').value = '';
+            document.getElementById('edit-content').value = '';
+            document.getElementById('edit-published').checked = false;
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        async function openEditModalWith(id) {
+            const data = await fetchJson(`${BASE}/admin/api/documents`);
+            if (!data) return;
+            const doc = (data.documents || []).find(d => d.id === id);
+            if (!doc) return;
+            document.getElementById('edit-modal-title').textContent = window.I18N.editDocument;
+            document.getElementById('edit-doc-id').value = doc.id;
+            document.getElementById('edit-title').value = doc.title || '';
+            document.getElementById('edit-category').value = doc.category || '';
+            document.getElementById('edit-content').value = doc.content || '';
+            document.getElementById('edit-published').checked = doc.is_published;
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function closeEditModal() { document.getElementById('edit-modal').classList.add('hidden'); }
+
+        async function saveDocument() {
+            const id = document.getElementById('edit-doc-id').value;
+            const title = document.getElementById('edit-title').value.trim();
+            const content = document.getElementById('edit-content').value;
+            const category = document.getElementById('edit-category').value.trim();
+            const is_published = document.getElementById('edit-published').checked;
+            if (!title) { alert(window.I18N.titleRequired); return; }
+
+            try {
+                let r;
+                if (id) {
+                    r = await fetch(`${BASE}/admin/api/documents/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title, content, category, is_published }),
+                    });
+                } else {
+                    const form = new FormData();
+                    form.append('title', title);
+                    form.append('content', content);
+                    form.append('category', category);
+                    form.append('is_published', is_published ? 'true' : 'false');
+                    r = await fetch(`${BASE}/admin/api/documents`, { method: 'POST', body: form });
+                }
+                if (r.status === 401) { window.location.href = `${BASE}/admin/login`; return; }
+                if (!r.ok) { const e = await r.json(); throw new Error(e.error || window.I18N.saveFailed); }
+                closeEditModal();
+                await loadDocuments();
+            } catch (err) { alert(err.message || window.I18N.saveFailed); }
+        }
+
+        async function deleteDoc(id) {
+            if (!confirm(window.I18N.deleteConfirm)) return;
+            const r = await fetch(`${BASE}/admin/api/documents/${id}`, { method: 'DELETE' });
+            if (r.status === 401) { window.location.href = `${BASE}/admin/login`; return; }
+            if (!r.ok) { alert(window.I18N.deleteFailed); return; }
+            await loadDocuments();
+            document.getElementById('doc-preview').innerHTML = `<div class="text-sm text-gray-500">${window.I18N.selectToPreview}</div>`;
+        }
+
+        function openUploadModal() { document.getElementById('upload-modal').classList.remove('hidden'); }
+        function closeUploadModal() { document.getElementById('upload-modal').classList.add('hidden'); }
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('upload-file');
+            if (!fileInput.files.length) { alert('Please select a file'); return; }
+            const form = new FormData();
+            form.append('file', fileInput.files[0]);
+            form.append('category', document.getElementById('upload-category').value.trim());
+            form.append('is_published', document.getElementById('upload-published').checked ? 'true' : 'false');
+            try {
+                const r = await fetch(`${BASE}/admin/api/documents/upload`, { method: 'POST', body: form });
+                if (r.status === 401) { window.location.href = `${BASE}/admin/login`; return; }
+                if (!r.ok) { const e = await r.json(); throw new Error(e.error || window.I18N.uploadFailed); }
+                closeUploadModal();
+                fileInput.value = '';
+                document.getElementById('upload-category').value = '';
+                document.getElementById('upload-published').checked = false;
+                await loadDocuments();
+            } catch (err) { alert(err.message || window.I18N.uploadFailed); }
+        }
+
+        loadDocuments();
+    </script>
+</body>
+</html>
