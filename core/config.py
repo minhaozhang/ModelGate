@@ -93,6 +93,10 @@ api_keys_cache: dict[str, dict] = {}
 sessions: dict[str, datetime] = {}
 provider_semaphores: dict[str, "asyncio.Semaphore"] = {}
 
+DEFAULT_OUTBOUND_USER_AGENT = "opencode/1.3.13 ai-sdk/provider-utils/4.0.21 runtime/bun/1.3.11"
+OUTBOUND_USER_AGENT = DEFAULT_OUTBOUND_USER_AGENT
+system_config: dict[str, str] = {}
+
 stats = {
     "total_requests": 0,
     "total_tokens": 0,

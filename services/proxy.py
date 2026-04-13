@@ -17,6 +17,7 @@ from core.config import (
     error_logger,
     provider_semaphores,
     register_active_request,
+    OUTBOUND_USER_AGENT,
 )
 from core.log_sanitizer import (
     sanitize_headers_for_log,
@@ -28,6 +29,7 @@ from core.database import async_session_maker, ApiKey
 from services.provider import (
     get_provider_and_model,
     get_model_config,
+    get_semaphore_key,
 )
 from services.auth import validate_api_key
 from services.logging import (
@@ -49,7 +51,6 @@ from services.sse import normalize_sse_stream
 
 REPEATED_CHUNK_LIMIT = 10
 PROVIDER_REQUEST_TIMEOUT_SECONDS = 600.0
-OUTBOUND_USER_AGENT = "opencode/1.3.13 ai-sdk/provider-utils/4.0.21 runtime/bun/1.3.11"
 INTERNAL_ANALYSIS_API_KEY_ID = 1
 INTERNAL_ANALYSIS_CLIENT_IP = "internal"
 INTERNAL_ANALYSIS_USER_AGENT = "modelgate/internal-analysis"
@@ -130,21 +131,23 @@ async def proxy_request(request: Request, endpoint: str):
             "model_not_found",
         )
 
-    semaphore = provider_semaphores.get(provider_name)
+    sem_key = get_semaphore_key(provider_name, actual_model, provider_config)
+    semaphore = provider_semaphores.get(sem_key)
     if semaphore is None:
-        max_concurrent = provider_config.get("max_concurrent", 3)
+        model_cfg = get_model_config(provider_config, actual_model)
+        max_concurrent = (
+            model_cfg.get("max_concurrent") if model_cfg else None
+        ) or provider_config.get("max_concurrent", 3)
         semaphore = asyncio.Semaphore(max_concurrent)
-        provider_semaphores[provider_name] = semaphore
+        provider_semaphores[sem_key] = semaphore
 
     acquired = False
     try:
-        await asyncio.wait_for(semaphore.acquire(), timeout=0.001)
+        await asyncio.wait_for(semaphore.acquire(), timeout=3)
         acquired = True
     except asyncio.TimeoutError:
-        message = (
-            f"Provider '{provider_name}' is at max concurrency, please retry later"
-        )
-        logger.warning(f"[RATE LIMIT] Provider {provider_name} at max concurrency")
+        message = f"Provider '{provider_name}/{actual_model}' is at max concurrency, please retry later"
+        logger.warning(f"[RATE LIMIT] {sem_key} at max concurrency")
         update_stats(
             provider_name,
             actual_model,
@@ -345,15 +348,19 @@ async def call_internal_model_via_proxy(
             "error": f"Unknown provider for model: {requested_model}",
         }
 
-    semaphore = provider_semaphores.get(provider_name)
+    sem_key = get_semaphore_key(provider_name, actual_model, provider_config)
+    semaphore = provider_semaphores.get(sem_key)
     if semaphore is None:
-        max_concurrent = provider_config.get("max_concurrent", 3)
+        model_cfg = get_model_config(provider_config, actual_model)
+        max_concurrent = (
+            model_cfg.get("max_concurrent") if model_cfg else None
+        ) or provider_config.get("max_concurrent", 3)
         semaphore = asyncio.Semaphore(max_concurrent)
-        provider_semaphores[provider_name] = semaphore
+        provider_semaphores[sem_key] = semaphore
 
     acquired = False
     try:
-        await asyncio.wait_for(semaphore.acquire(), timeout=0.001)
+        await asyncio.wait_for(semaphore.acquire(), timeout=3)
         acquired = True
     except asyncio.TimeoutError:
         update_stats(
@@ -375,7 +382,7 @@ async def call_internal_model_via_proxy(
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=estimate_request_context_tokens(req_body),
-            error=f"Provider '{provider_name}' reached max concurrency",
+            error=f"'{sem_key}' reached max concurrency",
         )
         return {
             "ok": False,
@@ -383,7 +390,7 @@ async def call_internal_model_via_proxy(
             "actual_model_name": actual_model,
             "status_code": 429,
             "payload": None,
-            "error": f"Provider '{provider_name}' reached max concurrency",
+            "error": f"'{sem_key}' reached max concurrency",
         }
 
     try:

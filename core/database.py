@@ -27,7 +27,14 @@ DATABASE_URL = os.getenv(
     "postgresql+asyncpg://modelgate:Zaq1%403edc@192.168.58.128/modelgate",
 )
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+    pool_size=10,
+    max_overflow=20,
+)
 async_session_maker = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
@@ -74,6 +81,7 @@ class ProviderModel(Base):
     provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
     model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
     model_name_override = Column(String(100), nullable=True)
+    max_concurrent = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
 

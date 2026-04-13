@@ -360,6 +360,7 @@ CREATE TABLE public.provider_models (
     provider_id integer NOT NULL,
     model_id integer NOT NULL,
     model_name_override character varying(100),
+    max_concurrent integer,
     is_active boolean,
     created_at timestamp without time zone DEFAULT now()
 );
@@ -591,6 +592,7 @@ COMMENT ON COLUMN public.provider_models.id IS '主键ID';
 COMMENT ON COLUMN public.provider_models.provider_id IS '提供商ID';
 COMMENT ON COLUMN public.provider_models.model_id IS '模型ID';
 COMMENT ON COLUMN public.provider_models.model_name_override IS '模型名称覆盖，用于指定提供商特定的模型名';
+COMMENT ON COLUMN public.provider_models.max_concurrent IS '模型级最大并发数，NULL时使用供应商默认值';
 COMMENT ON COLUMN public.provider_models.is_active IS '是否启用';
 COMMENT ON COLUMN public.provider_models.created_at IS '创建时间';
 

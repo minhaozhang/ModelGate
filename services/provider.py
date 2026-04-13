@@ -57,6 +57,7 @@ async def load_providers():
                         "max_tokens": model.max_tokens if model else 16384,
                         "thinking_enabled": model.thinking_enabled if model else False,
                         "thinking_budget": model.thinking_budget if model else 8192,
+                        "max_concurrent": pm.max_concurrent,
                     }
                 )
 
@@ -69,10 +70,16 @@ async def load_providers():
                 "merge_consecutive_messages": p.merge_consecutive_messages or False,
             }
 
-            max_conc = p.max_concurrent or 3
-            existing = provider_semaphores.get(p.name)
-            if existing is None or getattr(existing, "_value", None) != max_conc:
-                provider_semaphores[p.name] = asyncio.Semaphore(max_conc)
+            provider_default = p.max_concurrent or 3
+            for pm_data in provider_models_data:
+                model_name = pm_data.get("model_name") or pm_data.get("actual_model_name")
+                if not model_name:
+                    continue
+                sem_key = f"{p.name}/{model_name}"
+                model_max = pm_data["max_concurrent"] or provider_default
+                existing = provider_semaphores.get(sem_key)
+                if existing is None or getattr(existing, "_value", None) != model_max:
+                    provider_semaphores[sem_key] = asyncio.Semaphore(model_max)
 
         config.providers_cache_time = datetime.now()
 
@@ -93,6 +100,14 @@ def get_model_config(provider_config: dict, model_name: str) -> Optional[dict]:
         if pm_model_name == model_name or pm_model_name == model_name.split("/")[-1]:
             return pm
     return None
+
+
+def get_semaphore_key(provider_name: str, actual_model: str, provider_config: dict) -> str:
+    model_cfg = get_model_config(provider_config, actual_model)
+    model_name = model_cfg.get("model_name") or model_cfg.get("actual_model_name") if model_cfg else None
+    if model_name:
+        return f"{provider_name}/{model_name}"
+    return f"{provider_name}/{actual_model}"
 
 
 async def get_provider_and_model(model: str) -> tuple[Optional[dict], str, str]:
