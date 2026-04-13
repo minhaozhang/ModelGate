@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    <meta name="baidu-site-verification" content="codeva-0hVPJ6H1HZ" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ModelGate — 万物流转</title>
+    <link rel="icon" href="/modelgate/favicon.ico" sizes="any">
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?b4ffde061f8a692390379ea2bde40805";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;300;400;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        @keyframes drift {
+            0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+            10% { opacity: var(--dust-alpha); }
+            90% { opacity: var(--dust-alpha); }
+            100% { transform: translateY(calc(-100vh - 20px)) translateX(var(--drift-x)) rotate(var(--drift-rot)); opacity: 0; }
+        }
+        @keyframes ink-spread {
+            0% { transform: scale(0); opacity: 0.6; }
+            60% { opacity: 0.3; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+        @keyframes breathe {
+            0%, 100% { opacity: 0.03; transform: scale(1); }
+            50% { opacity: 0.07; transform: scale(1.05); }
+        }
+        @keyframes reveal-up {
+            from { opacity: 0; transform: translateY(24px); filter: blur(4px); }
+            to { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+        @keyframes brush-stroke {
+            from { clip-path: inset(0 100% 0 0); }
+            to { clip-path: inset(0 0% 0 0); }
+        }
+        @keyframes float-gentle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+        @keyframes ripple {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --ink: #1a1612;
+            --ink-light: #2c2620;
+            --paper: #f6f1ea;
+            --paper-deep: #ece5da;
+            --warm-gray: #8a7e72;
+            --warm-muted: #b0a698;
+            --warm-faint: #d5cec4;
+            --accent: #a0522d;
+            --accent-gold: #c49a3c;
+            --water: #7a9baa;
+            --water-light: rgba(122, 155, 170, 0.15);
+            --serif: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+            --display: 'Cormorant Garamond', 'Noto Serif SC', serif;
+            --mono: 'Space Mono', 'SF Mono', monospace;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--serif);
+            background: var(--paper);
+            color: var(--ink);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .dust-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+        .dust {
+            position: absolute;
+            bottom: -10px;
+            border-radius: 50%;
+            background: var(--ink);
+            filter: blur(0.5px);
+            animation: drift var(--dur) var(--delay) linear infinite;
+        }
+
+        .ink-blob {
+            position: fixed;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--ink) 0%, transparent 70%);
+            opacity: 0.04;
+            pointer-events: none;
+            animation: breathe 8s ease-in-out infinite;
+        }
+
+        .seal {
+            width: 48px;
+            height: 48px;
+            border: 2px solid #8b3a3a;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #8b3a3a;
+            font-weight: 600;
+            font-family: var(--serif);
+            transform: rotate(-8deg);
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+
+        .divider {
+            width: 60px;
+            height: 1px;
+            background: linear-gradient(to right, transparent, var(--warm-muted), transparent);
+            margin: 0 auto;
+        }
+
+        .divider-long {
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(to right, transparent, var(--warm-faint) 20%, var(--warm-faint) 80%, transparent);
+        }
+
+        .verse {
+            font-family: var(--serif);
+            font-weight: 200;
+            letter-spacing: 0.15em;
+            line-height: 2;
+        }
+
+        .verse-en {
+            font-family: var(--display);
+            font-weight: 300;
+            font-style: italic;
+            letter-spacing: 0.04em;
+            line-height: 1.8;
+        }
+
+        .reveal {
+            opacity: 0;
+            animation: reveal-up 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+
+        .reveal-d1 { animation-delay: 0.2s; }
+        .reveal-d2 { animation-delay: 0.5s; }
+        .reveal-d3 { animation-delay: 0.8s; }
+        .reveal-d4 { animation-delay: 1.1s; }
+        .reveal-d5 { animation-delay: 1.4s; }
+        .reveal-d6 { animation-delay: 1.7s; }
+        .reveal-d7 { animation-delay: 2.0s; }
+
+        .feature-card {
+            padding: 28px 24px;
+            border: 1px solid var(--warm-faint);
+            border-radius: 2px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.5), rgba(246,241,234,0.3));
+            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3px;
+            height: 0;
+            background: var(--accent);
+            transition: height 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .feature-card:hover {
+            border-color: var(--warm-muted);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(26, 22, 18, 0.06);
+        }
+        .feature-card:hover::before {
+            height: 100%;
+        }
+
+        .stat-value {
+            font-family: var(--mono);
+            font-size: clamp(22px, 5vw, 36px);
+            font-weight: 700;
+            color: var(--ink);
+            letter-spacing: -0.04em;
+            line-height: 1.1;
+            white-space: nowrap;
+        }
+        .stat-label {
+            font-family: var(--serif);
+            font-weight: 300;
+            font-size: 13px;
+            color: var(--warm-gray);
+            letter-spacing: 0.08em;
+            margin-top: 8px;
+        }
+
+        .water-ripple {
+            position: absolute;
+            border: 1px solid var(--water);
+            border-radius: 50%;
+            animation: ripple 3s ease-out infinite;
+            pointer-events: none;
+        }
+
+        .brush-line {
+            height: 2px;
+            background: var(--ink);
+            animation: brush-stroke 2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            clip-path: inset(0 100% 0 0);
+        }
+
+        nav a {
+            color: var(--warm-gray);
+            text-decoration: none;
+            font-size: 13px;
+            letter-spacing: 0.06em;
+            transition: color 0.3s;
+            font-family: var(--serif);
+        }
+        nav a:hover { color: var(--ink); }
+
+        .cta-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--ink);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 400;
+            letter-spacing: 0.04em;
+            border-bottom: 1px solid var(--warm-muted);
+            padding-bottom: 2px;
+            transition: all 0.3s;
+        }
+        .cta-link:hover {
+            border-color: var(--ink);
+            padding-bottom: 4px;
+        }
+        .cta-link svg {
+            transition: transform 0.3s;
+        }
+        .cta-link:hover svg {
+            transform: translateX(3px);
+        }
+
+        .hero-section {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            padding: 40px 24px;
+        }
+
+        .content-section {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 80px 24px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 40px 60px;
+            text-align: center;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .footer-section {
+            text-align: center;
+            padding: 60px 24px 40px;
+        }
+
+        @media (max-width: 768px) {
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            .stats-row {
+                gap: 24px 32px;
+            }
+            .verse {
+                font-size: 20px;
+            }
+            .content-section {
+                padding: 48px 20px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dust { animation: none !important; display: none; }
+            .ink-blob { animation: none !important; }
+            .reveal { animation: none !important; opacity: 1 !important; }
+            .brush-line { animation: none !important; clip-path: none !important; }
+            .water-ripple { animation: none !important; }
+            * { transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dust-layer" id="dust-layer"></div>
+    <div class="ink-blob" style="width:400px;height:400px;top:10%;left:-5%;animation-delay:0s;"></div>
+    <div class="ink-blob" style="width:300px;height:300px;top:60%;right:-8%;animation-delay:3s;"></div>
+    <div class="ink-blob" style="width:250px;height:250px;top:30%;left:50%;animation-delay:5s;"></div>
+
+    <nav class="reveal" style="position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 32px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(to bottom,var(--paper),transparent);">
+        <div class="seal">门</div>
+        <div style="display:flex;gap:28px;align-items:center;">
+            <a href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer">源码</a>
+            <a href="/modelgate/user/login">登</a>
+        </div>
+    </nav>
+
+    <section class="hero-section">
+        <div style="position:relative;">
+            <div class="water-ripple" style="width:200px;height:200px;top:50%;left:50%;margin:-100px 0 0 -100px;animation-delay:0s;"></div>
+            <div class="water-ripple" style="width:200px;height:200px;top:50%;left:50%;margin:-100px 0 0 -100px;animation-delay:1s;"></div>
+            <div class="water-ripple" style="width:200px;height:200px;top:50%;left:50%;margin:-100px 0 0 -100px;animation-delay:2s;"></div>
+        </div>
+
+        <div style="position:relative;z-index:2;margin-bottom:40px;">
+            <div class="reveal reveal-d1 verse" style="font-size:clamp(22px,3.5vw,36px);">
+                万物流转
+            </div>
+        </div>
+        <div style="position:relative;z-index:2;margin-bottom:48px;">
+            <div class="reveal reveal-d2 verse" style="font-size:clamp(22px,3.5vw,36px);">
+                代码为尘
+            </div>
+        </div>
+
+        <div class="reveal reveal-d3 divider" style="margin-bottom:48px;"></div>
+
+        <div style="position:relative;z-index:2;margin-bottom:48px;">
+            <div class="reveal reveal-d4 verse" style="font-size:clamp(22px,3.5vw,36px);">
+                心静则明
+            </div>
+        </div>
+        <div style="position:relative;z-index:2;margin-bottom:60px;">
+            <div class="reveal reveal-d5 verse" style="font-size:clamp(22px,3.5vw,36px);">
+                境随念转
+            </div>
+        </div>
+
+        <div class="reveal reveal-d6 verse-en" style="font-size:clamp(14px,1.8vw,18px);color:var(--warm-gray);max-width:480px;margin-bottom:48px;">
+            All things flow, code like dust.<br>
+            Still the mind, clarity arises.<br>
+            The realm shifts with thought.
+        </div>
+
+        <div class="reveal reveal-d7">
+            <a href="#below" class="cta-link" style="font-size:13px;">
+                <span>往下走</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+            </a>
+        </div>
+    </section>
+
+    <div class="divider-long"></div>
+
+    <section class="content-section" id="below" style="padding-top:100px;">
+        <div class="reveal" style="text-align:center;margin-bottom:12px;">
+            <span style="font-family:var(--display);font-size:13px;letter-spacing:0.15em;text-transform:uppercase;color:var(--warm-muted);">ModelGate</span>
+        </div>
+        <h2 class="reveal" style="text-align:center;font-family:var(--serif);font-weight:300;font-size:clamp(20px,3vw,30px);letter-spacing:0.08em;margin-bottom:16px;">
+            以一驭万，大道至简
+        </h2>
+        <p class="reveal" style="text-align:center;color:var(--warm-gray);font-size:15px;max-width:520px;margin:0 auto 60px;line-height:2;font-weight:300;">
+            一个接口，接入全部模型。<br>不必择路，路自然开。
+        </p>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div style="font-size:24px;margin-bottom:16px;opacity:0.15;font-family:var(--mono);">01</div>
+                <h3 style="font-weight:400;font-size:16px;margin-bottom:10px;letter-spacing:0.04em;">多供应商路由</h3>
+                <p style="font-size:13px;color:var(--warm-gray);line-height:1.9;font-weight:300;">
+                    一行代码，接入所有模型供应商。无需切换，自动路由。
+                </p>
+            </div>
+            <div class="feature-card">
+                <div style="font-size:24px;margin-bottom:16px;opacity:0.15;font-family:var(--mono);">02</div>
+                <h3 style="font-weight:400;font-size:16px;margin-bottom:10px;letter-spacing:0.04em;">用量洞察</h3>
+                <p style="font-size:13px;color:var(--warm-gray);line-height:1.9;font-weight:300;">
+                    仪表盘与报告，洞见数据的流向。每一条请求，皆有迹可循。
+                </p>
+            </div>
+            <div class="feature-card">
+                <div style="font-size:24px;margin-bottom:16px;opacity:0.15;font-family:var(--mono);">03</div>
+                <h3 style="font-weight:400;font-size:16px;margin-bottom:10px;letter-spacing:0.04em;">密钥管控</h3>
+                <p style="font-size:13px;color:var(--warm-gray);line-height:1.9;font-weight:300;">
+                    API Key 全生命周期管理，时间规则，权限分明。
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider-long"></div>
+
+    <section class="content-section">
+        <div style="text-align:center;margin-bottom:56px;">
+            <span style="font-family:var(--serif);font-size:13px;letter-spacing:0.12em;color:var(--warm-muted);">流转不息</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px 64px;max-width:640px;margin:0 auto;text-align:center;">
+            <div>
+                <div style="font-size:12px;letter-spacing:0.12em;color:var(--warm-muted);margin-bottom:8px;">今日心念</div>
+                <div class="stat-value" id="stat-today-requests">—</div>
+            </div>
+            <div>
+                <div style="font-size:12px;letter-spacing:0.12em;color:var(--warm-muted);margin-bottom:8px;">心念总计</div>
+                <div class="stat-value" id="stat-requests">—</div>
+            </div>
+            <div>
+                <div style="font-size:12px;letter-spacing:0.12em;color:var(--warm-muted);margin-bottom:8px;">今日言语</div>
+                <div class="stat-value" id="stat-today-tokens">—</div>
+            </div>
+            <div>
+                <div style="font-size:12px;letter-spacing:0.12em;color:var(--warm-muted);margin-bottom:8px;">言语总计</div>
+                <div class="stat-value" id="stat-tokens">—</div>
+            </div>
+        </div>
+    </section>
+
+    <div class="divider-long"></div>
+
+    <section class="content-section">
+        <div style="text-align:center;">
+            <p class="verse" style="font-size:15px;color:var(--warm-gray);font-weight:300;margin-bottom:32px;">
+                不识庐山真面目，只缘身在此山中。
+            </p>
+            <a href="/modelgate/user/login" class="cta-link">
+                <span>入</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+    </section>
+
+    <div class="divider-long" style="margin-top:40px;"></div>
+
+    <footer class="footer-section">
+        <div class="seal" style="margin:0 auto 24px;transform:rotate(-8deg);">门</div>
+        <p style="font-size:12px;color:var(--warm-muted);letter-spacing:0.06em;font-family:var(--serif);margin-bottom:12px;">ModelGate</p>
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" style="font-size:11px;color:var(--warm-faint);text-decoration:none;letter-spacing:0.04em;font-family:var(--serif);">浙ICP备2026019680号-1</a>
+    </footer>
+
+    <script>
+        (function() {
+            var layer = document.getElementById('dust-layer');
+            for (var i = 0; i < 60; i++) {
+                var d = document.createElement('div');
+                d.className = 'dust';
+                var size = 1.5 + Math.random() * 3.5;
+                d.style.width = size + 'px';
+                d.style.height = size + 'px';
+                d.style.left = Math.random() * 100 + '%';
+                d.style.setProperty('--dur', (12 + Math.random() * 20) + 's');
+                d.style.setProperty('--delay', -(Math.random() * 25) + 's');
+                d.style.setProperty('--drift-x', (Math.random() - 0.5) * 100 + 'px');
+                d.style.setProperty('--drift-rot', (Math.random() * 360) + 'deg');
+                d.style.setProperty('--dust-alpha', (0.15 + Math.random() * 0.25).toFixed(2));
+                layer.appendChild(d);
+            }
+
+            function fmt(n) {
+                if (n == null) return '—';
+                return String(n);
+            }
+
+            fetch('/modelgate/api/public/stats')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    document.getElementById('stat-requests').textContent = fmt(data.total_requests);
+                    document.getElementById('stat-tokens').textContent = fmt(data.total_tokens);
+                    document.getElementById('stat-today-requests').textContent = fmt(data.today_requests);
+                    document.getElementById('stat-today-tokens').textContent = fmt(data.today_tokens);
+                })
+                .catch(function() {});
+
+            var observer = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        entry.target.style.animationPlayState = 'running';
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            document.querySelectorAll('.content-section .reveal').forEach(function(el) {
+                el.style.animationPlayState = 'paused';
+                observer.observe(el);
+            });
+        })();
+    </script>
+</body>
+</html>
