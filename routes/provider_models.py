@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from core.config import admin_logger, validate_session
 from core.database import async_session_maker, Provider, Model, ProviderModel
+from services.provider import load_providers
 
 router = APIRouter(prefix="/admin/api", tags=["provider-models"])
 
@@ -20,6 +21,7 @@ def require_admin(session: Optional[str] = Cookie(None)):
 class ProviderModelCreate(BaseModel):
     model_id: int
     model_name_override: Optional[str] = None
+    max_concurrent: Optional[int] = None
     is_active: bool = True
 
 
@@ -44,6 +46,7 @@ async def list_provider_models(provider_id: int, _: bool = Depends(require_admin
                         "model_name": model.name,
                         "display_name": model.display_name,
                         "model_name_override": pm.model_name_override,
+                        "max_concurrent": pm.max_concurrent,
                         "is_active": pm.is_active,
                     }
                 )
@@ -59,10 +62,12 @@ async def add_provider_model(
             provider_id=provider_id,
             model_id=data.model_id,
             model_name_override=data.model_name_override,
+            max_concurrent=data.max_concurrent,
             is_active=data.is_active,
         )
         session.add(pm)
         await session.commit()
+        await load_providers()
         return {"id": pm.id}
 
 
@@ -84,9 +89,12 @@ async def update_provider_model(
             return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
         if data.model_name_override is not None:
             pm.model_name_override = data.model_name_override
+        if data.max_concurrent is not None:
+            pm.max_concurrent = data.max_concurrent
         if data.is_active is not None:
             pm.is_active = data.is_active
         await session.commit()
+        await load_providers()
         return {"id": pm.id}
 
 
@@ -105,6 +113,7 @@ async def remove_provider_model(
             return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
         await session.delete(pm)
         await session.commit()
+        await load_providers()
         return {"deleted": True}
 
 
@@ -224,6 +233,7 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
                     synced.append(model_name)
 
                 await session.commit()
+                await load_providers()
                 return {"synced": synced, "total": len(synced)}
             except Exception as e:
                 admin_logger.error(f"[SYNC MODELS ERROR] {e}")

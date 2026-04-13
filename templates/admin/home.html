@@ -57,6 +57,12 @@
         body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
         body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
         body.theme-dark .ring-blue-500 { --tw-ring-color: rgba(96, 165, 250, 0.75) !important; }
+        .fd,.fs { display:inline-block; height:1em; line-height:1em; overflow:hidden; vertical-align:bottom; }
+        .fd { font-variant-numeric:tabular-nums; }
+        .fr { display:block; transition:transform .6s cubic-bezier(.25,1,.5,1) !important; }
+        .fc { display:block; height:1em; line-height:1em; text-align:center; }
+        .metric-flip { display:inline-flex; align-items:flex-end; min-height:1em; line-height:1; white-space:nowrap; }
+        @media(prefers-reduced-motion:reduce){ .fr{transition-duration:.01ms!important;} }
     </style>
 </head>
 <body class="theme-dark bg-gray-100 min-h-screen">
@@ -75,33 +81,33 @@
             <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
-                    <div id="total-requests" class="text-3xl font-bold text-blue-600">0</div>
+                    <div id="total-requests" class="metric-flip text-3xl font-bold leading-none text-blue-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Tokens') }}</div>
-                    <div id="total-tokens" class="text-3xl font-bold text-green-600">0</div>
+                    <div id="total-tokens" class="metric-flip text-3xl font-bold leading-none text-green-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Active Requests') }}</div>
-                    <div id="rps" class="text-3xl font-bold text-orange-600">0</div>
+                    <div id="rps" class="metric-flip text-3xl font-bold leading-none text-orange-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Tokens/s') }}</div>
-                    <div id="tps" class="text-3xl font-bold text-teal-600">0</div>
+                    <div id="tps" class="metric-flip text-3xl font-bold leading-none text-teal-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Errors/Timeouts/429') }}</div>
-                    <div class="flex items-baseline gap-1">
-                        <span id="total-errors" class="text-3xl font-bold text-red-600">0</span>
-                        <span class="text-gray-400 text-3xl">/</span>
-                        <span id="total-timeouts" class="text-3xl font-bold text-amber-600">0</span>
-                        <span class="text-gray-400 text-3xl">/</span>
-                        <span id="total-rate-limited" class="text-3xl font-bold text-sky-600">0</span>
+                    <div class="flex items-end gap-1 leading-none">
+                        <span id="total-errors" class="metric-flip text-3xl font-bold leading-none text-red-600">0</span>
+                        <span class="text-gray-400 text-3xl leading-none">/</span>
+                        <span id="total-timeouts" class="metric-flip text-3xl font-bold leading-none text-amber-600">0</span>
+                        <span class="text-gray-400 text-3xl leading-none">/</span>
+                        <span id="total-rate-limited" class="metric-flip text-3xl font-bold leading-none text-sky-600">0</span>
                     </div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>
-                    <div id="error-rate" class="text-3xl font-bold text-purple-600">0%</div>
+                    <div id="error-rate" class="metric-flip text-3xl font-bold leading-none text-purple-600">0%</div>
                 </div>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -188,15 +194,57 @@
             return await resp.json();
         }
         function changePeriod() { currentPeriod = document.getElementById('period-select').value; loadData(); }
+        function getCounterSkeleton(text) {
+            return String(text ?? '').replace(/\d/g, '#');
+        }
+        function flipCounter(elementId, newValue) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const newText = String(newValue);
+            const oldText = el.getAttribute('data-value') || '';
+            if (oldText === newText) return;
+            el.setAttribute('data-value', newText);
+            if (!oldText || getCounterSkeleton(oldText) !== getCounterSkeleton(newText)) {
+                el.textContent = newText;
+                return;
+            }
+            const oldD = oldText.replace(/[^\d]/g, '');
+            const newD = newText.replace(/[^\d]/g, '');
+            const len = Math.max(oldD.length, newD.length);
+            const paddedOld = oldD.padStart(len, 'X');
+            let html = '', dIdx = 0;
+            for (let i = 0; i < newText.length; i++) {
+                const ch = newText[i];
+                if (/\d/.test(ch)) {
+                    const target = parseInt(ch);
+                    const oldCh = paddedOld[dIdx];
+                    const start = (oldCh >= '0' && oldCh <= '9') ? parseInt(oldCh) : 0;
+                    html += '<span class="fd"><span class="fr" data-t="' + target + '" style="transform:translateY(-' + start + '0%)">';
+                    for (let d = 0; d <= 9; d++) html += '<span class="fc">' + d + '</span>';
+                    html += '</span></span>';
+                    dIdx++;
+                } else {
+                    html += '<span class="fs">' + ch + '</span>';
+                }
+            }
+            el.innerHTML = html;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    el.querySelectorAll('.fr').forEach(r => {
+                        r.style.transform = 'translateY(-' + r.dataset.t + '0%)';
+                    });
+                });
+            });
+        }
         async function loadData() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/period?period=` + currentPeriod);
-            document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
-            document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
-            document.getElementById('total-errors').textContent = data.total_errors;
-            document.getElementById('total-timeouts').textContent = data.total_timeouts;
-            document.getElementById('total-rate-limited').textContent = data.total_rate_limited || 0;
+            flipCounter('total-requests', data.total_requests.toLocaleString());
+            flipCounter('total-tokens', formatCompactTokens(data.total_tokens || 0));
+            flipCounter('total-errors', data.total_errors);
+            flipCounter('total-timeouts', data.total_timeouts);
+            flipCounter('total-rate-limited', data.total_rate_limited || 0);
             const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
-            document.getElementById('error-rate').textContent = errorRate + '%';
+            flipCounter('error-rate', errorRate + '%');
             renderProviderBars(data.providers || {});
             renderApiKeyBars(data.api_keys || {});
             loadChart();
@@ -297,10 +345,7 @@
         }
         async function loadChart() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/chart?period=` + currentPeriod);
-            const ctx = document.getElementById('trendChart').getContext('2d');
             const chartTheme = getChartTheme();
-            const scrollY = window.scrollY;
-            if (trendChart) trendChart.destroy();
             const requests = data.intervals.map(i => data.data[i]?.requests || 0);
             const rawTokens = data.intervals.map(i => data.data[i]?.tokens || 0);
             const errors = data.intervals.map(i => data.data[i]?.errors || 0);
@@ -310,6 +355,44 @@
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
             const tokenLabel = tokenScale.suffix ? `Tokens (${tokenScale.suffix})` : 'Tokens';
+
+            if (trendChart && trendChart.data.labels.length === data.intervals.length) {
+                trendChart.data.labels = data.intervals;
+                trendChart.data.datasets[0].data = requests;
+                trendChart.data.datasets[1].data = tokens;
+                trendChart.data.datasets[1].label = tokenLabel;
+                trendChart.data.datasets[2].data = errors;
+                trendChart.data.datasets[3].data = timeouts;
+                trendChart.data.datasets[4].data = rateLimited;
+                trendChart.options.scales.x.min = visibleRange.start;
+                trendChart.options.scales.x.max = visibleRange.end;
+                trendChart.options.scales.x.grid.color = chartTheme.gridColor;
+                trendChart.options.scales.x.ticks.color = chartTheme.tickColor;
+                trendChart.options.scales.yRequests.grid.color = chartTheme.gridColor;
+                trendChart.options.scales.yRequests.ticks.color = chartTheme.tickColor;
+                trendChart.options.scales.yRequests.title.color = chartTheme.titleColor;
+                trendChart.options.scales.yTokens.ticks.color = chartTheme.tickColor;
+                trendChart.options.scales.yTokens.title.text = tokenLabel;
+                trendChart.options.scales.yTokens.title.color = chartTheme.titleColor;
+                trendChart.options.plugins.legend.labels.color = chartTheme.legendColor;
+                trendChart.options.plugins.tooltip.backgroundColor = chartTheme.tooltipBg;
+                trendChart.options.plugins.tooltip.titleColor = chartTheme.tooltipTitle;
+                trendChart.options.plugins.tooltip.bodyColor = chartTheme.tooltipBody;
+                trendChart.options.plugins.tooltip.borderColor = chartTheme.tooltipBorder;
+                trendChart.options.plugins.tooltip.callbacks.label = function(context) {
+                    if (context.dataset.yAxisID === 'yTokens') {
+                        const rawValue = rawTokens[context.dataIndex] || 0;
+                        return `${tokenLabel}: ${formatCompactTokens(rawValue)} (${rawValue.toLocaleString()})`;
+                    }
+                    return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
+                };
+                trendChart.update('none');
+                return;
+            }
+
+            const scrollY = window.scrollY;
+            if (trendChart) trendChart.destroy();
+            const ctx = document.getElementById('trendChart').getContext('2d');
             trendChart = new Chart(ctx, {
                 data: {
                     labels: data.intervals,
@@ -390,6 +473,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
+                    animation: false,
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
@@ -445,10 +529,10 @@
         function renderLiveStats(data) {
             const activeRequests = data.active_requests || 0;
             const activeUsers = data.active_count ?? data.active_users ?? 0;
-            const tokensPerSecond = data.tokens_per_second || 0;
-            document.getElementById('rps').textContent = activeRequests;
-            document.getElementById('tps').textContent = tokensPerSecond.toLocaleString();
-            document.getElementById('active-count').textContent = activeUsers;
+            const tokensPerSecond = Math.round(data.tokens_per_second || 0);
+            flipCounter('rps', activeRequests);
+            flipCounter('tps', tokensPerSecond.toLocaleString());
+            flipCounter('active-count', activeUsers);
 
             if (activeUsers === 0) {
                 document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`;

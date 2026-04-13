@@ -120,6 +120,60 @@ msgstr "错误率"
 msgid "Slow Requests (>60s)"
 msgstr "慢请求 (>60秒)"
 
+msgid "Generate usage reports as reusable task pipelines with CSV, Markdown, and DOCX outputs"
+msgstr "将使用报告生成为可复用的任务流水线，先产出 CSV、Markdown，再装配 DOCX"
+
+msgid "Create Report Task"
+msgstr "创建报告任务"
+
+msgid "Task orchestration mode"
+msgstr "任务编排模式"
+
+msgid "Each report now runs as subtasks with retries, self-checks, and reusable artifacts before DOCX assembly."
+msgstr "每份报告都会先拆成可重试、可自检、可复用产物的子任务，再装配成最终 DOCX。"
+
+msgid "Template Preview"
+msgstr "模板预览"
+
+msgid "Loading template..."
+msgstr "正在加载模板..."
+
+msgid "Current Task"
+msgstr "当前任务"
+
+msgid "Artifacts"
+msgstr "产物"
+
+msgid "Task ID"
+msgstr "任务 ID"
+
+msgid "Attempts"
+msgstr "尝试次数"
+
+msgid "No artifacts yet"
+msgstr "暂无产物"
+
+msgid "No API Keys found"
+msgstr "未找到 API 密钥"
+
+msgid "Reusable outputs are generated first, then assembled into the final report."
+msgstr "系统会先生成可复用产物，再装配成最终报告。"
+
+msgid "Subtasks"
+msgstr "子任务"
+
+msgid "Planned Outputs"
+msgstr "计划产物"
+
+msgid "completed"
+msgstr "已完成"
+
+msgid "running"
+msgstr "进行中"
+
+msgid "failed"
+msgstr "失败"
+
 msgid "Login"
 msgstr "登录"
 
@@ -963,3 +1017,54 @@ msgstr "Tokens/s"
 
 msgid "Tokens"
 msgstr "Tokens"
+
+msgid "Usage Report"
+msgstr "使用报告"
+
+msgid "Generate Report"
+msgstr "生成报告"
+
+msgid "Start Date"
+msgstr "开始日期"
+
+msgid "End Date"
+msgstr "结束日期"
+
+msgid "Exclude Keys"
+msgstr "排除 Key"
+
+msgid "Generate"
+msgstr "生成"
+
+msgid "Generating report..."
+msgstr "正在生成报告..."
+
+msgid "Report History"
+msgstr "报告历史"
+
+msgid "No reports yet"
+msgstr "暂无报告"
+
+msgid "Select API Keys to Exclude"
+msgstr "选择要排除的 API Key"
+
+msgid "Confirm"
+msgstr "确认"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Download"
+msgstr "下载"
+
+msgid "Completed"
+msgstr "已完成"
+
+msgid "Running"
+msgstr "生成中"
+
+msgid "Failed"
+msgstr "失败"
+
+msgid "Pending"
+msgstr "等待中"

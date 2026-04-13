@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="baidu-site-verification" content="codeva-0hVPJ6H1HZ" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ModelGate</title>
+    <link rel="icon" href="/modelgate/favicon.ico" sizes="any">
+    <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?b4ffde061f8a692390379ea2bde40805";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #faf8f4;
+            --bg-warm: #f5f0e8;
+            --bg-card: #ffffff;
+            --bg-card-hover: #fefdfb;
+            --text: #1a1714;
+            --text-secondary: #4a4540;
+            --text-muted: #8a8580;
+            --text-faint: #b5b0a8;
+            --accent: #c2680a;
+            --accent-light: #e8982a;
+            --accent-bg: rgba(194, 104, 10, 0.06);
+            --accent-border: rgba(194, 104, 10, 0.12);
+            --border: rgba(26, 23, 20, 0.08);
+            --border-hover: rgba(26, 23, 20, 0.15);
+            --shadow-sm: 0 1px 2px rgba(26, 23, 20, 0.04);
+            --shadow-md: 0 4px 12px rgba(26, 23, 20, 0.06);
+            --shadow-lg: 0 8px 32px rgba(26, 23, 20, 0.08);
+            --serif: 'Playfair Display', 'Noto Serif SC', Georgia, serif;
+            --sans: 'Outfit', 'Noto Serif SC', system-ui, sans-serif;
+            --mono: 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes drawLine {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+
+        .fade-in-up {
+            opacity: 0;
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .delay-1 { animation-delay: 0.12s; }
+        .delay-2 { animation-delay: 0.24s; }
+        .delay-3 { animation-delay: 0.36s; }
+        .delay-4 { animation-delay: 0.48s; }
+
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            height: 64px;
+            background: rgba(250, 248, 244, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-inner {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .nav-brand-name {
+            font-family: var(--serif);
+            font-weight: 600;
+            font-size: 18px;
+            letter-spacing: -0.02em;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .nav-link {
+            font-size: 14px;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover { color: var(--text); }
+
+        .lang-select {
+            appearance: none;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 10px;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-family: var(--sans);
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .lang-select:hover {
+            border-color: var(--border-hover);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .hero {
+            padding-top: 160px;
+            padding-bottom: 80px;
+            position: relative;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 100px;
+            border: 1px solid var(--accent-border);
+            background: var(--accent-bg);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--accent);
+            letter-spacing: 0.02em;
+        }
+
+        .hero-badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        .hero-title {
+            font-family: var(--serif);
+            font-size: clamp(36px, 6vw, 64px);
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            font-weight: 600;
+            color: var(--text);
+            margin-top: 32px;
+            max-width: 680px;
+        }
+
+        .hero-desc {
+            margin-top: 24px;
+            font-size: 17px;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            max-width: 520px;
+            font-weight: 400;
+        }
+
+        .hero-actions {
+            margin-top: 36px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 28px;
+            font-size: 15px;
+            font-weight: 500;
+            font-family: var(--sans);
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .btn-primary {
+            background: var(--text);
+            color: var(--bg);
+            border: none;
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--border-hover);
+            color: var(--text);
+            background: var(--bg-card);
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .divider::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 1px;
+            width: 0;
+            background: var(--accent);
+            animation: drawLine 2s ease-out forwards;
+            animation-delay: 0.5s;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .stat-cell {
+            padding: 36px 32px;
+            text-align: center;
+            background: var(--bg-card);
+            transition: background 0.3s;
+        }
+
+        .stat-cell:first-child {
+            border-right: 1px solid var(--border);
+        }
+
+        .stat-cell:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .stat-number {
+            font-family: var(--serif);
+            font-variant-numeric: tabular-nums;
+            font-size: clamp(32px, 5vw, 44px);
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--text);
+            line-height: 1;
+        }
+
+        .stat-label {
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .section-title {
+            font-family: var(--serif);
+            font-size: clamp(24px, 3vw, 32px);
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--text);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        .feature-card {
+            padding: 32px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+        }
+
+        .feature-card:hover {
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .feature-number {
+            font-family: var(--serif);
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--accent);
+            letter-spacing: 0.04em;
+            margin-bottom: 20px;
+        }
+
+        .feature-title {
+            font-family: var(--serif);
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text-muted);
+        }
+
+        .quick-start {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .quick-start-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 28px;
+        }
+
+        .step-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .step-num {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: var(--accent-bg);
+            border: 1px solid var(--accent-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .code-box {
+            background: #1a1714;
+            border-radius: 10px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-box-label {
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: rgba(250, 248, 244, 0.35);
+            margin-bottom: 10px;
+        }
+
+        .code-box-value {
+            font-family: var(--mono);
+            font-size: 14px;
+            color: #e8982a;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+
+        .code-box-desc {
+            font-size: 13px;
+            line-height: 1.6;
+            color: rgba(250, 248, 244, 0.5);
+            font-family: var(--sans);
+        }
+
+        .code-box-link {
+            display: inline-flex;
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #e8982a;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .code-box-link:hover { color: #f0b040; }
+
+        .footer {
+            border-top: 1px solid var(--border);
+            padding: 28px 24px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-faint);
+        }
+
+        .footer a {
+            color: var(--text-faint);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer a:hover { color: var(--text-muted); }
+
+        .paper-texture {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c2680a' fill-opacity='0.015'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .accent-line {
+            width: 48px;
+            height: 3px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .scroll-reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 639px) {
+            .hero { padding-top: 120px; padding-bottom: 56px; }
+            .quick-start-grid { grid-template-columns: 1fr !important; }
+            .stats-grid { grid-template-columns: 1fr !important; }
+            .stat-cell:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+            .feature-card { padding: 24px; }
+            .quick-start { padding: 24px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .fade-in-up { animation: none; opacity: 1; }
+            .scroll-reveal { transition: none; opacity: 1; transform: none; }
+            .hero-badge-dot { animation: none; opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="paper-texture"></div>
+
+    <nav>
+        <div class="nav-inner">
+            <a href="#" class="nav-brand">
+                <img src="/modelgate/favicon.svg" alt="ModelGate" width="24" height="24">
+                <span class="nav-brand-name">ModelGate</span>
+            </a>
+            <div class="nav-right">
+                <a href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" class="nav-link">Gitee</a>
+                <select id="lang-select" class="lang-select">
+                    <option value="en">EN</option>
+                    <option value="zh">中文</option>
+                </select>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <section class="hero container">
+            <div class="fade-in-up">
+                <div class="hero-badge">
+                    <span class="hero-badge-dot"></span>
+                    <span id="badge-text"></span>
+                </div>
+            </div>
+
+            <h1 class="hero-title fade-in-up delay-1">
+                <span id="hero-line-1"></span><br>
+                <span id="hero-line-2" style="color: var(--accent);"></span>
+            </h1>
+
+            <p id="hero-desc" class="hero-desc fade-in-up delay-2"></p>
+
+            <div class="hero-actions fade-in-up delay-3">
+                <a id="user-login-btn" href="/modelgate/user/login" class="btn btn-primary"></a>
+                <a id="docs-btn" href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" class="btn btn-secondary"></a>
+            </div>
+        </section>
+
+        <div class="container">
+            <div class="divider scroll-reveal"></div>
+        </div>
+
+        <section class="container" style="padding-top: 56px; padding-bottom: 80px;">
+            <div class="stats-grid scroll-reveal">
+                <div class="stat-cell">
+                    <div class="stat-number" id="stat-requests">--</div>
+                    <div class="stat-label" id="stat-requests-label"></div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-number" id="stat-tokens">--</div>
+                    <div class="stat-label" id="stat-tokens-label"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="container" style="padding-bottom: 80px;">
+            <div class="scroll-reveal">
+                <div class="accent-line" style="margin-bottom: 20px;"></div>
+                <h2 id="features-title" class="section-title"></h2>
+            </div>
+            <div class="features-grid" style="margin-top: 32px;">
+                <div class="feature-card scroll-reveal">
+                    <div class="feature-number">01</div>
+                    <h3 id="feat-1-title" class="feature-title"></h3>
+                    <p id="feat-1-desc" class="feature-desc"></p>
+                </div>
+                <div class="feature-card scroll-reveal">
+                    <div class="feature-number">02</div>
+                    <h3 id="feat-2-title" class="feature-title"></h3>
+                    <p id="feat-2-desc" class="feature-desc"></p>
+                </div>
+                <div class="feature-card scroll-reveal">
+                    <div class="feature-number">03</div>
+                    <h3 id="feat-3-title" class="feature-title"></h3>
+                    <p id="feat-3-desc" class="feature-desc"></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="container" style="padding-bottom: 80px;">
+            <div class="quick-start scroll-reveal">
+                <div class="accent-line" style="margin-bottom: 16px;"></div>
+                <h2 id="quick-start-title" class="section-title"></h2>
+                <div class="quick-start-grid">
+                    <ol class="step-list" id="steps-list"></ol>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div class="code-box">
+                            <div class="code-box-label" id="base-url-label"></div>
+                            <code class="code-box-value" id="base-url-value"></code>
+                        </div>
+                        <div class="code-box">
+                            <div class="code-box-label">OpenCode</div>
+                            <p id="opencode-desc" class="code-box-desc"></p>
+                            <a id="opencode-link" href="https://opencode.ai/" target="_blank" rel="noreferrer" class="code-box-link"></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">浙ICP备2026019680号-1</a>
+    </footer>
+
+    <script>
+        var APP_BASE_PATH = "/modelgate";
+        var translations = {
+            en: {
+                badge: "Open-source LLM Gateway",
+                heroLine1: "One gateway.",
+                heroLine2: "Every model.",
+                heroDesc: "An LLM intelligent routing gateway for developers. One interface to access all models. Define intelligence with code, create the world with intelligence.",
+                userLogin: "Get Started",
+                docsBtn: "View Source",
+                totalRequests: "Total Requests",
+                totalTokens: "Tokens Consumed",
+                featuresTitle: "Designed for Developers",
+                feat1Title: "Multi-Provider Proxy",
+                feat1Desc: "Route requests to Zhipu, DeepSeek, Ollama, Minimax and more through a single OpenAI-compatible API.",
+                feat2Title: "Usage Analytics",
+                feat2Desc: "Real-time dashboards with per-provider, per-model, and per-key metrics and monitoring.",
+                feat3Title: "Access Control",
+                feat3Desc: "API key management with granular model-level permissions and concurrency limits.",
+                quickStart: "Quick Start",
+                step1: "Sign in with an API key",
+                step2: "Check /v1/models for available models",
+                step3: "Generate OpenCode config if needed",
+                step4: "Monitor usage via admin panel",
+                baseUrl: "Base URL",
+                opencodeDesc: "Generate OpenCode configuration from the dashboard.",
+                visitOpenCode: "Visit OpenCode \u2192"
+            },
+            zh: {
+                badge: "\u5F00\u6E90 LLM \u7F51\u5173",
+                heroLine1: "\u4E00\u4E2A\u7F51\u5173\uFF0C",
+                heroLine2: "\u5168\u90E8\u6A21\u578B\u3002",
+                heroDesc: "\u9762\u5411\u5F00\u53D1\u8005\u7684 LLM \u667A\u80FD\u8DEF\u7531\u7F51\u5173\u3002\u4E00\u4E2A\u63A5\u53E3\uFF0C\u63A5\u5165\u5168\u90E8\u6A21\u578B\u3002\u7528\u4EE3\u7801\u5B9A\u4E49\u667A\u80FD\uFF0C\u7528\u667A\u80FD\u521B\u9020\u4E16\u754C\u3002",
+                userLogin: "\u5F00\u59CB\u4F7F\u7528",
+                docsBtn: "\u67E5\u770B\u6E90\u7801",
+                totalRequests: "\u603B\u8C03\u7528\u91CF",
+                totalTokens: "\u6D88\u8017 Tokens",
+                featuresTitle: "\u4E3A\u5F00\u53D1\u8005\u800C\u8BBE\u8BA1",
+                feat1Title: "\u591A\u4F9B\u5E94\u5546\u4EE3\u7406",
+                feat1Desc: "\u901A\u8FC7\u5355\u4E2A OpenAI \u517C\u5BB9 API \u8F6C\u53D1\u8BF7\u6C42\u81F3\u667A\u8C31\u3001DeepSeek\u3001Ollama\u3001Minimax \u7B49\u3002",
+                feat2Title: "\u4F7F\u7528\u5206\u6790",
+                feat2Desc: "\u5B9E\u65F6\u4EEA\u8868\u76D8\uFF0C\u6309\u4F9B\u5E94\u5546\u3001\u6A21\u578B\u3001\u5BC6\u94A5\u7EF4\u5EA6\u76D1\u63A7\u3002",
+                feat3Title: "\u8BBF\u95EE\u63A7\u5236",
+                feat3Desc: "API Key \u7BA1\u7406\uFF0C\u7EC6\u7C92\u5EA6\u6A21\u578B\u7EA7\u6743\u9650\u548C\u5E76\u53D1\u9650\u5236\u3002",
+                quickStart: "\u5FEB\u901F\u5F00\u59CB",
+                step1: "\u4F7F\u7528 API Key \u767B\u5F55",
+                step2: "\u901A\u8FC7 /v1/models \u786E\u8BA4\u53EF\u7528\u6A21\u578B",
+                step3: "\u5982\u9700\u8981\uFF0C\u751F\u6210 OpenCode \u914D\u7F6E",
+                step4: "\u901A\u8FC7\u7BA1\u7406\u9762\u677F\u67E5\u770B\u76D1\u63A7",
+                baseUrl: "Base URL",
+                opencodeDesc: "\u4ECE\u4EEA\u8868\u76D8\u751F\u6210 OpenCode \u914D\u7F6E\u3002",
+                visitOpenCode: "\u8BBF\u95EE OpenCode \u2192"
+            }
+        };
+
+        function readCookie(name) {
+            var cookies = document.cookie.split(";").map(function(item) { return item.trim(); });
+            var found = cookies.find(function(item) { return item.startsWith(name + "="); });
+            return found ? decodeURIComponent(found.split("=")[1]) : "";
+        }
+
+        function getCurrentLang() {
+            var cookieLang = readCookie("lang");
+            if (cookieLang === "zh" || cookieLang === "en") return cookieLang;
+            return navigator.language && navigator.language.toLowerCase().includes("zh") ? "zh" : "en";
+        }
+
+        function formatNumber(n) {
+            if (n == null) return '-';
+            return n.toLocaleString();
+        }
+
+        function applyLang(lang) {
+            var t = translations[lang] || translations.en;
+            document.documentElement.lang = lang;
+            document.getElementById("lang-select").value = lang;
+            document.getElementById("badge-text").textContent = t.badge;
+            document.getElementById("hero-line-1").textContent = t.heroLine1;
+            document.getElementById("hero-line-2").textContent = t.heroLine2;
+            document.getElementById("hero-desc").textContent = t.heroDesc;
+            document.getElementById("user-login-btn").textContent = t.userLogin;
+            document.getElementById("docs-btn").textContent = t.docsBtn;
+            document.getElementById("stat-requests-label").textContent = t.totalRequests;
+            document.getElementById("stat-tokens-label").textContent = t.totalTokens;
+            document.getElementById("features-title").textContent = t.featuresTitle;
+            document.getElementById("feat-1-title").textContent = t.feat1Title;
+            document.getElementById("feat-1-desc").textContent = t.feat1Desc;
+            document.getElementById("feat-2-title").textContent = t.feat2Title;
+            document.getElementById("feat-2-desc").textContent = t.feat2Desc;
+            document.getElementById("feat-3-title").textContent = t.feat3Title;
+            document.getElementById("feat-3-desc").textContent = t.feat3Desc;
+            document.getElementById("quick-start-title").textContent = t.quickStart;
+            document.getElementById("steps-list").innerHTML =
+                '<li class="step-item"><span class="step-num">1</span><span>' + t.step1 + '</span></li>' +
+                '<li class="step-item"><span class="step-num">2</span><span>' + t.step2 + '</span></li>' +
+                '<li class="step-item"><span class="step-num">3</span><span>' + t.step3 + '</span></li>' +
+                '<li class="step-item"><span class="step-num">4</span><span>' + t.step4 + '</span></li>';
+            document.getElementById("base-url-label").textContent = t.baseUrl;
+            document.getElementById("base-url-value").textContent = window.location.origin + APP_BASE_PATH + "/v1";
+            document.getElementById("opencode-desc").textContent = t.opencodeDesc;
+            document.getElementById("opencode-link").textContent = t.visitOpenCode;
+        }
+
+        function refreshStats() {
+            fetch('https://leturx.cc/modelgate/api/public/stats')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    document.getElementById('stat-requests').textContent = formatNumber(data.total_requests);
+                    document.getElementById('stat-tokens').textContent = formatNumber(data.total_tokens);
+                })
+                .catch(function() {
+                    document.getElementById('stat-requests').textContent = '-';
+                    document.getElementById('stat-tokens').textContent = '-';
+                });
+        }
+
+        document.getElementById("lang-select").addEventListener("change", function(event) {
+            var lang = event.target.value;
+            document.cookie = "lang=" + lang + ";path=/;max-age=31536000";
+            applyLang(lang);
+        });
+
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.scroll-reveal').forEach(function(el) {
+            observer.observe(el);
+        });
+
+        applyLang(getCurrentLang());
+        refreshStats();
+        setInterval(refreshStats, 600000);
+    </script>
+</body>
+</html>

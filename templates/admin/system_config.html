@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ '系统设置' if current_locale == 'zh' else 'System Config' }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <style>
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #1f2937 !important; }
+        body.theme-dark .bg-gray-200 { background: #2d3748 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t { border-color: #1f2937 !important; }
+        body.theme-dark input,
+        body.theme-dark select,
+        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right: 3px solid #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .bar { height: 6px; border-radius: 3px; background: #3b82f6; transition: width 0.5s ease; }
+        body.theme-dark .bar { background: #60a5fa; }
+    </style>
+</head>
+<body class="theme-dark bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header('系统设置' if current_locale == 'zh' else 'System Config') %}{% endcall %}
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-semibold mb-4">{{ _('Proxy User-Agent') }}</h2>
+                    <p class="text-xs text-gray-500 mb-1">{{ _('Current outbound UA (used for all proxy requests)') }}</p>
+                    <input id="ua-input" class="w-full border rounded px-3 py-2 text-sm font-mono mb-3" placeholder="User-Agent">
+                    <div id="default-ua-hint" class="text-xs text-gray-400 mb-3"></div>
+                    <div class="flex gap-2">
+                        <button onclick="saveUA()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
+                        <button onclick="resetUA()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm">{{ _('Reset to Default') }}</button>
+                    </div>
+                    <div id="ua-msg" class="mt-3 text-sm hidden"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-semibold mb-1">{{ _('Today\'s Client UA') }}</h2>
+                    <p class="text-xs text-gray-500 mb-4">{{ _('Top user agents making requests today') }}</p>
+                    <div id="ua-list" class="space-y-3 text-sm"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script>
+        const APP_BASE_PATH = "{{ app_base_path }}";
+        const SYSTEM_CONFIG_I18N = {
+            lightMode: '{{ _("Light Mode") }}',
+            darkMode: '{{ _("Dark Mode") }}',
+        };
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'dark';
+        }
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? SYSTEM_CONFIG_I18N.lightMode : SYSTEM_CONFIG_I18N.darkMode;
+        }
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+        }
+        applyTheme(getThemeMode());
+        async function loadConfig() {
+            const r = await fetch(APP_BASE_PATH + '/admin/api/system/config');
+            const d = await r.json();
+            document.getElementById('ua-input').value = d.ua_override;
+            document.getElementById('default-ua-hint').textContent = '{{ _('Default') }}: ' + d.default_ua;
+        }
+        async function saveUA() {
+            const ua = document.getElementById('ua-input').value.trim();
+            const r = await fetch(APP_BASE_PATH + '/admin/api/system/config', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ua_override: ua})
+            });
+            const d = await r.json();
+            const msg = document.getElementById('ua-msg');
+            if (r.ok) {
+                msg.textContent = '{{ _('Saved') }}: ' + d.ua_override;
+                msg.className = 'mt-3 text-sm text-green-600';
+            } else {
+                msg.textContent = d.detail || '{{ _('Save failed') }}';
+                msg.className = 'mt-3 text-sm text-red-600';
+            }
+        }
+        async function resetUA() {
+            document.getElementById('ua-input').value = document.getElementById('default-ua-hint').textContent.replace('{{ _('Default') }}: ', '');
+            await saveUA();
+        }
+        async function loadUAStats() {
+            const r = await fetch(APP_BASE_PATH + '/admin/api/system/ua-stats?limit=15');
+            const d = await r.json();
+            const list = document.getElementById('ua-list');
+            if (!d.items.length) {
+                list.innerHTML = '<div class="text-gray-400">{{ _('No data today') }}</div>';
+                return;
+            }
+            list.innerHTML = d.items.map(item => `
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="truncate font-mono text-gray-300" title="${item.ua}">${item.ua}</span>
+                        <span class="text-gray-400 ml-2 shrink-0">${item.count.toLocaleString()} <span class="text-gray-500">(${item.pct}%)</span></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded"><div class="bar" style="width:${item.pct}%"></div></div>
+                </div>
+            `).join('');
+        }
+        loadConfig();
+        loadUAStats();
+    </script>
+</body>
+</html>

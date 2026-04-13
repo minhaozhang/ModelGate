@@ -1,11 +1,10 @@
 from typing import Optional
+
 from fastapi import APIRouter, Cookie, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 
 from core.app_paths import build_app_url
 from core.config import admin_users, validate_session
-from core.database import async_session_maker, ApiKey
 from core.i18n import render
 
 router = APIRouter(prefix="/admin", tags=["pages"])
@@ -100,8 +99,8 @@ async def mobile_home_page(request: Request, session: Optional[str] = Cookie(Non
     return HTMLResponse(content=render(request, "admin/mobile_home.html"))
 
 
-@router.get("/usage", response_class=HTMLResponse)
-async def usage_page(request: Request, session: Optional[str] = Cookie(None)):
+@router.get("/reports", response_class=HTMLResponse)
+async def reports_page(request: Request, session: Optional[str] = Cookie(None)):
     if not _check_auth(session):
         return RedirectResponse(url=build_app_url(request, "/admin/login"))
-    return HTMLResponse(content=render(request, "admin/usage.html"))
+    return HTMLResponse(content=render(request, "admin/reports.html"))

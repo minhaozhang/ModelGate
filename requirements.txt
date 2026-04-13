@@ -11,3 +11,4 @@ jinja2
 babel
 mcp[cli]
 qrcode
+python-docx>=1.1.0

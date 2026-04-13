@@ -12,10 +12,12 @@ from core.config import (
     api_keys_cache,
     finish_active_request,
     update_stats,
+    record_request_rate,
     logger,
     error_logger,
     provider_semaphores,
     register_active_request,
+    OUTBOUND_USER_AGENT,
 )
 from core.log_sanitizer import (
     sanitize_headers_for_log,
@@ -27,6 +29,7 @@ from core.database import async_session_maker, ApiKey
 from services.provider import (
     get_provider_and_model,
     get_model_config,
+    get_or_create_provider_semaphore,
 )
 from services.auth import validate_api_key
 from services.logging import (
@@ -48,11 +51,11 @@ from services.sse import normalize_sse_stream
 
 REPEATED_CHUNK_LIMIT = 10
 PROVIDER_REQUEST_TIMEOUT_SECONDS = 600.0
-OUTBOUND_USER_AGENT = "opencode/1.3.13 ai-sdk/provider-utils/4.0.21 runtime/bun/1.3.11"
 INTERNAL_ANALYSIS_API_KEY_ID = 1
 INTERNAL_ANALYSIS_CLIENT_IP = "internal"
 INTERNAL_ANALYSIS_USER_AGENT = "modelgate/internal-analysis"
 SEMAPHORE_RETRY_AFTER_SECONDS = 5
+SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS = 1
 RATE_LIMITED_STATUS = "rate_limited"
 
 
@@ -85,9 +88,7 @@ def _is_rate_limited_status(status_code: int) -> bool:
     return status_code in (429, 529)
 
 
-def _resolve_request_status(
-    status_code: int, provider_error: str | None = None
-) -> str:
+def _resolve_request_status(status_code: int, provider_error: str | None = None) -> str:
     if _is_rate_limited_status(status_code):
         return RATE_LIMITED_STATUS
     if status_code >= 400 or provider_error:
@@ -131,21 +132,19 @@ async def proxy_request(request: Request, endpoint: str):
             "model_not_found",
         )
 
-    semaphore = provider_semaphores.get(provider_name)
-    if semaphore is None:
-        max_concurrent = provider_config.get("max_concurrent", 3)
-        semaphore = asyncio.Semaphore(max_concurrent)
-        provider_semaphores[provider_name] = semaphore
+    sem_key, semaphore = get_or_create_provider_semaphore(
+        provider_name, actual_model, provider_config
+    )
 
     acquired = False
     try:
-        await asyncio.wait_for(semaphore.acquire(), timeout=0.001)
+        await asyncio.wait_for(
+            semaphore.acquire(), timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS
+        )
         acquired = True
     except asyncio.TimeoutError:
-        message = (
-            f"Provider '{provider_name}' is at max concurrency, please retry later"
-        )
-        logger.warning(f"[RATE LIMIT] Provider {provider_name} at max concurrency")
+        message = f"Provider '{provider_name}/{actual_model}' is at max concurrency, please retry later"
+        logger.warning(f"[RATE LIMIT] {sem_key} at max concurrency")
         update_stats(
             provider_name,
             actual_model,
@@ -346,15 +345,15 @@ async def call_internal_model_via_proxy(
             "error": f"Unknown provider for model: {requested_model}",
         }
 
-    semaphore = provider_semaphores.get(provider_name)
-    if semaphore is None:
-        max_concurrent = provider_config.get("max_concurrent", 3)
-        semaphore = asyncio.Semaphore(max_concurrent)
-        provider_semaphores[provider_name] = semaphore
+    sem_key, semaphore = get_or_create_provider_semaphore(
+        provider_name, actual_model, provider_config
+    )
 
     acquired = False
     try:
-        await asyncio.wait_for(semaphore.acquire(), timeout=0.001)
+        await asyncio.wait_for(
+            semaphore.acquire(), timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS
+        )
         acquired = True
     except asyncio.TimeoutError:
         update_stats(
@@ -376,7 +375,7 @@ async def call_internal_model_via_proxy(
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=estimate_request_context_tokens(req_body),
-            error=f"Provider '{provider_name}' reached max concurrency",
+            error=f"'{sem_key}' reached max concurrency",
         )
         return {
             "ok": False,
@@ -384,7 +383,7 @@ async def call_internal_model_via_proxy(
             "actual_model_name": actual_model,
             "status_code": 429,
             "payload": None,
-            "error": f"Provider '{provider_name}' reached max concurrency",
+            "error": f"'{sem_key}' reached max concurrency",
         }
 
     try:
@@ -454,6 +453,8 @@ async def call_internal_model_via_proxy(
             is_error=is_error,
             is_rate_limited=request_status == RATE_LIMITED_STATUS,
         )
+        if not is_error and total_tokens > 0:
+            record_request_rate(total_tokens, latency)
         log_response_meta(provider_name, actual_model, response_meta)
         await log_request(
             provider_name,
@@ -651,14 +652,20 @@ def _normalize_upstream_error(
         return json.dumps(resp_json).encode()
     provider_error = _extract_provider_error(resp_json)
     if provider_error:
-        error_type = "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
+        error_type = (
+            "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
+        )
         return json.dumps(_openai_error(provider_error, error_type)).encode()
     if raw_error_text:
-        error_type = "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
+        error_type = (
+            "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
+        )
         return json.dumps(_openai_error(raw_error_text, error_type)).encode()
     if resp_json:
         return json.dumps(resp_json).encode()
-    error_type = "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
+    error_type = (
+        "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
+    )
     return json.dumps(
         _openai_error(f"Upstream request failed with status {status_code}", error_type)
     ).encode()
@@ -726,6 +733,7 @@ async def _record_stream_result(
 
     if status == "success":
         update_stats(provider, model, total_tokens, api_key_id=api_key_id)
+        record_request_rate(total_tokens, latency)
         updated = await update_request_log(
             log_id,
             response=total_content,
@@ -806,7 +814,11 @@ async def _record_stream_result(
                 request_context_tokens=request_context_tokens,
                 error=str(error) if error is not None else None,
             )
-        log_fn = error_logger.warning if status == RATE_LIMITED_STATUS else error_logger.error
+        log_fn = (
+            error_logger.warning
+            if status == RATE_LIMITED_STATUS
+            else error_logger.error
+        )
         log_fn(
             f"[STREAM ERROR] Provider: {provider}, Model: {model}\n"
             f"  Error: {type(error).__name__ if error else 'Unknown'}: {sanitize_text_for_log(error)}\n"
@@ -902,6 +914,8 @@ async def handle_normal(
             is_error=is_error,
             is_rate_limited=request_status == RATE_LIMITED_STATUS,
         )
+        if not is_error and total_tokens > 0:
+            record_request_rate(total_tokens, latency)
         log_response_meta(provider, model, response_meta)
         await log_request(
             provider,
@@ -1053,7 +1067,11 @@ async def handle_streaming(
             await client.aclose()
             if is_active_request_registered:
                 await finish_active_request(request_id)
-            log_fn = error_logger.warning if request_status == RATE_LIMITED_STATUS else error_logger.error
+            log_fn = (
+                error_logger.warning
+                if request_status == RATE_LIMITED_STATUS
+                else error_logger.error
+            )
             log_fn(
                 f"[STREAM ERROR] Provider: {provider}, Model: {model}, Status: {resp.status_code}\n"
                 f"  Response: {sanitize_text_for_log(error_text)}"

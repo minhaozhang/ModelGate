@@ -1,0 +1,518 @@
+{% set active_page = 'reports' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('Usage Report') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 9999px;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-top-color: #3b82f6;
+            animation: spin 0.9s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .bg-blue-50 { background: rgba(37, 99, 235, 0.12) !important; }
+        body.theme-dark .bg-emerald-50 { background: rgba(16, 185, 129, 0.12) !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .border-gray-200 { border-color: #1f2937 !important; }
+        body.theme-dark input,
+        body.theme-dark select { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-600):not(.bg-blue-500):not(.bg-emerald-600) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark #exclude-modal > div { background: #0f172a !important; }
+        body.theme-dark #exclude-modal label { color: #e5e7eb !important; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header(_('Usage Report'), _("Generate usage reports as reusable task pipelines with CSV, Markdown, and DOCX outputs")) %}{% endcall %}
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+                <section class="xl:col-span-2 bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ _('Create Report Task') }}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">{{ _('Start Date') }}</label>
+                            <input type="date" id="start-date" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">{{ _('End Date') }}</label>
+                            <input type="date" id="end-date" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full">
+                        </div>
+                        <div>
+                            <button id="exclude-btn" onclick="openExcludeModal()" class="w-full border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">
+                                {{ _('Exclude Keys') }}
+                                <span id="exclude-count" class="ml-1 bg-gray-200 text-gray-700 text-xs font-semibold px-1.5 py-0.5 rounded-full hidden">0</span>
+                            </button>
+                        </div>
+                        <div>
+                            <button id="generate-btn" onclick="generateReport()" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm inline-flex items-center justify-center gap-2">
+                                <span id="generate-spinner" class="spinner hidden"></span>
+                                <span id="generate-btn-text">{{ _('Generate') }}</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-gray-700">
+                        <div class="font-medium text-gray-800">{{ _('Task orchestration mode') }}</div>
+                        <div class="mt-1">{{ _('Each report now runs as subtasks with retries, self-checks, and reusable artifacts before DOCX assembly.') }}</div>
+                    </div>
+                </section>
+
+                <section class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">{{ _('Template Preview') }}</h3>
+                    <div id="template-card" class="text-sm text-gray-500">{{ _('Loading template...') }}</div>
+                </section>
+            </div>
+
+            <section id="current-task-area" class="hidden bg-white rounded-lg shadow p-6 mb-6">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">{{ _('Current Task') }}</h3>
+                        <div id="current-task-meta" class="text-sm text-gray-500 mt-1"></div>
+                    </div>
+                    <div id="current-task-status" class="text-xs font-semibold rounded px-2 py-1 bg-yellow-100 text-yellow-700"></div>
+                </div>
+                <div id="current-task-subtasks" class="mt-4 space-y-3"></div>
+                <div class="mt-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">{{ _('Artifacts') }}</h4>
+                    <div id="current-task-artifacts" class="space-y-2"></div>
+                </div>
+            </section>
+
+            <section class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ _('Report History') }}</h3>
+                <div id="history-empty" class="hidden text-sm text-gray-500">{{ _('No reports yet') }}</div>
+                <div id="history-list" class="space-y-3"></div>
+            </section>
+        </main>
+    </div>
+
+    <div id="exclude-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background:rgba(0,0,0,0.5)">
+        <div class="bg-white rounded-xl shadow-2xl w-96 max-h-[70vh] flex flex-col" style="margin:1rem">
+            <div class="p-5 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">{{ _('Select API Keys to Exclude') }}</h3>
+            </div>
+            <div id="exclude-list" class="flex-1 overflow-y-auto p-4 space-y-2">
+                <div class="text-sm text-gray-400 text-center py-4">{{ _('Loading template...') }}</div>
+            </div>
+            <div class="p-4 border-t border-gray-200 flex justify-end gap-3">
+                <button onclick="closeExcludeModal()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">{{ _('Cancel') }}</button>
+                <button onclick="confirmExclude()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">{{ _('Confirm') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE = {{ app_base_path | tojson }};
+        const DEFAULT_TEMPLATE = { steps: [], outputs: [] };
+        window.I18N = {
+            lightMode: {{ _('Light Mode') | tojson }},
+            darkMode: {{ _('Dark Mode') | tojson }},
+            generateReport: {{ _('Generate') | tojson }},
+            alreadyRunning: {{ _('A report is already being generated. Please wait.') | tojson }},
+            generateFailed: {{ _('Failed to generate report') | tojson }},
+            noReports: {{ _('No reports yet') | tojson }},
+            download: {{ _('Download') | tojson }},
+            createdAt: {{ _('Created At') | tojson }},
+            dateRange: {{ _('Date Range') | tojson }},
+            status: {{ _('Status') | tojson }},
+            taskId: {{ _('Task ID') | tojson }},
+            attempts: {{ _('Attempts') | tojson }},
+            artifacts: {{ _('Artifacts') | tojson }},
+            noArtifacts: {{ _('No artifacts yet') | tojson }},
+            noApiKeysFound: {{ _('No API Keys found') | tojson }},
+            pleaseSelectDates: {{ _('Please select start and end dates') | tojson }},
+            runningTaskLoaded: {{ _('Existing running task loaded') | tojson }},
+            currentTask: {{ _('Current Task') | tojson }},
+            taskTemplate: {{ _('Template Preview') | tojson }},
+            loadingTemplate: {{ _('Loading template...') | tojson }},
+            stepOutputs: {{ _('Step Outputs') | tojson }},
+            reportsSummary: {{ _('Reusable outputs are generated first, then assembled into the final report.') | tojson }},
+            completed: {{ _('completed') | tojson }},
+            running: {{ _('running') | tojson }},
+            failed: {{ _('failed') | tojson }},
+            pending: {{ _('pending') | tojson }},
+        };
+
+        let excludeIds = [];
+        let allKeys = [];
+        let pollTimer = null;
+        let historyRefreshTimer = null;
+        let currentTaskId = null;
+        let reportTemplate = DEFAULT_TEMPLATE;
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'dark';
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
+        }
+
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+        }
+
+        applyTheme(getThemeMode());
+
+        function switchLang(lang) {
+            document.cookie = "lang=" + lang + ";path=/;max-age=31536000";
+            window.location.reload();
+        }
+
+        async function logout() {
+            await fetch(`${BASE}/admin/api/auth/logout`, { method: 'POST' });
+            window.location.href = `${BASE}/admin/login`;
+        }
+
+        async function fetchJsonOrRedirect(url, opts) {
+            const response = await fetch(url, opts);
+            if (response.status === 401) {
+                window.location.href = `${BASE}/admin/login`;
+                return null;
+            }
+            return response.json();
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function statusBadge(status) {
+            if (status === 'success') return 'bg-green-100 text-green-700';
+            if (status === 'failed') return 'bg-red-100 text-red-700';
+            if (status === 'running' || status === 'retrying') return 'bg-blue-100 text-blue-700';
+            return 'bg-gray-100 text-gray-700';
+        }
+
+        function updateExcludeBadge() {
+            const badge = document.getElementById('exclude-count');
+            if (excludeIds.length > 0) {
+                badge.textContent = excludeIds.length;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        async function loadTemplate() {
+            const data = await fetchJsonOrRedirect(`${BASE}/admin/api/reports/usage/template`);
+            reportTemplate = data?.template || DEFAULT_TEMPLATE;
+            renderTemplateCard(reportTemplate);
+        }
+
+        function renderTemplateCard(template) {
+            const steps = (template.steps || []).map(step => `<li>${escapeHtml(step.label)} <span class="text-gray-400">(${step.max_attempts}x)</span></li>`).join('');
+            const outputs = (template.outputs || []).map(item => `<span class="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-700">${escapeHtml(item)}</span>`).join(' ');
+            document.getElementById('template-card').innerHTML = `
+                <div class="rounded-lg border border-gray-200 p-4">
+                    <div class="text-sm font-semibold text-gray-800">${escapeHtml(template.name || 'Usage Report')}</div>
+                    <div class="mt-1 text-xs text-gray-500">${escapeHtml(template.id || '')} @ ${escapeHtml(template.version || '')}</div>
+                    <p class="mt-3 text-sm text-gray-600">${escapeHtml(template.description || window.I18N.reportsSummary)}</p>
+                    <div class="mt-4">
+                        <div class="text-xs font-semibold text-gray-700 mb-2">{{ _('Subtasks') }}</div>
+                        <ol class="space-y-1 text-sm text-gray-600 list-decimal list-inside">${steps || '<li>-</li>'}</ol>
+                    </div>
+                    <div class="mt-4">
+                        <div class="text-xs font-semibold text-gray-700 mb-2">{{ _('Planned Outputs') }}</div>
+                        <div class="flex flex-wrap gap-2">${outputs || '<span class="text-gray-400">-</span>'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadKeys() {
+            try {
+                const data = await fetchJsonOrRedirect(`${BASE}/admin/api/keys`);
+                if (!data) return;
+                allKeys = Array.isArray(data) ? data : (data.keys || []);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function openExcludeModal() {
+            const listEl = document.getElementById('exclude-list');
+            if (allKeys.length === 0) {
+                await loadKeys();
+            }
+            if (allKeys.length === 0) {
+                listEl.innerHTML = `<div class="text-sm text-gray-500">${escapeHtml(window.I18N.noApiKeysFound)}</div>`;
+            } else {
+                listEl.innerHTML = allKeys.map(key => {
+                    const checked = excludeIds.includes(key.id) ? 'checked' : '';
+                    return `<label class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer text-sm text-gray-700">
+                        <input type="checkbox" class="exclude-checkbox" data-key-id="${key.id}" ${checked}>
+                        <span>${escapeHtml(key.name || key.key_prefix || key.id)}</span>
+                    </label>`;
+                }).join('');
+            }
+            document.getElementById('exclude-modal').classList.remove('hidden');
+        }
+
+        function closeExcludeModal() {
+            document.getElementById('exclude-modal').classList.add('hidden');
+        }
+
+        function confirmExclude() {
+            const checkboxes = document.querySelectorAll('.exclude-checkbox:checked');
+            excludeIds = Array.from(checkboxes).map(cb => parseInt(cb.dataset.keyId, 10));
+            updateExcludeBadge();
+            closeExcludeModal();
+        }
+
+        function renderSubtasks(subtasks) {
+            if (!Array.isArray(subtasks) || subtasks.length === 0) {
+                return `<div class="text-sm text-gray-400">-</div>`;
+            }
+            return subtasks.map(item => {
+                const dotClass = item.status === 'success'
+                    ? 'bg-green-500'
+                    : (item.status === 'running' || item.status === 'retrying')
+                        ? 'bg-blue-500 animate-pulse'
+                        : item.status === 'failed'
+                            ? 'bg-red-500'
+                            : 'bg-gray-300';
+                const outputText = item.output && Object.keys(item.output).length > 0
+                    ? `<div class="mt-1 text-xs text-gray-500">${escapeHtml(JSON.stringify(item.output))}</div>`
+                    : '';
+                const errorText = item.error
+                    ? `<div class="mt-1 text-xs text-red-500">${escapeHtml(item.error)}</div>`
+                    : '';
+                return `
+                    <div class="rounded-lg border border-gray-200 p-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="inline-block w-2.5 h-2.5 rounded-full ${dotClass}"></span>
+                                <div class="min-w-0">
+                                    <div class="text-sm font-medium text-gray-800">${escapeHtml(item.step_label || item.step_key)}</div>
+                                    <div class="text-xs text-gray-500">${window.I18N.attempts}: ${item.attempt_count || 0}/${item.max_attempts || 1}</div>
+                                </div>
+                            </div>
+                            <span class="text-xs font-semibold rounded px-2 py-1 ${statusBadge(item.status)}">${escapeHtml(item.status || '-')}</span>
+                        </div>
+                        ${outputText}
+                        ${errorText}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderArtifacts(artifacts) {
+            if (!Array.isArray(artifacts) || artifacts.length === 0) {
+                return `<div class="text-sm text-gray-400">${escapeHtml(window.I18N.noArtifacts)}</div>`;
+            }
+            return artifacts.map(item => {
+                const downloadLink = item.path && item.artifact_type === 'docx'
+                    ? `<a href="${escapeHtml(item.path)}" class="text-blue-600 hover:underline text-xs">${escapeHtml(window.I18N.download)}</a>`
+                    : '';
+                const meta = item.meta && Object.keys(item.meta).length > 0
+                    ? `<div class="text-xs text-gray-500 mt-1">${escapeHtml(JSON.stringify(item.meta))}</div>`
+                    : '';
+                return `
+                    <div class="rounded-lg border border-gray-200 p-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div class="text-sm font-medium text-gray-800">${escapeHtml(item.title || item.artifact_key)}</div>
+                                <div class="text-xs text-gray-500">${escapeHtml(item.artifact_type || '-')}</div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-semibold rounded px-2 py-1 ${statusBadge(item.status)}">${escapeHtml(item.status || '-')}</span>
+                                ${downloadLink}
+                            </div>
+                        </div>
+                        <div class="mt-1 text-xs text-gray-500 break-all">${escapeHtml(item.path || '-')}</div>
+                        ${meta}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderCurrentTask(task) {
+            if (!task) {
+                document.getElementById('current-task-area').classList.add('hidden');
+                return;
+            }
+            document.getElementById('current-task-area').classList.remove('hidden');
+            document.getElementById('current-task-meta').innerHTML = `
+                ${window.I18N.taskId}: ${escapeHtml(task.id)}<br>
+                ${window.I18N.dateRange}: ${escapeHtml(task.params?.start_date || '-')} ~ ${escapeHtml(task.params?.end_date || '-')}
+            `;
+            document.getElementById('current-task-status').className = `text-xs font-semibold rounded px-2 py-1 ${statusBadge(task.status)}`;
+            document.getElementById('current-task-status').textContent = task.status || '-';
+            document.getElementById('current-task-subtasks').innerHTML = renderSubtasks(task.subtasks || []);
+            document.getElementById('current-task-artifacts').innerHTML = renderArtifacts(task.artifacts || []);
+        }
+
+        function setPolling(taskId) {
+            if (pollTimer) clearInterval(pollTimer);
+            currentTaskId = taskId;
+            pollTimer = setInterval(async () => {
+                const task = await fetchJsonOrRedirect(`${BASE}/admin/api/reports/usage/status?task_id=${taskId}`);
+                if (!task) return;
+                renderCurrentTask(task);
+                if (task.status === 'success' || task.status === 'failed') {
+                    clearInterval(pollTimer);
+                    pollTimer = null;
+                    loadHistory();
+                }
+            }, 3000);
+        }
+
+        async function generateReport() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            if (!startDate || !endDate) {
+                alert(window.I18N.pleaseSelectDates);
+                return;
+            }
+
+            const btn = document.getElementById('generate-btn');
+            const btnText = document.getElementById('generate-btn-text');
+            const spinner = document.getElementById('generate-spinner');
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${BASE}/admin/api/reports/usage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        start_date: startDate,
+                        end_date: endDate,
+                        exclude_api_key_ids: excludeIds,
+                    }),
+                });
+
+                if (response.status === 401) {
+                    window.location.href = `${BASE}/admin/login`;
+                    return;
+                }
+
+                const payload = await response.json();
+                if (response.status === 409) {
+                    renderCurrentTask(payload.task || null);
+                    if (payload.task?.id) {
+                        setPolling(payload.task.id);
+                    }
+                    alert(window.I18N.alreadyRunning);
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error(payload.error || window.I18N.generateFailed);
+                }
+
+                renderCurrentTask(payload.task || null);
+                if (payload.task_id) {
+                    setPolling(payload.task_id);
+                }
+                await loadHistory();
+            } catch (error) {
+                console.error(error);
+                alert(error.message || window.I18N.generateFailed);
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('hidden');
+                btnText.textContent = window.I18N.generateReport;
+            }
+        }
+
+        async function loadHistory() {
+            const data = await fetchJsonOrRedirect(`${BASE}/admin/api/reports/usage/history`);
+            const reports = data?.reports || [];
+            const listEl = document.getElementById('history-list');
+            const emptyEl = document.getElementById('history-empty');
+
+            if (!Array.isArray(reports) || reports.length === 0) {
+                emptyEl.classList.remove('hidden');
+                listEl.innerHTML = '';
+                return;
+            }
+
+            emptyEl.classList.add('hidden');
+            listEl.innerHTML = reports.map(task => {
+                const artifactHtml = renderArtifacts(task.artifacts || []);
+                const subtasksHtml = renderSubtasks(task.subtasks || []);
+                const downloadLink = task.download_url
+                    ? `<a href="${escapeHtml(task.download_url)}" class="text-blue-600 hover:underline text-sm">${escapeHtml(window.I18N.download)}</a>`
+                    : '';
+                return `
+                    <article class="rounded-lg border border-gray-200 p-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <div class="text-sm font-semibold text-gray-800">${window.I18N.taskId}: ${escapeHtml(task.id)}</div>
+                                <div class="text-xs text-gray-500 mt-1">${window.I18N.dateRange}: ${escapeHtml(task.params?.start_date || '-')} ~ ${escapeHtml(task.params?.end_date || '-')}</div>
+                                <div class="text-xs text-gray-500 mt-1">${window.I18N.createdAt}: ${escapeHtml(task.created_at || '-')}</div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs font-semibold rounded px-2 py-1 ${statusBadge(task.status)}">${escapeHtml(task.status || '-')}</span>
+                                ${downloadLink}
+                            </div>
+                        </div>
+                        <div class="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            <div>
+                                <div class="text-xs font-semibold text-gray-700 mb-2">{{ _('Subtasks') }}</div>
+                                <div class="space-y-2">${subtasksHtml}</div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-semibold text-gray-700 mb-2">${escapeHtml(window.I18N.artifacts)}</div>
+                                <div class="space-y-2">${artifactHtml}</div>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+
+            const hasRunning = reports.some(task => ['pending', 'running', 'retrying'].includes(task.status));
+            if (historyRefreshTimer) clearInterval(historyRefreshTimer);
+            if (hasRunning) {
+                historyRefreshTimer = setInterval(loadHistory, 3000);
+            }
+        }
+
+        loadTemplate();
+        loadKeys();
+        loadHistory();
+    </script>
+</body>
+</html>
