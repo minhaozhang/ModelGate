@@ -588,8 +588,8 @@ msgstr "加载权限中..."
 msgid "OpenCode Configuration"
 msgstr "OpenCode 配置"
 
-msgid "Generate opencode.json config for this proxy"
-msgstr "为此代理生成 opencode.json 配置"
+msgid "Copy the text below and send it to OpenCode for configuration"
+msgstr "复制下面的文本给 opencode 让他配置"
 
 msgid "Available Models"
 msgstr "可用模型"

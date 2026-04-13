@@ -1,11 +1,10 @@
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Cookie, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 
-from core.app_paths import get_app_base_path
 from core.database import (
     ApiKey,
     ApiKeyModel,
@@ -18,10 +17,19 @@ from core.database import (
 router = APIRouter(tags=["docs"])
 
 
-async def build_opencode_config(session, api_key: str, base_url: str):
-    result = await session.execute(
-        select(ApiKey).where(ApiKey.key == api_key, ApiKey.is_active == True)
-    )
+async def build_opencode_config(
+    session, base_url: str, api_key: str = None, api_key_id: int = None
+):
+    if api_key:
+        result = await session.execute(
+            select(ApiKey).where(ApiKey.key == api_key, ApiKey.is_active == True)
+        )
+    elif api_key_id:
+        result = await session.execute(
+            select(ApiKey).where(ApiKey.id == api_key_id, ApiKey.is_active == True)
+        )
+    else:
+        return None
     key = result.scalar_one_or_none()
     if not key:
         return None
@@ -85,11 +93,11 @@ async def build_opencode_config(session, api_key: str, base_url: str):
     return {
         "$schema": "https://opencode.ai/config.json",
         "provider": {
-            "model-token-plan": {
-                "name": "Model Token Plan",
+            "modelgate": {
+                "name": "ModelGate",
                 "options": {
                     "baseURL": base_url,
-                    "apiKey": api_key,
+                    "apiKey": key.key,
                 },
                 "models": models_config,
             }
@@ -97,26 +105,14 @@ async def build_opencode_config(session, api_key: str, base_url: str):
     }
 
 
-@router.get("/opencode/setup.md")
-async def get_opencode_setup_markdown(request: Request, api_key: Optional[str] = None):
-    if not api_key:
-        return PlainTextResponse("# Error\n\nAPI Key is required", status_code=400)
+def build_setup_markdown(config: dict) -> str:
+    provider_config = config["provider"]["modelgate"]
+    model_names = sorted(provider_config.get("models", {}).keys())
+    model_list = "\n".join(f"- `{model_name}`" for model_name in model_names)
+    if not model_list:
+        model_list = "- No models are currently available for this API key."
 
-    async with async_session_maker() as session:
-        base_url = (
-            str(request.base_url).rstrip("/") + get_app_base_path(request) + "/v1"
-        )
-        config = await build_opencode_config(session, api_key, base_url)
-        if not config:
-            return PlainTextResponse("# Error\n\nInvalid API Key", status_code=401)
-
-        provider_config = config["provider"]["model-token-plan"]
-        model_names = sorted(provider_config.get("models", {}).keys())
-        model_list = "\n".join(f"- `{model_name}`" for model_name in model_names)
-        if not model_list:
-            model_list = "- No models are currently available for this API key."
-
-        md = f"""# OpenCode Setup Instructions
+    return f"""# OpenCode Setup Instructions
 
 Please update the OpenCode configuration for this machine.
 
@@ -125,8 +121,8 @@ Requirements:
 - If `~/.config/opencode/opencode.json` does not exist, create it first.
 - You can also place `opencode.json` in the root of the current project if you prefer a project-specific config.
 - Keep existing providers and other settings unchanged.
-- Only add or update the `model-token-plan` provider shown below.
-- If the `model-token-plan` provider already exists in the config, replace its entire content with the JSON below.
+- Only add or update the `modelgate` provider shown below.
+- If the `modelgate` provider already exists in the config, replace its entire content with the JSON below.
 - If OpenCode is not installed yet, download it from `https://opencode.ai/`.
 
 Models included in this provider:
@@ -141,6 +137,34 @@ Use this provider config:
 After the config is updated:
 1. Save the file.
 2. **Restart OpenCode** for the changes to take effect.
-3. Verify that the models above are available in OpenCode.
-"""
+3. Verify that the models above are available in OpenCode."""
+
+
+@router.get("/opencode/setup.md")
+async def get_opencode_setup_markdown(
+    request: Request,
+    api_key: Optional[str] = None,
+    user_session: Optional[str] = Cookie(None),
+):
+    api_key_id = None
+
+    if user_session:
+        from routes.user import USER_SESSIONS
+
+        session_data = USER_SESSIONS.get(user_session)
+        if session_data:
+            api_key_id = session_data.get("api_key_id")
+
+    if not api_key and not api_key_id:
+        return PlainTextResponse("# Error\n\nAPI Key is required", status_code=400)
+
+    async with async_session_maker() as session:
+        base_url = str(request.base_url).rstrip("/") + "/v1"
+        config = await build_opencode_config(
+            session, base_url, api_key=api_key, api_key_id=api_key_id
+        )
+        if not config:
+            return PlainTextResponse("# Error\n\nInvalid API Key", status_code=401)
+
+        md = build_setup_markdown(config)
         return PlainTextResponse(content=md, media_type="text/markdown; charset=utf-8")

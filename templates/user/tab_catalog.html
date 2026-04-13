@@ -1,0 +1,23 @@
+<div id="tab-catalog" class="tab-content p-6">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-semibold">{{ _('Platform Providers & Models') }}</h3>
+                <span id="platform-catalog-meta" class="text-xs text-gray-500">0 {{ _('providers') }} / 0 {{ _('models') }}</span>
+            </div>
+            <div id="platform-catalog" class="space-y-3 max-h-[36rem] overflow-y-auto">
+                <div class="text-gray-400 text-center py-4">{{ _('Loading catalog...') }}</div>
+            </div>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-semibold">{{ _('Your Access') }}</h3>
+                <span id="owned-catalog-meta" class="text-xs text-gray-500">0 {{ _('providers') }} / 0 {{ _('models') }}</span>
+            </div>
+            <div id="owned-catalog-note" class="text-xs text-gray-400 mb-3">{{ _('Models available to this API key.') }}</div>
+            <div id="owned-catalog" class="space-y-3 max-h-[36rem] overflow-y-auto">
+                <div class="text-gray-400 text-center py-4">{{ _('Loading access...') }}</div>
+            </div>
+        </div>
+    </div>
+</div>

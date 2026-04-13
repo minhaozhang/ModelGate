@@ -588,8 +588,8 @@ msgstr "Loading access..."
 msgid "OpenCode Configuration"
 msgstr "OpenCode Configuration"
 
-msgid "Generate opencode.json config for this proxy"
-msgstr "Generate opencode.json config for this proxy"
+msgid "Copy the text below and send it to OpenCode for configuration"
+msgstr "Copy the text below and send it to OpenCode for configuration"
 
 msgid "Available Models"
 msgstr "Available Models"
