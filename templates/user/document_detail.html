@@ -70,7 +70,7 @@
         </article>
     </div>
 
-    <script src="{{ app_base_path }}/static/js/marked.min.js"></script>
+    <script src="/static/js/marked.min.js"></script>
     <script>
         const content = {{ doc.content | tojson }};
         document.getElementById('doc-content').innerHTML = marked.parse(content);
