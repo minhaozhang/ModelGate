@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import case, func, or_, select
 
 from core.app_paths import build_app_url
-from core.config import logger, providers_cache
+from core.config import logger, providers_cache, validate_session
 from core.database import (
     async_session_maker,
     ApiKey,
@@ -1734,3 +1734,73 @@ async def user_api_document_detail(
         "content": doc.get("content"),
         "updated_at": doc.get("updated_at") or "",
     }
+
+
+@router.get("/user/api/documents/{doc_id}/files")
+async def user_api_document_files(
+    request: Request,
+    doc_id: int,
+    user_session: Optional[str] = Cookie(None),
+    session: Optional[str] = Cookie(None),
+):
+    api_key_id = get_user_session(user_session)
+    is_admin = validate_session(session)
+    if not api_key_id and not is_admin:
+        return translated_error(request, "Not authenticated", 401)
+    from services.documents import get_document
+    from services.document_files import list_files
+
+    doc = await get_document(doc_id)
+    if not doc or (not doc.get("is_published") and not is_admin):
+        return translated_error(request, "Document not found", 404)
+
+    files = await list_files(doc_id)
+    result = []
+    for f in files:
+        url = ""
+        if f.get("object_name"):
+            from services.storage import get_presigned_url
+
+            url = get_presigned_url(f["object_name"], expires_hours=1)
+        result.append(
+            {
+                "id": f["id"],
+                "filename": f["filename"],
+                "file_type": f["file_type"],
+                "file_size": f["file_size"],
+                "content_type": f["content_type"],
+                "download_url": url,
+            }
+        )
+    return {"files": result}
+
+
+@router.get("/user/api/documents/{doc_id}/files/{file_id}/download")
+async def user_api_document_file_download(
+    request: Request,
+    doc_id: int,
+    file_id: int,
+    user_session: Optional[str] = Cookie(None),
+    session: Optional[str] = Cookie(None),
+):
+    api_key_id = get_user_session(user_session)
+    is_admin = validate_session(session)
+    if not api_key_id and not is_admin:
+        return translated_error(request, "Not authenticated", 401)
+    from services.documents import get_document
+    from services.document_files import get_file
+    from services.storage import get_presigned_url
+
+    doc = await get_document(doc_id)
+    if not doc or (not doc.get("is_published") and not is_admin):
+        return translated_error(request, "Document not found", 404)
+
+    f = await get_file(file_id)
+    if not f or f["document_id"] != doc_id:
+        return translated_error(request, "File not found", 404)
+    url = get_presigned_url(f["object_name"], expires_hours=1)
+    if not url:
+        return translated_error(request, "File not found", 404)
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url)

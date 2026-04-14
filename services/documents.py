@@ -1,9 +1,9 @@
 import re
 import unicodedata
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 
-from core.database import async_session_maker, Document
+from core.database import async_session_maker, Document, DocumentFile
 
 MAX_FILE_SIZE = 1 * 1024 * 1024
 
@@ -30,6 +30,31 @@ async def ensure_unique_slug(slug: str, exclude_id: int | None = None) -> str:
                 return slug
             slug = f"{base}-{counter}"
             counter += 1
+
+
+async def _get_file_count(doc_id: int) -> int:
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(func.count(DocumentFile.id)).where(
+                DocumentFile.document_id == doc_id
+            )
+        )
+        return result.scalar() or 0
+
+
+async def _get_file_counts(doc_ids: list[int]) -> dict[int, int]:
+    if not doc_ids:
+        return {}
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(
+                DocumentFile.document_id,
+                func.count(DocumentFile.id),
+            )
+            .where(DocumentFile.document_id.in_(doc_ids))
+            .group_by(DocumentFile.document_id)
+        )
+        return {doc_id: file_count for doc_id, file_count in result.fetchall()}
 
 
 async def create_document(
@@ -78,7 +103,8 @@ async def update_document(
             doc.is_published = is_published
         await session.commit()
         await session.refresh(doc)
-        return _doc_to_dict(doc)
+        file_count = await _get_file_count(doc.id)
+        return _doc_to_dict(doc, file_count)
 
 
 async def delete_document(doc_id: int) -> bool:
@@ -98,7 +124,8 @@ async def get_document(doc_id: int) -> dict | None:
         doc = result.scalar_one_or_none()
         if not doc:
             return None
-        return _doc_to_dict(doc)
+        file_count = await _get_file_count(doc.id)
+        return _doc_to_dict(doc, file_count)
 
 
 async def get_document_by_slug(slug: str) -> dict | None:
@@ -107,7 +134,8 @@ async def get_document_by_slug(slug: str) -> dict | None:
         doc = result.scalar_one_or_none()
         if not doc:
             return None
-        return _doc_to_dict(doc)
+        file_count = await _get_file_count(doc.id)
+        return _doc_to_dict(doc, file_count)
 
 
 async def list_documents(
@@ -120,7 +148,9 @@ async def list_documents(
         if category:
             q = q.where(Document.category == category)
         result = await session.execute(q)
-        return [_doc_to_dict(doc) for doc in result.scalars().all()]
+        docs = result.scalars().all()
+    file_counts = await _get_file_counts([doc.id for doc in docs])
+    return [_doc_to_dict(doc, file_counts.get(doc.id, 0)) for doc in docs]
 
 
 async def list_categories(published_only: bool = False) -> list[str]:
@@ -132,7 +162,7 @@ async def list_categories(published_only: bool = False) -> list[str]:
         return [row[0] for row in result.fetchall() if row[0]]
 
 
-def _doc_to_dict(doc: Document) -> dict:
+def _doc_to_dict(doc: Document, file_count: int = 0) -> dict:
     return {
         "id": doc.id,
         "title": doc.title,
@@ -140,6 +170,7 @@ def _doc_to_dict(doc: Document) -> dict:
         "content": doc.content,
         "category": doc.category,
         "is_published": doc.is_published,
+        "file_count": file_count,
         "created_at": doc.created_at.isoformat() if doc.created_at else None,
         "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
     }

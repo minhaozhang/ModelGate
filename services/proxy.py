@@ -7,9 +7,11 @@ from fastapi import Request
 from fastapi.responses import Response, JSONResponse, StreamingResponse
 from sqlalchemy import select
 
+import core.config as config
 from core.config import (
     providers_cache,
     api_keys_cache,
+    api_key_model_semaphores,
     finish_active_request,
     update_stats,
     record_request_rate,
@@ -51,12 +53,35 @@ from services.sse import normalize_sse_stream
 
 REPEATED_CHUNK_LIMIT = 10
 PROVIDER_REQUEST_TIMEOUT_SECONDS = 600.0
+_http_client: httpx.AsyncClient | None = None
+
+
+def get_http_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS,
+            limits=httpx.Limits(max_connections=200, max_keepalive_connections=50),
+            http2=False,
+        )
+    return _http_client
+
+
+async def close_http_client():
+    global _http_client
+    if _http_client is not None and not _http_client.is_closed:
+        await _http_client.aclose()
+        _http_client = None
+
+
 INTERNAL_ANALYSIS_API_KEY_ID = 1
 INTERNAL_ANALYSIS_CLIENT_IP = "internal"
 INTERNAL_ANALYSIS_USER_AGENT = "modelgate/internal-analysis"
 SEMAPHORE_RETRY_AFTER_SECONDS = 5
 SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS = 1
 RATE_LIMITED_STATUS = "rate_limited"
+DEFAULT_API_KEY_MODEL_MAX_CONCURRENCY = 1
+API_KEY_MODEL_LIMIT_ATTR = "_modelgate_api_key_model_limit"
 
 
 def _openai_error(
@@ -94,6 +119,40 @@ def _resolve_request_status(status_code: int, provider_error: str | None = None)
     if status_code >= 400 or provider_error:
         return "error"
     return "success"
+
+
+def _get_or_create_api_key_model_semaphore(
+    api_key_id: int, provider_model_key: str
+) -> tuple[str, asyncio.Semaphore]:
+    try:
+        target_limit = int(
+            config.system_config.get("api_key_model_max_concurrency")
+            or DEFAULT_API_KEY_MODEL_MAX_CONCURRENCY
+        )
+    except (TypeError, ValueError):
+        target_limit = DEFAULT_API_KEY_MODEL_MAX_CONCURRENCY
+    if target_limit < 1:
+        target_limit = DEFAULT_API_KEY_MODEL_MAX_CONCURRENCY
+    sem_key = f"{api_key_id}:{provider_model_key}"
+    semaphore = api_key_model_semaphores.get(sem_key)
+    if semaphore is None:
+        semaphore = asyncio.Semaphore(target_limit)
+        setattr(semaphore, API_KEY_MODEL_LIMIT_ATTR, target_limit)
+        api_key_model_semaphores[sem_key] = semaphore
+        return sem_key, semaphore
+    current_limit = getattr(semaphore, API_KEY_MODEL_LIMIT_ATTR, target_limit)
+    if current_limit == target_limit:
+        return sem_key, semaphore
+    available = getattr(semaphore, "_value", current_limit)
+    in_flight = max(current_limit - available, 0)
+    waiters = getattr(semaphore, "_waiters", None)
+    has_waiters = bool(waiters)
+    if in_flight == 0 and not has_waiters:
+        semaphore = asyncio.Semaphore(target_limit)
+        setattr(semaphore, API_KEY_MODEL_LIMIT_ATTR, target_limit)
+        api_key_model_semaphores[sem_key] = semaphore
+        return sem_key, semaphore
+    return sem_key, semaphore
 
 
 async def proxy_request(request: Request, endpoint: str):
@@ -136,7 +195,12 @@ async def proxy_request(request: Request, endpoint: str):
         provider_name, actual_model, provider_config
     )
 
+    api_key_model_sem_key, api_key_model_semaphore = _get_or_create_api_key_model_semaphore(
+        api_key_id, sem_key
+    )
+
     acquired = False
+    api_key_model_acquired = False
     try:
         await asyncio.wait_for(
             semaphore.acquire(), timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS
@@ -171,6 +235,49 @@ async def proxy_request(request: Request, endpoint: str):
             429,
             "rate_limit_error",
             "max_concurrency_reached",
+            headers={"retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS)},
+        )
+
+    try:
+        await asyncio.wait_for(
+            api_key_model_semaphore.acquire(),
+            timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
+        )
+        api_key_model_acquired = True
+    except asyncio.TimeoutError:
+        semaphore.release()
+        acquired = False
+        message = (
+            f"API key {api_key_id} already has an active request for "
+            f"'{provider_name}/{actual_model}', please retry later"
+        )
+        logger.warning("[RATE LIMIT] %s at max concurrency", api_key_model_sem_key)
+        update_stats(
+            provider_name,
+            actual_model,
+            0,
+            api_key_id=api_key_id,
+            is_rate_limited=True,
+        )
+        await log_request(
+            provider_name,
+            actual_model,
+            "",
+            {},
+            (time.time() - start_time) * 1000,
+            RATE_LIMITED_STATUS,
+            api_key_id=api_key_id,
+            upstream_status_code=429,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            request_context_tokens=estimate_request_context_tokens(body_json),
+            error=message,
+        )
+        return _openai_error_response(
+            message,
+            429,
+            "rate_limit_error",
+            "api_key_model_concurrency_reached",
             headers={"retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS)},
         )
 
@@ -231,49 +338,51 @@ async def proxy_request(request: Request, endpoint: str):
                 request_context_tokens=request_context_tokens,
             )
 
-        async with httpx.AsyncClient(
-            timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS
-        ) as client:
-            if stream:
-                return await handle_streaming(
-                    target_url,
-                    headers,
-                    body,
-                    provider_name,
-                    actual_model,
-                    messages,
-                    start_time,
-                    body_json,
-                    api_key_id,
-                    client_ip,
-                    user_agent,
-                    request_context_tokens,
-                    semaphore,
-                    request_id,
-                    stream_log_id,
-                    request,
-                )
-            else:
-                return await handle_normal(
-                    client,
-                    target_url,
-                    headers,
-                    body,
-                    provider_name,
-                    actual_model,
-                    messages,
-                    start_time,
-                    body_json,
-                    api_key_id,
-                    client_ip,
-                    user_agent,
-                    request_context_tokens,
-                    semaphore,
-                    request_id,
-                )
+        client = get_http_client()
+        if stream:
+            return await handle_streaming(
+                target_url,
+                headers,
+                body,
+                provider_name,
+                actual_model,
+                messages,
+                start_time,
+                body_json,
+                api_key_id,
+                client_ip,
+                user_agent,
+                request_context_tokens,
+                semaphore,
+                api_key_model_semaphore,
+                request_id,
+                stream_log_id,
+                request,
+            )
+        else:
+            return await handle_normal(
+                client,
+                target_url,
+                headers,
+                body,
+                provider_name,
+                actual_model,
+                messages,
+                start_time,
+                body_json,
+                api_key_id,
+                client_ip,
+                user_agent,
+                request_context_tokens,
+                semaphore,
+                api_key_model_semaphore,
+                request_id,
+            )
     except Exception as e:
         if acquired:
             semaphore.release()
+        if api_key_model_acquired:
+            api_key_model_semaphore.release()
         latency = (time.time() - start_time) * 1000
         update_stats(
             provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True
@@ -349,7 +458,12 @@ async def call_internal_model_via_proxy(
         provider_name, actual_model, provider_config
     )
 
+    api_key_model_sem_key, api_key_model_semaphore = _get_or_create_api_key_model_semaphore(
+        api_key_id, sem_key
+    )
+
     acquired = False
+    api_key_model_acquired = False
     try:
         await asyncio.wait_for(
             semaphore.acquire(), timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS
@@ -387,6 +501,49 @@ async def call_internal_model_via_proxy(
         }
 
     try:
+        await asyncio.wait_for(
+            api_key_model_semaphore.acquire(),
+            timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
+        )
+        api_key_model_acquired = True
+    except asyncio.TimeoutError:
+        semaphore.release()
+        acquired = False
+        message = (
+            f"API key {api_key_id} already has an active request for "
+            f"'{provider_name}/{actual_model}'"
+        )
+        update_stats(
+            provider_name,
+            actual_model,
+            0,
+            api_key_id=api_key_id,
+            is_rate_limited=True,
+        )
+        await log_request(
+            provider_name,
+            actual_model,
+            "",
+            {},
+            (time.time() - start_time) * 1000,
+            RATE_LIMITED_STATUS,
+            api_key_id=api_key_id,
+            upstream_status_code=429,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            request_context_tokens=estimate_request_context_tokens(req_body),
+            error=message,
+        )
+        return {
+            "ok": False,
+            "provider_name": provider_name,
+            "actual_model_name": actual_model,
+            "status_code": 429,
+            "payload": None,
+            "error": message,
+        }
+
+    try:
         _schedule_api_key_last_used_update(api_key_id)
 
         req_body["model"] = actual_model
@@ -410,10 +567,13 @@ async def call_internal_model_via_proxy(
         target_url = f"{provider_config['base_url']}/chat/completions"
         body = json.dumps(req_body).encode("utf-8")
 
-        async with httpx.AsyncClient(
-            timeout=timeout_seconds or PROVIDER_REQUEST_TIMEOUT_SECONDS
-        ) as client:
-            resp = await client.post(target_url, headers=headers, content=body)
+        client = get_http_client()
+        resp = await client.post(
+            target_url,
+            headers=headers,
+            content=body,
+            timeout=timeout_seconds or PROVIDER_REQUEST_TIMEOUT_SECONDS,
+        )
 
         latency = (time.time() - start_time) * 1000
         try:
@@ -542,6 +702,8 @@ async def call_internal_model_via_proxy(
     finally:
         if acquired:
             semaphore.release()
+        if api_key_model_acquired:
+            api_key_model_semaphore.release()
 
 
 def _build_headers(provider_config: dict) -> dict:
@@ -842,6 +1004,7 @@ async def handle_normal(
     user_agent,
     request_context_tokens,
     semaphore,
+    api_key_model_semaphore,
     request_id,
 ):
     logger.debug(
@@ -950,8 +1113,6 @@ async def handle_normal(
         )
         logger.debug("[RESPONSE] Body: %s", sanitize_text_for_log(resp.text))
 
-        semaphore.release()
-
         resp_headers = {"content-type": "application/json"}
         if _is_rate_limited_status(resp.status_code):
             retry_after = resp.headers.get("retry-after")
@@ -970,11 +1131,14 @@ async def handle_normal(
         else:
             resp_content = resp.content
 
-        return Response(
+        response = Response(
             content=resp_content,
             status_code=resp.status_code,
             headers=resp_headers,
         )
+        api_key_model_semaphore.release()
+        semaphore.release()
+        return response
     finally:
         if is_active_request_registered:
             await finish_active_request(request_id)
@@ -994,6 +1158,7 @@ async def handle_streaming(
     user_agent,
     request_context_tokens,
     semaphore,
+    api_key_model_semaphore,
     request_id,
     log_id,
     request,
@@ -1002,7 +1167,7 @@ async def handle_streaming(
         "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
     )
 
-    client = httpx.AsyncClient(timeout=PROVIDER_REQUEST_TIMEOUT_SECONDS)
+    client = get_http_client()
     is_active_request_registered = False
     try:
         await register_active_request(
@@ -1063,8 +1228,6 @@ async def handle_streaming(
                         provider_error or error_text, limit=2000
                     ),
                 )
-            semaphore.release()
-            await client.aclose()
             if is_active_request_registered:
                 await finish_active_request(request_id)
             log_fn = (
@@ -1088,15 +1251,17 @@ async def handle_streaming(
                 provider,
                 raw_error_text=sanitize_text_for_log(error_text, limit=2000),
             )
-            return Response(
+            response = Response(
                 content=normalized_body,
                 status_code=resp.status_code,
                 headers=resp_headers,
             )
+            api_key_model_semaphore.release()
+            semaphore.release()
+            return response
     except Exception as e:
         if is_active_request_registered:
             await finish_active_request(request_id)
-        await client.aclose()
         raise e
 
     async def stream_generator():
@@ -1280,7 +1445,7 @@ async def handle_streaming(
             yield f"data: {json.dumps({'error': {'message': str(e), 'type': type(e).__name__}})}\n\n"
         finally:
             await finish_active_request(request_id)
+            api_key_model_semaphore.release()
             semaphore.release()
-            await client.aclose()
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")

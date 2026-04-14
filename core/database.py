@@ -32,8 +32,9 @@ engine = create_async_engine(
     echo=False,
     pool_pre_ping=True,
     pool_recycle=1800,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=20,
+    max_overflow=30,
+    pool_timeout=30,
 )
 async_session_maker = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
@@ -410,6 +411,23 @@ class Document(Base):
     )
 
 
+class DocumentFile(Base):
+    __tablename__ = "document_files"
+
+    id = Column(Integer, primary_key=True)
+    document_id = Column(
+        Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    filename = Column(String(255), nullable=False)
+    object_name = Column(String(500), nullable=False)
+    file_type = Column(String(20), nullable=False)
+    file_size = Column(Integer, default=0)
+    content_type = Column(String(100), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (Index("idx_document_files_doc_id", "document_id"),)
+
+
 class WeixinAccount(Base):
     __tablename__ = "weixin_accounts"
 
@@ -558,6 +576,35 @@ async def init_db():
             text(
                 "CREATE INDEX IF NOT EXISTS idx_api_key_time_rules_key "
                 "ON api_key_time_rules (api_key_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE documents "
+                "ADD COLUMN IF NOT EXISTS file_object_name VARCHAR(500)"
+            )
+        )
+        await conn.execute(
+            text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_type VARCHAR(20)")
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS document_files ("
+                "id SERIAL PRIMARY KEY, "
+                "document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE, "
+                "filename VARCHAR(255) NOT NULL, "
+                "object_name VARCHAR(500) NOT NULL, "
+                "file_type VARCHAR(20) NOT NULL, "
+                "file_size INTEGER DEFAULT 0, "
+                "content_type VARCHAR(100), "
+                "created_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_document_files_doc_id "
+                "ON document_files (document_id)"
             )
         )
         await conn.execute(

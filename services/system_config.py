@@ -24,3 +24,4 @@ async def init_system_config():
         else:
             config.OUTBOUND_USER_AGENT = config.DEFAULT_OUTBOUND_USER_AGENT
         config.system_config["ua_override"] = config.OUTBOUND_USER_AGENT
+        config.system_config.setdefault("api_key_model_max_concurrency", 1)

@@ -134,12 +134,20 @@ async def startup():
 
     await init_system_config()
 
+    from services.proxy import get_http_client
+
+    get_http_client()
+
 
 @app.on_event("shutdown")
 async def shutdown():
     from services.scheduler import shutdown_scheduler
 
     shutdown_scheduler()
+
+    from services.proxy import close_http_client
+
+    await close_http_client()
 
     from services.weixin import stop_polling
 
