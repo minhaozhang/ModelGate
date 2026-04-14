@@ -41,6 +41,8 @@ TIMEOUT_STATUS = "timeout"
 RATE_LIMITED_STATUS = "rate_limited"
 ERROR_STATUSES = (ERROR_STATUS, TIMEOUT_STATUS)
 AGGREGATED_PERIODS = {"month", "year"}
+WEEK_BUCKET_HOURS = 4
+WEEK_BUCKET_COUNT = 42
 TOKEN_COUNT_EXPR = func.coalesce(
     RequestLog.tokens["total_tokens"].as_integer(),
     RequestLog.tokens["estimated"].as_integer(),
@@ -72,6 +74,11 @@ def use_daily_aggregates(period: str) -> bool:
 
 def get_day_start(dt: datetime) -> datetime:
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def get_week_bucket_start(dt: datetime) -> datetime:
+    bucket_hour = (dt.hour // WEEK_BUCKET_HOURS) * WEEK_BUCKET_HOURS
+    return dt.replace(hour=bucket_hour, minute=0, second=0, microsecond=0)
 
 
 def get_token_count(tokens_payload) -> int:
@@ -178,13 +185,8 @@ def get_period_start(period: str, now: datetime) -> datetime:
     if period == "day":
         return today_start
     if period == "week":
-        bucket_start = now.replace(
-            hour=0 if now.hour < 12 else 12,
-            minute=0,
-            second=0,
-            microsecond=0,
-        )
-        return bucket_start - timedelta(hours=12 * 13)
+        bucket_start = get_week_bucket_start(now)
+        return bucket_start - timedelta(hours=WEEK_BUCKET_HOURS * (WEEK_BUCKET_COUNT - 1))
     if period == "month":
         return today_start - timedelta(days=30)
     if period == "year":
@@ -374,23 +376,20 @@ def get_period_range(
                 microsecond=0,
             ).strftime("%H:%M")
     elif period == "week":
-        current_bucket_start = now.replace(
-            hour=0 if now.hour < 12 else 12,
-            minute=0,
-            second=0,
-            microsecond=0,
+        current_bucket_start = get_week_bucket_start(now)
+        start = current_bucket_start - timedelta(
+            hours=WEEK_BUCKET_HOURS * (WEEK_BUCKET_COUNT - 1)
         )
-        start = current_bucket_start - timedelta(hours=12 * 13)
         intervals = [
-            ((start + timedelta(hours=12 * i)).strftime("%m/%d %H:%M"))
-            for i in range(14)
+            ((start + timedelta(hours=WEEK_BUCKET_HOURS * i)).strftime("%m/%d %H:%M"))
+            for i in range(WEEK_BUCKET_COUNT)
         ]
 
         def format_func(d: datetime) -> str:
             bucket_index = max(
                 0,
                 min(
-                    int((d - start).total_seconds() // (12 * 3600)),
+                    int((d - start).total_seconds() // (WEEK_BUCKET_HOURS * 3600)),
                     len(intervals) - 1,
                 ),
             )

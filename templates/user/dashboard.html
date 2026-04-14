@@ -158,10 +158,10 @@
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('catalog')">{{ _('Models') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('opencode')">{{ _('OpenCode Config') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('documents')">{{ _('Documents') }}</button>
             </div>
             
-            <!-- Stats Tab -->
-            <div id="tab-stats" class="tab-content active p-6">
+            {% include 'user/tab_stats.html' %}
                 <div class="bg-gray-50 rounded-lg p-4 mb-6">
                     <div class="flex justify-between items-start gap-3 mb-3">
                         <h3 class="text-lg font-semibold">{{ _('Recommended Models') }}</h3>
@@ -277,139 +277,10 @@
                 </div>
             </div>
 
-            <!-- Models Tab -->
-            <div id="tab-catalog" class="tab-content p-6">
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <div class="flex justify-between items-center mb-3">
-                            <h3 class="text-lg font-semibold">{{ _('Platform Providers & Models') }}</h3>
-                            <span id="platform-catalog-meta" class="text-xs text-gray-500">0 {{ _('providers') }} / 0 {{ _('models') }}</span>
-                        </div>
-                        <div id="platform-catalog" class="space-y-3 max-h-[36rem] overflow-y-auto">
-                            <div class="text-gray-400 text-center py-4">{{ _('Loading catalog...') }}</div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <div class="flex justify-between items-center mb-3">
-                            <h3 class="text-lg font-semibold">{{ _('Your Access') }}</h3>
-                            <span id="owned-catalog-meta" class="text-xs text-gray-500">0 {{ _('providers') }} / 0 {{ _('models') }}</span>
-                        </div>
-                        <div id="owned-catalog-note" class="text-xs text-gray-400 mb-3">{{ _('Models available to this API key.') }}</div>
-                        <div id="owned-catalog" class="space-y-3 max-h-[36rem] overflow-y-auto">
-                            <div class="text-gray-400 text-center py-4">{{ _('Loading access...') }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- OpenCode Config Tab -->
-            <div id="tab-opencode" class="tab-content p-6">
-                <h2 class="text-xl font-bold mb-4">{{ _('OpenCode Configuration') }}</h2>
-                <p class="text-gray-600 mb-4">{{ _('Generate opencode.json config for this proxy') }}</p>
-                
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <h3 class="font-semibold mb-2">opencode.json</h3>
-                    <div class="relative">
-                        <button onclick="copyConfig()" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
-                        <pre id="config-output" class="text-sm"></pre>
-                    </div>
-                </div>
-                
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <h3 class="font-semibold mb-3">{{ _('Available Models') }}</h3>
-                    <div id="models-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
-                </div>
-                
-                <div class="bg-blue-50 rounded-lg p-4">
-                    <h3 class="font-semibold text-blue-800 mb-2">{{ _('How to use') }}</h3>
-                    <ol class="list-decimal list-inside text-sm text-blue-700 space-y-1">
-                        <li>{{ _('Copy the generated <code class="bg-blue-100 px-1 rounded">opencode.json</code>') }}</li>
-                        <li>{{ _('Create <code class="bg-blue-100 px-1 rounded">opencode.json</code> in your project root') }}</li>
-                        <li>{{ _('Paste the configuration and save') }}</li>
-                        <li>{{ _('OpenCode will now use this proxy for API requests') }}</li>
-                    </ol>
-                </div>
-            </div>
-            
-            <!-- Usage Tab -->
-            <div id="tab-usage" class="tab-content p-6">
-                <h2 class="text-xl font-bold mb-4">{{ _('How to Configure API Clients') }}</h2>
-                
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <h3 class="font-semibold mb-3">{{ _('Basic Information') }}</h3>
-                    <div class="space-y-2 text-sm">
-                        <div class="flex"><span class="text-gray-500 w-32">{{ _('Proxy URL') }}:</span><code class="bg-white px-2 py-1 rounded" id="proxy-url"></code></div>
-                        <div class="flex"><span class="text-gray-500 w-32">{{ _('API Endpoint') }}:</span><code class="bg-white px-2 py-1 rounded">{{ app_base_path }}/v1/chat/completions</code></div>
-                        <div class="flex"><span class="text-gray-500 w-32">{{ _('Auth Header') }}:</span><code class="bg-white px-2 py-1 rounded">Authorization: Bearer YOUR_API_KEY</code></div>
-                    </div>
-                </div>
-                
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <h3 class="font-semibold mb-3">{{ _('Model Name Format') }}</h3>
-                    <p class="text-gray-600 text-sm mb-3">{{ _('Use <code class="bg-white px-2 py-1 rounded">provider/model</code> format') }}:</p>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-white p-3 rounded"><div class="text-xs text-gray-500 mb-1">{{ _('With Provider') }}</div><code class="text-sm">zhipu/glm-4</code></div>
-                        <div class="bg-white p-3 rounded"><div class="text-xs text-gray-500 mb-1">{{ _('Without Prefix') }}</div><code class="text-sm">glm-4</code></div>
-                    </div>
-                </div>
-                
-                <div class="space-y-4">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="font-semibold mb-3 flex items-center">
-                            <span class="w-5 h-5 mr-2 bg-green-500 text-white rounded text-xs flex items-center justify-center">Py</span>
-                            {{ _('Python (OpenAI SDK)') }}
-                        </h3>
-                        <div class="relative">
-                            <button onclick="copyCode('python')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
-                            <pre id="code-python"><code>from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_API_KEY",
-    base_url="<span id="base-python"></span>"
-)
-
-response = client.chat.completions.create(
-    model="zhipu/glm-4",
-    messages=[{"role": "user", "content": "Hello!"}]
-)
-print(response.choices[0].message.content)</code></pre>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="font-semibold mb-3 flex items-center">
-                            <span class="w-5 h-5 mr-2 bg-yellow-500 text-white rounded text-xs flex items-center justify-center">JS</span>
-                            {{ _('JavaScript') }}
-                        </h3>
-                        <div class="relative">
-                            <button onclick="copyCode('js')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
-                            <pre id="code-js"><code>const response = await fetch('<span id="base-js"></span>/chat/completions', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer YOUR_API_KEY'
-  },
-  body: JSON.stringify({
-    model: 'zhipu/glm-4',
-    messages: [{ role: 'user', content: 'Hello!' }]
-  })
-});
-const data = await response.json();</code></pre>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="font-semibold mb-3 flex items-center">
-                            <span class="w-5 h-5 mr-2 bg-blue-500 text-white rounded text-xs flex items-center justify-center">$</span>
-                            cURL
-                        </h3>
-                        <div class="relative">
-                            <button onclick="copyCode('curl')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
-                            <pre id="code-curl"><code>curl <span id="base-curl"></span>/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -d '{"model": "zhipu/glm-4", "messages": [{"role": "user", "content": "Hello!"}]}'</code></pre>
-                        </div>
+            {% include 'user/tab_catalog.html' %}
+            {% include 'user/tab_opencode.html' %}
+            {% include 'user/tab_usage.html' %}
+            {% include 'user/tab_documents.html' %}
                     </div>
                 </div>
             </div>
@@ -433,6 +304,9 @@ const data = await response.json();</code></pre>
         platformProviderCatalog: {{ _('Platform provider catalog') | tojson }},
         modelsThisKeyCanUse: {{ _('Models this key can use') | tojson }},
         noData: {{ _('No data') | tojson }},
+        allCategories: {{ _('All Categories') | tojson }},
+        noDocuments: {{ _('No documents available') | tojson }},
+        viewDetails: {{ _('View Details') | tojson }},
         noActiveSessions: {{ _('No active sessions') | tojson }},
         noModels: {{ _('No models') | tojson }},
         copied: {{ _('Copied!') | tojson }},
@@ -555,6 +429,69 @@ const data = await response.json();</code></pre>
             
             if (tab === 'opencode') loadOpenCodeConfig();
             if (tab === 'catalog' && !catalogLoaded) loadCatalog();
+            if (tab === 'documents') loadDocList();
+        }
+
+        function openDocumentPage(docId) {
+            window.location.href = APP_BASE_PATH + '/user/documents/' + docId;
+        }
+
+        async function loadDocList() {
+            const category = document.getElementById('doc-category-select').value;
+            const url = APP_BASE_PATH + '/user/api/documents' + (category ? '?category=' + encodeURIComponent(category) : '');
+            const res = await fetch(url);
+            if (res.status === 401) { logout(); return; }
+            const data = await res.json();
+            const catSelect = document.getElementById('doc-category-select');
+            const currentCat = catSelect.value;
+            catSelect.innerHTML = '<option value="">' + (window.I18N.allCategories || 'All Categories') + '</option>';
+            (data.categories || []).forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                catSelect.appendChild(opt);
+            });
+            catSelect.value = currentCat;
+            const docs = data.documents || [];
+            const listEl = document.getElementById('doc-list');
+            const emptyEl = document.getElementById('doc-empty');
+            if (!docs.length) {
+                listEl.innerHTML = '';
+                emptyEl.style.display = '';
+                return;
+            }
+            emptyEl.style.display = 'none';
+            listEl.innerHTML = docs.map(doc => `
+                <div onclick="openDocDetail(${doc.id})" class="cursor-pointer bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow border border-transparent hover:border-blue-200">
+                    <h3 class="font-semibold text-gray-800 mb-1">${doc.title}</h3>
+                    ${doc.category ? '<span class="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mb-2">' + doc.category + '</span>' : ''}
+                    ${doc.summary ? '<p class="text-sm text-gray-500">' + doc.summary + '</p>' : ''}
+                    <div class="mt-3 flex items-center justify-between gap-3">
+                        <div class="text-xs text-gray-400">${doc.updated_at || ''}</div>
+                        <button type="button" onclick="event.stopPropagation();openDocDetail(${doc.id})" class="text-xs text-blue-600 hover:underline">${window.I18N.viewDetails}</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function openDocDetail(docId) {
+            const res = await fetch(APP_BASE_PATH + '/user/api/documents/' + docId);
+            if (res.status === 401) { logout(); return; }
+            if (!res.ok) { openDocumentPage(docId); return; }
+            const doc = await res.json();
+            document.getElementById('doc-detail-title').textContent = doc.title || '';
+            document.getElementById('doc-detail-meta').innerHTML =
+                (doc.category ? '<span class="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mr-2">' + doc.category + '</span>' : '') +
+                (doc.updated_at || '');
+            document.getElementById('doc-detail-content').innerHTML = marked.parse(doc.content || '');
+            document.getElementById('doc-list-view').style.display = 'none';
+            document.getElementById('doc-detail-view').style.display = '';
+            document.getElementById('doc-detail-view').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function closeDocDetail() {
+            document.getElementById('doc-detail-view').style.display = 'none';
+            document.getElementById('doc-list-view').style.display = '';
         }
 
         function formatCompactTokens(tokens) {

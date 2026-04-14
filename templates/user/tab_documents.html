@@ -1,0 +1,18 @@
+            <div id="tab-documents" class="tab-content p-6">
+                <div id="doc-list-view">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">{{ _('Documents') }}</h2>
+                        <select id="doc-category-select" onchange="loadDocList()" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm">
+                            <option value="">{{ _('All Categories') }}</option>
+                        </select>
+                    </div>
+                    <div id="doc-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                    <div id="doc-empty" class="text-center py-12 text-gray-400" style="display:none;">{{ _('No documents available') }}</div>
+                </div>
+                <div id="doc-detail-view" style="display:none;">
+                    <button onclick="closeDocDetail()" class="mb-4 text-blue-600 hover:underline text-sm">&larr; {{ _('Back to Documents') }}</button>
+                    <h2 id="doc-detail-title" class="text-2xl font-bold mb-1"></h2>
+                    <div id="doc-detail-meta" class="text-sm text-gray-400 mb-4"></div>
+                    <div id="doc-detail-content" class="prose max-w-none"></div>
+                </div>
+            </div>

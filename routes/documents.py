@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, Request, UploadFile, File, Form
+from fastapi import APIRouter, Cookie, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from core.config import validate_session
@@ -21,6 +21,16 @@ async def list_documents(request: Request, session: Optional[str] = Cookie(None)
     return {"documents": docs}
 
 
+@router.get("/{doc_id}")
+async def get_document(doc_id: int, session: Optional[str] = Cookie(None)):
+    if not _check(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    doc = await doc_svc.get_document(doc_id)
+    if not doc:
+        return JSONResponse({"error": "Document not found"}, status_code=404)
+    return doc
+
+
 @router.post("")
 async def create_document(
     request: Request,
@@ -36,7 +46,6 @@ async def create_document(
         title=title,
         content=content,
         category=category,
-        filename=None,
         is_published=is_published,
     )
     return doc
@@ -62,13 +71,10 @@ async def upload_document(
 
     content = body.decode("utf-8", errors="replace")
     title = file.filename[:-3] if file.filename.endswith(".md") else file.filename
-    saved_name = doc_svc.save_file(file.filename, content)
-
     doc = await doc_svc.create_document(
         title=title,
         content=content,
         category=category,
-        filename=saved_name,
         is_published=is_published,
     )
     return doc
