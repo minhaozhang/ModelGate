@@ -252,8 +252,19 @@
                 bindings.forEach(b => {
                     html += `
                         <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                            <span>${b.display_name || b.model_name}</span>
-                            <button onclick="unbindModel(${b.id})" class="text-red-500 hover:text-red-700 text-sm">Unbind</button>
+                            <span class="text-sm">${b.display_name || b.model_name}</span>
+                            <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-1">
+                                    <label class="text-xs text-gray-500">{{ _('Concurrency') }}</label>
+                                    <input type="number" min="1" value="${b.max_concurrent || ''}" placeholder="∞"
+                                           id="mc-${b.id}"
+                                           class="w-16 border rounded px-2 py-1 text-sm text-center"
+                                           onchange="updateBindingConcurrency(${b.id}, this.value)">
+                                    <button onclick="updateBindingConcurrency(${b.id}, document.getElementById('mc-${b.id}').value)"
+                                            class="text-blue-500 hover:text-blue-700 text-xs">{{ _('Save') }}</button>
+                                </div>
+                                <button onclick="unbindModel(${b.id})" class="text-red-500 hover:text-red-700 text-sm">✕</button>
+                            </div>
                         </div>
                     `;
                 });
@@ -287,6 +298,16 @@
 
         async function unbindModel(pmId) {
             await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {method: 'DELETE'});
+            loadProviderBindings(selectedProviderId);
+        }
+
+        async function updateBindingConcurrency(pmId, value) {
+            const maxConcurrent = value ? parseInt(value) : null;
+            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({max_concurrent: maxConcurrent})
+            });
             loadProviderBindings(selectedProviderId);
         }
 

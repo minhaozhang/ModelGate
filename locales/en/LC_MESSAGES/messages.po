@@ -426,6 +426,9 @@ msgstr "Check available models in"
 msgid "Monitor usage in"
 msgstr "Monitor usage in"
 
+msgid "Concurrency"
+msgstr "Concurrency"
+
 msgid "Each provider has its own concurrency limit"
 msgstr "Each provider has its own concurrency limit"
 

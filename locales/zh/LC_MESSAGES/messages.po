@@ -426,6 +426,9 @@ msgstr "在"
 msgid "Monitor usage in"
 msgstr "在"
 
+msgid "Concurrency"
+msgstr "并发"
+
 msgid "Each provider has its own concurrency limit"
 msgstr "每个供应商有自己的并发限制"
 
