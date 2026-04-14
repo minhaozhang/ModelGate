@@ -1,14 +1,10 @@
-import os
 import re
 import unicodedata
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 
 from core.database import async_session_maker, Document
 
-UPLOADS_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), "uploads", "documents"
-)
 MAX_FILE_SIZE = 1 * 1024 * 1024
 
 
@@ -36,33 +32,10 @@ async def ensure_unique_slug(slug: str, exclude_id: int | None = None) -> str:
             counter += 1
 
 
-def save_file(filename: str, content: str) -> str:
-    os.makedirs(UPLOADS_DIR, exist_ok=True)
-    safe_name = re.sub(r"[^\w.-]", "_", filename)
-    filepath = os.path.join(UPLOADS_DIR, safe_name)
-    base, ext = os.path.splitext(safe_name)
-    counter = 1
-    while os.path.exists(filepath):
-        filepath = os.path.join(UPLOADS_DIR, f"{base}_{counter}{ext}")
-        counter += 1
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(content)
-    return os.path.basename(filepath)
-
-
-def delete_file(filename: str | None) -> None:
-    if not filename:
-        return
-    filepath = os.path.join(UPLOADS_DIR, filename)
-    if os.path.exists(filepath):
-        os.remove(filepath)
-
-
 async def create_document(
     title: str,
     content: str,
     category: str | None,
-    filename: str | None,
     is_published: bool,
 ) -> dict:
     slug = await ensure_unique_slug(generate_slug(title))
@@ -72,7 +45,7 @@ async def create_document(
             slug=slug,
             content=content,
             category=category or None,
-            filename=filename,
+            filename=None,
             is_published=is_published,
         )
         session.add(doc)
@@ -93,6 +66,7 @@ async def update_document(
         doc = result.scalar_one_or_none()
         if not doc:
             return None
+        doc.filename = None
         if title is not None:
             doc.title = title
             doc.slug = await ensure_unique_slug(generate_slug(title), exclude_id=doc.id)
@@ -113,7 +87,6 @@ async def delete_document(doc_id: int) -> bool:
         doc = result.scalar_one_or_none()
         if not doc:
             return False
-        delete_file(doc.filename)
         await session.delete(doc)
         await session.commit()
         return True
@@ -166,7 +139,6 @@ def _doc_to_dict(doc: Document) -> dict:
         "slug": doc.slug,
         "content": doc.content,
         "category": doc.category,
-        "filename": doc.filename,
         "is_published": doc.is_published,
         "created_at": doc.created_at.isoformat() if doc.created_at else None,
         "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,

@@ -43,6 +43,16 @@ def _get_semaphore_limit(
     return getattr(semaphore, SEMAPHORE_LIMIT_ATTR, fallback)
 
 
+def _get_model_aliases(pm: dict) -> set[str]:
+    aliases: set[str] = set()
+    for value in (pm.get("model_name"), pm.get("actual_model_name")):
+        if not value:
+            continue
+        aliases.add(value)
+        aliases.add(value.split("/")[-1])
+    return aliases
+
+
 async def load_providers():
     async with async_session_maker() as session:
         result = await session.execute(
@@ -133,9 +143,9 @@ async def get_provider_config(provider_name: str) -> Optional[dict]:
 def get_model_config(provider_config: dict, model_name: str) -> Optional[dict]:
     if not provider_config:
         return None
+    requested_names = {model_name, model_name.split("/")[-1]}
     for pm in provider_config.get("models", []):
-        pm_model_name = pm.get("model_name")
-        if pm_model_name == model_name or pm_model_name == model_name.split("/")[-1]:
+        if requested_names & _get_model_aliases(pm):
             return pm
     return None
 

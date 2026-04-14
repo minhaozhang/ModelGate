@@ -746,6 +746,8 @@ def build_system_health_summary(
 def get_user_period_range(
     now: datetime, period: str
 ) -> tuple[datetime, list[str], Callable[[datetime], str]]:
+    week_bucket_hours = 4
+    week_bucket_count = 42
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         intervals = [
@@ -758,22 +760,24 @@ def get_user_period_range(
         ).strftime("%H:%M")
     elif period == "week":
         current_bucket_start = now.replace(
-            hour=0 if now.hour < 12 else 12,
+            hour=(now.hour // week_bucket_hours) * week_bucket_hours,
             minute=0,
             second=0,
             microsecond=0,
         )
-        start = current_bucket_start - timedelta(hours=12 * 13)
+        start = current_bucket_start - timedelta(
+            hours=week_bucket_hours * (week_bucket_count - 1)
+        )
         intervals = [
-            ((start + timedelta(hours=12 * i)).strftime("%m/%d %H:%M"))
-            for i in range(14)
+            ((start + timedelta(hours=week_bucket_hours * i)).strftime("%m/%d %H:%M"))
+            for i in range(week_bucket_count)
         ]
 
         def format_func(d: datetime) -> str:
             bucket_index = max(
                 0,
                 min(
-                    int((d - start).total_seconds() // (12 * 3600)),
+                    int((d - start).total_seconds() // (week_bucket_hours * 3600)),
                     len(intervals) - 1,
                 ),
             )

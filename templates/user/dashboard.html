@@ -306,6 +306,7 @@
         noData: {{ _('No data') | tojson }},
         allCategories: {{ _('All Categories') | tojson }},
         noDocuments: {{ _('No documents available') | tojson }},
+        viewDetails: {{ _('View Details') | tojson }},
         noActiveSessions: {{ _('No active sessions') | tojson }},
         noModels: {{ _('No models') | tojson }},
         copied: {{ _('Copied!') | tojson }},
@@ -431,6 +432,10 @@
             if (tab === 'documents') loadDocList();
         }
 
+        function openDocumentPage(docId) {
+            window.location.href = APP_BASE_PATH + '/user/documents/' + docId;
+        }
+
         async function loadDocList() {
             const category = document.getElementById('doc-category-select').value;
             const url = APP_BASE_PATH + '/user/api/documents' + (category ? '?category=' + encodeURIComponent(category) : '');
@@ -461,7 +466,10 @@
                     <h3 class="font-semibold text-gray-800 mb-1">${doc.title}</h3>
                     ${doc.category ? '<span class="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mb-2">' + doc.category + '</span>' : ''}
                     ${doc.summary ? '<p class="text-sm text-gray-500">' + doc.summary + '</p>' : ''}
-                    <div class="text-xs text-gray-400 mt-2">${doc.updated_at || ''}</div>
+                    <div class="mt-3 flex items-center justify-between gap-3">
+                        <div class="text-xs text-gray-400">${doc.updated_at || ''}</div>
+                        <button type="button" onclick="event.stopPropagation();openDocDetail(${doc.id})" class="text-xs text-blue-600 hover:underline">${window.I18N.viewDetails}</button>
+                    </div>
                 </div>
             `).join('');
         }
@@ -469,6 +477,7 @@
         async function openDocDetail(docId) {
             const res = await fetch(APP_BASE_PATH + '/user/api/documents/' + docId);
             if (res.status === 401) { logout(); return; }
+            if (!res.ok) { openDocumentPage(docId); return; }
             const doc = await res.json();
             document.getElementById('doc-detail-title').textContent = doc.title || '';
             document.getElementById('doc-detail-meta').innerHTML =
@@ -477,6 +486,7 @@
             document.getElementById('doc-detail-content').innerHTML = marked.parse(doc.content || '');
             document.getElementById('doc-list-view').style.display = 'none';
             document.getElementById('doc-detail-view').style.display = '';
+            document.getElementById('doc-detail-view').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function closeDocDetail() {

@@ -58,6 +58,7 @@
             darkMode: {{ _('Dark Mode') | tojson }},
             noDocuments: {{ _('No documents available') | tojson }},
             readMore: {{ _('Read More') | tojson }},
+            viewDetails: {{ _('View Details') | tojson }},
         };
 
         function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
@@ -69,6 +70,10 @@
         applyTheme(getThemeMode());
 
         function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }
+
+        function openDocumentDetail(docId) {
+            window.location.href = `${BASE}/user/documents/${docId}`;
+        }
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -101,15 +106,15 @@
                     : '';
                 const preview = (doc.content || '').substring(0, 120).replace(/[#*_`]/g, '');
                 return `
-                    <a href="${BASE}/user/documents/${doc.id}" class="block bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow border border-transparent hover:border-blue-200">
+                    <div onclick="openDocumentDetail(${doc.id})" class="cursor-pointer bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow border border-transparent hover:border-blue-200">
                         ${categoryBadge}
                         <h3 class="text-base font-semibold text-gray-800 mb-2">${escapeHtml(doc.title)}</h3>
                         <p class="text-sm text-gray-500 line-clamp-2">${escapeHtml(preview)}...</p>
                         <div class="flex items-center justify-between mt-3">
                             <span class="text-xs text-gray-400">${escapeHtml(doc.created_at || '')}</span>
-                            <span class="text-xs text-blue-600">${window.I18N.readMore} &rarr;</span>
+                            <button type="button" onclick="event.stopPropagation();openDocumentDetail(${doc.id})" class="text-xs text-blue-600 hover:underline">${window.I18N.viewDetails} &rarr;</button>
                         </div>
-                    </a>
+                    </div>
                 `;
             }).join('');
         }
