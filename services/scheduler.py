@@ -35,13 +35,13 @@ async def startup_scheduler():
     )
     scheduler.add_job(
         _run_daily_recommendation_analysis,
-        CronTrigger(hour=1, minute=0),
+        CronTrigger(hour=8, minute=0),
         id="daily_recommendation_analysis",
         replace_existing=True,
     )
     scheduler.start()
     logger.info(
-        "[SCHEDULER] Scheduler started: aggregate at 00:05, archive at 00:20, cleanup pending every 10 min, recommendation analysis at 01:00"
+        "[SCHEDULER] Scheduler started: aggregate at 00:05, archive at 00:20, cleanup pending every 10 min, recommendation analysis at 08:00"
     )
 
     import asyncio
