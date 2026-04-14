@@ -5,6 +5,8 @@ from fastapi.responses import JSONResponse
 
 from core.config import validate_session
 from services import documents as doc_svc
+from services import document_files as file_svc
+from services import storage
 
 router = APIRouter(prefix="/admin/api/documents", tags=["documents"])
 
@@ -106,7 +108,59 @@ async def update_document(
 async def delete_document(doc_id: int, session: Optional[str] = Cookie(None)):
     if not _check(session):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    await file_svc.delete_files_by_document(doc_id)
     ok = await doc_svc.delete_document(doc_id)
     if not ok:
         return JSONResponse({"error": "Document not found"}, status_code=404)
+    return {"success": True}
+
+
+@router.post("/{doc_id}/files")
+async def upload_file(
+    doc_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    session: Optional[str] = Cookie(None),
+):
+    if not _check(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    doc = await doc_svc.get_document(doc_id)
+    if not doc:
+        return JSONResponse({"error": "Document not found"}, status_code=404)
+
+    if not file.filename:
+        return JSONResponse({"error": "No filename"}, status_code=400)
+
+    if not storage.is_allowed_file(file.filename):
+        return JSONResponse(
+            {
+                "error": "File type not allowed (pdf/doc/docx/md/markdown/images only, max 20MB)"
+            },
+            status_code=400,
+        )
+
+    body = await file.read()
+    if len(body) > storage.MAX_FILE_SIZE:
+        return JSONResponse({"error": "File too large (max 20MB)"}, status_code=400)
+
+    result = await file_svc.add_file(doc_id, file.filename, body)
+    return result
+
+
+@router.get("/{doc_id}/files")
+async def list_files(doc_id: int, session: Optional[str] = Cookie(None)):
+    if not _check(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    files = await file_svc.list_files(doc_id)
+    return {"files": files}
+
+
+@router.delete("/{doc_id}/files/{file_id}")
+async def delete_file(doc_id: int, file_id: int, session: Optional[str] = Cookie(None)):
+    if not _check(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    ok = await file_svc.delete_file(file_id)
+    if not ok:
+        return JSONResponse({"error": "File not found"}, status_code=404)
     return {"success": True}

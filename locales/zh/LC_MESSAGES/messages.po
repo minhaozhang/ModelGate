@@ -1068,3 +1068,31 @@ msgstr "失败"
 
 msgid "Pending"
 msgstr "等待中"
+
+msgid "Insert Image"
+msgstr "插入图片"
+
+msgid "Attachments"
+msgstr "附件"
+
+msgid "Drop files here or click to upload"
+msgstr "拖拽文件到此处或点击上传"
+
+msgid "Upload failed"
+msgstr "上传失败"
+
+msgid "Delete this file?"
+msgstr "确定删除此文件？"
+
+msgid "Please save the document first"
+msgstr "请先保存文档"
+
+msgid "Image uploaded"
+msgstr "图片已上传"
+
+msgid "Files"
+msgstr "文件"
+
+msgid "Images"
+msgstr "图片"
+

@@ -10,8 +10,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import case, func, or_, select
 
-from core.app_paths import build_app_url, get_app_base_path
-from core.config import logger, providers_cache
+from core.app_paths import build_app_url
+from core.config import logger, providers_cache, validate_session
 from core.database import (
     async_session_maker,
     ApiKey,
@@ -28,7 +28,6 @@ from services.analysis_store import (
     ANALYSIS_STATUS_SUCCESS,
     ANALYSIS_TYPE_USER_RECOMMENDATION,
     get_analysis_record,
-    start_analysis_task,
     upsert_analysis_record,
 )
 from services.proxy import call_internal_model_via_proxy
@@ -645,6 +644,8 @@ async def run_user_recommendation_analysis(
 
         content = json.dumps(
             {
+                "items": recommendations,
+                "hourly_stats": hourly_stats,
                 "reasons": result.get("reasons") or {},
                 "timing_advice": result.get("timing_advice"),
             },
@@ -1223,272 +1224,19 @@ async def get_user_recommendations(
     if not api_key_id:
         return translated_error(request, "Not authenticated", 401)
 
-    from core.database import ApiKeyModel, Model, Provider, ProviderModel
-
     now = get_local_now()
-    start, _, _ = get_user_period_range(now, period)
-    cache_key = (api_key_id, period, "v3", get_cache_bucket(now))
+    cache_key = ("global", period, "v4", get_cache_bucket(now))
     cached_payload = get_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, now)
-    if (
-        cached_payload is not None
-        and cached_payload.get("analysis_source") == "pending"
-    ):
-        cached_payload = None
     if cached_payload is not None:
-        top_recommendations = [
-            dict(item) for item in (cached_payload.get("items") or [])
-        ]
-        hourly_stats = cached_payload.get("hourly_stats") or []
-        base_generated_at = cached_payload.get("generated_at") or now.isoformat()
-    else:
-        top_recommendations = []
-        hourly_stats = []
-        base_generated_at = now.isoformat()
-
-    if cached_payload is None:
-        async with async_session_maker() as session:
-            key_result = await session.execute(
-                select(ApiKey).where(ApiKey.id == api_key_id)
-            )
-            api_key = key_result.scalar_one_or_none()
-            if not api_key:
-                return translated_error(request, "API Key not found", 404)
-
-            providers_result = await session.execute(
-                select(Provider).where(Provider.is_active == True)
-            )
-            models_result = await session.execute(
-                select(Model).where(Model.is_active == True)
-            )
-            provider_models_result = await session.execute(
-                select(ProviderModel).where(ProviderModel.is_active == True)
-            )
-            key_models_result = await session.execute(
-                select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key_id)
-            )
-
-            providers = providers_result.scalars().all()
-            models = models_result.scalars().all()
-            provider_models = provider_models_result.scalars().all()
-            key_models = key_models_result.scalars().all()
-
-            provider_map = {provider.id: provider for provider in providers}
-            model_map = {model.id: model for model in models}
-            active_provider_models = [
-                pm
-                for pm in provider_models
-                if pm.provider_id in provider_map and pm.model_id in model_map
-            ]
-            allowed_pm_ids = {item.provider_model_id for item in key_models}
-            full_access = len(allowed_pm_ids) == 0
-            accessible_provider_models = (
-                active_provider_models
-                if full_access
-                else [pm for pm in active_provider_models if pm.id in allowed_pm_ids]
-            )
-
-            accessible_model_meta: dict[tuple[int, str], dict] = {}
-            accessible_provider_ids: set[int] = set()
-            accessible_model_names: set[str] = set()
-            for provider_model in accessible_provider_models:
-                provider = provider_map[provider_model.provider_id]
-                model = model_map[provider_model.model_id]
-                full_name = f"{provider.name}/{model.name}"
-                accessible_model_meta[(provider.id, model.name)] = {
-                    "provider": provider.name,
-                    "model_name": model.name,
-                    "display_name": model.display_name or model.name,
-                    "full_name": full_name,
-                }
-                accessible_provider_ids.add(provider.id)
-                accessible_model_names.add(model.name)
-
-            if not accessible_model_meta:
-                payload = {
-                    "period": period,
-                    "generated_at": now.isoformat(),
-                    "items": [],
-                }
-                set_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, payload, now)
-                return payload
-
-            rows_result = await session.execute(
-                select(
-                    RequestLog.provider_id,
-                    RequestLog.model,
-                    func.count(RequestLog.id).label("requests"),
-                    func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
-                    func.sum(
-                        case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
-                    ).label("errors"),
-                )
-                .where(
-                    RequestLog.created_at >= start,
-                    RequestLog.provider_id.in_(list(accessible_provider_ids)),
-                    RequestLog.model.in_(list(accessible_model_names)),
-                    RequestLog.status != "pending",
-                )
-                .group_by(RequestLog.provider_id, RequestLog.model)
-            )
-            rows = rows_result.fetchall()
-
-            hourly_rows_result = await session.execute(
-                select(
-                    func.extract("hour", RequestLog.created_at).label("hour_of_day"),
-                    func.count(RequestLog.id).label("requests"),
-                    func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
-                    func.sum(
-                        case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
-                    ).label("errors"),
-                )
-                .where(
-                    RequestLog.created_at >= start,
-                    RequestLog.provider_id.in_(list(accessible_provider_ids)),
-                    RequestLog.model.in_(list(accessible_model_names)),
-                    RequestLog.status != "pending",
-                )
-                .group_by(func.extract("hour", RequestLog.created_at))
-                .order_by(func.extract("hour", RequestLog.created_at))
-            )
-            hourly_rows = hourly_rows_result.fetchall()
-
-        recommendations = []
-        for row in rows:
-            if not row.model:
-                continue
-
-            meta = accessible_model_meta.get((row.provider_id, row.model))
-            if not meta:
-                continue
-
-            requests_count = int(row.requests or 0)
-            errors_count = int(row.errors or 0)
-            if requests_count <= 0:
-                continue
-
-            avg_latency_ms = float(row.avg_latency_ms or 0)
-            error_rate = errors_count / requests_count if requests_count else 1.0
-            reliability_score = max(0.0, 1.0 - (error_rate * 1.5))
-            latency_score = (
-                1 / (1 + (avg_latency_ms / 2500.0)) if avg_latency_ms > 0 else 0.0
-            )
-            sample_score = min(requests_count / 20.0, 1.0)
-            score = (
-                (reliability_score * 0.55)
-                + (latency_score * 0.30)
-                + (sample_score * 0.15)
-            )
-
-            recommendations.append(
-                {
-                    "model": meta["full_name"],
-                    "display_name": meta["display_name"],
-                    "provider": meta["provider"],
-                    "actual_model_name": meta["model_name"],
-                    "requests": requests_count,
-                    "errors": errors_count,
-                    "error_rate": round(error_rate, 4),
-                    "avg_latency_ms": round(avg_latency_ms, 2),
-                    "score": round(score, 4),
-                }
-            )
-
-        recommendations.sort(
-            key=lambda item: (
-                -item["score"],
-                item["error_rate"],
-                item["avg_latency_ms"],
-                -item["requests"],
-                item["model"],
-            )
-        )
-
-        for index, item in enumerate(recommendations, start=1):
-            item["rank"] = index
-
-        top_recommendations = recommendations[:5]
-        hourly_stats = [
-            {
-                "hour": int(row.hour_of_day or 0),
-                "requests": int(row.requests or 0),
-                "errors": int(row.errors or 0),
-                "avg_latency_ms": round(float(row.avg_latency_ms or 0), 2)
-                if row.avg_latency_ms is not None
-                else None,
-            }
-            for row in hourly_rows
-        ]
-        base_generated_at = now.isoformat()
-        set_cached_payload(
-            USER_RECOMMENDATIONS_CACHE,
-            cache_key,
-            {
-                "generated_at": base_generated_at,
-                "items": top_recommendations,
-                "hourly_stats": hourly_stats,
-            },
-            now,
-        )
-    if not top_recommendations:
-        payload = {
-            "period": period,
-            "generated_at": base_generated_at,
-            "items": [],
-            "timing_advice": None,
-            "analysis_source": "unavailable",
-            "analysis_model_used": None,
-        }
-        set_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, payload, now)
-        return payload
+        return cached_payload
 
     locale = get_locale(request)
-    scope_key = build_recommendation_scope_key(api_key_id, period, locale)
+    scope_key = f"global:{period}:{locale}"
     analysis_record = await get_analysis_record(
         ANALYSIS_TYPE_USER_RECOMMENDATION,
         scope_key,
     )
     insight_payload = parse_recommendation_analysis_record(analysis_record)
-
-    should_refresh_analysis = (
-        analysis_record is None
-        or analysis_record.status in {ANALYSIS_STATUS_FAILED}
-        or (
-            analysis_record.status in {ANALYSIS_STATUS_PENDING, ANALYSIS_STATUS_RUNNING}
-            and analysis_record.updated_at is not None
-            and analysis_record.updated_at
-            <= now - timedelta(seconds=ANALYSIS_PENDING_STALE_SECONDS)
-        )
-        or (
-            analysis_record.expires_at is not None and analysis_record.expires_at <= now
-        )
-    )
-    if should_refresh_analysis and top_recommendations:
-        await upsert_analysis_record(
-            ANALYSIS_TYPE_USER_RECOMMENDATION,
-            scope_key,
-            status=ANALYSIS_STATUS_PENDING,
-            language=locale,
-            model_used=analysis_record.model_used if analysis_record else None,
-            content=analysis_record.content if analysis_record else None,
-            error=None,
-            expires_at=datetime.now() + timedelta(hours=1),
-        )
-        start_analysis_task(
-            ANALYSIS_TYPE_USER_RECOMMENDATION,
-            scope_key,
-            lambda: run_user_recommendation_analysis(
-                scope_key,
-                locale,
-                top_recommendations,
-                hourly_stats,
-                period,
-            ),
-        )
-        analysis_record = await get_analysis_record(
-            ANALYSIS_TYPE_USER_RECOMMENDATION,
-            scope_key,
-        )
-        insight_payload = parse_recommendation_analysis_record(analysis_record)
 
     reason_map = (
         insight_payload.get("reasons") if isinstance(insight_payload, dict) else {}
@@ -1503,13 +1251,27 @@ async def get_user_recommendations(
     if not isinstance(timing_advice, str) or not timing_advice.strip():
         timing_advice = None
 
-    for item in top_recommendations:
-        item["reason"] = reason_map.get(item["model"])
+    content_dict = {}
+    if analysis_record and analysis_record.content:
+        try:
+            content_dict = json.loads(analysis_record.content)
+        except Exception:
+            pass
+
+    items = content_dict.get("items") or []
+    for item in items:
+        item["reason"] = reason_map.get(item.get("model"))
+
+    hourly_stats = content_dict.get("hourly_stats") or []
 
     payload = {
         "period": period,
-        "generated_at": base_generated_at,
-        "items": top_recommendations,
+        "generated_at": (
+            analysis_record.updated_at.isoformat()
+            if analysis_record and analysis_record.updated_at
+            else now.isoformat()
+        ),
+        "items": items,
         "hourly_stats": hourly_stats,
         "timing_advice": timing_advice,
         "analysis_source": (
@@ -1745,7 +1507,7 @@ async def user_dashboard(request: Request, api_key_id: int = Depends(get_user_se
 
 
 async def scheduled_daily_recommendation_analysis():
-    from core.database import ApiKeyModel, Model, Provider, ProviderModel
+    from core.database import Model, Provider, ProviderModel
 
     default_locale = "zh"
     period = "day"
@@ -1753,11 +1515,6 @@ async def scheduled_daily_recommendation_analysis():
     start, _, _ = get_user_period_range(now, period)
 
     async with async_session_maker() as session:
-        keys_result = await session.execute(
-            select(ApiKey).where(ApiKey.is_active == True)
-        )
-        api_keys = keys_result.scalars().all()
-
         providers_result = await session.execute(
             select(Provider).where(Provider.is_active == True)
         )
@@ -1780,167 +1537,141 @@ async def scheduled_daily_recommendation_analysis():
             if pm.provider_id in provider_map and pm.model_id in model_map
         ]
 
-    for api_key in api_keys:
-        try:
-            async with async_session_maker() as session:
-                key_models_result = await session.execute(
-                    select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key.id)
-                )
-                key_models = key_models_result.scalars().all()
-                allowed_pm_ids = {item.provider_model_id for item in key_models}
-                full_access = len(allowed_pm_ids) == 0
-                accessible_provider_models = (
-                    active_provider_models
-                    if full_access
-                    else [
-                        pm for pm in active_provider_models if pm.id in allowed_pm_ids
-                    ]
-                )
+        model_meta: dict[tuple[int, str], dict] = {}
+        provider_ids: set[int] = set()
+        model_names: set[str] = set()
+        for pm in active_provider_models:
+            provider = provider_map[pm.provider_id]
+            model = model_map[pm.model_id]
+            full_name = f"{provider.name}/{model.name}"
+            model_meta[(pm.provider_id, model.name)] = {
+                "provider": provider.name,
+                "model_name": model.name,
+                "display_name": model.display_name or model.name,
+                "full_name": full_name,
+            }
+            provider_ids.add(provider.id)
+            model_names.add(model.name)
 
-                accessible_model_meta: dict[tuple[int, str], dict] = {}
-                accessible_provider_ids: set[int] = set()
-                accessible_model_names: set[str] = set()
-                for provider_model in accessible_provider_models:
-                    provider = provider_map[provider_model.provider_id]
-                    model = model_map[provider_model.model_id]
-                    full_name = f"{provider.name}/{model.name}"
-                    accessible_model_meta[(provider.id, model.name)] = {
-                        "provider": provider.name,
-                        "model_name": model.name,
-                        "display_name": model.display_name or model.name,
-                        "full_name": full_name,
-                    }
-                    accessible_provider_ids.add(provider.id)
-                    accessible_model_names.add(model.name)
-
-                if not accessible_model_meta:
-                    continue
-
-                rows_result = await session.execute(
-                    select(
-                        RequestLog.provider_id,
-                        RequestLog.model,
-                        func.count(RequestLog.id).label("requests"),
-                        func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
-                        func.sum(
-                            case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
-                        ).label("errors"),
-                    )
-                    .where(
-                        RequestLog.created_at >= start,
-                        RequestLog.provider_id.in_(list(accessible_provider_ids)),
-                        RequestLog.model.in_(list(accessible_model_names)),
-                        RequestLog.status != "pending",
-                    )
-                    .group_by(RequestLog.provider_id, RequestLog.model)
-                )
-                rows = rows_result.fetchall()
-
-                hourly_rows_result = await session.execute(
-                    select(
-                        func.extract("hour", RequestLog.created_at).label(
-                            "hour_of_day"
-                        ),
-                        func.count(RequestLog.id).label("requests"),
-                        func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
-                        func.sum(
-                            case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
-                        ).label("errors"),
-                    )
-                    .where(
-                        RequestLog.created_at >= start,
-                        RequestLog.provider_id.in_(list(accessible_provider_ids)),
-                        RequestLog.model.in_(list(accessible_model_names)),
-                        RequestLog.status != "pending",
-                    )
-                    .group_by(func.extract("hour", RequestLog.created_at))
-                    .order_by(func.extract("hour", RequestLog.created_at))
-                )
-                hourly_rows = hourly_rows_result.fetchall()
-
-            recommendations = []
-            for row in rows:
-                if not row.model:
-                    continue
-                meta = accessible_model_meta.get((row.provider_id, row.model))
-                if not meta:
-                    continue
-                requests_count = int(row.requests or 0)
-                errors_count = int(row.errors or 0)
-                if requests_count <= 0:
-                    continue
-                avg_latency_ms = float(row.avg_latency_ms or 0)
-                error_rate = errors_count / requests_count if requests_count else 1.0
-                reliability_score = max(0.0, 1.0 - (error_rate * 1.5))
-                latency_score = (
-                    1 / (1 + (avg_latency_ms / 2500.0)) if avg_latency_ms > 0 else 0.0
-                )
-                sample_score = min(requests_count / 20.0, 1.0)
-                score = (
-                    (reliability_score * 0.55)
-                    + (latency_score * 0.30)
-                    + (sample_score * 0.15)
-                )
-                recommendations.append(
-                    {
-                        "model": meta["full_name"],
-                        "display_name": meta["display_name"],
-                        "provider": meta["provider"],
-                        "actual_model_name": meta["model_name"],
-                        "requests": requests_count,
-                        "errors": errors_count,
-                        "error_rate": round(error_rate, 4),
-                        "avg_latency_ms": round(avg_latency_ms, 2),
-                        "score": round(score, 4),
-                    }
-                )
-
-            recommendations.sort(
-                key=lambda item: (
-                    -item["score"],
-                    item["error_rate"],
-                    item["avg_latency_ms"],
-                    -item["requests"],
-                    item["model"],
-                )
-            )
-            top_recommendations = recommendations[:5]
-            hourly_stats = [
-                {
-                    "hour": int(row.hour_of_day or 0),
-                    "requests": int(row.requests or 0),
-                    "errors": int(row.errors or 0),
-                    "avg_latency_ms": round(float(row.avg_latency_ms or 0), 2)
-                    if row.avg_latency_ms is not None
-                    else None,
-                }
-                for row in hourly_rows
-            ]
-
-            if not top_recommendations:
-                continue
-
-            scope_key = build_recommendation_scope_key(
-                api_key.id, period, default_locale
-            )
-            await run_user_recommendation_analysis(
-                scope_key,
-                default_locale,
-                top_recommendations,
-                hourly_stats,
-                period,
-            )
+        if not model_meta:
             logger.info(
-                "[SCHEDULER] Recommendation analysis completed for API key %d (%d recommendations)",
-                api_key.id,
-                len(top_recommendations),
+                "[SCHEDULER] No active provider models, skipping recommendation analysis"
             )
-        except Exception as exc:
-            logger.warning(
-                "[SCHEDULER] Failed to run recommendation analysis for API key %d: %s",
-                api_key.id,
-                exc,
+            return
+
+        rows_result = await session.execute(
+            select(
+                RequestLog.provider_id,
+                RequestLog.model,
+                func.count(RequestLog.id).label("requests"),
+                func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                func.sum(
+                    case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                ).label("errors"),
             )
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.provider_id.in_(list(provider_ids)),
+                RequestLog.model.in_(list(model_names)),
+                RequestLog.status != "pending",
+            )
+            .group_by(RequestLog.provider_id, RequestLog.model)
+        )
+        rows = rows_result.fetchall()
+
+        hourly_rows_result = await session.execute(
+            select(
+                func.extract("hour", RequestLog.created_at).label("hour_of_day"),
+                func.count(RequestLog.id).label("requests"),
+                func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                func.sum(
+                    case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                ).label("errors"),
+            )
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.provider_id.in_(list(provider_ids)),
+                RequestLog.model.in_(list(model_names)),
+                RequestLog.status != "pending",
+            )
+            .group_by(func.extract("hour", RequestLog.created_at))
+            .order_by(func.extract("hour", RequestLog.created_at))
+        )
+        hourly_rows = hourly_rows_result.fetchall()
+
+    recommendations = []
+    for row in rows:
+        if not row.model:
+            continue
+        meta = model_meta.get((row.provider_id, row.model))
+        if not meta:
+            continue
+        requests_count = int(row.requests or 0)
+        errors_count = int(row.errors or 0)
+        if requests_count <= 0:
+            continue
+        avg_latency_ms = float(row.avg_latency_ms or 0)
+        error_rate = errors_count / requests_count if requests_count else 1.0
+        reliability_score = max(0.0, 1.0 - (error_rate * 1.5))
+        latency_score = (
+            1 / (1 + (avg_latency_ms / 2500.0)) if avg_latency_ms > 0 else 0.0
+        )
+        sample_score = min(requests_count / 20.0, 1.0)
+        score = (
+            (reliability_score * 0.55) + (latency_score * 0.30) + (sample_score * 0.15)
+        )
+        recommendations.append(
+            {
+                "model": meta["full_name"],
+                "display_name": meta["display_name"],
+                "provider": meta["provider"],
+                "actual_model_name": meta["model_name"],
+                "requests": requests_count,
+                "errors": errors_count,
+                "error_rate": round(error_rate, 4),
+                "avg_latency_ms": round(avg_latency_ms, 2),
+                "score": round(score, 4),
+            }
+        )
+
+    recommendations.sort(
+        key=lambda item: (
+            -item["score"],
+            item["error_rate"],
+            item["avg_latency_ms"],
+            -item["requests"],
+            item["model"],
+        )
+    )
+    top_recommendations = recommendations[:5]
+    hourly_stats = [
+        {
+            "hour": int(row.hour_of_day or 0),
+            "requests": int(row.requests or 0),
+            "errors": int(row.errors or 0),
+            "avg_latency_ms": round(float(row.avg_latency_ms or 0), 2)
+            if row.avg_latency_ms is not None
+            else None,
+        }
+        for row in hourly_rows
+    ]
+
+    if not top_recommendations:
+        logger.info("[SCHEDULER] No recommendations to analyze")
+        return
+
+    scope_key = f"global:{period}:{default_locale}"
+    await run_user_recommendation_analysis(
+        scope_key,
+        default_locale,
+        top_recommendations,
+        hourly_stats,
+        period,
+    )
+    logger.info(
+        "[SCHEDULER] Global recommendation analysis completed (%d recommendations)",
+        len(top_recommendations),
+    )
 
 
 @router.get("/user/documents", response_class=HTMLResponse)
@@ -2003,3 +1734,73 @@ async def user_api_document_detail(
         "content": doc.get("content"),
         "updated_at": doc.get("updated_at") or "",
     }
+
+
+@router.get("/user/api/documents/{doc_id}/files")
+async def user_api_document_files(
+    request: Request,
+    doc_id: int,
+    user_session: Optional[str] = Cookie(None),
+    session: Optional[str] = Cookie(None),
+):
+    api_key_id = get_user_session(user_session)
+    is_admin = validate_session(session)
+    if not api_key_id and not is_admin:
+        return translated_error(request, "Not authenticated", 401)
+    from services.documents import get_document
+    from services.document_files import list_files
+
+    doc = await get_document(doc_id)
+    if not doc or (not doc.get("is_published") and not is_admin):
+        return translated_error(request, "Document not found", 404)
+
+    files = await list_files(doc_id)
+    result = []
+    for f in files:
+        url = ""
+        if f.get("object_name"):
+            from services.storage import get_presigned_url
+
+            url = get_presigned_url(f["object_name"], expires_hours=1)
+        result.append(
+            {
+                "id": f["id"],
+                "filename": f["filename"],
+                "file_type": f["file_type"],
+                "file_size": f["file_size"],
+                "content_type": f["content_type"],
+                "download_url": url,
+            }
+        )
+    return {"files": result}
+
+
+@router.get("/user/api/documents/{doc_id}/files/{file_id}/download")
+async def user_api_document_file_download(
+    request: Request,
+    doc_id: int,
+    file_id: int,
+    user_session: Optional[str] = Cookie(None),
+    session: Optional[str] = Cookie(None),
+):
+    api_key_id = get_user_session(user_session)
+    is_admin = validate_session(session)
+    if not api_key_id and not is_admin:
+        return translated_error(request, "Not authenticated", 401)
+    from services.documents import get_document
+    from services.document_files import get_file
+    from services.storage import get_presigned_url
+
+    doc = await get_document(doc_id)
+    if not doc or (not doc.get("is_published") and not is_admin):
+        return translated_error(request, "Document not found", 404)
+
+    f = await get_file(file_id)
+    if not f or f["document_id"] != doc_id:
+        return translated_error(request, "File not found", 404)
+    url = get_presigned_url(f["object_name"], expires_hours=1)
+    if not url:
+        return translated_error(request, "File not found", 404)
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url)

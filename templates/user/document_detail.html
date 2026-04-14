@@ -30,6 +30,7 @@
         body.theme-dark .bg-gray-100 { background: #020617 !important; }
         body.theme-dark .text-gray-800 { color: #f8fafc !important; }
         body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-700 { color: #cbd5e1 !important; }
         body.theme-dark .border-gray-200 { border-color: #243244 !important; }
         body.theme-dark select, body.theme-dark button:not(.bg-blue-600) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
         body.theme-dark .shadow { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
@@ -41,6 +42,12 @@
         body.theme-dark .markdown-body th, body.theme-dark .markdown-body td { border-color: #334155; }
         body.theme-dark .markdown-body hr { border-top-color: #334155; }
         body.theme-dark .markdown-body pre { border: 1px solid rgba(71, 85, 105, 0.6); }
+        .file-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 0.5rem; }
+        body.theme-dark .file-card { border-color: #334155; }
+        .file-card:hover { border-color: #3b82f6; }
+        .file-icon { width: 2.5rem; height: 2.5rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; flex-shrink: 0; }
+        .inline-image { margin: 1rem 0; border-radius: 0.5rem; cursor: pointer; }
+        .inline-image img { max-width: 100%; border-radius: 0.5rem; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -67,11 +74,18 @@
                 </div>
             </header>
             <div id="doc-content" class="markdown-body"></div>
+            <div id="attached-images" class="mt-6"></div>
+            <div id="attached-files" class="mt-6 hidden">
+                <h3 class="text-base font-semibold text-gray-800 mb-3">{{ _('Attachments') }}</h3>
+                <div id="file-list"></div>
+            </div>
         </article>
     </div>
 
-    <script src="{{ app_base_path }}/static/js/marked.min.js"></script>
+    <script src="/static/js/marked.min.js"></script>
     <script>
+        const BASE = {{ app_base_path | tojson }};
+        const docId = {{ doc.id }};
         const content = {{ doc.content | tojson }};
         document.getElementById('doc-content').innerHTML = marked.parse(content);
 
@@ -82,6 +96,58 @@
         }
         applyTheme(getThemeMode());
         function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function getFileIcon(fileType) {
+            const colors = { pdf: 'bg-red-100 text-red-600', word: 'bg-blue-100 text-blue-600', markdown: 'bg-gray-100 text-gray-600' };
+            const labels = { pdf: 'PDF', word: 'DOC', markdown: 'MD' };
+            const c = colors[fileType] || 'bg-gray-100 text-gray-500';
+            const l = labels[fileType] || 'FILE';
+            return `<div class="file-icon ${c}">${l}</div>`;
+        }
+
+        async function loadFiles() {
+            const r = await fetch(`${BASE}/user/api/documents/${docId}/files`);
+            if (!r.ok) return;
+            const data = await r.json();
+            const files = data.files || [];
+            if (!files.length) return;
+
+            const images = files.filter(f => f.file_type === 'image');
+            const nonImages = files.filter(f => f.file_type !== 'image');
+
+            if (images.length) {
+                const imgContainer = document.getElementById('attached-images');
+                imgContainer.innerHTML = '<h3 class="text-base font-semibold text-gray-800 mb-3">{{ _("Images") }}</h3>' +
+                    images.map(f => `<div class="inline-image"><img src="${escapeHtml(f.download_url)}" alt="${escapeHtml(f.filename)}" loading="lazy"></div>`).join('');
+            }
+
+            if (nonImages.length) {
+                document.getElementById('attached-files').classList.remove('hidden');
+                document.getElementById('file-list').innerHTML = nonImages.map(f => `
+                    <a href="${escapeHtml(f.download_url)}" target="_blank" rel="noopener" class="file-card block no-underline">
+                        ${getFileIcon(f.file_type)}
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm text-gray-800 truncate">${escapeHtml(f.filename)}</div>
+                            <div class="text-xs text-gray-400">${formatFileSize(f.file_size)}</div>
+                        </div>
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    </a>
+                `).join('');
+            }
+        }
+
+        loadFiles();
     </script>
 </body>
 </html>

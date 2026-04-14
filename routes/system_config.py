@@ -27,6 +27,9 @@ async def get_config(_: bool = Depends(require_admin)):
         "ua_override": config.system_config.get("ua_override")
         or DEFAULT_OUTBOUND_USER_AGENT,
         "default_ua": DEFAULT_OUTBOUND_USER_AGENT,
+        "api_key_model_max_concurrency": int(
+            config.system_config.get("api_key_model_max_concurrency") or 1
+        ),
     }
 
 
@@ -36,7 +39,27 @@ async def update_config(body: dict, _: bool = Depends(require_admin)):
     if ua:
         config.OUTBOUND_USER_AGENT = ua
         config.system_config["ua_override"] = ua
-    return {"ua_override": config.OUTBOUND_USER_AGENT}
+    raw_limit = body.get("api_key_model_max_concurrency")
+    if raw_limit is not None:
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=400,
+                detail="api_key_model_max_concurrency must be an integer",
+            )
+        if limit < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="api_key_model_max_concurrency must be at least 1",
+            )
+        config.system_config["api_key_model_max_concurrency"] = limit
+    return {
+        "ua_override": config.OUTBOUND_USER_AGENT,
+        "api_key_model_max_concurrency": int(
+            config.system_config.get("api_key_model_max_concurrency") or 1
+        ),
+    }
 
 
 @router.get("/api/system/ua-stats")

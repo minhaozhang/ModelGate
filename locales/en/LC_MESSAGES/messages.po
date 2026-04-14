@@ -846,245 +846,30 @@ msgstr "Active users"
 msgid "Pending"
 msgstr "Pending"
 
-msgid "Excellent"
-msgstr "Excellent"
+msgid "Insert Image"
+msgstr "Insert Image"
 
-msgid "Healthy"
-msgstr "Healthy"
+msgid "Attachments"
+msgstr "Attachments"
 
-msgid "Busy"
-msgstr "Busy"
+msgid "Drop files here or click to upload"
+msgstr "Drop files here or click to upload"
 
-msgid "Degraded"
-msgstr "Degraded"
+msgid "Upload failed"
+msgstr "Upload failed"
 
-msgid "Idle"
-msgstr "Idle"
+msgid "Delete this file?"
+msgstr "Delete this file?"
 
-msgid "Last Used"
-msgstr "Last Used"
+msgid "Please save the document first"
+msgstr "Please save the document first"
 
-msgid "Never"
-msgstr "Never"
+msgid "Image uploaded"
+msgstr "Image uploaded"
 
-msgid "ModelGate Access"
-msgstr "ModelGate Access"
+msgid "Files"
+msgstr "Files"
 
-msgid "Login Page:"
-msgstr "Login Page:"
+msgid "Images"
+msgstr "Images"
 
-msgid "API Key:"
-msgstr "API Key:"
-
-msgid "Quick Start:"
-msgstr "Quick Start:"
-
-msgid "Open the login page above and paste the API key to sign in."
-msgstr "Open the login page above and paste the API key to sign in."
-
-msgid "For OpenCode setup, open the setup document below or send it directly to your agent."
-msgstr "For OpenCode setup, open the setup document below or send it directly to your agent."
-
-msgid "Keep this API key private and do not share it in public chats or repositories."
-msgstr "Keep this API key private and do not share it in public chats or repositories."
-
-msgid "OpenCode Setup Doc:"
-msgstr "OpenCode Setup Doc:"
-
-msgid "Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter:"
-msgstr "Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter:"
-
-msgid "Follow this document."
-msgstr "Follow this document."
-
-msgid "Enabled Models:"
-msgstr "Enabled Models:"
-
-msgid "No specific model restrictions. This API key can use all currently allowed models."
-msgstr "No specific model restrictions. This API key can use all currently allowed models."
-
-msgid "If OpenCode is not installed yet, please download it from the official website below."
-msgstr "If OpenCode is not installed yet, please download it from the official website below."
-
-msgid "A unified gateway for models, monitoring, and OpenCode access"
-msgstr "A unified gateway for models, monitoring, and OpenCode access"
-
-msgid "ModelGate provides a unified LLM API proxy, API key management, usage dashboards, monitoring, and OpenCode configuration in one place."
-msgstr "ModelGate provides a unified LLM API proxy, API key management, usage dashboards, monitoring, and OpenCode configuration in one place."
-
-msgid "Multi-provider API proxy"
-msgstr "Multi-provider API proxy"
-
-msgid "Usage dashboard & analytics"
-msgstr "Usage dashboard & analytics"
-
-msgid "Monitoring & error analysis"
-msgstr "Monitoring & error analysis"
-
-msgid "Quick Start"
-msgstr "Quick Start"
-
-msgid "Open the user login page and sign in with an API key."
-msgstr "Open the user login page and sign in with an API key."
-
-msgid "Use /v1/models to confirm which models are available."
-msgstr "Use /v1/models to confirm which models are available."
-
-msgid "If needed, generate OpenCode settings from the dashboard or API key page."
-msgstr "If needed, generate OpenCode settings from the dashboard or API key page."
-
-msgid "Use the admin panel to review monitoring, logs, and daily analysis reports."
-msgstr "Use the admin panel to review monitoring, logs, and daily analysis reports."
-
-msgid "Example Base URL"
-msgstr "Example Base URL"
-
-msgid "After obtaining an API key, you can generate OpenCode configuration from the dashboard or admin API key page."
-msgstr "After obtaining an API key, you can generate OpenCode configuration from the dashboard or admin API key page."
-
-msgid "Visit OpenCode"
-msgstr "Visit OpenCode"
-
-msgid "Time Rules"
-msgstr "Time Rules"
-
-msgid "Add Time Rule"
-msgstr "Add Time Rule"
-
-msgid "Edit Time Rule"
-msgstr "Edit Time Rule"
-
-msgid "Rule Type"
-msgstr "Rule Type"
-
-msgid "Time Range"
-msgstr "Time Range"
-
-msgid "Date Range"
-msgstr "Date Range"
-
-msgid "Weekday"
-msgstr "Weekday"
-
-msgid "Start Time"
-msgstr "Start Time"
-
-msgid "End Time"
-msgstr "End Time"
-
-msgid "Start Date"
-msgstr "Start Date"
-
-msgid "End Date"
-msgstr "End Date"
-
-msgid "Weekdays"
-msgstr "Weekdays"
-
-msgid "Allowed"
-msgstr "Allowed"
-
-msgid "Blocked"
-msgstr "Blocked"
-
-msgid "No time rules"
-msgstr "No time rules"
-
-msgid "Delete this time rule?"
-msgstr "Delete this time rule?"
-
-msgid "Failed to save time rule"
-msgstr "Failed to save time rule"
-
-msgid "Time rule created"
-msgstr "Time rule created"
-
-msgid "HH:MM"
-msgstr "HH:MM"
-
-msgid "YYYY-MM-DD"
-msgstr "YYYY-MM-DD"
-
-msgid "Mon"
-msgstr "Mon"
-
-msgid "Tue"
-msgstr "Tue"
-
-msgid "Wed"
-msgstr "Wed"
-
-msgid "Thu"
-msgstr "Thu"
-
-msgid "Fri"
-msgstr "Fri"
-
-msgid "Sat"
-msgstr "Sat"
-
-msgid "Sun"
-msgstr "Sun"
-
-msgid "Control when this API key can be used"
-msgstr "Control when this API key can be used"
-
-msgid "Error Analysis"
-msgstr "Error Analysis"
-
-msgid "Tokens/s"
-msgstr "Tokens/s"
-
-msgid "Tokens"
-msgstr "Tokens"
-
-msgid "Usage Report"
-msgstr "Usage Report"
-
-msgid "Generate Report"
-msgstr "Generate Report"
-
-msgid "Start Date"
-msgstr "Start Date"
-
-msgid "End Date"
-msgstr "End Date"
-
-msgid "Exclude Keys"
-msgstr "Exclude Keys"
-
-msgid "Generate"
-msgstr "Generate"
-
-msgid "Generating report..."
-msgstr "Generating report..."
-
-msgid "Report History"
-msgstr "Report History"
-
-msgid "No reports yet"
-msgstr "No reports yet"
-
-msgid "Select API Keys to Exclude"
-msgstr "Select API Keys to Exclude"
-
-msgid "Confirm"
-msgstr "Confirm"
-
-msgid "Cancel"
-msgstr "Cancel"
-
-msgid "Download"
-msgstr "Download"
-
-msgid "Completed"
-msgstr "Completed"
-
-msgid "Running"
-msgstr "Running"
-
-msgid "Failed"
-msgstr "Failed"
-
-msgid "Pending"
-msgstr "Pending"

@@ -64,6 +64,12 @@ CONFIG = {
     "port": int(os.getenv("PORT", 8765)),
 }
 
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+MINIO_BUCKET = os.getenv("MINIO_BUCKET", "modelgate")
+MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() in ("true", "1", "yes")
+
 
 def parse_admin_users() -> dict[str, str]:
     users_env = os.getenv("ADMIN_USERS", "")
@@ -92,10 +98,13 @@ PROVIDERS_CACHE_TTL_MINUTES = 10
 api_keys_cache: dict[str, dict] = {}
 sessions: dict[str, datetime] = {}
 provider_semaphores: dict[str, "asyncio.Semaphore"] = {}
+api_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 
-DEFAULT_OUTBOUND_USER_AGENT = "opencode/1.3.13 ai-sdk/provider-utils/4.0.21 runtime/bun/1.3.11"
+DEFAULT_OUTBOUND_USER_AGENT = (
+    "opencode/1.3.13 ai-sdk/provider-utils/4.0.21 runtime/bun/1.3.11"
+)
 OUTBOUND_USER_AGENT = DEFAULT_OUTBOUND_USER_AGENT
-system_config: dict[str, str] = {}
+system_config: dict[str, Any] = {}
 
 stats = {
     "total_requests": 0,
