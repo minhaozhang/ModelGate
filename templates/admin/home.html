@@ -78,7 +78,7 @@
                 <option value="year">{{ _('This Year') }}</option>
             </select>
             {% endcall %}
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
                     <div id="total-requests" class="metric-flip text-3xl font-bold leading-none text-blue-600">0</div>
@@ -96,14 +96,16 @@
                     <div id="tps" class="metric-flip text-3xl font-bold leading-none text-teal-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Errors/Timeouts/429') }}</div>
-                    <div class="flex items-end gap-1 leading-none">
-                        <span id="total-errors" class="metric-flip text-3xl font-bold leading-none text-red-600">0</span>
-                        <span class="text-gray-400 text-3xl leading-none">/</span>
-                        <span id="total-timeouts" class="metric-flip text-3xl font-bold leading-none text-amber-600">0</span>
-                        <span class="text-gray-400 text-3xl leading-none">/</span>
-                        <span id="total-rate-limited" class="metric-flip text-3xl font-bold leading-none text-sky-600">0</span>
-                    </div>
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Errors') }}</div>
+                    <div id="total-errors" class="metric-flip text-3xl font-bold leading-none text-red-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Timeouts') }}</div>
+                    <div id="total-timeouts" class="metric-flip text-3xl font-bold leading-none text-amber-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">429</div>
+                    <div id="total-rate-limited" class="metric-flip text-3xl font-bold leading-none text-sky-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>

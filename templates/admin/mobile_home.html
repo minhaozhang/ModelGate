@@ -94,9 +94,19 @@
         </div>
         <div class="grid grid-cols-3 gap-3">
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Timeouts') }}</div>
+                <div id="total-timeouts" class="metric-flip mt-1 text-lg font-bold leading-none text-amber-500">0</div>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">429</div>
+                <div id="total-rate-limited" class="metric-flip mt-1 text-lg font-bold leading-none text-sky-500">0</div>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Active Requests') }}</div>
                 <div id="rps" class="metric-flip mt-1 text-lg font-bold leading-none text-orange-500">0</div>
             </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Tokens/s') }}</div>
                 <div id="tps" class="metric-flip mt-1 text-lg font-bold leading-none text-teal-600">0</div>
@@ -527,6 +537,8 @@
                 flipCounter('total-requests', (data.total_requests || 0).toLocaleString());
                 flipCounter('total-tokens', formatCompactTokens(data.total_tokens || 0));
                 flipCounter('total-errors', data.total_errors || 0);
+                flipCounter('total-timeouts', data.total_timeouts || 0);
+                flipCounter('total-rate-limited', data.total_rate_limited || 0);
                 const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
                 flipCounter('error-rate', errorRate + '%');
 
