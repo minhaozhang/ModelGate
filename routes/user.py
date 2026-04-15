@@ -1259,7 +1259,9 @@ async def get_user_recommendations(
             pass
 
     items = content_dict.get("items") or []
-    for item in items:
+    for idx, item in enumerate(items):
+        if "rank" not in item:
+            item["rank"] = idx + 1
         item["reason"] = reason_map.get(item.get("model"))
 
     hourly_stats = content_dict.get("hourly_stats") or []
