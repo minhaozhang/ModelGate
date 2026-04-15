@@ -1644,6 +1644,8 @@ async def scheduled_daily_recommendation_analysis():
         )
     )
     top_recommendations = recommendations[:5]
+    for idx, rec in enumerate(top_recommendations):
+        rec["rank"] = idx + 1
     hourly_stats = [
         {
             "hour": int(row.hour_of_day or 0),

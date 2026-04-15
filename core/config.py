@@ -101,7 +101,7 @@ provider_semaphores: dict[str, "asyncio.Semaphore"] = {}
 api_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 
 DEFAULT_OUTBOUND_USER_AGENT = (
-    "opencode/1.3.13 ai-sdk/provider-utils/4.0.21 runtime/bun/1.3.11"
+    "opencode/1.4.6 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.11"
 )
 OUTBOUND_USER_AGENT = DEFAULT_OUTBOUND_USER_AGENT
 system_config: dict[str, Any] = {}
