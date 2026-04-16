@@ -24,7 +24,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+asyncpg://modelgate:Zaq1%403edc@192.168.58.128/modelgate",
+    "postgresql+asyncpg://modelgate:change_me@localhost:5432/modelgate",
 )
 
 engine = create_async_engine(

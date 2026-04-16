@@ -1,10 +1,11 @@
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 
+from core.app_paths import get_app_base_path
 from core.database import (
     ApiKey,
     ApiKeyModel,
@@ -13,8 +14,17 @@ from core.database import (
     ProviderModel,
     async_session_maker,
 )
+from routes.user import get_user_session
 
 router = APIRouter(tags=["docs"])
+
+
+def build_opencode_base_url(request: Request) -> str:
+    base_url = str(request.base_url).rstrip("/")
+    app_base_path = get_app_base_path(request)
+    if app_base_path and base_url.endswith(app_base_path):
+        return f"{base_url}/v1"
+    return f"{base_url}{app_base_path}/v1"
 
 
 async def build_opencode_config(
@@ -144,22 +154,13 @@ After the config is updated:
 async def get_opencode_setup_markdown(
     request: Request,
     api_key: Optional[str] = None,
-    user_session: Optional[str] = Cookie(None),
+    api_key_id: Optional[int] = Depends(get_user_session),
 ):
-    api_key_id = None
-
-    if user_session:
-        from routes.user import USER_SESSIONS
-
-        session_data = USER_SESSIONS.get(user_session)
-        if session_data:
-            api_key_id = session_data.get("api_key_id")
-
     if not api_key and not api_key_id:
         return PlainTextResponse("# Error\n\nAPI Key is required", status_code=400)
 
     async with async_session_maker() as session:
-        base_url = str(request.base_url).rstrip("/") + "/v1"
+        base_url = build_opencode_base_url(request)
         config = await build_opencode_config(
             session, base_url, api_key=api_key, api_key_id=api_key_id
         )

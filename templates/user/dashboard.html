@@ -230,7 +230,7 @@
         aiGenerated: {{ _('AI Generated') | tojson }},
         aiUnavailable: {{ _('AI analysis unavailable') | tojson }},
         samplesLabel: {{ _('samples') | tojson }},
-        opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider.') | tojson }},
+        opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the modelgate provider.') | tojson }},
         topShare: {{ _('top share') | tojson }},
         onRightAxis: {{ _('on right axis') | tojson }},
         yourApiKey: {{ _('Your API key') | tojson }},
@@ -1090,7 +1090,7 @@
                 const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/opencode-config');
                 
                 const config = data.config;
-                config.provider['model-token-plan'].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
+                config.provider['modelgate'].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
                 
                 const prompt = "# " + window.I18N.opencodePrompt + "\n\n";
                 document.getElementById('config-output').textContent = prompt + JSON.stringify(config, null, 2);
