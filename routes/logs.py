@@ -1310,6 +1310,10 @@ async def get_all_logs(limit: int = 100, _: bool = Depends(require_admin)):
         }
 
 
+def _escape_ilike(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 @router.get("/logs/query")
 async def query_logs(
     key_name: Optional[str] = None,
@@ -1322,21 +1326,34 @@ async def query_logs(
     page_size: int = 50,
     _: bool = Depends(require_admin),
 ):
-    now = datetime.utcnow()
-    if start_time and end_time:
+    page = max(1, page)
+    page_size = max(1, min(page_size, 200))
+    now = datetime.now()
+
+    if start_time or end_time:
         try:
-            dt_start = datetime.fromisoformat(start_time)
-            dt_end = datetime.fromisoformat(end_time)
+            dt_start = (
+                datetime.fromisoformat(start_time)
+                if start_time
+                else now - timedelta(days=7)
+            )
+            dt_end = datetime.fromisoformat(end_time) if end_time else now
         except ValueError:
-            return {"logs": [], "total": 0, "page": page}
+            return {"logs": [], "total": 0, "page": page, "page_size": page_size}
     else:
-        deltas = {"1h": timedelta(hours=1), "6h": timedelta(hours=6), "24h": timedelta(hours=24), "7d": timedelta(days=7)}
+        deltas = {
+            "1h": timedelta(hours=1),
+            "6h": timedelta(hours=6),
+            "24h": timedelta(hours=24),
+            "7d": timedelta(days=7),
+        }
         dt_start = now - deltas.get(time_range, timedelta(hours=1))
         dt_end = now
 
     async with async_session_maker() as session:
         api_key_id_filter = None
         if key_name:
+            safe_key = _escape_ilike(key_name)
             key_result = await session.execute(
                 select(ApiKey).where(ApiKey.name == key_name)
             )
@@ -1345,13 +1362,18 @@ async def query_logs(
                 api_key_id_filter = key.id
             else:
                 key_result = await session.execute(
-                    select(ApiKey).where(ApiKey.name.ilike(f"%{key_name}%"))
+                    select(ApiKey).where(ApiKey.name.ilike(f"%{safe_key}%"))
                 )
                 keys = key_result.scalars().all()
                 if keys:
                     api_key_id_filter = [k.id for k in keys]
                 else:
-                    return {"logs": [], "total": 0, "page": page, "key_name": key_name}
+                    return {
+                        "logs": [],
+                        "total": 0,
+                        "page": page,
+                        "page_size": page_size,
+                    }
 
         q = select(RequestLog).where(
             RequestLog.created_at >= dt_start,
@@ -1370,8 +1392,9 @@ async def query_logs(
                 q = q.where(RequestLog.api_key_id == api_key_id_filter)
                 count_q = count_q.where(RequestLog.api_key_id == api_key_id_filter)
         if model:
-            q = q.where(RequestLog.model.ilike(f"%{model}%"))
-            count_q = count_q.where(RequestLog.model.ilike(f"%{model}%"))
+            safe_model = _escape_ilike(model)
+            q = q.where(RequestLog.model.ilike(f"%{safe_model}%"))
+            count_q = count_q.where(RequestLog.model.ilike(f"%{safe_model}%"))
         if status:
             q = q.where(RequestLog.status == status)
             count_q = count_q.where(RequestLog.status == status)
@@ -1387,7 +1410,9 @@ async def query_logs(
         provider_map, api_key_map = await _get_maps(session, logs)
 
         return {
-            "logs": [_serialize_error_log(log, provider_map, api_key_map) for log in logs],
+            "logs": [
+                _serialize_error_log(log, provider_map, api_key_map) for log in logs
+            ],
             "total": total,
             "page": page,
             "page_size": page_size,

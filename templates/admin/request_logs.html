@@ -24,7 +24,7 @@
         .badge-timeout { background: #ffedd5; color: #c2410c; }
         .badge-pending { background: #fef9c3; color: #a16207; }
         .badge-cancelled { background: #f1f5f9; color: #475569; }
-        .badge-rate { background: #fce7f3; color: #be185d; }
+
         .log-grid {
             display: grid;
             grid-template-columns: minmax(135px, 150px) minmax(70px, 90px) minmax(110px, 130px) minmax(150px, 1fr) minmax(90px, 110px) minmax(90px, 120px) minmax(90px, 110px) minmax(260px, 2fr);
@@ -87,7 +87,7 @@
         body.theme-dark .badge-timeout { background: rgba(249, 115, 22, 0.16); color: #fdba74; }
         body.theme-dark .badge-pending { background: rgba(234, 179, 8, 0.16); color: #fde047; }
         body.theme-dark .badge-cancelled { background: rgba(100, 116, 139, 0.16); color: #94a3b8; }
-        body.theme-dark .badge-rate { background: rgba(236, 72, 153, 0.16); color: #f9a8d4; }
+
         body.theme-dark .time-btn { background: #0f172a; color: #e5e7eb; border-color: #334155; }
         body.theme-dark .time-btn:hover { background: #1e293b; }
         body.theme-dark .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
@@ -135,7 +135,7 @@
                             <button class="time-btn" data-range="custom" onclick="setTimeRange(this)">{{ _('Custom') }}</button>
                         </div>
                     </div>
-                    <div id="custom-range" class="hidden flex items-end gap-2">
+                    <div id="custom-range" class="hidden items-end gap-2">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Start Time') }}</label>
                             <input id="filter-start" type="datetime-local" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
@@ -199,6 +199,7 @@
         let currentPage = 1;
         let totalRecords = 0;
         let currentRange = '1h';
+        let currentPageSize = 50;
 
         function getThemeMode() {
             return localStorage.getItem('admin_theme') || 'dark';
@@ -363,8 +364,9 @@
             const prevBtn = document.getElementById('prev-btn');
             const nextBtn = document.getElementById('next-btn');
 
-            const totalPages = Math.ceil(totalRecords / (data.page_size || 50));
+            const totalPages = Math.ceil(totalRecords / (data.page_size || currentPageSize));
             currentPage = data.page;
+            currentPageSize = data.page_size || currentPageSize;
 
             metaEl.textContent = window.I18N.totalRecords.replace('{count}', formatNumber(totalRecords));
 
@@ -409,7 +411,7 @@
         }
 
         function nextPage() {
-            const totalPages = Math.ceil(totalRecords / 50);
+            const totalPages = Math.ceil(totalRecords / currentPageSize);
             if (currentPage < totalPages) loadLogs(currentPage + 1);
         }
 
