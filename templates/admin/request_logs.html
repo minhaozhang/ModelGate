@@ -1,0 +1,420 @@
+{% set active_page = 'request-logs' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('Request Logs') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.55rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-success { background: #dcfce7; color: #15803d; }
+        .badge-error { background: #fee2e2; color: #b91c1c; }
+        .badge-timeout { background: #ffedd5; color: #c2410c; }
+        .badge-pending { background: #fef9c3; color: #a16207; }
+        .badge-cancelled { background: #f1f5f9; color: #475569; }
+        .badge-rate { background: #fce7f3; color: #be185d; }
+        .log-grid {
+            display: grid;
+            grid-template-columns: minmax(135px, 150px) minmax(70px, 90px) minmax(110px, 130px) minmax(150px, 1fr) minmax(90px, 110px) minmax(90px, 120px) minmax(90px, 110px) minmax(260px, 2fr);
+            gap: 0.75rem;
+            align-items: start;
+        }
+        .log-row + .log-row {
+            border-top: 1px solid #e5e7eb;
+        }
+        .mono {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        }
+        .time-btn {
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            border: 1px solid #e5e7eb;
+            background: #ffffff;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .time-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+        .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 9999px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #ffffff;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .log-row + .log-row { border-color: #1f2937 !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark input,
+        body.theme-dark select { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-600):not(.bg-slate-700) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .badge-success { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+        body.theme-dark .badge-error { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+        body.theme-dark .badge-timeout { background: rgba(249, 115, 22, 0.16); color: #fdba74; }
+        body.theme-dark .badge-pending { background: rgba(234, 179, 8, 0.16); color: #fde047; }
+        body.theme-dark .badge-cancelled { background: rgba(100, 116, 139, 0.16); color: #94a3b8; }
+        body.theme-dark .badge-rate { background: rgba(236, 72, 153, 0.16); color: #f9a8d4; }
+        body.theme-dark .time-btn { background: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .time-btn:hover { background: #1e293b; }
+        body.theme-dark .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header(_('Request Logs'), _("Query and filter proxy request logs by API key, model, status, and time range")) %}
+                <button id="refresh-btn" onclick="loadLogs()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                    {{ _('Refresh') }}
+                </button>
+            {% endcall %}
+
+            <section class="bg-white rounded-xl shadow p-6 mb-6">
+                <div class="flex flex-wrap items-end gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('API Key') }}</label>
+                        <input id="filter-key" type="text" placeholder="{{ _('Key name') }}" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Model') }}</label>
+                        <input id="filter-model" type="text" placeholder="e.g. glm-5" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Status') }}</label>
+                        <select id="filter-status" class="border border-gray-200 rounded px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            <option value="">{{ _('All') }}</option>
+                            <option value="success">success</option>
+                            <option value="error">error</option>
+                            <option value="timeout">timeout</option>
+                            <option value="cancelled">cancelled</option>
+                            <option value="pending">pending</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Time Range') }}</label>
+                        <div class="flex gap-2">
+                            <button class="time-btn active" data-range="1h" onclick="setTimeRange(this)">1h</button>
+                            <button class="time-btn" data-range="6h" onclick="setTimeRange(this)">6h</button>
+                            <button class="time-btn" data-range="24h" onclick="setTimeRange(this)">24h</button>
+                            <button class="time-btn" data-range="7d" onclick="setTimeRange(this)">7d</button>
+                            <button class="time-btn" data-range="custom" onclick="setTimeRange(this)">{{ _('Custom') }}</button>
+                        </div>
+                    </div>
+                    <div id="custom-range" class="hidden flex items-end gap-2">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Start Time') }}</label>
+                            <input id="filter-start" type="datetime-local" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('End Time') }}</label>
+                            <input id="filter-end" type="datetime-local" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        </div>
+                    </div>
+                    <button onclick="loadLogs()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+                        {{ _('Query') }}
+                    </button>
+                </div>
+            </section>
+
+            <section class="bg-white rounded-xl shadow">
+                <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-800">{{ _('Query Results') }}</h3>
+                    <div id="result-meta" class="text-sm text-gray-500"></div>
+                </div>
+                <div id="logs-empty" class="hidden p-6 text-sm text-gray-500">{{ _('No logs found matching the current filters.') }}</div>
+                <div id="logs-loading" class="hidden p-6 flex items-center justify-center gap-3 text-sm text-gray-500">
+                    <div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25)"></div>
+                    {{ _('Loading...') }}
+                </div>
+                <div id="logs-list" class="divide-y divide-gray-200"></div>
+                <div id="pagination" class="p-4 border-t border-gray-200 flex items-center justify-between hidden">
+                    <div id="page-info" class="text-sm text-gray-500"></div>
+                    <div class="flex gap-2">
+                        <button id="prev-btn" onclick="prevPage()" class="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">{{ _('Previous') }}</button>
+                        <button id="next-btn" onclick="nextPage()" class="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">{{ _('Next') }}</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+        window.I18N = {
+            lightMode: "{{ _('Light Mode') }}",
+            darkMode: "{{ _('Dark Mode') }}",
+            provider: "{{ _('Provider') }}",
+            model: "{{ _('Model') }}",
+            status: "{{ _('Status') }}",
+            apiKey: "{{ _('API Key') }}",
+            upstream: "{{ _('Upstream') }}",
+            latency: "{{ _('Latency') }}",
+            tokens: "{{ _('Tokens') }}",
+            clientIp: "{{ _('Client IP') }}",
+            userAgent: "{{ _('User Agent') }}",
+            errorDetail: "{{ _('Error Detail') }}",
+            requestAt: "{{ _('Created At') }}",
+            queryResults: "{{ _('Query Results') }}",
+            noLogs: "{{ _('No logs found matching the current filters.') }}",
+            loadingFailed: "{{ _('Failed to load data') }}",
+            pageOf: "{{ _('Page {page} of {total}') }}",
+            totalRecords: "{{ _('Total: {count} records') }}"
+        };
+
+        let currentPage = 1;
+        let totalRecords = 0;
+        let currentRange = '1h';
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'dark';
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
+        }
+
+        function toggleTheme() {
+            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
+            applyTheme(nextMode);
+        }
+
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, { method: 'POST' });
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
+
+        function formatNumber(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            return Number(value).toLocaleString();
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        async function fetchJsonOrRedirect(url, options = {}) {
+            const response = await fetch(url, options);
+            if (response.status === 401) {
+                window.location.href = `${APP_BASE_PATH}/admin/login`;
+                return null;
+            }
+            if (!response.ok) throw new Error(await response.text());
+            return response.json();
+        }
+
+        function setTimeRange(btn) {
+            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentRange = btn.dataset.range;
+            const customEl = document.getElementById('custom-range');
+            if (currentRange === 'custom') {
+                customEl.classList.remove('hidden');
+                customEl.classList.add('flex');
+            } else {
+                customEl.classList.add('hidden');
+                customEl.classList.remove('flex');
+            }
+        }
+
+        function getTokenCount(tokens) {
+            if (!tokens) return '-';
+            return tokens.total_tokens || tokens.estimated || '-';
+        }
+
+        function getStatusBadgeClass(status) {
+            const map = {
+                success: 'badge-success',
+                error: 'badge-error',
+                timeout: 'badge-timeout',
+                pending: 'badge-pending',
+                cancelled: 'badge-cancelled'
+            };
+            return map[status] || 'badge-cancelled';
+        }
+
+        function buildQueryUrl(page) {
+            const params = new URLSearchParams();
+            const keyName = document.getElementById('filter-key').value.trim();
+            const model = document.getElementById('filter-model').value.trim();
+            const status = document.getElementById('filter-status').value;
+
+            if (keyName) params.set('key_name', keyName);
+            if (model) params.set('model', model);
+            if (status) params.set('status', status);
+
+            if (currentRange === 'custom') {
+                const startVal = document.getElementById('filter-start').value;
+                const endVal = document.getElementById('filter-end').value;
+                if (startVal) params.set('start_time', new Date(startVal).toISOString());
+                if (endVal) params.set('end_time', new Date(endVal).toISOString());
+            } else {
+                params.set('time_range', currentRange);
+            }
+
+            params.set('page', page);
+            params.set('page_size', '50');
+            return `${APP_BASE_PATH}/admin/api/logs/query?${params.toString()}`;
+        }
+
+        function renderLogs(logs) {
+            const emptyEl = document.getElementById('logs-empty');
+            const listEl = document.getElementById('logs-list');
+            if (!Array.isArray(logs) || logs.length === 0) {
+                emptyEl.classList.remove('hidden');
+                listEl.innerHTML = '';
+                return;
+            }
+            emptyEl.classList.add('hidden');
+            listEl.innerHTML = logs.map(log => {
+                const badgeClass = getStatusBadgeClass(log.status);
+                const tokenCount = typeof log.tokens === 'object' ? getTokenCount(log.tokens) : (log.tokens || '-');
+                return `
+                    <article class="log-row p-6">
+                        <div class="log-grid text-sm">
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.requestAt}</div>
+                                <div class="font-medium text-gray-800">${escapeHtml(new Date(log.created_at).toLocaleString())}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.status}</div>
+                                <span class="badge ${badgeClass}">${escapeHtml(log.status)}</span>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.provider}</div>
+                                <div class="font-medium text-gray-800">${escapeHtml(log.provider || '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.model}</div>
+                                <div class="font-medium text-gray-800 break-all">${escapeHtml(log.model || '-')}</div>
+                                <div class="text-xs text-gray-500 mt-1">${window.I18N.apiKey}: ${escapeHtml(log.api_key || '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.upstream}</div>
+                                <div class="font-medium text-gray-800">${escapeHtml(log.upstream_status_code ?? '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.latency}</div>
+                                <div class="font-medium text-gray-800">${log.latency_ms ? `${formatNumber(Math.round(log.latency_ms))} ms` : '-'}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.tokens}</div>
+                                <div class="font-medium text-gray-800">${formatNumber(tokenCount)}</div>
+                                <div class="text-xs text-gray-500 mt-1 mono break-all">${escapeHtml(log.client_ip || '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.errorDetail}</div>
+                                <div class="text-gray-700 whitespace-pre-wrap break-words">${escapeHtml(log.error || '-')}</div>
+                                <div class="text-xs text-gray-500 mt-2 mono break-all">${escapeHtml(log.user_agent || '-')}</div>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function renderPagination(data) {
+            totalRecords = data.total;
+            const paginationEl = document.getElementById('pagination');
+            const metaEl = document.getElementById('result-meta');
+            const pageInfo = document.getElementById('page-info');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+
+            const totalPages = Math.ceil(totalRecords / (data.page_size || 50));
+            currentPage = data.page;
+
+            metaEl.textContent = window.I18N.totalRecords.replace('{count}', formatNumber(totalRecords));
+
+            if (totalPages <= 1) {
+                paginationEl.classList.add('hidden');
+                return;
+            }
+
+            paginationEl.classList.remove('hidden');
+            pageInfo.textContent = window.I18N.pageOf.replace('{page}', currentPage).replace('{total}', totalPages);
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
+        }
+
+        async function loadLogs(page) {
+            page = page || 1;
+            const loadingEl = document.getElementById('logs-loading');
+            const emptyEl = document.getElementById('logs-empty');
+            const listEl = document.getElementById('logs-list');
+
+            loadingEl.classList.remove('hidden');
+            emptyEl.classList.add('hidden');
+            listEl.innerHTML = '';
+
+            try {
+                const url = buildQueryUrl(page);
+                const data = await fetchJsonOrRedirect(url);
+                if (!data) return;
+                renderLogs(data.logs || []);
+                renderPagination(data);
+            } catch (error) {
+                console.error(error);
+                emptyEl.textContent = window.I18N.loadingFailed;
+                emptyEl.classList.remove('hidden');
+            } finally {
+                loadingEl.classList.add('hidden');
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) loadLogs(currentPage - 1);
+        }
+
+        function nextPage() {
+            const totalPages = Math.ceil(totalRecords / 50);
+            if (currentPage < totalPages) loadLogs(currentPage + 1);
+        }
+
+        applyTheme(getThemeMode());
+        loadLogs();
+    </script>
+</body>
+</html>

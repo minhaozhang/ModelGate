@@ -1,7 +1,7 @@
 import json
 import re
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
@@ -1307,4 +1307,88 @@ async def get_all_logs(limit: int = 100, _: bool = Depends(require_admin)):
                 for log in logs
             ],
             "total": total,
+        }
+
+
+@router.get("/logs/query")
+async def query_logs(
+    key_name: Optional[str] = None,
+    model: Optional[str] = None,
+    status: Optional[str] = None,
+    time_range: str = "1h",
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50,
+    _: bool = Depends(require_admin),
+):
+    now = datetime.utcnow()
+    if start_time and end_time:
+        try:
+            dt_start = datetime.fromisoformat(start_time)
+            dt_end = datetime.fromisoformat(end_time)
+        except ValueError:
+            return {"logs": [], "total": 0, "page": page}
+    else:
+        deltas = {"1h": timedelta(hours=1), "6h": timedelta(hours=6), "24h": timedelta(hours=24), "7d": timedelta(days=7)}
+        dt_start = now - deltas.get(time_range, timedelta(hours=1))
+        dt_end = now
+
+    async with async_session_maker() as session:
+        api_key_id_filter = None
+        if key_name:
+            key_result = await session.execute(
+                select(ApiKey).where(ApiKey.name == key_name)
+            )
+            key = key_result.scalar_one_or_none()
+            if key:
+                api_key_id_filter = key.id
+            else:
+                key_result = await session.execute(
+                    select(ApiKey).where(ApiKey.name.ilike(f"%{key_name}%"))
+                )
+                keys = key_result.scalars().all()
+                if keys:
+                    api_key_id_filter = [k.id for k in keys]
+                else:
+                    return {"logs": [], "total": 0, "page": page, "key_name": key_name}
+
+        q = select(RequestLog).where(
+            RequestLog.created_at >= dt_start,
+            RequestLog.created_at <= dt_end,
+        )
+        count_q = select(func.count(RequestLog.id)).where(
+            RequestLog.created_at >= dt_start,
+            RequestLog.created_at <= dt_end,
+        )
+
+        if api_key_id_filter is not None:
+            if isinstance(api_key_id_filter, list):
+                q = q.where(RequestLog.api_key_id.in_(api_key_id_filter))
+                count_q = count_q.where(RequestLog.api_key_id.in_(api_key_id_filter))
+            else:
+                q = q.where(RequestLog.api_key_id == api_key_id_filter)
+                count_q = count_q.where(RequestLog.api_key_id == api_key_id_filter)
+        if model:
+            q = q.where(RequestLog.model.ilike(f"%{model}%"))
+            count_q = count_q.where(RequestLog.model.ilike(f"%{model}%"))
+        if status:
+            q = q.where(RequestLog.status == status)
+            count_q = count_q.where(RequestLog.status == status)
+
+        total_result = await session.execute(count_q)
+        total = total_result.scalar() or 0
+
+        offset = (page - 1) * page_size
+        q = q.order_by(RequestLog.created_at.desc()).offset(offset).limit(page_size)
+        result = await session.execute(q)
+        logs = result.scalars().all()
+
+        provider_map, api_key_map = await _get_maps(session, logs)
+
+        return {
+            "logs": [_serialize_error_log(log, provider_map, api_key_map) for log in logs],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
         }

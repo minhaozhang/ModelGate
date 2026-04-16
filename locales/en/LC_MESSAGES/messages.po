@@ -876,3 +876,54 @@ msgstr "Files"
 msgid "Images"
 msgstr "Images"
 
+msgid "Request Logs"
+msgstr "Request Logs"
+
+msgid "Query and filter proxy request logs by API key, model, status, and time range"
+msgstr "Query and filter proxy request logs by API key, model, status, and time range"
+
+msgid "Key name"
+msgstr "Key name"
+
+msgid "Custom"
+msgstr "Custom"
+
+msgid "All"
+msgstr "All"
+
+msgid "Query"
+msgstr "Query"
+
+msgid "Query Results"
+msgstr "Query Results"
+
+msgid "No logs found matching the current filters."
+msgstr "No logs found matching the current filters."
+
+msgid "Previous"
+msgstr "Previous"
+
+msgid "Next"
+msgstr "Next"
+
+msgid "Upstream"
+msgstr "Upstream"
+
+msgid "Client IP"
+msgstr "Client IP"
+
+msgid "User Agent"
+msgstr "User Agent"
+
+msgid "Page {page} of {total}"
+msgstr "Page {page} of {total}"
+
+msgid "Total: {count} records"
+msgstr "Total: {count} records"
+
+msgid "Start Time"
+msgstr "Start Time"
+
+msgid "End Time"
+msgstr "End Time"
+

@@ -382,6 +382,9 @@
             const labels = normalizedChartData.intervals || [];
             const requests = labels.map(i => normalizedChartData.data?.[i]?.requests || 0);
             const rawTokens = labels.map(i => normalizedChartData.data?.[i]?.tokens || 0);
+            const errors = labels.map(i => normalizedChartData.data?.[i]?.errors || 0);
+            const timeouts = labels.map(i => normalizedChartData.data?.[i]?.timeouts || 0);
+            const rateLimited = labels.map(i => normalizedChartData.data?.[i]?.rate_limited || 0);
             const visibleRange = getTrendVisibleRange([requests, rawTokens], labels.length);
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
@@ -393,6 +396,9 @@
                 trendChart.data.datasets[0].data = requests;
                 trendChart.data.datasets[1].data = tokens;
                 trendChart.data.datasets[1].label = tokenLabel;
+                trendChart.data.datasets[2].data = errors;
+                trendChart.data.datasets[3].data = timeouts;
+                trendChart.data.datasets[4].data = rateLimited;
                 trendChart.options.scales.x.min = visibleRange.start;
                 trendChart.options.scales.x.max = visibleRange.end;
                 trendChart.options.scales.yTokens.title.text = tokenLabel;
@@ -401,7 +407,7 @@
                         const raw = rawTokens[context.dataIndex] || 0;
                         return `${tokenLabel}: ${formatCompactTokens(raw)}`;
                     }
-                    return `${window.I18N.requests}: ${(context.parsed.y || 0).toLocaleString()}`;
+                    return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
                 };
                 trendChart.update('none');
                 return;
@@ -414,28 +420,73 @@
                     labels: labels,
                     datasets: [
                         {
-                            type: 'bar',
+                            type: 'line',
                             label: window.I18N.requests,
                             data: requests,
-                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
-                            borderColor: 'rgba(59, 130, 246, 0.85)',
-                            borderWidth: 1,
-                            borderRadius: 3,
-                            yAxisID: 'yRequests'
-                        },
-                        {
-                            type: 'line',
-                            label: tokenLabel,
-                            data: tokens,
-                            borderColor: '#10b981',
-                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                            pointBackgroundColor: '#10b981',
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                            pointBackgroundColor: '#3b82f6',
                             pointRadius: 2,
                             pointHoverRadius: 3,
                             borderWidth: 2,
                             tension: 0.25,
                             fill: true,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'bar',
+                            label: tokenLabel,
+                            data: tokens,
+                            backgroundColor: 'rgba(16, 185, 129, 0.35)',
+                            borderColor: 'rgba(16, 185, 129, 0.85)',
+                            borderWidth: 1,
+                            borderRadius: 3,
                             yAxisID: 'yTokens'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Errors',
+                            data: errors,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 1,
+                            pointHoverRadius: 3,
+                            borderWidth: 1.5,
+                            tension: 0.2,
+                            borderDash: [6, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Timeouts',
+                            data: timeouts,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                            pointBackgroundColor: '#f59e0b',
+                            pointRadius: 1,
+                            pointHoverRadius: 3,
+                            borderWidth: 1.5,
+                            tension: 0.2,
+                            borderDash: [2, 5],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: '429',
+                            data: rateLimited,
+                            borderColor: '#0ea5e9',
+                            backgroundColor: 'rgba(14, 165, 233, 0.08)',
+                            pointBackgroundColor: '#0ea5e9',
+                            pointRadius: 1,
+                            pointHoverRadius: 3,
+                            borderWidth: 1.5,
+                            tension: 0.2,
+                            borderDash: [10, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
                         }
                     ]
                 },
