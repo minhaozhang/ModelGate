@@ -27,7 +27,7 @@
 
         .log-grid {
             display: grid;
-            grid-template-columns: minmax(135px, 150px) minmax(70px, 90px) minmax(110px, 130px) minmax(150px, 1fr) minmax(90px, 110px) minmax(90px, 120px) minmax(90px, 110px) minmax(260px, 2fr);
+            grid-template-columns: minmax(135px, 150px) minmax(70px, 90px) minmax(110px, 130px) minmax(150px, 1fr) minmax(90px, 110px) minmax(90px, 120px) minmax(90px, 110px) minmax(200px, 2fr) minmax(200px, 2fr);
             gap: 0.75rem;
             align-items: start;
         }
@@ -188,6 +188,7 @@
             clientIp: "{{ _('Client IP') }}",
             userAgent: "{{ _('User Agent') }}",
             errorDetail: "{{ _('Error Detail') }}",
+            response: "{{ _('Response') }}",
             requestAt: "{{ _('Created At') }}",
             queryResults: "{{ _('Query Results') }}",
             noLogs: "{{ _('No logs found matching the current filters.') }}",
@@ -349,6 +350,10 @@
                                 <div class="text-gray-500 mb-1">${window.I18N.errorDetail}</div>
                                 <div class="text-gray-700 whitespace-pre-wrap break-words">${escapeHtml(log.error || '-')}</div>
                                 <div class="text-xs text-gray-500 mt-2 mono break-all">${escapeHtml(log.user_agent || '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.response}</div>
+                                <div class="text-gray-700 whitespace-pre-wrap break-words text-xs mono max-h-32 overflow-y-auto">${escapeHtml(log.response || '-')}</div>
                             </div>
                         </div>
                     </article>

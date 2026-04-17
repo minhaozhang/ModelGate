@@ -114,6 +114,7 @@ def _serialize_error_log(
         "tokens": log.tokens,
         "client_ip": log.client_ip,
         "user_agent": log.user_agent,
+        "response": log.response,
         "error": log.error,
         "created_at": log.created_at.isoformat(),
     }
