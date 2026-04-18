@@ -29,9 +29,10 @@ def _register_proxy_tools(server: McpServer, tools: list[dict]) -> None:
         tool_name = f"{prefix}{tool_info['name']}" if prefix else tool_info["name"]
         description = tool_info.get("description", "")
 
-        existing = mcp._tools.get(tool_name)
-        if existing:
+        try:
             mcp.remove_tool(tool_name)
+        except Exception:
+            pass
 
         def _make_handler(tn: str, sn: McpServer):
             async def handler(**kwargs):
@@ -56,8 +57,11 @@ def _register_proxy_tools(server: McpServer, tools: list[dict]) -> None:
 
 
 async def register_all_proxy_tools() -> None:
-    for name in list(mcp._tools.keys()):
-        mcp.remove_tool(name)
+    for name in list(mcp._tool_manager._tools.keys()):
+        try:
+            mcp.remove_tool(name)
+        except Exception:
+            pass
 
     async with async_session_maker() as session:
         result = await session.execute(
