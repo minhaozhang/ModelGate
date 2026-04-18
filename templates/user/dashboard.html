@@ -231,6 +231,8 @@
         aiUnavailable: {{ _('AI analysis unavailable') | tojson }},
         samplesLabel: {{ _('samples') | tojson }},
         opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the modelgate provider.') | tojson }},
+        loading: {{ _('Loading...') | tojson }},
+        loadFailed: {{ _('Failed to load') | tojson }},
         topShare: {{ _('top share') | tojson }},
         onRightAxis: {{ _('on right axis') | tojson }},
         yourApiKey: {{ _('Your API key') | tojson }},
@@ -1086,24 +1088,18 @@
         });
         
         async function loadOpenCodeConfig() {
+            const el = document.getElementById('config-output');
+            el.textContent = window.I18N.loading || 'Loading...';
             try {
-                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/opencode-config');
-                
-                const config = data.config;
-                config.provider['modelgate'].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
-                
-                const prompt = "# " + window.I18N.opencodePrompt + "\n\n";
-                document.getElementById('config-output').textContent = prompt + JSON.stringify(config, null, 2);
-                
-                const modelsHtml = data.models.map(m => `
-                    <div class="flex justify-between items-center p-2 bg-white rounded">
-                        <span class="font-medium text-sm">${m.name}</span>
-                        <span class="text-xs text-gray-500">${window.I18N.ctx}: ${m.context.toLocaleString()} | ${window.I18N.out}: ${m.output.toLocaleString()}</span>
-                    </div>
-                `).join('');
-                document.getElementById('models-list').innerHTML = modelsHtml || `<div class="text-gray-400">${window.I18N.noModels}</div>`;
+                const resp = await fetch(APP_BASE_PATH + '/opencode/setup.md');
+                if (!resp.ok) {
+                    el.textContent = window.I18N.loadFailed || 'Failed to load';
+                    return;
+                }
+                const text = await resp.text();
+                el.textContent = text;
             } catch (e) {
-                console.error('Failed to load OpenCode config:', e);
+                el.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
             }
         }
         
