@@ -19,6 +19,7 @@ from core.database import (
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
     ModelDailyStat,
+    McpServer,
 )
 from core.i18n import get_locale, render, translate
 from services.analysis_store import (
@@ -1808,3 +1809,39 @@ async def user_api_document_file_download(
     from fastapi.responses import RedirectResponse
 
     return RedirectResponse(url)
+
+
+@router.get("/user/api/mcp-info")
+async def get_mcp_info(request: Request, user_session: Optional[str] = Cookie(None)):
+    api_key_id = get_user_session(user_session)
+    if not api_key_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    from services.mcp_proxy import get_cached_tools
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(McpServer).where(
+                McpServer.api_key_id == api_key_id,
+                McpServer.is_active == True,  # noqa: E712
+            )
+        )
+        server = result.scalar_one_or_none()
+
+    if not server:
+        return {"has_mcp": False}
+
+    tools = get_cached_tools(server.id)
+    domain = "https://leturx.cc"
+    endpoint = f"{domain}/modelgate/mcp-proxy"
+
+    return {
+        "has_mcp": True,
+        "server": {
+            "name": server.name,
+            "url": server.url,
+            "tool_prefix": server.tool_prefix,
+        },
+        "tools": tools,
+        "endpoint": endpoint,
+    }

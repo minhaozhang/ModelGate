@@ -1,4 +1,3 @@
-from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
@@ -8,6 +7,7 @@ from services.stats_aggregator import (
     backfill_historical_stats,
     cleanup_stale_pending_requests,
     archive_old_request_logs,
+    aggregate_mcp_yesterday_stats,
 )
 
 logger = proxy_logger
@@ -34,6 +34,12 @@ async def startup_scheduler():
         replace_existing=True,
     )
     scheduler.add_job(
+        aggregate_mcp_yesterday_stats,
+        CronTrigger(hour=0, minute=10),
+        id="aggregate_mcp_daily_stats",
+        replace_existing=True,
+    )
+    scheduler.add_job(
         _run_daily_recommendation_analysis,
         CronTrigger(hour=8, minute=0),
         id="daily_recommendation_analysis",
@@ -41,7 +47,7 @@ async def startup_scheduler():
     )
     scheduler.start()
     logger.info(
-        "[SCHEDULER] Scheduler started: aggregate at 00:05, archive at 00:20, cleanup pending every 10 min, recommendation analysis at 08:00"
+        "[SCHEDULER] Scheduler started: aggregate at 00:05, MCP stats at 00:10, archive at 00:20, cleanup pending every 10 min, recommendation analysis at 08:00"
     )
 
     import asyncio

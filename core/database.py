@@ -480,6 +480,72 @@ class WeixinMessage(Base):
     )
 
 
+class McpServer(Base):
+    __tablename__ = "mcp_servers"
+
+    id = Column(Integer, primary_key=True)
+    api_key_id = Column(
+        Integer, ForeignKey("api_keys.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    name = Column(String(100), nullable=False)
+    url = Column(String(500), nullable=False)
+    auth_type = Column(String(20), default="none")
+    auth_token = Column(Text, nullable=True)
+    auth_header = Column(String(100), default="Authorization")
+    is_active = Column(Boolean, default=True)
+    tool_prefix = Column(String(50), nullable=True)
+    last_sync_at = Column(DateTime, nullable=True)
+    last_sync_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class McpCallLog(Base):
+    __tablename__ = "mcp_call_logs"
+
+    id = Column(Integer, primary_key=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=True)
+    mcp_server_id = Column(Integer, ForeignKey("mcp_servers.id"), nullable=True)
+    tool_name = Column(String(200), nullable=False)
+    arguments = Column(JSONB, nullable=True)
+    result = Column(Text, nullable=True)
+    is_error = Column(Boolean, default=False)
+    latency_ms = Column(Float, nullable=True)
+    client_ip = Column(String(64), nullable=True)
+    user_agent = Column(String(1024), nullable=True)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_mcp_call_logs_created_at", "created_at"),
+        Index("idx_mcp_call_logs_server_id", "mcp_server_id"),
+        Index("idx_mcp_call_logs_tool_name", "tool_name"),
+    )
+
+
+class McpCallDailyStat(Base):
+    __tablename__ = "mcp_call_daily_stats"
+
+    id = Column(Integer, primary_key=True)
+    mcp_server_id = Column(Integer, ForeignKey("mcp_servers.id"), nullable=False)
+    date = Column(String(10), nullable=False)
+    hour = Column(Integer, nullable=True)
+    calls = Column(Integer, default=0)
+    errors = Column(Integer, default=0)
+    avg_latency_ms = Column(Float, nullable=True)
+
+    __table_args__ = (
+        Index("idx_mcp_stats_date", "date"),
+        Index(
+            "idx_mcp_stats_unique",
+            "mcp_server_id",
+            "date",
+            "hour",
+            unique=True,
+        ),
+    )
+
+
 def generate_api_key():
     return "sk-" + secrets.token_hex(24)
 
@@ -704,5 +770,91 @@ async def init_db():
             text(
                 "CREATE INDEX IF NOT EXISTS idx_analysis_artifacts_status "
                 "ON analysis_artifacts (status)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS mcp_servers ("
+                "id SERIAL PRIMARY KEY, "
+                "api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE, "
+                "name VARCHAR(100) NOT NULL, "
+                "url VARCHAR(500) NOT NULL, "
+                "auth_type VARCHAR(20) DEFAULT 'none', "
+                "auth_token TEXT, "
+                "auth_header VARCHAR(100) DEFAULT 'Authorization', "
+                "is_active BOOLEAN DEFAULT TRUE, "
+                "tool_prefix VARCHAR(50), "
+                "last_sync_at TIMESTAMP, "
+                "last_sync_error TEXT, "
+                "created_at TIMESTAMP DEFAULT NOW(), "
+                "updated_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_servers_api_key "
+                "ON mcp_servers (api_key_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS mcp_call_logs ("
+                "id SERIAL PRIMARY KEY, "
+                "api_key_id INTEGER REFERENCES api_keys(id), "
+                "mcp_server_id INTEGER REFERENCES mcp_servers(id), "
+                "tool_name VARCHAR(200) NOT NULL, "
+                "arguments JSONB, "
+                "result TEXT, "
+                "is_error BOOLEAN DEFAULT FALSE, "
+                "latency_ms FLOAT, "
+                "client_ip VARCHAR(64), "
+                "user_agent VARCHAR(1024), "
+                "error TEXT, "
+                "created_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_created_at "
+                "ON mcp_call_logs (created_at)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_server_id "
+                "ON mcp_call_logs (mcp_server_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_tool_name "
+                "ON mcp_call_logs (tool_name)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS mcp_call_daily_stats ("
+                "id SERIAL PRIMARY KEY, "
+                "mcp_server_id INTEGER NOT NULL REFERENCES mcp_servers(id), "
+                "date VARCHAR(10) NOT NULL, "
+                "hour INTEGER, "
+                "calls INTEGER DEFAULT 0, "
+                "errors INTEGER DEFAULT 0, "
+                "avg_latency_ms FLOAT"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_mcp_stats_date "
+                "ON mcp_call_daily_stats (date)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_stats_unique "
+                "ON mcp_call_daily_stats (mcp_server_id, date, hour)"
             )
         )

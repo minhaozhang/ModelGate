@@ -113,6 +113,13 @@ async def documents_page(request: Request, session: Optional[str] = Cookie(None)
     return HTMLResponse(content=render(request, "admin/documents.html"))
 
 
+@router.get("/mcp-servers", response_class=HTMLResponse)
+async def mcp_servers_page(request: Request, session: Optional[str] = Cookie(None)):
+    if not _check_auth(session):
+        return RedirectResponse(url=build_app_url(request, "/admin/login"))
+    return HTMLResponse(content=render(request, "admin/mcp_servers.html"))
+
+
 @router.get("/request-logs", response_class=HTMLResponse)
 async def request_logs_page(request: Request, session: Optional[str] = Cookie(None)):
     if not _check_auth(session):

@@ -119,6 +119,20 @@
                     <div id="error-rate" class="metric-flip text-3xl font-bold leading-none text-purple-600">0%</div>
                 </div>
             </div>
+            <div id="mcp-section" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 hidden">
+                <div class="stat-card bg-white rounded-lg shadow p-5 border-l-4 border-purple-500">
+                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 调用' if current_locale == 'zh' else 'MCP Calls' }}</div>
+                    <div id="mcp-total-calls" class="metric-flip text-3xl font-bold leading-none text-purple-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5 border-l-4 border-red-500">
+                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 错误' if current_locale == 'zh' else 'MCP Errors' }}</div>
+                    <div id="mcp-total-errors" class="metric-flip text-3xl font-bold leading-none text-red-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5 border-l-4 border-teal-500">
+                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 服务器' if current_locale == 'zh' else 'MCP Servers' }}</div>
+                    <div id="mcp-server-count" class="metric-flip text-3xl font-bold leading-none text-teal-600">0</div>
+                </div>
+            </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
@@ -257,6 +271,26 @@
             renderProviderBars(data.providers || {});
             renderApiKeyBars(data.api_keys || {});
             loadChart();
+        }
+        async function loadMcpStats() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`);
+                const servers = data.servers || [];
+                if (servers.length === 0) return;
+                document.getElementById('mcp-section').classList.remove('hidden');
+                const now = new Date();
+                const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+                const logsResp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-logs/query?time_range=24h&page_size=1`);
+                const totalCalls = logsResp.total || 0;
+                let totalErrors = 0;
+                if (totalCalls > 0) {
+                    const errResp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-logs/query?status=error&page_size=1`);
+                    totalErrors = errResp.total || 0;
+                }
+                flipCounter('mcp-total-calls', totalCalls.toLocaleString());
+                flipCounter('mcp-total-errors', totalErrors.toLocaleString());
+                flipCounter('mcp-server-count', servers.length.toLocaleString());
+            } catch (e) {}
         }
         function maskName(name) {
             if (!name || name.length <= 4) return name;
@@ -672,7 +706,9 @@
         }
 
         loadData();
+        loadMcpStats();
         setInterval(loadData, HOME_OVERVIEW_REFRESH_MS);
+        setInterval(loadMcpStats, 60000);
         loadLiveStatsFallback();
         connectLiveStats();
         loadSlowRequests();

@@ -1,0 +1,28 @@
+<div id="tab-mcp" class="tab-content p-6">
+    <div id="mcp-no-server" class="text-center py-12 text-gray-400">
+        <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"></path></svg>
+        <p>{{ 'No MCP server bound to your API key' if current_locale == 'zh' else 'No MCP server bound to your API key' }}</p>
+    </div>
+    <div id="mcp-info" class="hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="text-lg font-semibold mb-3">{{ '服务器信息' if current_locale == 'zh' else 'Server Info' }}</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between"><span class="text-gray-500">Name</span><span id="mcp-server-name" class="font-medium">-</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">URL</span><span id="mcp-server-url" class="font-mono text-xs break-all">-</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">{{ '工具数量' if current_locale == 'zh' else 'Tools' }}</span><span id="mcp-tool-count" class="font-medium">0</span></div>
+                </div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="text-lg font-semibold mb-3">{{ '配置指南' if current_locale == 'zh' else 'Setup Guide' }}</h3>
+                <div class="text-sm text-gray-600 mb-2">{{ '在 OpenCode 中添加以下配置来连接 MCP 代理' if current_locale == 'zh' else 'Add this configuration to connect to the MCP proxy in OpenCode' }}</div>
+                <pre id="mcp-config-snippet" class="text-xs overflow-x-auto"></pre>
+                <button onclick="copyMcpConfig()" class="mt-2 text-blue-500 text-sm hover:text-blue-700">{{ '复制配置' if current_locale == 'zh' else 'Copy Config' }}</button>
+            </div>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <h3 class="text-lg font-semibold mb-3">{{ '可用工具' if current_locale == 'zh' else 'Available Tools' }}</h3>
+            <div id="mcp-tools-list" class="space-y-3"></div>
+        </div>
+    </div>
+</div>
