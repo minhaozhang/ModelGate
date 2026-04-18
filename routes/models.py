@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from core.database import async_session_maker, Model
 from core.config import validate_session
@@ -91,6 +92,13 @@ async def delete_model(model_id: int, _: bool = Depends(require_admin)):
         model = result.scalar_one_or_none()
         if not model:
             return JSONResponse({"error": "Model not found"}, status_code=404)
-        await session.delete(model)
-        await session.commit()
+        try:
+            await session.delete(model)
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            return JSONResponse(
+                {"error": "Cannot delete: model has provider bindings. Remove all provider bindings first."},
+                status_code=409,
+            )
         return {"deleted": True}

@@ -297,8 +297,17 @@
         }
 
         async function unbindModel(pmId) {
-            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {method: 'DELETE'});
-            loadProviderBindings(selectedProviderId);
+            try {
+                const resp = await fetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {method: 'DELETE'});
+                if (!resp.ok) {
+                    const data = await resp.json().catch(() => ({}));
+                    alert(data.error || 'Unbind failed');
+                    return;
+                }
+                loadProviderBindings(selectedProviderId);
+            } catch(err) {
+                alert('Unbind failed: ' + err.message);
+            }
         }
 
         async function updateBindingConcurrency(pmId, value) {
@@ -401,12 +410,21 @@
 
         async function deleteProvider(id) {
             if (!confirm('Delete this provider?')) return;
-            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + id, {method: 'DELETE'});
-            if (selectedProviderId === id) {
-                selectedProviderId = null;
-                document.getElementById('bindings-container').innerHTML = '<div class="text-gray-400 text-center py-4">Select a provider to view bindings</div>';
+            try {
+                const resp = await fetch(`${APP_BASE_PATH}/admin/api/providers/` + id, {method: 'DELETE'});
+                if (!resp.ok) {
+                    const data = await resp.json().catch(() => ({}));
+                    alert(data.error || 'Delete failed');
+                    return;
+                }
+                if (selectedProviderId === id) {
+                    selectedProviderId = null;
+                    document.getElementById('bindings-container').innerHTML = '<div class="text-gray-400 text-center py-4">Select a provider to view bindings</div>';
+                }
+                loadProviders();
+            } catch(err) {
+                alert('Delete failed: ' + err.message);
             }
-            loadProviders();
         }
 
         function showAddModel() {
@@ -480,8 +498,17 @@
 
         async function deleteModel(id) {
             if (!confirm('Delete this model?')) return;
-            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'});
-            loadModels();
+            try {
+                const resp = await fetch(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'});
+                if (!resp.ok) {
+                    const data = await resp.json().catch(() => ({}));
+                    alert(data.error || 'Delete failed');
+                    return;
+                }
+                loadModels();
+            } catch(err) {
+                alert('Delete failed: ' + err.message);
+            }
         }
 
         document.getElementById('provider-modal').addEventListener('click', (e) => {

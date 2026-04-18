@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from core.config import admin_logger, validate_session
 from core.database import async_session_maker, Provider, Model, ProviderModel
@@ -111,8 +112,15 @@ async def remove_provider_model(
         pm = result.scalar_one_or_none()
         if not pm:
             return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
-        await session.delete(pm)
-        await session.commit()
+        try:
+            await session.delete(pm)
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            return JSONResponse(
+                {"error": "Cannot delete: model is bound to API keys. Remove API key bindings first."},
+                status_code=409,
+            )
         await load_providers()
         return {"deleted": True}
 
