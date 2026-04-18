@@ -30,12 +30,14 @@ def require_admin(session: Optional[str] = Cookie(None)):
 class ApiKeyCreate(BaseModel):
     name: str
     allowed_provider_model_ids: list[int] = []
+    mcp_server_id: Optional[int] = None
 
 
 class ApiKeyUpdate(BaseModel):
     name: Optional[str] = None
     allowed_provider_model_ids: Optional[list[int]] = None
     is_active: Optional[bool] = None
+    mcp_server_id: Optional[int] = None
 
 
 @router.get("/keys")
@@ -80,6 +82,7 @@ async def list_api_keys(_: bool = Depends(require_admin)):
                     "allowed_provider_model_ids": model_ids,
                     "time_rules": time_rules,
                     "is_active": k.is_active,
+                    "mcp_server_id": k.mcp_server_id,
                     "last_used_at": k.last_used_at.isoformat()
                     if k.last_used_at
                     else None,
@@ -91,7 +94,7 @@ async def list_api_keys(_: bool = Depends(require_admin)):
 @router.post("/keys")
 async def create_api_key(data: ApiKeyCreate, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
-        new_key = ApiKey(name=data.name, key=generate_api_key())
+        new_key = ApiKey(name=data.name, key=generate_api_key(), mcp_server_id=data.mcp_server_id)
         session.add(new_key)
         await session.commit()
         await session.refresh(new_key)
@@ -117,6 +120,8 @@ async def update_api_key(
             key.name = data.name
         if data.is_active is not None:
             key.is_active = data.is_active
+        if data.mcp_server_id is not None:
+            key.mcp_server_id = data.mcp_server_id if data.mcp_server_id else None
         if data.allowed_provider_model_ids is not None:
             await session.execute(
                 delete(ApiKeyModel).where(ApiKeyModel.api_key_id == key_id)

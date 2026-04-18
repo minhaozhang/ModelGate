@@ -58,6 +58,7 @@ async def load_api_keys():
                 "name": k.name,
                 "allowed_provider_model_ids": key_models_map[k.id],
                 "time_rules": key_rules_map[k.id],
+                "mcp_server_id": k.mcp_server_id,
             }
 
 

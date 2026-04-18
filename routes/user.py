@@ -1820,9 +1820,16 @@ async def get_mcp_info(request: Request, user_session: Optional[str] = Cookie(No
     from services.mcp_proxy import get_cached_tools
 
     async with async_session_maker() as session:
+        ak_result = await session.execute(
+            select(ApiKey).where(ApiKey.id == api_key_id)
+        )
+        ak = ak_result.scalar_one_or_none()
+        if not ak or not ak.mcp_server_id:
+            return {"has_mcp": False}
+
         result = await session.execute(
             select(McpServer).where(
-                McpServer.api_key_id == api_key_id,
+                McpServer.id == ak.mcp_server_id,
                 McpServer.is_active == True,  # noqa: E712
             )
         )

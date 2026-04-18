@@ -22,7 +22,6 @@ def require_admin(session: Optional[str] = Cookie(None)):
 
 
 class McpServerCreate(BaseModel):
-    api_key_id: int
     name: str
     url: str
     auth_type: Optional[str] = "none"
@@ -48,20 +47,20 @@ async def list_mcp_servers(_: bool = Depends(require_admin)):
         result = await session.execute(select(McpServer))
         servers = result.scalars().all()
 
-        api_key_ids = [s.api_key_id for s in servers]
-        api_key_map = {}
-        if api_key_ids:
+        server_ids = [s.id for s in servers]
+        api_key_map: dict[int, list[str]] = {s.id: [] for s in servers}
+        if server_ids:
             ak_result = await session.execute(
-                select(ApiKey).where(ApiKey.id.in_(api_key_ids))
+                select(ApiKey).where(ApiKey.mcp_server_id.in_(server_ids))
             )
-            api_key_map = {ak.id: ak.name for ak in ak_result.scalars()}
+            for ak in ak_result.scalars():
+                api_key_map[ak.mcp_server_id].append(ak.name)
 
         return {
             "servers": [
                 {
                     "id": s.id,
-                    "api_key_id": s.api_key_id,
-                    "api_key_name": api_key_map.get(s.api_key_id, "-"),
+                    "api_key_names": api_key_map.get(s.id, []),
                     "name": s.name,
                     "url": s.url,
                     "auth_type": s.auth_type,
@@ -81,23 +80,7 @@ async def list_mcp_servers(_: bool = Depends(require_admin)):
 @router.post("/mcp-servers")
 async def create_mcp_server(data: McpServerCreate, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
-        ak_result = await session.execute(
-            select(ApiKey).where(ApiKey.id == data.api_key_id)
-        )
-        if not ak_result.scalar_one_or_none():
-            return JSONResponse({"error": "API key not found"}, status_code=404)
-
-        existing = await session.execute(
-            select(McpServer).where(McpServer.api_key_id == data.api_key_id)
-        )
-        if existing.scalar_one_or_none():
-            return JSONResponse(
-                {"error": "This API key already has an MCP server bound"},
-                status_code=409,
-            )
-
         server = McpServer(
-            api_key_id=data.api_key_id,
             name=data.name,
             url=data.url,
             auth_type=data.auth_type or "none",

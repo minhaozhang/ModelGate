@@ -112,6 +112,7 @@ class ApiKey(Base):
     name = Column(String(100), nullable=False)
     key = Column(String(64), unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
+    mcp_server_id = Column(Integer, ForeignKey("mcp_servers.id"), nullable=True)
     last_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -484,9 +485,6 @@ class McpServer(Base):
     __tablename__ = "mcp_servers"
 
     id = Column(Integer, primary_key=True)
-    api_key_id = Column(
-        Integer, ForeignKey("api_keys.id", ondelete="CASCADE"), nullable=False, unique=True
-    )
     name = Column(String(100), nullable=False)
     url = Column(String(500), nullable=False)
     auth_type = Column(String(20), default="none")
@@ -776,7 +774,6 @@ async def init_db():
             text(
                 "CREATE TABLE IF NOT EXISTS mcp_servers ("
                 "id SERIAL PRIMARY KEY, "
-                "api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE, "
                 "name VARCHAR(100) NOT NULL, "
                 "url VARCHAR(500) NOT NULL, "
                 "auth_type VARCHAR(20) DEFAULT 'none', "
@@ -793,8 +790,7 @@ async def init_db():
         )
         await conn.execute(
             text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_servers_api_key "
-                "ON mcp_servers (api_key_id)"
+                "ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS mcp_server_id INTEGER REFERENCES mcp_servers(id)"
             )
         )
         await conn.execute(

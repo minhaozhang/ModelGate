@@ -123,6 +123,13 @@
                     </div>
                     <p class="text-xs text-gray-500 mt-1">{{ _('Leave empty to allow all models') }}</p>
                 </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('MCP Server') }}</label>
+                    <select id="apikey-mcp-server" class="w-full border rounded px-3 py-2">
+                        <option value="">{{ _('None') }}</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">{{ _('Bind an MCP server for this key to proxy') }}</p>
+                </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" onclick="closeApiKeyModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                     <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ _('Save') }}</button>
@@ -438,6 +445,7 @@
         const APP_BASE_PATH = {{ app_base_path | tojson }};
         let providerModels = [];
         let apiKeysData = [];
+        let mcpServers = [];
         let filteredData = [];
         let currentPage = 1;
         const pageSize = 10;
@@ -510,6 +518,20 @@
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models`);
             providerModels = data.provider_models || [];
             renderModelCheckboxes();
+        }
+        
+        async function loadMcpServers() {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`);
+            mcpServers = data.servers || [];
+            populateMcpServerSelect(null);
+        }
+
+        function populateMcpServerSelect(selectedId) {
+            const select = document.getElementById('apikey-mcp-server');
+            select.innerHTML = `<option value="">${window.I18N.none || 'None'}</option>` +
+                mcpServers.filter(s => s.is_active).map(s =>
+                    `<option value="${s.id}" ${s.id === selectedId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`
+                ).join('');
         }
         
         function getModelDisplayName(pmId) {
@@ -724,6 +746,7 @@ ${setupMdUrl}`;
             selectedModelIds = [];
             updateSelectedCount();
             renderModelCheckboxes();
+            populateMcpServerSelect(null);
             document.getElementById('apikey-modal').classList.remove('hidden');
             document.getElementById('apikey-modal').classList.add('flex');
         }
@@ -737,6 +760,7 @@ ${setupMdUrl}`;
             selectedModelIds = key.allowed_provider_model_ids || [];
             updateSelectedCount();
             renderModelCheckboxes();
+            populateMcpServerSelect(key.mcp_server_id);
             document.getElementById('apikey-modal').classList.remove('hidden');
             document.getElementById('apikey-modal').classList.add('flex');
         }
@@ -753,6 +777,8 @@ ${setupMdUrl}`;
                 name: document.getElementById('apikey-name').value,
                 allowed_provider_model_ids: selectedModelIds,
             };
+            const mcpServerVal = document.getElementById('apikey-mcp-server').value;
+            data.mcp_server_id = mcpServerVal ? parseInt(mcpServerVal) : null;
             
             try {
                 if (id) {
@@ -786,7 +812,7 @@ ${setupMdUrl}`;
             if (e.target.id === 'apikey-modal') closeApiKeyModal();
         });
         
-        loadProviderModels().then(() => loadApiKeys());
+        loadProviderModels().then(() => { loadMcpServers(); loadApiKeys(); });
         
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
