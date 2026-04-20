@@ -251,7 +251,7 @@
                     <div>
                         <span class="font-medium">${p.name}</span>
                         <span class="ml-2 text-xs ${p.is_active ? 'text-green-600' : 'text-red-600'}">${p.is_active ? 'Active' : 'Inactive'}</span>
-                        ${p.disabled_reason ? `<span class="ml-2 text-xs text-orange-500" title="${(p.disabled_reason||'').replace(/"/g,'&quot;')}">⚠ ${(p.disabled_reason||'').substring(0,30)}</span>` : ''}
+                        ${p.disabled_reason ? '<span class="ml-2 text-xs text-orange-500">&#9888; ' + (p.disabled_reason || '').substring(0, 30) + '</span>' : ''}
                         <div class="text-xs text-gray-500">${p.base_url}</div>
                     </div>
                     <div class="flex gap-2" onclick="event.stopPropagation()">
