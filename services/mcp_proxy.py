@@ -1,6 +1,7 @@
 import time
 from typing import Any
 
+import httpx
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from sqlalchemy import select, update
@@ -21,38 +22,45 @@ TOOL_SYNC_TIMEOUT = 30.0
 TOOL_CALL_TIMEOUT = 300.0
 
 
-async def sync_server_tools(server: McpServer) -> list[dict]:
+def _make_http_client(server: McpServer, timeout: float) -> httpx.AsyncClient:
     headers = _build_auth_headers(server)
-    try:
-        async with streamable_http_client(
-            url=server.url,
-            headers=headers,
-            timeout=TOOL_SYNC_TIMEOUT,
-        ) as (read_stream, write_stream, _):
-            async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
-                result = await session.list_tools()
-                tools = []
-                for tool in result.tools:
-                    tools.append(
-                        {
-                            "name": tool.name,
-                            "description": tool.description or "",
-                            "inputSchema": tool.inputSchema or {},
-                        }
-                    )
-                _proxy_tools[server.id] = tools
+    return httpx.AsyncClient(
+        headers=headers,
+        timeout=httpx.Timeout(timeout),
+    )
 
-                async with async_session_maker() as db:
-                    await db.execute(
-                        update(McpServer)
-                        .where(McpServer.id == server.id)
-                        .values(
-                            last_sync_error=None,
-                            last_sync_at=None,
+
+async def sync_server_tools(server: McpServer) -> list[dict]:
+    try:
+        async with _make_http_client(server, TOOL_SYNC_TIMEOUT) as http_client:
+            async with streamable_http_client(
+                url=server.url,
+                http_client=http_client,
+            ) as (read_stream, write_stream, _):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    result = await session.list_tools()
+                    tools = []
+                    for tool in result.tools:
+                        tools.append(
+                            {
+                                "name": tool.name,
+                                "description": tool.description or "",
+                                "inputSchema": tool.inputSchema or {},
+                            }
                         )
-                    )
-                    await db.commit()
+                    _proxy_tools[server.id] = tools
+
+                    async with async_session_maker() as db:
+                        await db.execute(
+                            update(McpServer)
+                            .where(McpServer.id == server.id)
+                            .values(
+                                last_sync_error=None,
+                                last_sync_at=None,
+                            )
+                        )
+                        await db.commit()
 
                 logger.info(
                     "[MCP] Synced %d tools from server '%s' (id=%d)",
@@ -104,29 +112,28 @@ async def call_tool(
     user_agent: str | None = None,
     api_key_id: int | None = None,
 ) -> str:
-    headers = _build_auth_headers(server)
     start = time.monotonic()
     error_msg = None
     result_text = ""
     is_error = False
 
     try:
-        async with streamable_http_client(
-            url=server.url,
-            headers=headers,
-            timeout=TOOL_CALL_TIMEOUT,
-        ) as (read_stream, write_stream, _):
-            async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
-                result = await session.call_tool(tool_name, arguments or {})
-                parts = []
-                for content in result.content:
-                    if hasattr(content, "text"):
-                        parts.append(content.text)
-                    else:
-                        parts.append(str(content))
-                result_text = "\n".join(parts)
-                is_error = result.isError or False
+        async with _make_http_client(server, TOOL_CALL_TIMEOUT) as http_client:
+            async with streamable_http_client(
+                url=server.url,
+                http_client=http_client,
+            ) as (read_stream, write_stream, _):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    result = await session.call_tool(tool_name, arguments or {})
+                    parts = []
+                    for content in result.content:
+                        if hasattr(content, "text"):
+                            parts.append(content.text)
+                        else:
+                            parts.append(str(content))
+                    result_text = "\n".join(parts)
+                    is_error = result.isError or False
     except Exception as exc:
         error_msg = f"{type(exc).__name__}: {exc}"
         is_error = True
