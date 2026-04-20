@@ -461,7 +461,16 @@
                         }
                     }
                 };
+                const configObjSSE = {
+                    mcpServers: {
+                        "modelgate-proxy": {
+                            url: data.endpoint + "/sse",
+                            headers: { "Authorization": "Bearer YOUR_API_KEY" }
+                        }
+                    }
+                };
                 document.getElementById('mcp-config-snippet').textContent = JSON.stringify(configObj, null, 2);
+                document.getElementById('mcp-config-snippet-sse').textContent = JSON.stringify(configObjSSE, null, 2);
 
                 document.getElementById('mcp-tool-count').textContent = tools.length;
 
@@ -485,8 +494,8 @@
             }
         }
 
-        function copyMcpConfig() {
-            const text = document.getElementById('mcp-config-snippet').textContent;
+        function copyMcpConfig(elementId) {
+            const text = document.getElementById(elementId || 'mcp-config-snippet').textContent;
             navigator.clipboard.writeText(text);
         }
 

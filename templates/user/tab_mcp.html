@@ -6,9 +6,17 @@
     <div id="mcp-info" class="hidden">
         <div class="bg-gray-50 rounded-lg p-4 mb-6">
             <h3 class="text-lg font-semibold mb-3">{{ '配置指南' if current_locale == 'zh' else 'Setup Guide' }}</h3>
-            <div class="text-sm text-gray-600 mb-2">{{ '在 OpenCode / Claude Code 等工具中添加以下配置来连接 MCP 代理' if current_locale == 'zh' else 'Add this configuration in OpenCode / Claude Code to connect to the MCP proxy' }}</div>
-            <pre id="mcp-config-snippet" class="text-xs overflow-x-auto bg-gray-100 p-3 rounded"></pre>
-            <button onclick="copyMcpConfig()" class="mt-2 text-blue-500 text-sm hover:text-blue-700">{{ '复制配置' if current_locale == 'zh' else 'Copy Config' }}</button>
+<div class="text-sm text-gray-600 mb-2">{{ '在 OpenCode / Claude Code 等工具中添加以下配置来连接 MCP 代理' if current_locale == 'zh' else 'Add this configuration in OpenCode / Claude Code to connect to the MCP proxy' }}</div>
+                <div class="mb-2">
+                    <span class="text-sm font-medium text-gray-700">Streamable HTTP</span>
+                    <pre id="mcp-config-snippet" class="text-xs overflow-x-auto bg-gray-100 p-3 rounded"></pre>
+                    <button onclick="copyMcpConfig('mcp-config-snippet')" class="mt-1 text-blue-500 text-sm hover:text-blue-700">{{ '复制' if current_locale == 'zh' else 'Copy' }}</button>
+                </div>
+                <div>
+                    <span class="text-sm font-medium text-gray-700">SSE</span>
+                    <pre id="mcp-config-snippet-sse" class="text-xs overflow-x-auto bg-gray-100 p-3 rounded"></pre>
+                    <button onclick="copyMcpConfig('mcp-config-snippet-sse')" class="mt-1 text-blue-500 text-sm hover:text-blue-700">{{ '复制' if current_locale == 'zh' else 'Copy' }}</button>
+                </div>
         </div>
 
         <div class="bg-gray-50 rounded-lg p-4">
