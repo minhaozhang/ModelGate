@@ -795,6 +795,11 @@ async def init_db():
         )
         await conn.execute(
             text(
+                "ALTER TABLE mcp_servers DROP COLUMN IF EXISTS api_key_id"
+            )
+        )
+        await conn.execute(
+            text(
                 "CREATE TABLE IF NOT EXISTS mcp_call_logs ("
                 "id SERIAL PRIMARY KEY, "
                 "api_key_id INTEGER REFERENCES api_keys(id), "
