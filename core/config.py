@@ -321,13 +321,7 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             "active_requests": len(active_requests),
             "active_users": len(grouped_users),
             "tokens_per_second": get_avg_tokens_per_second(),
-            "sessions": dict(
-                sorted(
-                    grouped_users.items(),
-                    key=lambda item: item[1]["first_activity"],
-                )
-                )
-            ),
+            "sessions": dict(sorted(grouped_users.items(), key=lambda item: item[1]["first_activity"])),
         }
 
 
