@@ -12,6 +12,7 @@ from sqlalchemy import (
     Time,
     Index,
     ForeignKey,
+    UniqueConstraint,
     func,
     text,
 )
@@ -58,6 +59,24 @@ class Provider(Base):
     disabled_reason = Column(String(255), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ProviderKey(Base):
+    __tablename__ = "provider_keys"
+
+    id = Column(Integer, primary_key=True)
+    provider_id = Column(Integer, ForeignKey("providers.id", ondelete="CASCADE"), nullable=False)
+    api_key = Column(String(255), nullable=False)
+    label = Column(String(50), nullable=True)
+    is_active = Column(Boolean, default=True)
+    disabled_reason = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("provider_id", "api_key", name="uq_provider_key"),
+        Index("idx_provider_keys_provider", "provider_id"),
+    )
 
 
 class Model(Base):
@@ -884,5 +903,36 @@ async def init_db():
             text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_stats_unique "
                 "ON mcp_call_daily_stats (mcp_server_id, date, hour)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS provider_keys ("
+                "id SERIAL PRIMARY KEY, "
+                "provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE, "
+                "api_key VARCHAR(255) NOT NULL, "
+                "label VARCHAR(50), "
+                "is_active BOOLEAN DEFAULT TRUE, "
+                "disabled_reason VARCHAR(255), "
+                "created_at TIMESTAMP DEFAULT NOW(), "
+                "updated_at TIMESTAMP DEFAULT NOW(), "
+                "UNIQUE (provider_id, api_key)"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_provider_keys_provider ON provider_keys (provider_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO provider_keys (provider_id, api_key, label, is_active) "
+                "SELECT id, api_key, 'default', TRUE "
+                "FROM providers "
+                "WHERE api_key IS NOT NULL AND api_key != '' "
+                "AND NOT EXISTS ("
+                "  SELECT 1 FROM provider_keys pk WHERE pk.provider_id = providers.id AND pk.api_key = providers.api_key"
+                ")"
             )
         )

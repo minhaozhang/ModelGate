@@ -1,4 +1,6 @@
 import asyncio
+import random
+import time
 from typing import Optional
 from datetime import datetime, timedelta
 
@@ -14,14 +16,57 @@ from core.config import (
 )
 from core.database import (
     async_session_maker,
-    RequestLog,
     Provider,
+    ProviderKey,
     ProviderModel,
     Model,
 )
 
 SEMAPHORE_LIMIT_ATTR = "_modelgate_limit"
 SEMAPHORE_PENDING_LIMIT_ATTR = "_modelgate_pending_limit"
+
+KEY_STICKY_TTL_SECONDS = 1800
+_key_sticky_map: dict[tuple[int, str], tuple[int, float]] = {}
+
+
+async def _load_provider_keys(session, provider_id: int) -> list[dict]:
+    result = await session.execute(
+        select(ProviderKey).where(
+            ProviderKey.provider_id == provider_id,
+            ProviderKey.is_active == True,  # noqa: E712
+        )
+    )
+    return [
+        {
+            "id": pk.id,
+            "api_key": pk.api_key,
+            "label": pk.label or "",
+        }
+        for pk in result.scalars().all()
+    ]
+
+
+def pick_api_key(
+    provider_config: dict, api_key_id: int | None, provider_name: str
+) -> tuple[str | None, int | None]:
+    keys = provider_config.get("api_keys") or []
+    if not keys:
+        fallback = provider_config.get("api_key") or ""
+        if fallback:
+            return fallback, None
+        return None, None
+    if api_key_id is not None:
+        sticky = _key_sticky_map.get((api_key_id, provider_name))
+        if sticky:
+            key_id, ts = sticky
+            if time.monotonic() - ts < KEY_STICKY_TTL_SECONDS:
+                for k in keys:
+                    if k["id"] == key_id:
+                        return k["api_key"], k["id"]
+    chosen = random.choice(keys)
+    if api_key_id is not None:
+        _key_sticky_map[(api_key_id, provider_name)] = (chosen["id"], time.monotonic())
+    return chosen["api_key"], chosen["id"]
 
 
 def parse_model(model: str) -> tuple[str, str]:
@@ -94,6 +139,7 @@ async def load_providers():
                 "max_concurrent": p.max_concurrent or 3,
                 "merge_consecutive_messages": p.merge_consecutive_messages or False,
                 "disabled_reason": p.disabled_reason,
+                "api_keys": await _load_provider_keys(session, p.id),
             }
 
             provider_default = p.max_concurrent or 3

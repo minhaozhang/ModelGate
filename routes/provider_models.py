@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from core.config import admin_logger, validate_session
-from core.database import async_session_maker, Provider, Model, ProviderModel
+from core.database import async_session_maker, Provider, ProviderKey, Model, ProviderModel
 from services.provider import load_providers
 
 router = APIRouter(prefix="/admin/api", tags=["provider-models"])
@@ -142,8 +142,18 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
             return JSONResponse({"error": "Provider not found"}, status_code=404)
 
         headers = {"Accept": "application/json"}
-        if provider.api_key:
-            headers["Authorization"] = f"Bearer {provider.api_key}"
+        pk_result = await session.execute(
+            select(ProviderKey)
+            .where(
+                ProviderKey.provider_id == provider_id,
+                ProviderKey.is_active == True,  # noqa: E712
+            )
+            .limit(1)
+        )
+        active_key = pk_result.scalar_one_or_none()
+        sync_api_key = active_key.api_key if active_key else (provider.api_key or "")
+        if sync_api_key:
+            headers["Authorization"] = f"Bearer {sync_api_key}"
 
         synced = []
         async with httpx.AsyncClient(timeout=30.0) as client:

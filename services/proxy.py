@@ -33,6 +33,7 @@ from services.provider import (
     get_model_config,
     get_or_create_provider_semaphore,
     get_disabled_provider_reason,
+    pick_api_key,
 )
 from services.auth import validate_api_key
 from services.logging import (
@@ -322,8 +323,23 @@ async def proxy_request(request: Request, endpoint: str):
         body = json.dumps(body_json).encode()
         request_context_tokens = estimate_request_context_tokens(body_json)
 
+        chosen_api_key, chosen_key_id = pick_api_key(
+            provider_config, api_key_id, provider_name
+        )
+        if not chosen_api_key:
+            semaphore.release()
+            api_key_model_semaphore.release()
+            acquired = False
+            api_key_model_acquired = False
+            return _openai_error_response(
+                f"供应商 '{provider_name}' 无可用的 API Key",
+                400,
+                "invalid_request_error",
+                "no_api_key",
+            )
+
         target_url = f"{provider_config['base_url']}{endpoint}"
-        headers = _build_headers(provider_config)
+        headers = _build_headers(provider_config, api_key=chosen_api_key)
 
         _log_request_info(
             provider_name,
@@ -368,6 +384,7 @@ async def proxy_request(request: Request, endpoint: str):
                 request_id,
                 stream_log_id,
                 request,
+                chosen_key_id=chosen_key_id,
             )
         else:
             return await handle_normal(
@@ -387,6 +404,7 @@ async def proxy_request(request: Request, endpoint: str):
                 semaphore,
                 api_key_model_semaphore,
                 request_id,
+                chosen_key_id=chosen_key_id,
             )
     except Exception as e:
         if acquired:
@@ -573,7 +591,10 @@ async def call_internal_model_via_proxy(
             req_body["reasoning_split"] = True
 
         request_context_tokens = estimate_request_context_tokens(req_body)
-        headers = _build_headers(provider_config)
+        chosen_api_key, chosen_key_id = pick_api_key(
+            provider_config, api_key_id, provider_name
+        )
+        headers = _build_headers(provider_config, api_key=chosen_api_key)
         target_url = f"{provider_config['base_url']}/chat/completions"
         body = json.dumps(req_body).encode("utf-8")
 
@@ -592,7 +613,9 @@ async def call_internal_model_via_proxy(
 
         usage_limit_err = _check_usage_limit_error(resp_json, provider_name)
         if usage_limit_err:
-            await _disable_provider(provider_name, usage_limit_err)
+            await _disable_provider_key(
+                provider_name, provider_config, chosen_key_id, usage_limit_err
+            )
             return {
                 "ok": False,
                 "provider_name": provider_name,
@@ -728,15 +751,16 @@ async def call_internal_model_via_proxy(
             api_key_model_semaphore.release()
 
 
-def _build_headers(provider_config: dict) -> dict:
+def _build_headers(provider_config: dict, api_key: str | None = None) -> dict:
     headers = {
         "content-type": "application/json",
         "user-agent": OUTBOUND_USER_AGENT,
         "connection": "keep-alive",
         "accept": "*/*",
     }
-    if provider_config.get("api_key"):
-        headers["authorization"] = f"Bearer {provider_config['api_key']}"
+    key = api_key or provider_config.get("api_key") or ""
+    if key:
+        headers["authorization"] = f"Bearer {key}"
     return headers
 
 
@@ -893,6 +917,49 @@ async def _disable_provider(provider_name: str, reason: str) -> None:
         await session.commit()
     providers_cache.pop(provider_name, None)
     provider_semaphores.pop(provider_name, None)
+    from services.provider import load_providers
+    await load_providers()
+
+
+async def _disable_provider_key(
+    provider_name: str,
+    provider_config: dict,
+    provider_key_id: int | None,
+    reason: str,
+) -> None:
+    from sqlalchemy import update
+    from core.database import ProviderKey
+
+    if provider_key_id is None:
+        await _disable_provider(provider_name, reason)
+        return
+
+    logger.warning(
+        "[PROVIDER KEY] Disabling key %s of provider '%s' due to: %s",
+        provider_key_id,
+        provider_name,
+        reason,
+    )
+    async with async_session_maker() as session:
+        await session.execute(
+            update(ProviderKey)
+            .where(ProviderKey.id == provider_key_id)
+            .values(is_active=False, disabled_reason=reason[:255])
+        )
+        await session.commit()
+
+    keys = provider_config.get("api_keys") or []
+    active_keys = [k for k in keys if k["id"] != provider_key_id]
+    provider_config["api_keys"] = active_keys
+
+    if not active_keys and not provider_config.get("api_key"):
+        logger.warning(
+            "[PROVIDER] All keys disabled for '%s', disabling provider",
+            provider_name,
+        )
+        await _disable_provider(provider_name, reason)
+        return
+
     from services.provider import load_providers
     await load_providers()
 
@@ -1059,6 +1126,7 @@ async def handle_normal(
     semaphore,
     api_key_model_semaphore,
     request_id,
+    chosen_key_id=None,
 ):
     logger.debug(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -1085,7 +1153,10 @@ async def handle_normal(
 
         usage_limit_err = _check_usage_limit_error(resp_json, provider)
         if usage_limit_err:
-            await _disable_provider(provider, usage_limit_err)
+            provider_config = providers_cache.get(provider, {})
+            await _disable_provider_key(
+                provider, provider_config, chosen_key_id, usage_limit_err
+            )
             return _openai_error_response(
                 f"供应商 '{provider}' 因额度限制已暂停使用，请尝试其他供应商",
                 429,
@@ -1225,6 +1296,7 @@ async def handle_streaming(
     request_id,
     log_id,
     request,
+    chosen_key_id=None,
 ):
     logger.debug(
         "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url

@@ -191,11 +191,34 @@
         </div>
     </div>
 
+    <div id="provider-keys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
+                <h3 id="provider-keys-title" class="font-semibold">{{ _('Provider Keys') }}</h3>
+                <button onclick="closeProviderKeysModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1">
+                <div id="provider-keys-content" class="space-y-2">
+                    <div class="text-center text-gray-400 py-4">Loading...</div>
+                </div>
+            </div>
+            <div class="p-4 border-t flex-shrink-0">
+                <div class="flex gap-2">
+                    <input type="text" id="new-provider-key-value" class="flex-1 border rounded px-3 py-2 text-sm" placeholder="API Key (sk-...)">
+                    <input type="text" id="new-provider-key-label" class="w-28 border rounded px-3 py-2 text-sm" placeholder="Label">
+                    <button onclick="addProviderKey()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">{{ _('Add') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const APP_BASE_PATH = {{ app_base_path | tojson }};
         const CONFIG_I18N = {
             lightMode: '{{ _("Light Mode") }}',
             darkMode: '{{ _("Dark Mode") }}',
+            providerKeys: '{{ _("Provider Keys") }}',
+            noKeys: '{{ _("No keys configured") }}',
         };
         let allProviders = [];
         let allModels = [];
@@ -255,6 +278,7 @@
                         <div class="text-xs text-gray-500">${p.base_url}</div>
                     </div>
                     <div class="flex gap-2" onclick="event.stopPropagation()">
+                        <button onclick="openProviderKeys(${p.id}, '${p.name}')" class="text-green-500 hover:text-green-700 text-sm">Keys</button>
                         <button onclick="editProvider(${p.id})" class="text-blue-500 hover:text-blue-700 text-sm">Edit</button>
                         <button onclick="deleteProvider(${p.id})" class="text-red-500 hover:text-red-700 text-sm">Delete</button>
                     </div>
@@ -681,6 +705,105 @@
         });
         document.getElementById('model-modal').addEventListener('click', (e) => {
             if (e.target.id === 'model-modal') closeModelModal();
+        });
+
+        let providerKeysTargetId = null;
+
+        async function openProviderKeys(providerId, providerName) {
+            providerKeysTargetId = providerId;
+            document.getElementById('provider-keys-title').textContent = providerName + ' - ' + (CONFIG_I18N.providerKeys || 'Provider Keys');
+            document.getElementById('provider-keys-content').innerHTML = '<div class="text-center text-gray-400 py-4">Loading...</div>';
+            document.getElementById('new-provider-key-value').value = '';
+            document.getElementById('new-provider-key-label').value = '';
+            document.getElementById('provider-keys-modal').classList.remove('hidden');
+            document.getElementById('provider-keys-modal').classList.add('flex');
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(e) {
+                document.getElementById('provider-keys-content').innerHTML = '<div class="text-center text-red-500 py-4">Failed to load</div>';
+            }
+        }
+
+        function renderProviderKeys(keys) {
+            const container = document.getElementById('provider-keys-content');
+            if (keys.length === 0) {
+                container.innerHTML = '<div class="text-gray-400 text-center py-4">' + (CONFIG_I18N.noKeys || 'No keys') + '</div>';
+                return;
+            }
+            container.innerHTML = keys.map(k => `
+                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <div>
+                        <span class="text-sm font-mono">${k.api_key}</span>
+                        ${k.label ? '<span class="ml-2 text-xs text-gray-500">' + k.label + '</span>' : ''}
+                        <span class="ml-2 text-xs ${k.is_active ? 'text-green-600' : 'text-red-600'}">${k.is_active ? 'Active' : 'Inactive'}</span>
+                        ${k.disabled_reason ? '<span class="ml-2 text-xs text-orange-500">&#9888; ' + (k.disabled_reason || '').substring(0, 30) + '</span>' : ''}
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="toggleProviderKey(${k.id}, ${!k.is_active})" class="text-xs ${k.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}">${k.is_active ? 'Disable' : 'Enable'}</button>
+                        <button onclick="deleteProviderKey(${k.id})" class="text-red-500 hover:text-red-700 text-xs">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function closeProviderKeysModal() {
+            document.getElementById('provider-keys-modal').classList.add('hidden');
+            document.getElementById('provider-keys-modal').classList.remove('flex');
+            providerKeysTargetId = null;
+        }
+
+        async function addProviderKey() {
+            if (!providerKeysTargetId) return;
+            const apiKey = document.getElementById('new-provider-key-value').value.trim();
+            const label = document.getElementById('new-provider-key-label').value.trim();
+            if (!apiKey) { alert('API Key is required'); return; }
+            try {
+                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({api_key: apiKey, label: label || null})
+                });
+                document.getElementById('new-provider-key-value').value = '';
+                document.getElementById('new-provider-key-label').value = '';
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {
+                alert('Failed to add key: ' + (err.message || err));
+            }
+        }
+
+        async function toggleProviderKey(keyId, activate) {
+            if (!providerKeysTargetId) return;
+            try {
+                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_active: activate})
+                });
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {
+                alert('Failed to toggle key: ' + (err.message || err));
+            }
+        }
+
+        async function deleteProviderKey(keyId) {
+            if (!providerKeysTargetId) return;
+            if (!confirm('Delete this key?')) return;
+            try {
+                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                    method: 'DELETE'
+                });
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {
+                alert('Failed to delete key: ' + (err.message || err));
+            }
+        }
+
+        document.getElementById('provider-keys-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'provider-keys-modal') closeProviderKeysModal();
         });
 
         loadProviders();
