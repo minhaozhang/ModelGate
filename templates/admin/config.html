@@ -96,6 +96,11 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('API Key') }}</label>
                     <input type="password" id="provider-key" class="w-full border rounded px-3 py-2" placeholder="sk-...">
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Max Concurrent') }}</label>
+                    <input type="number" id="provider-max-concurrent" value="3" min="1" class="w-full border rounded px-3 py-2">
+                    <p class="text-xs text-gray-400 mt-1">{{ _('Max simultaneous requests to this provider') }}</p>
+                </div>
                 <div class="flex items-center">
                     <input type="checkbox" id="provider-active" checked class="mr-2">
                     <label class="text-sm text-gray-700">{{ _('Active') }}</label>
@@ -487,6 +492,7 @@
             document.getElementById('provider-key').value = '';
             document.getElementById('provider-active').checked = true;
             document.getElementById('provider-merge-msgs').checked = false;
+            document.getElementById('provider-max-concurrent').value = '3';
             document.getElementById('provider-modal').classList.remove('hidden');
             document.getElementById('provider-modal').classList.add('flex');
         }
@@ -502,6 +508,7 @@
             document.getElementById('provider-key').value = '';
             document.getElementById('provider-active').checked = p.is_active;
             document.getElementById('provider-merge-msgs').checked = p.merge_consecutive_messages || false;
+            document.getElementById('provider-max-concurrent').value = p.max_concurrent || 3;
             document.getElementById('provider-modal').classList.remove('hidden');
             document.getElementById('provider-modal').classList.add('flex');
         }
@@ -519,14 +526,15 @@
                 base_url: document.getElementById('provider-url').value,
                 api_key: document.getElementById('provider-key').value || null,
                 is_active: document.getElementById('provider-active').checked,
-                merge_consecutive_messages: document.getElementById('provider-merge-msgs').checked
+                merge_consecutive_messages: document.getElementById('provider-merge-msgs').checked,
+                max_concurrent: parseInt(document.getElementById('provider-max-concurrent').value) || 3
             };
             try {
                 if (id) {
                     await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({base_url: data.base_url, api_key: data.api_key, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages})
+                        body: JSON.stringify({base_url: data.base_url, api_key: data.api_key, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages, max_concurrent: data.max_concurrent})
                     });
                 } else {
                     await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers`, {
