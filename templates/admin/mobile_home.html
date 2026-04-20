@@ -650,7 +650,7 @@
                 liveStatsSocket.close();
             }
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            liveStatsSocket = new WebSocket(`${protocol}//${window.location.host}${APP_BASE_PATH}/admin/api/stats/live`);
+            liveStatsSocket = new WebSocket(`${protocol}//${window.location.host}/modelgate/admin/api/stats/live`);
             liveStatsSocket.onmessage = (event) => {
                 try {
                     renderLiveStats(JSON.parse(event.data));
