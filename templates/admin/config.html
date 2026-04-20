@@ -113,12 +113,12 @@
     </div>
 
     <div id="model-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div class="p-4 border-b flex justify-between items-center">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
                 <h3 id="model-modal-title" class="font-semibold">{{ _('Add Model') }}</h3>
                 <button onclick="closeModelModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
-            <form id="model-form" class="p-4 space-y-4">
+            <form id="model-form" class="p-4 space-y-4 overflow-y-auto">
                 <input type="hidden" id="model-id">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Model Name (ID)') }}</label>
@@ -128,9 +128,27 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Display Name') }}</label>
                     <input type="text" id="model-display-name" class="w-full border rounded px-3 py-2" placeholder="e.g., GLM-4.7">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Max Tokens') }}</label>
-                    <input type="number" id="model-max-tokens" value="4096" class="w-full border rounded px-3 py-2">
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Max Tokens') }}</label>
+                        <input type="number" id="model-max-tokens" value="16384" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Context Length') }}</label>
+                        <input type="number" id="model-context-length" value="131072" class="w-full border rounded px-3 py-2">
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Thinking Budget') }}</label>
+                        <input type="number" id="model-thinking-budget" value="8192" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div class="flex-1 flex flex-col justify-end">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="model-thinking-enabled" checked class="mr-2">
+                            <span class="text-sm text-gray-700">{{ _('Thinking Enabled') }}</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="flex items-center gap-4">
                     <label class="flex items-center">
@@ -141,6 +159,11 @@
                         <input type="checkbox" id="model-active" checked class="mr-2">
                         <span class="text-sm text-gray-700">{{ _('Active') }}</span>
                     </label>
+                </div>
+                <div id="model-apikeys-section" class="hidden border-t pt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ _('API Key Access') }}</label>
+                    <div id="model-apikeys-list" class="space-y-2 text-sm"></div>
+                    <p class="text-xs text-gray-400 mt-2">{{ _('Leave empty to allow all keys') }}</p>
                 </div>
                 <div class="flex gap-2">
                     <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
@@ -158,6 +181,10 @@
         };
         let allProviders = [];
         let allModels = [];
+        let allApiKeys = [];
+        let currentModelApiKeys = {};
+        let currentModelPmIds = [];
+        let currentModelPmLabels = {};
         let selectedProviderId = null;
 
         async function logout() {
@@ -216,6 +243,65 @@
             document.getElementById('providers-list').innerHTML = html || '<div class="text-gray-400 text-center py-4">No providers</div>';
         }
 
+        async function loadModelApiKeys(modelId) {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models/${modelId}/api-keys`);
+                allApiKeys = data.api_keys || [];
+                const pmList = data.provider_models || [];
+                currentModelPmIds = pmList.map(p => p.id);
+                currentModelPmLabels = {};
+                pmList.forEach(p => currentModelPmLabels[p.id] = p.label);
+                currentModelApiKeys = data.bound_keys || {};
+                renderModelApiKeys();
+            } catch(e) {
+                document.getElementById('model-apikeys-list').innerHTML = '<div class="text-xs text-gray-400">Failed to load API keys</div>';
+            }
+        }
+
+        function renderModelApiKeys() {
+            const container = document.getElementById('model-apikeys-list');
+            if (currentModelPmIds.length === 0) {
+                container.innerHTML = '<div class="text-xs text-gray-400">No provider bindings for this model</div>';
+                return;
+            }
+            let html = '';
+            currentModelPmIds.forEach(pmId => {
+                const bound = currentModelApiKeys[pmId] || [];
+                const boundIds = bound.map(k => k.id);
+                const label = currentModelPmLabels[pmId] || ('ProviderModel #' + pmId);
+                html += `<div class="border rounded p-2">
+                    <div class="font-medium text-xs text-gray-600 mb-1">${label}</div>
+                    <div class="space-y-1">
+                        ${allApiKeys.map(k => `
+                            <label class="flex items-center text-xs">
+                                <input type="checkbox" class="mr-1 pm-ak-check" data-pm-id="${pmId}" data-ak-id="${k.id}" ${boundIds.includes(k.id) ? 'checked' : ''}>
+                                ${k.name}
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        async function saveModelApiKeys(modelId) {
+            const checks = document.querySelectorAll('.pm-ak-check');
+            const byPm = {};
+            checks.forEach(c => {
+                const pmId = parseInt(c.dataset.pmId);
+                const akId = parseInt(c.dataset.akId);
+                if (!byPm[pmId]) byPm[pmId] = [];
+                if (c.checked) byPm[pmId].push(akId);
+            });
+            for (const [pmId, akIds] of Object.entries(byPm)) {
+                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models/${modelId}/api-keys`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({provider_model_id: parseInt(pmId), api_key_ids: akIds})
+                });
+            }
+        }
+
         async function loadModels() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models`);
             allModels = data.models || [];
@@ -225,6 +311,9 @@
                         <span class="font-medium">${m.display_name || m.name}</span>
                         <span class="ml-2 text-xs text-gray-500">${m.name}</span>
                         <span class="ml-2 text-xs ${m.is_active ? 'text-green-600' : 'text-red-600'}">${m.is_active ? 'Active' : 'Inactive'}</span>
+                        <div class="text-xs text-gray-400 mt-1">
+                            max_tokens=${(m.max_tokens||0).toLocaleString()} / context=${(m.context_length||0).toLocaleString()} / thinking=${m.thinking_enabled ? (m.thinking_budget||0).toLocaleString() : 'off'}${m.is_multimodal ? ' / multimodal' : ''}
+                        </div>
                     </div>
                     <div class="flex gap-2">
                         <button onclick="editModel(${m.id})" class="text-blue-500 hover:text-blue-700 text-sm">Edit</button>
@@ -433,14 +522,18 @@
             document.getElementById('model-name').value = '';
             document.getElementById('model-name').disabled = false;
             document.getElementById('model-display-name').value = '';
-            document.getElementById('model-max-tokens').value = '4096';
+            document.getElementById('model-max-tokens').value = '16384';
+            document.getElementById('model-context-length').value = '131072';
+            document.getElementById('model-thinking-enabled').checked = true;
+            document.getElementById('model-thinking-budget').value = '8192';
             document.getElementById('model-multimodal').checked = false;
             document.getElementById('model-active').checked = true;
+            document.getElementById('model-apikeys-section').classList.add('hidden');
             document.getElementById('model-modal').classList.remove('hidden');
             document.getElementById('model-modal').classList.add('flex');
         }
 
-        function editModel(id) {
+        async function editModel(id) {
             const m = allModels.find(x => x.id === id);
             if (!m) return;
             document.getElementById('model-modal-title').textContent = 'Edit Model';
@@ -449,8 +542,15 @@
             document.getElementById('model-name').disabled = true;
             document.getElementById('model-display-name').value = m.display_name || '';
             document.getElementById('model-max-tokens').value = m.max_tokens;
+            document.getElementById('model-context-length').value = m.context_length;
+            document.getElementById('model-thinking-enabled').checked = m.thinking_enabled;
+            document.getElementById('model-thinking-budget').value = m.thinking_budget;
             document.getElementById('model-multimodal').checked = m.is_multimodal;
             document.getElementById('model-active').checked = m.is_active;
+
+            document.getElementById('model-apikeys-section').classList.remove('hidden');
+            await loadModelApiKeys(m.id);
+
             document.getElementById('model-modal').classList.remove('hidden');
             document.getElementById('model-modal').classList.add('flex');
         }
@@ -466,7 +566,10 @@
             const data = {
                 name: document.getElementById('model-name').value,
                 display_name: document.getElementById('model-display-name').value || null,
-                max_tokens: parseInt(document.getElementById('model-max-tokens').value) || 4096,
+                max_tokens: parseInt(document.getElementById('model-max-tokens').value) || 16384,
+                context_length: parseInt(document.getElementById('model-context-length').value) || 131072,
+                thinking_enabled: document.getElementById('model-thinking-enabled').checked,
+                thinking_budget: parseInt(document.getElementById('model-thinking-budget').value) || 8192,
                 is_multimodal: document.getElementById('model-multimodal').checked,
                 is_active: document.getElementById('model-active').checked
             };
@@ -478,10 +581,16 @@
                         body: JSON.stringify({
                             display_name: data.display_name,
                             max_tokens: data.max_tokens,
+                            context_length: data.context_length,
+                            thinking_enabled: data.thinking_enabled,
+                            thinking_budget: data.thinking_budget,
                             is_multimodal: data.is_multimodal,
                             is_active: data.is_active
                         })
                     });
+                    if (currentModelPmIds.length > 0 && document.querySelectorAll('.pm-ak-check').length > 0) {
+                        await saveModelApiKeys(parseInt(id));
+                    }
                 } else {
                     await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models`, {
                         method: 'POST',

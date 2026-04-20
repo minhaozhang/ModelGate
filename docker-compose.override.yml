@@ -1,7 +1,4 @@
 services:
   modelgate:
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-      - "dbhost:192.168.58.128"
     env_file:
       - .env.local
