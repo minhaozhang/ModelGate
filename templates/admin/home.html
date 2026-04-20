@@ -556,11 +556,14 @@
                     container.querySelectorAll('.session-item').forEach(el => el.classList.add('session-exit'));
                     setTimeout(() => { container.innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`; }, 360);
                     prevSessionKeys.clear();
-                } else {
+                } else if (!container.querySelector('.session-item')) {
                     container.innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`;
                 }
                 return;
             }
+
+            const placeholder = container.querySelector(':scope > .text-gray-400');
+            if (placeholder) placeholder.remove();
 
             const currentKeys = new Set(entries.map(([n]) => n));
             const newKeys = new Set([...currentKeys].filter(k => !prevSessionKeys.has(k)));
