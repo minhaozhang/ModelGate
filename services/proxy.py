@@ -575,12 +575,24 @@ async def call_internal_model_via_proxy(
             timeout=timeout_seconds or PROVIDER_REQUEST_TIMEOUT_SECONDS,
         )
 
-        latency = (time.time() - start_time) * 1000
         try:
             resp_json = resp.json()
         except json.JSONDecodeError:
             resp_json = {}
 
+        usage_limit_err = _check_usage_limit_error(resp_json, provider_name)
+        if usage_limit_err:
+            await _disable_provider(provider_name, usage_limit_err)
+            return {
+                "ok": False,
+                "provider_name": provider_name,
+                "actual_model_name": actual_model,
+                "status_code": resp.status_code,
+                "payload": resp_json,
+                "error": usage_limit_err,
+            }
+
+        latency = (time.time() - start_time) * 1000
         if provider_name == "minimax":
             process_minimax_response(resp_json)
 
@@ -857,6 +869,35 @@ def _extract_provider_error(payload: dict) -> str | None:
     return None
 
 
+async def _disable_provider(provider_name: str, reason: str) -> None:
+    from sqlalchemy import update
+    from core.database import Provider
+
+    logger.warning("[PROVIDER] Disabling provider '%s' due to: %s", provider_name, reason)
+    async with async_session_maker() as session:
+        await session.execute(
+            update(Provider)
+            .where(Provider.name == provider_name)
+            .values(is_active=False, disabled_reason=reason[:255])
+        )
+        await session.commit()
+    providers_cache.pop(provider_name, None)
+    provider_semaphores.pop(provider_name, None)
+    from services.provider import load_providers
+    await load_providers()
+
+
+def _check_usage_limit_error(resp_json: dict, provider_name: str) -> str | None:
+    error_obj = resp_json.get("error")
+    if not isinstance(error_obj, dict):
+        return None
+    code = error_obj.get("code", "")
+    message = error_obj.get("message", "")
+    if code in ("1301", "1302", "1308") or "使用上限" in message or "usage limit" in message.lower() or "已达到" in message:
+        return f"{message} ({code})"
+    return None
+
+
 async def _record_stream_result(
     total_content,
     total_reasoning,
@@ -1029,6 +1070,11 @@ async def handle_normal(
             resp_json = resp.json()
         except json.JSONDecodeError:
             resp_json = {}
+
+        usage_limit_err = _check_usage_limit_error(resp_json, provider)
+        if usage_limit_err:
+            await _disable_provider(provider, usage_limit_err)
+            return
 
         if provider == "minimax":
             process_minimax_response(resp_json)

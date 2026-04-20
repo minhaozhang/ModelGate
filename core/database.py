@@ -55,6 +55,7 @@ class Provider(Base):
     max_concurrent = Column(Integer, default=3)
     merge_consecutive_messages = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    disabled_reason = Column(String(255), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -624,6 +625,11 @@ async def init_db():
         )
         await conn.execute(
             text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP")
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE providers ADD COLUMN IF NOT EXISTS disabled_reason VARCHAR(255)"
+            )
         )
         await conn.execute(
             text(

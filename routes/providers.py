@@ -48,6 +48,7 @@ async def list_providers(_: bool = Depends(require_admin)):
                     "is_active": p.is_active,
                     "max_concurrent": p.max_concurrent or 3,
                     "merge_consecutive_messages": p.merge_consecutive_messages or False,
+                    "disabled_reason": p.disabled_reason,
                 }
                 for p in providers
             ]

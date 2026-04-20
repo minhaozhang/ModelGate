@@ -105,6 +105,7 @@
                     <input type="checkbox" id="provider-active" checked class="mr-2">
                     <label class="text-sm text-gray-700">{{ _('Active') }}</label>
                 </div>
+                ${p.disabled_reason ? `<div class="text-xs text-orange-600 bg-orange-50 rounded p-2">Disabled: ${(p.disabled_reason||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : ''}
                 <div class="flex items-center">
                     <input type="checkbox" id="provider-merge-msgs" class="mr-2">
                     <label class="text-sm text-gray-700">{{ _('Merge consecutive same-role messages') }} <span class="text-xs text-gray-400">({{ _('For providers like MiniMax requiring role alternation') }})</span></label>
@@ -250,9 +251,11 @@
                     <div>
                         <span class="font-medium">${p.name}</span>
                         <span class="ml-2 text-xs ${p.is_active ? 'text-green-600' : 'text-red-600'}">${p.is_active ? 'Active' : 'Inactive'}</span>
+                        ${p.disabled_reason ? `<span class="ml-2 text-xs text-orange-500" title="${(p.disabled_reason||'').replace(/"/g,'&quot;')}">⚠ ${(p.disabled_reason||'').substring(0,30)}</span>` : ''}
                         <div class="text-xs text-gray-500">${p.base_url}</div>
                     </div>
                     <div class="flex gap-2" onclick="event.stopPropagation()">
+                        <button onclick="resetProvider(${p.id})" class="text-orange-500 hover:text-orange-700 text-sm">Reset</button>
                         <button onclick="editProvider(${p.id})" class="text-blue-500 hover:text-blue-700 text-sm">Edit</button>
                         <button onclick="deleteProvider(${p.id})" class="text-red-500 hover:text-red-700 text-sm">Delete</button>
                     </div>
@@ -509,6 +512,11 @@
             document.getElementById('provider-active').checked = p.is_active;
             document.getElementById('provider-merge-msgs').checked = p.merge_consecutive_messages || false;
             document.getElementById('provider-max-concurrent').value = p.max_concurrent || 3;
+            const reason = p.disabled_reason || '';
+            if (reason) {
+                const existing = document.getElementById('provider-disabled-reason');
+                if (existing) existing.textContent = 'Disabled: ' + reason;
+            }
             document.getElementById('provider-modal').classList.remove('hidden');
             document.getElementById('provider-modal').classList.add('flex');
         }
@@ -566,6 +574,20 @@
                 loadProviders();
             } catch(err) {
                 alert('Delete failed: ' + err.message);
+            }
+        }
+
+        async function resetProvider(id) {
+            if (!confirm('Re-enable this provider?')) return;
+            try {
+                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + id, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_active: true})
+                });
+                loadProviders();
+            } catch(err) {
+                alert('Reset failed: ' + (err.message || err));
             }
         }
 

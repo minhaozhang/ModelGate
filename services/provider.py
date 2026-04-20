@@ -93,6 +93,7 @@ async def load_providers():
                 "models": provider_models_data,
                 "max_concurrent": p.max_concurrent or 3,
                 "merge_consecutive_messages": p.merge_consecutive_messages or False,
+                "disabled_reason": p.disabled_reason,
             }
 
             provider_default = p.max_concurrent or 3
