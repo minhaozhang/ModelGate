@@ -193,6 +193,21 @@
                 </div>
             </div>
 
+            <div id="mcp-section" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 hidden">
+                <div class="stat-card bg-white rounded-lg shadow p-5 border-l-4 border-purple-500">
+                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 调用' if current_locale == 'zh' else 'MCP Calls' }}</div>
+                    <div id="mcp-total-calls" class="text-3xl font-bold text-purple-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5 border-l-4 border-red-500">
+                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 错误' if current_locale == 'zh' else 'MCP Errors' }}</div>
+                    <div id="mcp-total-errors" class="text-3xl font-bold text-red-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5 border-l-4 border-teal-500">
+                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 服务器' if current_locale == 'zh' else 'MCP Servers' }}</div>
+                    <div id="mcp-server-count" class="text-3xl font-bold text-teal-600">0</div>
+                </div>
+            </div>
+
             <div class="bg-white rounded-lg shadow p-5 mb-6">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold">{{ _('Request Trend') }}</h3>
@@ -1166,6 +1181,27 @@
 
         loadData();
         setInterval(loadData, 30000);
+        loadMcpStats();
+        setInterval(loadMcpStats, 60000);
+
+        async function loadMcpStats() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`);
+                const servers = data.servers || [];
+                if (servers.length === 0) return;
+                document.getElementById('mcp-section').classList.remove('hidden');
+                const logsResp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-logs/query?time_range=24h&page_size=1`);
+                const totalCalls = logsResp.total || 0;
+                let totalErrors = 0;
+                if (totalCalls > 0) {
+                    const errResp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-logs/query?status=error&page_size=1`);
+                    totalErrors = errResp.total || 0;
+                }
+                document.getElementById('mcp-total-calls').textContent = totalCalls.toLocaleString();
+                document.getElementById('mcp-total-errors').textContent = totalErrors.toLocaleString();
+                document.getElementById('mcp-server-count').textContent = servers.length.toLocaleString();
+            } catch (e) {}
+        }
     </script>
 </body>
 </html>
