@@ -26,6 +26,12 @@ class ProviderModelCreate(BaseModel):
     is_active: bool = True
 
 
+class ProviderModelUpdate(BaseModel):
+    model_name_override: Optional[str] = None
+    max_concurrent: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
 @router.get("/providers/{provider_id}/models")
 async def list_provider_models(provider_id: int, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
@@ -76,7 +82,7 @@ async def add_provider_model(
 async def update_provider_model(
     provider_id: int,
     pm_id: int,
-    data: ProviderModelCreate,
+    data: ProviderModelUpdate,
     _: bool = Depends(require_admin),
 ):
     async with async_session_maker() as session:
