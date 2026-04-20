@@ -112,10 +112,21 @@ class ApiKey(Base):
     name = Column(String(100), nullable=False)
     key = Column(String(64), unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
-    mcp_server_id = Column(Integer, ForeignKey("mcp_servers.id"), nullable=True)
     last_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ApiKeyMcpServer(Base):
+    __tablename__ = "api_key_mcp_servers"
+
+    id = Column(Integer, primary_key=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id", ondelete="CASCADE"), nullable=False)
+    mcp_server_id = Column(Integer, ForeignKey("mcp_servers.id", ondelete="CASCADE"), nullable=False)
+
+    __table_args__ = (
+        Index("idx_ak_mcp_unique", "api_key_id", "mcp_server_id", unique=True),
+    )
 
 
 class ApiKeyTimeRule(Base):
@@ -790,7 +801,17 @@ async def init_db():
         )
         await conn.execute(
             text(
-                "ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS mcp_server_id INTEGER REFERENCES mcp_servers(id)"
+                "CREATE TABLE IF NOT EXISTS api_key_mcp_servers ("
+                "id SERIAL PRIMARY KEY, "
+                "api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE, "
+                "mcp_server_id INTEGER NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE, "
+                "UNIQUE (api_key_id, mcp_server_id)"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_ak_mcp_unique ON api_key_mcp_servers (api_key_id, mcp_server_id)"
             )
         )
         await conn.execute(

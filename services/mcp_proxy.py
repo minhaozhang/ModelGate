@@ -10,7 +10,7 @@ from core.config import proxy_logger
 from core.database import (
     McpServer,
     McpCallLog,
-    ApiKey,
+    ApiKeyMcpServer,
     async_session_maker,
 )
 
@@ -165,21 +165,17 @@ async def call_tool(
     return result_text
 
 
-async def get_server_by_api_key(api_key_id: int) -> McpServer | None:
+async def get_servers_by_api_key(api_key_id: int) -> list[McpServer]:
     async with async_session_maker() as session:
-        ak_result = await session.execute(
-            select(ApiKey).where(ApiKey.id == api_key_id)
-        )
-        ak = ak_result.scalar_one_or_none()
-        if not ak or not ak.mcp_server_id:
-            return None
         result = await session.execute(
-            select(McpServer).where(
-                McpServer.id == ak.mcp_server_id,
+            select(McpServer)
+            .join(ApiKeyMcpServer, ApiKeyMcpServer.mcp_server_id == McpServer.id)
+            .where(
+                ApiKeyMcpServer.api_key_id == api_key_id,
                 McpServer.is_active == True,  # noqa: E712
             )
         )
-        return result.scalar_one_or_none()
+        return list(result.scalars().all())
 
 
 def get_cached_tools(server_id: int) -> list[dict]:

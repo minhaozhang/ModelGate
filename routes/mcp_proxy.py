@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from core.config import api_keys_cache, logger
 from core.database import McpServer, async_session_maker
-from services.mcp_proxy import get_server_by_api_key, get_cached_tools, call_tool
+from services.mcp_proxy import get_servers_by_api_key, get_cached_tools, call_tool
 
 mcp = FastMCP("ModelGate MCP Proxy")
 
@@ -108,9 +108,9 @@ async def _mcp_handler(scope, receive, send):
     _current_api_key_id.set(api_key_id)
 
     if api_key_id:
-        server = await get_server_by_api_key(api_key_id)
-        if server:
-            _current_server_id.set(server.id)
+        servers = await get_servers_by_api_key(api_key_id)
+        if servers:
+            _current_server_id.set(servers[0].id)
         else:
             from starlette.responses import JSONResponse
             response = JSONResponse(

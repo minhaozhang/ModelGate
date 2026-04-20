@@ -19,7 +19,6 @@ from core.database import (
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
     ModelDailyStat,
-    McpServer,
 )
 from core.i18n import get_locale, render, translate
 from services.analysis_store import (
@@ -1817,38 +1816,30 @@ async def get_mcp_info(request: Request, user_session: Optional[str] = Cookie(No
     if not api_key_id:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    from services.mcp_proxy import get_cached_tools
+    from services.mcp_proxy import get_cached_tools, get_servers_by_api_key
 
-    async with async_session_maker() as session:
-        ak_result = await session.execute(
-            select(ApiKey).where(ApiKey.id == api_key_id)
-        )
-        ak = ak_result.scalar_one_or_none()
-        if not ak or not ak.mcp_server_id:
-            return {"has_mcp": False}
-
-        result = await session.execute(
-            select(McpServer).where(
-                McpServer.id == ak.mcp_server_id,
-                McpServer.is_active == True,  # noqa: E712
-            )
-        )
-        server = result.scalar_one_or_none()
-
-    if not server:
+    servers = await get_servers_by_api_key(api_key_id)
+    if not servers:
         return {"has_mcp": False}
 
-    tools = get_cached_tools(server.id)
+    all_tools = []
+    server_infos = []
+    for server in servers:
+        tools = get_cached_tools(server.id)
+        all_tools.extend(tools)
+        server_infos.append({
+            "name": server.name,
+            "url": server.url,
+            "tool_prefix": server.tool_prefix,
+            "tool_count": len(tools),
+        })
+
     domain = "https://leturx.cc"
     endpoint = f"{domain}/modelgate/mcp-proxy"
 
     return {
         "has_mcp": True,
-        "server": {
-            "name": server.name,
-            "url": server.url,
-            "tool_prefix": server.tool_prefix,
-        },
-        "tools": tools,
+        "servers": server_infos,
+        "tools": all_tools,
         "endpoint": endpoint,
     }
