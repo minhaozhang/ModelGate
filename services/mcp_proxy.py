@@ -17,22 +17,79 @@ from core.database import (
 logger = proxy_logger
 
 _proxy_tools: dict[int, list[dict]] = {}
+_session_pool: dict[int, dict] = {}
 
 TOOL_SYNC_TIMEOUT = 30.0
 TOOL_CALL_TIMEOUT = 300.0
 
 
-def _make_http_client(server: McpServer, timeout: float) -> httpx.AsyncClient:
-    headers = _build_auth_headers(server)
-    return httpx.AsyncClient(
-        headers=headers,
-        timeout=httpx.Timeout(timeout),
+def _build_auth_headers(server: McpServer) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    if server.auth_type == "bearer" and server.auth_token:
+        headers["Authorization"] = f"Bearer {server.auth_token}"
+    elif server.auth_type == "custom" and server.auth_token and server.auth_header:
+        headers[server.auth_header] = server.auth_token
+    return headers
+
+
+async def _get_session(server: McpServer) -> ClientSession:
+    pool_entry = _session_pool.get(server.id)
+    if pool_entry:
+        try:
+            session = pool_entry["session"]
+            if not session._read_stream._closed:
+                return session
+        except Exception:
+            pass
+        await _close_pool_entry(server.id)
+
+    http_client = httpx.AsyncClient(
+        headers=_build_auth_headers(server),
+        timeout=httpx.Timeout(TOOL_CALL_TIMEOUT),
     )
+    cm = streamable_http_client(url=server.url, http_client=http_client)
+    read_stream, write_stream, _ = await cm.__aenter__()
+    session = ClientSession(read_stream, write_stream)
+    await session.__aenter__()
+    await session.initialize()
+
+    _session_pool[server.id] = {
+        "session": session,
+        "cm": cm,
+        "http_client": http_client,
+    }
+    return session
+
+
+async def _close_pool_entry(server_id: int) -> None:
+    entry = _session_pool.pop(server_id, None)
+    if not entry:
+        return
+    try:
+        await entry["session"].__aexit__(None, None, None)
+    except Exception:
+        pass
+    try:
+        await entry["cm"].__aexit__(None, None, None)
+    except Exception:
+        pass
+    try:
+        await entry["http_client"].aclose()
+    except Exception:
+        pass
+
+
+async def close_all_sessions() -> None:
+    for sid in list(_session_pool.keys()):
+        await _close_pool_entry(sid)
 
 
 async def sync_server_tools(server: McpServer) -> list[dict]:
     try:
-        async with _make_http_client(server, TOOL_SYNC_TIMEOUT) as http_client:
+        async with httpx.AsyncClient(
+            headers=_build_auth_headers(server),
+            timeout=httpx.Timeout(TOOL_SYNC_TIMEOUT),
+        ) as http_client:
             async with streamable_http_client(
                 url=server.url,
                 http_client=http_client,
@@ -55,20 +112,17 @@ async def sync_server_tools(server: McpServer) -> list[dict]:
                         await db.execute(
                             update(McpServer)
                             .where(McpServer.id == server.id)
-                            .values(
-                                last_sync_error=None,
-                                last_sync_at=None,
-                            )
+                            .values(last_sync_error=None, last_sync_at=None)
                         )
                         await db.commit()
 
-                logger.info(
-                    "[MCP] Synced %d tools from server '%s' (id=%d)",
-                    len(tools),
-                    server.name,
-                    server.id,
-                )
-                return tools
+        logger.info(
+            "[MCP] Synced %d tools from server '%s' (id=%d)",
+            len(tools),
+            server.name,
+            server.id,
+        )
+        return tools
     except Exception as exc:
         error_msg = f"{type(exc).__name__}: {exc}"
         async with async_session_maker() as db:
@@ -79,6 +133,7 @@ async def sync_server_tools(server: McpServer) -> list[dict]:
             )
             await db.commit()
         _proxy_tools.pop(server.id, None)
+        await _close_pool_entry(server.id)
         logger.error(
             "[MCP] Failed to sync tools from server '%s' (id=%d): %s",
             server.name,
@@ -118,25 +173,20 @@ async def call_tool(
     is_error = False
 
     try:
-        async with _make_http_client(server, TOOL_CALL_TIMEOUT) as http_client:
-            async with streamable_http_client(
-                url=server.url,
-                http_client=http_client,
-            ) as (read_stream, write_stream, _):
-                async with ClientSession(read_stream, write_stream) as session:
-                    await session.initialize()
-                    result = await session.call_tool(tool_name, arguments or {})
-                    parts = []
-                    for content in result.content:
-                        if hasattr(content, "text"):
-                            parts.append(content.text)
-                        else:
-                            parts.append(str(content))
-                    result_text = "\n".join(parts)
-                    is_error = result.isError or False
+        session = await _get_session(server)
+        result = await session.call_tool(tool_name, arguments or {})
+        parts = []
+        for content in result.content:
+            if hasattr(content, "text"):
+                parts.append(content.text)
+            else:
+                parts.append(str(content))
+        result_text = "\n".join(parts)
+        is_error = result.isError or False
     except Exception as exc:
         error_msg = f"{type(exc).__name__}: {exc}"
         is_error = True
+        await _close_pool_entry(server.id)
 
     latency_ms = (time.monotonic() - start) * 1000
 
@@ -184,12 +234,3 @@ def get_cached_tools(server_id: int) -> list[dict]:
 
 def remove_cached_tools(server_id: int) -> None:
     _proxy_tools.pop(server_id, None)
-
-
-def _build_auth_headers(server: McpServer) -> dict[str, str]:
-    headers: dict[str, str] = {}
-    if server.auth_type == "bearer" and server.auth_token:
-        headers["Authorization"] = f"Bearer {server.auth_token}"
-    elif server.auth_type == "custom" and server.auth_token and server.auth_header:
-        headers[server.auth_header] = server.auth_token
-    return headers

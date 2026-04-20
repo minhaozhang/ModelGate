@@ -453,10 +453,6 @@
                 const servers = data.servers || [];
                 const tools = data.tools || [];
 
-                document.getElementById('mcp-server-name').textContent = servers.map(s => s.name).join(', ');
-                document.getElementById('mcp-server-url').textContent = servers.length === 1 ? servers[0].url : (servers.length + ' servers');
-                document.getElementById('mcp-tool-count').textContent = tools.length;
-
                 const configObj = {
                     mcpServers: {
                         "modelgate-proxy": {
@@ -466,6 +462,19 @@
                     }
                 };
                 document.getElementById('mcp-config-snippet').textContent = JSON.stringify(configObj, null, 2);
+
+                const serversList = document.getElementById('mcp-servers-list');
+                serversList.innerHTML = servers.map(s => `
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-semibold">${s.name || 'MCP Server'}</h4>
+                            <span class="text-xs text-gray-500">${s.tool_count || 0} tools</span>
+                        </div>
+                        <div class="text-xs text-gray-400 font-mono truncate">${s.url || '-'}</div>
+                    </div>
+                `).join('');
+
+                document.getElementById('mcp-tool-count').textContent = tools.length;
 
                 const toolsList = document.getElementById('mcp-tools-list');
                 toolsList.innerHTML = '';
