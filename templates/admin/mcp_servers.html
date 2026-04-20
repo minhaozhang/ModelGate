@@ -179,6 +179,7 @@
             window.location.href = `${APP_BASE_PATH}/admin/login`;
             throw new Error('Unauthorized');
         }
+        if (!resp.ok) throw new Error(await resp.text());
         return resp;
     }
 
@@ -198,6 +199,10 @@
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return value;
         return date.toLocaleString();
+    }
+
+    function parseError(err) {
+        try { const j = JSON.parse(err.message); return j.error || j.detail || err.message; } catch { return err.message; }
     }
 
     function escapeHtml(str) {
@@ -340,7 +345,7 @@
             closeServerModal();
             loadServers();
         } catch (err) {
-            alert(L.failedToSave);
+            alert(L.failedToSave + ': ' + parseError(err));
         }
     });
 

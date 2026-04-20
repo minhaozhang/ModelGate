@@ -216,6 +216,7 @@
                 window.location.href = `${APP_BASE_PATH}/admin/login`;
                 throw new Error('Unauthorized');
             }
+            if (!resp.ok) throw new Error(await resp.text());
             return resp;
         }
 
@@ -493,7 +494,7 @@
                 closeProviderModal();
                 loadProviders();
             } catch(err) {
-                alert('Failed to save provider');
+                alert('Failed to save provider: ' + (err.message || err));
             }
         });
 
@@ -601,7 +602,7 @@
                 closeModelModal();
                 loadModels();
             } catch(err) {
-                alert('Failed to save model');
+                alert('Failed to save model: ' + (err.message || err));
             }
         });
 

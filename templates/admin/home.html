@@ -214,6 +214,7 @@
                 window.location.href = `${APP_BASE_PATH}/admin/login`;
                 throw new Error('Unauthorized');
             }
+            if (!resp.ok) throw new Error(await resp.text());
             return await resp.json();
         }
         function changePeriod() { currentPeriod = document.getElementById('period-select').value; loadData(); }

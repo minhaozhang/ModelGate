@@ -210,8 +210,9 @@
             const response = await fetch(url, opts);
             if (response.status === 401) {
                 window.location.href = `${BASE}/admin/login`;
-                return null;
+                throw new Error('Unauthorized');
             }
+            if (!response.ok) throw new Error(await response.text());
             return response.json();
         }
 

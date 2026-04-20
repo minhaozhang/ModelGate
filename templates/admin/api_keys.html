@@ -479,6 +479,7 @@
                 window.location.href = `${APP_BASE_PATH}/admin/login`;
                 throw new Error('Unauthorized');
             }
+            if (!resp.ok) throw new Error(await resp.text());
             return resp;
         }
 
