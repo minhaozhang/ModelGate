@@ -562,8 +562,11 @@
                 return;
             }
 
-            const placeholder = container.querySelector(':scope > .text-gray-400');
-            if (placeholder) placeholder.remove();
+            for (const child of Array.from(container.childNodes)) {
+                if (!child.classList || !child.classList.contains('session-item')) {
+                    container.removeChild(child);
+                }
+            }
 
             const currentKeys = new Set(entries.map(([n]) => n));
             const newKeys = new Set([...currentKeys].filter(k => !prevSessionKeys.has(k)));
