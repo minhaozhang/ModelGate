@@ -93,6 +93,9 @@ msgstr "{label} on right axis"
 msgid "Dark Mode"
 msgstr "Dark Mode"
 
+msgid "Black Gold Mode"
+msgstr "Black Gold Mode"
+
 msgid "This Week"
 msgstr "This Week"
 

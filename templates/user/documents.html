@@ -19,6 +19,19 @@
         body.theme-dark select, body.theme-dark button:not(.bg-blue-600) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
         body.theme-dark .shadow, body.theme-dark .shadow-sm { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
         body.theme-dark .bg-white.rounded-lg { border: 1px solid rgba(71, 85, 105, 0.55) !important; }
+
+        body.theme-blackgold { background: #09090b !important; color: #fafaf9; }
+        body.theme-blackgold .bg-white { background: #1a1814 !important; }
+        body.theme-blackgold .bg-gray-100 { background: #09090b !important; }
+        body.theme-blackgold .bg-blue-50 { background: rgba(212, 168, 83, 0.10) !important; }
+        body.theme-blackgold .text-gray-800 { color: #fafaf9 !important; }
+        body.theme-blackgold .text-gray-700 { color: #d6d3d1 !important; }
+        body.theme-blackgold .text-gray-600 { color: #c9b896 !important; }
+        body.theme-blackgold .text-gray-500 { color: #a8a29e !important; }
+        body.theme-blackgold .border, body.theme-blackgold .border-gray-200 { border-color: rgba(212, 168, 83, 0.22) !important; }
+        body.theme-blackgold select, body.theme-blackgold button:not(.bg-blue-600) { background-color: #1a1814; color: #d6d3d1; border-color: rgba(212, 168, 83, 0.30); }
+        body.theme-blackgold .shadow, body.theme-blackgold .shadow-sm { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55) !important; }
+        body.theme-blackgold .bg-white.rounded-lg { border: 1px solid rgba(212, 168, 83, 0.25) !important; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -63,10 +76,15 @@
 
         function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
         function applyTheme(mode) {
-            document.body.classList.toggle('theme-dark', mode === 'dark');
+            document.body.classList.remove('theme-dark', 'theme-blackgold');
+            if (mode === 'dark') document.body.classList.add('theme-dark');
+            else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
             localStorage.setItem('admin_theme', mode);
         }
-        function toggleTheme() { applyTheme(getThemeMode() === 'dark' ? 'light' : 'dark'); }
+        function toggleTheme() {
+            const cycle = { light: 'dark', dark: 'blackgold', blackgold: 'light' };
+            applyTheme(cycle[getThemeMode()] || 'dark');
+        }
         applyTheme(getThemeMode());
 
         function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }

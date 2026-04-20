@@ -93,6 +93,9 @@ msgstr "右侧轴: {label}"
 msgid "Dark Mode"
 msgstr "深色模式"
 
+msgid "Black Gold Mode"
+msgstr "黑金模式"
+
 msgid "This Week"
 msgstr "本周"
 

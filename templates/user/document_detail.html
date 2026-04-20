@@ -42,8 +42,27 @@
         body.theme-dark .markdown-body th, body.theme-dark .markdown-body td { border-color: #334155; }
         body.theme-dark .markdown-body hr { border-top-color: #334155; }
         body.theme-dark .markdown-body pre { border: 1px solid rgba(71, 85, 105, 0.6); }
+
+        body.theme-blackgold { background: #09090b !important; color: #fafaf9; }
+        body.theme-blackgold .bg-white { background: #1a1814 !important; }
+        body.theme-blackgold .bg-gray-100 { background: #09090b !important; }
+        body.theme-blackgold .text-gray-800 { color: #fafaf9 !important; }
+        body.theme-blackgold .text-gray-500 { color: #a8a29e !important; }
+        body.theme-blackgold .text-gray-700 { color: #d6d3d1 !important; }
+        body.theme-blackgold .border-gray-200 { border-color: rgba(212, 168, 83, 0.22) !important; }
+        body.theme-blackgold select, body.theme-blackgold button:not(.bg-blue-600) { background-color: #1a1814; color: #d6d3d1; border-color: rgba(212, 168, 83, 0.30); }
+        body.theme-blackgold .shadow { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55) !important; }
+        body.theme-blackgold .bg-white.rounded-lg { border: 1px solid rgba(212, 168, 83, 0.25) !important; }
+        body.theme-blackgold .markdown-body h1 { border-bottom-color: rgba(212, 168, 83, 0.30); }
+        body.theme-blackgold .markdown-body blockquote { background: rgba(212, 168, 83, 0.06); color: #a8a29e; border-left-color: #d4a853; }
+        body.theme-blackgold .markdown-body :not(pre) > code { background: #1c1917; color: #d4a853; }
+        body.theme-blackgold .markdown-body th { background: #1c1917; }
+        body.theme-blackgold .markdown-body th, body.theme-blackgold .markdown-body td { border-color: rgba(212, 168, 83, 0.22); }
+        body.theme-blackgold .markdown-body hr { border-top-color: rgba(212, 168, 83, 0.22); }
+        body.theme-blackgold .markdown-body pre { border: 1px solid rgba(212, 168, 83, 0.25); }
         .file-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 0.5rem; }
         body.theme-dark .file-card { border-color: #334155; }
+        body.theme-blackgold .file-card { border-color: rgba(212, 168, 83, 0.25); }
         .file-card:hover { border-color: #3b82f6; }
         .file-icon { width: 2.5rem; height: 2.5rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; flex-shrink: 0; }
         .inline-image { margin: 1rem 0; border-radius: 0.5rem; cursor: pointer; }
@@ -91,7 +110,9 @@
 
         function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
         function applyTheme(mode) {
-            document.body.classList.toggle('theme-dark', mode === 'dark');
+            document.body.classList.remove('theme-dark', 'theme-blackgold');
+            if (mode === 'dark') document.body.classList.add('theme-dark');
+            else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
             localStorage.setItem('admin_theme', mode);
         }
         applyTheme(getThemeMode());
