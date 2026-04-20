@@ -441,7 +441,7 @@
 
         async function loadMcpInfo() {
             try {
-                const data = await fetchJson(`${APP_BASE_PATH}/user/api/mcp-info`);
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/user/api/mcp-info`);
                 if (!data.has_mcp) {
                     document.getElementById('mcp-no-server').classList.remove('hidden');
                     document.getElementById('mcp-info').classList.add('hidden');
