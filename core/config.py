@@ -294,11 +294,16 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                     "models": {},
                     "requests": 0,
                     "last_activity": request_data["started_at"].isoformat(),
+                    "first_activity": request_data["started_at"].isoformat(),
                 },
             )
             bucket["requests"] += 1
             bucket["last_activity"] = max(
                 bucket["last_activity"],
+                request_data["started_at"].isoformat(),
+            )
+            bucket["first_activity"] = min(
+                bucket["first_activity"],
                 request_data["started_at"].isoformat(),
             )
             model_name = request_data.get("model")
@@ -319,8 +324,8 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             "sessions": dict(
                 sorted(
                     grouped_users.items(),
-                    key=lambda item: item[1]["last_activity"],
-                    reverse=True,
+                    key=lambda item: item[1]["first_activity"],
+                )
                 )
             ),
         }

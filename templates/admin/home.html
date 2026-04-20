@@ -70,6 +70,9 @@
             .top-metrics-grid { grid-template-columns:repeat(8, minmax(0, 1fr)); }
         }
         @media(prefers-reduced-motion:reduce){ .fr{transition-duration:.01ms!important;} }
+        .session-item { transition: opacity 0.35s ease, transform 0.35s ease, max-height 0.35s ease, margin 0.35s ease, padding 0.35s ease; overflow:hidden; }
+        .session-enter { opacity:0; transform:translateY(-8px); max-height:0; margin-top:0; margin-bottom:0; padding-top:0; padding-bottom:0; }
+        .session-exit { opacity:0; transform:translateY(8px); max-height:0; margin-top:0; margin-bottom:0; padding-top:0; padding-bottom:0; }
     </style>
 </head>
 <body class="theme-dark bg-gray-100 min-h-screen">
@@ -536,6 +539,7 @@
             });
             window.scrollTo(0, scrollY);
         }
+        let prevSessionKeys = new Set();
         function renderLiveStats(data) {
             const activeRequests = data.active_requests || 0;
             const activeUsers = data.active_count ?? data.active_users ?? 0;
@@ -544,32 +548,69 @@
             flipCounter('tps', tokensPerSecond.toLocaleString());
             flipCounter('active-count', activeUsers);
 
-            if (activeUsers === 0) {
-                document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`;
+            const container = document.getElementById('active-sessions');
+            const entries = Object.entries(data.sessions || {});
+
+            if (activeUsers === 0 || entries.length === 0) {
+                if (prevSessionKeys.size > 0) {
+                    container.querySelectorAll('.session-item').forEach(el => el.classList.add('session-exit'));
+                    setTimeout(() => { container.innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`; }, 360);
+                    prevSessionKeys.clear();
+                } else {
+                    container.innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`;
+                }
                 return;
             }
 
-            const html = Object.entries(data.sessions || {})
-                .sort((a, b) => new Date(b[1].last_activity || 0) - new Date(a[1].last_activity || 0))
-                .map(([name, session]) => {
+            const currentKeys = new Set(entries.map(([n]) => n));
+            const newKeys = new Set([...currentKeys].filter(k => !prevSessionKeys.has(k)));
+            const removedKeys = new Set([...prevSessionKeys].filter(k => !currentKeys.has(k)));
+            prevSessionKeys = currentKeys;
+
+            container.querySelectorAll('.session-item[data-key]').forEach(el => {
+                if (removedKeys.has(el.dataset.key)) {
+                    el.classList.add('session-exit');
+                    setTimeout(() => { if (el.parentNode) el.remove(); }, 360);
+                }
+            });
+
+            let insertAfter = null;
+            for (const [name, session] of entries) {
                 const maskedName = maskName(name);
                 const modelsHtml = Object.entries(session.models).map(([model, count]) =>
                     `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">${model} (${count})</span>`
                 ).join(' ');
-                return `
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-                        <div>
-                            <div class="font-medium truncate cursor-default" title="${name}">${maskedName}</div>
-                            <div class="text-xs text-gray-500 mt-1">${modelsHtml}</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-medium">${session.requests} ${homeI18n.req}</div>
-                            <div class="text-xs text-gray-400">${(session.tokens || 0).toLocaleString()} ${homeI18n.tokens}</div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            document.getElementById('active-sessions').innerHTML = html;
+                const innerHtml = `<div>
+                    <div class="font-medium truncate cursor-default" title="${name}">${maskedName}</div>
+                    <div class="text-xs text-gray-500 mt-1">${modelsHtml}</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-medium">${session.requests} ${homeI18n.req}</div>
+                    <div class="text-xs text-gray-400">${(session.tokens || 0).toLocaleString()} ${homeI18n.tokens}</div>
+                </div>`;
+
+                const existing = container.querySelector(`.session-item[data-key="${CSS.escape(name)}"]`);
+                if (existing) {
+                    existing.innerHTML = innerHtml;
+                    insertAfter = existing;
+                    continue;
+                }
+
+                const div = document.createElement('div');
+                div.className = 'session-item session-enter flex justify-between items-center p-3 bg-gray-50 rounded';
+                div.dataset.key = name;
+                div.innerHTML = innerHtml;
+
+                if (insertAfter && insertAfter.nextSibling) {
+                    container.insertBefore(div, insertAfter.nextSibling);
+                } else {
+                    container.appendChild(div);
+                }
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    div.classList.remove('session-enter');
+                }));
+                insertAfter = div;
+            }
         }
 
         async function loadLiveStatsFallback() {
