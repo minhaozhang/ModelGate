@@ -56,7 +56,7 @@ def _get_model_aliases(pm: dict) -> set[str]:
 async def load_providers():
     async with async_session_maker() as session:
         result = await session.execute(
-            select(Provider).where(Provider.is_active == True)
+            select(Provider).where(Provider.is_active == True)  # noqa: E712
         )
         providers = result.scalars().all()
 
