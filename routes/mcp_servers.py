@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
 
-from core.database import async_session_maker, McpServer, ApiKey
+from core.database import async_session_maker, McpServer, ApiKey, ApiKeyMcpServer
 from core.config import validate_session
 from services.mcp_proxy import (
     sync_server_tools,
@@ -51,10 +51,12 @@ async def list_mcp_servers(_: bool = Depends(require_admin)):
         api_key_map: dict[int, list[str]] = {s.id: [] for s in servers}
         if server_ids:
             ak_result = await session.execute(
-                select(ApiKey).where(ApiKey.mcp_server_id.in_(server_ids))
+                select(ApiKeyMcpServer.mcp_server_id, ApiKey.name)
+                .join(ApiKey, ApiKey.id == ApiKeyMcpServer.api_key_id)
+                .where(ApiKeyMcpServer.mcp_server_id.in_(server_ids))
             )
-            for ak in ak_result.scalars():
-                api_key_map[ak.mcp_server_id].append(ak.name)
+            for row in ak_result.fetchall():
+                api_key_map[row[0]].append(row[1])
 
         return {
             "servers": [
