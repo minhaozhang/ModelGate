@@ -105,7 +105,7 @@
                     <input type="checkbox" id="provider-active" checked class="mr-2">
                     <label class="text-sm text-gray-700">{{ _('Active') }}</label>
                 </div>
-                ${p.disabled_reason ? `<div class="text-xs text-orange-600 bg-orange-50 rounded p-2">Disabled: ${(p.disabled_reason||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : ''}
+                <div id="provider-disabled-reason" class="hidden text-xs text-orange-600 bg-orange-50 rounded p-2"></div>
                 <div class="flex items-center">
                     <input type="checkbox" id="provider-merge-msgs" class="mr-2">
                     <label class="text-sm text-gray-700">{{ _('Merge consecutive same-role messages') }} <span class="text-xs text-gray-400">({{ _('For providers like MiniMax requiring role alternation') }})</span></label>
@@ -512,10 +512,13 @@
             document.getElementById('provider-active').checked = p.is_active;
             document.getElementById('provider-merge-msgs').checked = p.merge_consecutive_messages || false;
             document.getElementById('provider-max-concurrent').value = p.max_concurrent || 3;
-            const reason = p.disabled_reason || '';
-            if (reason) {
-                const existing = document.getElementById('provider-disabled-reason');
-                if (existing) existing.textContent = 'Disabled: ' + reason;
+            const reasonEl = document.getElementById('provider-disabled-reason');
+            if (p.disabled_reason) {
+                reasonEl.textContent = 'Disabled: ' + p.disabled_reason;
+                reasonEl.classList.remove('hidden');
+            } else {
+                reasonEl.textContent = '';
+                reasonEl.classList.add('hidden');
             }
             document.getElementById('provider-modal').classList.remove('hidden');
             document.getElementById('provider-modal').classList.add('flex');
