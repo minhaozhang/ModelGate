@@ -44,6 +44,28 @@ async def list_all_models(_: bool = Depends(require_admin)):
     async with async_session_maker() as session:
         result = await session.execute(select(Model).order_by(Model.name))
         models = result.scalars().all()
+
+        model_ids = [m.id for m in models]
+        pm_result = await session.execute(
+            select(ProviderModel.model_id, ProviderModel.id).where(
+                ProviderModel.model_id.in_(model_ids)
+            )
+        )
+        model_pm_map: dict[int, list[int]] = {m.id: [] for m in models}
+        for row in pm_result.fetchall():
+            model_pm_map[row[0]].append(row[1])
+
+        all_pm_ids = [pm_id for ids in model_pm_map.values() for pm_id in ids]
+        pm_key_counts: dict[int, int] = {}
+        if all_pm_ids:
+            ak_count_result = await session.execute(
+                select(ApiKeyModel.provider_model_id).where(
+                    ApiKeyModel.provider_model_id.in_(all_pm_ids)
+                )
+            )
+            for row in ak_count_result.fetchall():
+                pm_key_counts[row[0]] = pm_key_counts.get(row[0], 0) + 1
+
         return {
             "models": [
                 {
@@ -56,6 +78,7 @@ async def list_all_models(_: bool = Depends(require_admin)):
                     "thinking_budget": m.thinking_budget,
                     "is_multimodal": m.is_multimodal,
                     "is_active": m.is_active,
+                    "bound_key_count": sum(pm_key_counts.get(p, 0) for p in model_pm_map.get(m.id, [])),
                 }
                 for m in models
             ]

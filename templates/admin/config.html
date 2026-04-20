@@ -160,16 +160,28 @@
                         <span class="text-sm text-gray-700">{{ _('Active') }}</span>
                     </label>
                 </div>
-                <div id="model-apikeys-section" class="hidden border-t pt-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ _('API Key Access') }}</label>
-                    <div id="model-apikeys-list" class="space-y-2 text-sm"></div>
-                    <p class="text-xs text-gray-400 mt-2">{{ _('Leave empty to allow all keys') }}</p>
-                </div>
                 <div class="flex gap-2">
                     <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
                     <button type="button" onclick="closeModelModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div id="model-keys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
+                <h3 id="model-keys-title" class="font-semibold">{{ _('API Key Access') }}</h3>
+                <button onclick="closeModelKeysModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1">
+                <div id="model-keys-content" class="space-y-4">
+                    <div class="text-center text-gray-400 py-4">Loading...</div>
+                </div>
+            </div>
+            <div class="p-4 border-t flex-shrink-0">
+                <button onclick="saveModelKeysModal()" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
+            </div>
         </div>
     </div>
 
@@ -182,9 +194,9 @@
         let allProviders = [];
         let allModels = [];
         let allApiKeys = [];
-        let currentModelApiKeys = {};
-        let currentModelPmIds = [];
-        let currentModelPmLabels = {};
+        let modelKeysTarget = null;
+        let modelKeysData = {};
+        let modelKeysPmList = [];
         let selectedProviderId = null;
 
         async function logout() {
@@ -244,62 +256,92 @@
             document.getElementById('providers-list').innerHTML = html || '<div class="text-gray-400 text-center py-4">No providers</div>';
         }
 
-        async function loadModelApiKeys(modelId) {
+        async function openModelKeys(modelId) {
+            modelKeysTarget = modelId;
+            const m = allModels.find(x => x.id === modelId);
+            document.getElementById('model-keys-title').textContent = (m ? (m.display_name || m.name) : 'Model') + ' - API Key Access';
+            document.getElementById('model-keys-content').innerHTML = '<div class="text-center text-gray-400 py-4">Loading...</div>';
+            document.getElementById('model-keys-modal').classList.remove('hidden');
+            document.getElementById('model-keys-modal').classList.add('flex');
             try {
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models/${modelId}/api-keys`);
                 allApiKeys = data.api_keys || [];
-                const pmList = data.provider_models || [];
-                currentModelPmIds = pmList.map(p => p.id);
-                currentModelPmLabels = {};
-                pmList.forEach(p => currentModelPmLabels[p.id] = p.label);
-                currentModelApiKeys = data.bound_keys || {};
-                renderModelApiKeys();
+                modelKeysPmList = data.provider_models || [];
+                modelKeysData = data.bound_keys || {};
+                renderModelKeysContent();
             } catch(e) {
-                document.getElementById('model-apikeys-list').innerHTML = '<div class="text-xs text-gray-400">Failed to load API keys</div>';
+                document.getElementById('model-keys-content').innerHTML = '<div class="text-center text-red-500 py-4">Failed to load</div>';
             }
         }
 
-        function renderModelApiKeys() {
-            const container = document.getElementById('model-apikeys-list');
-            if (currentModelPmIds.length === 0) {
-                container.innerHTML = '<div class="text-xs text-gray-400">No provider bindings for this model</div>';
+        function renderModelKeysContent() {
+            const container = document.getElementById('model-keys-content');
+            if (modelKeysPmList.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-400 py-4">No provider bindings. Bind this model to a provider first.</div>';
                 return;
             }
             let html = '';
-            currentModelPmIds.forEach(pmId => {
-                const bound = currentModelApiKeys[pmId] || [];
+            modelKeysPmList.forEach(pm => {
+                const bound = modelKeysData[pm.id] || [];
                 const boundIds = bound.map(k => k.id);
-                const label = currentModelPmLabels[pmId] || ('ProviderModel #' + pmId);
-                html += `<div class="border rounded p-2">
-                    <div class="font-medium text-xs text-gray-600 mb-1">${label}</div>
+                html += `<div class="border rounded p-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-medium text-sm text-gray-700">${pm.label}</span>
+                        <div class="flex gap-2">
+                            <button onclick="selectAllKeys(${pm.id})" class="text-xs text-blue-500 hover:text-blue-700">Select All</button>
+                            <button onclick="deselectAllKeys(${pm.id})" class="text-xs text-gray-500 hover:text-gray-700">Clear</button>
+                        </div>
+                    </div>
                     <div class="space-y-1">
                         ${allApiKeys.map(k => `
-                            <label class="flex items-center text-xs">
-                                <input type="checkbox" class="mr-1 pm-ak-check" data-pm-id="${pmId}" data-ak-id="${k.id}" ${boundIds.includes(k.id) ? 'checked' : ''}>
+                            <label class="flex items-center text-sm py-1 px-2 rounded hover:bg-gray-50 cursor-pointer">
+                                <input type="checkbox" class="mr-2 mk-check" data-pm-id="${pm.id}" data-ak-id="${k.id}" ${boundIds.includes(k.id) ? 'checked' : ''}>
                                 ${k.name}
                             </label>
                         `).join('')}
                     </div>
+                    <div class="text-xs text-gray-400 mt-1">${bound.length} key(s) bound</div>
                 </div>`;
             });
             container.innerHTML = html;
         }
 
-        async function saveModelApiKeys(modelId) {
-            const checks = document.querySelectorAll('.pm-ak-check');
-            const byPm = {};
-            checks.forEach(c => {
-                const pmId = parseInt(c.dataset.pmId);
-                const akId = parseInt(c.dataset.akId);
-                if (!byPm[pmId]) byPm[pmId] = [];
-                if (c.checked) byPm[pmId].push(akId);
-            });
-            for (const [pmId, akIds] of Object.entries(byPm)) {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models/${modelId}/api-keys`, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({provider_model_id: parseInt(pmId), api_key_ids: akIds})
+        function selectAllKeys(pmId) {
+            document.querySelectorAll(`.mk-check[data-pm-id="${pmId}"]`).forEach(c => c.checked = true);
+        }
+
+        function deselectAllKeys(pmId) {
+            document.querySelectorAll(`.mk-check[data-pm-id="${pmId}"]`).forEach(c => c.checked = false);
+        }
+
+        function closeModelKeysModal() {
+            document.getElementById('model-keys-modal').classList.add('hidden');
+            document.getElementById('model-keys-modal').classList.remove('flex');
+            modelKeysTarget = null;
+        }
+
+        async function saveModelKeysModal() {
+            if (!modelKeysTarget) return;
+            try {
+                const checks = document.querySelectorAll('.mk-check');
+                const byPm = {};
+                checks.forEach(c => {
+                    const pmId = parseInt(c.dataset.pmId);
+                    const akId = parseInt(c.dataset.akId);
+                    if (!byPm[pmId]) byPm[pmId] = [];
+                    if (c.checked) byPm[pmId].push(akId);
                 });
+                for (const [pmId, akIds] of Object.entries(byPm)) {
+                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models/${modelKeysTarget}/api-keys`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({provider_model_id: parseInt(pmId), api_key_ids: akIds})
+                    });
+                }
+                closeModelKeysModal();
+                loadModels();
+            } catch(err) {
+                alert('Failed to save: ' + (err.message || err));
             }
         }
 
@@ -314,9 +356,11 @@
                         <span class="ml-2 text-xs ${m.is_active ? 'text-green-600' : 'text-red-600'}">${m.is_active ? 'Active' : 'Inactive'}</span>
                         <div class="text-xs text-gray-400 mt-1">
                             max_tokens=${(m.max_tokens||0).toLocaleString()} / context=${(m.context_length||0).toLocaleString()} / thinking=${m.thinking_enabled ? (m.thinking_budget||0).toLocaleString() : 'off'}${m.is_multimodal ? ' / multimodal' : ''}
+                            ${m.bound_key_count > 0 ? ` / <span class="text-green-500">${m.bound_key_count.toLocaleString()} key(s)</span>` : ''}
                         </div>
                     </div>
                     <div class="flex gap-2">
+                        <button onclick="openModelKeys(${m.id})" class="text-green-500 hover:text-green-700 text-sm">Keys</button>
                         <button onclick="editModel(${m.id})" class="text-blue-500 hover:text-blue-700 text-sm">Edit</button>
                         <button onclick="deleteModel(${m.id})" class="text-red-500 hover:text-red-700 text-sm">Delete</button>
                     </div>
@@ -529,7 +573,6 @@
             document.getElementById('model-thinking-budget').value = '8192';
             document.getElementById('model-multimodal').checked = false;
             document.getElementById('model-active').checked = true;
-            document.getElementById('model-apikeys-section').classList.add('hidden');
             document.getElementById('model-modal').classList.remove('hidden');
             document.getElementById('model-modal').classList.add('flex');
         }
@@ -548,9 +591,6 @@
             document.getElementById('model-thinking-budget').value = m.thinking_budget;
             document.getElementById('model-multimodal').checked = m.is_multimodal;
             document.getElementById('model-active').checked = m.is_active;
-
-            document.getElementById('model-apikeys-section').classList.remove('hidden');
-            await loadModelApiKeys(m.id);
 
             document.getElementById('model-modal').classList.remove('hidden');
             document.getElementById('model-modal').classList.add('flex');
@@ -589,9 +629,6 @@
                             is_active: data.is_active
                         })
                     });
-                    if (currentModelPmIds.length > 0 && document.querySelectorAll('.pm-ak-check').length > 0) {
-                        await saveModelApiKeys(parseInt(id));
-                    }
                 } else {
                     await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models`, {
                         method: 'POST',
