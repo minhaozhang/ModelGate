@@ -531,7 +531,7 @@
             const select = document.getElementById('apikey-mcp-server');
             select.innerHTML = `<option value="">${window.I18N.none || 'None'}</option>` +
                 mcpServers.filter(s => s.is_active).map(s =>
-                    `<option value="${s.id}" ${s.id === selectedId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`
+                    `<option value="${s.id}" ${s.id === selectedId ? 'selected' : ''}>${(s.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</option>`
                 ).join('');
         }
         
