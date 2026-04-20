@@ -217,3 +217,14 @@ async def get_provider_and_model(model: str) -> tuple[Optional[dict], str, str]:
             return None, model, ""
     config = await get_provider_config(provider_name)
     return config, actual_model, provider_name
+
+
+async def get_disabled_provider_reason(provider_name: str) -> str | None:
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Provider.disabled_reason).where(
+                Provider.name == provider_name,
+                Provider.is_active == False,  # noqa: E712
+            )
+        )
+        return result.scalar_one_or_none()

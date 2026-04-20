@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -112,7 +113,7 @@ async def sync_server_tools(server: McpServer) -> list[dict]:
                         await db.execute(
                             update(McpServer)
                             .where(McpServer.id == server.id)
-                            .values(last_sync_error=None, last_sync_at=None)
+                            .values(last_sync_error=None, last_sync_at=datetime.now())
                         )
                         await db.commit()
 
@@ -234,3 +235,14 @@ def get_cached_tools(server_id: int) -> list[dict]:
 
 def remove_cached_tools(server_id: int) -> None:
     _proxy_tools.pop(server_id, None)
+
+
+def get_server_tool_names(server: McpServer, tools: list[dict]) -> list[str]:
+    prefix = server.tool_prefix or ""
+    names: list[str] = []
+    for tool in tools:
+        base_name = tool.get("name")
+        if not base_name:
+            continue
+        names.append(f"{prefix}{base_name}" if prefix else base_name)
+    return names

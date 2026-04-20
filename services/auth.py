@@ -5,7 +5,11 @@ from sqlalchemy import select
 
 from core.config import api_keys_cache
 from core.database import async_session_maker, ApiKey, ApiKeyModel, ApiKeyMcpServer, ApiKeyTimeRule
-from services.provider import parse_model, get_provider_config
+from services.provider import (
+    get_disabled_provider_reason,
+    get_provider_config,
+    parse_model,
+)
 
 
 async def load_api_keys():
@@ -190,7 +194,10 @@ async def validate_api_key(
 
         provider_config = await get_provider_config(provider_name)
         if not provider_config:
-            return None, f"Provider '{provider_name}' not found"
+            disabled_reason = await get_disabled_provider_reason(provider_name)
+            if disabled_reason:
+                return None, f"供应商 '{provider_name}' 已被禁用：{disabled_reason}"
+            return None, f"供应商 '{provider_name}' 不存在"
 
         provider_model_id = None
         for pm in provider_config.get("models", []):
@@ -205,7 +212,7 @@ async def validate_api_key(
         if provider_model_id is None:
             return (
                 None,
-                f"Model '{actual_model}' not found in provider '{provider_name}'",
+                f"供应商 '{provider_name}' 中不存在模型 '{actual_model}'",
             )
 
         if provider_model_id not in allowed_models:

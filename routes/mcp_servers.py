@@ -11,6 +11,7 @@ from services.mcp_proxy import (
     get_cached_tools,
     remove_cached_tools,
 )
+from routes.mcp_proxy import register_all_proxy_tools
 
 router = APIRouter(prefix="/admin/api", tags=["mcp-servers"])
 
@@ -100,6 +101,7 @@ async def create_mcp_server(data: McpServerCreate, _: bool = Depends(require_adm
             await sync_server_tools(server)
         except Exception:
             pass
+    await register_all_proxy_tools()
 
     return {"id": server.id, "name": server.name}
 
@@ -133,7 +135,14 @@ async def update_mcp_server(
 
         await session.commit()
 
-    if data.url is not None or data.auth_type is not None or data.auth_token is not None:
+    if (
+        data.url is not None
+        or data.auth_type is not None
+        or data.auth_token is not None
+        or data.auth_header is not None
+        or data.tool_prefix is not None
+        or data.is_active is not None
+    ):
         if server.is_active:
             try:
                 await sync_server_tools(server)
@@ -141,6 +150,7 @@ async def update_mcp_server(
                 pass
         else:
             remove_cached_tools(server.id)
+    await register_all_proxy_tools()
 
     return {"id": server.id}
 
@@ -158,6 +168,7 @@ async def delete_mcp_server(server_id: int, _: bool = Depends(require_admin)):
         await session.commit()
 
     remove_cached_tools(server_id)
+    await register_all_proxy_tools()
     return {"deleted": True}
 
 
@@ -173,6 +184,7 @@ async def sync_mcp_server_tools(server_id: int, _: bool = Depends(require_admin)
 
     try:
         tools = await sync_server_tools(server)
+        await register_all_proxy_tools()
         return {"synced": True, "tool_count": len(tools)}
     except Exception as exc:
         return JSONResponse(

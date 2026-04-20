@@ -255,7 +255,6 @@
                         <div class="text-xs text-gray-500">${p.base_url}</div>
                     </div>
                     <div class="flex gap-2" onclick="event.stopPropagation()">
-                        <button onclick="resetProvider(${p.id})" class="text-orange-500 hover:text-orange-700 text-sm">Reset</button>
                         <button onclick="editProvider(${p.id})" class="text-blue-500 hover:text-blue-700 text-sm">Edit</button>
                         <button onclick="deleteProvider(${p.id})" class="text-red-500 hover:text-red-700 text-sm">Delete</button>
                     </div>
@@ -577,20 +576,6 @@
                 loadProviders();
             } catch(err) {
                 alert('Delete failed: ' + err.message);
-            }
-        }
-
-        async function resetProvider(id) {
-            if (!confirm('Re-enable this provider?')) return;
-            try {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + id, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({is_active: true})
-                });
-                loadProviders();
-            } catch(err) {
-                alert('Reset failed: ' + (err.message || err));
             }
         }
 

@@ -88,6 +88,8 @@ async def update_provider(
             provider.api_key = data.api_key
         if data.is_active is not None:
             provider.is_active = data.is_active
+            if data.is_active:
+                provider.disabled_reason = None
         if data.max_concurrent is not None:
             provider.max_concurrent = data.max_concurrent
         if data.merge_consecutive_messages is not None:

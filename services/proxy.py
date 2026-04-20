@@ -32,6 +32,7 @@ from services.provider import (
     get_provider_and_model,
     get_model_config,
     get_or_create_provider_semaphore,
+    get_disabled_provider_reason,
 )
 from services.auth import validate_api_key
 from services.logging import (
@@ -180,12 +181,22 @@ async def proxy_request(request: Request, endpoint: str):
     provider_config, actual_model, provider_name = await get_provider_and_model(model)
 
     if not provider_config:
+        disabled_reason = (
+            await get_disabled_provider_reason(provider_name) if provider_name else None
+        )
+        if disabled_reason:
+            return _openai_error_response(
+                f"供应商 '{provider_name}' 暂不可用：{disabled_reason}",
+                400,
+                "invalid_request_error",
+                "provider_disabled",
+            )
         logger.error(f"[PROXY ERROR] Unknown provider for model: {model}")
         logger.debug(
             f"[PROXY ERROR] Available providers: {list(providers_cache.keys())}"
         )
         return _openai_error_response(
-            f"Unknown provider for model: {model}",
+            f"未找到模型对应的供应商：{model}",
             400,
             "invalid_request_error",
             "model_not_found",
@@ -207,7 +218,7 @@ async def proxy_request(request: Request, endpoint: str):
         )
         acquired = True
     except asyncio.TimeoutError:
-        message = f"Provider '{provider_name}/{actual_model}' is at max concurrency, please retry later"
+        message = f"供应商 '{provider_name}/{actual_model}' 当前并发已满，请稍后重试"
         logger.warning(f"[RATE LIMIT] {sem_key} at max concurrency")
         update_stats(
             provider_name,
@@ -248,8 +259,7 @@ async def proxy_request(request: Request, endpoint: str):
         semaphore.release()
         acquired = False
         message = (
-            f"API key {api_key_id} already has an active request for "
-            f"'{provider_name}/{actual_model}', please retry later"
+            f"API Key {api_key_id} 在 '{provider_name}/{actual_model}' 上已有进行中的请求，请稍后重试"
         )
         logger.warning("[RATE LIMIT] %s at max concurrency", api_key_model_sem_key)
         update_stats(
@@ -451,7 +461,7 @@ async def call_internal_model_via_proxy(
             "actual_model_name": None,
             "status_code": None,
             "payload": None,
-            "error": f"Unknown provider for model: {requested_model}",
+            "error": f"未找到模型对应的供应商：{requested_model}",
         }
 
     sem_key, semaphore = get_or_create_provider_semaphore(
@@ -489,7 +499,7 @@ async def call_internal_model_via_proxy(
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=estimate_request_context_tokens(req_body),
-            error=f"'{sem_key}' reached max concurrency",
+            error=f"'{sem_key}' 当前并发已满",
         )
         return {
             "ok": False,
@@ -497,7 +507,7 @@ async def call_internal_model_via_proxy(
             "actual_model_name": actual_model,
             "status_code": 429,
             "payload": None,
-            "error": f"'{sem_key}' reached max concurrency",
+            "error": f"'{sem_key}' 当前并发已满",
         }
 
     try:
@@ -891,9 +901,11 @@ def _check_usage_limit_error(resp_json: dict, provider_name: str) -> str | None:
     error_obj = resp_json.get("error")
     if not isinstance(error_obj, dict):
         return None
+    if provider_name != "zhipu":
+        return None
     code = error_obj.get("code", "")
     message = error_obj.get("message", "")
-    if code in ("1301", "1302", "1308") or "使用上限" in message or "usage limit" in message.lower() or "已达到" in message:
+    if code == "1308" or "使用上限" in message or "usage limit" in message.lower():
         return f"{message} ({code})"
     return None
 
@@ -1074,7 +1086,12 @@ async def handle_normal(
         usage_limit_err = _check_usage_limit_error(resp_json, provider)
         if usage_limit_err:
             await _disable_provider(provider, usage_limit_err)
-            return
+            return _openai_error_response(
+                f"供应商 '{provider}' 因额度限制已暂停使用，请尝试其他供应商",
+                429,
+                "rate_limit_error",
+                "provider_disabled",
+            )
 
         if provider == "minimax":
             process_minimax_response(resp_json)

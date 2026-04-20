@@ -8,7 +8,12 @@ from sqlalchemy import select
 
 from core.config import api_keys_cache, logger
 from core.database import McpServer, async_session_maker
-from services.mcp_proxy import get_servers_by_api_key, get_cached_tools, call_tool
+from services.mcp_proxy import (
+    call_tool,
+    get_cached_tools,
+    get_server_tool_names,
+    get_servers_by_api_key,
+)
 
 mcp = FastMCP("ModelGate MCP Proxy")
 
@@ -23,6 +28,12 @@ _current_api_key_id: contextvars.ContextVar[int | None] = contextvars.ContextVar
 _current_server_id: contextvars.ContextVar[int | None] = contextvars.ContextVar(
     "_current_mcp_server_id", default=None
 )
+
+_current_allowed_server_ids: contextvars.ContextVar[set[int]] = contextvars.ContextVar(
+    "_current_allowed_mcp_server_ids", default=set()
+)
+
+_tool_server_map: dict[str, int] = {}
 
 
 def _register_proxy_tools(server: McpServer, tools: list[dict]) -> None:
@@ -56,9 +67,11 @@ def _register_proxy_tools(server: McpServer, tools: list[dict]) -> None:
             name=tool_name,
             description=description,
         )
+        _tool_server_map[tool_name] = server.id
 
 
 async def register_all_proxy_tools() -> None:
+    _tool_server_map.clear()
     for name in list(mcp._tool_manager._tools.keys()):
         try:
             mcp.remove_tool(name)
@@ -71,10 +84,22 @@ async def register_all_proxy_tools() -> None:
         )
         servers = result.scalars().all()
 
+    registered_names: set[str] = set()
     for server in servers:
         tools = get_cached_tools(server.id)
         if tools:
+            tool_names = get_server_tool_names(server, tools)
+            duplicate_names = sorted(set(tool_names) & registered_names)
+            if duplicate_names:
+                logger.error(
+                    "[MCP Proxy] Skip server '%s' (id=%d) due to duplicate tool names: %s",
+                    server.name,
+                    server.id,
+                    ", ".join(duplicate_names),
+                )
+                continue
             _register_proxy_tools(server, tools)
+            registered_names.update(tool_names)
 
     logger.info("[MCP Proxy] Registered tools from %d active servers", len(servers))
 
@@ -112,11 +137,16 @@ async def _set_context(scope):
     if api_key_id:
         servers = await get_servers_by_api_key(api_key_id)
         if servers:
+            allowed_server_ids = {server.id for server in servers}
+            scope["allowed_mcp_server_ids"] = allowed_server_ids
+            _current_allowed_server_ids.set(allowed_server_ids)
             _current_server_id.set(servers[0].id)
             return True
         return False
     else:
         _current_server_id.set(None)
+        scope["allowed_mcp_server_ids"] = set()
+        _current_allowed_server_ids.set(set())
     return True
 
 
@@ -158,6 +188,15 @@ async def _mcp_handler(scope, receive, send):
             await response(scope, receive, send)
             return
         await _streamable_http_manager.handle_request(scope, receive, send)
+
+
+@mcp._mcp_server.call_tool(validate_input=False)
+async def _authorized_call_tool(name: str, arguments: dict):
+    server_id = _tool_server_map.get(name)
+    allowed_server_ids = _current_allowed_server_ids.get()
+    if server_id is not None and server_id not in allowed_server_ids:
+        raise RuntimeError("This API key is not allowed to call this MCP tool")
+    return await mcp.call_tool(name, arguments)
 
 
 async def start_mcp_proxy():

@@ -1826,12 +1826,22 @@ async def get_mcp_info(request: Request, user_session: Optional[str] = Cookie(No
     server_infos = []
     for server in servers:
         tools = get_cached_tools(server.id)
-        all_tools.extend(tools)
+        prefixed_tools = []
+        prefix = server.tool_prefix or ""
+        for tool in tools:
+            tool_name = tool.get("name")
+            if not tool_name:
+                continue
+            prefixed_tools.append({
+                **tool,
+                "name": f"{prefix}{tool_name}" if prefix else tool_name,
+            })
+        all_tools.extend(prefixed_tools)
         server_infos.append({
             "name": server.name,
             "url": server.url,
             "tool_prefix": server.tool_prefix,
-            "tool_count": len(tools),
+            "tool_count": len(prefixed_tools),
         })
 
     domain = "https://leturx.cc"
