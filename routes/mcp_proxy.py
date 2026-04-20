@@ -2,6 +2,7 @@ import contextlib
 import contextvars
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.sse import SseServerTransport
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from sqlalchemy import select
 
@@ -11,7 +12,8 @@ from services.mcp_proxy import get_servers_by_api_key, get_cached_tools, call_to
 
 mcp = FastMCP("ModelGate MCP Proxy")
 
-_session_manager = StreamableHTTPSessionManager(app=mcp._mcp_server)
+_streamable_http_manager = StreamableHTTPSessionManager(app=mcp._mcp_server)
+_sse_transport = SseServerTransport(endpoint="/messages/")
 _exit_stack: contextlib.AsyncExitStack | None = None
 
 _current_api_key_id: contextvars.ContextVar[int | None] = contextvars.ContextVar(
@@ -103,7 +105,7 @@ class _ApiKeyAuthMiddleware:
         await self.app(scope, receive, send)
 
 
-async def _mcp_handler(scope, receive, send):
+async def _set_context(scope):
     api_key_id = scope.get("api_key_id")
     _current_api_key_id.set(api_key_id)
 
@@ -111,23 +113,57 @@ async def _mcp_handler(scope, receive, send):
         servers = await get_servers_by_api_key(api_key_id)
         if servers:
             _current_server_id.set(servers[0].id)
-        else:
+            return True
+        return False
+    else:
+        _current_server_id.set(None)
+    return True
+
+
+async def _mcp_handler(scope, receive, send):
+    path = scope.get("path", "/")
+
+    if path == "/sse":
+        if not await _set_context(scope):
             from starlette.responses import JSONResponse
             response = JSONResponse(
                 {"error": "No MCP server bound to this API key"}, status_code=403
             )
             await response(scope, receive, send)
             return
-    else:
-        _current_server_id.set(None)
 
-    await _session_manager.handle_request(scope, receive, send)
+        async with _sse_transport.connect_sse(
+            scope, receive, send
+        ) as (read_stream, write_stream):
+            await mcp._mcp_server.run(
+                read_stream,
+                write_stream,
+                mcp._mcp_server.create_initialization_options(),
+            )
+    elif path == "/messages/":
+        if not await _set_context(scope):
+            from starlette.responses import JSONResponse
+            response = JSONResponse(
+                {"error": "No MCP server bound to this API key"}, status_code=403
+            )
+            await response(scope, receive, send)
+            return
+        await _sse_transport.handle_post_message(scope, receive, send)
+    else:
+        if not await _set_context(scope):
+            from starlette.responses import JSONResponse
+            response = JSONResponse(
+                {"error": "No MCP server bound to this API key"}, status_code=403
+            )
+            await response(scope, receive, send)
+            return
+        await _streamable_http_manager.handle_request(scope, receive, send)
 
 
 async def start_mcp_proxy():
     global _exit_stack
     _exit_stack = contextlib.AsyncExitStack()
-    await _exit_stack.enter_async_context(_session_manager.run())
+    await _exit_stack.enter_async_context(_streamable_http_manager.run())
 
     from services.mcp_proxy import sync_all_servers
 
