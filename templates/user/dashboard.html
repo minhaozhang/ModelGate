@@ -254,8 +254,11 @@
                     <option value="en">English</option>
                     <option value="zh">中文</option>
                 </select>
-                <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
-                </button>
+                <select id="theme-toggle" onchange="applyTheme(this.value)" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm cursor-pointer">
+                    <option value="light">{{ _('Light Mode') }}</option>
+                    <option value="dark">{{ _('Dark Mode') }}</option>
+                    <option value="blackgold">{{ _('Black Gold') }}</option>
+                </select>
                 <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
                     {{ _('Logout') }}
                 </button>
@@ -399,7 +402,6 @@
             if (mode === 'dark') document.body.classList.add('theme-dark');
             else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
             localStorage.setItem('dashboard_theme', mode);
-            const labels = { light: window.I18N.darkMode, dark: window.I18N.blackGoldMode, blackgold: window.I18N.lightMode };
             document.getElementById('theme-toggle').value = mode;
         }
 
