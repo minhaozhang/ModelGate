@@ -144,10 +144,10 @@ async def load_providers():
 
     # Drop idle semaphores for removed/deactivated provider keys after cache refresh.
     active_provider_key_prefixes = {
-        f"{provider['id']}:{provider_name}"
+        f"{pk['id']}:{provider_name}"
         for provider_name, provider_config in providers_cache.items()
-        for provider in provider_config.get("api_keys", [])
-        if provider.get("id") is not None
+        for pk in provider_config.get("api_keys", [])
+        if pk.get("id") is not None
     }
     for sem_key in list(provider_key_semaphores.keys()):
         if sem_key in active_provider_key_prefixes:

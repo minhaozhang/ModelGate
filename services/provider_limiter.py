@@ -116,12 +116,4 @@ def check_usage_limit_error(resp_json: dict, provider_name: str) -> str | None:
     if looks_like_usage_limit(message, code, error_type, http_code):
         return f"{message} ({code or http_code})"
 
-    if "usage limit" in normalized_message and "exceeded" in normalized_message:
-        return f"{message} ({code})"
-
-    if "quota" in normalized_message and (
-        "exceeded" in normalized_message or "limit" in normalized_message
-    ):
-        return f"{message} ({code})"
-
     return None
