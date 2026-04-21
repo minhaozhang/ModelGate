@@ -27,7 +27,7 @@
 
         .log-grid {
             display: grid;
-            grid-template-columns: minmax(135px, 150px) minmax(70px, 90px) minmax(110px, 130px) minmax(150px, 1fr) minmax(90px, 110px) minmax(90px, 120px) minmax(90px, 110px) minmax(200px, 2fr) minmax(200px, 2fr);
+            grid-template-columns: minmax(135px, 150px) minmax(70px, 90px) minmax(110px, 130px) minmax(150px, 1fr) minmax(90px, 110px) minmax(90px, 120px) minmax(90px, 110px) minmax(200px, 2fr);
             gap: 0.75rem;
             align-items: start;
         }
@@ -91,6 +91,15 @@
         body.theme-dark .time-btn { background: #0f172a; color: #e5e7eb; border-color: #334155; }
         body.theme-dark .time-btn:hover { background: #1e293b; }
         body.theme-dark .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
+        .resp-btn { color: #3b82f6; cursor: pointer; font-size: 0.75rem; }
+        .resp-btn:hover { text-decoration: underline; }
+        .detail-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .detail-modal { background: #fff; border-radius: 0.75rem; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 90%; max-width: 700px; max-height: 80vh; display: flex; flex-direction: column; }
+        body.theme-dark .detail-modal { background: #0f172a; color: #e5e7eb; }
+        .detail-modal-header { padding: 1rem 1.5rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+        body.theme-dark .detail-modal-header { border-color: #1f2937; }
+        .detail-modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
+        .detail-modal-body pre { white-space: pre-wrap; word-break: break-all; font-size: 0.8125rem; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -314,8 +323,10 @@
             listEl.innerHTML = logs.map(log => {
                 const badgeClass = getStatusBadgeClass(log.status);
                 const tokenCount = typeof log.tokens === 'object' ? getTokenCount(log.tokens) : (log.tokens || '-');
+                const hasResponse = log.response && log.response.trim();
+                const hasError = log.error && log.error.trim();
                 return `
-                    <article class="log-row p-6">
+                    <article class="log-row p-6" data-response="${escapeHtml(hasResponse ? log.response : '')}" data-user-agent="${escapeHtml(log.user_agent || '')}" data-error="${escapeHtml(hasError ? log.error : '')}" data-model="${escapeHtml(log.model || '')}" data-tokens="${escapeHtml(typeof log.tokens === 'object' ? JSON.stringify(log.tokens) : (log.tokens || ''))}">
                         <div class="log-grid text-sm">
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.requestAt}</div>
@@ -349,12 +360,8 @@
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.errorDetail}</div>
-                                <div class="text-gray-700 whitespace-pre-wrap break-words">${escapeHtml(log.error || '-')}</div>
-                                <div class="text-xs text-gray-500 mt-2 mono break-all">${escapeHtml(log.user_agent || '-')}</div>
-                            </div>
-                            <div>
-                                <div class="text-gray-500 mb-1">${window.I18N.response}</div>
-                                <div class="text-gray-700 whitespace-pre-wrap break-words text-xs mono max-h-32 overflow-y-auto">${escapeHtml(log.response || '-')}</div>
+                                ${hasError ? `<div class="text-gray-700 whitespace-pre-wrap break-words text-xs">${escapeHtml(log.error.substring(0, 200))}${log.error.length > 200 ? '...' : ''}</div>` : '<div class="text-gray-400 text-xs">-</div>'}
+                                ${hasResponse ? `<div class="resp-btn mt-2" onclick="showResponseDetail(this)">${window.I18N.response}</div>` : ''}
                             </div>
                         </div>
                     </article>
@@ -419,6 +426,44 @@
         function nextPage() {
             const totalPages = Math.ceil(totalRecords / currentPageSize);
             if (currentPage < totalPages) loadLogs(currentPage + 1);
+        }
+
+        function showResponseDetail(el) {
+            const article = el.closest('article');
+            const response = article.dataset.response;
+            const ua = article.dataset.userAgent;
+            const model = article.dataset.model;
+            const error = article.dataset.error;
+            const tokens = article.dataset.tokens;
+            let body = '';
+            if (error) {
+                body += `<div class="text-red-500 mb-3"><strong>${window.I18N.errorDetail}:</strong></div><pre class="text-red-400 mb-4">${escapeHtml(error)}</pre>`;
+            }
+            if (response) {
+                body += `<div class="mb-2"><strong>${window.I18N.response}:</strong></div><pre>${escapeHtml(response)}</pre>`;
+            }
+            if (ua) {
+                body += `<div class="mt-4 text-xs text-gray-500"><strong>User Agent:</strong> ${escapeHtml(ua)}</div>`;
+            }
+            if (tokens) {
+                try {
+                    const t = JSON.parse(tokens);
+                    if (t && typeof t === 'object') {
+                        body += `<div class="mt-2 text-xs text-gray-500"><strong>Tokens:</strong> ${JSON.stringify(t)}</div>`;
+                    }
+                } catch(e) {}
+            }
+            const overlay = document.createElement('div');
+            overlay.className = 'detail-modal-overlay';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            overlay.innerHTML = `<div class="detail-modal">
+                <div class="detail-modal-header">
+                    <span class="font-semibold">${window.I18N.response} - ${escapeHtml(model)}</span>
+                    <button onclick="this.closest('.detail-modal-overlay').remove()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
+                </div>
+                <div class="detail-modal-body">${body || '<span class="text-gray-400">-</span>'}</div>
+            </div>`;
+            document.body.appendChild(overlay);
         }
 
         applyTheme(getThemeMode());
