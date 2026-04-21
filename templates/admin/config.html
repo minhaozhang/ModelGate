@@ -206,6 +206,7 @@
                 <div class="flex gap-2">
                     <input type="text" id="new-provider-key-value" class="flex-1 border rounded px-3 py-2 text-sm" placeholder="API Key (sk-...)">
                     <input type="text" id="new-provider-key-label" class="w-28 border rounded px-3 py-2 text-sm" placeholder="Label">
+                    <input type="number" id="new-provider-key-max-concurrent" min="1" class="w-24 border rounded px-3 py-2 text-sm" placeholder="Max">
                     <button onclick="addProviderKey()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">{{ _('Add') }}</button>
                 </div>
             </div>
@@ -715,6 +716,7 @@
             document.getElementById('provider-keys-content').innerHTML = '<div class="text-center text-gray-400 py-4">Loading...</div>';
             document.getElementById('new-provider-key-value').value = '';
             document.getElementById('new-provider-key-label').value = '';
+            document.getElementById('new-provider-key-max-concurrent').value = '';
             document.getElementById('provider-keys-modal').classList.remove('hidden');
             document.getElementById('provider-keys-modal').classList.add('flex');
             try {
@@ -738,6 +740,13 @@
                         ${k.label ? '<span class="ml-2 text-xs text-gray-500">' + k.label + '</span>' : ''}
                         <span class="ml-2 text-xs ${k.is_active ? 'text-green-600' : 'text-red-600'}">${k.is_active ? 'Active' : 'Inactive'}</span>
                         ${k.disabled_reason ? '<span class="ml-2 text-xs text-orange-500">&#9888; ' + (k.disabled_reason || '').substring(0, 30) + '</span>' : ''}
+                        <div class="mt-1 flex items-center gap-2 text-xs text-gray-400">
+                            <span>Concurrency:</span>
+                            <input type="number" min="1" value="${k.max_concurrent || ''}" placeholder="Provider"
+                                   id="provider-key-mc-${k.id}"
+                                   class="w-20 border rounded px-2 py-1 text-xs text-center">
+                            <button onclick="updateProviderKeyConcurrency(${k.id})" class="text-blue-500 hover:text-blue-700 text-xs">Save</button>
+                        </div>
                     </div>
                     <div class="flex gap-2">
                         <button onclick="toggleProviderKey(${k.id}, ${!k.is_active})" class="text-xs ${k.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}">${k.is_active ? 'Disable' : 'Enable'}</button>
@@ -757,15 +766,18 @@
             if (!providerKeysTargetId) return;
             const apiKey = document.getElementById('new-provider-key-value').value.trim();
             const label = document.getElementById('new-provider-key-label').value.trim();
+            const maxConcurrentRaw = document.getElementById('new-provider-key-max-concurrent').value.trim();
+            const maxConcurrent = maxConcurrentRaw ? parseInt(maxConcurrentRaw, 10) : null;
             if (!apiKey) { alert('API Key is required'); return; }
             try {
                 await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({api_key: apiKey, label: label || null})
+                    body: JSON.stringify({api_key: apiKey, label: label || null, max_concurrent: maxConcurrent})
                 });
                 document.getElementById('new-provider-key-value').value = '';
                 document.getElementById('new-provider-key-label').value = '';
+                document.getElementById('new-provider-key-max-concurrent').value = '';
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
             } catch(err) {
@@ -785,6 +797,23 @@
                 renderProviderKeys(data.keys || []);
             } catch(err) {
                 alert('Failed to toggle key: ' + (err.message || err));
+            }
+        }
+
+        async function updateProviderKeyConcurrency(keyId) {
+            if (!providerKeysTargetId) return;
+            const input = document.getElementById('provider-key-mc-' + keyId);
+            const maxConcurrent = input && input.value ? parseInt(input.value, 10) : null;
+            try {
+                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({max_concurrent: maxConcurrent})
+                });
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {
+                alert('Failed to update key concurrency: ' + (err.message || err));
             }
         }
 

@@ -68,6 +68,7 @@ class ProviderKey(Base):
     provider_id = Column(Integer, ForeignKey("providers.id", ondelete="CASCADE"), nullable=False)
     api_key = Column(String(255), nullable=False)
     label = Column(String(50), nullable=True)
+    max_concurrent = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
     disabled_reason = Column(String(255), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -912,12 +913,18 @@ async def init_db():
                 "provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE, "
                 "api_key VARCHAR(255) NOT NULL, "
                 "label VARCHAR(50), "
+                "max_concurrent INTEGER, "
                 "is_active BOOLEAN DEFAULT TRUE, "
                 "disabled_reason VARCHAR(255), "
                 "created_at TIMESTAMP DEFAULT NOW(), "
                 "updated_at TIMESTAMP DEFAULT NOW(), "
                 "UNIQUE (provider_id, api_key)"
                 ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS max_concurrent INTEGER"
             )
         )
         await conn.execute(

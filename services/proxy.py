@@ -151,8 +151,15 @@ def _get_or_create_scoped_semaphore(
     return sem_key, semaphore
 
 
-def _get_provider_key_limit(provider_config: dict) -> int:
-    target_limit = provider_config.get("max_concurrent", 3)
+def _get_provider_key_limit(provider_config: dict, provider_key_id: int | None = None) -> int:
+    target_limit = None
+    if provider_key_id is not None:
+        for provider_key in provider_config.get("api_keys") or []:
+            if provider_key.get("id") == provider_key_id:
+                target_limit = provider_key.get("max_concurrent")
+                break
+    if target_limit is None:
+        target_limit = provider_config.get("max_concurrent", 3)
     try:
         target_limit = int(target_limit)
     except (TypeError, ValueError):
@@ -251,7 +258,7 @@ async def proxy_request(request: Request, endpoint: str):
     provider_key_sem_key, provider_key_semaphore = _get_or_create_provider_key_semaphore(
         chosen_key_id,
         provider_name,
-        _get_provider_key_limit(provider_config),
+        _get_provider_key_limit(provider_config, chosen_key_id),
     )
     provider_key_model_sem_key, provider_key_model_semaphore = (
         _get_or_create_provider_key_model_semaphore(
@@ -540,7 +547,7 @@ async def call_internal_model_via_proxy(
     provider_key_sem_key, provider_key_semaphore = _get_or_create_provider_key_semaphore(
         chosen_key_id,
         provider_name,
-        _get_provider_key_limit(provider_config),
+        _get_provider_key_limit(provider_config, chosen_key_id),
     )
     provider_key_model_sem_key, provider_key_model_semaphore = (
         _get_or_create_provider_key_model_semaphore(

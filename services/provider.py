@@ -13,6 +13,8 @@ from core.config import (
     PROVIDERS_CACHE_TTL_MINUTES,
     logger,
     provider_semaphores,
+    provider_key_semaphores,
+    provider_key_model_semaphores,
 )
 from core.database import (
     async_session_maker,
@@ -41,6 +43,7 @@ async def _load_provider_keys(session, provider_id: int) -> list[dict]:
             "id": pk.id,
             "api_key": pk.api_key,
             "label": pk.label or "",
+            "max_concurrent": pk.max_concurrent,
         }
         for pk in result.scalars().all()
     ]
@@ -177,6 +180,45 @@ async def load_providers():
                     )
 
         config.providers_cache_time = datetime.now()
+
+    # Drop idle semaphores for removed/deactivated provider keys after cache refresh.
+    active_provider_key_prefixes = {
+        f"{provider['id']}:{provider_name}"
+        for provider_name, provider_config in providers_cache.items()
+        for provider in provider_config.get("api_keys", [])
+        if provider.get("id") is not None
+    }
+    for sem_key in list(provider_key_semaphores.keys()):
+        if sem_key in active_provider_key_prefixes:
+            continue
+        semaphore = provider_key_semaphores.get(sem_key)
+        if semaphore is None:
+            continue
+        waiters = getattr(semaphore, "_waiters", None)
+        available = getattr(semaphore, "_value", 0)
+        current_limit = getattr(semaphore, "_modelgate_scoped_limit", available) or available
+        in_flight = max(current_limit - available, 0)
+        if in_flight == 0 and not waiters:
+            provider_key_semaphores.pop(sem_key, None)
+
+    active_provider_key_model_prefixes = {
+        f"{provider['id']}:{provider_name}/"
+        for provider_name, provider_config in providers_cache.items()
+        for provider in provider_config.get("api_keys", [])
+        if provider.get("id") is not None
+    }
+    for sem_key in list(provider_key_model_semaphores.keys()):
+        if any(sem_key.startswith(prefix) for prefix in active_provider_key_model_prefixes):
+            continue
+        semaphore = provider_key_model_semaphores.get(sem_key)
+        if semaphore is None:
+            continue
+        waiters = getattr(semaphore, "_waiters", None)
+        available = getattr(semaphore, "_value", 0)
+        current_limit = getattr(semaphore, "_modelgate_scoped_limit", available) or available
+        in_flight = max(current_limit - available, 0)
+        if in_flight == 0 and not waiters:
+            provider_key_model_semaphores.pop(sem_key, None)
 
 
 async def get_provider_config(provider_name: str) -> Optional[dict]:

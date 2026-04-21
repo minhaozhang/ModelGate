@@ -124,11 +124,13 @@ async def delete_provider(provider_id: int, _: bool = Depends(require_admin)):
 class ProviderKeyCreate(BaseModel):
     api_key: str
     label: Optional[str] = None
+    max_concurrent: Optional[int] = None
 
 
 class ProviderKeyUpdate(BaseModel):
     api_key: Optional[str] = None
     label: Optional[str] = None
+    max_concurrent: Optional[int] = None
     is_active: Optional[bool] = None
 
 
@@ -147,6 +149,7 @@ async def list_provider_keys(provider_id: int, _: bool = Depends(require_admin))
                     "id": k.id,
                     "api_key": k.api_key[:8] + "..." + k.api_key[-4:] if len(k.api_key) > 12 else k.api_key,
                     "label": k.label or "",
+                    "max_concurrent": k.max_concurrent,
                     "is_active": k.is_active,
                     "disabled_reason": k.disabled_reason,
                 }
@@ -169,6 +172,7 @@ async def create_provider_key(
             provider_id=provider_id,
             api_key=data.api_key,
             label=data.label,
+            max_concurrent=data.max_concurrent,
         )
         session.add(pk)
         try:
@@ -199,11 +203,13 @@ async def update_provider_key(
         pk = result.scalar_one_or_none()
         if not pk:
             return JSONResponse({"error": "Key not found"}, status_code=404)
-        if data.api_key is not None:
+        if "api_key" in data.model_fields_set and data.api_key is not None:
             pk.api_key = data.api_key
-        if data.label is not None:
+        if "label" in data.model_fields_set:
             pk.label = data.label
-        if data.is_active is not None:
+        if "max_concurrent" in data.model_fields_set:
+            pk.max_concurrent = data.max_concurrent
+        if "is_active" in data.model_fields_set and data.is_active is not None:
             pk.is_active = data.is_active
             if data.is_active:
                 pk.disabled_reason = None
