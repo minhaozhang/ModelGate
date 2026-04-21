@@ -97,8 +97,8 @@ providers_cache_time: Optional[datetime] = None
 PROVIDERS_CACHE_TTL_MINUTES = 10
 api_keys_cache: dict[str, dict] = {}
 sessions: dict[str, datetime] = {}
-provider_semaphores: dict[str, "asyncio.Semaphore"] = {}
 api_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
+provider_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 
 DEFAULT_OUTBOUND_USER_AGENT = (
     "opencode/1.4.6 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.11"
@@ -294,11 +294,16 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                     "models": {},
                     "requests": 0,
                     "last_activity": request_data["started_at"].isoformat(),
+                    "first_activity": request_data["started_at"].isoformat(),
                 },
             )
             bucket["requests"] += 1
             bucket["last_activity"] = max(
                 bucket["last_activity"],
+                request_data["started_at"].isoformat(),
+            )
+            bucket["first_activity"] = min(
+                bucket["first_activity"],
                 request_data["started_at"].isoformat(),
             )
             model_name = request_data.get("model")
@@ -316,13 +321,7 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             "active_requests": len(active_requests),
             "active_users": len(grouped_users),
             "tokens_per_second": get_avg_tokens_per_second(),
-            "sessions": dict(
-                sorted(
-                    grouped_users.items(),
-                    key=lambda item: item[1]["last_activity"],
-                    reverse=True,
-                )
-            ),
+            "sessions": dict(sorted(grouped_users.items(), key=lambda item: item[1]["first_activity"])),
         }
 
 

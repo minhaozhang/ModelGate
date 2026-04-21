@@ -5,7 +5,7 @@
     {% include 'components/site_head_meta.html' %}
     <title>{{ _('API Keys') }} - ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/output.css">
     <style>
         .nav-link { transition: all 0.2s; }
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
@@ -122,6 +122,12 @@
                         <div id="models-checkbox-container" class="divide-y"></div>
                     </div>
                     <p class="text-xs text-gray-500 mt-1">{{ _('Leave empty to allow all models') }}</p>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('MCP Servers') }}</label>
+                    <div id="apikey-mcp-servers" class="border rounded max-h-40 overflow-y-auto p-2 space-y-1">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">{{ _('Select MCP servers this key can access') }}</p>
                 </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" onclick="closeApiKeyModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
@@ -404,20 +410,19 @@
         }
         try {
             if (ruleId) {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules/${ruleId}`, {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules/${ruleId}`, {
                     method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-                });
+                }, {success: 'Time rule updated', error: window.I18N.failedToSaveTimeRule});
             } else {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`, {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`, {
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-                });
+                }, {success: 'Time rule created', error: window.I18N.failedToSaveTimeRule});
             }
             const resp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`);
             currentTimerules = resp.rules || [];
             renderTimeRulesList();
             cancelTimeRuleForm();
         } catch (err) {
-            alert(window.I18N.failedToSaveTimeRule);
         }
     });
 
@@ -438,6 +443,7 @@
         const APP_BASE_PATH = {{ app_base_path | tojson }};
         let providerModels = [];
         let apiKeysData = [];
+        let mcpServers = [];
         let filteredData = [];
         let currentPage = 1;
         const pageSize = 10;
@@ -455,12 +461,7 @@
             const isDark = mode === 'dark';
             document.body.classList.toggle('theme-dark', isDark);
             localStorage.setItem('admin_theme', mode);
-            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
-        }
-
-        function toggleTheme() {
-            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
-            applyTheme(nextMode);
+            document.getElementById('theme-toggle').value = mode;
         }
 
         applyTheme(getThemeMode());
@@ -471,6 +472,7 @@
                 window.location.href = `${APP_BASE_PATH}/admin/login`;
                 throw new Error('Unauthorized');
             }
+            if (!resp.ok) throw new Error(await resp.text());
             return resp;
         }
 
@@ -510,6 +512,26 @@
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models`);
             providerModels = data.provider_models || [];
             renderModelCheckboxes();
+        }
+        
+        async function loadMcpServers() {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`);
+            mcpServers = data.servers || [];
+            renderMcpServerCheckboxes([]);
+        }
+
+        function renderMcpServerCheckboxes(selectedIds) {
+            const container = document.getElementById('apikey-mcp-servers');
+            if (mcpServers.length === 0) {
+                container.innerHTML = '<div class="text-xs text-gray-400">No MCP servers</div>';
+                return;
+            }
+            container.innerHTML = mcpServers.map(s => `
+                <label class="flex items-center text-sm py-1 px-2 rounded hover:bg-gray-50 cursor-pointer">
+                    <input type="checkbox" class="mr-2 mcp-server-check" value="${s.id}" ${selectedIds.includes(s.id) ? 'checked' : ''}>
+                    ${(s.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+                </label>
+            `).join('');
         }
         
         function getModelDisplayName(pmId) {
@@ -565,6 +587,14 @@
                             </div>
                             <div class="mt-2 text-xs text-gray-500">${window.I18N.lastUsed}: ${formatLastUsed(k.last_used_at)}</div>
                             ${modelsDisplay}
+                            ${(k.mcp_server_ids && k.mcp_server_ids.length > 0) ? `
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    ${k.mcp_server_ids.map(sid => {
+                                        const srv = mcpServers.find(s => s.id === sid);
+                                        return srv ? `<span class="inline-block text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">MCP: ${(srv.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>` : '';
+                                    }).join('')}
+                                </div>
+                            ` : ''}
                             ${timeRulesDisplay}
                         </div>
                         <div class="flex flex-wrap gap-2 shrink-0">
@@ -580,7 +610,6 @@
                                 <span class="text-gray-500">${window.I18N.userPage} </span>
                                 <a href="${userPageUrl}" target="_blank" class="text-blue-500 hover:underline">${userPageUrl}</a>
                             </div>
-                            <button onclick="copyKey('${userPageUrl}')" class="text-blue-500 hover:text-blue-700">${window.I18N.copy}</button>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-gray-500">${window.I18N.setupDoc}</span>
@@ -651,7 +680,7 @@
         }
         
         function copyExample(cmd) {
-            navigator.clipboard.writeText(cmd).then(() => alert(window.I18N.copied));
+            navigator.clipboard.writeText(cmd).then(() => showToast(window.I18N.copied, 'info'));
         }
         
         function renderModelCheckboxes() {
@@ -685,7 +714,7 @@
         }
         
         function copyKey(key) {
-            navigator.clipboard.writeText(key).then(() => alert(window.I18N.copied));
+            navigator.clipboard.writeText(key).then(() => showToast(window.I18N.copied, 'info'));
         }
         
         function copyKeyWithInstructions(payload) {
@@ -714,7 +743,7 @@ https://opencode.ai/
 ${window.I18N.opencodeSendHint}
 ${window.I18N.followThisDoc}
 ${setupMdUrl}`;
-            navigator.clipboard.writeText(text).then(() => alert(window.I18N.apiKeyAndUsageCopied));
+            navigator.clipboard.writeText(text).then(() => showToast(window.I18N.apiKeyAndUsageCopied, 'info'));
         }
         
         function showAddApiKey() {
@@ -724,6 +753,7 @@ ${setupMdUrl}`;
             selectedModelIds = [];
             updateSelectedCount();
             renderModelCheckboxes();
+            renderMcpServerCheckboxes([]);
             document.getElementById('apikey-modal').classList.remove('hidden');
             document.getElementById('apikey-modal').classList.add('flex');
         }
@@ -737,6 +767,7 @@ ${setupMdUrl}`;
             selectedModelIds = key.allowed_provider_model_ids || [];
             updateSelectedCount();
             renderModelCheckboxes();
+            renderMcpServerCheckboxes(key.mcp_server_ids || []);
             document.getElementById('apikey-modal').classList.remove('hidden');
             document.getElementById('apikey-modal').classList.add('flex');
         }
@@ -753,27 +784,26 @@ ${setupMdUrl}`;
                 name: document.getElementById('apikey-name').value,
                 allowed_provider_model_ids: selectedModelIds,
             };
+            data.mcp_server_ids = Array.from(document.querySelectorAll('.mcp-server-check:checked')).map(c => parseInt(c.value));
             
             try {
                 if (id) {
-                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/` + id, {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/keys/` + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
-                    });
+                    }, {success: 'API key updated', error: window.I18N.failedToSave});
                 } else {
-                    const result = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys`, {
+                    const result = await mgFetchJson(`${APP_BASE_PATH}/admin/api/keys`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
-                    });
-                    alert(window.I18N.apiKeyCreated + ' ' + result.key + '\n' + window.I18N.pleaseSaveKey);
+                    }, {error: window.I18N.failedToSave});
+                    showToast(window.I18N.apiKeyCreated + ' ' + result.key, 'success');
                 }
                 closeApiKeyModal();
                 loadApiKeys();
-            } catch(err) {
-                alert(window.I18N.failedToSave);
-            }
+            } catch(err) {}
         });
         
         async function deleteApiKey(id) {
@@ -786,7 +816,7 @@ ${setupMdUrl}`;
             if (e.target.id === 'apikey-modal') closeApiKeyModal();
         });
         
-        loadProviderModels().then(() => loadApiKeys());
+        loadProviderModels().then(() => { loadMcpServers(); loadApiKeys(); });
         
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {

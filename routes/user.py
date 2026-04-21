@@ -1259,7 +1259,9 @@ async def get_user_recommendations(
             pass
 
     items = content_dict.get("items") or []
-    for item in items:
+    for idx, item in enumerate(items):
+        if "rank" not in item:
+            item["rank"] = idx + 1
         item["reason"] = reason_map.get(item.get("model"))
 
     hourly_stats = content_dict.get("hourly_stats") or []
@@ -1806,3 +1808,48 @@ async def user_api_document_file_download(
     from fastapi.responses import RedirectResponse
 
     return RedirectResponse(url)
+
+
+@router.get("/user/api/mcp-info")
+async def get_mcp_info(request: Request, user_session: Optional[str] = Cookie(None)):
+    api_key_id = get_user_session(user_session)
+    if not api_key_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    from services.mcp_proxy import get_cached_tools, get_servers_by_api_key
+
+    servers = await get_servers_by_api_key(api_key_id)
+    if not servers:
+        return {"has_mcp": False}
+
+    all_tools = []
+    server_infos = []
+    for server in servers:
+        tools = get_cached_tools(server.id)
+        prefixed_tools = []
+        prefix = server.tool_prefix or ""
+        for tool in tools:
+            tool_name = tool.get("name")
+            if not tool_name:
+                continue
+            prefixed_tools.append({
+                **tool,
+                "name": f"{prefix}{tool_name}" if prefix else tool_name,
+            })
+        all_tools.extend(prefixed_tools)
+        server_infos.append({
+            "name": server.name,
+            "url": server.url,
+            "tool_prefix": server.tool_prefix,
+            "tool_count": len(prefixed_tools),
+        })
+
+    domain = "https://leturx.cc"
+    endpoint = f"{domain}/modelgate/mcp-proxy"
+
+    return {
+        "has_mcp": True,
+        "servers": server_infos,
+        "tools": all_tools,
+        "endpoint": endpoint,
+    }

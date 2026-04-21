@@ -12,6 +12,7 @@ from sqlalchemy import (
     Time,
     Index,
     ForeignKey,
+    UniqueConstraint,
     func,
     text,
 )
@@ -24,7 +25,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+asyncpg://modelgate:Zaq1%403edc@192.168.58.128/modelgate",
+    "postgresql+asyncpg://modelgate:change_me@localhost:5432/modelgate",
 )
 
 engine = create_async_engine(
@@ -52,11 +53,30 @@ class Provider(Base):
     name = Column(String(50), unique=True, nullable=False)
     base_url = Column(String(255), nullable=False)
     api_key = Column(String(255), nullable=True)
-    max_concurrent = Column(Integer, default=3)
     merge_consecutive_messages = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    disabled_reason = Column(String(255), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ProviderKey(Base):
+    __tablename__ = "provider_keys"
+
+    id = Column(Integer, primary_key=True)
+    provider_id = Column(Integer, ForeignKey("providers.id", ondelete="CASCADE"), nullable=False)
+    api_key = Column(String(255), nullable=False)
+    label = Column(String(50), nullable=True)
+    max_concurrent = Column(Integer, nullable=True)
+    is_active = Column(Boolean, default=True)
+    disabled_reason = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("provider_id", "api_key", name="uq_provider_key"),
+        Index("idx_provider_keys_provider", "provider_id"),
+    )
 
 
 class Model(Base):
@@ -82,7 +102,6 @@ class ProviderModel(Base):
     provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
     model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
     model_name_override = Column(String(100), nullable=True)
-    max_concurrent = Column(Integer, default=2)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
 
@@ -115,6 +134,18 @@ class ApiKey(Base):
     last_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ApiKeyMcpServer(Base):
+    __tablename__ = "api_key_mcp_servers"
+
+    id = Column(Integer, primary_key=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id", ondelete="CASCADE"), nullable=False)
+    mcp_server_id = Column(Integer, ForeignKey("mcp_servers.id", ondelete="CASCADE"), nullable=False)
+
+    __table_args__ = (
+        Index("idx_ak_mcp_unique", "api_key_id", "mcp_server_id", unique=True),
+    )
 
 
 class ApiKeyTimeRule(Base):
@@ -480,6 +511,69 @@ class WeixinMessage(Base):
     )
 
 
+class McpServer(Base):
+    __tablename__ = "mcp_servers"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    url = Column(String(500), nullable=False)
+    auth_type = Column(String(20), default="none")
+    auth_token = Column(Text, nullable=True)
+    auth_header = Column(String(100), default="Authorization")
+    is_active = Column(Boolean, default=True)
+    tool_prefix = Column(String(50), nullable=True)
+    last_sync_at = Column(DateTime, nullable=True)
+    last_sync_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class McpCallLog(Base):
+    __tablename__ = "mcp_call_logs"
+
+    id = Column(Integer, primary_key=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=True)
+    mcp_server_id = Column(Integer, ForeignKey("mcp_servers.id"), nullable=True)
+    tool_name = Column(String(200), nullable=False)
+    arguments = Column(JSONB, nullable=True)
+    result = Column(Text, nullable=True)
+    is_error = Column(Boolean, default=False)
+    latency_ms = Column(Float, nullable=True)
+    client_ip = Column(String(64), nullable=True)
+    user_agent = Column(String(1024), nullable=True)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_mcp_call_logs_created_at", "created_at"),
+        Index("idx_mcp_call_logs_server_id", "mcp_server_id"),
+        Index("idx_mcp_call_logs_tool_name", "tool_name"),
+    )
+
+
+class McpCallDailyStat(Base):
+    __tablename__ = "mcp_call_daily_stats"
+
+    id = Column(Integer, primary_key=True)
+    mcp_server_id = Column(Integer, ForeignKey("mcp_servers.id"), nullable=False)
+    date = Column(String(10), nullable=False)
+    hour = Column(Integer, nullable=True)
+    calls = Column(Integer, default=0)
+    errors = Column(Integer, default=0)
+    avg_latency_ms = Column(Float, nullable=True)
+
+    __table_args__ = (
+        Index("idx_mcp_stats_date", "date"),
+        Index(
+            "idx_mcp_stats_unique",
+            "mcp_server_id",
+            "date",
+            "hour",
+            unique=True,
+        ),
+    )
+
+
 def generate_api_key():
     return "sk-" + secrets.token_hex(24)
 
@@ -549,6 +643,11 @@ async def init_db():
         )
         await conn.execute(
             text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP")
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE providers ADD COLUMN IF NOT EXISTS disabled_reason VARCHAR(255)"
+            )
         )
         await conn.execute(
             text(
@@ -704,5 +803,151 @@ async def init_db():
             text(
                 "CREATE INDEX IF NOT EXISTS idx_analysis_artifacts_status "
                 "ON analysis_artifacts (status)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS mcp_servers ("
+                "id SERIAL PRIMARY KEY, "
+                "name VARCHAR(100) NOT NULL, "
+                "url VARCHAR(500) NOT NULL, "
+                "auth_type VARCHAR(20) DEFAULT 'none', "
+                "auth_token TEXT, "
+                "auth_header VARCHAR(100) DEFAULT 'Authorization', "
+                "is_active BOOLEAN DEFAULT TRUE, "
+                "tool_prefix VARCHAR(50), "
+                "last_sync_at TIMESTAMP, "
+                "last_sync_error TEXT, "
+                "created_at TIMESTAMP DEFAULT NOW(), "
+                "updated_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS api_key_mcp_servers ("
+                "id SERIAL PRIMARY KEY, "
+                "api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE, "
+                "mcp_server_id INTEGER NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE, "
+                "UNIQUE (api_key_id, mcp_server_id)"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_ak_mcp_unique ON api_key_mcp_servers (api_key_id, mcp_server_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE mcp_servers DROP COLUMN IF EXISTS api_key_id"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS mcp_call_logs ("
+                "id SERIAL PRIMARY KEY, "
+                "api_key_id INTEGER REFERENCES api_keys(id), "
+                "mcp_server_id INTEGER REFERENCES mcp_servers(id), "
+                "tool_name VARCHAR(200) NOT NULL, "
+                "arguments JSONB, "
+                "result TEXT, "
+                "is_error BOOLEAN DEFAULT FALSE, "
+                "latency_ms FLOAT, "
+                "client_ip VARCHAR(64), "
+                "user_agent VARCHAR(1024), "
+                "error TEXT, "
+                "created_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_created_at "
+                "ON mcp_call_logs (created_at)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_server_id "
+                "ON mcp_call_logs (mcp_server_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_tool_name "
+                "ON mcp_call_logs (tool_name)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS mcp_call_daily_stats ("
+                "id SERIAL PRIMARY KEY, "
+                "mcp_server_id INTEGER NOT NULL REFERENCES mcp_servers(id), "
+                "date VARCHAR(10) NOT NULL, "
+                "hour INTEGER, "
+                "calls INTEGER DEFAULT 0, "
+                "errors INTEGER DEFAULT 0, "
+                "avg_latency_ms FLOAT"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_mcp_stats_date "
+                "ON mcp_call_daily_stats (date)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_stats_unique "
+                "ON mcp_call_daily_stats (mcp_server_id, date, hour)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS provider_keys ("
+                "id SERIAL PRIMARY KEY, "
+                "provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE, "
+                "api_key VARCHAR(255) NOT NULL, "
+                "label VARCHAR(50), "
+                "max_concurrent INTEGER, "
+                "is_active BOOLEAN DEFAULT TRUE, "
+                "disabled_reason VARCHAR(255), "
+                "created_at TIMESTAMP DEFAULT NOW(), "
+                "updated_at TIMESTAMP DEFAULT NOW(), "
+                "UNIQUE (provider_id, api_key)"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS max_concurrent INTEGER"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_provider_keys_provider ON provider_keys (provider_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE providers DROP COLUMN IF EXISTS max_concurrent"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE provider_models DROP COLUMN IF EXISTS max_concurrent"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO provider_keys (provider_id, api_key, label, is_active) "
+                "SELECT id, api_key, 'default', TRUE "
+                "FROM providers "
+                "WHERE api_key IS NOT NULL AND api_key != '' "
+                "AND NOT EXISTS ("
+                "  SELECT 1 FROM provider_keys pk WHERE pk.provider_id = providers.id AND pk.api_key = providers.api_key"
+                ")"
             )
         )

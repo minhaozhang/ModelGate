@@ -1,4 +1,5 @@
-import asyncio
+import random
+import time
 from typing import Optional
 from datetime import datetime, timedelta
 
@@ -10,18 +11,72 @@ from core.config import (
     providers_cache,
     PROVIDERS_CACHE_TTL_MINUTES,
     logger,
-    provider_semaphores,
+    provider_key_semaphores,
 )
 from core.database import (
     async_session_maker,
-    RequestLog,
     Provider,
+    ProviderKey,
     ProviderModel,
     Model,
 )
 
-SEMAPHORE_LIMIT_ATTR = "_modelgate_limit"
-SEMAPHORE_PENDING_LIMIT_ATTR = "_modelgate_pending_limit"
+KEY_STICKY_TTL_SECONDS = 1800
+_key_sticky_map: dict[tuple[int, str], tuple[int, float]] = {}
+
+
+async def _load_provider_keys(session, provider_id: int) -> list[dict]:
+    result = await session.execute(
+        select(ProviderKey).where(
+            ProviderKey.provider_id == provider_id,
+            ProviderKey.is_active == True,  # noqa: E712
+        )
+    )
+    return [
+        {
+            "id": pk.id,
+            "api_key": pk.api_key,
+            "label": pk.label or "",
+            "max_concurrent": pk.max_concurrent,
+        }
+        for pk in result.scalars().all()
+    ]
+
+
+def pick_api_key(
+    provider_config: dict, api_key_id: int | None, provider_name: str
+) -> tuple[str | None, int | None]:
+    keys = provider_config.get("api_keys") or []
+    if not keys:
+        fallback = provider_config.get("api_key") or ""
+        if fallback:
+            return fallback, None
+        return None, None
+    if api_key_id is not None:
+        sticky = _key_sticky_map.get((api_key_id, provider_name))
+        if sticky:
+            key_id, ts = sticky
+            if time.monotonic() - ts < KEY_STICKY_TTL_SECONDS:
+                for k in keys:
+                    if k["id"] == key_id:
+                        return k["api_key"], k["id"]
+    chosen = random.choice(keys)
+    if api_key_id is not None:
+        _key_sticky_map[(api_key_id, provider_name)] = (chosen["id"], time.monotonic())
+    return chosen["api_key"], chosen["id"]
+
+
+async def invalidate_provider_key_sticky_cache(
+    provider_name: str,
+    provider_key_id: int,
+) -> None:
+    stale_keys = [
+        sticky_key
+        for sticky_key, sticky_value in _key_sticky_map.items()
+        if sticky_key[1] == provider_name and sticky_value[0] == provider_key_id
+    ]
+    for sticky_key in stale_keys:
+        _key_sticky_map.pop(sticky_key, None)
 
 
 def parse_model(model: str) -> tuple[str, str]:
@@ -29,18 +84,6 @@ def parse_model(model: str) -> tuple[str, str]:
         parts = model.split("/", 1)
         return parts[0], parts[1]
     return "", model
-
-
-def _build_semaphore(limit: int) -> asyncio.Semaphore:
-    semaphore = asyncio.Semaphore(limit)
-    setattr(semaphore, SEMAPHORE_LIMIT_ATTR, limit)
-    return semaphore
-
-
-def _get_semaphore_limit(
-    semaphore: asyncio.Semaphore, fallback: int | None = None
-) -> int | None:
-    return getattr(semaphore, SEMAPHORE_LIMIT_ATTR, fallback)
 
 
 def _get_model_aliases(pm: dict) -> set[str]:
@@ -56,7 +99,7 @@ def _get_model_aliases(pm: dict) -> set[str]:
 async def load_providers():
     async with async_session_maker() as session:
         result = await session.execute(
-            select(Provider).where(Provider.is_active == True)
+            select(Provider).where(Provider.is_active == True)  # noqa: E712
         )
         providers = result.scalars().all()
 
@@ -82,7 +125,6 @@ async def load_providers():
                         "max_tokens": model.max_tokens if model else 16384,
                         "thinking_enabled": model.thinking_enabled if model else False,
                         "thinking_budget": model.thinking_budget if model else 8192,
-                        "max_concurrent": pm.max_concurrent,
                     }
                 )
 
@@ -91,45 +133,32 @@ async def load_providers():
                 "base_url": p.base_url,
                 "api_key": p.api_key or "",
                 "models": provider_models_data,
-                "max_concurrent": p.max_concurrent or 3,
                 "merge_consecutive_messages": p.merge_consecutive_messages or False,
+                "disabled_reason": p.disabled_reason,
+                "api_keys": await _load_provider_keys(session, p.id),
             }
 
-            provider_default = p.max_concurrent or 3
-            for pm_data in provider_models_data:
-                model_name = pm_data.get("model_name") or pm_data.get("actual_model_name")
-                if not model_name:
-                    continue
-                sem_key = f"{p.name}/{model_name}"
-                model_max = pm_data["max_concurrent"] or provider_default
-                existing = provider_semaphores.get(sem_key)
-                if existing is None:
-                    provider_semaphores[sem_key] = _build_semaphore(model_max)
-                    continue
-                if _get_semaphore_limit(existing, model_max) == model_max:
-                    if hasattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR):
-                        delattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR)
-                    continue
-                waiters = getattr(existing, "_waiters", None)
-                has_waiters = bool(waiters)
-                current_limit = _get_semaphore_limit(existing, model_max) or model_max
-                available = getattr(existing, "_value", current_limit)
-                in_flight = max(current_limit - available, 0)
-                if in_flight == 0 and not has_waiters:
-                    provider_semaphores[sem_key] = _build_semaphore(model_max)
-                    continue
-                pending_limit = getattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR, None)
-                if pending_limit != model_max:
-                    setattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR, model_max)
-                    logger.info(
-                        "[SEMAPHORE] Deferring resize for %s from %s to %s while %s request(s) are active",
-                        sem_key,
-                        current_limit,
-                        model_max,
-                        in_flight,
-                    )
-
         config.providers_cache_time = datetime.now()
+
+    # Drop idle semaphores for removed/deactivated provider keys after cache refresh.
+    active_provider_key_prefixes = {
+        f"{pk['id']}:{provider_name}"
+        for provider_name, provider_config in providers_cache.items()
+        for pk in provider_config.get("api_keys", [])
+        if pk.get("id") is not None
+    }
+    for sem_key in list(provider_key_semaphores.keys()):
+        if sem_key in active_provider_key_prefixes:
+            continue
+        semaphore = provider_key_semaphores.get(sem_key)
+        if semaphore is None:
+            continue
+        waiters = getattr(semaphore, "_waiters", None)
+        available = getattr(semaphore, "_value", 0)
+        current_limit = getattr(semaphore, "_modelgate_scoped_limit", available) or available
+        in_flight = max(current_limit - available, 0)
+        if in_flight == 0 and not waiters:
+            provider_key_semaphores.pop(sem_key, None)
 
 
 async def get_provider_config(provider_name: str) -> Optional[dict]:
@@ -149,63 +178,6 @@ def get_model_config(provider_config: dict, model_name: str) -> Optional[dict]:
             return pm
     return None
 
-
-def get_semaphore_key(provider_name: str, actual_model: str, provider_config: dict) -> str:
-    model_cfg = get_model_config(provider_config, actual_model)
-    model_name = model_cfg.get("model_name") or model_cfg.get("actual_model_name") if model_cfg else None
-    if model_name:
-        return f"{provider_name}/{model_name}"
-    return f"{provider_name}/{actual_model}"
-
-
-def get_or_create_provider_semaphore(
-    provider_name: str, actual_model: str, provider_config: dict
-) -> tuple[str, asyncio.Semaphore]:
-    sem_key = get_semaphore_key(provider_name, actual_model, provider_config)
-    model_cfg = get_model_config(provider_config, actual_model)
-    target_limit = (
-        model_cfg.get("max_concurrent") if model_cfg else None
-    ) or provider_config.get("max_concurrent", 3)
-    existing = provider_semaphores.get(sem_key)
-    if existing is None:
-        semaphore = _build_semaphore(target_limit)
-        provider_semaphores[sem_key] = semaphore
-        return sem_key, semaphore
-
-    current_limit = _get_semaphore_limit(existing, target_limit) or target_limit
-    if current_limit == target_limit:
-        if hasattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR):
-            delattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR)
-        return sem_key, existing
-
-    waiters = getattr(existing, "_waiters", None)
-    has_waiters = bool(waiters)
-    available = getattr(existing, "_value", current_limit)
-    in_flight = max(current_limit - available, 0)
-    if in_flight == 0 and not has_waiters:
-        semaphore = _build_semaphore(target_limit)
-        provider_semaphores[sem_key] = semaphore
-        logger.info(
-            "[SEMAPHORE] Resized %s from %s to %s",
-            sem_key,
-            current_limit,
-            target_limit,
-        )
-        return sem_key, semaphore
-
-    pending_limit = getattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR, None)
-    if pending_limit != target_limit:
-        setattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR, target_limit)
-        logger.info(
-            "[SEMAPHORE] Deferring resize for %s from %s to %s while %s request(s) are active",
-            sem_key,
-            current_limit,
-            target_limit,
-            in_flight,
-        )
-    return sem_key, existing
-
-
 async def get_provider_and_model(model: str) -> tuple[Optional[dict], str, str]:
     provider_name, actual_model = parse_model(model)
     if not provider_name:
@@ -216,3 +188,14 @@ async def get_provider_and_model(model: str) -> tuple[Optional[dict], str, str]:
             return None, model, ""
     config = await get_provider_config(provider_name)
     return config, actual_model, provider_name
+
+
+async def get_disabled_provider_reason(provider_name: str) -> str | None:
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Provider.disabled_reason).where(
+                Provider.name == provider_name,
+                Provider.is_active == False,  # noqa: E712
+            )
+        )
+        return result.scalar_one_or_none()

@@ -1,7 +1,7 @@
 import json
 import re
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
@@ -15,6 +15,8 @@ from core.database import (
     AnalysisRecord,
     Provider,
     ApiKey,
+    McpCallLog,
+    McpServer,
 )
 from core.i18n import get_locale, translate
 from services.analysis_store import (
@@ -114,6 +116,7 @@ def _serialize_error_log(
         "tokens": log.tokens,
         "client_ip": log.client_ip,
         "user_agent": log.user_agent,
+        "response": log.response,
         "error": log.error,
         "created_at": log.created_at.isoformat(),
     }
@@ -1307,4 +1310,209 @@ async def get_all_logs(limit: int = 100, _: bool = Depends(require_admin)):
                 for log in logs
             ],
             "total": total,
+        }
+
+
+def _escape_ilike(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+@router.get("/logs/query")
+async def query_logs(
+    key_name: Optional[str] = None,
+    model: Optional[str] = None,
+    status: Optional[str] = None,
+    time_range: str = "1h",
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50,
+    _: bool = Depends(require_admin),
+):
+    page = max(1, page)
+    page_size = max(1, min(page_size, 200))
+    now = datetime.now()
+
+    if start_time or end_time:
+        try:
+            dt_start = (
+                datetime.fromisoformat(start_time)
+                if start_time
+                else now - timedelta(days=7)
+            )
+            dt_end = datetime.fromisoformat(end_time) if end_time else now
+        except ValueError:
+            return {"logs": [], "total": 0, "page": page, "page_size": page_size}
+    else:
+        deltas = {
+            "1h": timedelta(hours=1),
+            "6h": timedelta(hours=6),
+            "24h": timedelta(hours=24),
+            "7d": timedelta(days=7),
+        }
+        dt_start = now - deltas.get(time_range, timedelta(hours=1))
+        dt_end = now
+
+    async with async_session_maker() as session:
+        api_key_id_filter = None
+        if key_name:
+            safe_key = _escape_ilike(key_name)
+            key_result = await session.execute(
+                select(ApiKey).where(ApiKey.name == key_name)
+            )
+            key = key_result.scalar_one_or_none()
+            if key:
+                api_key_id_filter = key.id
+            else:
+                key_result = await session.execute(
+                    select(ApiKey).where(ApiKey.name.ilike(f"%{safe_key}%"))
+                )
+                keys = key_result.scalars().all()
+                if keys:
+                    api_key_id_filter = [k.id for k in keys]
+                else:
+                    return {
+                        "logs": [],
+                        "total": 0,
+                        "page": page,
+                        "page_size": page_size,
+                    }
+
+        q = select(RequestLog).where(
+            RequestLog.created_at >= dt_start,
+            RequestLog.created_at <= dt_end,
+        )
+        count_q = select(func.count(RequestLog.id)).where(
+            RequestLog.created_at >= dt_start,
+            RequestLog.created_at <= dt_end,
+        )
+
+        if api_key_id_filter is not None:
+            if isinstance(api_key_id_filter, list):
+                q = q.where(RequestLog.api_key_id.in_(api_key_id_filter))
+                count_q = count_q.where(RequestLog.api_key_id.in_(api_key_id_filter))
+            else:
+                q = q.where(RequestLog.api_key_id == api_key_id_filter)
+                count_q = count_q.where(RequestLog.api_key_id == api_key_id_filter)
+        if model:
+            safe_model = _escape_ilike(model)
+            q = q.where(RequestLog.model.ilike(f"%{safe_model}%"))
+            count_q = count_q.where(RequestLog.model.ilike(f"%{safe_model}%"))
+        if status:
+            q = q.where(RequestLog.status == status)
+            count_q = count_q.where(RequestLog.status == status)
+
+        total_result = await session.execute(count_q)
+        total = total_result.scalar() or 0
+
+        offset = (page - 1) * page_size
+        q = q.order_by(RequestLog.created_at.desc()).offset(offset).limit(page_size)
+        result = await session.execute(q)
+        logs = result.scalars().all()
+
+        provider_map, api_key_map = await _get_maps(session, logs)
+
+        return {
+            "logs": [
+                _serialize_error_log(log, provider_map, api_key_map) for log in logs
+            ],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
+
+
+@router.get("/mcp-logs/query")
+async def query_mcp_logs(
+    tool_name: Optional[str] = None,
+    status: Optional[str] = None,
+    time_range: str = "24h",
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50,
+    _: bool = Depends(require_admin),
+):
+    page = max(1, page)
+    page_size = max(1, min(page_size, 200))
+    now = datetime.now()
+
+    if start_time or end_time:
+        try:
+            dt_start = (
+                datetime.fromisoformat(start_time)
+                if start_time
+                else now - timedelta(days=7)
+            )
+            dt_end = datetime.fromisoformat(end_time) if end_time else now
+        except ValueError:
+            return {"logs": [], "total": 0, "page": page, "page_size": page_size}
+    else:
+        deltas = {
+            "1h": timedelta(hours=1),
+            "6h": timedelta(hours=6),
+            "24h": timedelta(hours=24),
+            "7d": timedelta(days=7),
+        }
+        dt_start = now - deltas.get(time_range, timedelta(hours=24))
+        dt_end = now
+
+    async with async_session_maker() as session:
+        q = select(McpCallLog).where(
+            McpCallLog.created_at >= dt_start,
+            McpCallLog.created_at <= dt_end,
+        )
+        count_q = select(func.count(McpCallLog.id)).where(
+            McpCallLog.created_at >= dt_start,
+            McpCallLog.created_at <= dt_end,
+        )
+
+        if tool_name:
+            safe_tool = _escape_ilike(tool_name)
+            q = q.where(McpCallLog.tool_name.ilike(f"%{safe_tool}%"))
+            count_q = count_q.where(McpCallLog.tool_name.ilike(f"%{safe_tool}%"))
+        if status == "error":
+            q = q.where(McpCallLog.is_error == True)  # noqa: E712
+            count_q = count_q.where(McpCallLog.is_error == True)  # noqa: E712
+        elif status == "success":
+            q = q.where(McpCallLog.is_error == False)  # noqa: E712
+            count_q = count_q.where(McpCallLog.is_error == False)  # noqa: E712
+
+        total_result = await session.execute(count_q)
+        total = total_result.scalar() or 0
+
+        offset = (page - 1) * page_size
+        q = q.order_by(McpCallLog.created_at.desc()).offset(offset).limit(page_size)
+        result = await session.execute(q)
+        logs = result.scalars().all()
+
+        server_ids = {log.mcp_server_id for log in logs if log.mcp_server_id}
+        server_map = {}
+        if server_ids:
+            srv_result = await session.execute(
+                select(McpServer).where(McpServer.id.in_(server_ids))
+            )
+            server_map = {s.id: s.name for s in srv_result.scalars()}
+
+        return {
+            "logs": [
+                {
+                    "id": log.id,
+                    "mcp_server_id": log.mcp_server_id,
+                    "server_name": server_map.get(log.mcp_server_id, "-")
+                    if log.mcp_server_id
+                    else "-",
+                    "tool_name": log.tool_name,
+                    "arguments": log.arguments,
+                    "is_error": log.is_error,
+                    "latency_ms": log.latency_ms,
+                    "client_ip": log.client_ip,
+                    "error": log.error,
+                    "created_at": log.created_at.isoformat(),
+                }
+                for log in logs
+            ],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
         }

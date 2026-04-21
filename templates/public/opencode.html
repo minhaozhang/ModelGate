@@ -5,7 +5,7 @@
     {% include 'components/site_head_meta.html' %}
     <title>{{ _('OpenCode Configuration') }} - ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/output.css">
     <style>
         .nav-link { transition: all 0.2s; }
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
@@ -75,7 +75,7 @@
             copied: {{ _('Copied!') | tojson }},
             copy: {{ _('Copy') | tojson }},
             failedToGenerateConfig: {{ _('Failed to generate config') | tojson }},
-            promptText: {{ _('# Please add the following provider config to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and settings, only add or update the model-token-plan provider.') | tojson }},
+            promptText: {{ _('# Please add the following provider config to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and settings, only add or update the modelgate provider.') | tojson }},
             contextLabel: {{ _('context') | tojson }},
             outputLabel: {{ _('output') | tojson }}
         };
@@ -115,7 +115,7 @@
                 document.getElementById('error-section').classList.add('hidden');
 
                 const config = data.config;
-                config.provider['model-token-plan'].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
+                config.provider['modelgate'].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
 
                 const prompt = window.I18N.promptText + "\n\n";
                 const configJson = prompt + JSON.stringify(config, null, 2);

@@ -1,0 +1,232 @@
+import contextlib
+import contextvars
+
+from mcp.server.fastmcp import FastMCP
+from mcp.server.sse import SseServerTransport
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+from sqlalchemy import select
+
+from core.config import api_keys_cache, logger
+from core.database import McpServer, async_session_maker
+from services.mcp_proxy import (
+    call_tool,
+    get_cached_tools,
+    get_server_tool_names,
+    get_servers_by_api_key,
+)
+
+mcp = FastMCP("ModelGate MCP Proxy")
+
+_streamable_http_manager = StreamableHTTPSessionManager(app=mcp._mcp_server)
+_sse_transport = SseServerTransport(endpoint="/messages/")
+_exit_stack: contextlib.AsyncExitStack | None = None
+
+_current_api_key_id: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "_current_mcp_api_key_id", default=None
+)
+
+_current_server_id: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "_current_mcp_server_id", default=None
+)
+
+_current_allowed_server_ids: contextvars.ContextVar[set[int]] = contextvars.ContextVar(
+    "_current_allowed_mcp_server_ids", default=set()
+)
+
+_tool_server_map: dict[str, int] = {}
+
+
+def _register_proxy_tools(server: McpServer, tools: list[dict]) -> None:
+    prefix = server.tool_prefix or ""
+    for tool_info in tools:
+        tool_name = f"{prefix}{tool_info['name']}" if prefix else tool_info["name"]
+        description = tool_info.get("description", "")
+
+        try:
+            mcp.remove_tool(tool_name)
+        except Exception:
+            pass
+
+        def _make_handler(tn: str, sn: McpServer):
+            async def handler(**kwargs):
+                ak_id = _current_api_key_id.get()
+                return await call_tool(
+                    server=sn,
+                    tool_name=tn,
+                    arguments=kwargs,
+                    api_key_id=ak_id,
+                )
+            return handler
+
+        fn = _make_handler(tool_info["name"], server)
+        fn.__name__ = tool_name
+        fn.__doc__ = description
+
+        mcp.add_tool(
+            fn,
+            name=tool_name,
+            description=description,
+        )
+        _tool_server_map[tool_name] = server.id
+
+
+async def register_all_proxy_tools() -> None:
+    _tool_server_map.clear()
+    for name in list(mcp._tool_manager._tools.keys()):
+        try:
+            mcp.remove_tool(name)
+        except Exception:
+            pass
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(McpServer).where(McpServer.is_active == True)  # noqa: E712
+        )
+        servers = result.scalars().all()
+
+    registered_names: set[str] = set()
+    for server in servers:
+        tools = get_cached_tools(server.id)
+        if tools:
+            tool_names = get_server_tool_names(server, tools)
+            duplicate_names = sorted(set(tool_names) & registered_names)
+            if duplicate_names:
+                logger.error(
+                    "[MCP Proxy] Skip server '%s' (id=%d) due to duplicate tool names: %s",
+                    server.name,
+                    server.id,
+                    ", ".join(duplicate_names),
+                )
+                continue
+            _register_proxy_tools(server, tools)
+            registered_names.update(tool_names)
+
+    logger.info("[MCP Proxy] Registered tools from %d active servers", len(servers))
+
+
+class _ApiKeyAuthMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            from starlette.requests import Request
+            from starlette.responses import JSONResponse
+
+            request = Request(scope, receive)
+            auth = request.headers.get("authorization", "")
+            if auth.startswith("Bearer "):
+                key = auth[7:]
+            else:
+                key = auth
+            if not key or key not in api_keys_cache:
+                error_scope = {
+                    "type": "http",
+                    "method": scope.get("method", "GET"),
+                    "path": scope.get("path", "/"),
+                    "headers": scope.get("headers", []),
+                    "query_string": scope.get("query_string", b""),
+                    "root_path": scope.get("root_path", ""),
+                }
+                response = JSONResponse({"error": "Unauthorized"}, status_code=401)
+                await response(error_scope, receive, send)
+                return
+
+            api_key_id = api_keys_cache[key]["id"]
+            scope["api_key_id"] = api_key_id
+
+        await self.app(scope, receive, send)
+
+
+async def _set_context(scope):
+    api_key_id = scope.get("api_key_id")
+    _current_api_key_id.set(api_key_id)
+
+    if api_key_id:
+        servers = await get_servers_by_api_key(api_key_id)
+        if servers:
+            allowed_server_ids = {server.id for server in servers}
+            scope["allowed_mcp_server_ids"] = allowed_server_ids
+            _current_allowed_server_ids.set(allowed_server_ids)
+            _current_server_id.set(servers[0].id)
+            return True
+        return False
+    else:
+        _current_server_id.set(None)
+        scope["allowed_mcp_server_ids"] = set()
+        _current_allowed_server_ids.set(set())
+    return True
+
+
+async def _mcp_handler(scope, receive, send):
+    path = scope.get("path", "/")
+
+    if path == "/sse":
+        if not await _set_context(scope):
+            from starlette.responses import JSONResponse
+            response = JSONResponse(
+                {"error": "No MCP server bound to this API key"}, status_code=403
+            )
+            await response(scope, receive, send)
+            return
+
+        async with _sse_transport.connect_sse(
+            scope, receive, send
+        ) as (read_stream, write_stream):
+            await mcp._mcp_server.run(
+                read_stream,
+                write_stream,
+                mcp._mcp_server.create_initialization_options(),
+            )
+    elif path == "/messages/":
+        if not await _set_context(scope):
+            from starlette.responses import JSONResponse
+            response = JSONResponse(
+                {"error": "No MCP server bound to this API key"}, status_code=403
+            )
+            await response(scope, receive, send)
+            return
+        await _sse_transport.handle_post_message(scope, receive, send)
+    else:
+        if not await _set_context(scope):
+            from starlette.responses import JSONResponse
+            response = JSONResponse(
+                {"error": "No MCP server bound to this API key"}, status_code=403
+            )
+            await response(scope, receive, send)
+            return
+        await _streamable_http_manager.handle_request(scope, receive, send)
+
+
+@mcp._mcp_server.call_tool(validate_input=False)
+async def _authorized_call_tool(name: str, arguments: dict):
+    server_id = _tool_server_map.get(name)
+    allowed_server_ids = _current_allowed_server_ids.get()
+    if server_id is not None and server_id not in allowed_server_ids:
+        raise RuntimeError("This API key is not allowed to call this MCP tool")
+    return await mcp.call_tool(name, arguments)
+
+
+async def start_mcp_proxy():
+    global _exit_stack
+    _exit_stack = contextlib.AsyncExitStack()
+    await _exit_stack.enter_async_context(_streamable_http_manager.run())
+
+    from services.mcp_proxy import sync_all_servers
+
+    await sync_all_servers()
+    await register_all_proxy_tools()
+
+    logger.info("[MCP Proxy] Session manager started and tools registered")
+
+
+async def stop_mcp_proxy():
+    global _exit_stack
+    if _exit_stack:
+        await _exit_stack.aclose()
+        _exit_stack = None
+        logger.info("[MCP Proxy] Session manager stopped")
+
+
+def get_mcp_proxy_asgi_app():
+    return _ApiKeyAuthMiddleware(_mcp_handler)

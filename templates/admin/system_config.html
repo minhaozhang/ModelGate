@@ -85,15 +85,12 @@
             const isDark = mode === 'dark';
             document.body.classList.toggle('theme-dark', isDark);
             localStorage.setItem('admin_theme', mode);
-            document.getElementById('theme-toggle').textContent = isDark ? SYSTEM_CONFIG_I18N.lightMode : SYSTEM_CONFIG_I18N.darkMode;
-        }
-        function toggleTheme() {
-            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
-            applyTheme(nextMode);
+            document.getElementById('theme-toggle').value = mode;
         }
         applyTheme(getThemeMode());
         async function loadConfig() {
             const r = await fetch(APP_BASE_PATH + '/admin/api/system/config');
+            if (!r.ok) { console.error('Failed to load config'); return; }
             const d = await r.json();
             document.getElementById('ua-input').value = d.ua_override;
             document.getElementById('api-key-model-limit-input').value = d.api_key_model_max_concurrency || 1;
@@ -128,6 +125,7 @@
         }
         async function loadUAStats() {
             const r = await fetch(APP_BASE_PATH + '/admin/api/system/ua-stats?limit=15');
+            if (!r.ok) { console.error('Failed to load UA stats'); return; }
             const d = await r.json();
             const list = document.getElementById('ua-list');
             if (!d.items.length) {

@@ -130,6 +130,10 @@ async def startup():
 
     await start_mcp()
 
+    from routes.mcp_proxy import start_mcp_proxy
+
+    await start_mcp_proxy()
+
     from services.system_config import init_system_config
 
     await init_system_config()
@@ -157,6 +161,10 @@ async def shutdown():
 
     await stop_mcp()
 
+    from routes.mcp_proxy import stop_mcp_proxy
+
+    await stop_mcp_proxy()
+
 
 from routes import (
     proxy,
@@ -173,6 +181,7 @@ from routes import (
     reports,
     system_config,
     documents,
+    mcp_servers,
 )
 
 app.include_router(proxy.router)
@@ -190,10 +199,15 @@ app.include_router(opencode.router)
 app.include_router(reports.router)
 app.include_router(system_config.router)
 app.include_router(documents.router)
+app.include_router(mcp_servers.router)
 
 from routes.weixin import get_mcp_asgi_app
 
 app.mount("/weixin", get_mcp_asgi_app())
+
+from routes.mcp_proxy import get_mcp_proxy_asgi_app
+
+app.mount("/mcp-proxy", get_mcp_proxy_asgi_app())
 
 
 if __name__ == "__main__":

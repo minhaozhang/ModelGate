@@ -4,9 +4,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from core.config import admin_logger, validate_session
-from core.database import async_session_maker, Provider, Model, ProviderModel
+from core.database import async_session_maker, Provider, ProviderKey, Model, ProviderModel
 from services.provider import load_providers
 
 router = APIRouter(prefix="/admin/api", tags=["provider-models"])
@@ -21,8 +22,12 @@ def require_admin(session: Optional[str] = Cookie(None)):
 class ProviderModelCreate(BaseModel):
     model_id: int
     model_name_override: Optional[str] = None
-    max_concurrent: Optional[int] = None
     is_active: bool = True
+
+
+class ProviderModelUpdate(BaseModel):
+    model_name_override: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 @router.get("/providers/{provider_id}/models")
@@ -46,7 +51,6 @@ async def list_provider_models(provider_id: int, _: bool = Depends(require_admin
                         "model_name": model.name,
                         "display_name": model.display_name,
                         "model_name_override": pm.model_name_override,
-                        "max_concurrent": pm.max_concurrent,
                         "is_active": pm.is_active,
                     }
                 )
@@ -62,7 +66,6 @@ async def add_provider_model(
             provider_id=provider_id,
             model_id=data.model_id,
             model_name_override=data.model_name_override,
-            max_concurrent=data.max_concurrent,
             is_active=data.is_active,
         )
         session.add(pm)
@@ -75,7 +78,7 @@ async def add_provider_model(
 async def update_provider_model(
     provider_id: int,
     pm_id: int,
-    data: ProviderModelCreate,
+    data: ProviderModelUpdate,
     _: bool = Depends(require_admin),
 ):
     async with async_session_maker() as session:
@@ -89,8 +92,6 @@ async def update_provider_model(
             return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
         if data.model_name_override is not None:
             pm.model_name_override = data.model_name_override
-        if data.max_concurrent is not None:
-            pm.max_concurrent = data.max_concurrent
         if data.is_active is not None:
             pm.is_active = data.is_active
         await session.commit()
@@ -111,8 +112,15 @@ async def remove_provider_model(
         pm = result.scalar_one_or_none()
         if not pm:
             return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
-        await session.delete(pm)
-        await session.commit()
+        try:
+            await session.delete(pm)
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            return JSONResponse(
+                {"error": "Cannot delete: model is bound to API keys. Remove API key bindings first."},
+                status_code=409,
+            )
         await load_providers()
         return {"deleted": True}
 
@@ -128,8 +136,18 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
             return JSONResponse({"error": "Provider not found"}, status_code=404)
 
         headers = {"Accept": "application/json"}
-        if provider.api_key:
-            headers["Authorization"] = f"Bearer {provider.api_key}"
+        pk_result = await session.execute(
+            select(ProviderKey)
+            .where(
+                ProviderKey.provider_id == provider_id,
+                ProviderKey.is_active == True,  # noqa: E712
+            )
+            .limit(1)
+        )
+        active_key = pk_result.scalar_one_or_none()
+        sync_api_key = active_key.api_key if active_key else (provider.api_key or "")
+        if sync_api_key:
+            headers["Authorization"] = f"Bearer {sync_api_key}"
 
         synced = []
         async with httpx.AsyncClient(timeout=30.0) as client:

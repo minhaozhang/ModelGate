@@ -1,12 +1,12 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     {% include 'components/site_head_meta.html' %}
     <title>ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/output.css">
+    <script src="/static/js/chart.min.js"></script>
     <script src="/static/js/marked.min.js"></script>
     <style>
         .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
@@ -124,6 +124,117 @@
             border: 1px solid rgba(71, 85, 105, 0.6);
             box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
         }
+
+        body.theme-blackgold { background: #09090b !important; color: #fafaf9; }
+        body.theme-blackgold .bg-white { background: #1a1814 !important; }
+        body.theme-blackgold .bg-gray-50 { background: #1c1917 !important; }
+        body.theme-blackgold .bg-gray-200 { background: #292524 !important; }
+        body.theme-blackgold .bg-gray-100 { background: #09090b !important; }
+        body.theme-blackgold .bg-blue-50 { background: rgba(212, 168, 83, 0.10) !important; }
+        body.theme-blackgold .bg-blue-100 { background: rgba(212, 168, 83, 0.18) !important; }
+        body.theme-blackgold .bg-emerald-50 { background: rgba(16, 185, 129, 0.10) !important; }
+        body.theme-blackgold .bg-emerald-100 { background: rgba(16, 185, 129, 0.16) !important; }
+        body.theme-blackgold .bg-yellow-100 { background: rgba(234, 179, 8, 0.15) !important; }
+        body.theme-blackgold .bg-red-100 { background: rgba(239, 68, 68, 0.15) !important; }
+        body.theme-blackgold .bg-slate-100 { background: #1c1917 !important; }
+        body.theme-blackgold .from-blue-50,
+        body.theme-blackgold .to-cyan-50,
+        body.theme-blackgold .from-emerald-50,
+        body.theme-blackgold .to-teal-50 { background-image: none !important; }
+        body.theme-blackgold .text-gray-800 { color: #fafaf9 !important; }
+        body.theme-blackgold .text-gray-700 { color: #d6d3d1 !important; }
+        body.theme-blackgold .text-gray-600 { color: #c9b896 !important; }
+        body.theme-blackgold .text-gray-500 { color: #a8a29e !important; }
+        body.theme-blackgold .text-gray-400 { color: #8b7d65 !important; }
+        body.theme-blackgold .text-blue-900 { color: #fde68a !important; }
+        body.theme-blackgold .text-blue-700 { color: #d4a853 !important; }
+        body.theme-blackgold .text-slate-600 { color: #c9b896 !important; }
+        body.theme-blackgold .text-emerald-700 { color: #a7f3d0 !important; }
+        body.theme-blackgold .text-yellow-700 { color: #fde68a !important; }
+        body.theme-blackgold .text-red-700 { color: #fecaca !important; }
+        body.theme-blackgold .border,
+        body.theme-blackgold .border-b,
+        body.theme-blackgold .border-blue-200,
+        body.theme-blackgold .border-gray-200,
+        body.theme-blackgold .border-slate-200,
+        body.theme-blackgold .border-emerald-200 { border-color: rgba(212, 168, 83, 0.22) !important; }
+        body.theme-blackgold select,
+        body.theme-blackgold button:not(.bg-red-500):not(.bg-blue-600) { background-color: #1a1814; color: #d6d3d1; border-color: rgba(212, 168, 83, 0.30); }
+        body.theme-blackgold .shadow,
+        body.theme-blackgold .shadow-sm { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55) !important; }
+        body.theme-blackgold .tab-btn.active { border-bottom-color: #d4a853 !important; color: #d4a853 !important; }
+        body.theme-blackgold .bg-white.rounded,
+        body.theme-blackgold .bg-white.rounded-lg,
+        body.theme-blackgold .bg-white.rounded-xl,
+        body.theme-blackgold .bg-white.rounded-2xl,
+        body.theme-blackgold .bg-gray-50.rounded,
+        body.theme-blackgold .bg-gray-50.rounded-lg,
+        body.theme-blackgold .bg-gray-50.rounded-xl,
+        body.theme-blackgold .bg-gray-50.rounded-2xl,
+        body.theme-blackgold .bg-blue-50.rounded-lg,
+        body.theme-blackgold .bg-blue-50.rounded-2xl {
+            border: 1px solid rgba(212, 168, 83, 0.25) !important;
+            box-shadow:
+                0 18px 36px rgba(0, 0, 0, 0.45),
+                inset 0 1px 0 rgba(212, 168, 83, 0.06) !important;
+        }
+        body.theme-blackgold .tab-content > .bg-gray-50.rounded-lg,
+        body.theme-blackgold .tab-content > .bg-white.rounded-lg,
+        body.theme-blackgold .tab-content > .grid .bg-gray-50.rounded-lg,
+        body.theme-blackgold .tab-content > .grid .bg-white.rounded-lg {
+            background-image: linear-gradient(180deg, rgba(212, 168, 83, 0.04), transparent 28%) !important;
+        }
+        body.theme-blackgold .bg-white.p-3.rounded,
+        body.theme-blackgold .bg-white.p-3.rounded-lg,
+        body.theme-blackgold .bg-white.p-4.rounded,
+        body.theme-blackgold .bg-white.p-4.rounded-lg,
+        body.theme-blackgold .bg-gray-50.p-3.rounded,
+        body.theme-blackgold .bg-gray-50.p-3.rounded-lg {
+            border-color: rgba(212, 168, 83, 0.22) !important;
+        }
+        body.theme-blackgold code.bg-white,
+        body.theme-blackgold .bg-white.px-2,
+        body.theme-blackgold .bg-white.p-3:not(.rounded-2xl) {
+            background: #1c1917 !important;
+        }
+        body.theme-blackgold .bg-white.text-gray-600,
+        body.theme-blackgold .bg-white.text-gray-700,
+        body.theme-blackgold .bg-gray-200.text-gray-700,
+        body.theme-blackgold .bg-gray-100.text-gray-500,
+        body.theme-blackgold .bg-slate-100.text-slate-600,
+        body.theme-blackgold .bg-emerald-100.text-emerald-700 {
+            color: #c9b896 !important;
+        }
+        body.theme-blackgold .bg-black\/5,
+        body.theme-blackgold .bg-white\/70 {
+            background: rgba(212, 168, 83, 0.08) !important;
+            color: #d4a853 !important;
+            border: 1px solid rgba(212, 168, 83, 0.22);
+        }
+        body.theme-blackgold #recommendation-meta {
+            color: #c9b896 !important;
+        }
+        body.theme-blackgold #recommendation-analysis-meta {
+            color: #d4a853 !important;
+        }
+        body.theme-blackgold #recommendation-list > div {
+            color: #fafaf9;
+        }
+        body.theme-blackgold #recommendation-list .text-gray-400 {
+            color: #c9b896 !important;
+        }
+        body.theme-blackgold #recommendation-list .text-slate-700 {
+            color: #fafaf9 !important;
+        }
+        body.theme-blackgold #recommendation-timing-advice {
+            color: #c9b896 !important;
+            background: rgba(212, 168, 83, 0.06) !important;
+            border-color: rgba(212, 168, 83, 0.22) !important;
+        }
+        body.theme-blackgold pre {
+            border: 1px solid rgba(212, 168, 83, 0.25);
+            box-shadow: inset 0 1px 0 rgba(212, 168, 83, 0.05);
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -143,9 +254,11 @@
                     <option value="en">English</option>
                     <option value="zh">中文</option>
                 </select>
-                <button id="theme-toggle" onclick="toggleTheme()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
-                    {{ _('Dark Mode') }}
-                </button>
+                <select id="theme-toggle" onchange="applyTheme(this.value)" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm cursor-pointer">
+                    <option value="light">{{ _('Light Mode') }}</option>
+                    <option value="dark">{{ _('Dark Mode') }}</option>
+                    <option value="blackgold">{{ _('Black Gold') }}</option>
+                </select>
                 <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
                     {{ _('Logout') }}
                 </button>
@@ -159,6 +272,7 @@
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('opencode')">{{ _('OpenCode Config') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('documents')">{{ _('Documents') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('mcp')">MCP Tools</button>
             </div>
             
             {% include 'user/tab_stats.html' %}
@@ -166,6 +280,7 @@
             {% include 'user/tab_opencode.html' %}
             {% include 'user/tab_usage.html' %}
             {% include 'user/tab_documents.html' %}
+            {% include 'user/tab_mcp.html' %}
         </div>
     </div>
     
@@ -173,6 +288,7 @@
     window.I18N = {
         lightMode: {{ _('Light Mode') | tojson }},
         darkMode: {{ _('Dark Mode') | tojson }},
+        blackGoldMode: {{ _('Black Gold Mode') | tojson }},
         unauthorized: {{ _('Unauthorized') | tojson }},
         others: {{ _('Others') | tojson }},
         owned: {{ _('Owned') | tojson }},
@@ -230,7 +346,9 @@
         aiGenerated: {{ _('AI Generated') | tojson }},
         aiUnavailable: {{ _('AI analysis unavailable') | tojson }},
         samplesLabel: {{ _('samples') | tojson }},
-        opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider.') | tojson }},
+        opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the modelgate provider.') | tojson }},
+        loading: {{ _('Loading...') | tojson }},
+        loadFailed: {{ _('Failed to load') | tojson }},
         topShare: {{ _('top share') | tojson }},
         onRightAxis: {{ _('on right axis') | tojson }},
         yourApiKey: {{ _('Your API key') | tojson }},
@@ -264,32 +382,27 @@
         }
 
         function getChartTheme() {
-            const isDark = document.body.classList.contains('theme-dark');
+            const mode = getThemeMode();
+            const isDark = mode === 'dark';
+            const isBlackGold = mode === 'blackgold';
             return {
-                tickColor: isDark ? '#94a3b8' : '#6b7280',
-                gridColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)',
-                titleColor: isDark ? '#cbd5e1' : '#4b5563',
-                legendColor: isDark ? '#e5e7eb' : '#374151',
-                tooltipBg: isDark ? '#0f172a' : '#ffffff',
-                tooltipTitle: isDark ? '#f8fafc' : '#111827',
-                tooltipBody: isDark ? '#cbd5e1' : '#374151',
-                tooltipBorder: isDark ? '#334155' : '#e5e7eb'
+                tickColor: isBlackGold ? '#a8a29e' : (isDark ? '#94a3b8' : '#6b7280'),
+                gridColor: isBlackGold ? 'rgba(168, 162, 158, 0.12)' : (isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)'),
+                titleColor: isBlackGold ? '#d6d3d1' : (isDark ? '#cbd5e1' : '#4b5563'),
+                legendColor: isBlackGold ? '#d6d3d1' : (isDark ? '#e5e7eb' : '#374151'),
+                tooltipBg: isBlackGold ? '#1a1814' : (isDark ? '#0f172a' : '#ffffff'),
+                tooltipTitle: isBlackGold ? '#fafaf9' : (isDark ? '#f8fafc' : '#111827'),
+                tooltipBody: isBlackGold ? '#c9b896' : (isDark ? '#cbd5e1' : '#374151'),
+                tooltipBorder: isBlackGold ? 'rgba(212, 168, 83, 0.30)' : (isDark ? '#334155' : '#e5e7eb')
             };
         }
 
         function applyTheme(mode) {
-            const isDark = mode === 'dark';
-            document.body.classList.toggle('theme-dark', isDark);
+            document.body.classList.remove('theme-dark', 'theme-blackgold');
+            if (mode === 'dark') document.body.classList.add('theme-dark');
+            else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
             localStorage.setItem('dashboard_theme', mode);
-            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
-        }
-
-        function toggleTheme() {
-            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
-            applyTheme(nextMode);
-            loadStats();
-            loadActiveSessions();
-            loadSystemActiveSessions();
+            document.getElementById('theme-toggle').value = mode;
         }
 
         applyTheme(getThemeMode());
@@ -312,10 +425,71 @@
             if (tab === 'opencode') loadOpenCodeConfig();
             if (tab === 'catalog' && !catalogLoaded) loadCatalog();
             if (tab === 'documents') loadDocList();
+            if (tab === 'mcp') loadMcpInfo();
         }
 
         function openDocumentPage(docId) {
             window.location.href = APP_BASE_PATH + '/user/documents/' + docId;
+        }
+
+        async function loadMcpInfo() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/user/api/mcp-info`);
+                if (!data.has_mcp) {
+                    document.getElementById('mcp-no-server').classList.remove('hidden');
+                    document.getElementById('mcp-info').classList.add('hidden');
+                    return;
+                }
+                document.getElementById('mcp-no-server').classList.add('hidden');
+                document.getElementById('mcp-info').classList.remove('hidden');
+
+                const servers = data.servers || [];
+                const tools = data.tools || [];
+
+                const configObj = {
+                    mcpServers: {
+                        "modelgate-proxy": {
+                            url: data.endpoint,
+                            headers: { "Authorization": "Bearer YOUR_API_KEY" }
+                        }
+                    }
+                };
+                const configObjSSE = {
+                    mcpServers: {
+                        "modelgate-proxy": {
+                            url: data.endpoint + "/sse",
+                            headers: { "Authorization": "Bearer YOUR_API_KEY" }
+                        }
+                    }
+                };
+                document.getElementById('mcp-config-snippet').textContent = JSON.stringify(configObj, null, 2);
+                document.getElementById('mcp-config-snippet-sse').textContent = JSON.stringify(configObjSSE, null, 2);
+
+                document.getElementById('mcp-tool-count').textContent = tools.length;
+
+                const toolsList = document.getElementById('mcp-tools-list');
+                toolsList.innerHTML = '';
+                if (tools.length === 0) {
+                    toolsList.innerHTML = '<p class="text-gray-400 text-sm">No tools available</p>';
+                    return;
+                }
+                tools.forEach(tool => {
+                    const div = document.createElement('div');
+                    div.className = 'bg-white rounded-lg p-3 shadow-sm';
+                    div.innerHTML = `
+                        <div class="font-mono text-sm font-semibold text-blue-600 mb-1">${tool.name}</div>
+                        <div class="text-gray-500 text-xs">${tool.description || ''}</div>
+                    `;
+                    toolsList.appendChild(div);
+                });
+            } catch (e) {
+                console.error('Failed to load MCP info:', e);
+            }
+        }
+
+        function copyMcpConfig(elementId) {
+            const text = document.getElementById(elementId || 'mcp-config-snippet').textContent;
+            navigator.clipboard.writeText(text);
         }
 
         async function loadDocList() {
@@ -1086,24 +1260,18 @@
         });
         
         async function loadOpenCodeConfig() {
+            const el = document.getElementById('config-output');
+            el.textContent = window.I18N.loading || 'Loading...';
             try {
-                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/opencode-config');
-                
-                const config = data.config;
-                config.provider['model-token-plan'].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
-                
-                const prompt = "# " + window.I18N.opencodePrompt + "\n\n";
-                document.getElementById('config-output').textContent = prompt + JSON.stringify(config, null, 2);
-                
-                const modelsHtml = data.models.map(m => `
-                    <div class="flex justify-between items-center p-2 bg-white rounded">
-                        <span class="font-medium text-sm">${m.name}</span>
-                        <span class="text-xs text-gray-500">${window.I18N.ctx}: ${m.context.toLocaleString()} | ${window.I18N.out}: ${m.output.toLocaleString()}</span>
-                    </div>
-                `).join('');
-                document.getElementById('models-list').innerHTML = modelsHtml || `<div class="text-gray-400">${window.I18N.noModels}</div>`;
+                const resp = await fetch(APP_BASE_PATH + '/opencode/setup.md');
+                if (!resp.ok) {
+                    el.textContent = window.I18N.loadFailed || 'Failed to load';
+                    return;
+                }
+                const text = await resp.text();
+                el.textContent = text;
             } catch (e) {
-                console.error('Failed to load OpenCode config:', e);
+                el.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
             }
         }
         

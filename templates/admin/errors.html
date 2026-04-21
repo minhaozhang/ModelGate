@@ -6,8 +6,8 @@
     {% include 'components/site_head_meta.html' %}
     <title>{{ _('Error Analysis') }} - ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="/static/css/output.css">
+    <script src="/static/js/marked.min.js"></script>
     <style>
         .nav-link { transition: all 0.2s; }
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
@@ -294,12 +294,7 @@
             const isDark = mode === 'dark';
             document.body.classList.toggle('theme-dark', isDark);
             localStorage.setItem('admin_theme', mode);
-            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
-        }
-
-        function toggleTheme() {
-            const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
-            applyTheme(nextMode);
+            document.getElementById('theme-toggle').value = mode;
         }
 
         async function logout() {
@@ -566,7 +561,7 @@
                 renderLogs(payload.logs || []);
             } catch (error) {
                 console.error(error);
-                alert(window.I18N.loadingFailed);
+                showToast(window.I18N.loadingFailed, 'error');
             }
         }
 
@@ -642,7 +637,7 @@
                 }
             } catch (error) {
                 console.error(error);
-                alert(window.I18N.loadingFailed);
+                showToast(window.I18N.loadingFailed, 'error');
             } finally {
                 btn.disabled = false;
                 spinner.classList.add('hidden');
