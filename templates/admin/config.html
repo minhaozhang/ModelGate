@@ -26,7 +26,17 @@
         body.theme-dark input,
         body.theme-dark select,
         body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
-        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500):not(.pk-action) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        .pk-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f9fafb; border-radius: 0.5rem; gap: 0.75rem; }
+        body.theme-dark .pk-row { background: #1e293b; }
+        .pk-info { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+        .pk-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .pk-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+        .pk-action { background: none !important; border: none !important; cursor: pointer; padding: 0; font-size: 0.75rem; }
+        .toast { position: fixed; top: 1rem; right: 1rem; z-index: 200; padding: 0.75rem 1.25rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transition: opacity 0.3s, transform 0.3s; opacity: 0; transform: translateY(-10px); pointer-events: none; }
+        .toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .toast-success { background: #10b981; color: #fff; }
+        .toast-error { background: #ef4444; color: #fff; }
         body.theme-dark .shadow,
         body.theme-dark .shadow-lg,
         body.theme-dark .shadow-xl { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
@@ -36,6 +46,7 @@
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+    <div id="toast" class="toast"></div>
     {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% include "components/nav.html" %}
@@ -710,6 +721,14 @@
 
         let providerKeysTargetId = null;
 
+        function showToast(msg, type) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = 'toast toast-' + (type || 'success') + ' show';
+            clearTimeout(el._timer);
+            el._timer = setTimeout(() => { el.className = 'toast'; }, 2000);
+        }
+
         async function openProviderKeys(providerId, providerName) {
             providerKeysTargetId = providerId;
             document.getElementById('provider-keys-title').textContent = providerName + ' - ' + (CONFIG_I18N.providerKeys || 'Provider Keys');
@@ -734,23 +753,25 @@
                 return;
             }
             container.innerHTML = keys.map(k => `
-                <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <div>
-                        <span class="text-sm font-mono">${k.api_key}</span>
-                        ${k.label ? '<span class="ml-2 text-xs text-gray-500">' + k.label + '</span>' : ''}
-                        <span class="ml-2 text-xs ${k.is_active ? 'text-green-600' : 'text-red-600'}">${k.is_active ? 'Active' : 'Inactive'}</span>
-                        ${k.disabled_reason ? '<span class="ml-2 text-xs text-orange-500">&#9888; ' + (k.disabled_reason || '').substring(0, 30) + '</span>' : ''}
-                        <div class="mt-1 flex items-center gap-2 text-xs text-gray-400">
-                            <span>Concurrency:</span>
-                            <input type="number" min="1" value="${k.max_concurrent || ''}" placeholder="Provider"
+                <div class="pk-row">
+                    <div class="pk-info">
+                        <div class="pk-meta">
+                            <span class="text-sm font-mono font-medium">${k.api_key}</span>
+                            ${k.label ? '<span class="text-xs text-gray-400">' + k.label + '</span>' : ''}
+                            <span class="text-xs ${k.is_active ? 'text-green-600' : 'text-red-500'}">${k.is_active ? 'Active' : 'Inactive'}</span>
+                            ${k.disabled_reason ? '<span class="text-xs text-orange-500">&#9888; ' + (k.disabled_reason || '').substring(0, 30) + '</span>' : ''}
+                        </div>
+                        <div class="flex items-center gap-1 text-xs text-gray-400 mt-1">
+                            <span>{{ _('Concurrency') }}:</span>
+                            <input type="number" min="1" value="${k.max_concurrent || ''}" placeholder="{{ _('Default') }}"
                                    id="provider-key-mc-${k.id}"
-                                   class="w-20 border rounded px-2 py-1 text-xs text-center">
-                            <button onclick="updateProviderKeyConcurrency(${k.id})" class="text-blue-500 hover:text-blue-700 text-xs">Save</button>
+                                   class="w-16 border rounded px-1.5 py-0.5 text-xs text-center">
+                            <button onclick="updateProviderKeyConcurrency(${k.id})" class="pk-action text-blue-500 hover:text-blue-700">{{ _('Save') }}</button>
                         </div>
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="toggleProviderKey(${k.id}, ${!k.is_active})" class="text-xs ${k.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}">${k.is_active ? 'Disable' : 'Enable'}</button>
-                        <button onclick="deleteProviderKey(${k.id})" class="text-red-500 hover:text-red-700 text-xs">Delete</button>
+                    <div class="pk-actions">
+                        <button onclick="toggleProviderKey(${k.id}, ${!k.is_active})" class="pk-action ${k.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}">${k.is_active ? '{{ _("Disable") }}' : '{{ _("Enable") }}'}</button>
+                        <button onclick="deleteProviderKey(${k.id})" class="pk-action text-red-500 hover:text-red-700">{{ _('Delete') }}</button>
                     </div>
                 </div>
             `).join('');
@@ -780,8 +801,9 @@
                 document.getElementById('new-provider-key-max-concurrent').value = '';
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
+                showToast('Key added');
             } catch(err) {
-                alert('Failed to add key: ' + (err.message || err));
+                showToast('Failed: ' + (err.message || err), 'error');
             }
         }
 
@@ -795,8 +817,9 @@
                 });
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
+                showToast(activate ? 'Key enabled' : 'Key disabled');
             } catch(err) {
-                alert('Failed to toggle key: ' + (err.message || err));
+                showToast('Failed: ' + (err.message || err), 'error');
             }
         }
 
@@ -812,8 +835,9 @@
                 });
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
+                showToast('Concurrency saved');
             } catch(err) {
-                alert('Failed to update key concurrency: ' + (err.message || err));
+                showToast('Failed: ' + (err.message || err), 'error');
             }
         }
 
@@ -826,8 +850,9 @@
                 });
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
+                showToast('Key deleted');
             } catch(err) {
-                alert('Failed to delete key: ' + (err.message || err));
+                showToast('Failed: ' + (err.message || err), 'error');
             }
         }
 
