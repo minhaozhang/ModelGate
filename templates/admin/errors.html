@@ -561,7 +561,7 @@
                 renderLogs(payload.logs || []);
             } catch (error) {
                 console.error(error);
-                alert(window.I18N.loadingFailed);
+                showToast(window.I18N.loadingFailed, 'error');
             }
         }
 
@@ -637,7 +637,7 @@
                 }
             } catch (error) {
                 console.error(error);
-                alert(window.I18N.loadingFailed);
+                showToast(window.I18N.loadingFailed, 'error');
             } finally {
                 btn.disabled = false;
                 spinner.classList.add('hidden');

@@ -325,22 +325,21 @@
 
         try {
             if (id) {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers/${id}`, {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/mcp-servers/${id}`, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(data)
-                });
+                }, {success: 'Server saved', error: L.failedToSave});
             } else {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`, {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/mcp-servers`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(data)
-                });
+                }, {success: 'Server saved', error: L.failedToSave});
             }
             closeServerModal();
             loadServers();
         } catch (err) {
-            alert(L.failedToSave + ': ' + parseError(err));
         }
     });
 
@@ -361,17 +360,16 @@
             btn.classList.add('syncing');
         }
         try {
-            const result = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers/${id}/sync`, {
+            const result = await mgFetchJson(`${APP_BASE_PATH}/admin/api/mcp-servers/${id}/sync`, {
                 method: 'POST'
-            });
+            }, {error: L.failedToSync});
             const msg = L.syncSuccess.replace('{n}', (result.tool_count || 0).toLocaleString());
-            alert(msg);
+            showToast(msg, 'success');
             loadServers();
             if (expandedServerId === id) {
                 viewTools(id);
             }
         } catch (err) {
-            alert(L.failedToSync);
         } finally {
             if (btn) {
                 btn.disabled = false;

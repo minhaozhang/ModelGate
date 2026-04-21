@@ -332,7 +332,7 @@
                 const r = await fetch(`${BASE}/admin/api/documents/${docId}/files`, { method: 'POST', body: form });
                 if (!r.ok) {
                     const e = await r.json();
-                    alert((e && e.error) || window.I18N.uploadFailed);
+                    showToast((e && e.error) || window.I18N.uploadFailed, 'error');
                 }
             }
             await loadAttachedFiles(docId);
@@ -358,11 +358,11 @@
             event.target.value = '';
             if (!file) return;
             const docId = editingDocId || document.getElementById('edit-doc-id').value;
-            if (!docId) { alert(window.I18N.saveFirst); return; }
+            if (!docId) { showToast(window.I18N.saveFirst, 'info'); return; }
             const form = new FormData();
             form.append('file', file);
             const r = await fetch(`${BASE}/admin/api/documents/${docId}/files`, { method: 'POST', body: form });
-            if (!r.ok) { const e = await r.json(); alert((e && e.error) || window.I18N.uploadFailed); return; }
+            if (!r.ok) { const e = await r.json(); showToast((e && e.error) || window.I18N.uploadFailed, 'error'); return; }
             const f = await r.json();
             const ta = document.getElementById('edit-content');
             const start = ta.selectionStart;
@@ -397,45 +397,43 @@
             const content = document.getElementById('edit-content').value;
             const category = document.getElementById('edit-category').value.trim();
             const is_published = document.getElementById('edit-published').checked;
-            if (!title) { alert(window.I18N.titleRequired); return; }
+            if (!title) { showToast(window.I18N.titleRequired, 'error'); return; }
 
             try {
                 let r;
                 if (id) {
-                    r = await fetch(`${BASE}/admin/api/documents/${id}`, {
+                    r = await mgFetch(`${BASE}/admin/api/documents/${id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ title, content, category, is_published }),
-                    });
+                    }, {success: 'Document saved', error: window.I18N.saveFailed});
                 } else {
                     const form = new FormData();
                     form.append('title', title);
                     form.append('content', content);
                     form.append('category', category);
                     form.append('is_published', is_published ? 'true' : 'false');
-                    r = await fetch(`${BASE}/admin/api/documents`, { method: 'POST', body: form });
+                    r = await mgFetch(`${BASE}/admin/api/documents`, { method: 'POST', body: form }, {success: 'Document created', error: window.I18N.saveFailed});
                 }
-                if (r.status === 401) { window.location.href = `${BASE}/admin/login`; return; }
-                if (!r.ok) { const e = await r.json(); throw new Error(e.error || window.I18N.saveFailed); }
                 const saved = await r.json();
                 editingDocId = saved.id || id;
                 document.getElementById('edit-doc-id').value = editingDocId;
                 document.getElementById('files-section').classList.remove('hidden');
                 await loadAttachedFiles(editingDocId);
                 await loadDocuments();
-            } catch (err) { alert(err.message || window.I18N.saveFailed); }
+            } catch (err) { }
         }
 
         async function deleteDoc(id) {
             if (!confirm(window.I18N.deleteConfirm)) return;
-            const r = await fetch(`${BASE}/admin/api/documents/${id}`, { method: 'DELETE' });
-            if (r.status === 401) { window.location.href = `${BASE}/admin/login`; return; }
-            if (!r.ok) { alert(window.I18N.deleteFailed); return; }
-            if (selectedDocId === id) {
-                selectedDocId = null;
-            }
-            await loadDocuments();
-            document.getElementById('doc-preview').innerHTML = `<div class="text-sm text-gray-500">${window.I18N.selectToPreview}</div>`;
+            try {
+                await mgFetch(`${BASE}/admin/api/documents/${id}`, { method: 'DELETE' }, {success: 'Document deleted', error: window.I18N.deleteFailed});
+                if (selectedDocId === id) {
+                    selectedDocId = null;
+                }
+                await loadDocuments();
+                document.getElementById('doc-preview').innerHTML = `<div class="text-sm text-gray-500">${window.I18N.selectToPreview}</div>`;
+            } catch(e) {}
         }
 
         setupDropZone();

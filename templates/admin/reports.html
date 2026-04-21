@@ -472,7 +472,7 @@
             const startDate = document.getElementById('start-date').value;
             const endDate = document.getElementById('end-date').value;
             if (!startDate || !endDate) {
-                alert(window.I18N.pleaseSelectDates);
+                showToast(window.I18N.pleaseSelectDates, 'info');
                 return;
             }
 
@@ -504,7 +504,7 @@
                     if (payload.task?.id) {
                         setPolling(payload.task.id);
                     }
-                    alert(window.I18N.alreadyRunning);
+                    showToast(window.I18N.alreadyRunning, 'info');
                     return;
                 }
 
@@ -519,7 +519,7 @@
                 await loadHistory();
             } catch (error) {
                 console.error(error);
-                alert(error.message || window.I18N.generateFailed);
+                showToast(error.message || window.I18N.generateFailed, 'error');
             } finally {
                 btn.disabled = false;
                 spinner.classList.add('hidden');

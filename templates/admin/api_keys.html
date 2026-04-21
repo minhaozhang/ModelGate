@@ -410,20 +410,19 @@
         }
         try {
             if (ruleId) {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules/${ruleId}`, {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules/${ruleId}`, {
                     method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-                });
+                }, {success: 'Time rule updated', error: window.I18N.failedToSaveTimeRule});
             } else {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`, {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`, {
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-                });
+                }, {success: 'Time rule created', error: window.I18N.failedToSaveTimeRule});
             }
             const resp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`);
             currentTimerules = resp.rules || [];
             renderTimeRulesList();
             cancelTimeRuleForm();
         } catch (err) {
-            alert(window.I18N.failedToSaveTimeRule);
         }
     });
 
@@ -681,7 +680,7 @@
         }
         
         function copyExample(cmd) {
-            navigator.clipboard.writeText(cmd).then(() => alert(window.I18N.copied));
+            navigator.clipboard.writeText(cmd).then(() => showToast(window.I18N.copied, 'info'));
         }
         
         function renderModelCheckboxes() {
@@ -715,7 +714,7 @@
         }
         
         function copyKey(key) {
-            navigator.clipboard.writeText(key).then(() => alert(window.I18N.copied));
+            navigator.clipboard.writeText(key).then(() => showToast(window.I18N.copied, 'info'));
         }
         
         function copyKeyWithInstructions(payload) {
@@ -744,7 +743,7 @@ https://opencode.ai/
 ${window.I18N.opencodeSendHint}
 ${window.I18N.followThisDoc}
 ${setupMdUrl}`;
-            navigator.clipboard.writeText(text).then(() => alert(window.I18N.apiKeyAndUsageCopied));
+            navigator.clipboard.writeText(text).then(() => showToast(window.I18N.apiKeyAndUsageCopied, 'info'));
         }
         
         function showAddApiKey() {
@@ -789,24 +788,22 @@ ${setupMdUrl}`;
             
             try {
                 if (id) {
-                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/` + id, {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/keys/` + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
-                    });
+                    }, {success: 'API key updated', error: window.I18N.failedToSave});
                 } else {
-                    const result = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys`, {
+                    const result = await mgFetchJson(`${APP_BASE_PATH}/admin/api/keys`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
-                    });
-                    alert(window.I18N.apiKeyCreated + ' ' + result.key + '\n' + window.I18N.pleaseSaveKey);
+                    }, {error: window.I18N.failedToSave});
+                    showToast(window.I18N.apiKeyCreated + ' ' + result.key, 'success');
                 }
                 closeApiKeyModal();
                 loadApiKeys();
-            } catch(err) {
-                alert(window.I18N.failedToSave);
-            }
+            } catch(err) {}
         });
         
         async function deleteApiKey(id) {

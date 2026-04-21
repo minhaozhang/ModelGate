@@ -33,10 +33,6 @@
         .pk-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .pk-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
         .pk-action { background: none !important; border: none !important; cursor: pointer; padding: 0; font-size: 0.75rem; }
-        .toast { position: fixed; top: 1rem; right: 1rem; z-index: 200; padding: 0.75rem 1.25rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transition: opacity 0.3s, transform 0.3s; opacity: 0; transform: translateY(-10px); pointer-events: none; }
-        .toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
-        .toast-success { background: #10b981; color: #fff; }
-        .toast-error { background: #ef4444; color: #fff; }
         body.theme-dark .shadow,
         body.theme-dark .shadow-lg,
         body.theme-dark .shadow-xl { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
@@ -46,7 +42,6 @@
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
-    <div id="toast" class="toast"></div>
     {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% include "components/nav.html" %}
@@ -370,17 +365,16 @@
                     if (c.checked) byPm[pmId].push(akId);
                 });
                 for (const [pmId, akIds] of Object.entries(byPm)) {
-                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models/${modelKeysTarget}/api-keys`, {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/models/${modelKeysTarget}/api-keys`, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({provider_model_id: parseInt(pmId), api_key_ids: akIds})
-                    });
+                    }, {error: 'Failed to save key access'});
                 }
+                showToast('Key access saved', 'success');
                 closeModelKeysModal();
                 loadModels();
-            } catch(err) {
-                alert('Failed to save: ' + (err.message || err));
-            }
+            } catch(e) {}
         }
 
         async function loadModels() {
@@ -470,48 +464,39 @@
 
         async function unbindModel(pmId) {
             try {
-                const resp = await fetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {method: 'DELETE'});
-                if (!resp.ok) {
-                    const data = await resp.json().catch(() => ({}));
-                    alert(data.error || 'Unbind failed');
-                    return;
-                }
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {method: 'DELETE'}, {success: 'Model unbound', error: 'Unbind failed'});
                 loadProviderBindings(selectedProviderId);
-            } catch(err) {
-                alert('Unbind failed: ' + err.message);
-            }
+            } catch(e) {}
         }
 
         async function updateBindingConcurrency(pmId, value) {
             const maxConcurrent = value ? parseInt(value) : null;
-            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {
+            await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({max_concurrent: maxConcurrent})
-            });
+            }, {success: 'Concurrency saved', error: 'Failed to save'});
             loadProviderBindings(selectedProviderId);
         }
 
         async function syncSelectedProvider() {
             if (!selectedProviderId) {
-                alert('Please select a provider first');
+                showToast('Please select a provider first', 'info');
                 return;
             }
             const btn = event.target;
             btn.disabled = true;
             btn.textContent = 'Syncing...';
             try {
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/sync-models', {method: 'POST'});
+                const data = await mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/sync-models', {method: 'POST'}, {error: 'Sync failed'});
                 if (data.synced) {
-                    alert('Synced ' + data.total + ' models: ' + data.synced.join(', '));
+                    showToast('Synced ' + data.total + ' models: ' + data.synced.join(', '), 'success');
                     loadModels();
                     loadProviderBindings(selectedProviderId);
                 } else if (data.error) {
-                    alert('Sync failed: ' + data.error);
+                    showToast('Sync failed: ' + data.error, 'error');
                 }
-            } catch(e) {
-                alert('Sync failed: ' + e.message);
-            }
+            } catch(e) {}
             btn.disabled = false;
             btn.textContent = 'Sync';
         }
@@ -572,42 +557,33 @@
             };
             try {
                 if (id) {
-                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + id, {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({base_url: data.base_url, api_key: data.api_key, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages, max_concurrent: data.max_concurrent})
-                    });
+                    }, {success: 'Provider saved', error: 'Failed to save provider'});
                 } else {
-                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers`, {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/providers`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
-                    });
+                    }, {success: 'Provider saved', error: 'Failed to save provider'});
                 }
                 closeProviderModal();
                 loadProviders();
-            } catch(err) {
-                alert('Failed to save provider: ' + (err.message || err));
-            }
+            } catch(e) {}
         });
 
         async function deleteProvider(id) {
             if (!confirm('Delete this provider?')) return;
             try {
-                const resp = await fetch(`${APP_BASE_PATH}/admin/api/providers/` + id, {method: 'DELETE'});
-                if (!resp.ok) {
-                    const data = await resp.json().catch(() => ({}));
-                    alert(data.error || 'Delete failed');
-                    return;
-                }
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + id, {method: 'DELETE'}, {success: 'Provider deleted', error: 'Delete failed'});
                 if (selectedProviderId === id) {
                     selectedProviderId = null;
                     document.getElementById('bindings-container').innerHTML = '<div class="text-gray-400 text-center py-4">Select a provider to view bindings</div>';
                 }
                 loadProviders();
-            } catch(err) {
-                alert('Delete failed: ' + err.message);
-            }
+            } catch(e) {}
         }
 
         function showAddModel() {
@@ -665,7 +641,7 @@
             };
             try {
                 if (id) {
-                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models/` + id, {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/models/` + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
@@ -677,34 +653,25 @@
                             is_multimodal: data.is_multimodal,
                             is_active: data.is_active
                         })
-                    });
+                    }, {success: 'Model saved', error: 'Failed to save model'});
                 } else {
-                    await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/models`, {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/models`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
-                    });
+                    }, {success: 'Model saved', error: 'Failed to save model'});
                 }
                 closeModelModal();
                 loadModels();
-            } catch(err) {
-                alert('Failed to save model: ' + (err.message || err));
-            }
+            } catch(e) {}
         });
 
         async function deleteModel(id) {
             if (!confirm('Delete this model?')) return;
             try {
-                const resp = await fetch(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'});
-                if (!resp.ok) {
-                    const data = await resp.json().catch(() => ({}));
-                    alert(data.error || 'Delete failed');
-                    return;
-                }
+                await mgFetch(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'}, {success: 'Model deleted', error: 'Delete failed'});
                 loadModels();
-            } catch(err) {
-                alert('Delete failed: ' + err.message);
-            }
+            } catch(e) {}
         }
 
         document.getElementById('provider-modal').addEventListener('click', (e) => {
@@ -715,14 +682,6 @@
         });
 
         let providerKeysTargetId = null;
-
-        function showToast(msg, type) {
-            const el = document.getElementById('toast');
-            el.textContent = msg;
-            el.className = 'toast toast-' + (type || 'success') + ' show';
-            clearTimeout(el._timer);
-            el._timer = setTimeout(() => { el.className = 'toast'; }, 2000);
-        }
 
         async function openProviderKeys(providerId, providerName) {
             providerKeysTargetId = providerId;
@@ -784,38 +743,32 @@
             const label = document.getElementById('new-provider-key-label').value.trim();
             const maxConcurrentRaw = document.getElementById('new-provider-key-max-concurrent').value.trim();
             const maxConcurrent = maxConcurrentRaw ? parseInt(maxConcurrentRaw, 10) : null;
-            if (!apiKey) { alert('API Key is required'); return; }
+            if (!apiKey) { showToast('API Key is required', 'error'); return; }
             try {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys', {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({api_key: apiKey, label: label || null, max_concurrent: maxConcurrent})
-                });
+                }, {success: 'Key added', error: 'Failed to add key'});
                 document.getElementById('new-provider-key-value').value = '';
                 document.getElementById('new-provider-key-label').value = '';
                 document.getElementById('new-provider-key-max-concurrent').value = '';
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
-                showToast('Key added');
-            } catch(err) {
-                showToast('Failed: ' + (err.message || err), 'error');
-            }
+            } catch(err) {}
         }
 
         async function toggleProviderKey(keyId, activate) {
             if (!providerKeysTargetId) return;
             try {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({is_active: activate})
-                });
+                }, {success: activate ? 'Key enabled' : 'Key disabled', error: 'Failed to update key'});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
-                showToast(activate ? 'Key enabled' : 'Key disabled');
-            } catch(err) {
-                showToast('Failed: ' + (err.message || err), 'error');
-            }
+            } catch(err) {}
         }
 
         async function updateProviderKeyConcurrency(keyId) {
@@ -823,32 +776,26 @@
             const input = document.getElementById('provider-key-mc-' + keyId);
             const maxConcurrent = input && input.value ? parseInt(input.value, 10) : null;
             try {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({max_concurrent: maxConcurrent})
-                });
+                }, {success: 'Concurrency saved', error: 'Failed to save'});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
-                showToast('Concurrency saved');
-            } catch(err) {
-                showToast('Failed: ' + (err.message || err), 'error');
-            }
+            } catch(err) {}
         }
 
         async function deleteProviderKey(keyId) {
             if (!providerKeysTargetId) return;
             if (!confirm('Delete this key?')) return;
             try {
-                await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
                     method: 'DELETE'
-                });
+                }, {success: 'Key deleted', error: 'Failed to delete key'});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
-                showToast('Key deleted');
-            } catch(err) {
-                showToast('Failed: ' + (err.message || err), 'error');
-            }
+            } catch(err) {}
         }
 
         document.getElementById('provider-keys-modal').addEventListener('click', (e) => {
