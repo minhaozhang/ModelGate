@@ -79,7 +79,7 @@
         body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
         body.theme-dark input,
         body.theme-dark select { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
-        body.theme-dark button:not(.bg-blue-600):not(.bg-slate-700) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark button:not(.bg-blue-600):not(.bg-slate-700):not(.time-btn.active) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
         body.theme-dark .shadow,
         body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
         body.theme-dark .badge-success { background: rgba(34, 197, 94, 0.16); color: #86efac; }
@@ -258,6 +258,7 @@
             } else {
                 customEl.classList.add('hidden');
                 customEl.classList.remove('flex');
+                loadLogs();
             }
         }
 
