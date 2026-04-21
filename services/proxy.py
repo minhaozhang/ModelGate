@@ -18,6 +18,7 @@ from core.config import (
     error_logger,
     register_active_request,
     OUTBOUND_USER_AGENT,
+    provider_semaphores,
     provider_key_semaphores,
     provider_key_model_semaphores,
 )
@@ -247,7 +248,7 @@ async def proxy_request(request: Request, endpoint: str):
     chosen_api_key, chosen_key_id = pick_api_key(provider_config, api_key_id, provider_name)
     if not chosen_api_key or chosen_key_id is None:
         return _openai_error_response(
-            f"渚涘簲鍟?'{provider_name}' 鏃犲彲鐢ㄧ殑 API Key",
+            f"供应商 '{provider_name}' 无可用的 API Key",
             400,
             "invalid_request_error",
             "no_api_key",
@@ -276,7 +277,7 @@ async def proxy_request(request: Request, endpoint: str):
         )
         acquired = True
     except asyncio.TimeoutError:
-        message = f"供应商 '{provider_name}/{actual_model}' 当前并发已满，请稍后重试"
+        message = f"供应商 Key '{provider_name}/{actual_model}' 当前并发已满，请稍后重试"
         logger.warning(f"[RATE LIMIT] {provider_key_sem_key} at max concurrency")
         update_stats(
             provider_name,
@@ -317,7 +318,7 @@ async def proxy_request(request: Request, endpoint: str):
         provider_key_semaphore.release()
         acquired = False
         message = (
-            f"API Key {api_key_id} 在 '{provider_name}/{actual_model}' 上已有进行中的请求，请稍后重试"
+            f"Provider Key {chosen_key_id} 在 '{provider_name}/{actual_model}' 上已达到并发上限，请稍后重试"
         )
         logger.warning("[RATE LIMIT] %s at max concurrency", provider_key_model_sem_key)
         update_stats(
@@ -1023,7 +1024,8 @@ async def _disable_provider_key(
         await _disable_provider(provider_name, reason)
         return
 
-    from services.provider import load_providers
+    from services.provider import load_providers, invalidate_provider_key_sticky_cache
+    await invalidate_provider_key_sticky_cache(provider_name, provider_key_id)
     await load_providers()
 
 
@@ -1031,11 +1033,18 @@ def _check_usage_limit_error(resp_json: dict, provider_name: str) -> str | None:
     error_obj = resp_json.get("error")
     if not isinstance(error_obj, dict):
         return None
-    if provider_name != "zhipu":
-        return None
     code = error_obj.get("code", "")
     message = error_obj.get("message", "")
-    if code == "1308" or "使用上限" in message or "usage limit" in message.lower():
+    normalized_message = message.lower()
+    if (
+        code == "1308"
+        or "使用上限" in message
+        or "用量上限" in message
+        or "超出用量" in message
+        or "无可用余额" in message
+        or "usage limit" in normalized_message
+        or "quota" in normalized_message
+    ):
         return f"{message} ({code})"
     return None
 

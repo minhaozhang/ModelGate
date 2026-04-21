@@ -72,6 +72,19 @@ def pick_api_key(
     return chosen["api_key"], chosen["id"]
 
 
+async def invalidate_provider_key_sticky_cache(
+    provider_name: str,
+    provider_key_id: int,
+) -> None:
+    stale_keys = [
+        sticky_key
+        for sticky_key, sticky_value in _key_sticky_map.items()
+        if sticky_key[1] == provider_name and sticky_value[0] == provider_key_id
+    ]
+    for sticky_key in stale_keys:
+        _key_sticky_map.pop(sticky_key, None)
+
+
 def parse_model(model: str) -> tuple[str, str]:
     if "/" in model:
         parts = model.split("/", 1)
