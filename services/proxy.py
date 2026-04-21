@@ -18,7 +18,6 @@ from core.config import (
     error_logger,
     register_active_request,
     OUTBOUND_USER_AGENT,
-    provider_semaphores,
     provider_key_semaphores,
     provider_key_model_semaphores,
 )
@@ -36,6 +35,7 @@ from services.provider import (
     get_disabled_provider_reason,
     pick_api_key,
 )
+from services.provider_limiter import check_usage_limit_error, disable_provider_key
 from services.auth import validate_api_key
 from services.logging import (
     create_request_log,
@@ -675,9 +675,9 @@ async def call_internal_model_via_proxy(
         except json.JSONDecodeError:
             resp_json = {}
 
-        usage_limit_err = _check_usage_limit_error(resp_json, provider_name)
+        usage_limit_err = check_usage_limit_error(resp_json, provider_name)
         if usage_limit_err:
-            await _disable_provider_key(
+            await disable_provider_key(
                 provider_name, provider_config, chosen_key_id, usage_limit_err
             )
             return {
@@ -967,88 +967,6 @@ def _extract_provider_error(payload: dict) -> str | None:
     return None
 
 
-async def _disable_provider(provider_name: str, reason: str) -> None:
-    from sqlalchemy import update
-    from core.database import Provider
-
-    logger.warning("[PROVIDER] Disabling provider '%s' due to: %s", provider_name, reason)
-    async with async_session_maker() as session:
-        await session.execute(
-            update(Provider)
-            .where(Provider.name == provider_name)
-            .values(is_active=False, disabled_reason=reason[:255])
-        )
-        await session.commit()
-    providers_cache.pop(provider_name, None)
-    provider_semaphores.pop(provider_name, None)
-    from services.provider import load_providers
-    await load_providers()
-
-
-async def _disable_provider_key(
-    provider_name: str,
-    provider_config: dict,
-    provider_key_id: int | None,
-    reason: str,
-) -> None:
-    from sqlalchemy import update
-    from core.database import ProviderKey
-
-    if provider_key_id is None:
-        await _disable_provider(provider_name, reason)
-        return
-
-    logger.warning(
-        "[PROVIDER KEY] Disabling key %s of provider '%s' due to: %s",
-        provider_key_id,
-        provider_name,
-        reason,
-    )
-    async with async_session_maker() as session:
-        await session.execute(
-            update(ProviderKey)
-            .where(ProviderKey.id == provider_key_id)
-            .values(is_active=False, disabled_reason=reason[:255])
-        )
-        await session.commit()
-
-    keys = provider_config.get("api_keys") or []
-    active_keys = [k for k in keys if k["id"] != provider_key_id]
-    provider_config["api_keys"] = active_keys
-
-    if not active_keys and not provider_config.get("api_key"):
-        logger.warning(
-            "[PROVIDER] All keys disabled for '%s', disabling provider",
-            provider_name,
-        )
-        await _disable_provider(provider_name, reason)
-        return
-
-    from services.provider import load_providers, invalidate_provider_key_sticky_cache
-    await invalidate_provider_key_sticky_cache(provider_name, provider_key_id)
-    await load_providers()
-
-
-def _check_usage_limit_error(resp_json: dict, provider_name: str) -> str | None:
-    error_obj = resp_json.get("error")
-    if not isinstance(error_obj, dict):
-        return None
-    code = error_obj.get("code", "")
-    message = error_obj.get("message", "")
-    normalized_message = message.lower()
-    if (
-        code == "1308"
-        or "使用上限" in message
-        or "用量上限" in message
-        or "超出用量" in message
-        or "无可用余额" in message
-        or "usage limit" in normalized_message
-        or "quota" in normalized_message
-    ):
-        return f"{message} ({code})"
-    return None
-
-
 async def _record_stream_result(
     total_content,
     total_reasoning,
@@ -1223,10 +1141,10 @@ async def handle_normal(
         except json.JSONDecodeError:
             resp_json = {}
 
-        usage_limit_err = _check_usage_limit_error(resp_json, provider)
+        usage_limit_err = check_usage_limit_error(resp_json, provider)
         if usage_limit_err:
             provider_config = providers_cache.get(provider, {})
-            await _disable_provider_key(
+            await disable_provider_key(
                 provider, provider_config, chosen_key_id, usage_limit_err
             )
             return _openai_error_response(
@@ -1402,6 +1320,12 @@ async def handle_streaming(
                 resp_json = json.loads(error_body)
             except json.JSONDecodeError:
                 resp_json = {}
+            usage_limit_err = check_usage_limit_error(resp_json, provider)
+            if usage_limit_err:
+                provider_config = providers_cache.get(provider, {})
+                await disable_provider_key(
+                    provider, provider_config, chosen_key_id, usage_limit_err
+                )
             provider_error = _extract_provider_error(resp_json)
             request_status = _resolve_request_status(resp.status_code, provider_error)
             update_stats(
