@@ -120,8 +120,16 @@ class _ApiKeyAuthMiddleware:
             else:
                 key = auth
             if not key or key not in api_keys_cache:
+                error_scope = {
+                    "type": "http",
+                    "method": scope.get("method", "GET"),
+                    "path": scope.get("path", "/"),
+                    "headers": scope.get("headers", []),
+                    "query_string": scope.get("query_string", b""),
+                    "root_path": scope.get("root_path", ""),
+                }
                 response = JSONResponse({"error": "Unauthorized"}, status_code=401)
-                await response(scope, receive, send)
+                await response(error_scope, receive, send)
                 return
 
             api_key_id = api_keys_cache[key]["id"]

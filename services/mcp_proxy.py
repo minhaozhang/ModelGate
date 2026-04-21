@@ -1,5 +1,6 @@
+import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -80,6 +81,7 @@ async def _close_pool_entry(server_id: int) -> None:
         pass
 
 
+
 async def close_all_sessions() -> None:
     for sid in list(_session_pool.keys()):
         await _close_pool_entry(sid)
@@ -113,7 +115,7 @@ async def sync_server_tools(server: McpServer) -> list[dict]:
                         await db.execute(
                             update(McpServer)
                             .where(McpServer.id == server.id)
-                            .values(last_sync_error=None, last_sync_at=datetime.now())
+                            .values(last_sync_error=None, last_sync_at=datetime.now(timezone.utc))
                         )
                         await db.commit()
 
@@ -151,12 +153,13 @@ async def sync_all_servers() -> None:
         )
         servers = result.scalars().all()
 
-    for server in servers:
+    async def _sync_one(server):
         try:
             await sync_server_tools(server)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.error("[MCP] sync_all: server '%s' failed: %s", server.name, exc)
 
+    await asyncio.gather(*[_sync_one(s) for s in servers])
     logger.info("[MCP] Synced tools from %d active servers", len(servers))
 
 
