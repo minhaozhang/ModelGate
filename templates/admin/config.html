@@ -98,11 +98,6 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Base URL') }}</label>
                     <input type="text" id="provider-url" required class="w-full border rounded px-3 py-2" placeholder="https://api.example.com/v1">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Max Concurrent') }}</label>
-                    <input type="number" id="provider-max-concurrent" value="3" min="1" class="w-full border rounded px-3 py-2">
-                    <p class="text-xs text-gray-400 mt-1">{{ _('Max simultaneous requests to this provider') }}</p>
-                </div>
                 <div class="flex items-center">
                     <input type="checkbox" id="provider-active" checked class="mr-2">
                     <label class="text-sm text-gray-700">{{ _('Active') }}</label>
@@ -422,15 +417,6 @@
                         <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
                             <span class="text-sm">${b.display_name || b.model_name}</span>
                             <div class="flex items-center gap-2">
-                                <div class="flex items-center gap-1">
-                                    <label class="text-xs text-gray-500">{{ _('Concurrency') }}</label>
-                                    <input type="number" min="1" value="${b.max_concurrent || ''}" placeholder="∞"
-                                           id="mc-${b.id}"
-                                           class="w-16 border rounded px-2 py-1 text-sm text-center"
-                                           onchange="updateBindingConcurrency(${b.id}, this.value)">
-                                    <button onclick="updateBindingConcurrency(${b.id}, document.getElementById('mc-${b.id}').value)"
-                                            class="text-blue-500 hover:text-blue-700 text-xs">{{ _('Save') }}</button>
-                                </div>
                                 <button onclick="unbindModel(${b.id})" class="text-red-500 hover:text-red-700 text-sm">✕</button>
                             </div>
                         </div>
@@ -471,16 +457,6 @@
             } catch(e) {}
         }
 
-        async function updateBindingConcurrency(pmId, value) {
-            const maxConcurrent = value ? parseInt(value) : null;
-            await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({max_concurrent: maxConcurrent})
-            }, {success: 'Concurrency saved', error: 'Failed to save'});
-            loadProviderBindings(selectedProviderId);
-        }
-
         async function syncSelectedProvider() {
             if (!selectedProviderId) {
                 showToast('Please select a provider first', 'info');
@@ -509,10 +485,8 @@
             document.getElementById('provider-name').value = '';
             document.getElementById('provider-name').disabled = false;
             document.getElementById('provider-url').value = '';
-            document.getElementById('provider-key').value = '';
             document.getElementById('provider-active').checked = true;
             document.getElementById('provider-merge-msgs').checked = false;
-            document.getElementById('provider-max-concurrent').value = '3';
             document.getElementById('provider-modal').classList.remove('hidden');
             document.getElementById('provider-modal').classList.add('flex');
         }
@@ -525,10 +499,8 @@
             document.getElementById('provider-name').value = p.name;
             document.getElementById('provider-name').disabled = true;
             document.getElementById('provider-url').value = p.base_url;
-            document.getElementById('provider-key').value = '';
             document.getElementById('provider-active').checked = p.is_active;
             document.getElementById('provider-merge-msgs').checked = p.merge_consecutive_messages || false;
-            document.getElementById('provider-max-concurrent').value = p.max_concurrent || 3;
             const reasonEl = document.getElementById('provider-disabled-reason');
             if (p.disabled_reason) {
                 reasonEl.textContent = 'Disabled: ' + p.disabled_reason;
@@ -553,15 +525,14 @@
                 name: document.getElementById('provider-name').value,
                 base_url: document.getElementById('provider-url').value,
                 is_active: document.getElementById('provider-active').checked,
-                merge_consecutive_messages: document.getElementById('provider-merge-msgs').checked,
-                max_concurrent: parseInt(document.getElementById('provider-max-concurrent').value) || 3
+                merge_consecutive_messages: document.getElementById('provider-merge-msgs').checked
             };
             try {
                 if (id) {
                     await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({base_url: data.base_url, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages, max_concurrent: data.max_concurrent})
+                        body: JSON.stringify({base_url: data.base_url, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages})
                     }, {success: 'Provider saved', error: 'Failed to save provider'});
                 } else {
                     await mgFetch(`${APP_BASE_PATH}/admin/api/providers`, {

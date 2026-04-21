@@ -125,7 +125,6 @@ async def load_providers():
                         "max_tokens": model.max_tokens if model else 16384,
                         "thinking_enabled": model.thinking_enabled if model else False,
                         "thinking_budget": model.thinking_budget if model else 8192,
-                        "max_concurrent": pm.max_concurrent,
                     }
                 )
 
@@ -134,7 +133,6 @@ async def load_providers():
                 "base_url": p.base_url,
                 "api_key": p.api_key or "",
                 "models": provider_models_data,
-                "max_concurrent": p.max_concurrent or 3,
                 "merge_consecutive_messages": p.merge_consecutive_messages or False,
                 "disabled_reason": p.disabled_reason,
                 "api_keys": await _load_provider_keys(session, p.id),

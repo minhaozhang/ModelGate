@@ -19,6 +19,8 @@ from core.database import (
 logger = proxy_logger
 ERROR_STATUSES = {"error", "timeout"}
 RATE_LIMITED_STATUS = "rate_limited"
+LOCAL_RATE_LIMITED_STATUS = "local_rate_limited"
+RATE_LIMITED_STATUSES = {RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}
 
 
 async def aggregate_stats_for_date(date_str: str) -> dict:
@@ -58,7 +60,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 or 0
             )
             is_error = log.status in ERROR_STATUSES
-            is_rate_limited = log.status == RATE_LIMITED_STATUS
+            is_rate_limited = log.status in RATE_LIMITED_STATUSES
             if is_rate_limited:
                 tokens = 0
 
@@ -317,7 +319,7 @@ async def archive_old_request_logs() -> int:
                         now()
                     FROM request_logs rl
                     WHERE rl.created_at < :cutoff
-                      AND rl.status != 'rate_limited'
+                      AND rl.status NOT IN ('rate_limited', 'local_rate_limited')
                       AND EXISTS (
                         SELECT 1
                         FROM model_daily_stats mds
@@ -334,7 +336,7 @@ async def archive_old_request_logs() -> int:
                     WHERE mds.date = to_char(rl.created_at, 'YYYY-MM-DD')
                   )
                   AND (
-                    rl.status = 'rate_limited'
+                    rl.status IN ('rate_limited', 'local_rate_limited')
                     OR EXISTS (
                       SELECT 1
                       FROM request_logs_history rh

@@ -53,7 +53,6 @@ class Provider(Base):
     name = Column(String(50), unique=True, nullable=False)
     base_url = Column(String(255), nullable=False)
     api_key = Column(String(255), nullable=True)
-    max_concurrent = Column(Integer, default=3)
     merge_consecutive_messages = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     disabled_reason = Column(String(255), nullable=True)
@@ -103,7 +102,6 @@ class ProviderModel(Base):
     provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
     model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
     model_name_override = Column(String(100), nullable=True)
-    max_concurrent = Column(Integer, default=2)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
 
@@ -930,6 +928,16 @@ async def init_db():
         await conn.execute(
             text(
                 "CREATE INDEX IF NOT EXISTS idx_provider_keys_provider ON provider_keys (provider_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE providers DROP COLUMN IF EXISTS max_concurrent"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE provider_models DROP COLUMN IF EXISTS max_concurrent"
             )
         )
         await conn.execute(

@@ -82,6 +82,8 @@ INTERNAL_ANALYSIS_USER_AGENT = "modelgate/internal-analysis"
 SEMAPHORE_RETRY_AFTER_SECONDS = 5
 SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS = 1
 RATE_LIMITED_STATUS = "rate_limited"
+LOCAL_RATE_LIMITED_STATUS = "local_rate_limited"
+RATE_LIMITED_STATUSES = {RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}
 SCOPED_SEMAPHORE_LIMIT_ATTR = "_modelgate_scoped_limit"
 
 
@@ -269,7 +271,7 @@ async def proxy_request(request: Request, endpoint: str):
             "",
             {},
             (time.time() - start_time) * 1000,
-            RATE_LIMITED_STATUS,
+            LOCAL_RATE_LIMITED_STATUS,
             api_key_id=api_key_id,
             upstream_status_code=429,
             client_ip=client_ip,
@@ -332,7 +334,7 @@ async def proxy_request(request: Request, endpoint: str):
                     "",
                     {},
                     (time.time() - start_time) * 1000,
-                    RATE_LIMITED_STATUS,
+                    LOCAL_RATE_LIMITED_STATUS,
                     api_key_id=api_key_id,
                     upstream_status_code=429,
                     client_ip=client_ip,
@@ -669,7 +671,7 @@ async def call_internal_model_via_proxy(
             total_tokens,
             api_key_id=api_key_id,
             is_error=is_error,
-            is_rate_limited=request_status == RATE_LIMITED_STATUS,
+            is_rate_limited=request_status in RATE_LIMITED_STATUSES,
         )
         if not is_error and total_tokens > 0:
             record_request_rate(total_tokens, latency)
@@ -704,7 +706,7 @@ async def call_internal_model_via_proxy(
                 resp.status_code,
                 sanitize_text_for_log(provider_error or resp.text, limit=800),
             )
-        elif request_status == RATE_LIMITED_STATUS:
+        elif request_status in RATE_LIMITED_STATUSES:
             logger.warning(
                 "[INTERNAL %s] %s/%s rate limited with status %s: %s",
                 purpose.upper(),
@@ -1001,14 +1003,14 @@ async def _record_stream_result(
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,
             )
-    elif status in {"error", RATE_LIMITED_STATUS}:
+    elif status in {"error", RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}:
         update_stats(
             provider,
             model,
             0,
             api_key_id=api_key_id,
             is_error=status == "error",
-            is_rate_limited=status == RATE_LIMITED_STATUS,
+            is_rate_limited=status in RATE_LIMITED_STATUSES,
         )
         updated = await update_request_log(
             log_id,
@@ -1036,7 +1038,7 @@ async def _record_stream_result(
             )
         log_fn = (
             error_logger.warning
-            if status == RATE_LIMITED_STATUS
+            if status in RATE_LIMITED_STATUSES
             else error_logger.error
         )
         log_fn(
@@ -1148,7 +1150,7 @@ async def handle_normal(
             total_tokens,
             api_key_id=api_key_id,
             is_error=is_error,
-            is_rate_limited=request_status == RATE_LIMITED_STATUS,
+            is_rate_limited=request_status in RATE_LIMITED_STATUSES,
         )
         if not is_error and total_tokens > 0:
             record_request_rate(total_tokens, latency)
@@ -1290,7 +1292,7 @@ async def handle_streaming(
                 0,
                 api_key_id=api_key_id,
                 is_error=request_status == "error",
-                is_rate_limited=request_status == RATE_LIMITED_STATUS,
+                is_rate_limited=request_status in RATE_LIMITED_STATUSES,
             )
             await log_request(
                 provider,
@@ -1319,7 +1321,7 @@ async def handle_streaming(
                 await finish_active_request(request_id)
             log_fn = (
                 error_logger.warning
-                if request_status == RATE_LIMITED_STATUS
+                if request_status in RATE_LIMITED_STATUSES
                 else error_logger.error
             )
             log_fn(

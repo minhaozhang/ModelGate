@@ -22,13 +22,11 @@ def require_admin(session: Optional[str] = Cookie(None)):
 class ProviderModelCreate(BaseModel):
     model_id: int
     model_name_override: Optional[str] = None
-    max_concurrent: Optional[int] = None
     is_active: bool = True
 
 
 class ProviderModelUpdate(BaseModel):
     model_name_override: Optional[str] = None
-    max_concurrent: Optional[int] = None
     is_active: Optional[bool] = None
 
 
@@ -53,7 +51,6 @@ async def list_provider_models(provider_id: int, _: bool = Depends(require_admin
                         "model_name": model.name,
                         "display_name": model.display_name,
                         "model_name_override": pm.model_name_override,
-                        "max_concurrent": pm.max_concurrent,
                         "is_active": pm.is_active,
                     }
                 )
@@ -69,7 +66,6 @@ async def add_provider_model(
             provider_id=provider_id,
             model_id=data.model_id,
             model_name_override=data.model_name_override,
-            max_concurrent=data.max_concurrent,
             is_active=data.is_active,
         )
         session.add(pm)
@@ -96,8 +92,6 @@ async def update_provider_model(
             return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
         if data.model_name_override is not None:
             pm.model_name_override = data.model_name_override
-        if data.max_concurrent is not None:
-            pm.max_concurrent = data.max_concurrent
         if data.is_active is not None:
             pm.is_active = data.is_active
         await session.commit()

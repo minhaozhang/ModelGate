@@ -22,7 +22,6 @@ class ProviderCreate(BaseModel):
     name: str
     base_url: str
     api_key: Optional[str] = None
-    max_concurrent: Optional[int] = None
     merge_consecutive_messages: Optional[bool] = False
 
 
@@ -30,7 +29,6 @@ class ProviderUpdate(BaseModel):
     base_url: Optional[str] = None
     api_key: Optional[str] = None
     is_active: Optional[bool] = None
-    max_concurrent: Optional[int] = None
     merge_consecutive_messages: Optional[bool] = None
 
 
@@ -46,7 +44,6 @@ async def list_providers(_: bool = Depends(require_admin)):
                     "name": p.name,
                     "base_url": p.base_url,
                     "is_active": p.is_active,
-                    "max_concurrent": p.max_concurrent or 3,
                     "merge_consecutive_messages": p.merge_consecutive_messages or False,
                     "disabled_reason": p.disabled_reason,
                 }
@@ -62,7 +59,6 @@ async def create_provider(data: ProviderCreate, _: bool = Depends(require_admin)
             name=data.name,
             base_url=data.base_url,
             api_key=data.api_key,
-            max_concurrent=data.max_concurrent or 3,
             merge_consecutive_messages=data.merge_consecutive_messages or False,
         )
         session.add(provider)
@@ -90,8 +86,6 @@ async def update_provider(
             provider.is_active = data.is_active
             if data.is_active:
                 provider.disabled_reason = None
-        if data.max_concurrent is not None:
-            provider.max_concurrent = data.max_concurrent
         if data.merge_consecutive_messages is not None:
             provider.merge_consecutive_messages = data.merge_consecutive_messages
         await session.commit()
