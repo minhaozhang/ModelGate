@@ -97,10 +97,8 @@ providers_cache_time: Optional[datetime] = None
 PROVIDERS_CACHE_TTL_MINUTES = 10
 api_keys_cache: dict[str, dict] = {}
 sessions: dict[str, datetime] = {}
-provider_semaphores: dict[str, "asyncio.Semaphore"] = {}
 api_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 provider_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
-provider_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 
 DEFAULT_OUTBOUND_USER_AGENT = (
     "opencode/1.4.6 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.11"

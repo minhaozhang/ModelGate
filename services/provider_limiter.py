@@ -1,11 +1,7 @@
 from sqlalchemy import update
 
-from core.config import (
-    providers_cache,
-    provider_semaphores,
-    logger,
-)
-from core.database import async_session_maker, Provider, ProviderKey
+from core.config import logger, provider_key_semaphores, providers_cache
+from core.database import Provider, ProviderKey, async_session_maker
 
 
 async def disable_provider(provider_name: str, reason: str) -> None:
@@ -18,8 +14,12 @@ async def disable_provider(provider_name: str, reason: str) -> None:
         )
         await session.commit()
     providers_cache.pop(provider_name, None)
-    provider_semaphores.pop(provider_name, None)
+    prefix = f":{provider_name}"
+    keys_to_remove = [k for k in provider_key_semaphores if k.endswith(prefix)]
+    for k in keys_to_remove:
+        provider_key_semaphores.pop(k, None)
     from services.provider import load_providers
+
     await load_providers()
 
 
@@ -59,19 +59,45 @@ async def disable_provider_key(
         await disable_provider(provider_name, reason)
         return
 
-    from services.provider import load_providers, invalidate_provider_key_sticky_cache
+    from services.provider import invalidate_provider_key_sticky_cache, load_providers
+
     await invalidate_provider_key_sticky_cache(provider_name, provider_key_id)
     await load_providers()
 
 
 def check_usage_limit_error(resp_json: dict, provider_name: str) -> str | None:
+    provider_name = (provider_name or "").lower()
+    quota_keywords = [
+        "usage limit",
+        "insufficient_quota",
+        "billing_not_active",
+        "account_deactivated",
+        "quota exceeded",
+        "quota",
+        "\u4f59\u989d",
+        "\u989d\u5ea6",
+        "\u7528\u91cf",
+        "\u4f7f\u7528\u4e0a\u9650",
+        "\u8d85\u51fa",
+        "\u65e0\u53ef\u7528\u4f59\u989d",
+        "\u8c03\u7528\u6b21\u6570",
+    ]
+
+    def looks_like_usage_limit(*parts: object) -> bool:
+        normalized = " ".join(str(part or "") for part in parts).lower()
+        return any(keyword in normalized for keyword in quota_keywords)
+
     error_obj = resp_json.get("error")
     if not isinstance(error_obj, dict):
         base_resp = resp_json.get("base_resp")
         if isinstance(base_resp, dict):
             status_code = base_resp.get("status_code")
             status_msg = base_resp.get("status_msg") or base_resp.get("message")
-            if status_code not in (None, "", 0, "0", 200, "200") and status_msg:
+            if (
+                provider_name == "minimax"
+                and status_code not in (None, "", 0, "0", 200, "200")
+                and looks_like_usage_limit(status_msg, status_code)
+            ):
                 return f"{status_msg} ({status_code})"
         return None
 
@@ -81,24 +107,14 @@ def check_usage_limit_error(resp_json: dict, provider_name: str) -> str | None:
     http_code = error_obj.get("http_code")
     normalized_message = message.lower()
 
-    if code == "1308":
+    if provider_name in {"zhipu", "glm"} and code == "1308":
         return f"{message} ({code})"
 
     if error_type == "rate_limit_error" and "usage limit" in normalized_message:
         return f"{message} (http_code={http_code or code})"
 
-    usage_keywords = [
-        "使用上限",
-        "用量上限",
-        "超出用量",
-        "无可用余额",
-        "insufficient_quota",
-        "account_deactivated",
-        "billing_not_active",
-    ]
-    for kw in usage_keywords:
-        if kw in message or kw in normalized_message:
-            return f"{message} ({code})"
+    if looks_like_usage_limit(message, code, error_type, http_code):
+        return f"{message} ({code or http_code})"
 
     if "usage limit" in normalized_message and "exceeded" in normalized_message:
         return f"{message} ({code})"

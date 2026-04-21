@@ -1,4 +1,3 @@
-import asyncio
 import random
 import time
 from typing import Optional
@@ -12,9 +11,7 @@ from core.config import (
     providers_cache,
     PROVIDERS_CACHE_TTL_MINUTES,
     logger,
-    provider_semaphores,
     provider_key_semaphores,
-    provider_key_model_semaphores,
 )
 from core.database import (
     async_session_maker,
@@ -23,9 +20,6 @@ from core.database import (
     ProviderModel,
     Model,
 )
-
-SEMAPHORE_LIMIT_ATTR = "_modelgate_limit"
-SEMAPHORE_PENDING_LIMIT_ATTR = "_modelgate_pending_limit"
 
 KEY_STICKY_TTL_SECONDS = 1800
 _key_sticky_map: dict[tuple[int, str], tuple[int, float]] = {}
@@ -92,18 +86,6 @@ def parse_model(model: str) -> tuple[str, str]:
     return "", model
 
 
-def _build_semaphore(limit: int) -> asyncio.Semaphore:
-    semaphore = asyncio.Semaphore(limit)
-    setattr(semaphore, SEMAPHORE_LIMIT_ATTR, limit)
-    return semaphore
-
-
-def _get_semaphore_limit(
-    semaphore: asyncio.Semaphore, fallback: int | None = None
-) -> int | None:
-    return getattr(semaphore, SEMAPHORE_LIMIT_ATTR, fallback)
-
-
 def _get_model_aliases(pm: dict) -> set[str]:
     aliases: set[str] = set()
     for value in (pm.get("model_name"), pm.get("actual_model_name")):
@@ -158,40 +140,6 @@ async def load_providers():
                 "api_keys": await _load_provider_keys(session, p.id),
             }
 
-            provider_default = p.max_concurrent or 3
-            for pm_data in provider_models_data:
-                model_name = pm_data.get("model_name") or pm_data.get("actual_model_name")
-                if not model_name:
-                    continue
-                sem_key = f"{p.name}/{model_name}"
-                model_max = pm_data["max_concurrent"] or provider_default
-                existing = provider_semaphores.get(sem_key)
-                if existing is None:
-                    provider_semaphores[sem_key] = _build_semaphore(model_max)
-                    continue
-                if _get_semaphore_limit(existing, model_max) == model_max:
-                    if hasattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR):
-                        delattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR)
-                    continue
-                waiters = getattr(existing, "_waiters", None)
-                has_waiters = bool(waiters)
-                current_limit = _get_semaphore_limit(existing, model_max) or model_max
-                available = getattr(existing, "_value", current_limit)
-                in_flight = max(current_limit - available, 0)
-                if in_flight == 0 and not has_waiters:
-                    provider_semaphores[sem_key] = _build_semaphore(model_max)
-                    continue
-                pending_limit = getattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR, None)
-                if pending_limit != model_max:
-                    setattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR, model_max)
-                    logger.info(
-                        "[SEMAPHORE] Deferring resize for %s from %s to %s while %s request(s) are active",
-                        sem_key,
-                        current_limit,
-                        model_max,
-                        in_flight,
-                    )
-
         config.providers_cache_time = datetime.now()
 
     # Drop idle semaphores for removed/deactivated provider keys after cache refresh.
@@ -214,25 +162,6 @@ async def load_providers():
         if in_flight == 0 and not waiters:
             provider_key_semaphores.pop(sem_key, None)
 
-    active_provider_key_model_prefixes = {
-        f"{provider['id']}:{provider_name}/"
-        for provider_name, provider_config in providers_cache.items()
-        for provider in provider_config.get("api_keys", [])
-        if provider.get("id") is not None
-    }
-    for sem_key in list(provider_key_model_semaphores.keys()):
-        if any(sem_key.startswith(prefix) for prefix in active_provider_key_model_prefixes):
-            continue
-        semaphore = provider_key_model_semaphores.get(sem_key)
-        if semaphore is None:
-            continue
-        waiters = getattr(semaphore, "_waiters", None)
-        available = getattr(semaphore, "_value", 0)
-        current_limit = getattr(semaphore, "_modelgate_scoped_limit", available) or available
-        in_flight = max(current_limit - available, 0)
-        if in_flight == 0 and not waiters:
-            provider_key_model_semaphores.pop(sem_key, None)
-
 
 async def get_provider_config(provider_name: str) -> Optional[dict]:
     if config.providers_cache_time is None or (
@@ -250,63 +179,6 @@ def get_model_config(provider_config: dict, model_name: str) -> Optional[dict]:
         if requested_names & _get_model_aliases(pm):
             return pm
     return None
-
-
-def get_semaphore_key(provider_name: str, actual_model: str, provider_config: dict) -> str:
-    model_cfg = get_model_config(provider_config, actual_model)
-    model_name = model_cfg.get("model_name") or model_cfg.get("actual_model_name") if model_cfg else None
-    if model_name:
-        return f"{provider_name}/{model_name}"
-    return f"{provider_name}/{actual_model}"
-
-
-def get_or_create_provider_semaphore(
-    provider_name: str, actual_model: str, provider_config: dict
-) -> tuple[str, asyncio.Semaphore]:
-    sem_key = get_semaphore_key(provider_name, actual_model, provider_config)
-    model_cfg = get_model_config(provider_config, actual_model)
-    target_limit = (
-        model_cfg.get("max_concurrent") if model_cfg else None
-    ) or provider_config.get("max_concurrent", 3)
-    existing = provider_semaphores.get(sem_key)
-    if existing is None:
-        semaphore = _build_semaphore(target_limit)
-        provider_semaphores[sem_key] = semaphore
-        return sem_key, semaphore
-
-    current_limit = _get_semaphore_limit(existing, target_limit) or target_limit
-    if current_limit == target_limit:
-        if hasattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR):
-            delattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR)
-        return sem_key, existing
-
-    waiters = getattr(existing, "_waiters", None)
-    has_waiters = bool(waiters)
-    available = getattr(existing, "_value", current_limit)
-    in_flight = max(current_limit - available, 0)
-    if in_flight == 0 and not has_waiters:
-        semaphore = _build_semaphore(target_limit)
-        provider_semaphores[sem_key] = semaphore
-        logger.info(
-            "[SEMAPHORE] Resized %s from %s to %s",
-            sem_key,
-            current_limit,
-            target_limit,
-        )
-        return sem_key, semaphore
-
-    pending_limit = getattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR, None)
-    if pending_limit != target_limit:
-        setattr(existing, SEMAPHORE_PENDING_LIMIT_ATTR, target_limit)
-        logger.info(
-            "[SEMAPHORE] Deferring resize for %s from %s to %s while %s request(s) are active",
-            sem_key,
-            current_limit,
-            target_limit,
-            in_flight,
-        )
-    return sem_key, existing
-
 
 async def get_provider_and_model(model: str) -> tuple[Optional[dict], str, str]:
     provider_name, actual_model = parse_model(model)
