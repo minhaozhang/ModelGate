@@ -11,15 +11,15 @@ import core.config as config
 from core.config import (
     providers_cache,
     api_keys_cache,
-    api_key_model_semaphores,
     finish_active_request,
     update_stats,
     record_request_rate,
     logger,
     error_logger,
-    provider_semaphores,
     register_active_request,
     OUTBOUND_USER_AGENT,
+    provider_key_semaphores,
+    provider_key_model_semaphores,
 )
 from core.log_sanitizer import (
     sanitize_headers_for_log,
@@ -31,7 +31,7 @@ from core.database import async_session_maker, ApiKey
 from services.provider import (
     get_provider_and_model,
     get_model_config,
-    get_or_create_provider_semaphore,
+    get_semaphore_key,
     get_disabled_provider_reason,
     pick_api_key,
 )
@@ -82,8 +82,8 @@ INTERNAL_ANALYSIS_USER_AGENT = "modelgate/internal-analysis"
 SEMAPHORE_RETRY_AFTER_SECONDS = 5
 SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS = 1
 RATE_LIMITED_STATUS = "rate_limited"
-DEFAULT_API_KEY_MODEL_MAX_CONCURRENCY = 1
-API_KEY_MODEL_LIMIT_ATTR = "_modelgate_api_key_model_limit"
+DEFAULT_PROVIDER_KEY_MODEL_MAX_CONCURRENCY = 1
+SCOPED_SEMAPHORE_LIMIT_ATTR = "_modelgate_scoped_limit"
 
 
 def _openai_error(
@@ -123,26 +123,20 @@ def _resolve_request_status(status_code: int, provider_error: str | None = None)
     return "success"
 
 
-def _get_or_create_api_key_model_semaphore(
-    api_key_id: int, provider_model_key: str
+def _get_or_create_scoped_semaphore(
+    semaphore_store: dict[str, asyncio.Semaphore],
+    sem_key: str,
+    target_limit: int,
 ) -> tuple[str, asyncio.Semaphore]:
-    try:
-        target_limit = int(
-            config.system_config.get("api_key_model_max_concurrency")
-            or DEFAULT_API_KEY_MODEL_MAX_CONCURRENCY
-        )
-    except (TypeError, ValueError):
-        target_limit = DEFAULT_API_KEY_MODEL_MAX_CONCURRENCY
     if target_limit < 1:
-        target_limit = DEFAULT_API_KEY_MODEL_MAX_CONCURRENCY
-    sem_key = f"{api_key_id}:{provider_model_key}"
-    semaphore = api_key_model_semaphores.get(sem_key)
+        target_limit = 1
+    semaphore = semaphore_store.get(sem_key)
     if semaphore is None:
         semaphore = asyncio.Semaphore(target_limit)
-        setattr(semaphore, API_KEY_MODEL_LIMIT_ATTR, target_limit)
-        api_key_model_semaphores[sem_key] = semaphore
+        setattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, target_limit)
+        semaphore_store[sem_key] = semaphore
         return sem_key, semaphore
-    current_limit = getattr(semaphore, API_KEY_MODEL_LIMIT_ATTR, target_limit)
+    current_limit = getattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, target_limit)
     if current_limit == target_limit:
         return sem_key, semaphore
     available = getattr(semaphore, "_value", current_limit)
@@ -151,10 +145,50 @@ def _get_or_create_api_key_model_semaphore(
     has_waiters = bool(waiters)
     if in_flight == 0 and not has_waiters:
         semaphore = asyncio.Semaphore(target_limit)
-        setattr(semaphore, API_KEY_MODEL_LIMIT_ATTR, target_limit)
-        api_key_model_semaphores[sem_key] = semaphore
+        setattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, target_limit)
+        semaphore_store[sem_key] = semaphore
         return sem_key, semaphore
     return sem_key, semaphore
+
+
+def _get_provider_key_limit(provider_config: dict) -> int:
+    target_limit = provider_config.get("max_concurrent", 3)
+    try:
+        target_limit = int(target_limit)
+    except (TypeError, ValueError):
+        target_limit = 3
+    return max(target_limit, 1)
+
+
+def _get_provider_key_model_limit(model_config: dict | None, provider_config: dict) -> int:
+    target_limit = (
+        model_config.get("max_concurrent") if model_config else None
+    ) or provider_config.get("max_concurrent")
+    try:
+        target_limit = int(
+            target_limit
+            or config.system_config.get("api_key_model_max_concurrency")
+            or DEFAULT_PROVIDER_KEY_MODEL_MAX_CONCURRENCY
+        )
+    except (TypeError, ValueError):
+        target_limit = DEFAULT_PROVIDER_KEY_MODEL_MAX_CONCURRENCY
+    return max(target_limit, 1)
+
+
+def _get_or_create_provider_key_semaphore(
+    provider_key_id: int, provider_name: str, target_limit: int
+) -> tuple[str, asyncio.Semaphore]:
+    sem_key = f"{provider_key_id}:{provider_name}"
+    return _get_or_create_scoped_semaphore(provider_key_semaphores, sem_key, target_limit)
+
+
+def _get_or_create_provider_key_model_semaphore(
+    provider_key_id: int, provider_model_key: str, target_limit: int
+) -> tuple[str, asyncio.Semaphore]:
+    sem_key = f"{provider_key_id}:{provider_model_key}"
+    return _get_or_create_scoped_semaphore(
+        provider_key_model_semaphores, sem_key, target_limit
+    )
 
 
 async def proxy_request(request: Request, endpoint: str):
@@ -203,24 +237,40 @@ async def proxy_request(request: Request, endpoint: str):
             "model_not_found",
         )
 
-    sem_key, semaphore = get_or_create_provider_semaphore(
-        provider_name, actual_model, provider_config
-    )
+    chosen_api_key, chosen_key_id = pick_api_key(provider_config, api_key_id, provider_name)
+    if not chosen_api_key or chosen_key_id is None:
+        return _openai_error_response(
+            f"渚涘簲鍟?'{provider_name}' 鏃犲彲鐢ㄧ殑 API Key",
+            400,
+            "invalid_request_error",
+            "no_api_key",
+        )
 
-    api_key_model_sem_key, api_key_model_semaphore = _get_or_create_api_key_model_semaphore(
-        api_key_id, sem_key
+    model_config = get_model_config(provider_config, actual_model)
+    provider_model_key = get_semaphore_key(provider_name, actual_model, provider_config)
+    provider_key_sem_key, provider_key_semaphore = _get_or_create_provider_key_semaphore(
+        chosen_key_id,
+        provider_name,
+        _get_provider_key_limit(provider_config),
+    )
+    provider_key_model_sem_key, provider_key_model_semaphore = (
+        _get_or_create_provider_key_model_semaphore(
+            chosen_key_id,
+            provider_model_key,
+            _get_provider_key_model_limit(model_config, provider_config),
+        )
     )
 
     acquired = False
-    api_key_model_acquired = False
+    provider_key_model_acquired = False
     try:
         await asyncio.wait_for(
-            semaphore.acquire(), timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS
+            provider_key_semaphore.acquire(), timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS
         )
         acquired = True
     except asyncio.TimeoutError:
         message = f"供应商 '{provider_name}/{actual_model}' 当前并发已满，请稍后重试"
-        logger.warning(f"[RATE LIMIT] {sem_key} at max concurrency")
+        logger.warning(f"[RATE LIMIT] {provider_key_sem_key} at max concurrency")
         update_stats(
             provider_name,
             actual_model,
@@ -246,23 +296,23 @@ async def proxy_request(request: Request, endpoint: str):
             message,
             429,
             "rate_limit_error",
-            "max_concurrency_reached",
+            "provider_key_concurrency_reached",
             headers={"retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS)},
         )
 
     try:
         await asyncio.wait_for(
-            api_key_model_semaphore.acquire(),
+            provider_key_model_semaphore.acquire(),
             timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
         )
-        api_key_model_acquired = True
+        provider_key_model_acquired = True
     except asyncio.TimeoutError:
-        semaphore.release()
+        provider_key_semaphore.release()
         acquired = False
         message = (
             f"API Key {api_key_id} 在 '{provider_name}/{actual_model}' 上已有进行中的请求，请稍后重试"
         )
-        logger.warning("[RATE LIMIT] %s at max concurrency", api_key_model_sem_key)
+        logger.warning("[RATE LIMIT] %s at max concurrency", provider_key_model_sem_key)
         update_stats(
             provider_name,
             actual_model,
@@ -288,14 +338,13 @@ async def proxy_request(request: Request, endpoint: str):
             message,
             429,
             "rate_limit_error",
-            "api_key_model_concurrency_reached",
+            "provider_key_model_concurrency_reached",
             headers={"retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS)},
         )
 
     try:
         body_json["model"] = actual_model
 
-        model_config = get_model_config(provider_config, actual_model)
         is_multimodal = (
             model_config.get("is_multimodal", False) if model_config else False
         )
@@ -323,14 +372,7 @@ async def proxy_request(request: Request, endpoint: str):
         body = json.dumps(body_json).encode()
         request_context_tokens = estimate_request_context_tokens(body_json)
 
-        chosen_api_key, chosen_key_id = pick_api_key(
-            provider_config, api_key_id, provider_name
-        )
         if not chosen_api_key:
-            semaphore.release()
-            api_key_model_semaphore.release()
-            acquired = False
-            api_key_model_acquired = False
             return _openai_error_response(
                 f"供应商 '{provider_name}' 无可用的 API Key",
                 400,
@@ -379,8 +421,8 @@ async def proxy_request(request: Request, endpoint: str):
                 client_ip,
                 user_agent,
                 request_context_tokens,
-                semaphore,
-                api_key_model_semaphore,
+                provider_key_semaphore,
+                provider_key_model_semaphore,
                 request_id,
                 stream_log_id,
                 request,
@@ -401,16 +443,16 @@ async def proxy_request(request: Request, endpoint: str):
                 client_ip,
                 user_agent,
                 request_context_tokens,
-                semaphore,
-                api_key_model_semaphore,
+                provider_key_semaphore,
+                provider_key_model_semaphore,
                 request_id,
                 chosen_key_id=chosen_key_id,
             )
     except Exception as e:
         if acquired:
-            semaphore.release()
-        if api_key_model_acquired:
-            api_key_model_semaphore.release()
+            provider_key_semaphore.release()
+        if provider_key_model_acquired:
+            provider_key_model_semaphore.release()
         latency = (time.time() - start_time) * 1000
         update_stats(
             provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True
@@ -482,19 +524,37 @@ async def call_internal_model_via_proxy(
             "error": f"未找到模型对应的供应商：{requested_model}",
         }
 
-    sem_key, semaphore = get_or_create_provider_semaphore(
-        provider_name, actual_model, provider_config
-    )
+    chosen_api_key, chosen_key_id = pick_api_key(provider_config, api_key_id, provider_name)
+    if not chosen_api_key or chosen_key_id is None:
+        return {
+            "ok": False,
+            "provider_name": provider_name,
+            "actual_model_name": actual_model,
+            "status_code": None,
+            "payload": None,
+            "error": f"No active provider key available for '{provider_name}'",
+        }
 
-    api_key_model_sem_key, api_key_model_semaphore = _get_or_create_api_key_model_semaphore(
-        api_key_id, sem_key
+    model_config = get_model_config(provider_config, actual_model)
+    provider_model_key = get_semaphore_key(provider_name, actual_model, provider_config)
+    provider_key_sem_key, provider_key_semaphore = _get_or_create_provider_key_semaphore(
+        chosen_key_id,
+        provider_name,
+        _get_provider_key_limit(provider_config),
+    )
+    provider_key_model_sem_key, provider_key_model_semaphore = (
+        _get_or_create_provider_key_model_semaphore(
+            chosen_key_id,
+            provider_model_key,
+            _get_provider_key_model_limit(model_config, provider_config),
+        )
     )
 
     acquired = False
-    api_key_model_acquired = False
+    provider_key_model_acquired = False
     try:
         await asyncio.wait_for(
-            semaphore.acquire(), timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS
+            provider_key_semaphore.acquire(), timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS
         )
         acquired = True
     except asyncio.TimeoutError:
@@ -517,7 +577,7 @@ async def call_internal_model_via_proxy(
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=estimate_request_context_tokens(req_body),
-            error=f"'{sem_key}' 当前并发已满",
+            error=f"'{provider_key_sem_key}' 当前并发已满",
         )
         return {
             "ok": False,
@@ -525,20 +585,20 @@ async def call_internal_model_via_proxy(
             "actual_model_name": actual_model,
             "status_code": 429,
             "payload": None,
-            "error": f"'{sem_key}' 当前并发已满",
+            "error": f"'{provider_key_sem_key}' 当前并发已满",
         }
 
     try:
         await asyncio.wait_for(
-            api_key_model_semaphore.acquire(),
+            provider_key_model_semaphore.acquire(),
             timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
         )
-        api_key_model_acquired = True
+        provider_key_model_acquired = True
     except asyncio.TimeoutError:
-        semaphore.release()
+        provider_key_semaphore.release()
         acquired = False
         message = (
-            f"API key {api_key_id} already has an active request for "
+            f"Provider key {chosen_key_id} already has an active request for "
             f"'{provider_name}/{actual_model}'"
         )
         update_stats(
@@ -575,7 +635,6 @@ async def call_internal_model_via_proxy(
         _schedule_api_key_last_used_update(api_key_id)
 
         req_body["model"] = actual_model
-        model_config = get_model_config(provider_config, actual_model)
         is_multimodal = (
             model_config.get("is_multimodal", False) if model_config else False
         )
@@ -591,9 +650,6 @@ async def call_internal_model_via_proxy(
             req_body["reasoning_split"] = True
 
         request_context_tokens = estimate_request_context_tokens(req_body)
-        chosen_api_key, chosen_key_id = pick_api_key(
-            provider_config, api_key_id, provider_name
-        )
         headers = _build_headers(provider_config, api_key=chosen_api_key)
         target_url = f"{provider_config['base_url']}/chat/completions"
         body = json.dumps(req_body).encode("utf-8")
@@ -746,9 +802,9 @@ async def call_internal_model_via_proxy(
         }
     finally:
         if acquired:
-            semaphore.release()
-        if api_key_model_acquired:
-            api_key_model_semaphore.release()
+            provider_key_semaphore.release()
+        if provider_key_model_acquired:
+            provider_key_model_semaphore.release()
 
 
 def _build_headers(provider_config: dict, api_key: str | None = None) -> dict:
