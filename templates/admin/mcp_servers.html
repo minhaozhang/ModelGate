@@ -158,12 +158,7 @@
         const isDark = mode === 'dark';
         document.body.classList.toggle('theme-dark', isDark);
         localStorage.setItem('admin_theme', mode);
-        document.getElementById('theme-toggle').textContent = isDark ? L.lightMode : L.darkMode;
-    }
-
-    function toggleTheme() {
-        const nextMode = getThemeMode() === 'dark' ? 'light' : 'dark';
-        applyTheme(nextMode);
+        document.getElementById('theme-toggle').value = mode;
     }
 
     applyTheme(getThemeMode());

@@ -182,9 +182,8 @@
             const isDark = mode === 'dark';
             document.body.classList.toggle('theme-dark', isDark);
             localStorage.setItem('admin_theme', mode);
-            document.getElementById('theme-toggle').textContent = isDark ? window.I18N.lightMode : window.I18N.darkMode;
+            document.getElementById('theme-toggle').value = mode;
         }
-        function toggleTheme() { applyTheme(getThemeMode() === 'dark' ? 'light' : 'dark'); }
         applyTheme(getThemeMode());
 
         function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }

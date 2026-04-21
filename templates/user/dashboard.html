@@ -400,16 +400,7 @@
             else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
             localStorage.setItem('dashboard_theme', mode);
             const labels = { light: window.I18N.darkMode, dark: window.I18N.blackGoldMode, blackgold: window.I18N.lightMode };
-            document.getElementById('theme-toggle').textContent = labels[mode] || window.I18N.darkMode;
-        }
-
-        function toggleTheme() {
-            const cycle = { light: 'dark', dark: 'blackgold', blackgold: 'light' };
-            const nextMode = cycle[getThemeMode()] || 'dark';
-            applyTheme(nextMode);
-            loadStats();
-            loadActiveSessions();
-            loadSystemActiveSessions();
+            document.getElementById('theme-toggle').value = mode;
         }
 
         applyTheme(getThemeMode());

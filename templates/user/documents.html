@@ -81,10 +81,7 @@
             else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
             localStorage.setItem('admin_theme', mode);
         }
-        function toggleTheme() {
-            const cycle = { light: 'dark', dark: 'blackgold', blackgold: 'light' };
-            applyTheme(cycle[getThemeMode()] || 'dark');
-        }
+
         applyTheme(getThemeMode());
 
         function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }
