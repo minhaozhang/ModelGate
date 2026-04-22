@@ -197,7 +197,11 @@ async def _record_stream_result(
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,
             )
-        logger.info(f"[STREAM COMPLETE] ~{total_tokens} tokens | {latency:.0f}ms")
+        logger.info(
+            f"[STREAM COMPLETE] ~{total_tokens} tokens "
+            f"(prompt={tokens_record.get('prompt_tokens', 0)}, "
+            f"completion={tokens_record.get('completion_tokens', 0)}) | {latency:.0f}ms"
+        )
         logger.debug("[STREAM RESPONSE] Content: %s", total_content)
     elif status == "cancelled":
         updated = await update_request_log(

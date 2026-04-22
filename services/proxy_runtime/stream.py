@@ -15,6 +15,7 @@ from core.log_sanitizer import sanitize_text_for_log
 from services.logging import log_request, update_request_log
 from services.minimax import MinimaxStreamProcessor
 from services.provider_limiter import check_usage_limit_error, disable_provider_key
+from services.proxy_runtime.adapters import get_adapter
 from services.proxy_runtime.client import REPEATED_CHUNK_LIMIT, get_http_client
 from services.proxy_runtime.concurrency import (
     RATE_LIMITED_STATUSES,
@@ -50,6 +51,7 @@ async def handle_streaming(
     log_id,
     request,
     chosen_key_id=None,
+    protocol="openai",
 ):
     logger.debug(
         "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -140,12 +142,17 @@ async def handle_streaming(
                     resp_headers["retry-after"] = retry_after
                 else:
                     resp_headers["retry-after"] = str(SEMAPHORE_RETRY_AFTER_SECONDS)
-            normalized_body = _normalize_upstream_error(
-                resp_json,
-                resp.status_code,
-                provider,
-                raw_error_text=sanitize_text_for_log(error_text, limit=2000),
-            )
+            adapter = get_adapter(protocol)
+            if protocol != "openai" and resp_json:
+                error_resp = adapter.transform_error_response(resp_json, resp.status_code)
+                normalized_body = json.dumps(error_resp).encode()
+            else:
+                normalized_body = _normalize_upstream_error(
+                    resp_json,
+                    resp.status_code,
+                    provider,
+                    raw_error_text=sanitize_text_for_log(error_text, limit=2000),
+                )
             response = Response(
                 content=normalized_body,
                 status_code=resp.status_code,
@@ -175,23 +182,82 @@ async def handle_streaming(
         stream_tool_calls = []
         seen_tool_call_keys: set[str] = set()
         minimax_proc = MinimaxStreamProcessor() if provider == "minimax" else None
+        adapter = get_adapter(protocol)
+        adapter_ctx = adapter.create_stream_context()
+        is_adapter_stream = protocol != "openai"
         upstream_status_code = resp.status_code
 
         try:
             chunk_count = 0
-            async for line in normalize_sse_stream(resp.aiter_lines()):
-                if not line.startswith("data: "):
-                    if not line.strip() or line.startswith(":"):
+            async for raw_line in normalize_sse_stream(resp.aiter_lines()):
+                if is_adapter_stream:
+                    adapter_results = await adapter.transform_stream_chunk(
+                        raw_line if raw_line.startswith("data: ") else f"data: {raw_line}",
+                        adapter_ctx,
+                    )
+                    if not adapter_results:
+                        if raw_line.startswith("data: "):
+                            line_content = raw_line[6:].strip()
+                            if line_content == "[DONE]":
+                                break
+                        continue
+                    chunk_count += 1
+                    for result_line in adapter_results:
+                        result_line = result_line.rstrip("\n")
+                        if not result_line.startswith("data: "):
+                            yield f"{result_line}\n\n"
+                            continue
+                        line_content = result_line[6:]
+                        if line_content == "[DONE]":
+                            yield "data: [DONE]\n\n"
+                            break
+                        try:
+                            chunk = json.loads(line_content)
+                        except json.JSONDecodeError:
+                            yield f"{result_line}\n\n"
+                            continue
+                        if chunk.get("usage"):
+                            last_usage = chunk["usage"]
+                        if "choices" in chunk and chunk["choices"]:
+                            choice = chunk["choices"][0]
+                            delta = choice.get("delta", {})
+                            content = delta.get("content", "")
+                            if content:
+                                total_content += content
+                            reasoning = delta.get("reasoning_content", "")
+                            if reasoning:
+                                total_reasoning += reasoning
+                            if choice.get("finish_reason"):
+                                final_finish_reason = choice["finish_reason"]
+                            tc_list = delta.get("tool_calls")
+                            if tc_list:
+                                _collect_tool_calls(tc_list, seen_tool_call_keys, stream_tool_calls)
+                        yield f"{result_line}\n\n"
+                    if chunk_count % 10 == 0:
+                        if await request.is_disconnected():
+                            logger.info(f"[STREAM] Client disconnected at chunk {chunk_count}")
+                            await _record_stream_result(
+                                total_content, total_reasoning, stream_tool_calls,
+                                final_finish_reason, last_usage, req_body,
+                                provider, model, api_key_id, client_ip, user_agent,
+                                request_context_tokens, start_time, log_id, "cancelled",
+                                upstream_status_code=upstream_status_code,
+                            )
+                            return
+                    continue
+
+                if not raw_line.startswith("data: "):
+                    if not raw_line.strip() or raw_line.startswith(":"):
                         continue
                     try:
-                        raw_payload = json.loads(line)
+                        raw_payload = json.loads(raw_line)
                     except json.JSONDecodeError:
                         continue
                     provider_error = _extract_provider_error(raw_payload)
                     if provider_error:
                         raise Exception(f"API error: {provider_error}")
                     continue
-                line_content = line[6:]
+                line_content = raw_line[6:]
                 if line_content == "[DONE]":
                     yield "data: [DONE]\n\n"
                     break
@@ -206,7 +272,7 @@ async def handle_streaming(
                         raise Exception(f"API error: {provider_error}")
 
                     if "choices" not in chunk or not chunk["choices"]:
-                        yield f"{line.rstrip()}\n\n"
+                        yield f"{raw_line.rstrip()}\n\n"
                         continue
 
                     choice = chunk["choices"][0]
@@ -241,12 +307,12 @@ async def handle_streaming(
                             continue
                         if result[0] == "skip":
                             data = json.dumps(chunk)
-                            line = f"data: {data}"
+                            raw_line = f"data: {data}"
                         elif result[0] == "content":
                             total_content += result[1]
                             total_reasoning += result[2]
                             data = json.dumps(chunk)
-                            line = f"data: {data}"
+                            raw_line = f"data: {data}"
                     elif content:
                         if content == last_content and content.strip():
                             repeated_count += 1
@@ -272,13 +338,13 @@ async def handle_streaming(
                         limit=300,
                     )
                     logger.warning(
-                        f"[SSE] Invalid JSON, skipping line: {sanitize_text_for_log(line, limit=150)}... Error: {sanitize_text_for_log(e)}"
+                        f"[SSE] Invalid JSON, skipping line: {sanitize_text_for_log(raw_line, limit=150)}... Error: {sanitize_text_for_log(e)}"
                     )
                     raise Exception(
                         f"SSE JSON parse error: {e}; chunk={line_preview}"
                     ) from e
 
-                yield f"{line.rstrip()}\n\n"
+                yield f"{raw_line.rstrip()}\n\n"
 
                 if chunk_count % 10 == 0:
                     if await request.is_disconnected():

@@ -53,6 +53,7 @@ class Provider(Base):
     name = Column(String(50), unique=True, nullable=False)
     base_url = Column(String(255), nullable=False)
     api_key = Column(String(255), nullable=True)
+    protocol = Column(String(20), default="openai")
     merge_consecutive_messages = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     disabled_reason = Column(String(255), nullable=True)
@@ -647,6 +648,16 @@ async def init_db():
         await conn.execute(
             text(
                 "ALTER TABLE providers ADD COLUMN IF NOT EXISTS disabled_reason VARCHAR(255)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE providers ADD COLUMN IF NOT EXISTS protocol VARCHAR(20) DEFAULT 'openai'"
+            )
+        )
+        await conn.execute(
+            text(
+                "UPDATE providers SET protocol = 'openai' WHERE protocol IS NULL OR protocol = ''"
             )
         )
         await conn.execute(

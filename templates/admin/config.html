@@ -33,12 +33,16 @@
         .pk-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .pk-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
         .pk-action { background: none !important; border: none !important; cursor: pointer; padding: 0; font-size: 0.75rem; }
+        .mk-item:hover { background: #f8fafc; }
+        .mk-item.selected { background: #eff6ff; }
         body.theme-dark .shadow,
         body.theme-dark .shadow-lg,
         body.theme-dark .shadow-xl { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
         body.theme-dark .nav-link { color: #cbd5e1 !important; }
         body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
         body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark .mk-item:hover { background: rgba(148, 163, 184, 0.12) !important; }
+        body.theme-dark .mk-item.selected { background: rgba(37, 99, 235, 0.18) !important; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -97,6 +101,13 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Base URL') }}</label>
                     <input type="text" id="provider-url" required class="w-full border rounded px-3 py-2" placeholder="https://api.example.com/v1">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Protocol') }}</label>
+                    <select id="provider-protocol" class="w-full border rounded px-3 py-2">
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic</option>
+                    </select>
                 </div>
                 <div class="flex items-center">
                     <input type="checkbox" id="provider-active" checked class="mr-2">
@@ -223,14 +234,80 @@
             darkMode: '{{ _("Dark Mode") }}',
             providerKeys: '{{ _("Provider Keys") }}',
             noKeys: '{{ _("No keys configured") }}',
+            loading: '{{ _("Loading...") }}',
+            failedToLoad: '{{ _("Failed to load") }}',
+            noProviders: '{{ _("No providers") }}',
+            noModels: '{{ _("No models") }}',
+            active: '{{ _("Active") }}',
+            inactive: '{{ _("Inactive") }}',
+            keys: '{{ _("Keys") }}',
+            edit: '{{ _("Edit") }}',
+            delete: '{{ _("Delete") }}',
+            remove: '{{ _("Remove") }}',
+            bind: '{{ _("Bind") }}',
+            boundModels: '{{ _("Bound Models") }}',
+            noModelsBound: '{{ _("No models bound") }}',
+            selectProviderFirst: '{{ _("Please select a provider first") }}',
+            syncing: '{{ _("Syncing...") }}',
+            sync: '{{ _("Sync") }}',
+            syncFailed: '{{ _("Sync failed") }}',
+            syncButtonNotFound: '{{ _("Sync button not found") }}',
+            syncedModels: '{{ _("Synced {count} models: {names}") }}',
+            providerSaved: '{{ _("Provider saved") }}',
+            failedToSaveProvider: '{{ _("Failed to save provider") }}',
+            deleteProviderConfirm: '{{ _("Delete this provider?") }}',
+            providerDeleted: '{{ _("Provider deleted") }}',
+            deleteFailed: '{{ _("Delete failed") }}',
+            modelSaved: '{{ _("Model saved") }}',
+            failedToSaveModel: '{{ _("Failed to save model") }}',
+            deleteModelConfirm: '{{ _("Delete this model?") }}',
+            modelDeleted: '{{ _("Model deleted") }}',
+            modelUnbound: '{{ _("Model unbound") }}',
+            unbindFailed: '{{ _("Unbind failed") }}',
+            keyAccessSaved: '{{ _("Key access saved") }}',
+            failedToSaveKeyAccess: '{{ _("Failed to save key access") }}',
+            noProviderBindings: '{{ _("No provider bindings. Bind this model to a provider first.") }}',
+            selectAll: '{{ _("Select All") }}',
+            clear: '{{ _("Clear") }}',
+            selectedCount: '{{ _("{count} selected") }}',
+            pageLabel: '{{ _("Page {current} / {total}") }}',
+            previous: '{{ _("Previous") }}',
+            next: '{{ _("Next") }}',
+            apiKeyAccessSuffix: '{{ _(" - API Key Access") }}',
+            modelFallback: '{{ _("Model") }}',
+            addProvider: '{{ _("Add Provider") }}',
+            editProvider: '{{ _("Edit Provider") }}',
+            disabledReasonPrefix: '{{ _("Disabled:") }}',
+            addModel: '{{ _("Add Model") }}',
+            editModel: '{{ _("Edit Model") }}',
+            thinkingOff: '{{ _("off") }}',
+            multimodal: '{{ _("multimodal") }}',
+            keyCount: '{{ _("{count} key(s)") }}',
+            bindingScopeHint: '{{ _("Access is configured on the bound provider-model, not on the model itself.") }}',
         };
         let allProviders = [];
         let allModels = [];
         let allApiKeys = [];
         let modelKeysTarget = null;
+        let modelKeysScopePmId = null;
         let modelKeysData = {};
         let modelKeysPmList = [];
+        let modelKeysSelection = {};
+        let modelKeysPage = 1;
         let selectedProviderId = null;
+        const MODEL_KEYS_PAGE_SIZE = 12;
+
+        function t(key, fallback = '') {
+            return CONFIG_I18N[key] || fallback;
+        }
+
+        function formatI18n(key, params = {}, fallback = '') {
+            let value = t(key, fallback);
+            Object.entries(params).forEach(([name, param]) => {
+                value = value.replace(new RegExp(`\\{${name}\\}`, 'g'), param);
+            });
+            return value;
+        }
 
         async function logout() {
             await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
@@ -272,25 +349,28 @@
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded cursor-pointer hover:bg-blue-50 ${selectedProviderId === p.id ? 'ring-2 ring-blue-500' : ''}" onclick="selectProvider(${p.id})">
                     <div>
                         <span class="font-medium">${p.name}</span>
-                        <span class="ml-2 text-xs ${p.is_active ? 'text-green-600' : 'text-red-600'}">${p.is_active ? 'Active' : 'Inactive'}</span>
+                        <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded ${p.protocol === 'anthropic' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}">${(p.protocol || 'openai').toUpperCase()}</span>
+                        <span class="ml-2 text-xs ${p.is_active ? 'text-green-600' : 'text-red-600'}">${p.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
                         ${p.disabled_reason ? '<span class="ml-2 text-xs text-orange-500">&#9888; ' + (p.disabled_reason || '').substring(0, 30) + '</span>' : ''}
                         <div class="text-xs text-gray-500">${p.base_url}</div>
                     </div>
                     <div class="flex gap-2" onclick="event.stopPropagation()">
-                        <button onclick="openProviderKeys(${p.id}, '${p.name}')" class="text-green-500 hover:text-green-700 text-sm">Keys</button>
-                        <button onclick="editProvider(${p.id})" class="text-blue-500 hover:text-blue-700 text-sm">Edit</button>
-                        <button onclick="deleteProvider(${p.id})" class="text-red-500 hover:text-red-700 text-sm">Delete</button>
+                        <button onclick="openProviderKeys(${p.id}, '${p.name}')" class="text-green-500 hover:text-green-700 text-sm">${t('keys', 'Keys')}</button>
+                        <button onclick="editProvider(${p.id})" class="text-blue-500 hover:text-blue-700 text-sm">${t('edit', 'Edit')}</button>
+                        <button onclick="deleteProvider(${p.id})" class="text-red-500 hover:text-red-700 text-sm">${t('delete', 'Delete')}</button>
                     </div>
                 </div>
             `).join('');
-            document.getElementById('providers-list').innerHTML = html || '<div class="text-gray-400 text-center py-4">No providers</div>';
+            document.getElementById('providers-list').innerHTML = html || `<div class="text-gray-400 text-center py-4">${t('noProviders', 'No providers')}</div>`;
         }
 
-        async function openModelKeys(modelId) {
+        async function openModelKeys(modelId, titleOverride = null) {
             modelKeysTarget = modelId;
             const m = allModels.find(x => x.id === modelId);
-            document.getElementById('model-keys-title').textContent = (m ? (m.display_name || m.name) : 'Model') + ' - API Key Access';
-            document.getElementById('model-keys-content').innerHTML = '<div class="text-center text-gray-400 py-4">Loading...</div>';
+            modelKeysPage = 1;
+            modelKeysSelection = {};
+            document.getElementById('model-keys-title').textContent = (titleOverride || (m ? (m.display_name || m.name) : t('modelFallback', 'Model'))) + t('apiKeyAccessSuffix', ' - API Key Access');
+            document.getElementById('model-keys-content').innerHTML = `<div class="text-center text-gray-400 py-4">${t('loading', 'Loading...')}</div>`;
             document.getElementById('model-keys-modal').classList.remove('hidden');
             document.getElementById('model-keys-modal').classList.add('flex');
             try {
@@ -298,104 +378,126 @@
                 allApiKeys = data.api_keys || [];
                 modelKeysPmList = data.provider_models || [];
                 modelKeysData = data.bound_keys || {};
+                modelKeysPmList.forEach(pm => {
+                    const bound = modelKeysData[pm.id] || [];
+                    modelKeysSelection[pm.id] = new Set(bound.map(k => k.id));
+                });
                 renderModelKeysContent();
             } catch(e) {
-                document.getElementById('model-keys-content').innerHTML = '<div class="text-center text-red-500 py-4">Failed to load</div>';
+                document.getElementById('model-keys-content').innerHTML = `<div class="text-center text-red-500 py-4">${t('failedToLoad', 'Failed to load')}</div>`;
             }
         }
 
         function renderModelKeysContent() {
             const container = document.getElementById('model-keys-content');
-            if (modelKeysPmList.length === 0) {
-                container.innerHTML = '<div class="text-center text-gray-400 py-4">No provider bindings. Bind this model to a provider first.</div>';
+            const visiblePmList = modelKeysScopePmId
+                ? modelKeysPmList.filter(pm => pm.id === modelKeysScopePmId)
+                : modelKeysPmList;
+            if (visiblePmList.length === 0) {
+                container.innerHTML = `<div class="text-center text-gray-400 py-4">${t('noProviderBindings', 'No provider bindings. Bind this model to a provider first.')}</div>`;
                 return;
             }
+            const totalPages = Math.max(1, Math.ceil(allApiKeys.length / MODEL_KEYS_PAGE_SIZE));
+            modelKeysPage = Math.min(modelKeysPage, totalPages);
+            const start = (modelKeysPage - 1) * MODEL_KEYS_PAGE_SIZE;
+            const pageApiKeys = allApiKeys.slice(start, start + MODEL_KEYS_PAGE_SIZE);
             let html = '';
-            modelKeysPmList.forEach(pm => {
-                const bound = modelKeysData[pm.id] || [];
-                const boundIds = bound.map(k => k.id);
+            visiblePmList.forEach(pm => {
+                const selectedIds = modelKeysSelection[pm.id] || new Set();
                 html += `<div class="border rounded p-3">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="font-medium text-sm text-gray-700">${pm.label}</span>
-                        <div class="flex gap-2">
-                            <button onclick="selectAllKeys(${pm.id})" class="text-xs text-blue-500 hover:text-blue-700">Select All</button>
-                            <button onclick="deselectAllKeys(${pm.id})" class="text-xs text-gray-500 hover:text-gray-700">Clear</button>
+                    <div class="flex flex-col gap-2 mb-2 md:flex-row md:items-center md:justify-between">
+                        <div>
+                            <div class="font-medium text-sm text-gray-700">${pm.label}</div>
+                            <div class="text-xs text-gray-400 mt-1">${t('bindingScopeHint', 'Access is configured on the bound provider-model, not on the model itself.')}</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="selectAllKeys(${pm.id})" class="text-xs text-blue-500 hover:text-blue-700">${t('selectAll', 'Select All')}</button>
+                            <button onclick="deselectAllKeys(${pm.id})" class="text-xs text-gray-500 hover:text-gray-700">${t('clear', 'Clear')}</button>
                         </div>
                     </div>
-                    <div class="space-y-1">
-                        ${allApiKeys.map(k => `
-                            <label class="flex items-center text-sm py-1 px-2 rounded hover:bg-gray-50 cursor-pointer">
-                                <input type="checkbox" class="mr-2 mk-check" data-pm-id="${pm.id}" data-ak-id="${k.id}" ${boundIds.includes(k.id) ? 'checked' : ''}>
+                    <div class="space-y-1 max-h-80 overflow-y-auto">
+                        ${pageApiKeys.map(k => `
+                            <label class="mk-item flex items-center text-sm py-2 px-2 rounded cursor-pointer ${selectedIds.has(k.id) ? 'selected' : ''}" data-pm-id="${pm.id}" data-ak-id="${k.id}">
+                                <input type="checkbox" class="mr-2 mk-check" data-pm-id="${pm.id}" data-ak-id="${k.id}" onchange="toggleModelKeySelection(${pm.id}, ${k.id}, this.checked)" ${selectedIds.has(k.id) ? 'checked' : ''}>
                                 ${k.name}
                             </label>
                         `).join('')}
                     </div>
-                    <div class="text-xs text-gray-400 mt-1">${bound.length} key(s) bound</div>
+                    <div class="mt-3 flex flex-col gap-2 text-xs text-gray-400 md:flex-row md:items-center md:justify-between">
+                        <span>${formatI18n('selectedCount', {count: selectedIds.size}, `${selectedIds.size} selected`)}</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="changeModelKeysPage(-1)" class="px-2 py-1 border rounded ${modelKeysPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${modelKeysPage <= 1 ? 'disabled' : ''}>${t('previous', 'Previous')}</button>
+                            <span>${formatI18n('pageLabel', {current: modelKeysPage, total: totalPages}, `Page ${modelKeysPage} / ${totalPages}`)}</span>
+                            <button onclick="changeModelKeysPage(1)" class="px-2 py-1 border rounded ${modelKeysPage >= totalPages ? 'opacity-50 cursor-not-allowed' : ''}" ${modelKeysPage >= totalPages ? 'disabled' : ''}>${t('next', 'Next')}</button>
+                        </div>
+                    </div>
                 </div>`;
             });
             container.innerHTML = html;
         }
 
+        function toggleModelKeySelection(pmId, akId, checked) {
+            if (!modelKeysSelection[pmId]) {
+                modelKeysSelection[pmId] = new Set();
+            }
+            if (checked) {
+                modelKeysSelection[pmId].add(akId);
+            } else {
+                modelKeysSelection[pmId].delete(akId);
+            }
+            renderModelKeysContent();
+        }
+
         function selectAllKeys(pmId) {
-            document.querySelectorAll(`.mk-check[data-pm-id="${pmId}"]`).forEach(c => c.checked = true);
+            modelKeysSelection[pmId] = new Set(allApiKeys.map(k => k.id));
+            renderModelKeysContent();
         }
 
         function deselectAllKeys(pmId) {
-            document.querySelectorAll(`.mk-check[data-pm-id="${pmId}"]`).forEach(c => c.checked = false);
+            modelKeysSelection[pmId] = new Set();
+            renderModelKeysContent();
+        }
+
+        function changeModelKeysPage(delta) {
+            const totalPages = Math.max(1, Math.ceil(allApiKeys.length / MODEL_KEYS_PAGE_SIZE));
+            const nextPage = modelKeysPage + delta;
+            if (nextPage < 1 || nextPage > totalPages) return;
+            modelKeysPage = nextPage;
+            renderModelKeysContent();
         }
 
         function closeModelKeysModal() {
             document.getElementById('model-keys-modal').classList.add('hidden');
             document.getElementById('model-keys-modal').classList.remove('flex');
             modelKeysTarget = null;
+            modelKeysScopePmId = null;
+            modelKeysSelection = {};
+            modelKeysPage = 1;
+        }
+
+        async function openProviderModelKeys(pmId, modelId, label) {
+            modelKeysScopePmId = pmId;
+            await openModelKeys(modelId, label);
         }
 
         async function saveModelKeysModal() {
             if (!modelKeysTarget) return;
             try {
-                const checks = document.querySelectorAll('.mk-check');
-                const byPm = {};
-                checks.forEach(c => {
-                    const pmId = parseInt(c.dataset.pmId);
-                    const akId = parseInt(c.dataset.akId);
-                    if (!byPm[pmId]) byPm[pmId] = [];
-                    if (c.checked) byPm[pmId].push(akId);
-                });
-                for (const [pmId, akIds] of Object.entries(byPm)) {
+                const targetPmList = modelKeysScopePmId
+                    ? modelKeysPmList.filter(pm => pm.id === modelKeysScopePmId)
+                    : modelKeysPmList;
+                for (const pm of targetPmList) {
+                    const akIds = Array.from(modelKeysSelection[pm.id] || []);
                     await mgFetch(`${APP_BASE_PATH}/admin/api/models/${modelKeysTarget}/api-keys`, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({provider_model_id: parseInt(pmId), api_key_ids: akIds})
-                    }, {error: 'Failed to save key access'});
+                        body: JSON.stringify({provider_model_id: pm.id, api_key_ids: akIds})
+                    }, {error: t('failedToSaveKeyAccess', 'Failed to save key access')});
                 }
-                showToast('Key access saved', 'success');
+                showToast(t('keyAccessSaved', 'Key access saved'), 'success');
                 closeModelKeysModal();
                 loadModels();
             } catch(e) {}
-        }
-
-        async function loadModels() {
-            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models`);
-            allModels = data.models || [];
-            const html = allModels.map(m => `
-                <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-                    <div>
-                        <span class="font-medium">${m.display_name || m.name}</span>
-                        <span class="ml-2 text-xs text-gray-500">${m.name}</span>
-                        <span class="ml-2 text-xs ${m.is_active ? 'text-green-600' : 'text-red-600'}">${m.is_active ? 'Active' : 'Inactive'}</span>
-                        <div class="text-xs text-gray-400 mt-1">
-                            max_tokens=${(m.max_tokens||0).toLocaleString()} / context=${(m.context_length||0).toLocaleString()} / thinking=${m.thinking_enabled ? (m.thinking_budget||0).toLocaleString() : 'off'}${m.is_multimodal ? ' / multimodal' : ''}
-                            ${m.bound_key_count > 0 ? ` / <span class="text-green-500">${m.bound_key_count.toLocaleString()} key(s)</span>` : ''}
-                        </div>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="openModelKeys(${m.id})" class="text-green-500 hover:text-green-700 text-sm">Keys</button>
-                        <button onclick="editModel(${m.id})" class="text-blue-500 hover:text-blue-700 text-sm">Edit</button>
-                        <button onclick="deleteModel(${m.id})" class="text-red-500 hover:text-red-700 text-sm">Delete</button>
-                    </div>
-                </div>
-            `).join('');
-            document.getElementById('models-list').innerHTML = html || '<div class="text-gray-400 text-center py-4">No models</div>';
         }
 
         async function selectProvider(id) {
@@ -404,7 +506,7 @@
             await loadProviderBindings(id);
         }
 
-        async function loadProviderBindings(providerId) {
+        /* legacy duplicate block kept inert to avoid encoding-related patch drift
             const provider = allProviders.find(p => p.id === providerId);
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/models');
             const bindings = data.models || [];
@@ -437,7 +539,7 @@
                 `;
             }
             document.getElementById('bindings-container').innerHTML = html;
-        }
+        */
 
         async function bindModel() {
             const modelId = document.getElementById('bind-model-select').value;
@@ -452,39 +554,45 @@
 
         async function unbindModel(pmId) {
             try {
-                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {method: 'DELETE'}, {success: 'Model unbound', error: 'Unbind failed'});
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {method: 'DELETE'}, {success: t('modelUnbound', 'Model unbound'), error: t('unbindFailed', 'Unbind failed')});
                 loadProviderBindings(selectedProviderId);
             } catch(e) {}
         }
 
         async function syncSelectedProvider() {
             if (!selectedProviderId) {
-                showToast('Please select a provider first', 'info');
+                showToast(t('selectProviderFirst', 'Please select a provider first'), 'info');
                 return;
             }
-            const btn = event.target;
+            const btn = document.getElementById('sync-btn') || (window.event ? window.event.target : null);
+            if (!btn) {
+                showToast(t('syncButtonNotFound', 'Sync button not found'), 'error');
+                return;
+            }
+            const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = 'Syncing...';
+            btn.textContent = t('syncing', 'Syncing...');
             try {
-                const data = await mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/sync-models', {method: 'POST'}, {error: 'Sync failed'});
+                const data = await mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/sync-models', {method: 'POST'}, {error: t('syncFailed', 'Sync failed')});
                 if (data.synced) {
-                    showToast('Synced ' + data.total + ' models: ' + data.synced.join(', '), 'success');
+                    showToast(formatI18n('syncedModels', {count: data.total, names: data.synced.join(', ')}, `Synced ${data.total} models: ${data.synced.join(', ')}`), 'success');
                     loadModels();
                     loadProviderBindings(selectedProviderId);
                 } else if (data.error) {
-                    showToast('Sync failed: ' + data.error, 'error');
+                    showToast(`${t('syncFailed', 'Sync failed')}: ${data.error}`, 'error');
                 }
             } catch(e) {}
             btn.disabled = false;
-            btn.textContent = 'Sync';
+            btn.textContent = originalText;
         }
 
         function showAddProvider() {
-            document.getElementById('provider-modal-title').textContent = 'Add Provider';
+            document.getElementById('provider-modal-title').textContent = t('addProvider', 'Add Provider');
             document.getElementById('provider-id').value = '';
             document.getElementById('provider-name').value = '';
             document.getElementById('provider-name').disabled = false;
             document.getElementById('provider-url').value = '';
+            document.getElementById('provider-protocol').value = 'openai';
             document.getElementById('provider-active').checked = true;
             document.getElementById('provider-merge-msgs').checked = false;
             document.getElementById('provider-modal').classList.remove('hidden');
@@ -494,16 +602,17 @@
         function editProvider(id) {
             const p = allProviders.find(x => x.id === id);
             if (!p) return;
-            document.getElementById('provider-modal-title').textContent = 'Edit Provider';
+            document.getElementById('provider-modal-title').textContent = t('editProvider', 'Edit Provider');
             document.getElementById('provider-id').value = p.id;
             document.getElementById('provider-name').value = p.name;
             document.getElementById('provider-name').disabled = true;
             document.getElementById('provider-url').value = p.base_url;
+            document.getElementById('provider-protocol').value = p.protocol || 'openai';
             document.getElementById('provider-active').checked = p.is_active;
             document.getElementById('provider-merge-msgs').checked = p.merge_consecutive_messages || false;
             const reasonEl = document.getElementById('provider-disabled-reason');
             if (p.disabled_reason) {
-                reasonEl.textContent = 'Disabled: ' + p.disabled_reason;
+                reasonEl.textContent = `${t('disabledReasonPrefix', 'Disabled:')} ${p.disabled_reason}`;
                 reasonEl.classList.remove('hidden');
             } else {
                 reasonEl.textContent = '';
@@ -524,6 +633,7 @@
             const data = {
                 name: document.getElementById('provider-name').value,
                 base_url: document.getElementById('provider-url').value,
+                protocol: document.getElementById('provider-protocol').value,
                 is_active: document.getElementById('provider-active').checked,
                 merge_consecutive_messages: document.getElementById('provider-merge-msgs').checked
             };
@@ -532,14 +642,14 @@
                     await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + id, {
                         method: 'PUT',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({base_url: data.base_url, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages})
-                    }, {success: 'Provider saved', error: 'Failed to save provider'});
+                        body: JSON.stringify({base_url: data.base_url, protocol: data.protocol, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages})
+                    }, {success: t('providerSaved', 'Provider saved'), error: t('failedToSaveProvider', 'Failed to save provider')});
                 } else {
                     await mgFetch(`${APP_BASE_PATH}/admin/api/providers`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
-                    }, {success: 'Provider saved', error: 'Failed to save provider'});
+                    }, {success: t('providerSaved', 'Provider saved'), error: t('failedToSaveProvider', 'Failed to save provider')});
                 }
                 closeProviderModal();
                 loadProviders();
@@ -547,19 +657,19 @@
         });
 
         async function deleteProvider(id) {
-            if (!confirm('Delete this provider?')) return;
+            if (!confirm(t('deleteProviderConfirm', 'Delete this provider?'))) return;
             try {
-                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + id, {method: 'DELETE'}, {success: 'Provider deleted', error: 'Delete failed'});
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + id, {method: 'DELETE'}, {success: t('providerDeleted', 'Provider deleted'), error: t('deleteFailed', 'Delete failed')});
                 if (selectedProviderId === id) {
                     selectedProviderId = null;
-                    document.getElementById('bindings-container').innerHTML = '<div class="text-gray-400 text-center py-4">Select a provider to view bindings</div>';
+                    document.getElementById('bindings-container').innerHTML = '<div class="text-gray-400 text-center py-4">{{ _("Select a provider to view bindings") }}</div>';
                 }
                 loadProviders();
             } catch(e) {}
         }
 
         function showAddModel() {
-            document.getElementById('model-modal-title').textContent = 'Add Model';
+            document.getElementById('model-modal-title').textContent = t('addModel', 'Add Model');
             document.getElementById('model-id').value = '';
             document.getElementById('model-name').value = '';
             document.getElementById('model-name').disabled = false;
@@ -577,7 +687,7 @@
         async function editModel(id) {
             const m = allModels.find(x => x.id === id);
             if (!m) return;
-            document.getElementById('model-modal-title').textContent = 'Edit Model';
+            document.getElementById('model-modal-title').textContent = t('editModel', 'Edit Model');
             document.getElementById('model-id').value = m.id;
             document.getElementById('model-name').value = m.name;
             document.getElementById('model-name').disabled = true;
@@ -625,13 +735,13 @@
                             is_multimodal: data.is_multimodal,
                             is_active: data.is_active
                         })
-                    }, {success: 'Model saved', error: 'Failed to save model'});
+                    }, {success: t('modelSaved', 'Model saved'), error: t('failedToSaveModel', 'Failed to save model')});
                 } else {
                     await mgFetch(`${APP_BASE_PATH}/admin/api/models`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
-                    }, {success: 'Model saved', error: 'Failed to save model'});
+                    }, {success: t('modelSaved', 'Model saved'), error: t('failedToSaveModel', 'Failed to save model')});
                 }
                 closeModelModal();
                 loadModels();
@@ -639,26 +749,19 @@
         });
 
         async function deleteModel(id) {
-            if (!confirm('Delete this model?')) return;
+            if (!confirm(t('deleteModelConfirm', 'Delete this model?'))) return;
             try {
-                await mgFetch(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'}, {success: 'Model deleted', error: 'Delete failed'});
+                await mgFetch(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'}, {success: t('modelDeleted', 'Model deleted'), error: t('deleteFailed', 'Delete failed')});
                 loadModels();
             } catch(e) {}
         }
-
-        document.getElementById('provider-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'provider-modal') closeProviderModal();
-        });
-        document.getElementById('model-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'model-modal') closeModelModal();
-        });
 
         let providerKeysTargetId = null;
 
         async function openProviderKeys(providerId, providerName) {
             providerKeysTargetId = providerId;
             document.getElementById('provider-keys-title').textContent = providerName + ' - ' + (CONFIG_I18N.providerKeys || 'Provider Keys');
-            document.getElementById('provider-keys-content').innerHTML = '<div class="text-center text-gray-400 py-4">Loading...</div>';
+            document.getElementById('provider-keys-content').innerHTML = `<div class="text-center text-gray-400 py-4">${t('loading', 'Loading...')}</div>`;
             document.getElementById('new-provider-key-value').value = '';
             document.getElementById('new-provider-key-label').value = '';
             document.getElementById('new-provider-key-max-concurrent').value = '';
@@ -668,7 +771,7 @@
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/keys');
                 renderProviderKeys(data.keys || []);
             } catch(e) {
-                document.getElementById('provider-keys-content').innerHTML = '<div class="text-center text-red-500 py-4">Failed to load</div>';
+                document.getElementById('provider-keys-content').innerHTML = `<div class="text-center text-red-500 py-4">${t('failedToLoad', 'Failed to load')}</div>`;
             }
         }
 
@@ -684,7 +787,7 @@
                         <div class="pk-meta">
                             <span class="text-sm font-mono font-medium">${k.api_key}</span>
                             ${k.label ? '<span class="text-xs text-gray-400">' + k.label + '</span>' : ''}
-                            <span class="text-xs ${k.is_active ? 'text-green-600' : 'text-red-500'}">${k.is_active ? 'Active' : 'Inactive'}</span>
+                            <span class="text-xs ${k.is_active ? 'text-green-600' : 'text-red-500'}">${k.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
                             ${k.disabled_reason ? '<span class="text-xs text-orange-500">&#9888; ' + (k.disabled_reason || '').substring(0, 30) + '</span>' : ''}
                         </div>
                         <div class="flex items-center gap-1 text-xs text-gray-400 mt-1">
@@ -715,13 +818,13 @@
             const label = document.getElementById('new-provider-key-label').value.trim();
             const maxConcurrentRaw = document.getElementById('new-provider-key-max-concurrent').value.trim();
             const maxConcurrent = maxConcurrentRaw ? parseInt(maxConcurrentRaw, 10) : null;
-            if (!apiKey) { showToast('API Key is required', 'error'); return; }
+            if (!apiKey) { showToast('{{ _("API Key is required") }}', 'error'); return; }
             try {
                 await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({api_key: apiKey, label: label || null, max_concurrent: maxConcurrent})
-                }, {success: 'Key added', error: 'Failed to add key'});
+                }, {success: '{{ _("Key added") }}', error: '{{ _("Failed to add key") }}'});
                 document.getElementById('new-provider-key-value').value = '';
                 document.getElementById('new-provider-key-label').value = '';
                 document.getElementById('new-provider-key-max-concurrent').value = '';
@@ -737,7 +840,7 @@
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({is_active: activate})
-                }, {success: activate ? 'Key enabled' : 'Key disabled', error: 'Failed to update key'});
+                }, {success: activate ? '{{ _("Key enabled") }}' : '{{ _("Key disabled") }}', error: '{{ _("Failed to update key") }}'});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
             } catch(err) {}
@@ -752,7 +855,7 @@
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({max_concurrent: maxConcurrent})
-                }, {success: 'Concurrency saved', error: 'Failed to save'});
+                }, {success: '{{ _("Concurrency saved") }}', error: '{{ _("Failed to save") }}'});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
             } catch(err) {}
@@ -760,19 +863,103 @@
 
         async function deleteProviderKey(keyId) {
             if (!providerKeysTargetId) return;
-            if (!confirm('Delete this key?')) return;
+            if (!confirm('{{ _("Delete this key?") }}')) return;
             try {
                 await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
                     method: 'DELETE'
-                }, {success: 'Key deleted', error: 'Failed to delete key'});
+                }, {success: '{{ _("Key deleted") }}', error: '{{ _("Failed to delete key") }}'});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
             } catch(err) {}
         }
 
+        async function loadModels() {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models`);
+            allModels = data.models || [];
+            const html = allModels.map(m => `
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                    <div>
+                        <span class="font-medium">${m.display_name || m.name}</span>
+                        <span class="ml-2 text-xs text-gray-500">${m.name}</span>
+                        <span class="ml-2 text-xs ${m.is_active ? 'text-green-600' : 'text-red-600'}">${m.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
+                        <div class="text-xs text-gray-400 mt-1">
+                            max_tokens=${(m.max_tokens||0).toLocaleString()} / context=${(m.context_length||0).toLocaleString()} / thinking=${m.thinking_enabled ? (m.thinking_budget||0).toLocaleString() : t('thinkingOff', 'off')}${m.is_multimodal ? ` / ${t('multimodal', 'multimodal')}` : ''}
+                            ${m.bound_key_count > 0 ? ` / <span class="text-green-500">${formatI18n('keyCount', {count: m.bound_key_count.toLocaleString()}, `${m.bound_key_count.toLocaleString()} key(s)`)}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="editModel(${m.id})" class="text-blue-500 hover:text-blue-700 text-sm">${t('edit', 'Edit')}</button>
+                        <button onclick="deleteModel(${m.id})" class="text-red-500 hover:text-red-700 text-sm">${t('delete', 'Delete')}</button>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('models-list').innerHTML = html || `<div class="text-gray-400 text-center py-4">${t('noModels', 'No models')}</div>`;
+            if (selectedProviderId) {
+                await loadProviderBindings(selectedProviderId);
+            }
+        }
+
+        async function loadProviderBindings(providerId) {
+            const provider = allProviders.find(p => p.id === providerId);
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/models');
+            const bindings = data.models || [];
+            const unboundModels = allModels.filter(m => m.is_active && !bindings.find(b => b.model_id === m.id));
+            let html = `<div class="mb-4"><span class="font-medium">${provider.name}</span> - ${t('boundModels', 'Bound Models')}</div>`;
+            if (bindings.length > 0) {
+                html += '<div class="space-y-2 mb-4">';
+                bindings.forEach(b => {
+                    const bindingLabel = (b.display_name || b.model_name).replace(/'/g, "\\'");
+                    html += `
+                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                            <span class="text-sm">${b.display_name || b.model_name}</span>
+                            <div class="flex items-center gap-2">
+                                <button onclick="openProviderModelKeys(${b.id}, ${b.model_id}, '${bindingLabel}')" class="text-green-500 hover:text-green-700 text-sm">${t('keys', 'Keys')}</button>
+                                <button onclick="unbindModel(${b.id})" class="text-red-500 hover:text-red-700 text-sm">${t('remove', 'Remove')}</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            } else {
+                html += `<div class="text-gray-400 text-center py-2 mb-4">${t('noModelsBound', 'No models bound')}</div>`;
+            }
+            if (unboundModels.length > 0) {
+                html += `
+                    <div class="flex gap-2">
+                        <select id="bind-model-select" class="flex-1 border rounded px-3 py-2 text-sm">
+                            ${unboundModels.map(m => `<option value="${m.id}">${m.display_name || m.name}</option>`).join('')}
+                        </select>
+                        <button onclick="bindModel()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">${t('bind', 'Bind')}</button>
+                    </div>
+                `;
+            }
+            document.getElementById('bindings-container').innerHTML = html;
+        }
+
+        document.getElementById('provider-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+        }, true);
+        document.getElementById('model-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+        }, true);
+        document.getElementById('model-keys-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+        }, true);
         document.getElementById('provider-keys-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'provider-keys-modal') closeProviderKeysModal();
-        });
+            if (e.target === e.currentTarget) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+        }, true);
 
         loadProviders();
         loadModels();

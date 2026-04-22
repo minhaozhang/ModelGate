@@ -49,6 +49,7 @@ from services.proxy_runtime import (
     log_request_info,
     schedule_api_key_last_used_update,
 )
+from services.proxy_runtime.adapters import get_adapter
 
 
 INTERNAL_ANALYSIS_API_KEY_ID = 1
@@ -221,7 +222,8 @@ async def proxy_request(request: Request, endpoint: str):
         messages = body_json["messages"]
         stream = body_json.get("stream", False)
 
-        if stream and provider_name != "minimax":
+        adapter = get_adapter(provider_config.get("protocol", "openai"))
+        if stream:
             stream_options = body_json.get("stream_options")
             if isinstance(stream_options, dict):
                 stream_options = dict(stream_options)
@@ -230,15 +232,26 @@ async def proxy_request(request: Request, endpoint: str):
             stream_options["include_usage"] = True
             body_json["stream_options"] = stream_options
 
+        body_json = adapter.preprocess_body(body_json, provider_config)
+        body_json = adapter.transform_request(body_json, provider_config)
+
         if provider_name == "minimax" and merge_messages:
             body_json.pop("thinking", None)
             body_json.pop("stream_options", None)
             body_json["reasoning_split"] = True
 
+        if provider_config.get("protocol", "openai") != "openai":
+            logger.debug(
+                "[ADAPTER] protocol=%s transformed_body=%s",
+                provider_config.get("protocol"),
+                sanitize_payload_for_log(body_json),
+            )
+
         body = json.dumps(body_json).encode()
         request_context_tokens = estimate_request_context_tokens(body_json)
-        target_url = f"{provider_config['base_url']}{endpoint}"
-        headers = _build_headers(provider_config, api_key=chosen_api_key)
+        adapter_endpoint = adapter.get_target_path(endpoint)
+        target_url = f"{provider_config['base_url']}{adapter_endpoint}"
+        headers = build_headers(provider_config, api_key=chosen_api_key, protocol=provider_config.get("protocol", "openai"))
 
         _log_request_info(
             provider_name,
@@ -264,6 +277,7 @@ async def proxy_request(request: Request, endpoint: str):
             )
 
         client = get_http_client()
+        provider_protocol = provider_config.get("protocol", "openai")
         entered_handler = True
         if stream:
             return await handle_streaming(
@@ -285,6 +299,7 @@ async def proxy_request(request: Request, endpoint: str):
                 stream_log_id,
                 request,
                 chosen_key_id=chosen_key_id,
+                protocol=provider_protocol,
             )
         return await handle_normal(
             client,
@@ -304,6 +319,7 @@ async def proxy_request(request: Request, endpoint: str):
             api_key_model_semaphore,
             request_id,
             chosen_key_id=chosen_key_id,
+            protocol=provider_protocol,
         )
     except Exception as e:
         if not entered_handler:
@@ -359,8 +375,8 @@ async def call_internal_model_via_proxy(
         timeout_seconds=timeout_seconds,
     )
 
-def _build_headers(provider_config: dict, api_key: str | None = None) -> dict:
-    return build_headers(provider_config, api_key=api_key)
+def _build_headers(provider_config: dict, api_key: str | None = None, protocol: str = "openai") -> dict:
+    return build_headers(provider_config, api_key=api_key, protocol=protocol)
 
 
 def _schedule_api_key_last_used_update(api_key_id: int | None) -> None:
@@ -409,6 +425,7 @@ async def handle_normal(
     api_key_model_semaphore,
     request_id,
     chosen_key_id=None,
+    protocol="openai",
 ):
     return await runtime_handle_normal(
         client=client,
@@ -428,6 +445,7 @@ async def handle_normal(
         api_key_model_semaphore=api_key_model_semaphore,
         request_id=request_id,
         chosen_key_id=chosen_key_id,
+        protocol=protocol,
     )
 
 
@@ -450,6 +468,7 @@ async def handle_streaming(
     log_id,
     request,
     chosen_key_id=None,
+    protocol="openai",
 ):
     return await runtime_handle_streaming(
         url=url,
@@ -470,4 +489,5 @@ async def handle_streaming(
         log_id=log_id,
         request=request,
         chosen_key_id=chosen_key_id,
+        protocol=protocol,
     )

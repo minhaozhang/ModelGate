@@ -16,6 +16,7 @@ from core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
 from services.logging import log_request
 from services.minimax import process_minimax_response
 from services.provider_limiter import check_usage_limit_error, disable_provider_key
+from services.proxy_runtime.adapters import get_adapter
 from services.proxy_runtime.concurrency import (
     RATE_LIMITED_STATUSES,
     SEMAPHORE_RETRY_AFTER_SECONDS,
@@ -49,6 +50,7 @@ async def handle_normal(
     api_key_model_semaphore,
     request_id,
     chosen_key_id=None,
+    protocol="openai",
 ):
     logger.debug(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -70,11 +72,11 @@ async def handle_normal(
         latency = (time.time() - start_time) * 1000
 
         try:
-            resp_json = resp.json()
+            raw_resp_json = resp.json()
         except json.JSONDecodeError:
-            resp_json = {}
+            raw_resp_json = {}
 
-        usage_limit_err = check_usage_limit_error(resp_json, provider)
+        usage_limit_err = check_usage_limit_error(raw_resp_json, provider)
         if usage_limit_err:
             provider_config = providers_cache.get(provider, {})
             await disable_provider_key(
@@ -86,6 +88,12 @@ async def handle_normal(
                 "rate_limit_error",
                 "provider_disabled",
             )
+
+        adapter = get_adapter(protocol)
+        if resp.status_code >= 400 and protocol != "openai":
+            resp_json = adapter.transform_error_response(raw_resp_json, resp.status_code)
+        else:
+            resp_json = adapter.transform_response(raw_resp_json)
 
         if provider == "minimax":
             process_minimax_response(resp_json)
@@ -166,7 +174,10 @@ async def handle_normal(
             )
 
         logger.info(
-            f"[RESPONSE] Status: {resp.status_code}, Tokens: {total_tokens}, Latency: {latency:.0f}ms"
+            f"[RESPONSE] Status: {resp.status_code}, "
+            f"Tokens: {total_tokens} (prompt={tokens_record.get('prompt_tokens', 0)}, "
+            f"completion={tokens_record.get('completion_tokens', 0)}), "
+            f"Latency: {latency:.0f}ms"
         )
         logger.debug("[RESPONSE] Body: %s", sanitize_text_for_log(resp.text))
 
@@ -178,14 +189,17 @@ async def handle_normal(
                 resp_headers["retry-after"] = str(SEMAPHORE_RETRY_AFTER_SECONDS)
 
         if request_status != "success":
-            resp_content = _normalize_upstream_error(
-                resp_json,
-                resp.status_code,
-                provider,
-                raw_error_text=sanitize_text_for_log(resp.text, limit=2000),
-            )
+            if protocol != "openai" and resp_json:
+                resp_content = json.dumps(resp_json).encode()
+            else:
+                resp_content = _normalize_upstream_error(
+                    resp_json,
+                    resp.status_code,
+                    provider,
+                    raw_error_text=sanitize_text_for_log(resp.text, limit=2000),
+                )
         else:
-            resp_content = resp.content
+            resp_content = json.dumps(resp_json).encode()
 
         response = Response(
             content=resp_content,

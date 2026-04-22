@@ -16,6 +16,7 @@ from services.provider import (
     pick_api_key,
 )
 from services.provider_limiter import check_usage_limit_error, disable_provider_key
+from services.proxy_runtime.adapters import get_adapter
 from services.proxy_runtime.client import (
     PROVIDER_REQUEST_TIMEOUT_SECONDS,
     get_http_client,
@@ -162,6 +163,8 @@ async def call_internal_model_via_proxy(
                 }
 
         schedule_api_key_last_used_update(api_key_id)
+        protocol = provider_config.get("protocol", "openai")
+        adapter = get_adapter(protocol)
         model_config = get_model_config(provider_config, actual_model)
         req_body["model"] = actual_model
         is_multimodal = (
@@ -174,13 +177,21 @@ async def call_internal_model_via_proxy(
             req_body["stream"] = False
         req_body.pop("stream_options", None)
 
+        req_body = adapter.preprocess_body(req_body, provider_config)
+        req_body = adapter.transform_request(req_body, provider_config)
+
         if provider_name == "minimax" and merge_messages:
             req_body.pop("thinking", None)
             req_body["reasoning_split"] = True
 
         request_context_tokens = estimate_request_context_tokens(req_body)
-        headers = build_headers(provider_config, api_key=chosen_api_key)
-        target_url = f"{provider_config['base_url']}/chat/completions"
+        headers = build_headers(
+            provider_config,
+            api_key=chosen_api_key,
+            protocol=protocol,
+        )
+        target_path = adapter.get_target_path("/chat/completions")
+        target_url = f"{provider_config['base_url']}{target_path}"
         body = json.dumps(req_body).encode("utf-8")
 
         client = get_http_client()
@@ -192,11 +203,11 @@ async def call_internal_model_via_proxy(
         )
 
         try:
-            resp_json = resp.json()
+            raw_resp_json = resp.json()
         except json.JSONDecodeError:
-            resp_json = {}
+            raw_resp_json = {}
 
-        usage_limit_err = check_usage_limit_error(resp_json, provider_name)
+        usage_limit_err = check_usage_limit_error(raw_resp_json, provider_name)
         if usage_limit_err:
             await disable_provider_key(
                 provider_name, provider_config, chosen_key_id, usage_limit_err
@@ -206,11 +217,15 @@ async def call_internal_model_via_proxy(
                 "provider_name": provider_name,
                 "actual_model_name": actual_model,
                 "status_code": resp.status_code,
-                "payload": resp_json,
+                "payload": raw_resp_json,
                 "error": usage_limit_err,
             }
 
         latency = (time.time() - start_time) * 1000
+        if resp.status_code >= 400 and protocol != "openai":
+            resp_json = adapter.transform_error_response(raw_resp_json, resp.status_code)
+        else:
+            resp_json = adapter.transform_response(raw_resp_json)
         if provider_name == "minimax":
             process_minimax_response(resp_json)
 

@@ -132,6 +132,7 @@ async def load_providers():
                 "id": p.id,
                 "base_url": p.base_url,
                 "api_key": p.api_key or "",
+                "protocol": p.protocol or "openai",
                 "models": provider_models_data,
                 "merge_consecutive_messages": p.merge_consecutive_messages or False,
                 "disabled_reason": p.disabled_reason,

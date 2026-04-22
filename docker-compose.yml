@@ -3,6 +3,8 @@ services:
     build: .
     expose:
       - "8765"
+    environment:
+      - LOG_LEVEL=DEBUG
     volumes:
       - ./logs:/app/logs
       - ./reports:/app/reports
