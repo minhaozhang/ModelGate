@@ -18,6 +18,15 @@ from core.database import (
 
 logger = proxy_logger
 
+
+def _flatten_exception(exc: BaseException, _depth: int = 0) -> str:
+    if _depth > 5:
+        return f"{type(exc).__name__}: ..."
+    if hasattr(exc, "exceptions"):
+        inner = "; ".join(_flatten_exception(e, _depth + 1) for e in exc.exceptions)
+        return f"{type(exc).__name__}[{inner}]"
+    return f"{type(exc).__name__}: {exc}"
+
 _proxy_tools: dict[int, list[dict]] = {}
 _session_pool: dict[int, dict] = {}
 
@@ -115,7 +124,7 @@ async def sync_server_tools(server: McpServer) -> list[dict]:
                         await db.execute(
                             update(McpServer)
                             .where(McpServer.id == server.id)
-                            .values(last_sync_error=None, last_sync_at=datetime.now(timezone.utc))
+                            .values(last_sync_error=None, last_sync_at=datetime.utcnow())
                         )
                         await db.commit()
 
@@ -127,11 +136,7 @@ async def sync_server_tools(server: McpServer) -> list[dict]:
         )
         return tools
     except BaseException as exc:
-        if hasattr(exc, "exceptions"):
-            sub = [f"{type(e).__name__}: {e}" for e in exc.exceptions]
-            error_msg = f"{type(exc).__name__}: {'; '.join(sub)}"
-        else:
-            error_msg = f"{type(exc).__name__}: {exc}"
+        error_msg = _flatten_exception(exc)
         async with async_session_maker() as db:
             await db.execute(
                 update(McpServer)
@@ -161,11 +166,7 @@ async def sync_all_servers() -> None:
         try:
             await sync_server_tools(server)
         except BaseException as exc:
-            if hasattr(exc, "exceptions"):
-                details = "; ".join(f"{type(e).__name__}: {e}" for e in exc.exceptions)
-            else:
-                details = f"{type(exc).__name__}: {exc}"
-            logger.error("[MCP] sync_all: server '%s' failed: %s", server.name, details)
+            logger.error("[MCP] sync_all: server '%s' failed: %s", server.name, _flatten_exception(exc))
 
     await asyncio.gather(*[_sync_one(s) for s in servers])
     logger.info("[MCP] Synced tools from %d active servers", len(servers))
@@ -196,11 +197,7 @@ async def call_tool(
         result_text = "\n".join(parts)
         is_error = result.isError or False
     except BaseException as exc:
-        if hasattr(exc, "exceptions"):
-            sub = [f"{type(e).__name__}: {e}" for e in exc.exceptions]
-            error_msg = f"{type(exc).__name__}: {'; '.join(sub)}"
-        else:
-            error_msg = f"{type(exc).__name__}: {exc}"
+        error_msg = _flatten_exception(exc)
         is_error = True
         await _close_pool_entry(server.id)
 
