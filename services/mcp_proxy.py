@@ -126,8 +126,12 @@ async def sync_server_tools(server: McpServer) -> list[dict]:
             server.id,
         )
         return tools
-    except Exception as exc:
-        error_msg = f"{type(exc).__name__}: {exc}"
+    except BaseException as exc:
+        if hasattr(exc, "exceptions"):
+            sub = [f"{type(e).__name__}: {e}" for e in exc.exceptions]
+            error_msg = f"{type(exc).__name__}: {'; '.join(sub)}"
+        else:
+            error_msg = f"{type(exc).__name__}: {exc}"
         async with async_session_maker() as db:
             await db.execute(
                 update(McpServer)
@@ -156,8 +160,12 @@ async def sync_all_servers() -> None:
     async def _sync_one(server):
         try:
             await sync_server_tools(server)
-        except Exception as exc:
-            logger.error("[MCP] sync_all: server '%s' failed: %s", server.name, exc)
+        except BaseException as exc:
+            if hasattr(exc, "exceptions"):
+                details = "; ".join(f"{type(e).__name__}: {e}" for e in exc.exceptions)
+            else:
+                details = f"{type(exc).__name__}: {exc}"
+            logger.error("[MCP] sync_all: server '%s' failed: %s", server.name, details)
 
     await asyncio.gather(*[_sync_one(s) for s in servers])
     logger.info("[MCP] Synced tools from %d active servers", len(servers))
@@ -187,8 +195,12 @@ async def call_tool(
                 parts.append(str(content))
         result_text = "\n".join(parts)
         is_error = result.isError or False
-    except Exception as exc:
-        error_msg = f"{type(exc).__name__}: {exc}"
+    except BaseException as exc:
+        if hasattr(exc, "exceptions"):
+            sub = [f"{type(e).__name__}: {e}" for e in exc.exceptions]
+            error_msg = f"{type(exc).__name__}: {'; '.join(sub)}"
+        else:
+            error_msg = f"{type(exc).__name__}: {exc}"
         is_error = True
         await _close_pool_entry(server.id)
 
