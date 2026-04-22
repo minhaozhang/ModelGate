@@ -835,11 +835,17 @@
 
         async function toggleProviderKey(keyId, activate) {
             if (!providerKeysTargetId) return;
+            let body = {is_active: activate};
+            if (!activate) {
+                const reason = prompt('{{ _("Disable reason (optional, shown to users)") }}');
+                if (reason === null) return;
+                if (reason.trim()) body.disabled_reason = reason.trim();
+            }
             try {
                 await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({is_active: activate})
+                    body: JSON.stringify(body)
                 }, {success: activate ? '{{ _("Key enabled") }}' : '{{ _("Key disabled") }}', error: '{{ _("Failed to update key") }}'});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);

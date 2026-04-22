@@ -125,24 +125,24 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-lg font-semibold">{{ _('Active Users') }}</h3>
+                        <h3 class="text-sm md:text-base lg:text-lg font-semibold">{{ _('Active Users') }}</h3>
                         <span id="active-count" class="text-xs text-gray-500">0</span>
                     </div>
                     <div id="active-sessions" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No active users') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-lg font-semibold text-orange-600">{{ _('Slow Requests (>60s)') }}</h3>
+                        <h3 class="text-sm md:text-base lg:text-lg font-semibold text-orange-600">{{ _('Slow Requests (>60s)') }}</h3>
                         <span id="slow-count" class="text-xs text-gray-500">0</span>
                     </div>
                     <div id="slow-requests" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No slow requests') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
-                    <h3 class="text-lg font-semibold mb-3">{{ _('Provider Usage') }}</h3>
+                    <h3 class="text-sm md:text-base lg:text-lg font-semibold mb-3">{{ _('Provider Usage') }}</h3>
                     <div id="provider-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
-                    <h3 class="text-lg font-semibold mb-3">{{ _('API Key Usage') }}</h3>
+                    <h3 class="text-sm md:text-base lg:text-lg font-semibold mb-3">{{ _('API Key Usage') }}</h3>
                     <div id="apikey-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
                 </div>
             </div>

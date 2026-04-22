@@ -132,6 +132,7 @@ class ProviderKeyUpdate(BaseModel):
     label: Optional[str] = None
     max_concurrent: Optional[int] = None
     is_active: Optional[bool] = None
+    disabled_reason: Optional[str] = None
 
 
 @router.get("/providers/{provider_id}/keys")
@@ -213,6 +214,8 @@ async def update_provider_key(
             pk.is_active = data.is_active
             if data.is_active:
                 pk.disabled_reason = None
+        if "disabled_reason" in data.model_fields_set:
+            pk.disabled_reason = data.disabled_reason
         try:
             await session.commit()
         except IntegrityError:

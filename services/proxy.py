@@ -157,8 +157,12 @@ async def proxy_request(request: Request, endpoint: str):
         if not chosen_api_key:
             api_key_model_semaphore.release()
             api_key_model_acquired = False
+            reasons = provider_config.get("disabled_key_reasons") or []
+            msg = f"No active provider key available for '{provider_name}'"
+            if reasons:
+                msg = f"'{provider_name}' \u6682\u4e0d\u53ef\u7528\uff1a{reasons[0]}"
             return _openai_error_response(
-                f"No active provider key available for '{provider_name}'",
+                msg,
                 400,
                 "invalid_request_error",
                 "no_api_key",
