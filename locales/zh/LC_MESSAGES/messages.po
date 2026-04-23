@@ -273,8 +273,29 @@ msgstr "模型名称 (ID)"
 msgid "Display Name"
 msgstr "显示名称"
 
-msgid "Max Tokens"
-msgstr "最大 Token 数"
+msgid "Max Output"
+msgstr "最大输出"
+
+msgid "Context Window"
+msgstr "上下文窗口"
+
+msgid "Reasoning Budget"
+msgstr "推理预算"
+
+msgid "Reasoning"
+msgstr "推理"
+
+msgid "Maximum tokens the model can generate in a single response"
+msgstr "模型单次回复能生成的最大 Token 数"
+
+msgid "Total input + output tokens the model can process at once"
+msgstr "模型一次能处理的输入+输出总 Token 数"
+
+msgid "Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled"
+msgstr "推理/思考过程的最大 Token 数，仅在启用推理时生效"
+
+msgid "Enable extended reasoning / chain-of-thought for this model"
+msgstr "启用该模型的深度推理/思维链能力"
 
 msgid "Multimodal"
 msgstr "多模态"
@@ -1134,6 +1155,9 @@ msgstr "下一页"
 
 msgid "Upstream"
 msgstr "上游"
+
+msgid "Downstream"
+msgstr "下游"
 
 msgid "Client IP"
 msgstr "客户端 IP"

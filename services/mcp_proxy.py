@@ -18,6 +18,15 @@ from core.database import (
 
 logger = proxy_logger
 
+
+def _flatten_exception(exc: BaseException, _depth: int = 0) -> str:
+    if _depth > 5:
+        return f"{type(exc).__name__}: ..."
+    if hasattr(exc, "exceptions"):
+        inner = "; ".join(_flatten_exception(e, _depth + 1) for e in exc.exceptions)
+        return f"{type(exc).__name__}[{inner}]"
+    return f"{type(exc).__name__}: {exc}"
+
 _proxy_tools: dict[int, list[dict]] = {}
 _session_pool: dict[int, dict] = {}
 
@@ -115,7 +124,7 @@ async def sync_server_tools(server: McpServer) -> list[dict]:
                         await db.execute(
                             update(McpServer)
                             .where(McpServer.id == server.id)
-                            .values(last_sync_error=None, last_sync_at=datetime.now(timezone.utc))
+                            .values(last_sync_error=None, last_sync_at=datetime.utcnow())
                         )
                         await db.commit()
 
@@ -126,8 +135,8 @@ async def sync_server_tools(server: McpServer) -> list[dict]:
             server.id,
         )
         return tools
-    except Exception as exc:
-        error_msg = f"{type(exc).__name__}: {exc}"
+    except BaseException as exc:
+        error_msg = _flatten_exception(exc)
         async with async_session_maker() as db:
             await db.execute(
                 update(McpServer)
@@ -156,8 +165,8 @@ async def sync_all_servers() -> None:
     async def _sync_one(server):
         try:
             await sync_server_tools(server)
-        except Exception as exc:
-            logger.error("[MCP] sync_all: server '%s' failed: %s", server.name, exc)
+        except BaseException as exc:
+            logger.error("[MCP] sync_all: server '%s' failed: %s", server.name, _flatten_exception(exc))
 
     await asyncio.gather(*[_sync_one(s) for s in servers])
     logger.info("[MCP] Synced tools from %d active servers", len(servers))
@@ -187,8 +196,8 @@ async def call_tool(
                 parts.append(str(content))
         result_text = "\n".join(parts)
         is_error = result.isError or False
-    except Exception as exc:
-        error_msg = f"{type(exc).__name__}: {exc}"
+    except BaseException as exc:
+        error_msg = _flatten_exception(exc)
         is_error = True
         await _close_pool_entry(server.id)
 

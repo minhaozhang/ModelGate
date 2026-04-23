@@ -22,6 +22,7 @@ class ProviderCreate(BaseModel):
     name: str
     base_url: str
     api_key: Optional[str] = None
+    protocol: Optional[str] = "openai"
     merge_consecutive_messages: Optional[bool] = False
 
 
@@ -29,6 +30,7 @@ class ProviderUpdate(BaseModel):
     base_url: Optional[str] = None
     api_key: Optional[str] = None
     is_active: Optional[bool] = None
+    protocol: Optional[str] = None
     merge_consecutive_messages: Optional[bool] = None
 
 
@@ -43,6 +45,7 @@ async def list_providers(_: bool = Depends(require_admin)):
                     "id": p.id,
                     "name": p.name,
                     "base_url": p.base_url,
+                    "protocol": p.protocol or "openai",
                     "is_active": p.is_active,
                     "merge_consecutive_messages": p.merge_consecutive_messages or False,
                     "disabled_reason": p.disabled_reason,
@@ -59,6 +62,7 @@ async def create_provider(data: ProviderCreate, _: bool = Depends(require_admin)
             name=data.name,
             base_url=data.base_url,
             api_key=data.api_key,
+            protocol=data.protocol or "openai",
             merge_consecutive_messages=data.merge_consecutive_messages or False,
         )
         session.add(provider)
@@ -86,8 +90,11 @@ async def update_provider(
             provider.is_active = data.is_active
             if data.is_active:
                 provider.disabled_reason = None
+                provider.disabled_at = None
         if data.merge_consecutive_messages is not None:
             provider.merge_consecutive_messages = data.merge_consecutive_messages
+        if data.protocol is not None:
+            provider.protocol = data.protocol
         await session.commit()
         await load_providers()
         return {"id": provider.id}
@@ -126,6 +133,7 @@ class ProviderKeyUpdate(BaseModel):
     label: Optional[str] = None
     max_concurrent: Optional[int] = None
     is_active: Optional[bool] = None
+    disabled_reason: Optional[str] = None
 
 
 @router.get("/providers/{provider_id}/keys")
@@ -207,6 +215,9 @@ async def update_provider_key(
             pk.is_active = data.is_active
             if data.is_active:
                 pk.disabled_reason = None
+                pk.disabled_at = None
+        if "disabled_reason" in data.model_fields_set:
+            pk.disabled_reason = data.disabled_reason
         try:
             await session.commit()
         except IntegrityError:

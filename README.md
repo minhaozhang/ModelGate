@@ -10,20 +10,25 @@ ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key man
 
 - Multi-provider routing: Zhipu, DeepSeek, Ollama, Minimax, and any OpenAI-compatible API
 - OpenAI-compatible proxy endpoints: `/v1/chat/completions`, `/v1/embeddings`, `/v1/models`
-- Per-provider concurrency limits with asyncio semaphore-based rate control
+- Layered concurrency control: API key model limit -> provider key limit with per-key semaphore
+- Provider multi-key support with sticky routing and key-level disable/reenable
+- Auto-disable provider/key on usage limit errors, auto-reenable on scheduled task
 - API key management with per-key model access control
 - Streaming request lifecycle tracking: `pending` -> `success` / `error` / `timeout`
-- Upstream status code logging (200, 429, 500, etc.)
+- Upstream and downstream status code logging
+- MCP proxy: proxy remote MCP servers with API key binding, admin UI, tool sync, logging, and stats
 - AI-powered daily error analysis with persisted reports
 - AI-powered model recommendations and timing advice for users
-- Admin dashboards: overview, monitoring, configuration, error analysis, usage guide
 - AI-powered usage report generation (DOCX export with stats, trends, and fun awards)
 - API key time-based access rules (time windows, date ranges, weekday restrictions)
+- Document sharing for admin and user portal
 - User portal: personal stats, health score, recommendations, OpenCode config export
 - OpenCode integration: auto-generated config with per-model context/output limits
 - WeChat iLink Bot integration via MCP (QR login, auto-reply, message persistence)
+- MinIO integration for file storage
 - English / Chinese i18n with Babel
-- Desktop and mobile admin UI
+- Desktop and mobile admin UI with dark/light theme
+- Localized static assets (no CDN dependencies)
 - Reverse proxy support via configurable base path
 - Docker Compose with Nginx reverse proxy and static file serving
 - Daily stats aggregation and 30-day log archiving
@@ -106,6 +111,11 @@ See [DEPLOY.md](DEPLOY.md) for full deployment instructions.
 | `ADMIN_USERNAME` | No | Fallback admin username |
 | `ADMIN_PASSWORD` | No | Fallback admin password |
 | `LOG_LEVEL` | No | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `MINIO_ENDPOINT` | No | MinIO endpoint, default `localhost:9000` |
+| `MINIO_ACCESS_KEY` | No | MinIO access key |
+| `MINIO_SECRET_KEY` | No | MinIO secret key |
+| `MINIO_BUCKET` | No | MinIO bucket name, default `modelgate` |
+| `MINIO_SECURE` | No | Use HTTPS for MinIO, default `false` |
 | `ICP_NUMBER` | No | ICP filing number shown on landing page |
 
 ## Database
@@ -182,19 +192,39 @@ ModelGate includes an MCP (Model Context Protocol) server for WeChat iLink Bot i
 
 ## Request Logging
 
-`request_logs` stores: API key, provider, model, tokens, latency, status, upstream HTTP status code, client IP, user agent, and error details.
+`request_logs` stores: API key, provider, model, tokens, latency, status, upstream/downstream HTTP status codes, client IP, user agent, and error details.
 
 Streaming requests are inserted as `pending` first, then updated to `success`, `error`, `timeout`, or `cancelled`.
 
 Logs older than 30 days are automatically archived to `request_logs_history`. A `request_logs_all` view unions both tables for transparent querying.
 
+## Concurrency Control
+
+Three-layer semaphore-based rate control:
+
+1. **API key model limit** — per (api_key, model) concurrency cap
+2. **Provider key limit** — per provider key with configurable max_concurrent
+3. **System-level limit** — global concurrency with `local_rate_limited` rejection when exceeded
+
+Provider keys support sticky routing (requests from the same API key route to the same provider key).
+
+## Provider Auto-Disable & Reenable
+
+- When a usage limit error is detected (quota exceeded, billing deactivated, etc.), the provider or provider key is automatically disabled with a reason
+- Disabled state is shown in admin dashboard with warning icons and error details returned to the client
+- A scheduled task reenables all disabled providers and keys every 5 minutes
+- Manual reset available in admin config page
+
 ## Scheduled Tasks
 
 | Task | Schedule | Description |
 |------|----------|-------------|
+| Auto-reenable | Every 5 minutes | Reenable disabled provider keys and providers |
 | Timeout cleanup | Every 10 minutes | Mark stale pending requests (>10 min) as `timeout` |
 | Daily aggregation | 00:05 | Aggregate request counts into daily/hourly stats tables |
+| MCP stats aggregation | 00:10 | Aggregate MCP tool usage stats |
 | Log archival | 00:20 | Archive request logs older than 30 days |
+| Recommendation analysis | 08:00 | Daily AI-powered model recommendation analysis |
 
 ## Project Structure
 
@@ -216,18 +246,21 @@ modelgate/
 │   ├── models.py            # Model CRUD
 │   ├── provider_models.py   # Provider-model bindings + auto-sync
 │   ├── keys.py              # API key CRUD + per-key stats/logs + time rules
-│   ├── stats.py             # Statistics and aggregation endpoints
+│   ├── stats.py             # Statistics, aggregation, live WebSocket
 │   ├── logs.py              # Log viewer + AI error analysis
 │   ├── pages.py             # Admin HTML pages
 │   ├── user.py              # User portal API + pages
 │   ├── opencode.py          # OpenCode config generation
 │   ├── reports.py           # Usage report generation + DOCX export
 │   ├── system_config.py     # System config (outbound UA management)
+│   ├── mcp.py               # MCP server CRUD endpoints
 │   └── weixin.py            # WeChat MCP server endpoints
 ├── services/
 │   ├── proxy.py             # Main proxy logic, streaming, provider dispatch
+│   ├── proxy_runtime/       # Runtime helpers: SSE, MiniMax, message preprocessing
 │   ├── auth.py              # API key validation + time-based access rules
-│   ├── provider.py          # Provider/model resolution
+│   ├── provider.py          # Provider/model resolution, sticky routing
+│   ├── provider_limiter.py  # Provider/key disable, reenable, usage limit detection
 │   ├── scheduler.py         # APScheduler tasks
 │   ├── stats_aggregator.py  # Daily stats aggregation, archiving
 │   ├── logging.py           # Request log CRUD
@@ -238,8 +271,10 @@ modelgate/
 │   ├── analysis_store.py    # AI analysis task persistence
 │   ├── usage_report.py      # DOCX usage report generation
 │   ├── system_config.py     # Outbound UA auto-detection
+│   ├── mcp.py               # MCP server pool, tool sync, proxy
 │   └── weixin.py            # WeChat iLink Bot client
 ├── templates/               # Jinja2 HTML (admin/, user/, public/, components/)
+├── nginx/                   # nginx.conf for Docker reverse proxy
 ├── locales/                 # i18n: en, zh
 ├── schema.sql
 ├── Dockerfile

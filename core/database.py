@@ -53,9 +53,11 @@ class Provider(Base):
     name = Column(String(50), unique=True, nullable=False)
     base_url = Column(String(255), nullable=False)
     api_key = Column(String(255), nullable=True)
+    protocol = Column(String(20), default="openai")
     merge_consecutive_messages = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     disabled_reason = Column(String(255), nullable=True)
+    disabled_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -70,6 +72,7 @@ class ProviderKey(Base):
     max_concurrent = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
     disabled_reason = Column(String(255), nullable=True)
+    disabled_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -180,6 +183,7 @@ class RequestLog(Base):
     request_context_tokens = Column(Integer, nullable=True)
     status = Column(String(20), nullable=False)
     upstream_status_code = Column(Integer, nullable=True)
+    downstream_status_code = Column(Integer, nullable=True)
     client_ip = Column(String(64), nullable=True)
     user_agent = Column(String(1024), nullable=True)
     error = Column(Text, nullable=True)
@@ -207,6 +211,7 @@ class RequestLogHistory(Base):
     request_context_tokens = Column(Integer, nullable=True)
     status = Column(String(20), nullable=False)
     upstream_status_code = Column(Integer, nullable=True)
+    downstream_status_code = Column(Integer, nullable=True)
     client_ip = Column(String(64), nullable=True)
     user_agent = Column(String(1024), nullable=True)
     error = Column(Text, nullable=True)
@@ -242,6 +247,7 @@ if request_logs_all_table is None:
         Column("request_context_tokens", Integer),
         Column("status", String(20)),
         Column("upstream_status_code", Integer),
+        Column("downstream_status_code", Integer),
         Column("client_ip", String(64)),
         Column("user_agent", String(1024)),
         Column("error", Text),
@@ -602,6 +608,18 @@ async def init_db():
         await conn.execute(
             text(
                 "ALTER TABLE request_logs "
+                "ADD COLUMN IF NOT EXISTS downstream_status_code INTEGER"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE request_logs_history "
+                "ADD COLUMN IF NOT EXISTS downstream_status_code INTEGER"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE request_logs "
                 "ADD COLUMN IF NOT EXISTS client_ip VARCHAR(64)"
             )
         )
@@ -647,6 +665,22 @@ async def init_db():
         await conn.execute(
             text(
                 "ALTER TABLE providers ADD COLUMN IF NOT EXISTS disabled_reason VARCHAR(255)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE providers ADD COLUMN IF NOT EXISTS protocol VARCHAR(20) DEFAULT 'openai'"
+            )
+        )
+        await conn.execute(
+            text("ALTER TABLE providers ADD COLUMN IF NOT EXISTS disabled_at TIMESTAMP")
+        )
+        await conn.execute(
+            text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS disabled_at TIMESTAMP")
+        )
+        await conn.execute(
+            text(
+                "UPDATE providers SET protocol = 'openai' WHERE protocol IS NULL OR protocol = ''"
             )
         )
         await conn.execute(
@@ -706,16 +740,17 @@ async def init_db():
                 "ON document_files (document_id)"
             )
         )
+        await conn.execute(text("DROP VIEW IF EXISTS request_logs_all"))
         await conn.execute(
             text(
-                "CREATE OR REPLACE VIEW request_logs_all AS "
+                "CREATE VIEW request_logs_all AS "
                 "SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, "
-                "request_context_tokens, status, upstream_status_code, client_ip, user_agent, "
+                "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
                 "error, created_at, updated_at "
                 "FROM request_logs "
                 "UNION ALL "
                 "SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, "
-                "request_context_tokens, status, upstream_status_code, client_ip, user_agent, "
+                "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
                 "error, created_at, updated_at "
                 "FROM request_logs_history"
             )

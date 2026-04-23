@@ -25,22 +25,32 @@ KEY_STICKY_TTL_SECONDS = 1800
 _key_sticky_map: dict[tuple[int, str], tuple[int, float]] = {}
 
 
-async def _load_provider_keys(session, provider_id: int) -> list[dict]:
-    result = await session.execute(
+async def _load_provider_keys(session, provider_id: int) -> tuple[list[dict], list[str]]:
+    active_result = await session.execute(
         select(ProviderKey).where(
             ProviderKey.provider_id == provider_id,
             ProviderKey.is_active == True,  # noqa: E712
         )
     )
-    return [
+    active_keys = [
         {
             "id": pk.id,
             "api_key": pk.api_key,
             "label": pk.label or "",
             "max_concurrent": pk.max_concurrent,
         }
-        for pk in result.scalars().all()
+        for pk in active_result.scalars().all()
     ]
+    disabled_result = await session.execute(
+        select(ProviderKey.disabled_reason).where(
+            ProviderKey.provider_id == provider_id,
+            ProviderKey.is_active == False,  # noqa: E712
+            ProviderKey.disabled_reason.isnot(None),
+            ProviderKey.disabled_reason != "",
+        )
+    )
+    reasons = [r for (r,) in disabled_result.all() if r]
+    return active_keys, reasons
 
 
 def pick_api_key(
@@ -128,14 +138,17 @@ async def load_providers():
                     }
                 )
 
+            active_keys, disabled_reasons = await _load_provider_keys(session, p.id)
             providers_cache[p.name] = {
                 "id": p.id,
                 "base_url": p.base_url,
                 "api_key": p.api_key or "",
+                "protocol": p.protocol or "openai",
                 "models": provider_models_data,
                 "merge_consecutive_messages": p.merge_consecutive_messages or False,
                 "disabled_reason": p.disabled_reason,
-                "api_keys": await _load_provider_keys(session, p.id),
+                "api_keys": active_keys,
+                "disabled_key_reasons": disabled_reasons,
             }
 
         config.providers_cache_time = datetime.now()

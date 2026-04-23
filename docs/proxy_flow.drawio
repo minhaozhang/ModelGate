@@ -1,0 +1,262 @@
+<mxGraphModel>
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <!-- Title -->
+    <mxCell id="title" value="proxy.py — 完整请求流程" style="text;fontSize=18;fontStyle=1;align=center;fillColor=none;strokeColor=none;fontColor=#E2E8F0;" vertex="1" parent="1">
+      <mxGeometry x="200" y="10" width="400" height="30" as="geometry"/>
+    </mxCell>
+
+    <!-- Entry -->
+    <mxCell id="entry" value="proxy_request()" style="rounded=1;fillColor=#6366F1;strokeColor=#4F46E5;fontColor=#fff;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+      <mxGeometry x="300" y="50" width="200" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- Auth -->
+    <mxCell id="auth" value="validate_api_key" style="rounded=1;fillColor=#3B82F6;strokeColor=#2563EB;fontColor=#fff;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="300" y="110" width="200" height="35" as="geometry"/>
+    </mxCell>
+
+    <!-- Auth fail -->
+    <mxCell id="auth_fail" value="401" style="rounded=1;fillColor=#EF4444;strokeColor=#DC2626;fontColor=#fff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="560" y="113" width="60" height="28" as="geometry"/>
+    </mxCell>
+
+    <!-- Resolve provider -->
+    <mxCell id="resolve" value="get_provider_and_model()" style="rounded=1;fillColor=#3B82F6;strokeColor=#2563EB;fontColor=#fff;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="300" y="165" width="200" height="35" as="geometry"/>
+    </mxCell>
+
+    <!-- Provider fail -->
+    <mxCell id="provider_fail" value="400 / provider_disabled" style="rounded=1;fillColor=#EF4444;strokeColor=#DC2626;fontColor=#fff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="560" y="168" width="160" height="28" as="geometry"/>
+    </mxCell>
+
+    <!-- Semaphore 1: api_key_model -->
+    <mxCell id="sem1_label" value="第一道：API Key × Model 信号量" style="text;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#A78BFA;" vertex="1" parent="1">
+      <mxGeometry x="50" y="218" width="230" height="20" as="geometry"/>
+    </mxCell>
+    <mxCell id="sem1" value="api_key_model_semaphore.acquire()&#xa;timeout=1s" style="rounded=1;fillColor=#8B5CF6;strokeColor=#7C3AED;fontColor=#fff;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="300" y="215" width="200" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- Sem1 timeout -->
+    <mxCell id="sem1_fail" value="429 local_rate_limited&#xa;api_key_model_concurrency_reached" style="rounded=1;fillColor=#F59E0B;strokeColor=#D97706;fontColor=#fff;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="560" y="210" width="200" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- Pick provider key -->
+    <mxCell id="pick_key" value="pick_api_key()" style="rounded=1;fillColor=#3B82F6;strokeColor=#2563EB;fontColor=#fff;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="300" y="275" width="200" height="35" as="geometry"/>
+    </mxCell>
+
+    <!-- No key -->
+    <mxCell id="no_key" value="400 no_api_key" style="rounded=1;fillColor=#EF4444;strokeColor=#DC2626;fontColor=#fff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="560" y="278" width="120" height="28" as="geometry"/>
+    </mxCell>
+
+    <!-- Semaphore 2: provider_key -->
+    <mxCell id="sem2_label" value="第二道：Provider Key 信号量" style="text;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#A78BFA;" vertex="1" parent="1">
+      <mxGeometry x="50" y="328" width="230" height="20" as="geometry"/>
+    </mxCell>
+    <mxCell id="sem2" value="provider_key_semaphore.acquire()&#xa;timeout=1s" style="rounded=1;fillColor=#8B5CF6;strokeColor=#7C3AED;fontColor=#fff;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="300" y="325" width="200" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- Sem2 timeout -->
+    <mxCell id="sem2_fail" value="429 local_rate_limited&#xa;provider_key_concurrency_reached" style="rounded=1;fillColor=#F59E0B;strokeColor=#D97706;fontColor=#fff;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="560" y="320" width="200" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- Preprocess -->
+    <mxCell id="preprocess" value="preprocess_messages()&#xa;+ provider 特殊处理 (minimax)" style="rounded=1;fillColor=#06B6D4;strokeColor=#0891B2;fontColor=#fff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="300" y="385" width="200" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- Build request -->
+    <mxCell id="build_req" value="_build_headers() +&#xa;build target URL" style="rounded=1;fillColor=#06B6D4;strokeColor=#0891B2;fontColor=#fff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="300" y="440" width="200" height="35" as="geometry"/>
+    </mxCell>
+
+    <!-- Stream decision -->
+    <mxCell id="stream_dec" value="stream?" style="rhombus;fillColor=#F59E0B;strokeColor=#D97706;fontColor=#fff;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="350" y="495" width="100" height="50" as="geometry"/>
+    </mxCell>
+
+    <!-- handle_normal -->
+    <mxCell id="normal_box" value="handle_normal()" style="rounded=1;fillColor=#10B981;strokeColor=#059669;fontColor=#fff;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+      <mxGeometry x="120" y="570" width="180" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- handle_streaming -->
+    <mxCell id="stream_box" value="handle_streaming()" style="rounded=1;fillColor=#10B981;strokeColor=#059669;fontColor=#fff;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+      <mxGeometry x="500" y="570" width="180" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- === handle_normal internals === -->
+    <mxCell id="norm_label" value="handle_normal 内部" style="text;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#10B981;" vertex="1" parent="1">
+      <mxGeometry x="40" y="618" width="140" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="norm_register" value="register_active_request()" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="80" y="640" width="180" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="norm_post" value="client.post(url)" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="80" y="678" width="180" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="norm_usage" value="check_usage_limit_error()&#xa;→ disable_provider_key()" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="80" y="716" width="180" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="norm_minimax" value="minimax: process_minimax_response()" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="80" y="761" width="180" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="norm_extract" value="_extract_response_fields()&#xa;build_tokens / build_meta" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="80" y="799" width="180" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="norm_stats" value="update_stats() + log_request()" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="80" y="844" width="180" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="norm_error_norm" value="_normalize_upstream_error()&#xa;if status != success" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="80" y="882" width="180" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="norm_release" value="release semaphores&#xa;finish_active_request()" style="rounded=1;fillColor=#FCA5A5;strokeColor=#F87171;fontColor=#7F1D1D;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="80" y="927" width="180" height="35" as="geometry"/>
+    </mxCell>
+
+    <!-- === handle_streaming internals === -->
+    <mxCell id="stream_label" value="handle_streaming 内部" style="text;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#10B981;" vertex="1" parent="1">
+      <mxGeometry x="460" y="618" width="160" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="st_register" value="register_active_request()" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="480" y="640" width="180" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="st_send" value="client.send(req, stream=True)" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="480" y="678" width="180" height="28" as="geometry"/>
+    </mxCell>
+
+    <!-- upstream >= 400 branch -->
+    <mxCell id="st_check" value="status ≥ 400?" style="rhombus;fillColor=#F59E0B;strokeColor=#D97706;fontColor=#fff;fontSize=9;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="515" y="720" width="110" height="40" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="st_err_log" value="log error +&#xa;normalize_upstream_error()&#xa;→ return Response" style="rounded=1;fillColor=#FCA5A5;strokeColor=#F87171;fontColor=#7F1D1D;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="650" y="715" width="150" height="50" as="geometry"/>
+    </mxCell>
+
+    <!-- stream_generator -->
+    <mxCell id="st_gen" value="stream_generator()&#xa;(async generator)" style="rounded=1;fillColor=#34D399;strokeColor=#10B981;fontColor=#fff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="490" y="780" width="160" height="40" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="st_sse" value="normalize_sse_stream()&#xa;aiter_lines()" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="490" y="835" width="160" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="st_parse" value="parse SSE chunks&#xa;collect content / reasoning / tool_calls" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="490" y="875" width="160" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="st_minimax_proc" value="MinimaxStreamProcessor&#xa;(if provider=minimax)" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="490" y="920" width="160" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="st_repeat" value="重复检测 (10x)&#xa;→ abort" style="rounded=1;fillColor=#FCA5A5;strokeColor=#F87171;fontColor=#7F1D1D;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="490" y="965" width="160" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="st_disconnect" value="is_disconnected?&#xa;→ cancelled" style="rounded=1;fillColor=#FCA5A5;strokeColor=#F87171;fontColor=#7F1D1D;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="490" y="1005" width="160" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="st_record" value="_record_stream_result()&#xa;success / error / cancelled" style="rounded=1;fillColor=#D1FAE5;strokeColor=#6EE7B7;fontColor=#065F46;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="490" y="1045" width="160" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="st_release" value="release semaphores&#xa;finish_active_request()" style="rounded=1;fillColor=#FCA5A5;strokeColor=#F87171;fontColor=#7F1D1D;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="490" y="1090" width="160" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="st_sse_resp" value="StreamingResponse" style="rounded=1;fillColor=#10B981;strokeColor=#059669;fontColor=#fff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="490" y="1140" width="160" height="35" as="geometry"/>
+    </mxCell>
+
+    <!-- === call_internal_model_via_proxy === -->
+    <mxCell id="internal_label" value="call_internal_model_via_proxy()" style="text;fontSize=13;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#6366F1;" vertex="1" parent="1">
+      <mxGeometry x="50" y="990" width="280" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="internal_desc" value="内部调用（非 HTTP 入口）&#xa;相同的信号量 + provider 解析逻辑&#xa;强制 stream=False&#xa;返回 dict 而非 Response" style="rounded=1;fillColor=#E0E7FF;strokeColor=#A5B4FC;fontColor=#3730A3;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+      <mxGeometry x="50" y="1020" width="220" height="75" as="geometry"/>
+    </mxCell>
+
+    <!-- === Helper functions box === -->
+    <mxCell id="helpers" value="" style="rounded=1;fillColor=#1E293B;strokeColor=#334155;opacity=80;" vertex="1" parent="1">
+      <mxGeometry x="790" y="500" width="180" height="330" as="geometry"/>
+    </mxCell>
+    <mxCell id="helpers_title" value="辅助函数" style="text;fontSize=12;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#94A3B8;" vertex="1" parent="1">
+      <mxGeometry x="835" y="505" width="100" height="20" as="geometry"/>
+    </mxCell>
+    <mxCell id="h1" value="_build_headers()" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="800" y="530" width="160" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="h2" value="_extract_response_fields()" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="800" y="560" width="160" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="h3" value="_extract_provider_error()" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="800" y="590" width="160" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="h4" value="_normalize_upstream_error()" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="800" y="620" width="160" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="h5" value="_resolve_request_status()" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="800" y="650" width="160" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="h6" value="_openai_error / _response()" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="800" y="680" width="160" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="h7" value="_log_request_info()" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="800" y="710" width="160" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="h8" value="_record_stream_result()" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="800" y="740" width="160" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="h9" value="get_http_client() (singleton)" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="800" y="770" width="160" height="25" as="geometry"/>
+    </mxCell>
+
+    <!-- === Edges === -->
+    <mxCell id="e1" style="endArrow=classic;strokeColor=#94A3B8;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="entry" target="auth" parent="1"/>
+    <mxCell id="e2" style="endArrow=classic;strokeColor=#EF4444;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" source="auth" target="auth_fail" parent="1"/>
+    <mxCell id="e3" style="endArrow=classic;strokeColor=#94A3B8;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="auth" target="resolve" parent="1"/>
+    <mxCell id="e4" style="endArrow=classic;strokeColor=#EF4444;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" source="resolve" target="provider_fail" parent="1"/>
+    <mxCell id="e5" style="endArrow=classic;strokeColor=#94A3B8;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="resolve" target="sem1" parent="1"/>
+    <mxCell id="e6" style="endArrow=classic;strokeColor=#F59E0B;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" source="sem1" target="sem1_fail" parent="1"/>
+    <mxCell id="e7" style="endArrow=classic;strokeColor=#94A3B8;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="sem1" target="pick_key" parent="1"/>
+    <mxCell id="e8" style="endArrow=classic;strokeColor=#EF4444;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" source="pick_key" target="no_key" parent="1"/>
+    <mxCell id="e9" style="endArrow=classic;strokeColor=#94A3B8;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="pick_key" target="sem2" parent="1"/>
+    <mxCell id="e10" style="endArrow=classic;strokeColor=#F59E0B;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" source="sem2" target="sem2_fail" parent="1"/>
+    <mxCell id="e11" style="endArrow=classic;strokeColor=#94A3B8;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="sem2" target="preprocess" parent="1"/>
+    <mxCell id="e12" style="endArrow=classic;strokeColor=#94A3B8;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="preprocess" target="build_req" parent="1"/>
+    <mxCell id="e13" style="endArrow=classic;strokeColor=#94A3B8;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="build_req" target="stream_dec" parent="1"/>
+    <mxCell id="e14" style="endArrow=classic;strokeColor=#10B981;exitX=0;exitY=0.5;entryX=0.5;entryY=0;curved=1;" edge="1" source="stream_dec" target="normal_box" parent="1"/>
+    <mxCell id="e15" style="endArrow=classic;strokeColor=#10B981;exitX=1;exitY=0.5;entryX=0.5;entryY=0;curved=1;" edge="1" source="stream_dec" target="stream_box" parent="1"/>
+
+    <!-- normal internals edges -->
+    <mxCell id="en1" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="norm_register" target="norm_post" parent="1"/>
+    <mxCell id="en2" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="norm_post" target="norm_usage" parent="1"/>
+    <mxCell id="en3" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="norm_usage" target="norm_minimax" parent="1"/>
+    <mxCell id="en4" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="norm_minimax" target="norm_extract" parent="1"/>
+    <mxCell id="en5" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="norm_extract" target="norm_stats" parent="1"/>
+    <mxCell id="en6" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="norm_stats" target="norm_error_norm" parent="1"/>
+    <mxCell id="en7" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="norm_error_norm" target="norm_release" parent="1"/>
+
+    <!-- stream internals edges -->
+    <mxCell id="es1" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="st_register" target="st_send" parent="1"/>
+    <mxCell id="es2" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="st_send" target="st_check" parent="1"/>
+    <mxCell id="es3" style="endArrow=classic;strokeColor=#EF4444;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" source="st_check" target="st_err_log" parent="1"/>
+    <mxCell id="es4" style="endArrow=classic;strokeColor=#10B981;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="st_check" target="st_gen" parent="1"/>
+    <mxCell id="es5" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="st_gen" target="st_sse" parent="1"/>
+    <mxCell id="es6" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="st_sse" target="st_parse" parent="1"/>
+    <mxCell id="es7" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="st_parse" target="st_minimax_proc" parent="1"/>
+    <mxCell id="es8" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="st_minimax_proc" target="st_repeat" parent="1"/>
+    <mxCell id="es9" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="st_repeat" target="st_disconnect" parent="1"/>
+    <mxCell id="es10" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="st_disconnect" target="st_record" parent="1"/>
+    <mxCell id="es11" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="st_record" target="st_release" parent="1"/>
+    <mxCell id="es12" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="st_release" target="st_sse_resp" parent="1"/>
+
+  </root>
+</mxGraphModel>

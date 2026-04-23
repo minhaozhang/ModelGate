@@ -1,0 +1,145 @@
+<mxGraphModel>
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <mxCell id="title" value="proxy.py 拆分后架构 + Anthropic 兼容" style="text;fontSize=18;fontStyle=1;align=center;fillColor=none;strokeColor=none;fontColor=#E2E8F0;" vertex="1" parent="1">
+      <mxGeometry x="150" y="5" width="500" height="30" as="geometry"/>
+    </mxCell>
+
+    <!-- Client -->
+    <mxCell id="client" value="客户端&#xa;(OpenAI 格式请求)" style="shape=hexagon;fillColor=#6366F1;strokeColor=#4F46E5;fontColor=#fff;fontSize=11;fontStyle=1;perimeter=hexagonPerimeter2;" vertex="1" parent="1">
+      <mxGeometry x="310" y="45" width="180" height="45" as="geometry"/>
+    </mxCell>
+
+    <!-- routes/proxy.py -->
+    <mxCell id="route" value="routes/proxy.py" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="330" y="110" width="140" height="30" as="geometry"/>
+    </mxCell>
+
+    <!-- proxy_request entry -->
+    <mxCell id="entry" value="proxy_request()" style="rounded=1;fillColor=#6366F1;strokeColor=#4F46E5;fontColor=#fff;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="310" y="160" width="180" height="35" as="geometry"/>
+    </mxCell>
+
+    <!-- Auth -->
+    <mxCell id="auth" value="services/auth.py&#xa;validate_api_key()" style="rounded=1;fillColor=#3B82F6;strokeColor=#2563EB;fontColor=#fff;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="60" y="160" width="160" height="35" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== Layer 1: Concurrency ===== -->
+    <mxCell id="conc_box" value="" style="rounded=1;fillColor=#1E1B4B;strokeColor=#6366F1;opacity=60;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="30" y="215" width="230" height="150" as="geometry"/>
+    </mxCell>
+    <mxCell id="conc_title" value="concurrency.py" style="text;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#A78BFA;" vertex="1" parent="1">
+      <mxGeometry x="80" y="220" width="120" height="18" as="geometry"/>
+    </mxCell>
+    <mxCell id="conc1" value="acquire_semaphores()&#xa;第一道: api_key×model&#xa;第二道: provider_key" style="rounded=1;fillColor=#7C3AED;strokeColor=#6D28D9;fontColor=#fff;fontSize=9;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="45" y="243" width="200" height="50" as="geometry"/>
+    </mxCell>
+    <mxCell id="conc2" value="release_semaphores()&#xa;SemaphoreTimeoutError → 429" style="rounded=1;fillColor=#7C3AED;strokeColor=#6D28D9;fontColor=#fff;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="45" y="300" width="200" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== Layer 2: Provider Adapter ===== -->
+    <mxCell id="adapter_box" value="" style="rounded=1;fillColor=#1A2E05;strokeColor=#84CC16;opacity=60;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="280" y="215" width="250" height="150" as="geometry"/>
+    </mxCell>
+    <mxCell id="adapter_title" value="request_builder.py" style="text;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#84CC16;" vertex="1" parent="1">
+      <mxGeometry x="330" y="220" width="130" height="18" as="geometry"/>
+    </mxCell>
+    <mxCell id="adapter_desc" value="ProviderAdapter (抽象基类)" style="rounded=1;fillColor=#365314;strokeColor=#84CC16;fontColor=#D9F99D;fontSize=10;fontStyle=3;" vertex="1" parent="1">
+      <mxGeometry x="295" y="243" width="220" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="adapter_methods" value="• transform_request(body) → body&#xa;• build_headers(config, key) → headers&#xa;• transform_response(resp) → resp&#xa;• transform_stream_event(event) → SSE" style="text;fontSize=9;fillColor=none;strokeColor=none;fontColor=#A3E635;align=left;" vertex="1" parent="1">
+      <mxGeometry x="300" y="273" width="220" height="55" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== Layer 3: Response ===== -->
+    <mxCell id="resp_box" value="" style="rounded=1;fillColor=#1C1917;strokeColor=#F97316;opacity=60;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="550" y="215" width="220" height="150" as="geometry"/>
+    </mxCell>
+    <mxCell id="resp_title" value="response_handler.py" style="text;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#FB923C;" vertex="1" parent="1">
+      <mxGeometry x="590" y="220" width="140" height="18" as="geometry"/>
+    </mxCell>
+    <mxCell id="resp1" value="extract_response_fields()&#xa;extract_provider_error()&#xa;resolve_request_status()" style="rounded=1;fillColor=#9A3412;strokeColor=#EA580C;fontColor=#FED7AA;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="560" y="243" width="200" height="45" as="geometry"/>
+    </mxCell>
+    <mxCell id="resp2" value="build_and_record_response()&#xa;tokens + stats + log 统一处理" style="rounded=1;fillColor=#9A3412;strokeColor=#EA580C;fontColor=#FED7AA;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="560" y="296" width="200" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== Concrete Adapters ===== -->
+    <mxCell id="adapters_bg" value="" style="rounded=1;fillColor=#052E16;strokeColor=#22C55E;opacity=40;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="30" y="390" width="740" height="120" as="geometry"/>
+    </mxCell>
+    <mxCell id="adapters_label" value="Provider Adapter 实现" style="text;fontSize=12;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#4ADE80;" vertex="1" parent="1">
+      <mxGeometry x="300" y="393" width="200" height="18" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="openai_adapt" value="OpenAIAdapter&#xa;(zhipu/deepseek/ollama)&#xa;──────────────&#xa;transform_request: stream_options&#xa;build_headers: Bearer token&#xa;transform_response: 透传" style="rounded=1;fillColor=#166534;strokeColor=#22C55E;fontColor=#BBF7D0;fontSize=9;align=left;spacingLeft=6;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="45" y="415" width="210" height="85" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="minimax_adapt" value="MinimaxAdapter(OpenAIAdapter)&#xa;──────────────&#xa;transform_request:&#xa;  移除 thinking/stream_options&#xa;  + reasoning_split=True&#xa;  + merge system messages&#xa;transform_response: XML tool_call 解析" style="rounded=1;fillColor=#166534;strokeColor=#22C55E;fontColor=#BBF7D0;fontSize=9;align=left;spacingLeft=6;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="270" y="415" width="230" height="85" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="anthropic_adapt" value="AnthropicAdapter&#xa;──────────────&#xa;transform_request:&#xa;  system → top-level param&#xa;  tools → input_schema&#xa;  max_tokens 必填&#xa;build_headers: x-api-key + version&#xa;transform_response:&#xa;  content_blocks → choices&#xa;  stop_reason → finish_reason&#xa;transform_stream_event:&#xa;  content_block_delta → data:{choices:[{delta}]}" style="rounded=1;fillColor=#7F1D1D;strokeColor=#EF4444;fontColor=#FECACA;fontSize=9;align=left;spacingLeft=6;whiteSpace=wrap;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="515" y="415" width="245" height="85" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== Handlers ===== -->
+    <mxCell id="handlers_bg" value="" style="rounded=1;fillColor=#0C4A6E;strokeColor=#0EA5E9;opacity=40;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="30" y="530" width="740" height="100" as="geometry"/>
+    </mxCell>
+    <mxCell id="handlers_label" value="请求处理器" style="text;fontSize=12;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#38BDF8;" vertex="1" parent="1">
+      <mxGeometry x="340" y="533" width="120" height="18" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="normal_mod" value="normal.py&#xa;handle_normal()&#xa;非流式 → response_handler" style="rounded=1;fillColor=#0369A1;strokeColor=#0284C7;fontColor=#BAE6FD;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="60" y="558" width="180" height="55" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="stream_mod" value="stream.py&#xa;handle_streaming()&#xa;流式 → SSE 逐 chunk 转换" style="rounded=1;fillColor=#0369A1;strokeColor=#0284C7;fontColor=#BAE6FD;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="290" y="558" width="200" height="55" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="internal_mod" value="internal.py&#xa;call_internal_model_via_proxy()&#xa;共享 concurrency + adapter&#xa;强制 stream=False → 返回 dict" style="rounded=1;fillColor=#0369A1;strokeColor=#0284C7;fontColor=#BAE6FD;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="540" y="558" width="220" height="55" as="geometry"/>
+    </mxCell>
+
+    <!-- client.py -->
+    <mxCell id="client_mod" value="client.py&#xa;httpx AsyncClient 单例" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="640" y="112" width="130" height="28" as="geometry"/>
+    </mxCell>
+
+    <!-- Upstream -->
+    <mxCell id="upstream" value="上游 LLM API&#xa;(OpenAI / Anthropic / MiniMax / ...)" style="shape=hexagon;fillColor=#DC2626;strokeColor=#991B1B;fontColor=#fff;fontSize=10;fontStyle=1;perimeter=hexagonPerimeter2;" vertex="1" parent="1">
+      <mxGeometry x="280" y="650" width="240" height="50" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== EDGES ===== -->
+    <mxCell id="e_c2r" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="client" target="route" parent="1"/>
+    <mxCell id="e_r2e" style="endArrow=classic;strokeColor=#94A3B8;" edge="1" source="route" target="entry" parent="1"/>
+    <mxCell id="e_e2auth" style="endArrow=classic;strokeColor=#3B82F6;" edge="1" source="entry" target="auth" parent="1"/>
+    <mxCell id="e_e2conc" style="endArrow=classic;strokeColor=#8B5CF6;" edge="1" source="entry" target="conc1" parent="1"/>
+    <mxCell id="e_e2adapter" style="endArrow=classic;strokeColor=#84CC16;" edge="1" source="entry" target="adapter_desc" parent="1"/>
+    <mxCell id="e_conc2adapter" style="endArrow=classic;strokeColor=#84CC16;dashed=1;" edge="1" source="conc1" target="adapter_desc" parent="1"/>
+    <mxCell id="e_e2resp" style="endArrow=classic;strokeColor=#F97316;" edge="1" source="entry" target="resp1" parent="1"/>
+    <mxCell id="e_adapter_openai" style="endArrow=classic;strokeColor=#22C55E;exitX=0.25;exitY=1;entryX=0.5;entryY=0;" edge="1" source="adapter_desc" target="openai_adapt" parent="1"/>
+    <mxCell id="e_adapter_minimax" style="endArrow=classic;strokeColor=#22C55E;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="adapter_desc" target="minimax_adapt" parent="1"/>
+    <mxCell id="e_adapter_anthropic" style="endArrow=classic;strokeColor=#EF4444;exitX=0.75;exitY=1;entryX=0.5;entryY=0;" edge="1" source="adapter_desc" target="anthropic_adapt" parent="1"/>
+
+    <mxCell id="e_h_normal" style="endArrow=classic;strokeColor=#0EA5E9;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" source="normal_mod" target="openai_adapt" parent="1"/>
+    <mxCell id="e_h_stream" style="endArrow=classic;strokeColor=#0EA5E9;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" source="stream_mod" target="minimax_adapt" parent="1"/>
+    <mxCell id="e_h_internal" style="endArrow=classic;strokeColor=#0EA5E9;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" source="internal_mod" target="anthropic_adapt" parent="1"/>
+
+    <mxCell id="e_h2up_n" style="endArrow=classic;strokeColor=#DC2626;exitX=0.5;exitY=1;entryX=0.3;entryY=0;" edge="1" source="normal_mod" target="upstream" parent="1"/>
+    <mxCell id="e_h2up_s" style="endArrow=classic;strokeColor=#DC2626;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" source="stream_mod" target="upstream" parent="1"/>
+    <mxCell id="e_h2up_i" style="endArrow=classic;strokeColor=#DC2626;exitX=0.5;exitY=1;entryX=0.7;entryY=0;" edge="1" source="internal_mod" target="upstream" parent="1"/>
+
+    <mxCell id="e_e2client" style="endArrow=classic;strokeColor=#6366F1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;curved=1;" edge="1" source="entry" target="client_mod" parent="1"/>
+
+  </root>
+</mxGraphModel>

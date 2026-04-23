@@ -101,7 +101,7 @@ api_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 provider_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 
 DEFAULT_OUTBOUND_USER_AGENT = (
-    "opencode/1.4.6 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.11"
+    "opencode/1.14.20 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.11"
 )
 OUTBOUND_USER_AGENT = DEFAULT_OUTBOUND_USER_AGENT
 system_config: dict[str, Any] = {}
@@ -293,6 +293,7 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                     "api_key_id": request_data.get("api_key_id"),
                     "models": {},
                     "requests": 0,
+                    "tokens": 0,
                     "last_activity": request_data["started_at"].isoformat(),
                     "first_activity": request_data["started_at"].isoformat(),
                 },
@@ -307,21 +308,34 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                 request_data["started_at"].isoformat(),
             )
             model_name = request_data.get("model")
+            provider_name = request_data.get("provider", "")
             if model_name:
-                bucket["models"][model_name] = bucket["models"].get(model_name, 0) + 1
+                display_model = f"{provider_name}/{model_name}" if provider_name else model_name
+                entry = bucket["models"].setdefault(display_model, {"count": 0, "tokens": 0})
+                entry["count"] += 1
 
         for key_name, bucket in grouped_users.items():
             api_key_id = bucket.get("api_key_id")
-            if api_key_id and api_key_id in stats["api_keys"]:
-                bucket["tokens"] = stats["api_keys"][api_key_id].get("tokens", 0)
-            else:
-                bucket["tokens"] = 0
+            api_key_stats = stats["api_keys"].get(api_key_id) if api_key_id else None
+            for model_key, entry in bucket["models"].items():
+                raw_model = model_key.split("/", 1)[-1] if "/" in model_key else model_key
+                model_tokens = 0
+                if api_key_stats:
+                    model_tokens = api_key_stats.get("models", {}).get(raw_model, {}).get("tokens", 0)
+                entry["tokens"] = model_tokens
+            bucket["tokens"] = sum(e["tokens"] for e in bucket["models"].values())
+
+        disabled_providers = {}
+        for pname, pconf in providers_cache.items():
+            if pconf.get("disabled_reason"):
+                disabled_providers[pname] = pconf["disabled_reason"]
 
         return {
             "active_requests": len(active_requests),
             "active_users": len(grouped_users),
             "tokens_per_second": get_avg_tokens_per_second(),
             "sessions": dict(sorted(grouped_users.items(), key=lambda item: item[1]["first_activity"])),
+            "disabled_providers": disabled_providers,
         }
 
 

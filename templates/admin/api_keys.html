@@ -38,6 +38,8 @@
         body.theme-dark code { background: #111827 !important; color: #e2e8f0 !important; }
         body.theme-dark .model-item.selected,
         body.theme-dark label.selected { background: rgba(37, 99, 235, 0.18) !important; }
+        .mcp-server-item:hover { background: #f8fafc; }
+        body.theme-dark .mcp-server-item:hover { background: rgba(148, 163, 184, 0.12) !important; }
         .model-chip {
             display: inline-flex;
             align-items: center;
@@ -527,7 +529,7 @@
                 return;
             }
             container.innerHTML = mcpServers.map(s => `
-                <label class="flex items-center text-sm py-1 px-2 rounded hover:bg-gray-50 cursor-pointer">
+                <label class="mcp-server-item flex items-center text-sm py-1 px-2 rounded cursor-pointer">
                     <input type="checkbox" class="mr-2 mcp-server-check" value="${s.id}" ${selectedIds.includes(s.id) ? 'checked' : ''}>
                     ${(s.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
                 </label>

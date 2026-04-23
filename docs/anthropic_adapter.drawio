@@ -1,0 +1,183 @@
+<mxGraphModel>
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <mxCell id="title" value="Anthropic Adapter — 格式转换详细对照" style="text;fontSize=16;fontStyle=1;align=center;fillColor=none;strokeColor=none;fontColor=#E2E8F0;" vertex="1" parent="1">
+      <mxGeometry x="100" y="5" width="500" height="28" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== REQUEST 转换 ===== -->
+    <mxCell id="req_bg" value="" style="rounded=1;fillColor=#052E16;strokeColor=#22C55E;opacity=30;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="20" y="40" width="720" height="330" as="geometry"/>
+    </mxCell>
+    <mxCell id="req_title" value="transform_request() — 请求转换" style="text;fontSize=13;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#4ADE80;" vertex="1" parent="1">
+      <mxGeometry x="220" y="45" width="300" height="20" as="geometry"/>
+    </mxCell>
+
+    <!-- Column headers -->
+    <mxCell id="col_in" value="客户端传入 (OpenAI 格式)" style="rounded=1;fillColor=#3B82F6;strokeColor=#2563EB;fontColor=#fff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="72" width="200" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="col_arrow1" value="→" style="text;fontSize=14;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#F59E0B;" vertex="1" parent="1">
+      <mxGeometry x="248" y="72" width="20" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="col_out" value="发往上游 (Anthropic 格式)" style="rounded=1;fillColor=#DC2626;strokeColor=#991B1B;fontColor=#fff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="278" y="72" width="200" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="col_desc" value="转换规则" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="520" y="72" width="200" height="25" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 1: Auth -->
+    <mxCell id="r1_in" value="Authorization: Bearer sk-xxx" style="rounded=1;fillColor=#1E3A5F;strokeColor=#3B82F6;fontColor=#93C5FD;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="40" y="105" width="200" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="r1_out" value="x-api-key: sk-xxx&#xa;anthropic-version: 2023-06-01" style="rounded=1;fillColor=#7F1D1D;strokeColor=#DC2626;fontColor=#FCA5A5;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="278" y="102" width="200" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="r1_desc" value="build_headers()&#xa;Bearer → x-api-key&#xa;+ anthropic-version header" style="text;fontSize=9;fillColor=none;strokeColor=none;fontColor=#94A3B8;align=left;" vertex="1" parent="1">
+      <mxGeometry x="525" y="105" width="195" height="35" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 2: System -->
+    <mxCell id="r2_in" value='messages: [&#xa;  {role:"system", content:"..."}' style="rounded=1;fillColor=#1E3A5F;strokeColor=#3B82F6;fontColor=#93C5FD;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="40" y="145" width="200" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="r2_out" value='system: "..." (顶层参数)&#xa;messages: (不含 system)' style="rounded=1;fillColor=#7F1D1D;strokeColor=#DC2626;fontColor=#FCA5A5;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="278" y="145" width="200" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="r2_desc" value="transform_request()&#xa;提取 system message&#xa;→ 移到顶层 system 参数" style="text;fontSize=9;fillColor=none;strokeColor=none;fontColor=#94A3B8;align=left;" vertex="1" parent="1">
+      <mxGeometry x="525" y="145" width="195" height="35" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 3: Tools -->
+    <mxCell id="r3_in" value='tools: [{&#xa;  type:"function",&#xa;  function:{&#xa;    name, description,&#xa;    parameters: {...}&#xa;  }&#xa;}]' style="rounded=1;fillColor=#1E3A5F;strokeColor=#3B82F6;fontColor=#93C5FD;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="40" y="188" width="200" height="75" as="geometry"/>
+    </mxCell>
+    <mxCell id="r3_out" value='tools: [{&#xa;  name,&#xa;  description,&#xa;  input_schema: {...}&#xa;}]' style="rounded=1;fillColor=#7F1D1D;strokeColor=#DC2626;fontColor=#FCA5A5;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="278" y="188" width="200" height="75" as="geometry"/>
+    </mxCell>
+    <mxCell id="r3_desc" value="transform_request()&#xa;展平嵌套: function.parameters&#xa;→ input_schema&#xa;移除 type:"function" 包装" style="text;fontSize=9;fillColor=none;strokeColor=none;fontColor=#94A3B8;align=left;" vertex="1" parent="1">
+      <mxGeometry x="525" y="188" width="195" height="55" as="geometry"/>
+    </mxCell>
+
+    <!-- Row 4: tool_choice -->
+    <mxCell id="r4_in" value='tool_choice: "auto"&#xa;tool_choice: {&#xa;  type:"function",&#xa;  function:{name:"x"}&#xa;}' style="rounded=1;fillColor=#1E3A5F;strokeColor=#3B82F6;fontColor=#93C5FD;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="40" y="270" width="200" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="r4_out" value='tool_choice: {type:"auto"}&#xa;tool_choice: {&#xa;  type:"tool",&#xa;  name:"x"&#xa;}' style="rounded=1;fillColor=#7F1D1D;strokeColor=#DC2626;fontColor=#FCA5A5;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="278" y="270" width="200" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="r4_desc" value="transform_request()&#xa;string → {type}&#xa;function.name → name" style="text;fontSize=9;fillColor=none;strokeColor=none;fontColor=#94A3B8;align=left;" vertex="1" parent="1">
+      <mxGeometry x="525" y="275" width="195" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== RESPONSE 转换 ===== -->
+    <mxCell id="resp_bg" value="" style="rounded=1;fillColor=#1C1917;strokeColor=#F97316;opacity=30;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="20" y="380" width="720" height="310" as="geometry"/>
+    </mxCell>
+    <mxCell id="resp_title" value="transform_response() — 响应转换 (Anthropic → OpenAI)" style="text;fontSize=13;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#FB923C;" vertex="1" parent="1">
+      <mxGeometry x="150" y="385" width="440" height="20" as="geometry"/>
+    </mxCell>
+
+    <!-- Col headers resp -->
+    <mxCell id="rcol_in" value="上游返回 (Anthropic 格式)" style="rounded=1;fillColor=#DC2626;strokeColor=#991B1B;fontColor=#fff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="412" width="200" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="rcol_arrow" value="→" style="text;fontSize=14;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#F59E0B;" vertex="1" parent="1">
+      <mxGeometry x="248" y="412" width="20" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="rcol_out" value="返回客户端 (OpenAI 格式)" style="rounded=1;fillColor=#3B82F6;strokeColor=#2563EB;fontColor=#fff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="278" y="412" width="200" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="rcol_desc" value="转换规则" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="520" y="412" width="200" height="25" as="geometry"/>
+    </mxCell>
+
+    <!-- R1: Content blocks → choices -->
+    <mxCell id="rr1_in" value='content: [&#xa;  {type:"text", text:"Hi"},&#xa;  {type:"thinking", thinking:"..."},&#xa;  {type:"tool_use", id, name, input}&#xa;]' style="rounded=1;fillColor=#7F1D1D;strokeColor=#DC2626;fontColor=#FCA5A5;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="40" y="445" width="200" height="75" as="geometry"/>
+    </mxCell>
+    <mxCell id="rr1_out" value='choices: [{&#xa;  message: {&#xa;    content: "Hi",&#xa;    reasoning_content: "...",&#xa;    tool_calls: [{&#xa;      id, function:{name,arguments}&#xa;    }&#xa;  }&#xa;}]' style="rounded=1;fillColor=#1E3A5F;strokeColor=#3B82F6;fontColor=#93C5FD;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="278" y="445" width="200" height="95" as="geometry"/>
+    </mxCell>
+    <mxCell id="rr1_desc" value="transform_response()&#xa;content_blocks 遍历:&#xa;• text → message.content&#xa;• thinking → reasoning_content&#xa;• tool_use → tool_calls&#xa;  input(JSON) → arguments(str)" style="text;fontSize=9;fillColor=none;strokeColor=none;fontColor=#94A3B8;align=left;" vertex="1" parent="1">
+      <mxGeometry x="525" y="445" width="195" height="75" as="geometry"/>
+    </mxCell>
+
+    <!-- R2: stop_reason → finish_reason -->
+    <mxCell id="rr2_in" value='stop_reason: "end_turn"&#xa;stop_reason: "tool_use"&#xa;stop_reason: "max_tokens"' style="rounded=1;fillColor=#7F1D1D;strokeColor=#DC2626;fontColor=#FCA5A5;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="40" y="548" width="200" height="45" as="geometry"/>
+    </mxCell>
+    <mxCell id="rr2_out" value='finish_reason: "stop"&#xa;finish_reason: "tool_calls"&#xa;finish_reason: "length"' style="rounded=1;fillColor=#1E3A5F;strokeColor=#3B82F6;fontColor=#93C5FD;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="278" y="548" width="200" height="45" as="geometry"/>
+    </mxCell>
+    <mxCell id="rr2_desc" value="transform_response()&#xa;end_turn → stop&#xa;tool_use → tool_calls&#xa;max_tokens → length" style="text;fontSize=9;fillColor=none;strokeColor=none;fontColor=#94A3B8;align=left;" vertex="1" parent="1">
+      <mxGeometry x="525" y="548" width="195" height="45" as="geometry"/>
+    </mxCell>
+
+    <!-- R3: usage -->
+    <mxCell id="rr3_in" value='usage: {&#xa;  input_tokens: 2095,&#xa;  output_tokens: 503&#xa;}' style="rounded=1;fillColor=#7F1D1D;strokeColor=#DC2626;fontColor=#FCA5A5;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="40" y="602" width="200" height="45" as="geometry"/>
+    </mxCell>
+    <mxCell id="rr3_out" value='usage: {&#xa;  prompt_tokens: 2095,&#xa;  completion_tokens: 503,&#xa;  total_tokens: 2598&#xa;}' style="rounded=1;fillColor=#1E3A5F;strokeColor=#3B82F6;fontColor=#93C5FD;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="278" y="598" width="200" height="50" as="geometry"/>
+    </mxCell>
+    <mxCell id="rr3_desc" value="transform_response()&#xa;input_tokens → prompt_tokens&#xa;output_tokens → completion_tokens&#xa;+ 计算总 token 数" style="text;fontSize=9;fillColor=none;strokeColor=none;fontColor=#94A3B8;align=left;" vertex="1" parent="1">
+      <mxGeometry x="525" y="602" width="195" height="45" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== STREAMING 转换 ===== -->
+    <mxCell id="stream_bg" value="" style="rounded=1;fillColor=#312E81;strokeColor=#818CF8;opacity=30;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="20" y="700" width="720" height="290" as="geometry"/>
+    </mxCell>
+    <mxCell id="stream_title" value="transform_stream_event() — SSE 流式转换 (Anthropic → OpenAI)" style="text;fontSize=13;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#A5B4FC;" vertex="1" parent="1">
+      <mxGeometry x="120" y="705" width="500" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="scol_in" value="Anthropic SSE 事件" style="rounded=1;fillColor=#DC2626;strokeColor=#991B1B;fontColor=#fff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="732" width="200" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="scol_arr" value="→" style="text;fontSize=14;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#F59E0B;" vertex="1" parent="1">
+      <mxGeometry x="248" y="732" width="20" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="scol_out" value="OpenAI SSE 事件" style="rounded=1;fillColor=#3B82F6;strokeColor=#2563EB;fontColor=#fff;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="278" y="732" width="200" height="25" as="geometry"/>
+    </mxCell>
+    <mxCell id="scol_desc" value="转换规则" style="rounded=1;fillColor=#334155;strokeColor=#475569;fontColor=#CBD5E1;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="520" y="732" width="200" height="25" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="sr1_in" value='event: content_block_delta&#xa;data: {delta: {&#xa;  type:"text_delta",&#xa;  text:"Hello"&#xa;}}' style="rounded=1;fillColor=#7F1D1D;strokeColor=#DC2626;fontColor=#FCA5A5;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="40" y="765" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="sr1_out" value='data: {&#xa;  choices: [{&#xa;    delta: {content:"Hello"}&#xa;  }]&#xa;}' style="rounded=1;fillColor=#1E3A5F;strokeColor=#3B82F6;fontColor=#93C5FD;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="278" y="765" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="sr1_desc" value="text_delta.text&#xa;→ delta.content" style="text;fontSize=9;fillColor=none;strokeColor=none;fontColor=#94A3B8;align=left;" vertex="1" parent="1">
+      <mxGeometry x="525" y="780" width="195" height="30" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="sr2_in" value='event: content_block_delta&#xa;data: {delta: {&#xa;  type:"thinking_delta",&#xa;  thinking:"Let me..."&#xa;}}' style="rounded=1;fillColor=#7F1D1D;strokeColor=#DC2626;fontColor=#FCA5A5;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="40" y="840" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="sr2_out" value='data: {&#xa;  choices: [{&#xa;    delta: {&#xa;      reasoning_content:"Let me..."&#xa;    }&#xa;  }]&#xa;}' style="rounded=1;fillColor=#1E3A5F;strokeColor=#3B82F6;fontColor=#93C5FD;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="278" y="840" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="sr2_desc" value="thinking_delta.thinking&#xa;→ delta.reasoning_content" style="text;fontSize=9;fillColor=none;strokeColor=none;fontColor=#94A3B8;align=left;" vertex="1" parent="1">
+      <mxGeometry x="525" y="855" width="195" height="30" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="sr3_in" value='event: content_block_delta&#xa;data: {delta: {&#xa;  type:"input_json_delta",&#xa;  partial_json:"{\\\"loc\\\""&#xa;}}' style="rounded=1;fillColor=#7F1D1D;strokeColor=#DC2626;fontColor=#FCA5A5;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="40" y="915" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="sr3_out" value='data: {&#xa;  choices: [{&#xa;    delta: {&#xa;      tool_calls: [{&#xa;        function:{arguments:"{\\\"loc\\\""}&#xa;      }]&#xa;    }&#xa;  }]&#xa;}' style="rounded=1;fillColor=#1E3A5F;strokeColor=#3B82F6;fontColor=#93C5FD;fontSize=9;fontFamily=Courier New;align=left;spacingLeft=4;" vertex="1" parent="1">
+      <mxGeometry x="278" y="915" width="200" height="65" as="geometry"/>
+    </mxCell>
+    <mxCell id="sr3_desc" value="input_json_delta.partial_json&#xa;→ tool_calls[].function.arguments&#xa;(需跟踪 content_block_start 的 id/name)" style="text;fontSize=9;fillColor=none;strokeColor=none;fontColor=#94A3B8;align=left;" vertex="1" parent="1">
+      <mxGeometry x="525" y="920" width="195" height="45" as="geometry"/>
+    </mxCell>
+
+  </root>
+</mxGraphModel>
