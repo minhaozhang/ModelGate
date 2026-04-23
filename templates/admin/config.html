@@ -33,6 +33,12 @@
         .pk-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .pk-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
         .pk-action { background: none !important; border: none !important; cursor: pointer; padding: 0; font-size: 0.75rem; }
+        .icon-btn { background: none !important; border: none !important; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; transition: background 0.15s; }
+        .icon-btn:hover { background: rgba(0,0,0,0.06); }
+        body.theme-dark .icon-btn:hover { background: rgba(255,255,255,0.08); }
+        .warn-icon { position: relative; display: inline-flex; align-items: center; cursor: pointer; color: #f59e0b; }
+        .warn-icon .warn-tip { display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); background: #1f2937; color: #f9fafb; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; max-width: 260px; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.4; }
+        .warn-icon:hover .warn-tip { display: block; }
         .mk-item:hover { background: #f8fafc; }
         .mk-item.selected { background: #eff6ff; }
         body.theme-dark .shadow,
@@ -351,13 +357,19 @@
                         <span class="font-medium">${p.name}</span>
                         <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded ${p.protocol === 'anthropic' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}">${(p.protocol || 'openai').toUpperCase()}</span>
                         <span class="ml-2 text-xs ${p.is_active ? 'text-green-600' : 'text-red-600'}">${p.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
-                        ${p.disabled_reason ? '<span class="ml-2 text-xs text-orange-500">&#9888; ' + (p.disabled_reason || '').substring(0, 30) + '</span>' : ''}
+                        ${p.disabled_reason ? '<span class="warn-icon ml-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">' + p.disabled_reason.replace(/</g, '&lt;') + '</span></span>' : ''}
                         <div class="text-xs text-gray-500">${p.base_url}</div>
                     </div>
-                    <div class="flex gap-2" onclick="event.stopPropagation()">
-                        <button onclick="openProviderKeys(${p.id}, '${p.name}')" class="text-green-500 hover:text-green-700 text-sm">${t('keys', 'Keys')}</button>
-                        <button onclick="editProvider(${p.id})" class="text-blue-500 hover:text-blue-700 text-sm">${t('edit', 'Edit')}</button>
-                        <button onclick="deleteProvider(${p.id})" class="text-red-500 hover:text-red-700 text-sm">${t('delete', 'Delete')}</button>
+                    <div class="flex gap-1" onclick="event.stopPropagation()">
+                        <button onclick="openProviderKeys(${p.id}, '${p.name}')" class="icon-btn text-green-500 hover:text-green-700" title="${t('keys', 'Keys')}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                        </button>
+                        <button onclick="editProvider(${p.id})" class="icon-btn text-blue-500 hover:text-blue-700" title="${t('edit', 'Edit')}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                        <button onclick="deleteProvider(${p.id})" class="icon-btn text-red-500 hover:text-red-700" title="${t('delete', 'Delete')}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
                     </div>
                 </div>
             `).join('');
@@ -788,7 +800,7 @@
                             <span class="text-sm font-mono font-medium">${k.api_key}</span>
                             ${k.label ? '<span class="text-xs text-gray-400">' + k.label + '</span>' : ''}
                             <span class="text-xs ${k.is_active ? 'text-green-600' : 'text-red-500'}">${k.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
-                            ${k.disabled_reason ? '<span class="text-xs text-orange-500">&#9888; ' + (k.disabled_reason || '').substring(0, 30) + '</span>' : ''}
+                            ${k.disabled_reason ? '<span class="warn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">' + k.disabled_reason.replace(/</g, '&lt;') + '</span></span>' : ''}
                         </div>
                         <div class="flex items-center gap-1 text-xs text-gray-400 mt-1">
                             <span>{{ _('Concurrency') }}:</span>
@@ -799,8 +811,12 @@
                         </div>
                     </div>
                     <div class="pk-actions">
-                        <button onclick="toggleProviderKey(${k.id}, ${!k.is_active})" class="pk-action ${k.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}">${k.is_active ? '{{ _("Disable") }}' : '{{ _("Enable") }}'}</button>
-                        <button onclick="deleteProviderKey(${k.id})" class="pk-action text-red-500 hover:text-red-700">{{ _('Delete') }}</button>
+                        <button onclick="toggleProviderKey(${k.id}, ${!k.is_active})" class="icon-btn ${k.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}" title="${k.is_active ? '{{ _("Disable") }}' : '{{ _("Enable") }}'">
+                            ${k.is_active ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'}
+                        </button>
+                        <button onclick="deleteProviderKey(${k.id})" class="icon-btn text-red-500 hover:text-red-700" title="{{ _("Delete") }}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
                     </div>
                 </div>
             `).join('');
@@ -893,9 +909,13 @@
                             ${m.bound_key_count > 0 ? ` / <span class="text-green-500">${formatI18n('keyCount', {count: m.bound_key_count.toLocaleString()}, `${m.bound_key_count.toLocaleString()} key(s)`)}</span>` : ''}
                         </div>
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="editModel(${m.id})" class="text-blue-500 hover:text-blue-700 text-sm">${t('edit', 'Edit')}</button>
-                        <button onclick="deleteModel(${m.id})" class="text-red-500 hover:text-red-700 text-sm">${t('delete', 'Delete')}</button>
+                    <div class="flex gap-1">
+                        <button onclick="editModel(${m.id})" class="icon-btn text-blue-500 hover:text-blue-700" title="${t('edit', 'Edit')}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                        <button onclick="deleteModel(${m.id})" class="icon-btn text-red-500 hover:text-red-700" title="${t('delete', 'Delete')}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
                     </div>
                 </div>
             `).join('');
@@ -918,9 +938,13 @@
                     html += `
                         <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
                             <span class="text-sm">${b.display_name || b.model_name}</span>
-                            <div class="flex items-center gap-2">
-                                <button onclick="openProviderModelKeys(${b.id}, ${b.model_id}, '${bindingLabel}')" class="text-green-500 hover:text-green-700 text-sm">${t('keys', 'Keys')}</button>
-                                <button onclick="unbindModel(${b.id})" class="text-red-500 hover:text-red-700 text-sm">${t('remove', 'Remove')}</button>
+                            <div class="flex items-center gap-1">
+                                <button onclick="openProviderModelKeys(${b.id}, ${b.model_id}, '${bindingLabel}')" class="icon-btn text-green-500 hover:text-green-700" title="${t('keys', 'Keys')}">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                                </button>
+                                <button onclick="unbindModel(${b.id})" class="icon-btn text-red-500 hover:text-red-700" title="${t('remove', 'Remove')}">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
                             </div>
                         </div>
                     `;

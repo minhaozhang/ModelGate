@@ -70,6 +70,10 @@
             .top-metrics-grid { grid-template-columns:repeat(8, minmax(0, 1fr)); }
         }
         @media(prefers-reduced-motion:reduce){ .fr{transition-duration:.01ms!important;} }
+        .warn-icon { position: relative; display: inline-flex; align-items: center; cursor: pointer; color: #ef4444; vertical-align: middle; }
+        .warn-icon .warn-tip { display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); background: #1f2937; color: #f9fafb; padding: 6px 10px; border-radius: 6px; font-size: 12px; max-width: 260px; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.4; }
+        .warn-icon:hover .warn-tip { display: block; }
+        body.theme-dark .warn-icon .warn-tip { background: #374151; }
         .session-item { transition: opacity 0.35s ease, transform 0.35s ease, max-height 0.35s ease, margin 0.35s ease, padding 0.35s ease; overflow:hidden; }
         .session-enter { opacity:0; transform:translateY(-8px); max-height:0; margin-top:0; margin-bottom:0; padding-top:0; padding-bottom:0; }
         .session-exit { opacity:0; transform:translateY(8px); max-height:0; margin-top:0; margin-bottom:0; padding-top:0; padding-bottom:0; }
@@ -576,11 +580,17 @@
             });
 
             let insertAfter = null;
+            const disabledProviders = data.disabled_providers || {};
             for (const [name, session] of entries) {
                 const maskedName = maskName(name);
-                const modelsHtml = Object.entries(session.models).map(([model, count]) =>
-                    `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">${model} (${count})</span>`
-                ).join(' ');
+                const modelsHtml = Object.entries(session.models).map(([model, count]) => {
+                    const providerName = model.includes('/') ? model.split('/')[0] : '';
+                    const isDisabled = providerName && disabledProviders[providerName];
+                    const warnIcon = isDisabled
+                        ? `<span class="warn-icon ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${disabledProviders[providerName]}</span></span>`
+                        : '';
+                    return `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">${model} (${count})${warnIcon}</span>`;
+                }).join(' ');
                 const innerHtml = `<div>
                     <div class="font-medium truncate cursor-default" title="${name}">${maskedName}</div>
                     <div class="text-xs text-gray-500 mt-1">${modelsHtml}</div>

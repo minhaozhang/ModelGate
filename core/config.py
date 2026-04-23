@@ -307,8 +307,10 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                 request_data["started_at"].isoformat(),
             )
             model_name = request_data.get("model")
+            provider_name = request_data.get("provider", "")
             if model_name:
-                bucket["models"][model_name] = bucket["models"].get(model_name, 0) + 1
+                display_model = f"{provider_name}/{model_name}" if provider_name else model_name
+                bucket["models"][display_model] = bucket["models"].get(display_model, 0) + 1
 
         for key_name, bucket in grouped_users.items():
             api_key_id = bucket.get("api_key_id")
@@ -317,11 +319,17 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             else:
                 bucket["tokens"] = 0
 
+        disabled_providers = {}
+        for pname, pconf in providers_cache.items():
+            if pconf.get("disabled_reason"):
+                disabled_providers[pname] = pconf["disabled_reason"]
+
         return {
             "active_requests": len(active_requests),
             "active_users": len(grouped_users),
             "tokens_per_second": get_avg_tokens_per_second(),
             "sessions": dict(sorted(grouped_users.items(), key=lambda item: item[1]["first_activity"])),
+            "disabled_providers": disabled_providers,
         }
 
 
