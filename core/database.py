@@ -611,6 +611,12 @@ async def init_db():
         )
         await conn.execute(
             text(
+                "ALTER TABLE request_logs_history "
+                "ADD COLUMN IF NOT EXISTS downstream_status_code INTEGER"
+            )
+        )
+        await conn.execute(
+            text(
                 "ALTER TABLE request_logs "
                 "ADD COLUMN IF NOT EXISTS client_ip VARCHAR(64)"
             )
