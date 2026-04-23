@@ -273,8 +273,29 @@ msgstr "Model Name (ID)"
 msgid "Display Name"
 msgstr "Display Name"
 
-msgid "Max Tokens"
-msgstr "Max Tokens"
+msgid "Max Output"
+msgstr "Max Output"
+
+msgid "Context Window"
+msgstr "Context Window"
+
+msgid "Reasoning Budget"
+msgstr "Reasoning Budget"
+
+msgid "Reasoning"
+msgstr "Reasoning"
+
+msgid "Maximum tokens the model can generate in a single response"
+msgstr "Maximum tokens the model can generate in a single response"
+
+msgid "Total input + output tokens the model can process at once"
+msgstr "Total input + output tokens the model can process at once"
+
+msgid "Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled"
+msgstr "Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled"
+
+msgid "Enable extended reasoning / chain-of-thought for this model"
+msgstr "Enable extended reasoning / chain-of-thought for this model"
 
 msgid "Multimodal"
 msgstr "Multimodal"

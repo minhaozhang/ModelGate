@@ -144,23 +144,23 @@
                 </div>
                 <div class="flex gap-4">
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Max Tokens') }}</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens the model can generate in a single response') }}">{{ _('Max Output') }} <span class="text-gray-400">?</span></label>
                         <input type="number" id="model-max-tokens" value="16384" class="w-full border rounded px-3 py-2">
                     </div>
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Context Length') }}</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Total input + output tokens the model can process at once') }}">{{ _('Context Window') }} <span class="text-gray-400">?</span></label>
                         <input type="number" id="model-context-length" value="131072" class="w-full border rounded px-3 py-2">
                     </div>
                 </div>
                 <div class="flex gap-4">
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Thinking Budget') }}</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled') }}">{{ _('Reasoning Budget') }} <span class="text-gray-400">?</span></label>
                         <input type="number" id="model-thinking-budget" value="8192" class="w-full border rounded px-3 py-2">
                     </div>
                     <div class="flex-1 flex flex-col justify-end">
-                        <label class="flex items-center">
+                        <label class="flex items-center" title="{{ _('Enable extended reasoning / chain-of-thought for this model') }}">
                             <input type="checkbox" id="model-thinking-enabled" checked class="mr-2">
-                            <span class="text-sm text-gray-700">{{ _('Thinking Enabled') }}</span>
+                            <span class="text-sm text-gray-700">{{ _('Reasoning') }} <span class="text-gray-400">?</span></span>
                         </label>
                     </div>
                 </div>
@@ -889,7 +889,7 @@
                         <span class="ml-2 text-xs text-gray-500">${m.name}</span>
                         <span class="ml-2 text-xs ${m.is_active ? 'text-green-600' : 'text-red-600'}">${m.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
                         <div class="text-xs text-gray-400 mt-1">
-                            max_tokens=${(m.max_tokens||0).toLocaleString()} / context=${(m.context_length||0).toLocaleString()} / thinking=${m.thinking_enabled ? (m.thinking_budget||0).toLocaleString() : t('thinkingOff', 'off')}${m.is_multimodal ? ` / ${t('multimodal', 'multimodal')}` : ''}
+                            output=${(m.max_tokens||0).toLocaleString()} / context=${(m.context_length||0).toLocaleString()} / reasoning=${m.thinking_enabled ? (m.thinking_budget||0).toLocaleString() : t('thinkingOff', 'off')}${m.is_multimodal ? ` / ${t('multimodal', 'multimodal')}` : ''}
                             ${m.bound_key_count > 0 ? ` / <span class="text-green-500">${formatI18n('keyCount', {count: m.bound_key_count.toLocaleString()}, `${m.bound_key_count.toLocaleString()} key(s)`)}</span>` : ''}
                         </div>
                     </div>
