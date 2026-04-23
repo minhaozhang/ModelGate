@@ -188,7 +188,9 @@ def get_period_start(period: str, now: datetime) -> datetime:
         return today_start
     if period == "week":
         bucket_start = get_week_bucket_start(now)
-        return bucket_start - timedelta(hours=WEEK_BUCKET_HOURS * (WEEK_BUCKET_COUNT - 1))
+        return bucket_start - timedelta(
+            hours=WEEK_BUCKET_HOURS * (WEEK_BUCKET_COUNT - 1)
+        )
     if period == "month":
         return today_start - timedelta(days=30)
     if period == "year":
@@ -764,7 +766,10 @@ async def get_trend_data(
                 result = await session.execute(
                     select(
                         func.sum(
-                            case((RequestLog.status.notin_(RATE_LIMITED_STATUSES), 1), else_=0)
+                            case(
+                                (RequestLog.status.notin_(RATE_LIMITED_STATUSES), 1),
+                                else_=0,
+                            )
                         ).label("requests"),
                         func.sum(
                             case(
@@ -782,7 +787,10 @@ async def get_trend_data(
                             case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)
                         ).label("timeouts"),
                         func.sum(
-                            case((RequestLog.status.in_(RATE_LIMITED_STATUSES), 1), else_=0)
+                            case(
+                                (RequestLog.status.in_(RATE_LIMITED_STATUSES), 1),
+                                else_=0,
+                            )
                         ).label("rate_limited"),
                     ).where(*raw_filters)
                 )
@@ -1579,7 +1587,10 @@ async def get_chart_data(
                 result = await session.execute(
                     select(
                         func.sum(
-                            case((RequestLog.status.notin_(RATE_LIMITED_STATUSES), 1), else_=0)
+                            case(
+                                (RequestLog.status.notin_(RATE_LIMITED_STATUSES), 1),
+                                else_=0,
+                            )
                         ).label("requests"),
                         func.sum(
                             case(
@@ -1778,11 +1789,22 @@ async def reaggregate_all_stats(_: bool = Depends(require_admin)):
 @router.get("/stats/active")
 async def get_active_sessions(_: bool = Depends(require_admin)):
     snapshot = await build_live_stats_snapshot()
+    disabled_providers = dict(snapshot.get("disabled_providers", {}))
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Provider.name, Provider.disabled_reason).where(
+                Provider.is_active == False,  # noqa: E712
+                Provider.disabled_reason.isnot(None),
+            )
+        )
+        for row in result.fetchall():
+            disabled_providers[row.name] = row.disabled_reason
     return {
         "active_count": snapshot["active_users"],
         "active_requests": snapshot["active_requests"],
         "tokens_per_second": snapshot.get("tokens_per_second", 0),
         "sessions": snapshot["sessions"],
+        "disabled_providers": disabled_providers,
     }
 
 

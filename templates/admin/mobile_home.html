@@ -621,20 +621,26 @@
                     .map(([keyName, session]) => {
                     const disabledProviders = data.disabled_providers || {};
                     const models = Object.entries(session.models || {})
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([m, c]) => {
+                        .sort((a, b) => (b[1].count ?? b[1]) - (a[1].count ?? a[1]))
+                        .map(([m, info]) => {
+                            const c = info.count ?? info;
+                            const modelTokens = info.tokens ?? 0;
                             const providerName = m.includes('/') ? m.split('/')[0] : '';
                             const isDisabled = providerName && disabledProviders[providerName];
                             const warnIcon = isDisabled
                                 ? `<span class="warn-icon ml-0.5"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${disabledProviders[providerName]}</span></span>`
                                 : '';
-                            return `<span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded">${m} (${c})${warnIcon}</span>`;
+                            const td = modelTokens >= 1_000_000
+                                ? (modelTokens / 1_000_000).toFixed(1) + 'M'
+                                : modelTokens >= 1_000
+                                    ? (modelTokens / 1_000).toFixed(1) + 'K'
+                                    : String(modelTokens);
+                            return `<div class="flex items-center gap-1 py-0.5"><span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded max-w-[180px] truncate">${m} (${c})${warnIcon}</span><span class="text-[10px] text-gray-400 flex-shrink-0 ml-auto">${td}</span></div>`;
                         })
-                        .join(' ');
+                        .join('');
                     return `<div class="bg-gray-50 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${keyName}">${keyName}</div><div class="mt-1 flex flex-wrap gap-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
-                            <div class="text-right shrink-0"><span class="text-xs text-gray-500">${session.requests} ${window.I18N.req}</span><div class="text-[10px] text-gray-400">${(session.tokens || 0).toLocaleString()} ${window.I18N.tokens}</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${keyName}">${keyName}</div><div class="mt-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
                         </div>
                     </div>`;
                 }).join('');

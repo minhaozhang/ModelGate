@@ -1324,6 +1324,7 @@ def _escape_ilike(value: str) -> str:
 async def query_logs(
     key_name: Optional[str] = None,
     model: Optional[str] = None,
+    provider: Optional[int] = None,
     status: Optional[str] = None,
     time_range: str = "1h",
     start_time: Optional[str] = None,
@@ -1397,6 +1398,9 @@ async def query_logs(
             else:
                 q = q.where(RequestLog.api_key_id == api_key_id_filter)
                 count_q = count_q.where(RequestLog.api_key_id == api_key_id_filter)
+        if provider:
+            q = q.where(RequestLog.provider_id == provider)
+            count_q = count_q.where(RequestLog.provider_id == provider)
         if model:
             safe_model = _escape_ilike(model)
             q = q.where(RequestLog.model.ilike(f"%{safe_model}%"))

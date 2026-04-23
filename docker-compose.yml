@@ -5,6 +5,8 @@ services:
       - "8765"
     environment:
       - LOG_LEVEL=DEBUG
+    env_file:
+      - .env
     volumes:
       - ./logs:/app/logs
       - ./reports:/app/reports

@@ -83,7 +83,7 @@
             <div class="mt-6 bg-white rounded-lg shadow">
                 <div class="p-4 border-b flex justify-between items-center">
                     <h3 class="text-lg font-semibold">{{ _('Provider-Model Bindings') }}</h3>
-                    <button onclick="syncSelectedProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600 ${!selectedProviderId ? 'opacity-50 cursor-not-allowed' : ''}" id="sync-btn">{{ _('Sync from API') }}</button>
+                    <button onclick="syncSelectedProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600 opacity-50 cursor-not-allowed" id="sync-btn">{{ _('Sync from API') }}</button>
                 </div>
                 <div id="bindings-container" class="p-4">
                     <div class="text-gray-400 text-center py-4">{{ _('Select a provider to view bindings') }}</div>
@@ -290,6 +290,23 @@
             multimodal: '{{ _("multimodal") }}',
             keyCount: '{{ _("{count} key(s)") }}',
             bindingScopeHint: '{{ _("Access is configured on the bound provider-model, not on the model itself.") }}',
+            concurrency: '{{ _("Concurrency") }}',
+            default: '{{ _("Default") }}',
+            save: '{{ _("Save") }}',
+            disable: '{{ _("Disable") }}',
+            enable: '{{ _("Enable") }}',
+            disableReasonPrompt: '{{ _("Disable reason (optional, shown to users)") }}',
+            keyEnabled: '{{ _("Key enabled") }}',
+            keyDisabled: '{{ _("Key disabled") }}',
+            failedToUpdateKey: '{{ _("Failed to update key") }}',
+            concurrencySaved: '{{ _("Concurrency saved") }}',
+            failedToSave: '{{ _("Failed to save") }}',
+            deleteKeyConfirm: '{{ _("Delete this key?") }}',
+            keyDeleted: '{{ _("Key deleted") }}',
+            failedToDeleteKey: '{{ _("Failed to delete key") }}',
+            apiKeyRequired: '{{ _("API Key is required") }}',
+            keyAdded: '{{ _("Key added") }}',
+            failedToAddKey: '{{ _("Failed to add key") }}',
         };
         let allProviders = [];
         let allModels = [];
@@ -514,44 +531,13 @@
 
         async function selectProvider(id) {
             selectedProviderId = id;
+            const syncBtn = document.getElementById('sync-btn');
+            if (syncBtn) {
+                syncBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
             loadProviders();
             await loadProviderBindings(id);
         }
-
-        /* legacy duplicate block kept inert to avoid encoding-related patch drift
-            const provider = allProviders.find(p => p.id === providerId);
-            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/models');
-            const bindings = data.models || [];
-            const unboundModels = allModels.filter(m => m.is_active && !bindings.find(b => b.model_id === m.id));
-            let html = `<div class="mb-4"><span class="font-medium">${provider.name}</span> - Bound Models</div>`;
-            if (bindings.length > 0) {
-                html += '<div class="space-y-2 mb-4">';
-                bindings.forEach(b => {
-                    html += `
-                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                            <span class="text-sm">${b.display_name || b.model_name}</span>
-                            <div class="flex items-center gap-2">
-                                <button onclick="unbindModel(${b.id})" class="text-red-500 hover:text-red-700 text-sm">✕</button>
-                            </div>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-            } else {
-                html += '<div class="text-gray-400 text-center py-2 mb-4">No models bound</div>';
-            }
-            if (unboundModels.length > 0) {
-                html += `
-                    <div class="flex gap-2">
-                        <select id="bind-model-select" class="flex-1 border rounded px-3 py-2 text-sm">
-                            ${unboundModels.map(m => `<option value="${m.id}">${m.display_name || m.name}</option>`).join('')}
-                        </select>
-                        <button onclick="bindModel()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">Bind</button>
-                    </div>
-                `;
-            }
-            document.getElementById('bindings-container').innerHTML = html;
-        */
 
         async function bindModel() {
             const modelId = document.getElementById('bind-model-select').value;
@@ -803,18 +789,18 @@
                             ${k.disabled_reason ? '<span class="warn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">' + k.disabled_reason.replace(/</g, '&lt;') + '</span></span>' : ''}
                         </div>
                         <div class="flex items-center gap-1 text-xs text-gray-400 mt-1">
-                            <span>{{ _('Concurrency') }}:</span>
-                            <input type="number" min="1" value="${k.max_concurrent || ''}" placeholder="{{ _('Default') }}"
+                            <span>${t('concurrency', 'Concurrency')}:</span>
+                            <input type="number" min="1" value="${k.max_concurrent || ''}" placeholder="${t('default', 'Default')}"
                                    id="provider-key-mc-${k.id}"
                                    class="w-16 border rounded px-1.5 py-0.5 text-xs text-center">
-                            <button onclick="updateProviderKeyConcurrency(${k.id})" class="pk-action text-blue-500 hover:text-blue-700">{{ _('Save') }}</button>
+                            <button onclick="updateProviderKeyConcurrency(${k.id})" class="pk-action text-blue-500 hover:text-blue-700">${t('save', 'Save')}</button>
                         </div>
                     </div>
                     <div class="pk-actions">
-                        <button onclick="toggleProviderKey(${k.id}, ${!k.is_active})" class="icon-btn ${k.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}" title="${k.is_active ? '{{ _("Disable") }}' : '{{ _("Enable") }}'">
+                        <button onclick="toggleProviderKey(${k.id}, ${!k.is_active})" class="icon-btn ${k.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}" title="${k.is_active ? t('disable', 'Disable') : t('enable', 'Enable')}">
                             ${k.is_active ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'}
                         </button>
-                        <button onclick="deleteProviderKey(${k.id})" class="icon-btn text-red-500 hover:text-red-700" title="{{ _("Delete") }}">
+                        <button onclick="deleteProviderKey(${k.id})" class="icon-btn text-red-500 hover:text-red-700" title="${t('delete', 'Delete')}">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                         </button>
                     </div>
@@ -834,13 +820,13 @@
             const label = document.getElementById('new-provider-key-label').value.trim();
             const maxConcurrentRaw = document.getElementById('new-provider-key-max-concurrent').value.trim();
             const maxConcurrent = maxConcurrentRaw ? parseInt(maxConcurrentRaw, 10) : null;
-            if (!apiKey) { showToast('{{ _("API Key is required") }}', 'error'); return; }
+            if (!apiKey) { showToast(t('apiKeyRequired', 'API Key is required'), 'error'); return; }
             try {
                 await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({api_key: apiKey, label: label || null, max_concurrent: maxConcurrent})
-                }, {success: '{{ _("Key added") }}', error: '{{ _("Failed to add key") }}'});
+                }, {success: t('keyAdded', 'Key added'), error: t('failedToAddKey', 'Failed to add key')});
                 document.getElementById('new-provider-key-value').value = '';
                 document.getElementById('new-provider-key-label').value = '';
                 document.getElementById('new-provider-key-max-concurrent').value = '';
@@ -853,7 +839,7 @@
             if (!providerKeysTargetId) return;
             let body = {is_active: activate};
             if (!activate) {
-                const reason = prompt('{{ _("Disable reason (optional, shown to users)") }}');
+                const reason = prompt(t('disableReasonPrompt', 'Disable reason (optional, shown to users)'));
                 if (reason === null) return;
                 if (reason.trim()) body.disabled_reason = reason.trim();
             }
@@ -862,7 +848,7 @@
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(body)
-                }, {success: activate ? '{{ _("Key enabled") }}' : '{{ _("Key disabled") }}', error: '{{ _("Failed to update key") }}'});
+                }, {success: activate ? t('keyEnabled', 'Key enabled') : t('keyDisabled', 'Key disabled'), error: t('failedToUpdateKey', 'Failed to update key')});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
             } catch(err) {}
@@ -877,7 +863,7 @@
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({max_concurrent: maxConcurrent})
-                }, {success: '{{ _("Concurrency saved") }}', error: '{{ _("Failed to save") }}'});
+                }, {success: t('concurrencySaved', 'Concurrency saved'), error: t('failedToSave', 'Failed to save')});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
             } catch(err) {}
@@ -885,11 +871,11 @@
 
         async function deleteProviderKey(keyId) {
             if (!providerKeysTargetId) return;
-            if (!confirm('{{ _("Delete this key?") }}')) return;
+            if (!confirm(t('deleteKeyConfirm', 'Delete this key?'))) return;
             try {
                 await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
                     method: 'DELETE'
-                }, {success: '{{ _("Key deleted") }}', error: '{{ _("Failed to delete key") }}'});
+                }, {success: t('keyDeleted', 'Key deleted'), error: t('failedToDeleteKey', 'Failed to delete key')});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
             } catch(err) {}

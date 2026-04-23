@@ -90,6 +90,7 @@ async def update_provider(
             provider.is_active = data.is_active
             if data.is_active:
                 provider.disabled_reason = None
+                provider.disabled_at = None
         if data.merge_consecutive_messages is not None:
             provider.merge_consecutive_messages = data.merge_consecutive_messages
         if data.protocol is not None:
@@ -214,6 +215,7 @@ async def update_provider_key(
             pk.is_active = data.is_active
             if data.is_active:
                 pk.disabled_reason = None
+                pk.disabled_at = None
         if "disabled_reason" in data.model_fields_set:
             pk.disabled_reason = data.disabled_reason
         try:

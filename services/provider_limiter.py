@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import update
 
 from core.config import logger, provider_key_semaphores, providers_cache
@@ -10,7 +12,7 @@ async def disable_provider(provider_name: str, reason: str) -> None:
         await session.execute(
             update(Provider)
             .where(Provider.name == provider_name)
-            .values(is_active=False, disabled_reason=reason[:255])
+            .values(is_active=False, disabled_reason=reason[:255], disabled_at=datetime.utcnow())
         )
         await session.commit()
     providers_cache.pop(provider_name, None)
@@ -43,7 +45,7 @@ async def disable_provider_key(
         await session.execute(
             update(ProviderKey)
             .where(ProviderKey.id == provider_key_id)
-            .values(is_active=False, disabled_reason=reason[:255])
+            .values(is_active=False, disabled_reason=reason[:255], disabled_at=datetime.utcnow())
         )
         await session.commit()
 
@@ -99,21 +101,67 @@ def check_usage_limit_error(resp_json: dict, provider_name: str) -> str | None:
                 and looks_like_usage_limit(status_msg, status_code)
             ):
                 return f"{status_msg} ({status_code})"
-        return None
-
-    code = str(error_obj.get("code", ""))
-    message = error_obj.get("message", "")
-    error_type = str(error_obj.get("type", "")).lower()
-    http_code = error_obj.get("http_code")
-    normalized_message = message.lower()
-
-    if provider_name in {"zhipu", "glm"} and code == "1308":
-        return f"{message} ({code})"
-
-    if error_type == "rate_limit_error" and "usage limit" in normalized_message:
-        return f"{message} (http_code={http_code or code})"
-
-    if looks_like_usage_limit(message, code, error_type, http_code):
-        return f"{message} ({code or http_code})"
-
     return None
+
+
+async def auto_reenable_disabled_keys_and_providers() -> None:
+    from sqlalchemy import select
+
+    from core.database import Provider, ProviderKey, async_session_maker
+
+    reenabled_keys = []
+    reenabled_providers = []
+
+    async with async_session_maker() as session:
+        disabled_keys = await session.execute(
+            select(ProviderKey).where(
+                ProviderKey.is_active == False,  # noqa: E712
+            )
+        )
+        disabled_key_rows = disabled_keys.scalars().all()
+
+        disabled_providers_q = await session.execute(
+            select(Provider).where(
+                Provider.is_active == False,  # noqa: E712
+            )
+        )
+        disabled_provider_rows = disabled_providers_q.scalars().all()
+
+        logger.info(
+            "[AUTO-REENABLE] Found %d disabled key(s), %d disabled provider(s)",
+            len(disabled_key_rows),
+            len(disabled_provider_rows),
+        )
+
+        if disabled_key_rows:
+            key_ids = [k.id for k in disabled_key_rows]
+            await session.execute(
+                update(ProviderKey)
+                .where(ProviderKey.id.in_(key_ids))
+                .values(is_active=True, disabled_reason=None, disabled_at=None)
+            )
+            reenabled_keys = key_ids
+
+        if disabled_provider_rows:
+            provider_ids = [p.id for p in disabled_provider_rows]
+            await session.execute(
+                update(Provider)
+                .where(Provider.id.in_(provider_ids))
+                .values(is_active=True, disabled_reason=None, disabled_at=None)
+            )
+            reenabled_providers = [p.name for p in disabled_provider_rows]
+
+        await session.commit()
+
+        logger.info(
+            "[AUTO-REENABLE] Re-enabled %d key(s): %s, %d provider(s): %s",
+            len(reenabled_keys),
+            reenabled_keys,
+            len(reenabled_providers),
+            reenabled_providers,
+        )
+
+    if reenabled_keys or reenabled_providers:
+        from services.provider import load_providers
+
+        await load_providers()

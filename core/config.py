@@ -293,6 +293,7 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                     "api_key_id": request_data.get("api_key_id"),
                     "models": {},
                     "requests": 0,
+                    "tokens": 0,
                     "last_activity": request_data["started_at"].isoformat(),
                     "first_activity": request_data["started_at"].isoformat(),
                 },
@@ -310,14 +311,19 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             provider_name = request_data.get("provider", "")
             if model_name:
                 display_model = f"{provider_name}/{model_name}" if provider_name else model_name
-                bucket["models"][display_model] = bucket["models"].get(display_model, 0) + 1
+                entry = bucket["models"].setdefault(display_model, {"count": 0, "tokens": 0})
+                entry["count"] += 1
 
         for key_name, bucket in grouped_users.items():
             api_key_id = bucket.get("api_key_id")
-            if api_key_id and api_key_id in stats["api_keys"]:
-                bucket["tokens"] = stats["api_keys"][api_key_id].get("tokens", 0)
-            else:
-                bucket["tokens"] = 0
+            api_key_stats = stats["api_keys"].get(api_key_id) if api_key_id else None
+            for model_key, entry in bucket["models"].items():
+                raw_model = model_key.split("/", 1)[-1] if "/" in model_key else model_key
+                model_tokens = 0
+                if api_key_stats:
+                    model_tokens = api_key_stats.get("models", {}).get(raw_model, {}).get("tokens", 0)
+                entry["tokens"] = model_tokens
+            bucket["tokens"] = sum(e["tokens"] for e in bucket["models"].values())
 
         disabled_providers = {}
         for pname, pconf in providers_cache.items():

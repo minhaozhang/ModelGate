@@ -27,7 +27,7 @@
 
         .log-grid {
             display: grid;
-            grid-template-columns: minmax(135px, 150px) minmax(90px, 120px) minmax(80px, 100px) minmax(150px, 1fr) minmax(90px, 110px) minmax(90px, 120px) minmax(90px, 110px) minmax(200px, 2fr);
+            grid-template-columns: minmax(122px, 135px) minmax(108px, 144px) minmax(72px, 90px) minmax(150px, 1fr) minmax(90px, 110px) minmax(90px, 120px) minmax(90px, 110px) minmax(200px, 2fr);
             gap: 0.75rem;
             align-items: start;
         }
@@ -122,6 +122,12 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Model') }}</label>
                         <input id="filter-model" type="text" placeholder="e.g. glm-5" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Provider') }}</label>
+                        <select id="filter-provider" class="border border-gray-200 rounded px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            <option value="">{{ _('All') }}</option>
+                        </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Status') }}</label>
@@ -294,6 +300,8 @@
             if (keyName) params.set('key_name', keyName);
             if (model) params.set('model', model);
             if (status) params.set('status', status);
+            const providerVal = document.getElementById('filter-provider').value;
+            if (providerVal) params.set('provider', providerVal);
 
             if (currentRange === 'custom') {
                 const startVal = document.getElementById('filter-start').value;
@@ -465,7 +473,22 @@
             document.body.appendChild(overlay);
         }
 
+        async function loadProviders() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers`);
+                if (!data || !data.providers) return;
+                const select = document.getElementById('filter-provider');
+                data.providers.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.name;
+                    select.appendChild(opt);
+                });
+            } catch (e) { console.error('Failed to load providers', e); }
+        }
+
         applyTheme(getThemeMode());
+        loadProviders();
         loadLogs();
     </script>
 </body>

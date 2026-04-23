@@ -57,6 +57,7 @@ class Provider(Base):
     merge_consecutive_messages = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     disabled_reason = Column(String(255), nullable=True)
+    disabled_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -71,6 +72,7 @@ class ProviderKey(Base):
     max_concurrent = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
     disabled_reason = Column(String(255), nullable=True)
+    disabled_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -671,6 +673,12 @@ async def init_db():
             )
         )
         await conn.execute(
+            text("ALTER TABLE providers ADD COLUMN IF NOT EXISTS disabled_at TIMESTAMP")
+        )
+        await conn.execute(
+            text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS disabled_at TIMESTAMP")
+        )
+        await conn.execute(
             text(
                 "UPDATE providers SET protocol = 'openai' WHERE protocol IS NULL OR protocol = ''"
             )
@@ -732,9 +740,10 @@ async def init_db():
                 "ON document_files (document_id)"
             )
         )
+        await conn.execute(text("DROP VIEW IF EXISTS request_logs_all"))
         await conn.execute(
             text(
-                "CREATE OR REPLACE VIEW request_logs_all AS "
+                "CREATE VIEW request_logs_all AS "
                 "SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, "
                 "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
                 "error, created_at, updated_at "

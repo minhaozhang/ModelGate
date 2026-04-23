@@ -2,6 +2,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from core.config import proxy_logger
+from services.provider_limiter import auto_reenable_disabled_keys_and_providers
 from services.stats_aggregator import (
     aggregate_yesterday_stats,
     backfill_historical_stats,
@@ -28,6 +29,12 @@ async def startup_scheduler():
         replace_existing=True,
     )
     scheduler.add_job(
+        auto_reenable_disabled_keys_and_providers,
+        CronTrigger(minute="*/5"),
+        id="auto_reenable_disabled",
+        replace_existing=True,
+    )
+    scheduler.add_job(
         archive_old_request_logs,
         CronTrigger(hour=0, minute=20),
         id="archive_old_request_logs",
@@ -47,7 +54,7 @@ async def startup_scheduler():
     )
     scheduler.start()
     logger.info(
-        "[SCHEDULER] Scheduler started: aggregate at 00:05, MCP stats at 00:10, archive at 00:20, cleanup pending every 10 min, recommendation analysis at 08:00"
+        "[SCHEDULER] Scheduler started: aggregate at 00:05, MCP stats at 00:10, archive at 00:20, cleanup pending every 10 min, auto re-enable every 30 min, recommendation analysis at 08:00"
     )
 
     import asyncio

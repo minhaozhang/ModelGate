@@ -149,7 +149,7 @@ async def shutdown():
 
     shutdown_scheduler()
 
-    from services.proxy import close_http_client
+    from services.proxy_runtime.client import close_http_client
 
     await close_http_client()
 
