@@ -933,6 +933,9 @@ msgstr "Next"
 msgid "Upstream"
 msgstr "Upstream"
 
+msgid "Downstream"
+msgstr "Downstream"
+
 msgid "Client IP"
 msgstr "Client IP"
 

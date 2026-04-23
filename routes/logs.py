@@ -199,6 +199,7 @@ def _serialize_analysis_log(log: RequestLog, provider_map: dict[int, str]) -> di
         "latency_ms": float(log.latency_ms or 0),
         "request_context_tokens": int(log.request_context_tokens or 0),
         "upstream_status_code": log.upstream_status_code,
+        "downstream_status_code": log.downstream_status_code,
     }
 
 
@@ -800,6 +801,7 @@ async def _generate_error_report_with_ai(
                 "model": log["model"],
                 "status": log["status"],
                 "upstream_status_code": log["upstream_status_code"],
+                "downstream_status_code": log.get("downstream_status_code"),
                 "latency_ms": log["latency_ms"],
                 "request_context_tokens": log["request_context_tokens"],
                 "error": (log.get("error") or "")[:240],
@@ -1298,6 +1300,7 @@ async def get_all_logs(limit: int = 100, _: bool = Depends(require_admin)):
                     "model": log.model,
                     "status": log.status,
                     "upstream_status_code": log.upstream_status_code,
+                    "downstream_status_code": log.downstream_status_code,
                     "latency_ms": log.latency_ms,
                     "request_context_tokens": log.request_context_tokens,
                     "tokens": log.tokens,

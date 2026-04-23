@@ -154,6 +154,7 @@ async def handle_normal(
             request_status,
             api_key_id=api_key_id,
             upstream_status_code=resp.status_code,
+            downstream_status_code=resp.status_code,
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=request_context_tokens,

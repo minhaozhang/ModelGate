@@ -1156,6 +1156,9 @@ msgstr "下一页"
 msgid "Upstream"
 msgstr "上游"
 
+msgid "Downstream"
+msgstr "下游"
+
 msgid "Client IP"
 msgstr "客户端 IP"
 

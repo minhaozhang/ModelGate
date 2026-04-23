@@ -182,6 +182,7 @@ async def _record_stream_result(
             latency_ms=latency,
             status="success",
             upstream_status_code=upstream_status_code,
+            downstream_status_code=200,
         )
         if not updated:
             await log_request(
@@ -193,6 +194,7 @@ async def _record_stream_result(
                 "success",
                 api_key_id=api_key_id,
                 upstream_status_code=upstream_status_code,
+                downstream_status_code=200,
                 client_ip=client_ip,
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,
@@ -211,6 +213,7 @@ async def _record_stream_result(
             latency_ms=latency,
             status="cancelled",
             upstream_status_code=upstream_status_code,
+            downstream_status_code=200,
         )
         if not updated:
             await log_request(
@@ -222,6 +225,7 @@ async def _record_stream_result(
                 "cancelled",
                 api_key_id=api_key_id,
                 upstream_status_code=upstream_status_code,
+                downstream_status_code=200,
                 client_ip=client_ip,
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,
@@ -242,6 +246,7 @@ async def _record_stream_result(
             latency_ms=latency,
             status=status,
             upstream_status_code=upstream_status_code,
+            downstream_status_code=200,
             error=str(error) if error is not None else None,
         )
         if not updated:
@@ -254,6 +259,7 @@ async def _record_stream_result(
                 status,
                 api_key_id=api_key_id,
                 upstream_status_code=upstream_status_code,
+                downstream_status_code=200,
                 client_ip=client_ip,
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,

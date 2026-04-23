@@ -194,6 +194,7 @@
             status: "{{ _('Status') }}",
             apiKey: "{{ _('API Key') }}",
             upstream: "{{ _('Upstream') }}",
+            downstream: "{{ _('Downstream') }}",
             latency: "{{ _('Latency') }}",
             tokens: "{{ _('Tokens') }}",
             clientIp: "{{ _('Client IP') }}",
@@ -345,6 +346,7 @@
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.upstream}</div>
                                 <div class="font-medium text-gray-800">${escapeHtml(log.upstream_status_code ?? '-')}</div>
+                                <div class="text-xs text-gray-400 mt-1">${window.I18N.downstream || 'Downstream'}: ${escapeHtml(log.downstream_status_code ?? '-')}</div>
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.latency}</div>
