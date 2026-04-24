@@ -90,17 +90,28 @@ def check_usage_limit_error(resp_json: dict, provider_name: str) -> str | None:
         return any(keyword in normalized for keyword in quota_keywords)
 
     error_obj = resp_json.get("error")
-    if not isinstance(error_obj, dict):
-        base_resp = resp_json.get("base_resp")
-        if isinstance(base_resp, dict):
-            status_code = base_resp.get("status_code")
-            status_msg = base_resp.get("status_msg") or base_resp.get("message")
-            if (
-                provider_name == "minimax"
-                and status_code not in (None, "", 0, "0", 200, "200")
-                and looks_like_usage_limit(status_msg, status_code)
-            ):
-                return f"{status_msg} ({status_code})"
+    if isinstance(error_obj, dict):
+        msg = (
+            error_obj.get("message")
+            or error_obj.get("msg")
+            or error_obj.get("detail")
+            or ""
+        )
+        code = error_obj.get("code") or error_obj.get("status_code")
+        if looks_like_usage_limit(msg, code):
+            return f"{msg} ({code})" if code not in (None, "") else str(msg)
+
+    base_resp = resp_json.get("base_resp")
+    if isinstance(base_resp, dict):
+        status_code = base_resp.get("status_code")
+        status_msg = base_resp.get("status_msg") or base_resp.get("message")
+        if (
+            provider_name == "minimax"
+            and status_code not in (None, "", 0, "0", 200, "200")
+            and looks_like_usage_limit(status_msg, status_code)
+        ):
+            return f"{status_msg} ({status_code})"
+
     return None
 
 
