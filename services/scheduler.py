@@ -30,7 +30,7 @@ async def startup_scheduler():
     )
     scheduler.add_job(
         auto_reenable_disabled_keys_and_providers,
-        CronTrigger(minute="*/5"),
+        CronTrigger(minute="*/30"),
         id="auto_reenable_disabled",
         replace_existing=True,
     )

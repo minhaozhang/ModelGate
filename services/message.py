@@ -51,12 +51,21 @@ def merge_consecutive_messages(messages: list[dict]) -> list[dict]:
     return merged
 
 
+def strip_reasoning_content(messages: list[dict]) -> list[dict]:
+    for m in messages:
+        if m.get("role") == "assistant" and "reasoning_content" in m:
+            m.pop("reasoning_content")
+    return messages
+
+
 def preprocess_messages(
     body_json: dict,
     merge_messages: bool,
     is_multimodal: bool,
 ) -> dict:
     messages = body_json.get("messages", [])
+
+    messages = strip_reasoning_content(messages)
 
     if merge_messages or not is_multimodal:
         messages = merge_system_messages(messages)
