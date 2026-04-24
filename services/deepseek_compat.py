@@ -3,14 +3,10 @@ from __future__ import annotations
 
 DEEPSEEK_PROVIDER_NAMES = {"deepseek"}
 
-DEEPSEEK_REASONER_MODELS = {
+DEEPSEEK_THINKING_MODEL_PREFIXES = (
     "deepseek-reasoner",
     "deepseek-r1",
-}
-
-DEEPSEEK_THINKING_MODELS_PREFIX = (
-    "deepseek-reasoner",
-    "deepseek-r1",
+    "deepseek-v3.",
     "deepseek-v4",
 )
 
@@ -21,13 +17,6 @@ def is_deepseek_thinking_active(
     body_json: dict,
     model_config: dict | None,
 ) -> bool:
-    if provider_name not in DEEPSEEK_PROVIDER_NAMES:
-        return False
-
-    for prefix in DEEPSEEK_THINKING_MODELS_PREFIX:
-        if actual_model.startswith(prefix):
-            return True
-
     thinking = body_json.get("thinking")
     if isinstance(thinking, dict) and thinking.get("type") == "enabled":
         return True
@@ -35,10 +24,26 @@ def is_deepseek_thinking_active(
     if model_config and model_config.get("thinking_enabled"):
         return True
 
+    if provider_name in DEEPSEEK_PROVIDER_NAMES:
+        for prefix in DEEPSEEK_THINKING_MODEL_PREFIXES:
+            if actual_model.startswith(prefix):
+                return True
+
     return False
 
 
 def patch_reasoning_content(messages: list[dict]) -> list[dict]:
+    has_tool_context = any(
+        m.get("role") in ("tool",) or m.get("tool_calls") or m.get("tool_call_id")
+        for m in messages
+    )
+
+    if has_tool_context:
+        for m in messages:
+            if m.get("role") == "assistant" and "reasoning_content" not in m:
+                m["reasoning_content"] = ""
+        return messages
+
     last_user_idx = -1
     for i, m in enumerate(messages):
         if m.get("role") == "user":
