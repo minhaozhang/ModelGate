@@ -8,6 +8,7 @@ from core.config import logger, record_request_rate, update_stats
 from core.database import ApiKey, async_session_maker
 from core.log_sanitizer import sanitize_text_for_log
 from services.logging import log_request
+from services.deepseek_compat import is_deepseek_thinking_active, patch_reasoning_content
 from services.message import preprocess_messages
 from services.minimax import process_minimax_response
 from services.provider import (
@@ -172,6 +173,9 @@ async def call_internal_model_via_proxy(
         )
         merge_messages = provider_config.get("merge_consecutive_messages", False)
         req_body = preprocess_messages(req_body, merge_messages, is_multimodal)
+
+        if is_deepseek_thinking_active(provider_name, actual_model, req_body, model_config):
+            patch_reasoning_content(req_body.get("messages", []))
 
         if req_body.get("stream"):
             req_body["stream"] = False

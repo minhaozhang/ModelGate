@@ -30,6 +30,7 @@ from services.logging import (
 from services.tokens import (
     estimate_request_context_tokens,
 )
+from services.deepseek_compat import is_deepseek_thinking_active, patch_reasoning_content
 from services.message import preprocess_messages
 from services.proxy_runtime import (
     LOCAL_RATE_LIMITED_STATUS,
@@ -226,6 +227,10 @@ async def proxy_request(request: Request, endpoint: str):
         merge_messages = provider_config.get("merge_consecutive_messages", False)
         body_json = preprocess_messages(body_json, merge_messages, is_multimodal)
         messages = body_json["messages"]
+
+        if is_deepseek_thinking_active(provider_name, actual_model, body_json, model_config):
+            messages = patch_reasoning_content(messages)
+
         stream = body_json.get("stream", False)
 
         adapter = get_adapter(provider_config.get("protocol", "openai"))
