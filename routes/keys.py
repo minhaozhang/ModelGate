@@ -14,6 +14,8 @@ from core.database import (
     ApiKeyTimeRule,
     RequestLogRead as RequestLog,
     generate_api_key,
+    Model,
+    ProviderModel,
 )
 from services.auth import load_api_keys
 from routes.user import get_user_session

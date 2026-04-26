@@ -83,12 +83,15 @@ def notify_model_changes_async(
     title = f"模型权限变更：{'；'.join(title_parts)}"
 
     async def _do():
-        await create_notifications_batch([{
-            "type": "user",
-            "level": "info",
-            "title": title,
-            "target_api_key_id": api_key_id,
-        }])
+        try:
+            await create_notifications_batch([{
+                "type": "user",
+                "level": "info",
+                "title": title,
+                "target_api_key_id": api_key_id,
+            }])
+        except Exception as e:
+            logger.error("[NOTIFICATION] Failed to send model change notification: %s", e)
 
     asyncio.create_task(_do())
 
