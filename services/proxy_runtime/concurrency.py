@@ -4,9 +4,9 @@ import core.config as config
 from core.config import provider_key_model_semaphores, provider_key_semaphores
 
 DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY = 3
-DEFAULT_PROVIDER_KEY_MODEL_MAX_CONCURRENCY = 1
-SEMAPHORE_RETRY_AFTER_SECONDS = 5
 SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS = 1
+SEMAPHORE_RETRY_AFTER_SECONDS = 5
+USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS = 1
 RATE_LIMITED_STATUS = "rate_limited"
 LOCAL_RATE_LIMITED_STATUS = "local_rate_limited"
 RATE_LIMITED_STATUSES = {RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}
@@ -41,7 +41,7 @@ def _get_or_create_scoped_semaphore(
     return sem_key, semaphore
 
 
-def _get_provider_key_model_limit() -> int:
+def _get_user_provider_model_limit() -> int:
     from core.config import busyness_state
     level = busyness_state.get("level", 6)
     if level >= 5:
@@ -69,10 +69,10 @@ def _get_provider_key_limit(
     return max(target_limit, 1)
 
 
-def _get_or_create_provider_key_model_semaphore(
-    provider_key_id: int, provider_model_key: str, target_limit: int
+def _get_or_create_user_provider_model_semaphore(
+    api_key_id: int, provider_key_id: int, provider_model_key: str, target_limit: int
 ) -> tuple[str, asyncio.Semaphore]:
-    sem_key = f"{provider_key_id}:{provider_model_key}"
+    sem_key = f"user:{api_key_id}:pk:{provider_key_id}:model:{provider_model_key}"
     return _get_or_create_scoped_semaphore(
         provider_key_model_semaphores, sem_key, target_limit
     )

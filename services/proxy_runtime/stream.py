@@ -45,8 +45,8 @@ async def handle_streaming(
     client_ip,
     user_agent,
     request_context_tokens,
-    semaphore,
-    api_key_model_semaphore,
+    provider_key_semaphore,
+    user_provider_model_semaphore,
     request_id,
     log_id,
     request,
@@ -164,20 +164,20 @@ async def handle_streaming(
                 status_code=resp.status_code,
                 headers=resp_headers,
             )
-            if api_key_model_semaphore is not None:
-                api_key_model_semaphore.release()
-            if semaphore is not None:
-                semaphore.release()
+            if user_provider_model_semaphore is not None:
+                user_provider_model_semaphore.release()
+            if provider_key_semaphore is not None:
+                provider_key_semaphore.release()
             semaphores_released = True
             return response
     except Exception as e:
         if is_active_request_registered:
             await finish_active_request(request_id)
         if not semaphores_released:
-            if semaphore is not None:
-                semaphore.release()
-            if api_key_model_semaphore is not None:
-                api_key_model_semaphore.release()
+            if provider_key_semaphore is not None:
+                provider_key_semaphore.release()
+            if user_provider_model_semaphore is not None:
+                user_provider_model_semaphore.release()
         raise e
 
     async def stream_generator():
@@ -425,10 +425,10 @@ async def handle_streaming(
             yield f"data: {json.dumps({'error': {'message': str(e), 'type': type(e).__name__}})}\n\n"
         finally:
             await finish_active_request(request_id)
-            if api_key_model_semaphore is not None:
-                api_key_model_semaphore.release()
-            if semaphore is not None:
-                semaphore.release()
+            if user_provider_model_semaphore is not None:
+                user_provider_model_semaphore.release()
+            if provider_key_semaphore is not None:
+                provider_key_semaphore.release()
 
     return StreamingResponse(
         stream_generator(),

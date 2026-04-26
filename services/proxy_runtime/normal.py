@@ -46,8 +46,8 @@ async def handle_normal(
     client_ip,
     user_agent,
     request_context_tokens,
-    semaphore,
-    api_key_model_semaphore,
+    provider_key_semaphore,
+    user_provider_model_semaphore,
     request_id,
     chosen_key_id=None,
     protocol="openai",
@@ -212,17 +212,17 @@ async def handle_normal(
             status_code=resp.status_code,
             headers=resp_headers,
         )
-        if api_key_model_semaphore is not None:
-            api_key_model_semaphore.release()
-        if semaphore is not None:
-            semaphore.release()
+        if user_provider_model_semaphore is not None:
+            user_provider_model_semaphore.release()
+        if provider_key_semaphore is not None:
+            provider_key_semaphore.release()
         semaphores_released = True
         return response
     finally:
         if is_active_request_registered:
             await finish_active_request(request_id)
         if not semaphores_released:
-            if semaphore is not None:
-                semaphore.release()
-            if api_key_model_semaphore is not None:
-                api_key_model_semaphore.release()
+            if provider_key_semaphore is not None:
+                provider_key_semaphore.release()
+            if user_provider_model_semaphore is not None:
+                user_provider_model_semaphore.release()

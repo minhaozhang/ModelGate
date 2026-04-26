@@ -8,7 +8,7 @@ from fastapi import Request
 from core.config import provider_key_model_semaphores, provider_key_semaphores
 from services import provider as provider_service
 from services.proxy import (
-    _get_or_create_provider_key_model_semaphore,
+    _get_or_create_user_provider_model_semaphore,
     _get_or_create_provider_key_semaphore,
     _get_provider_key_limit,
     proxy_request,
@@ -49,20 +49,22 @@ class ProviderKeyConcurrencyTests(unittest.TestCase):
         semaphore_a.release()
         semaphore_a.release()
 
-    def test_provider_key_model_limit_is_isolated_per_model(self):
-        sem_key_a, semaphore_a = _get_or_create_provider_key_model_semaphore(
+    def test_user_provider_model_limit_is_isolated_per_model(self):
+        sem_key_a, semaphore_a = _get_or_create_user_provider_model_semaphore(
+            api_key_id=1,
             provider_key_id=11,
             provider_model_key="openai/gpt-4o",
             target_limit=1,
         )
-        sem_key_b, semaphore_b = _get_or_create_provider_key_model_semaphore(
+        sem_key_b, semaphore_b = _get_or_create_user_provider_model_semaphore(
+            api_key_id=1,
             provider_key_id=11,
             provider_model_key="openai/gpt-4.1",
             target_limit=1,
         )
 
-        self.assertEqual(sem_key_a, "11:openai/gpt-4o")
-        self.assertEqual(sem_key_b, "11:openai/gpt-4.1")
+        self.assertEqual(sem_key_a, "user:1:pk:11:model:openai/gpt-4o")
+        self.assertEqual(sem_key_b, "user:1:pk:11:model:openai/gpt-4.1")
         self.assertIsNot(semaphore_a, semaphore_b)
 
         self.assertTrue(asyncio.run(asyncio.wait_for(semaphore_a.acquire(), timeout=0.1)))
