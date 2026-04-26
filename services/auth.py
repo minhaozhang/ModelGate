@@ -69,6 +69,7 @@ async def load_api_keys():
             api_keys_cache[k.key] = {
                 "id": k.id,
                 "name": k.name,
+                "bypass_busyness": k.bypass_busyness or False,
                 "allowed_provider_model_ids": key_models_map[k.id],
                 "time_rules": key_rules_map[k.id],
                 "mcp_server_ids": key_mcp_map[k.id],

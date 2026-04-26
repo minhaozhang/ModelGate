@@ -34,6 +34,7 @@ class ApiKeyCreate(BaseModel):
     name: str
     allowed_provider_model_ids: list[int] = []
     mcp_server_ids: list[int] = []
+    bypass_busyness: bool = False
 
 
 class ApiKeyUpdate(BaseModel):
@@ -41,6 +42,7 @@ class ApiKeyUpdate(BaseModel):
     allowed_provider_model_ids: Optional[list[int]] = None
     is_active: Optional[bool] = None
     mcp_server_ids: Optional[list[int]] = None
+    bypass_busyness: Optional[bool] = None
 
 
 @router.get("/keys")
@@ -92,6 +94,7 @@ async def list_api_keys(_: bool = Depends(require_admin)):
                     "allowed_provider_model_ids": model_ids,
                     "time_rules": time_rules,
                     "is_active": k.is_active,
+                    "bypass_busyness": k.bypass_busyness or False,
                     "mcp_server_ids": mcp_server_ids,
                     "last_used_at": k.last_used_at.isoformat()
                     if k.last_used_at
@@ -104,7 +107,7 @@ async def list_api_keys(_: bool = Depends(require_admin)):
 @router.post("/keys")
 async def create_api_key(data: ApiKeyCreate, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
-        new_key = ApiKey(name=data.name, key=generate_api_key())
+        new_key = ApiKey(name=data.name, key=generate_api_key(), bypass_busyness=data.bypass_busyness)
         session.add(new_key)
         await session.commit()
         await session.refresh(new_key)
@@ -133,6 +136,8 @@ async def update_api_key(
             key.name = data.name
         if data.is_active is not None:
             key.is_active = data.is_active
+        if data.bypass_busyness is not None:
+            key.bypass_busyness = data.bypass_busyness
         if data.mcp_server_ids is not None:
             await session.execute(
                 delete(ApiKeyMcpServer).where(ApiKeyMcpServer.api_key_id == key_id)

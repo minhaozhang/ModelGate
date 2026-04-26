@@ -39,7 +39,7 @@ USER_RECOMMENDATIONS_CACHE: dict[tuple[int, str, str], dict] = {}
 AGGREGATED_USER_PERIODS = {"month"}
 
 
-def _check_model_available(model_full_name: str) -> bool:
+def _check_model_available(model_full_name: str, api_key_id: int | None = None) -> bool:
     parts = model_full_name.split("/", 1)
     if len(parts) != 2:
         return True
@@ -55,6 +55,13 @@ def _check_model_available(model_full_name: str) -> bool:
             if max_level is not None:
                 current_level = busyness_state.get("level", 6)
                 if current_level > max_level:
+                    if api_key_id is not None:
+                        from core.config import api_keys_cache
+                        for key_info in api_keys_cache.values():
+                            if key_info.get("id") == api_key_id:
+                                if key_info.get("bypass_busyness", False):
+                                    return True
+                                break
                     return False
             return True
     return True
@@ -851,7 +858,7 @@ async def get_user_recommendations(
         if not provider_name:
             continue
         full_name = f"{provider_name}/{model_name}"
-        if not _check_model_available(full_name):
+        if not _check_model_available(full_name, api_key_id):
             continue
 
         display_name = display_name_map.get(model_name, model_name)
@@ -1031,6 +1038,13 @@ async def get_user_catalog(
         else [pm for pm in active_provider_models if pm.id in allowed_pm_ids]
     )
 
+    bypass_busyness = False
+    from core.config import api_keys_cache as _ak_cache
+    for _ki in _ak_cache.values():
+        if _ki.get("id") == api_key_id:
+            bypass_busyness = _ki.get("bypass_busyness", False)
+            break
+
     def _is_model_available(provider_name: str, model_name: str) -> bool:
         pconf = providers_cache.get(provider_name)
         if not pconf:
@@ -1043,6 +1057,8 @@ async def get_user_catalog(
                 if max_level is not None:
                     current_level = busyness_state.get("level", 6)
                     if current_level > max_level:
+                        if bypass_busyness:
+                            return True
                         return False
                 return True
         return False

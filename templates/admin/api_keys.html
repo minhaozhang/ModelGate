@@ -131,6 +131,13 @@
                     </div>
                     <p class="text-xs text-gray-500 mt-1">{{ _('Select MCP servers this key can access') }}</p>
                 </div>
+                <div class="mb-4">
+                    <label class="flex items-center gap-2 text-sm text-gray-700">
+                        <input type="checkbox" id="apikey-bypass-busyness" class="rounded">
+                        {{ _('Bypass busyness limit') }}
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1">{{ _('Ignore model busyness availability restrictions') }}</p>
+                </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" onclick="closeApiKeyModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                     <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ _('Save') }}</button>
@@ -167,6 +174,7 @@
         userPage: "{{ _('User Page:') }}",
         setupDoc: "{{ _('Setup Doc:') }}",
         copySetup: "{{ _('Copy Setup') }}",
+        bypassBusyness: "{{ _('Bypass Busyness') }}",
         loginLabel: "{{ _('Login') }}",
         lastUsed: "{{ _('Last Used') }}",
         never: "{{ _('Never') }}",
@@ -598,6 +606,7 @@
                                 </div>
                             ` : ''}
                             ${timeRulesDisplay}
+                            ${k.bypass_busyness ? '<span class="inline-block text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded mt-1">' + (window.I18N.bypassBusyness || 'Bypass busyness') + '</span>' : ''}
                         </div>
                         <div class="flex flex-wrap gap-2 shrink-0">
                             <button onclick="showTimeRulesModal(${k.id})" class="text-purple-500 hover:text-purple-700 text-sm">${window.I18N.timeRules}</button>
@@ -756,6 +765,7 @@ ${setupMdUrl}`;
             updateSelectedCount();
             renderModelCheckboxes();
             renderMcpServerCheckboxes([]);
+            document.getElementById('apikey-bypass-busyness').checked = false;
             document.getElementById('apikey-modal').classList.remove('hidden');
             document.getElementById('apikey-modal').classList.add('flex');
         }
@@ -770,6 +780,7 @@ ${setupMdUrl}`;
             updateSelectedCount();
             renderModelCheckboxes();
             renderMcpServerCheckboxes(key.mcp_server_ids || []);
+            document.getElementById('apikey-bypass-busyness').checked = key.bypass_busyness || false;
             document.getElementById('apikey-modal').classList.remove('hidden');
             document.getElementById('apikey-modal').classList.add('flex');
         }
@@ -785,6 +796,7 @@ ${setupMdUrl}`;
             const data = {
                 name: document.getElementById('apikey-name').value,
                 allowed_provider_model_ids: selectedModelIds,
+                bypass_busyness: document.getElementById('apikey-bypass-busyness').checked,
             };
             data.mcp_server_ids = Array.from(document.querySelectorAll('.mcp-server-check:checked')).map(c => parseInt(c.value));
             

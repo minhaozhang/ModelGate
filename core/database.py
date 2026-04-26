@@ -136,6 +136,7 @@ class ApiKey(Base):
     name = Column(String(100), nullable=False)
     key = Column(String(64), unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
+    bypass_busyness = Column(Boolean, default=False)
     last_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -718,6 +719,9 @@ async def init_db():
         )
         await conn.execute(
             text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP")
+        )
+        await conn.execute(
+            text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS bypass_busyness BOOLEAN DEFAULT FALSE")
         )
         await conn.execute(
             text(

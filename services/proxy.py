@@ -204,17 +204,23 @@ async def proxy_request(request: Request, endpoint: str):
     if model_config:
         max_level = model_config.get("max_busyness_level")
         if max_level is not None:
-            from core.config import busyness_state
+            from core.config import busyness_state, api_keys_cache
             current_level = busyness_state.get("level", 6)
             if current_level > max_level:
-                level_label = LEVEL_LABELS.get(current_level, "")
-                return _openai_error_response(
-                    f"当前系统{level_label}，该模型不可用，请前往用户界面查看推荐模型列表",
-                    503,
-                    "server_error",
-                    "model_unavailable",
-                    headers=busyness_headers or None,
-                )
+                bypass = False
+                for key_info in api_keys_cache.values():
+                    if key_info.get("id") == api_key_id:
+                        bypass = key_info.get("bypass_busyness", False)
+                        break
+                if not bypass:
+                    level_label = LEVEL_LABELS.get(current_level, "")
+                    return _openai_error_response(
+                        f"当前系统{level_label}，该模型不可用，请前往用户界面查看推荐模型列表",
+                        503,
+                        "server_error",
+                        "model_unavailable",
+                        headers=busyness_headers or None,
+                    )
 
     provider_key_semaphore = None
     user_provider_model_semaphore = None
@@ -563,8 +569,8 @@ async def handle_normal(
     client_ip,
     user_agent,
     request_context_tokens,
-    semaphore,
-    api_key_model_semaphore,
+    provider_key_semaphore,
+    user_provider_model_semaphore,
     request_id,
     chosen_key_id=None,
     protocol="openai",
@@ -584,8 +590,8 @@ async def handle_normal(
         client_ip=client_ip,
         user_agent=user_agent,
         request_context_tokens=request_context_tokens,
-        semaphore=semaphore,
-        api_key_model_semaphore=api_key_model_semaphore,
+        provider_key_semaphore=provider_key_semaphore,
+        user_provider_model_semaphore=user_provider_model_semaphore,
         request_id=request_id,
         chosen_key_id=chosen_key_id,
         protocol=protocol,
@@ -606,8 +612,8 @@ async def handle_streaming(
     client_ip,
     user_agent,
     request_context_tokens,
-    semaphore,
-    api_key_model_semaphore,
+    provider_key_semaphore,
+    user_provider_model_semaphore,
     request_id,
     log_id,
     request,
@@ -628,8 +634,8 @@ async def handle_streaming(
         client_ip=client_ip,
         user_agent=user_agent,
         request_context_tokens=request_context_tokens,
-        semaphore=semaphore,
-        api_key_model_semaphore=api_key_model_semaphore,
+        provider_key_semaphore=provider_key_semaphore,
+        user_provider_model_semaphore=user_provider_model_semaphore,
         request_id=request_id,
         log_id=log_id,
         request=request,
