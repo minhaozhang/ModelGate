@@ -54,6 +54,12 @@ msgstr "活跃用户"
 msgid "Active Sessions"
 msgstr "活跃会话"
 
+msgid "My Requests"
+msgstr "我的请求"
+
+msgid "No requests yet"
+msgstr "暂无请求"
+
 msgid "Slow Requests"
 msgstr "慢请求"
 
@@ -1176,4 +1182,139 @@ msgstr "开始时间"
 
 msgid "End Time"
 msgstr "结束时间"
+
+msgid "Disabled Providers"
+msgstr "已禁用供应商"
+
+msgid "Personal"
+msgstr "个人"
+
+msgid "Avg Requests/Model"
+msgstr "平均请求数/模型"
+
+msgid "Ranked by stability, response time, and sample size"
+msgstr "按稳定性、响应时间和样本量排序"
+
+msgid "Loading recommendations..."
+msgstr "正在加载推荐..."
+
+msgid "Analyzing the best daily time windows..."
+msgstr "正在分析最佳时间段..."
+
+msgid "Based on recent load, error rate, and latency"
+msgstr "基于近期负载、错误率和延迟"
+
+msgid "System Request Trend"
+msgstr "系统请求趋势"
+
+msgid "Anonymized across all API keys. Your own traffic is labeled as Yourself."
+msgstr "所有 API Key 匿名汇总，你的流量标记为「你自己」。"
+
+msgid "Based on the current period and accessible models"
+msgstr "基于当前时间段和可用模型"
+
+msgid "No recommendation data yet"
+msgstr "暂无推荐数据"
+
+msgid "AI analysis unavailable"
+msgstr "AI 分析不可用"
+
+msgid "Model Used"
+msgstr "使用模型"
+
+msgid "AI Generated"
+msgstr "AI 生成"
+
+msgid "No recent traffic in the last 20 minutes"
+msgstr "最近 20 分钟无流量"
+
+msgid "models"
+msgstr "个模型"
+
+msgid "providers"
+msgstr "个供应商"
+
+msgid "ctx"
+msgstr "上下文"
+
+msgid "out"
+msgstr "输出"
+
+msgid "multimodal"
+msgstr "多模态"
+
+msgid "alias"
+msgstr "别名"
+
+msgid "Recommendation score"
+msgstr "推荐分数"
+
+msgid "No active providers or models"
+msgstr "无活跃供应商或模型"
+
+msgid "No accessible models"
+msgstr "无可访问模型"
+
+msgid "This API key currently has access to all active models on the platform."
+msgstr "此 API Key 当前可访问平台上所有活跃模型。"
+
+msgid "Models explicitly available to this API key."
+msgstr "此 API Key 明确可用的模型。"
+
+msgid "Models available to this API key."
+msgstr "此 API Key 可用的模型。"
+
+msgid "Platform provider catalog"
+msgstr "平台供应商目录"
+
+msgid "Models this key can use"
+msgstr "此 Key 可用的模型"
+
+msgid "err"
+msgstr "错误"
+
+msgid "So empty..."
+msgstr "空空如也"
+
+msgid "Online Users"
+msgstr "今天有点冷清"
+
+msgid "Only You Online"
+msgstr "一个人的舞台"
+
+msgid "Night Owl — Just You"
+msgstr "夜猫子，只有你"
+
+msgid "Early Bird — Just You"
+msgstr "早起的鸟儿"
+
+msgid "Companions at Work"
+msgstr "陪伴你的牛马"
+
+msgid "Night Owls Club"
+msgstr "修仙小分队"
+
+msgid "Early Birds"
+msgstr "早起的鸟儿们"
+
+msgid "Token Rivals"
+msgstr "和你抢 Token 的人"
+
+msgid "Peak Hours"
+msgstr "高峰时刻，Token 大战"
+
+msgid "Shouldn't You Be Asleep?"
+msgstr "都这个点了，该睡觉了"
+
+msgid "Active 1h"
+msgstr "活跃(1h)"
+
+msgid "disabled"
+msgstr "已禁用"
+
+msgid "Config path: %USERPROFILE%\\.config\\opencode\\opencode.json"
+msgstr "配置路径：%USERPROFILE%\\.config\\opencode\\opencode.json"
+
+msgid "Config path: ~/.config/opencode/opencode.json"
+msgstr "配置路径：~/.config/opencode/opencode.json"
 

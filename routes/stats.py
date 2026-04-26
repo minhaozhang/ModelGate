@@ -1520,6 +1520,20 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
             )
             total_rate_limited = rate_limited_result.scalar() or 0
 
+        disabled_result = await session.execute(
+            select(Provider.name, Provider.disabled_reason).where(
+                Provider.is_active == False,  # noqa: E712
+            )
+        )
+        disabled_providers = {row.name: row.disabled_reason or "Disabled" for row in disabled_result.fetchall()}
+
+        active_1h_result = await session.execute(
+            select(func.count(func.distinct(RequestLog.api_key_id))).where(
+                RequestLog.created_at >= now - timedelta(hours=1),
+            )
+        )
+        active_1h = active_1h_result.scalar() or 0
+
         return {
             "period": period,
             "start": start.isoformat(),
@@ -1528,9 +1542,11 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
             "total_errors": total_errors,
             "total_timeouts": total_timeouts,
             "total_rate_limited": total_rate_limited,
+            "active_1h": active_1h,
             "providers": provider_stats,
             "api_keys": api_key_stats,
             "models": model_stats,
+            "disabled_providers": disabled_providers,
         }
 
 

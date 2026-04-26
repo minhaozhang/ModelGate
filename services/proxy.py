@@ -276,6 +276,14 @@ async def proxy_request(request: Request, endpoint: str):
             body,
         )
 
+        logger.debug(
+            "[PROXY DEBUG] %s/%s stream=%s body=%s",
+            provider_name,
+            actual_model,
+            stream,
+            body.decode("utf-8", errors="replace") if isinstance(body, bytes) else str(body),
+        )
+
         stream_log_id = None
         if stream:
             stream_log_id = await create_request_log(

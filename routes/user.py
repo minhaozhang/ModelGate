@@ -15,6 +15,7 @@ from core.config import logger, providers_cache, validate_session
 from core.database import (
     async_session_maker,
     ApiKey,
+    Provider,
     RequestLogRead as RequestLog,
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
@@ -1069,6 +1070,17 @@ async def get_user_stats(
             pending_requests=int(health_row.pending_requests or 0),
         )
 
+        disabled_providers_result = await session.execute(
+            select(Provider.name, Provider.disabled_reason).where(
+                Provider.is_active == False,  # noqa: E712
+                Provider.disabled_reason.isnot(None),
+            )
+        )
+        disabled_providers = {
+            row.name: row.disabled_reason
+            for row in disabled_providers_result.fetchall()
+        }
+
         payload = {
             "name": key.name,
             "total_requests": total_requests,
@@ -1077,61 +1089,62 @@ async def get_user_stats(
             "models": model_stats,
             "trend": trend_data,
             "system_health": system_health,
+            "disabled_providers": disabled_providers,
         }
         set_cached_payload(USER_STATS_CACHE, cache_key, payload, now)
         return payload
 
 
 @router.get("/user/api/active")
-async def get_user_active_sessions(
+async def get_user_recent_requests(
     request: Request, api_key_id: int = Depends(get_user_session)
 ):
     if not api_key_id:
         return translated_error(request, "Not authenticated", 401)
 
-    cutoff = get_local_now() - timedelta(seconds=ACTIVE_WINDOW_SECONDS)
     async with async_session_maker() as session:
         result = await session.execute(
-            select(RequestLog)
-            .where(
-                RequestLog.api_key_id == api_key_id,
-                or_(
-                    RequestLog.status == "pending",
-                    RequestLog.created_at >= cutoff,
-                ),
+            select(
+                RequestLog.model,
+                RequestLog.provider_id,
+                RequestLog.tokens,
+                RequestLog.latency_ms,
+                RequestLog.status,
+                RequestLog.error,
+                RequestLog.created_at,
             )
+            .where(RequestLog.api_key_id == api_key_id)
             .order_by(RequestLog.created_at.desc())
+            .limit(5)
         )
-        logs = result.scalars().all()
+        rows = result.fetchall()
 
-        model_sessions = {}
-        for log in logs:
-            if not log.model:
-                continue
-
-            model = log.model
-            if model not in model_sessions:
-                model_sessions[model] = {
-                    "requests": 0,
-                    "last_activity": log.created_at.isoformat(),
-                }
-
-            model_sessions[model]["requests"] += 1
-            if log.created_at.isoformat() > model_sessions[model]["last_activity"]:
-                model_sessions[model]["last_activity"] = log.created_at.isoformat()
-
-        ordered_sessions = dict(
-            sorted(
-                model_sessions.items(),
-                key=lambda item: item[1]["last_activity"],
-                reverse=True,
+        provider_ids = {r.provider_id for r in rows if r.provider_id}
+        provider_map = {}
+        if provider_ids:
+            prov_result = await session.execute(
+                select(Provider.id, Provider.name).where(Provider.id.in_(provider_ids))
             )
-        )
+            provider_map = dict(prov_result.fetchall())
 
-        return {
-            "active_count": len(ordered_sessions),
-            "sessions": ordered_sessions,
-        }
+        requests = []
+        for r in rows:
+            token_count = get_token_count(r.tokens) if r.tokens else 0
+            status_text = "error" if r.status == "error" or r.status == "failed" else "success" if r.status == "success" else r.status
+            short_error = None
+            if r.error:
+                short_error = r.error[:120] if len(r.error) > 120 else r.error
+            requests.append({
+                "model": r.model,
+                "provider": provider_map.get(r.provider_id, "-"),
+                "tokens": token_count,
+                "latency_ms": int(r.latency_ms) if r.latency_ms else None,
+                "status": status_text,
+                "error": short_error,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            })
+
+        return {"requests": requests}
 
 
 @router.get("/user/api/system-models")
@@ -1213,6 +1226,8 @@ async def get_system_model_stats(
         "total_tokens": sum(v["tokens"] for v in models.values()),
         "models": models,
     }
+
+    trend_data = {}
     set_cached_payload(SYSTEM_MODEL_STATS_CACHE, cache_key, payload, now)
     return payload
 
@@ -1514,7 +1529,7 @@ async def scheduled_daily_recommendation_analysis():
     default_locale = "zh"
     period = "day"
     now = get_local_now()
-    start, _, _ = get_user_period_range(now, period)
+    start = now - timedelta(days=7)
 
     async with async_session_maker() as session:
         providers_result = await session.execute(

@@ -62,7 +62,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b flex justify-between items-center">
-                        <h3 class="text-lg font-semibold">{{ _('Providers') }}</h3>
+                        <h3 class="text-lg font-semibold">{{ _('Providers') }} <span id="provider-count" class="text-sm font-normal text-gray-500"></span></h3>
                         <button onclick="showAddProvider()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ _('+ Add') }}</button>
                     </div>
                     <div id="providers-list" class="p-4 space-y-2 max-h-80 overflow-y-auto"></div>
@@ -70,7 +70,7 @@
 
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b flex justify-between items-center">
-                        <h3 class="text-lg font-semibold">{{ _('Models') }}</h3>
+                        <h3 class="text-lg font-semibold">{{ _('Models') }} <span id="model-count" class="text-sm font-normal text-gray-500"></span></h3>
                         <div class="flex gap-2">
                             <button onclick="showAddModel()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ _('+ Add') }}</button>
                             <button onclick="syncSelectedProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600">{{ _('Sync') }}</button>
@@ -391,6 +391,7 @@
                 </div>
             `).join('');
             document.getElementById('providers-list').innerHTML = html || `<div class="text-gray-400 text-center py-4">${t('noProviders', 'No providers')}</div>`;
+            document.getElementById('provider-count').textContent = `(${allProviders.length})`;
         }
 
         async function openModelKeys(modelId, titleOverride = null) {
@@ -906,6 +907,7 @@
                 </div>
             `).join('');
             document.getElementById('models-list').innerHTML = html || `<div class="text-gray-400 text-center py-4">${t('noModels', 'No models')}</div>`;
+            document.getElementById('model-count').textContent = `(${allModels.length})`;
             if (selectedProviderId) {
                 await loadProviderBindings(selectedProviderId);
             }

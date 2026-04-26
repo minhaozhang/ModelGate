@@ -54,6 +54,12 @@ msgstr "Active Users"
 msgid "Active Sessions"
 msgstr "Active Sessions"
 
+msgid "My Requests"
+msgstr "My Requests"
+
+msgid "No requests yet"
+msgstr "No requests yet"
+
 msgid "Slow Requests"
 msgstr "Slow Requests"
 
@@ -953,4 +959,139 @@ msgstr "Start Time"
 
 msgid "End Time"
 msgstr "End Time"
+
+msgid "Disabled Providers"
+msgstr "Disabled Providers"
+
+msgid "Personal"
+msgstr "Personal"
+
+msgid "Avg Requests/Model"
+msgstr "Avg Requests/Model"
+
+msgid "Ranked by stability, response time, and sample size"
+msgstr "Ranked by stability, response time, and sample size"
+
+msgid "Loading recommendations..."
+msgstr "Loading recommendations..."
+
+msgid "Analyzing the best daily time windows..."
+msgstr "Analyzing the best daily time windows..."
+
+msgid "Based on recent load, error rate, and latency"
+msgstr "Based on recent load, error rate, and latency"
+
+msgid "System Request Trend"
+msgstr "System Request Trend"
+
+msgid "Anonymized across all API keys. Your own traffic is labeled as Yourself."
+msgstr "Anonymized across all API keys. Your own traffic is labeled as Yourself."
+
+msgid "Based on the current period and accessible models"
+msgstr "Based on the current period and accessible models"
+
+msgid "No recommendation data yet"
+msgstr "No recommendation data yet"
+
+msgid "AI analysis unavailable"
+msgstr "AI analysis unavailable"
+
+msgid "Model Used"
+msgstr "Model Used"
+
+msgid "AI Generated"
+msgstr "AI Generated"
+
+msgid "No recent traffic in the last 20 minutes"
+msgstr "No recent traffic in the last 20 minutes"
+
+msgid "models"
+msgstr "models"
+
+msgid "providers"
+msgstr "providers"
+
+msgid "ctx"
+msgstr "ctx"
+
+msgid "out"
+msgstr "out"
+
+msgid "multimodal"
+msgstr "multimodal"
+
+msgid "alias"
+msgstr "alias"
+
+msgid "Recommendation score"
+msgstr "Recommendation score"
+
+msgid "No active providers or models"
+msgstr "No active providers or models"
+
+msgid "No accessible models"
+msgstr "No accessible models"
+
+msgid "This API key currently has access to all active models on the platform."
+msgstr "This API key currently has access to all active models on the platform."
+
+msgid "Models explicitly available to this API key."
+msgstr "Models explicitly available to this API key."
+
+msgid "Models available to this API key."
+msgstr "Models available to this API key."
+
+msgid "Platform provider catalog"
+msgstr "Platform provider catalog"
+
+msgid "Models this key can use"
+msgstr "Models this key can use"
+
+msgid "err"
+msgstr "err"
+
+msgid "So empty..."
+msgstr "So empty..."
+
+msgid "Online Users"
+msgstr "Online Users"
+
+msgid "Only You Online"
+msgstr "Only You Online"
+
+msgid "Night Owl — Just You"
+msgstr "Night Owl — Just You"
+
+msgid "Early Bird — Just You"
+msgstr "Early Bird — Just You"
+
+msgid "Companions at Work"
+msgstr "Companions at Work"
+
+msgid "Night Owls Club"
+msgstr "Night Owls Club"
+
+msgid "Early Birds"
+msgstr "Early Birds"
+
+msgid "Token Rivals"
+msgstr "Token Rivals"
+
+msgid "Peak Hours"
+msgstr "Peak Hours"
+
+msgid "Shouldn't You Be Asleep?"
+msgstr "Shouldn't You Be Asleep?"
+
+msgid "Active 1h"
+msgstr "Active 1h"
+
+msgid "disabled"
+msgstr "disabled"
+
+msgid "Config path: %USERPROFILE%\\.config\\opencode\\opencode.json"
+msgstr "Config path: %USERPROFILE%\\.config\\opencode\\opencode.json"
+
+msgid "Config path: ~/.config/opencode/opencode.json"
+msgstr "Config path: ~/.config/opencode/opencode.json"
 

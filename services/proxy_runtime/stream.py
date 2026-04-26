@@ -192,6 +192,11 @@ async def handle_streaming(
         try:
             chunk_count = 0
             async for raw_line in normalize_sse_stream(resp.aiter_lines()):
+                if chunk_count == 0:
+                    logger.debug(
+                        "[STREAM DEBUG] %s/%s first_chunk=%s",
+                        provider, model, raw_line[:500] if raw_line else "<empty>",
+                    )
                 if is_adapter_stream:
                     adapter_results = await adapter.transform_stream_chunk(
                         raw_line if raw_line.startswith("data: ") else f"data: {raw_line}",

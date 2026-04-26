@@ -142,11 +142,11 @@
                     <div id="slow-requests" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No slow requests') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
-                    <h3 class="text-sm md:text-base lg:text-lg font-semibold mb-3">{{ _('Provider Usage') }}</h3>
+                    <h3 class="text-sm md:text-base lg:text-lg font-semibold mb-3">{{ _('Provider Usage') }} <span id="provider-usage-count" class="text-sm font-normal text-gray-500"></span></h3>
                     <div id="provider-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
-                    <h3 class="text-sm md:text-base lg:text-lg font-semibold mb-3">{{ _('API Key Usage') }}</h3>
+                    <h3 class="text-sm md:text-base lg:text-lg font-semibold mb-3">{{ _('API Key Usage') }} <span id="apikey-usage-count" class="text-sm font-normal text-gray-500"></span></h3>
                     <div id="apikey-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
                 </div>
             </div>
@@ -349,6 +349,7 @@
                 return `<div class="rounded p-2 bg-gray-50"><div class="flex justify-between text-xs mb-1 gap-2"><span class="font-medium truncate cursor-default" title="${name}">${name}${warnIcon}</span><span class="text-gray-500 shrink-0">${p.requests} req / ${formatCompactTokens(p.tokens || 0)}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>${modelsHtml}</div>`;
             }).join('');
             document.getElementById('provider-bars').innerHTML = html || '<div class="text-gray-400 text-center py-2 text-xs">No data</div>';
+            document.getElementById('provider-usage-count').textContent = entries.length > 0 ? `(${entries.length})` : '';
         }
         function renderApiKeyBars(apiKeys) {
             const entries = Object.entries(apiKeys)
@@ -361,6 +362,7 @@
                 return `<div class="rounded p-2 bg-gray-50"><div class="flex justify-between text-xs mb-1 gap-2"><span class="font-medium truncate cursor-default" title="${name}">${masked}</span><span class="text-gray-500 shrink-0">${k.requests} req / ${formatCompactTokens(k.tokens || 0)}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-green-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>${modelsHtml}</div>`;
             }).join('');
             document.getElementById('apikey-bars').innerHTML = html || '<div class="text-gray-400 text-center py-2 text-xs">No data</div>';
+            document.getElementById('apikey-usage-count').textContent = entries.length > 0 ? `(${entries.length})` : '';
         }
         async function loadChart() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/chart?period=` + currentPeriod);

@@ -118,12 +118,15 @@
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Err Rate') }}</div>
                 <div id="error-rate" class="metric-flip mt-1 text-lg font-bold leading-none text-purple-600">0%</div>
             </div>
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Active 1h') }}</div>
+                <div id="active-1h" class="metric-flip mt-1 text-lg font-bold leading-none text-indigo-600">0</div>
+            </div>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm p-4">
             <div class="flex items-center justify-between mb-3">
                 <span class="font-medium text-sm text-gray-800">{{ _('Request Trend') }}</span>
-                <span id="trend-meta" class="text-[10px] text-gray-400"></span>
             </div>
             <div style="height: 220px;">
                 <canvas id="trendChart"></canvas>
@@ -274,15 +277,26 @@
             return items ? `<div class="mt-2 space-y-1 border-l-2 border-gray-100 pl-2">${items}</div>` : '';
         }
 
-        function renderProviderBars(providers) {
+        function renderProviderBars(providers, disabledProviders) {
             const entries = Object.entries(providers)
                 .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0));
             const maxTokens = Math.max(...entries.map(([, p]) => p.tokens || 0), 1);
+            const disabledCount = Object.keys(disabledProviders || {}).length;
+            const badgeHtml = disabledCount > 0 ? `<span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">${disabledCount} {{ _('disabled') }}</span>` : '';
+            document.querySelector('[onclick="toggleSection(\'providers\')"] .flex.items-center').innerHTML = `
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
+                    <span class="font-medium text-sm text-gray-800">{{ _('Provider Usage') }}</span>
+                    ${badgeHtml}
+            `;
             const html = entries.map(([name, p]) => {
                 const pct = ((p.tokens || 0) / maxTokens) * 100;
                 const modelsHtml = renderModelList(p.models);
+                const isDisabled = disabledProviders && disabledProviders[name];
+                const warnIcon = isDisabled
+                    ? `<span class="warn-icon ml-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${isDisabled}</span></span>`
+                    : '';
                 return `<div class="bg-gray-50 rounded-lg p-3">
-                    <div class="flex justify-between text-xs gap-2"><span class="font-medium truncate">${name}</span><span class="text-gray-500 shrink-0">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span></div>
+                    <div class="flex justify-between text-xs gap-2"><span class="font-medium truncate">${name}${warnIcon}</span><span class="text-gray-500 shrink-0">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span></div>
                     <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>
                     ${modelsHtml}
                 </div>`;
@@ -392,7 +406,6 @@
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
             const tokenLabel = tokenScale.suffix ? `${window.I18N.tokens} (${tokenScale.suffix})` : window.I18N.tokens;
-            document.getElementById('trend-meta').textContent = window.I18N.onRightAxis.replace('{label}', tokenLabel);
 
             if (trendChart && trendChart.data.labels.length === labels.length) {
                 trendChart.data.labels = labels;
@@ -519,7 +532,7 @@
                         }
                     },
                     plugins: {
-                        legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } },
+                        legend: { display: false },
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
@@ -595,8 +608,9 @@
                 flipCounter('total-rate-limited', data.total_rate_limited || 0);
                 const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
                 flipCounter('error-rate', errorRate + '%');
+                flipCounter('active-1h', (data.active_1h || 0).toLocaleString());
 
-                renderProviderBars(data.providers || {});
+                renderProviderBars(data.providers || {}, data.disabled_providers || {});
                 renderApiKeyBars(data.api_keys || {});
                 renderTrendChart(chartData);
             } catch (e) {

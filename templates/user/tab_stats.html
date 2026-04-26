@@ -1,5 +1,57 @@
 <div id="tab-stats" class="tab-content active p-6">
+    <div id="disabled-providers-alert" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <h3 class="text-sm font-semibold text-red-800 mb-2">{{ _('Disabled Providers') }}</h3>
+        <div id="disabled-providers-list" class="space-y-1 text-sm text-red-700"></div>
+    </div>
+
     <div class="bg-gray-50 rounded-lg p-4 mb-6">
+        <div class="flex items-center gap-4 mb-4 border-b pb-2">
+            <button class="stats-summary-tab active text-sm font-semibold px-3 py-1.5 rounded-t" onclick="showStatsSummaryTab('personal', event)">{{ _('Personal') }}</button>
+            <button class="stats-summary-tab text-sm font-semibold px-3 py-1.5 rounded-t" onclick="showStatsSummaryTab('system', event)">{{ _('System') }}</button>
+        </div>
+        <div id="stats-summary-personal">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Total Requests') }}</div>
+                    <div id="total-requests" class="text-2xl font-bold text-blue-600">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Total Tokens') }}</div>
+                    <div id="total-tokens" class="text-2xl font-bold text-green-600">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Errors') }}</div>
+                    <div id="total-errors" class="text-2xl font-bold text-red-600">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Models Used') }}</div>
+                    <div id="model-count" class="text-2xl font-bold text-purple-600">0</div>
+                </div>
+            </div>
+        </div>
+        <div id="stats-summary-system" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Total Requests') }}</div>
+                    <div id="system-total-requests" class="text-2xl font-bold text-blue-600">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Total Tokens') }}</div>
+                    <div id="system-total-tokens" class="text-2xl font-bold text-green-600">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Models Used') }}</div>
+                    <div id="system-model-count" class="text-2xl font-bold text-purple-600">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Avg Requests/Model') }}</div>
+                    <div id="system-avg-per-model" class="text-2xl font-bold text-indigo-600">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="recommendation-section" class="bg-gray-50 rounded-lg p-4 mb-6">
         <div class="flex justify-between items-start gap-3 mb-3">
             <h3 class="text-lg font-semibold">{{ _('Recommended Models') }}</h3>
             <div class="text-right">
@@ -14,27 +66,8 @@
             {{ _('Analyzing the best daily time windows...') }}
         </div>
     </div>
-    
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-gray-50 rounded-lg p-4">
-            <div class="text-gray-500 text-sm">{{ _('Total Requests') }}</div>
-            <div id="total-requests" class="text-2xl font-bold text-blue-600">0</div>
-        </div>
-        <div class="bg-gray-50 rounded-lg p-4">
-            <div class="text-gray-500 text-sm">{{ _('Total Tokens') }}</div>
-            <div id="total-tokens" class="text-2xl font-bold text-green-600">0</div>
-        </div>
-        <div class="bg-gray-50 rounded-lg p-4">
-            <div class="text-gray-500 text-sm">{{ _('Errors') }}</div>
-            <div id="total-errors" class="text-2xl font-bold text-red-600">0</div>
-        </div>
-        <div class="bg-gray-50 rounded-lg p-4">
-            <div class="text-gray-500 text-sm">{{ _('Models Used') }}</div>
-            <div id="model-count" class="text-2xl font-bold text-purple-600">0</div>
-        </div>
-    </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-6">
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
         <div class="bg-gray-50 rounded-lg p-4">
             <div class="flex justify-between items-start gap-3 mb-3">
                 <div>
@@ -68,29 +101,44 @@
             </div>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="text-lg font-semibold">{{ _('Active Sessions') }}</h3>
-                <span id="active-count" class="text-sm text-gray-500">0 {{ _('active') }}</span>
-            </div>
-            <div id="active-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-3"><div class="text-gray-400 text-center py-2 2xl:col-span-2">{{ _('No active sessions') }}</div></div>
+            <h3 class="text-lg font-semibold mb-3">{{ _('My Requests') }}</h3>
+            <div id="my-requests-list"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
             <div class="flex justify-between items-center mb-3">
-                <h3 class="text-lg font-semibold">{{ _('System Active Requests') }}</h3>
+                <h3 id="system-active-title" class="text-lg font-semibold">{{ _('System Active Requests') }}</h3>
                 <span id="system-active-count" class="text-sm text-gray-500">0 {{ _('active') }}</span>
             </div>
-            <div class="text-xs text-gray-400 mb-3">{{ _('Anonymized across all API keys. Your own traffic is labeled as Yourself.') }}</div>
-            <div id="system-active-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-3"><div class="text-gray-400 text-center py-2 2xl:col-span-2">{{ _('No active sessions') }}</div></div>
+            <div id="system-active-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-3"><div class="text-gray-400 text-center py-2 2xl:col-span-2">{{ _('So empty...') }}</div></div>
         </div>
     </div>
 
-    <div class="bg-gray-50 rounded-lg p-4 my-6">
-        <div class="flex justify-between items-center mb-3">
-            <h3 class="text-lg font-semibold">{{ _('Request Trend') }}</h3>
-            <span id="trend-meta" class="text-xs text-gray-500">{{ _('Requests / Tokens / Errors') }}</span>
+    <div class="flex border-b mb-6">
+        <button class="stats-sub-tab active px-5 py-2.5 font-medium text-sm" onclick="showStatsSubTab('personal')">{{ _('Personal') }}</button>
+        <button class="stats-sub-tab px-5 py-2.5 font-medium text-sm" onclick="showStatsSubTab('system')">{{ _('System') }}</button>
+    </div>
+
+    <div id="stats-sub-personal" class="stats-sub-content">
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-semibold">{{ _('Request Trend') }}</h3>
+                <span class="text-xs text-gray-500">{{ _('Your API key') }}</span>
+            </div>
+            <div style="height: 250px;">
+                <canvas id="trend-chart"></canvas>
+            </div>
         </div>
-        <div style="height: 250px;">
-            <canvas id="trend-chart"></canvas>
+    </div>
+
+    <div id="stats-sub-system" class="stats-sub-content hidden">
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-semibold">{{ _('System Request Trend') }}</h3>
+                <span class="text-xs text-gray-500">{{ _('All API keys') }}</span>
+            </div>
+            <div style="height: 250px;">
+                <canvas id="system-trend-chart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -101,7 +149,7 @@
                 <span id="model-usage-meta" class="text-xs text-gray-500">{{ _('Your API key') }}</span>
             </div>
             <div class="h-64"><canvas id="model-usage-chart"></canvas></div>
-            <div id="model-stats" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-64 overflow-y-auto"></div>
+            <div id="model-stats" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3"></div>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
             <div class="flex justify-between items-center mb-3">
@@ -109,7 +157,7 @@
                 <span id="system-model-meta" class="text-xs text-gray-500">{{ _('All API keys') }}</span>
             </div>
             <div class="h-64"><canvas id="system-model-chart"></canvas></div>
-            <div id="system-model-legend" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-64 overflow-y-auto"></div>
+            <div id="system-model-legend" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3"></div>
         </div>
     </div>
 </div>
