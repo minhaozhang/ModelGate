@@ -761,13 +761,11 @@
                 if (!el || !data.level) return;
                 const colorMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-600'};
                 el.className = 'metric-flip mt-1 text-lg font-bold leading-none ' + (colorMap[data.color] || 'text-slate-600');
-                const locale = document.documentElement.lang || 'zh';
-                if (locale === 'zh' || locale === 'zh-CN') {
-                    el.textContent = data.label;
-                } else {
-                    const nameMap = {extremely_busy:'Ext.Busy',very_busy:'V.Busy',busy:'Busy',normal:'Normal',idle:'Idle',quiet:'Quiet'};
-                    el.textContent = nameMap[data.name] || data.name;
-                }
+                const locale = document.documentElement.lang || '{{ current_locale }}' || 'zh';
+                const isZh = locale === 'zh' || locale === 'zh-CN' || locale.startsWith('zh');
+                const zhMap = {extremely_busy:'兵荒马乱',very_busy:'焦头烂额',busy:'人声鼎沸',normal:'畅通无阻',idle:'门可罗雀',quiet:'万籁俱寂'};
+                const enMap = {extremely_busy:'Ext.Busy',very_busy:'V.Busy',busy:'Busy',normal:'Normal',idle:'Idle',quiet:'Quiet'};
+                el.textContent = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
             } catch(e) {}
         }
 
