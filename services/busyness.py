@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from core.config import (
-    active_requests,
     providers_cache,
     stats,
 )
@@ -50,16 +49,11 @@ def _count_disabled_providers() -> int:
 
 
 def _count_active_users_10min() -> int:
-    cutoff = (datetime.now() - WINDOW_10MIN).strftime("%Y%m%d_%H%M%S")
+    cutoff = (datetime.now() - WINDOW_10MIN).strftime("%Y%m%d_%H%M")
     user_ids = set()
-    for req_data in active_requests.values():
-        started_at = req_data.get("started_at")
-        if started_at:
-            ts = started_at.strftime("%Y%m%d_%H%M%S") if isinstance(started_at, datetime) else str(started_at)[:19].replace("-", "").replace(":", "").replace(" ", "_")
-            if ts >= cutoff:
-                ak_id = req_data.get("api_key_id")
-                if ak_id:
-                    user_ids.add(ak_id)
+    for minute_key, api_key_id in stats.get("active_api_keys_per_minute", []):
+        if minute_key >= cutoff:
+            user_ids.add(api_key_id)
     return len(user_ids)
 
 
