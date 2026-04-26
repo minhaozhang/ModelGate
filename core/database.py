@@ -600,6 +600,41 @@ class Notification(Base):
     )
 
 
+class SchedulerTask(Base):
+    __tablename__ = "scheduler_tasks"
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(String(100), unique=True, nullable=False)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    cron_expression = Column(String(50), nullable=False)
+    default_cron = Column(String(50), nullable=False)
+    is_paused = Column(Boolean, default=False)
+    last_run_at = Column(DateTime, nullable=True)
+    last_duration_ms = Column(Integer, nullable=True)
+    last_status = Column(String(20), nullable=True)
+    last_error = Column(Text, nullable=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class SchedulerTaskLog(Base):
+    __tablename__ = "scheduler_task_logs"
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(String(100), nullable=False)
+    status = Column(String(20), nullable=False)
+    started_at = Column(DateTime, nullable=False)
+    finished_at = Column(DateTime, nullable=True)
+    duration_ms = Column(Integer, nullable=True)
+    error = Column(Text, nullable=True)
+    result_summary = Column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("idx_task_logs_task", "task_id"),
+        Index("idx_task_logs_started", "started_at"),
+    )
+
+
 def generate_api_key():
     return "sk-" + secrets.token_hex(24)
 

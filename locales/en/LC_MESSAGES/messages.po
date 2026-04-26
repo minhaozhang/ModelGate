@@ -1173,3 +1173,48 @@ msgstr "No notifications"
 msgid "Read"
 msgstr "Read"
 
+msgid "Scheduled Tasks"
+msgstr "Scheduled Tasks"
+
+msgid "No tasks"
+msgstr "No tasks"
+
+msgid "Paused"
+msgstr "Paused"
+
+msgid "Run Now"
+msgstr "Run Now"
+
+msgid "Resume"
+msgstr "Resume"
+
+msgid "Pause"
+msgstr "Pause"
+
+msgid "Logs"
+msgstr "Logs"
+
+msgid "Last run"
+msgstr "Last run"
+
+msgid "Duration"
+msgstr "Duration"
+
+msgid "Next run"
+msgstr "Next run"
+
+msgid "Execution Log"
+msgstr "Execution Log"
+
+msgid "No logs"
+msgstr "No logs"
+
+msgid "Time"
+msgstr "Time"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Result"
+msgstr "Result"
+

@@ -1399,3 +1399,48 @@ msgstr "暂无通知"
 msgid "Read"
 msgstr "已读"
 
+msgid "Scheduled Tasks"
+msgstr "定时任务"
+
+msgid "No tasks"
+msgstr "暂无任务"
+
+msgid "Paused"
+msgstr "已暂停"
+
+msgid "Run Now"
+msgstr "立即执行"
+
+msgid "Resume"
+msgstr "恢复"
+
+msgid "Pause"
+msgstr "暂停"
+
+msgid "Logs"
+msgstr "日志"
+
+msgid "Last run"
+msgstr "上次执行"
+
+msgid "Duration"
+msgstr "耗时"
+
+msgid "Next run"
+msgstr "下次执行"
+
+msgid "Execution Log"
+msgstr "执行日志"
+
+msgid "No logs"
+msgstr "暂无日志"
+
+msgid "Time"
+msgstr "时间"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Result"
+msgstr "结果"
+
