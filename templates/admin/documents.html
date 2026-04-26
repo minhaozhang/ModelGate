@@ -43,7 +43,7 @@
         .md-preview blockquote { border-left: 3px solid #3b82f6; padding-left: 1rem; color: #6b7280; margin: 0.5rem 0; }
         body.theme-dark .md-preview pre { background: #1e293b !important; }
         body.theme-dark .md-preview blockquote { color: #94a3b8; }
-        .editor-preview { min-height: 20rem; }
+        .editor-preview { min-height: 20rem; max-height: 70vh; overflow-y: auto; }
         .drop-zone { border: 2px dashed #d1d5db; border-radius: 0.5rem; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; }
         .drop-zone:hover, .drop-zone.dragover { border-color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
         body.theme-dark .drop-zone { border-color: #334155; }
@@ -75,7 +75,7 @@
 
                 <section class="bg-white rounded-lg shadow p-6">
                     <h3 class="text-lg font-semibold text-gray-800 mb-3">{{ _('Preview') }}</h3>
-                    <div id="doc-preview" class="text-sm text-gray-500">{{ _('Select a document to preview') }}</div>
+                    <div id="doc-preview" class="text-sm text-gray-500 max-h-[70vh] overflow-y-auto">{{ _('Select a document to preview') }}</div>
                 </section>
             </div>
         </main>
