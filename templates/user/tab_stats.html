@@ -53,18 +53,12 @@
     </div>
 
     <div id="recommendation-section" class="bg-gray-50 rounded-lg p-4 mb-6">
-        <div class="flex justify-between items-start gap-3 mb-3">
+        <div class="flex justify-between items-center mb-3">
             <h3 class="text-lg font-semibold">{{ _('Recommended Models') }}</h3>
-            <div class="text-right">
-                <div id="recommendation-meta" class="text-xs text-gray-600">{{ _('Ranked by stability, response time, and sample size') }}</div>
-                <div id="recommendation-analysis-meta" class="mt-1 text-xs text-blue-600"></div>
-            </div>
+            <span class="text-xs text-gray-500">{{ _('Based on 7-day usage stats') }}</span>
         </div>
         <div id="recommendation-list" class="flex flex-wrap gap-2">
             <div class="w-full text-gray-500 text-center py-4">{{ _('Loading recommendations...') }}</div>
-        </div>
-        <div id="recommendation-timing-advice" class="mt-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm text-gray-600">
-            {{ _('Analyzing the best daily time windows...') }}
         </div>
     </div>
 

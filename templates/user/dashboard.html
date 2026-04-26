@@ -285,13 +285,7 @@
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('documents')">{{ _('Documents') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('mcp')">MCP Tools</button>
-                <button class="tab-btn px-6 py-3 font-medium" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}</button>
-                <div class="ml-auto flex items-center pr-4">
-                    <button onclick="showTab('notifications')" class="relative">
-                        <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                        <span id="user-notif-badge" class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5 leading-none hidden">0</span>
-                    </button>
-                </div>
+                <button class="tab-btn px-6 py-3 font-medium" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}<span id="user-notif-badge" class="ml-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] inline-flex items-center justify-center px-0.5 leading-none align-middle hidden">0</span></button>
             </div>
             
             {% include 'user/tab_stats.html' %}
@@ -1085,33 +1079,9 @@
             if (ratio429) ratio429.textContent = (Number(data.rate_429_ratio || 0) * 100).toFixed(1) + '%';
         }
 
-        let recommendationPollTimer = null;
-        let recommendationsInitialized = false;
-
-        function scheduleRecommendationPoll(period, requestVersion) {
-            if (recommendationPollTimer) {
-                clearTimeout(recommendationPollTimer);
-            }
-            recommendationPollTimer = setTimeout(() => {
-                const activePeriod = document.getElementById('period-select')?.value || 'day';
-                if (requestVersion !== statsRequestVersion || activePeriod !== period) return;
-                fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/recommendations?period=' + period)
-                    .then(recommendations => {
-                        const latestPeriod = document.getElementById('period-select')?.value || 'day';
-                        if (requestVersion !== statsRequestVersion || latestPeriod !== period) return;
-                        renderRecommendations(recommendations || {}, period, requestVersion);
-                    })
-                    .catch(() => {});
-            }, 3000);
-        }
-
         async function loadStats() {
             const period = document.getElementById('period-select').value;
             const requestVersion = ++statsRequestVersion;
-            if (recommendationPollTimer) {
-                clearTimeout(recommendationPollTimer);
-                recommendationPollTimer = null;
-            }
             const [data, systemModels] = await Promise.all([
                 fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/stats?period=' + period),
                 fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-models?period=' + period)
@@ -1162,13 +1132,6 @@
             renderOwnModelChart(data.models || {});
             renderSystemModelChart(systemModels.models || {});
 
-            if (!recommendationsInitialized) {
-                document.getElementById('recommendation-meta').textContent = window.I18N.basedOnCurrentPeriod;
-                document.getElementById('recommendation-analysis-meta').textContent = '';
-                document.getElementById('recommendation-timing-advice').textContent = window.I18N.analyzingBestTimeWindows;
-                document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.loadingRecommendations}</div>`;
-            }
-
             fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/recommendations?period=' + period)
                 .then(recommendations => {
                     const activePeriod = document.getElementById('period-select')?.value || 'day';
@@ -1177,66 +1140,29 @@
                 })
                 .catch(() => {
                     if (requestVersion !== statsRequestVersion) return;
-                    if (!recommendationsInitialized) {
-                        document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
-                    }
-            });
+                    document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
+                });
         }
 
         function renderRecommendations(data, period, requestVersion) {
-            const escapeAttr = (value) => String(value || '')
-                .replaceAll('&', '&amp;')
-                .replaceAll('"', '&quot;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;');
-            const items = data.items || [];
-            const isPending = data.analysis_source === 'pending';
             recommendationsInitialized = true;
-            const timingAdvice = data.timing_advice || (isPending
-                ? window.I18N.analyzingBestTimeWindows
-                : window.I18N.aiUnavailable);
-            document.getElementById('recommendation-meta').textContent = window.I18N.basedOnCurrentPeriod;
-            const analysisMetaParts = [];
-            if (data.analysis_source) {
-                if (data.analysis_source === 'ai') {
-                    analysisMetaParts.push(window.I18N.aiGenerated);
-                } else if (isPending) {
-                    analysisMetaParts.push(window.I18N.loadingRecommendations);
-                } else {
-                    analysisMetaParts.push(window.I18N.aiUnavailable);
-                }
-            }
-            if (data.analysis_model_used) {
-                analysisMetaParts.push(`${window.I18N.modelUsed}: ${data.analysis_model_used}`);
-            }
-            document.getElementById('recommendation-analysis-meta').textContent = analysisMetaParts.join(' · ');
-            document.getElementById('recommendation-timing-advice').textContent = timingAdvice;
-            if (isPending && period) {
-                scheduleRecommendationPoll(period, requestVersion);
-            } else if (recommendationPollTimer) {
-                clearTimeout(recommendationPollTimer);
-                recommendationPollTimer = null;
-            }
+            const items = data.items || [];
             if (!items.length) {
                 document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
                 return;
             }
 
             const html = items.map(item => {
-                const scoreClass = item.rank === 1
-                    ? 'bg-emerald-500'
-                    : item.rank === 2
-                        ? 'bg-sky-500'
-                        : item.rank === 3
-                        ? 'bg-amber-500'
-                            : 'bg-slate-400';
-                const tooltip = item.reason
-                    ? `${item.display_name}: ${item.reason}`
-                    : item.model;
+                const scoreClass = item.rank <= 3
+                    ? ['bg-emerald-500', 'bg-sky-500', 'bg-amber-500'][item.rank - 1]
+                    : 'bg-slate-400';
+                const errPct = (item.error_rate * 100).toFixed(1);
+                const latStr = item.avg_latency_ms >= 1000 ? (item.avg_latency_ms/1000).toFixed(1)+'s' : Math.round(item.avg_latency_ms)+'ms';
                 return `
-                    <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm" title="${escapeAttr(tooltip)}">
+                    <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
                         <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full ${scoreClass} px-1.5 text-[11px] font-semibold text-white">#${item.rank}</span>
                         <span class="max-w-[13rem] truncate font-medium">${item.display_name}</span>
+                        <span class="text-xs text-gray-400">${item.requests}req · ${errPct}%err · ${latStr}</span>
                     </div>
                 `;
             }).join('');

@@ -41,12 +41,6 @@ TASK_REGISTRY = {
         "default_cron": "20 0 * * *",
         "func": archive_old_request_logs,
     },
-    "daily_recommendation_analysis": {
-        "name": "每日推荐分析",
-        "description": "AI驱动的模型推荐和最佳使用时段分析",
-        "default_cron": "0 8 * * *",
-        "func": None,
-    },
     "cleanup_stale_pending": {
         "name": "清理过期请求",
         "description": "清理长时间处于pending状态的请求记录",
@@ -213,10 +207,6 @@ async def _task_busyness():
 
     await _run_task_with_logging("compute_busyness_level", None, summary)
 
-async def _task_recommendation():
-    from routes.user import scheduled_daily_recommendation_analysis
-    await _run_task_with_logging("daily_recommendation_analysis", scheduled_daily_recommendation_analysis)
-
 
 TASK_HANDLERS = {
     "aggregate_daily_stats": _task_aggregate_daily,
@@ -225,7 +215,6 @@ TASK_HANDLERS = {
     "cleanup_stale_pending": _task_cleanup,
     "auto_reenable_disabled": _task_auto_reenable,
     "compute_busyness_level": _task_busyness,
-    "daily_recommendation_analysis": _task_recommendation,
 }
 
 

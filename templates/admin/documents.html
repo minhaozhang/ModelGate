@@ -82,11 +82,11 @@
     </div>
 
     <div id="edit-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background:rgba(0,0,0,0.5)">
-        <div class="bg-white rounded-xl shadow-2xl w-[1080px] max-h-[88vh] flex flex-col" style="margin:1rem">
-            <div class="p-5 border-b border-gray-200">
+        <div class="bg-white rounded-xl shadow-2xl w-[1080px] max-w-[95vw] h-[85vh] flex flex-col" style="margin:1rem">
+            <div class="p-5 border-b border-gray-200 shrink-0">
                 <h3 id="edit-modal-title" class="text-lg font-semibold text-gray-800">{{ _('Create Document') }}</h3>
             </div>
-            <div class="flex-1 overflow-y-auto p-5 space-y-4">
+            <div class="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
                 <input type="hidden" id="edit-doc-id" value="">
                 <div>
                     <label class="block text-sm text-gray-600 mb-1">{{ _('Title') }}</label>
@@ -107,17 +107,17 @@
                 <div>
                     <label class="block text-sm text-gray-600 mb-1">{{ _('Content (Markdown)') }}</label>
                     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                        <div>
-                            <div class="flex items-center gap-1 mb-1">
+                        <div class="flex flex-col min-h-0">
+                            <div class="flex items-center gap-2 mb-1 shrink-0">
                                 <input type="file" id="insert-image-input" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.bmp" class="hidden" onchange="handleInsertImage(event)">
-                                <button type="button" onclick="document.getElementById('insert-image-input').click()" class="text-xs text-gray-500 hover:text-blue-600 px-2 py-1 border border-gray-200 rounded hover:border-blue-300 inline-flex items-center gap-1">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                    {{ _('Insert Image') }}
+                                <button type="button" onclick="document.getElementById('insert-image-input').click()" class="whitespace-nowrap text-xs text-gray-500 hover:text-blue-600 px-2 py-1 border border-gray-200 rounded hover:border-blue-300 inline-flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    <span>{{ _('Insert Image') }}</span>
                                 </button>
                             </div>
-                            <textarea id="edit-content" rows="20" oninput="renderEditorPreview()" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full font-mono"></textarea>
+                            <textarea id="edit-content" rows="20" oninput="renderEditorPreview()" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full font-mono resize-none"></textarea>
                         </div>
-                        <div class="border border-gray-200 rounded p-4 bg-gray-50">
+                        <div class="border border-gray-200 rounded p-4 bg-gray-50 overflow-y-auto">
                             <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">{{ _('Preview') }}</div>
                             <div id="edit-preview" class="md-preview editor-preview text-sm text-gray-700"></div>
                         </div>
@@ -126,7 +126,7 @@
                 <div id="files-section" class="hidden">
                     <label class="block text-sm text-gray-600 mb-1">{{ _('Attachments') }}</label>
                     <div id="drop-zone" class="drop-zone" onclick="document.getElementById('file-input').click()">
-                        <svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        <svg class="w-5 h-5 mx-auto mb-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
                         <div class="text-sm text-gray-500">{{ _('Drop files here or click to upload') }}</div>
                         <div class="text-xs text-gray-400 mt-1">PDF, Word, Markdown, Images (max 20MB)</div>
                     </div>
@@ -134,7 +134,7 @@
                     <div id="file-list" class="mt-2"></div>
                 </div>
             </div>
-            <div class="p-4 border-t border-gray-200 flex justify-end gap-3">
+            <div class="p-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
                 <button onclick="closeEditModal()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">{{ _('Cancel') }}</button>
                 <button id="edit-save-btn" onclick="saveDocument()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">{{ _('Save') }}</button>
             </div>
