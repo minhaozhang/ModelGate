@@ -1090,7 +1090,27 @@
             errorRate.textContent = `${(Number(health?.error_rate || 0) * 100).toFixed(1)}%`;
             latency.textContent = formatHealthLatency(health?.avg_latency_ms);
         }
-         
+
+        function renderBusyness(data) {
+            if (!data) return;
+            const colorMap = {red:'bg-red-500',orange:'bg-orange-500',yellow:'bg-yellow-500',green:'bg-green-500',blue:'bg-blue-500',slate:'bg-slate-400'};
+            const badgeBgMap = {red:'bg-red-100 text-red-700',orange:'bg-orange-100 text-orange-700',yellow:'bg-yellow-100 text-yellow-700',green:'bg-green-100 text-green-700',blue:'bg-blue-100 text-blue-700',slate:'bg-slate-100 text-slate-600'};
+            const textMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-700'};
+            const c = data.color || 'slate';
+            const dot = document.getElementById('busyness-dot');
+            const badge = document.getElementById('busyness-badge');
+            const levelText = document.getElementById('busyness-level-text');
+            const activeUsers = document.getElementById('busyness-active-users');
+            const disabled = document.getElementById('busyness-disabled');
+            const ratio429 = document.getElementById('busyness-429-ratio');
+            if (dot) dot.className = 'w-4 h-4 rounded-full shrink-0 ' + (colorMap[c] || 'bg-slate-400');
+            if (badge) { badge.className = 'rounded-full px-2.5 py-1 text-xs font-semibold ' + (badgeBgMap[c] || 'bg-slate-100 text-slate-600'); badge.textContent = data.label || '--'; }
+            if (levelText) { levelText.className = 'text-2xl font-bold ' + (textMap[c] || 'text-slate-700'); levelText.textContent = data.label || '--'; }
+            if (activeUsers) activeUsers.textContent = Number(data.active_users_10min || 0).toLocaleString();
+            if (disabled) disabled.textContent = Number(data.disabled_providers || 0).toLocaleString();
+            if (ratio429) ratio429.textContent = (Number(data.rate_429_ratio || 0) * 100).toFixed(1) + '%';
+        }
+
         let recommendationPollTimer = null;
         let recommendationsInitialized = false;
 
@@ -1154,6 +1174,7 @@
             _cachedPersonalModels = data.models || {};
             _cachedSystemModels = systemModels.models || {};
             renderSystemHealth(data.system_health || {});
+            renderBusyness(data.busyness || null);
             renderTrendChart(latestTrendData);
             renderOwnModelChart(data.models || {});
             renderSystemModelChart(systemModels.models || {});

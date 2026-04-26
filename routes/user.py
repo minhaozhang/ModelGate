@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import case, func, or_, select
 
 from core.app_paths import build_app_url
-from core.config import logger, providers_cache, validate_session
+from core.config import logger, providers_cache, validate_session, busyness_state
 from core.database import (
     async_session_maker,
     ApiKey,
@@ -1090,6 +1090,7 @@ async def get_user_stats(
             "trend": trend_data,
             "system_health": system_health,
             "disabled_providers": disabled_providers,
+            "busyness": dict(busyness_state) if busyness_state else None,
         }
         set_cached_payload(USER_STATS_CACHE, cache_key, payload, now)
         return payload

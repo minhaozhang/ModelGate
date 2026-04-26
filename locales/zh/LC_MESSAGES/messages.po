@@ -1318,3 +1318,24 @@ msgstr "配置路径：%USERPROFILE%\\.config\\opencode\\opencode.json"
 msgid "Config path: ~/.config/opencode/opencode.json"
 msgstr "配置路径：~/.config/opencode/opencode.json"
 
+msgid "System Status"
+msgstr "系统状态"
+
+msgid "Real-time busyness level"
+msgstr "实时繁忙程度"
+
+msgid "Active users (10min)"
+msgstr "活跃用户（10分钟）"
+
+msgid "Limited providers"
+msgstr "被限流供应商"
+
+msgid "ratio"
+msgstr "占比"
+
+msgid "providers limited"
+msgstr "家供应商被限流"
+
+msgid "active users"
+msgstr "活跃用户"
+

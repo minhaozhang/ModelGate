@@ -25,6 +25,7 @@ from core.config import (
     add_live_stats_subscriber,
     api_keys_cache,
     build_live_stats_snapshot,
+    busyness_state,
     get_api_key_name,
     prune_stale_active_requests,
     remove_live_stats_subscriber,
@@ -1913,6 +1914,15 @@ async def stats_live_websocket(websocket: WebSocket):
     finally:
         await remove_live_stats_subscriber(websocket)
         await prune_stale_active_requests()
+
+
+@router.get("/stats/busyness")
+async def get_busyness_level(_: bool = Depends(require_admin)):
+    from services.busyness import compute_busyness_level, LEVEL_LABELS
+
+    if not busyness_state:
+        return compute_busyness_level()
+    return dict(busyness_state)
 
 
 @router.get("/stats/slow")

@@ -71,32 +71,31 @@
         <div class="bg-gray-50 rounded-lg p-4">
             <div class="flex justify-between items-start gap-3 mb-3">
                 <div>
-                    <h3 class="text-lg font-semibold">{{ _('System Health') }}</h3>
-                    <div class="text-xs text-gray-400">{{ _('Last 20 minutes') }}</div>
+                    <h3 class="text-lg font-semibold">{{ _('System Status') }}</h3>
+                    <div class="text-xs text-gray-400" id="busyness-detail-line">{{ _('Real-time busyness level') }}</div>
                 </div>
-                <span id="system-health-badge" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">--</span>
+                <span id="busyness-badge" class="rounded-full px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-600">--</span>
             </div>
-            <div class="flex items-end gap-2 mb-4">
-                <div id="system-health-score" class="text-3xl font-bold text-slate-700">--</div>
-                <div class="text-sm text-gray-500">/100</div>
+            <div class="flex items-center gap-3 mb-4">
+                <div id="busyness-dot" class="w-4 h-4 rounded-full bg-slate-400 shrink-0"></div>
+                <div id="busyness-level-text" class="text-2xl font-bold text-slate-700">--</div>
             </div>
-            <div id="system-health-summary" class="text-sm text-gray-500 mb-4">{{ _('Based on recent load, error rate, and latency') }}</div>
-            <div class="grid grid-cols-2 gap-3 text-sm">
+            <div id="busyness-metrics" class="grid grid-cols-2 gap-3 text-sm">
                 <div class="rounded-lg bg-white/70 px-3 py-2">
-                    <div class="text-xs text-gray-400">{{ _('Active users') }}</div>
-                    <div id="system-health-users" class="mt-1 font-semibold text-slate-700">0</div>
+                    <div class="text-xs text-gray-400">{{ _('Active users (10min)') }}</div>
+                    <div id="busyness-active-users" class="mt-1 font-semibold text-slate-700">0</div>
                 </div>
                 <div class="rounded-lg bg-white/70 px-3 py-2">
-                    <div class="text-xs text-gray-400">{{ _('Pending') }}</div>
-                    <div id="system-health-pending" class="mt-1 font-semibold text-slate-700">0</div>
+                    <div class="text-xs text-gray-400">{{ _('Limited providers') }}</div>
+                    <div id="busyness-disabled" class="mt-1 font-semibold text-slate-700">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 px-3 py-2">
+                    <div class="text-xs text-gray-400">429 {{ _('ratio') }}</div>
+                    <div id="busyness-429-ratio" class="mt-1 font-semibold text-slate-700">0.0%</div>
                 </div>
                 <div class="rounded-lg bg-white/70 px-3 py-2">
                     <div class="text-xs text-gray-400">{{ _('Error rate') }}</div>
                     <div id="system-health-error-rate" class="mt-1 font-semibold text-slate-700">0.0%</div>
-                </div>
-                <div class="rounded-lg bg-white/70 px-3 py-2">
-                    <div class="text-xs text-gray-400">{{ _('Avg latency') }}</div>
-                    <div id="system-health-latency" class="mt-1 font-semibold text-slate-700">--</div>
                 </div>
             </div>
         </div>

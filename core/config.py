@@ -134,6 +134,7 @@ TODAY_STATS_CACHE_TTL_SECONDS = 600
 LIVE_REQUEST_STALE_SECONDS = 660
 active_requests: dict[str, dict[str, Any]] = {}
 active_requests_lock = asyncio.Lock()
+busyness_state: dict[str, Any] = {}
 live_stats_subscribers: set[Any] = set()
 live_stats_subscribers_lock = asyncio.Lock()
 

@@ -92,6 +92,11 @@
                 <option value="year">{{ _('This Year') }}</option>
             </select>
             {% endcall %}
+            <div id="busyness-banner" class="mb-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div id="busyness-dot" class="w-3 h-3 rounded-full bg-slate-400"></div>
+                <span id="busyness-label" class="text-sm font-medium text-slate-600">{{ _('System Status') }}: --</span>
+                <span id="busyness-detail" class="text-xs text-gray-400 ml-auto"></span>
+            </div>
             <div class="top-metrics-grid mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
@@ -249,9 +254,10 @@
             });
         }
         async function loadData() {
-            const [data, liveData] = await Promise.all([
+            const [data, liveData, busynessData] = await Promise.all([
                 fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/period?period=` + currentPeriod),
                 fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/active`),
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/busyness`).catch(() => null),
             ]);
             flipCounter('total-requests', data.total_requests.toLocaleString());
             flipCounter('total-tokens', formatCompactTokens(data.total_tokens || 0));
@@ -262,6 +268,7 @@
             flipCounter('error-rate', errorRate + '%');
             renderProviderBars(data.providers || {}, liveData.disabled_providers || {});
             renderApiKeyBars(data.api_keys || {});
+            renderBusyness(busynessData);
             loadChart();
         }
         function maskName(name) {
@@ -274,6 +281,26 @@
             if (value >= 1000) return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
             if (Number.isInteger(value)) return value.toLocaleString();
             return value.toFixed(1).replace(/\.0$/, '');
+        }
+        function renderBusyness(data) {
+            if (!data) return;
+            const colorMap = {red:'bg-red-500',orange:'bg-orange-500',yellow:'bg-yellow-500',green:'bg-green-500',blue:'bg-blue-500',slate:'bg-slate-400'};
+            const bgMap = {red:'bg-red-50 border-red-200',orange:'bg-orange-50 border-orange-200',yellow:'bg-yellow-50 border-yellow-200',green:'bg-green-50 border-green-200',blue:'bg-blue-50 border-blue-200',slate:'bg-slate-50 border-slate-200'};
+            const textMap = {red:'text-red-700',orange:'text-orange-700',yellow:'text-yellow-700',green:'text-green-700',blue:'text-blue-700',slate:'text-slate-600'};
+            const c = data.color || 'slate';
+            const banner = document.getElementById('busyness-banner');
+            const dot = document.getElementById('busyness-dot');
+            const label = document.getElementById('busyness-label');
+            const detail = document.getElementById('busyness-detail');
+            dot.className = 'w-3 h-3 rounded-full ' + (colorMap[c] || 'bg-slate-400');
+            banner.className = 'mb-4 flex items-center gap-3 px-4 py-3 rounded-lg border ' + (bgMap[c] || 'bg-slate-50 border-slate-200');
+            label.className = 'text-sm font-medium ' + (textMap[c] || 'text-slate-600');
+            label.textContent = (data.label || '--');
+            const parts = [];
+            if (data.disabled_providers > 0) parts.push(data.disabled_providers + ' {{ _("providers limited") }}');
+            if (data.active_users_10min > 0) parts.push(data.active_users_10min + ' {{ _("active users") }}');
+            if (data.rate_429_ratio > 0) parts.push('429: ' + (data.rate_429_ratio * 100).toFixed(1) + '%');
+            detail.textContent = parts.join(' · ');
         }
         function getTokenChartScale(requestValues, tokenValues) {
             const maxRequests = Math.max(...requestValues, 1);

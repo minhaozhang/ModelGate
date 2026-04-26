@@ -1095,3 +1095,24 @@ msgstr "Config path: %USERPROFILE%\\.config\\opencode\\opencode.json"
 msgid "Config path: ~/.config/opencode/opencode.json"
 msgstr "Config path: ~/.config/opencode/opencode.json"
 
+msgid "System Status"
+msgstr "System Status"
+
+msgid "Real-time busyness level"
+msgstr "Real-time busyness level"
+
+msgid "Active users (10min)"
+msgstr "Active users (10min)"
+
+msgid "Limited providers"
+msgstr "Limited providers"
+
+msgid "ratio"
+msgstr "ratio"
+
+msgid "providers limited"
+msgstr "providers limited"
+
+msgid "active users"
+msgstr "active users"
+
