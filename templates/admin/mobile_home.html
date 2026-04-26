@@ -119,8 +119,8 @@
                 <div id="error-rate" class="metric-flip mt-1 text-lg font-bold leading-none text-purple-600">0%</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
-                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Active 1h') }}</div>
-                <div id="active-1h" class="metric-flip mt-1 text-lg font-bold leading-none text-indigo-600">0</div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Fluency') }}</div>
+                <div id="busyness-level" class="metric-flip mt-1 text-lg font-bold leading-none text-slate-600">--</div>
             </div>
         </div>
 
@@ -608,7 +608,6 @@
                 flipCounter('total-rate-limited', data.total_rate_limited || 0);
                 const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
                 flipCounter('error-rate', errorRate + '%');
-                flipCounter('active-1h', (data.active_1h || 0).toLocaleString());
 
                 renderProviderBars(data.providers || {}, data.disabled_providers || {});
                 renderApiKeyBars(data.api_keys || {});
@@ -755,13 +754,23 @@
             return await resp.json();
         }
 
+        async function loadBusyness() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/busyness`);
+                const el = document.getElementById('busyness-level');
+                if (el && data.label) el.textContent = data.label;
+            } catch(e) {}
+        }
+
         loadData();
         loadLiveStatsFallback();
         connectLiveStats();
         loadSlowRequests();
+        loadBusyness();
 
         setInterval(loadData, MOBILE_HOME_OVERVIEW_REFRESH_MS);
         setInterval(loadSlowRequests, MOBILE_HOME_SLOW_REFRESH_MS);
+        setInterval(loadBusyness, 30000);
     </script>
 </body>
 </html>

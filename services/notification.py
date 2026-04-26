@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from typing import Optional
 
@@ -43,6 +44,53 @@ async def create_notification(
             type, level, title[:50], target_api_key_id,
         )
         return n.id
+
+
+async def create_notifications_batch(
+    items: list[dict],
+) -> int:
+    if not items:
+        return 0
+    async with async_session_maker() as session:
+        objs = []
+        for item in items:
+            objs.append(Notification(
+                type=item.get("type", "user"),
+                level=item.get("level", "info"),
+                title=item["title"],
+                body=item.get("body"),
+                target_api_key_id=item.get("target_api_key_id"),
+            ))
+        session.add_all(objs)
+        await session.commit()
+        logger.info("[NOTIFICATION] Batch created %d notifications", len(objs))
+        return len(objs)
+
+
+def notify_model_changes_async(
+    api_key_id: int,
+    api_key_name: str,
+    added_models: list[str],
+    removed_models: list[str],
+) -> None:
+    if not added_models and not removed_models:
+        return
+    title_parts = []
+    if added_models:
+        title_parts.append(f"新增: {', '.join(added_models)}")
+    if removed_models:
+        title_parts.append(f"移除: {', '.join(removed_models)}")
+    title = f"模型权限变更：{'；'.join(title_parts)}"
+
+    async def _do():
+        await create_notifications_batch([{
+            "type": "user",
+            "level": "info",
+            "title": title,
+            "target_api_key_id": api_key_id,
+        }])
+
+    asyncio.create_task(_do())
 
 
 async def get_admin_notifications(
@@ -185,10 +233,7 @@ async def get_user_unread_count(api_key_id: int) -> int:
         result = await session.execute(
             select(func.count(Notification.id)).where(
                 and_(
-                    or_(
-                        Notification.target_api_key_id == None,
-                        Notification.target_api_key_id == api_key_id,
-                    ),
+                    Notification.target_api_key_id == api_key_id,
                     ~Notification.read_api_key_ids.contains([api_key_id]),
                 )
             )

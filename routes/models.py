@@ -191,6 +191,14 @@ async def update_model_api_keys(
         if not pm_result.scalar_one_or_none():
             return JSONResponse({"error": "Provider model not found"}, status_code=404)
 
+        old_result = await session.execute(
+            select(ApiKeyModel.api_key_id).where(
+                ApiKeyModel.provider_model_id == data.provider_model_id
+            )
+        )
+        old_key_ids = set(row[0] for row in old_result.fetchall())
+        new_key_ids = set(data.api_key_ids)
+
         await session.execute(
             delete(ApiKeyModel).where(
                 ApiKeyModel.provider_model_id == data.provider_model_id
@@ -201,6 +209,24 @@ async def update_model_api_keys(
                 api_key_id=ak_id,
                 provider_model_id=data.provider_model_id,
             ))
+
+        model_result = await session.execute(select(Model).where(Model.id == model_id))
+        model = model_result.scalar_one_or_none()
+        model_display = model.display_name or model.name if model else str(model_id)
+
+        added_key_ids = new_key_ids - old_key_ids
+        removed_key_ids = old_key_ids - new_key_ids
+        if added_key_ids or removed_key_ids:
+            from services.notification import notify_model_changes_async
+            keys_result = await session.execute(
+                select(ApiKey.id, ApiKey.name).where(ApiKey.id.in_(added_key_ids | removed_key_ids))
+            )
+            key_map = {row[0]: row[1] for row in keys_result.fetchall()}
+            for ak_id in added_key_ids:
+                notify_model_changes_async(ak_id, key_map.get(ak_id, ""), [model_display], [])
+            for ak_id in removed_key_ids:
+                notify_model_changes_async(ak_id, key_map.get(ak_id, ""), [], [model_display])
+
         await session.commit()
 
     await load_api_keys()

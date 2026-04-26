@@ -139,12 +139,34 @@ async def update_api_key(
                 assoc = ApiKeyMcpServer(api_key_id=key_id, mcp_server_id=sid)
                 session.add(assoc)
         if data.allowed_provider_model_ids is not None:
+            old_result = await session.execute(
+                select(ApiKeyModel.provider_model_id).where(
+                    ApiKeyModel.api_key_id == key_id
+                )
+            )
+            old_pm_ids = set(row[0] for row in old_result.fetchall())
+            new_pm_ids = set(data.allowed_provider_model_ids)
             await session.execute(
                 delete(ApiKeyModel).where(ApiKeyModel.api_key_id == key_id)
             )
             for pm_id in data.allowed_provider_model_ids:
                 assoc = ApiKeyModel(api_key_id=key_id, provider_model_id=pm_id)
                 session.add(assoc)
+            added_pm_ids = new_pm_ids - old_pm_ids
+            removed_pm_ids = old_pm_ids - new_pm_ids
+            if added_pm_ids or removed_pm_ids:
+                from services.notification import notify_model_changes_async
+                model_names_result = await session.execute(
+                    select(ProviderModel.id, Model.display_name, Model.name)
+                    .join(Model, ProviderModel.model_id == Model.id)
+                    .where(ProviderModel.id.in_(added_pm_ids | removed_pm_ids))
+                )
+                pm_name_map = {row[0]: row[1] or row[2] for row in model_names_result.fetchall()}
+                notify_model_changes_async(
+                    key_id, key.name,
+                    [pm_name_map.get(pid, str(pid)) for pid in added_pm_ids],
+                    [pm_name_map.get(pid, str(pid)) for pid in removed_pm_ids],
+                )
         await session.commit()
         await load_api_keys()
         return {"id": key.id}
