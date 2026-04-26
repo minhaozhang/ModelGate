@@ -1066,6 +1066,11 @@
             const badgeBgMap = {red:'bg-red-100 text-red-700',orange:'bg-orange-100 text-orange-700',yellow:'bg-yellow-100 text-yellow-700',green:'bg-green-100 text-green-700',blue:'bg-blue-100 text-blue-700',slate:'bg-slate-100 text-slate-600'};
             const textMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-700'};
             const c = data.color || 'slate';
+            const locale = document.documentElement.lang || '{{ current_locale }}' || 'zh';
+            const isZh = locale === 'zh' || locale === 'zh-CN' || locale.startsWith('zh');
+            const zhMap = {extremely_busy:'过载',very_busy:'拥挤',busy:'活跃',normal:'流畅',idle:'平静',quiet:'寂静'};
+            const enMap = {extremely_busy:'Overloaded',very_busy:'Crowded',busy:'Active',normal:'Smooth',idle:'Calm',quiet:'Silent'};
+            const busynessLabel = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
             const dot = document.getElementById('busyness-dot');
             const badge = document.getElementById('busyness-badge');
             const levelText = document.getElementById('busyness-level-text');
@@ -1073,8 +1078,8 @@
             const disabled = document.getElementById('busyness-disabled');
             const ratio429 = document.getElementById('busyness-429-ratio');
             if (dot) dot.className = 'w-4 h-4 rounded-full shrink-0 ' + (colorMap[c] || 'bg-slate-400');
-            if (badge) { badge.className = 'rounded-full px-2.5 py-1 text-xs font-semibold ' + (badgeBgMap[c] || 'bg-slate-100 text-slate-600'); badge.textContent = data.label || '--'; }
-            if (levelText) { levelText.className = 'text-2xl font-bold ' + (textMap[c] || 'text-slate-700'); levelText.textContent = data.label || '--'; }
+            if (badge) { badge.className = 'rounded-full px-2.5 py-1 text-xs font-semibold ' + (badgeBgMap[c] || 'bg-slate-100 text-slate-600'); badge.textContent = busynessLabel; }
+            if (levelText) { levelText.className = 'text-2xl font-bold ' + (textMap[c] || 'text-slate-700'); levelText.textContent = busynessLabel; }
             if (activeUsers) activeUsers.textContent = Number(data.active_users_10min || 0).toLocaleString();
             if (disabled) disabled.textContent = Number(data.disabled_providers || 0).toLocaleString();
             if (ratio429) ratio429.textContent = (Number(data.rate_429_ratio || 0) * 100).toFixed(1) + '%';
