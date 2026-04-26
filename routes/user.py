@@ -15,6 +15,7 @@ from core.config import logger, providers_cache, validate_session, busyness_stat
 from core.database import (
     async_session_maker,
     ApiKey,
+    Model,
     Provider,
     RequestLogRead as RequestLog,
     ApiKeyDailyStat,
