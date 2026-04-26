@@ -580,6 +580,26 @@ class McpCallDailyStat(Base):
     )
 
 
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True)
+    type = Column(String(20), nullable=False)
+    level = Column(String(20), nullable=False, default="info")
+    title = Column(String(255), nullable=False)
+    body = Column(Text, nullable=True)
+    target_api_key_id = Column(Integer, nullable=True)
+    is_read_by_admin = Column(Boolean, default=False)
+    read_api_key_ids = Column(JSONB, default=list)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_notifications_type", "type"),
+        Index("idx_notifications_target", "target_api_key_id"),
+        Index("idx_notifications_created", "created_at"),
+    )
+
+
 def generate_api_key():
     return "sk-" + secrets.token_hex(24)
 

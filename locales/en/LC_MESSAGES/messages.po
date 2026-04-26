@@ -1161,3 +1161,15 @@ msgstr "Optional message"
 msgid "Rules saved"
 msgstr "Rules saved"
 
+msgid "Notifications"
+msgstr "Notifications"
+
+msgid "Mark All Read"
+msgstr "Mark All Read"
+
+msgid "No notifications"
+msgstr "No notifications"
+
+msgid "Read"
+msgstr "Read"
+

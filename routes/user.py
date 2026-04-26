@@ -1096,6 +1096,56 @@ async def get_user_stats(
         return payload
 
 
+@router.get("/user/api/notifications")
+async def get_user_notifications(
+    request: Request,
+    api_key_id: int = Depends(get_user_session),
+    page: int = 1,
+    page_size: int = 20,
+    unread: bool = False,
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+    from services.notification import get_user_notifications as _get
+    return await _get(api_key_id, page=page, page_size=page_size, unread_only=unread)
+
+
+@router.get("/user/api/notifications/unread-count")
+async def get_user_unread_count(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+    from services.notification import get_user_unread_count as _get
+    return {"count": await _get(api_key_id)}
+
+
+@router.put("/user/api/notifications/{notification_id}/read")
+async def mark_user_notification_read(
+    request: Request,
+    notification_id: int,
+    api_key_id: int = Depends(get_user_session),
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+    from services.notification import mark_user_read
+    ok = await mark_user_read(notification_id, api_key_id)
+    if not ok:
+        return translated_error(request, "Not found", 404)
+    return {"ok": True}
+
+
+@router.put("/user/api/notifications/read-all")
+async def mark_all_user_notifications_read(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+    from services.notification import mark_all_user_read
+    count = await mark_all_user_read(api_key_id)
+    return {"ok": True, "count": count}
+
+
 @router.get("/user/api/active")
 async def get_user_recent_requests(
     request: Request, api_key_id: int = Depends(get_user_session)

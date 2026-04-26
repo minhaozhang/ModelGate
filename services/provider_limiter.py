@@ -24,6 +24,12 @@ async def disable_provider(provider_name: str, reason: str) -> None:
 
     await load_providers()
 
+    try:
+        from services.notification import create_notification
+        await create_notification("system", "error", f"供应商 '{provider_name}' 已被禁用", reason[:200])
+    except Exception:
+        pass
+
 
 async def disable_provider_key(
     provider_name: str,
@@ -176,3 +182,13 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
         from services.provider import load_providers
 
         await load_providers()
+
+        try:
+            from services.notification import create_notification
+            names = reenabled_providers or []
+            if reenabled_keys and not names:
+                names = [f"{len(reenabled_keys)} key(s)"]
+            if names:
+                await create_notification("system", "info", f"供应商已自动恢复：{', '.join(names)}", "自动重新启用完成")
+        except Exception:
+            pass

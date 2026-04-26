@@ -1387,3 +1387,15 @@ msgstr "可选消息"
 msgid "Rules saved"
 msgstr "规则已保存"
 
+msgid "Notifications"
+msgstr "消息中心"
+
+msgid "Mark All Read"
+msgstr "全部已读"
+
+msgid "No notifications"
+msgstr "暂无通知"
+
+msgid "Read"
+msgstr "已读"
+

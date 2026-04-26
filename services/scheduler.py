@@ -89,6 +89,16 @@ async def _compute_busyness():
             old_level, LEVEL_LABELS.get(old_level, "?"),
             new_level, LEVEL_LABELS.get(new_level, "?"),
         )
+        try:
+            from services.notification import create_notification
+            await create_notification(
+                "system",
+                "warning" if new_level <= 3 else "info",
+                f"系统繁忙程度变更：{LEVEL_LABELS.get(old_level, '?')} → {LEVEL_LABELS.get(new_level, '?')}",
+                f"当前级别：{new_level}（{LEVEL_LABELS.get(new_level, '?')}），限流供应商：{result.get('disabled_providers', 0)}，活跃用户：{result.get('active_users_10min', 0)}，429占比：{result.get('rate_429_ratio', 0) * 100:.1f}%",
+            )
+        except Exception as e:
+            logger.warning("[BUSYNESS] Failed to create notification: %s", e)
     else:
         logger.debug("[BUSYNESS] Level: %s (%s)", new_level, LEVEL_LABELS.get(new_level, "?"))
 

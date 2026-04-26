@@ -105,6 +105,46 @@ async def get_ua_stats(limit: int = 10, _: bool = Depends(require_admin)):
     return {"items": items, "total": total}
 
 
+@router.get("/api/notifications")
+async def get_notifications(
+    page: int = 1,
+    page_size: int = 20,
+    unread: bool = False,
+    _: bool = Depends(require_admin),
+):
+    from services.notification import get_admin_notifications
+    return await get_admin_notifications(page=page, page_size=page_size, unread_only=unread)
+
+
+@router.get("/api/notifications/unread-count")
+async def get_unread_count(_: bool = Depends(require_admin)):
+    from services.notification import get_admin_unread_count
+    return {"count": await get_admin_unread_count()}
+
+
+@router.put("/api/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: int, _: bool = Depends(require_admin)):
+    from services.notification import mark_admin_read
+    ok = await mark_admin_read(notification_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"ok": True}
+
+
+@router.put("/api/notifications/read-all")
+async def mark_all_notifications_read(_: bool = Depends(require_admin)):
+    from services.notification import mark_all_admin_read
+    count = await mark_all_admin_read()
+    return {"ok": True, "count": count}
+
+
+@router.get("/notifications")
+async def notifications_page(request: Request, _: bool = Depends(require_admin)):
+    return HTMLResponse(
+        content=render(request, "admin/notifications.html", active_page="notifications")
+    )
+
+
 @router.get("/system-config", response_class=HTMLResponse)
 async def system_config_page(request: Request, _: bool = Depends(require_admin)):
     return HTMLResponse(
