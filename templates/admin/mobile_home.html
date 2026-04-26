@@ -763,8 +763,8 @@
                 el.className = 'metric-flip mt-1 text-lg font-bold leading-none ' + (colorMap[data.color] || 'text-slate-600');
                 const locale = document.documentElement.lang || '{{ current_locale }}' || 'zh';
                 const isZh = locale === 'zh' || locale === 'zh-CN' || locale.startsWith('zh');
-                const zhMap = {extremely_busy:'兵荒马乱',very_busy:'焦头烂额',busy:'人声鼎沸',normal:'畅通无阻',idle:'门可罗雀',quiet:'万籁俱寂'};
-                const enMap = {extremely_busy:'Busy',very_busy:'Busy',busy:'Busy',normal:'Normal',idle:'Idle',quiet:'Quiet'};
+                const zhMap = {extremely_busy:'过载',very_busy:'拥挤',busy:'活跃',normal:'流畅',idle:'平静',quiet:'寂静'};
+                const enMap = {extremely_busy:'Overloaded',very_busy:'Crowded',busy:'Active',normal:'Smooth',idle:'Calm',quiet:'Silent'};
                 el.textContent = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
             } catch(e) {}
         }
