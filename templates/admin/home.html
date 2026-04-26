@@ -297,7 +297,7 @@
             label.className = 'text-sm font-medium ' + (textMap[c] || 'text-slate-600');
             label.textContent = (data.label || '--');
             const parts = [];
-            if (data.provider_key_model_limit != null) parts.push('{{ _("Concurrency") }}: ' + data.provider_key_model_limit);
+            if (data.provider_key_model_limit != null) parts.push('{{ _("Concurrency Limit") }}: ' + data.provider_key_model_limit);
             if (data.disabled_providers > 0) parts.push(data.disabled_providers + ' {{ _("providers limited") }}');
             if (data.active_users_10min > 0) parts.push(data.active_users_10min + ' {{ _("active users") }}');
             if (data.rate_429_ratio > 0) parts.push('429: ' + (data.rate_429_ratio * 100).toFixed(1) + '%');
