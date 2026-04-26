@@ -26,6 +26,7 @@ from services.proxy_runtime.common import schedule_api_key_last_used_update
 from services.proxy_runtime.concurrency import (
     RATE_LIMITED_STATUSES,
     SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
+    USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
     _get_user_provider_model_limit,
     _get_or_create_user_provider_model_semaphore,
     _get_or_create_provider_key_semaphore,

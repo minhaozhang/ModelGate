@@ -59,6 +59,15 @@ INTERNAL_ANALYSIS_CLIENT_IP = "internal"
 INTERNAL_ANALYSIS_USER_AGENT = "modelgate/internal-analysis"
 
 
+def _api_key_bypasses_busyness(api_key_id: int | None) -> bool:
+    from core.config import api_keys_cache
+
+    for key_info in api_keys_cache.values():
+        if key_info.get("id") == api_key_id:
+            return bool(key_info.get("bypass_busyness", False))
+    return False
+
+
 def _check_busyness_rules(model: str) -> str | None:
     from core.config import busyness_state, system_config
 
@@ -165,15 +174,16 @@ async def proxy_request(request: Request, endpoint: str):
     user_agent = request.headers.get("user-agent")
     _schedule_api_key_last_used_update(api_key_id)
 
+    bypass_busyness = _api_key_bypasses_busyness(api_key_id)
     busyness_headers = _get_busyness_suggestion_headers(model)
-    busyness_model = _check_busyness_rules(model)
+    busyness_model = model if bypass_busyness else _check_busyness_rules(model)
     if busyness_model is None:
         return _check_busyness_block(model)
     if busyness_model != model:
         model = busyness_model
         body_json["model"] = model
 
-    block_response = _check_busyness_block(model)
+    block_response = None if bypass_busyness else _check_busyness_block(model)
     if block_response:
         return block_response
 
@@ -204,15 +214,10 @@ async def proxy_request(request: Request, endpoint: str):
     if model_config:
         max_level = model_config.get("max_busyness_level")
         if max_level is not None:
-            from core.config import busyness_state, api_keys_cache
+            from core.config import busyness_state
             current_level = busyness_state.get("level", 6)
             if current_level > max_level:
-                bypass = False
-                for key_info in api_keys_cache.values():
-                    if key_info.get("id") == api_key_id:
-                        bypass = key_info.get("bypass_busyness", False)
-                        break
-                if not bypass:
+                if not bypass_busyness:
                     level_label = LEVEL_LABELS.get(current_level, "")
                     return _openai_error_response(
                         f"当前系统{level_label}，该模型不可用，请前往用户界面查看推荐模型列表",

@@ -1922,9 +1922,8 @@ async def get_busyness_level(_: bool = Depends(require_admin)):
     from services.proxy_runtime.concurrency import _get_user_provider_model_limit
 
     if not busyness_state:
-        result = await compute_busyness_level()
-    else:
-        result = dict(busyness_state)
+        busyness_state.update(await compute_busyness_level())
+    result = dict(busyness_state)
     result["user_provider_model_limit"] = _get_user_provider_model_limit()
     return result
 

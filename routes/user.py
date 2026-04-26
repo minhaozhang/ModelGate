@@ -39,6 +39,17 @@ USER_RECOMMENDATIONS_CACHE: dict[tuple[int, str, str], dict] = {}
 AGGREGATED_USER_PERIODS = {"month"}
 
 
+def _api_key_bypasses_busyness(api_key_id: int | None) -> bool:
+    if api_key_id is None:
+        return False
+    from core.config import api_keys_cache
+
+    for key_info in api_keys_cache.values():
+        if key_info.get("id") == api_key_id:
+            return bool(key_info.get("bypass_busyness", False))
+    return False
+
+
 def _check_model_available(model_full_name: str, api_key_id: int | None = None) -> bool:
     parts = model_full_name.split("/", 1)
     if len(parts) != 2:
@@ -55,13 +66,8 @@ def _check_model_available(model_full_name: str, api_key_id: int | None = None) 
             if max_level is not None:
                 current_level = busyness_state.get("level", 6)
                 if current_level > max_level:
-                    if api_key_id is not None:
-                        from core.config import api_keys_cache
-                        for key_info in api_keys_cache.values():
-                            if key_info.get("id") == api_key_id:
-                                if key_info.get("bypass_busyness", False):
-                                    return True
-                                break
+                    if _api_key_bypasses_busyness(api_key_id):
+                        return True
                     return False
             return True
     return True
@@ -804,7 +810,9 @@ async def get_user_recommendations(
         return translated_error(request, "Not authenticated", 401)
 
     now = get_local_now()
-    cache_key = ("global", period, "v5", get_cache_bucket(now))
+    bypass_busyness = _api_key_bypasses_busyness(api_key_id)
+    visibility_scope = "bypass" if bypass_busyness else "standard"
+    cache_key = ("global", period, "v6", visibility_scope, get_cache_bucket(now))
     cached_payload = get_cached_payload(USER_RECOMMENDATIONS_CACHE, cache_key, now)
     if cached_payload is not None:
         return cached_payload
@@ -1038,12 +1046,7 @@ async def get_user_catalog(
         else [pm for pm in active_provider_models if pm.id in allowed_pm_ids]
     )
 
-    bypass_busyness = False
-    from core.config import api_keys_cache as _ak_cache
-    for _ki in _ak_cache.values():
-        if _ki.get("id") == api_key_id:
-            bypass_busyness = _ki.get("bypass_busyness", False)
-            break
+    bypass_busyness = _api_key_bypasses_busyness(api_key_id)
 
     def _is_model_available(provider_name: str, model_name: str) -> bool:
         pconf = providers_cache.get(provider_name)
