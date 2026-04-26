@@ -1160,7 +1160,6 @@
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
             document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
             document.getElementById('total-errors').textContent = data.total_errors;
-            document.getElementById('model-count').textContent = Object.keys(data.models || {}).length;
             const cost = data.estimated_cost || 0;
             const costEl = document.getElementById('estimated-cost');
             const costNote = document.getElementById('estimated-cost-note');
