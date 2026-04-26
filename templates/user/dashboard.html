@@ -458,7 +458,8 @@
         function showTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            event.target.closest('.tab-btn').classList.add('active');
+            var btn = event.currentTarget || event.target.closest('.tab-btn') || event.target;
+            btn.classList.add('active');
             document.getElementById('tab-' + tab).classList.add('active');
             
             if (tab === 'opencode') loadOpenCodeConfig();
@@ -790,8 +791,10 @@
         }
 
         function renderOwnModelChart(models) {
+            const canvas = document.getElementById('model-usage-chart');
+            if (!canvas) return;
             const series = buildDonutSeries(models, ownModelPalette, 'requests', 6);
-            const ctx = document.getElementById('model-usage-chart').getContext('2d');
+            const ctx = canvas.getContext('2d');
             const chartTheme = getChartTheme();
             if (modelUsageChart) modelUsageChart.destroy();
 
@@ -1238,8 +1241,9 @@
         }
          
         function renderTrendChart(trendData) {
-            const ctx = document.getElementById('trend-chart').getContext('2d');
-            _renderTrendChartToCanvas(ctx, trendData, false);
+            const canvas = document.getElementById('trend-chart');
+            if (!canvas) return;
+            _renderTrendChartToCanvas(canvas.getContext('2d'), trendData, false);
             const sysCtx = document.getElementById('system-trend-chart');
             if (sysCtx) _renderTrendChartToCanvas(sysCtx.getContext('2d'), trendData, true);
         }
