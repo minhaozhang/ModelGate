@@ -94,6 +94,7 @@ class Model(Base):
     thinking_budget = Column(Integer, default=8192)
     is_multimodal = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    estimated_price = Column(Float, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

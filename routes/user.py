@@ -1081,11 +1081,29 @@ async def get_user_stats(
             for row in disabled_providers_result.fetchall()
         }
 
+        model_names = list(model_stats.keys())
+        price_map = {}
+        if model_names:
+            price_result = await session.execute(
+                select(Model.name, Model.estimated_price).where(
+                    Model.name.in_(model_names),
+                    Model.estimated_price.isnot(None),
+                )
+            )
+            price_map = {row.name: row.estimated_price for row in price_result.fetchall()}
+
+        estimated_cost = 0.0
+        for name, stats in model_stats.items():
+            price = price_map.get(name)
+            if price and stats.get("tokens"):
+                estimated_cost += (stats["tokens"] / 1_000_000) * price
+
         payload = {
             "name": key.name,
             "total_requests": total_requests,
             "total_tokens": total_tokens,
             "total_errors": total_errors,
+            "estimated_cost": round(estimated_cost, 4),
             "models": model_stats,
             "trend": trend_data,
             "system_health": system_health,

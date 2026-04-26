@@ -1095,6 +1095,12 @@ msgstr "Config path: %USERPROFILE%\\.config\\opencode\\opencode.json"
 msgid "Config path: ~/.config/opencode/opencode.json"
 msgstr "Config path: ~/.config/opencode/opencode.json"
 
+msgid "Est. Cost"
+msgstr "Est. Cost"
+
+msgid "Estimated cost based on token usage and model pricing"
+msgstr "Estimated cost based on token usage and model pricing"
+
 msgid "System Status"
 msgstr "System Status"
 

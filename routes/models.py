@@ -37,6 +37,7 @@ class ModelUpdate(BaseModel):
     thinking_budget: Optional[int] = None
     is_multimodal: Optional[bool] = None
     is_active: Optional[bool] = None
+    estimated_price: Optional[float] = None
 
 
 @router.get("/models")

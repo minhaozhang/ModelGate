@@ -388,6 +388,7 @@
         yourApiKey: {{ _('Your API key') | tojson }},
         allApiKeys: {{ _('All API keys') | tojson }},
         soEmpty: {{ _('So empty...') | tojson }},
+        estCostNote: {{ _('Estimated cost based on token usage and model pricing') | tojson }},
         activeTitles: {
             empty: {{ _('Online Users') | tojson }},
             justYou: {{ _('Only You Online') | tojson }},
@@ -1160,6 +1161,16 @@
             document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
             document.getElementById('total-errors').textContent = data.total_errors;
             document.getElementById('model-count').textContent = Object.keys(data.models || {}).length;
+            const cost = data.estimated_cost || 0;
+            const costEl = document.getElementById('estimated-cost');
+            const costNote = document.getElementById('estimated-cost-note');
+            if (cost > 0) {
+                costEl.textContent = cost >= 1 ? '$' + cost.toFixed(2) : '$' + cost.toFixed(4);
+                costNote.textContent = window.I18N.estCostNote || '';
+            } else {
+                costEl.textContent = '-';
+                costNote.textContent = '';
+            }
 
             const sysModels = systemModels.models || {};
             const sysTotalReqs = systemModels.total_requests || 0;
