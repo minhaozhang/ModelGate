@@ -104,9 +104,9 @@
                         </label>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm text-gray-600 mb-1">{{ _('Content (Markdown)') }}</label>
-                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div class="flex-1 min-h-0 flex flex-col">
+                    <label class="block text-sm text-gray-600 mb-1 shrink-0">{{ _('Content (Markdown)') }}</label>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-0">
                         <div class="flex flex-col min-h-0">
                             <div class="flex items-center gap-2 mb-1 shrink-0">
                                 <input type="file" id="insert-image-input" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.bmp" class="hidden" onchange="handleInsertImage(event)">
@@ -115,15 +115,15 @@
                                     <span>{{ _('Insert Image') }}</span>
                                 </button>
                             </div>
-                            <textarea id="edit-content" rows="20" oninput="renderEditorPreview()" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full font-mono resize-none"></textarea>
+                            <textarea id="edit-content" oninput="renderEditorPreview()" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full font-mono resize-none h-full"></textarea>
                         </div>
-                        <div class="border border-gray-200 rounded p-4 bg-gray-50 overflow-y-auto">
+                        <div class="border border-gray-200 rounded p-4 bg-gray-50 overflow-y-auto flex flex-col min-h-0">
                             <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">{{ _('Preview') }}</div>
-                            <div id="edit-preview" class="md-preview editor-preview text-sm text-gray-700"></div>
+                            <div id="edit-preview" class="md-preview editor-preview text-sm text-gray-700 flex-1 overflow-y-auto"></div>
                         </div>
                     </div>
                 </div>
-                <div id="files-section" class="hidden">
+                <div id="files-section" class="hidden shrink-0">
                     <label class="block text-sm text-gray-600 mb-1">{{ _('Attachments') }}</label>
                     <div id="drop-zone" class="drop-zone" onclick="document.getElementById('file-input').click()">
                         <svg class="w-5 h-5 mx-auto mb-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
