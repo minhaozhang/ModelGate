@@ -39,11 +39,11 @@
                 <button class="stab active" onclick="switchTab('tasks', this)">{{ '任务列表' if current_locale == 'zh' else 'Task List' }}</button>
                 <button class="stab" onclick="switchTab('logs', this)">{{ '执行日志' if current_locale == 'zh' else 'Execution Logs' }}</button>
             </div>
+            <script>const APP_BASE_PATH = "{{ app_base_path }}";</script>
             <div id="panel-tasks">{% include 'admin/scheduler_tasks_tab.html' %}</div>
             <div id="panel-logs" class="hidden">{% include 'admin/scheduler_logs_tab.html' %}</div>
         </main>
     </div>
-    <script>const APP_BASE_PATH = "{{ app_base_path }}";</script>
     <script>
         async function logout() {
             await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
