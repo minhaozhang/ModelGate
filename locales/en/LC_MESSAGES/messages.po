@@ -1116,3 +1116,48 @@ msgstr "providers limited"
 msgid "active users"
 msgstr "active users"
 
+msgid "Busyness Control Rules"
+msgstr "Busyness Control Rules"
+
+msgid "Auto downgrade, suggest, or block models based on system busyness level (1=extremely busy ~ 6=quiet)"
+msgstr "Auto downgrade, suggest, or block models based on system busyness level (1=extremely busy ~ 6=quiet)"
+
+msgid "Add Rule"
+msgstr "Add Rule"
+
+msgid "Save Rules"
+msgstr "Save Rules"
+
+msgid "No rules configured"
+msgstr "No rules configured"
+
+msgid "Level"
+msgstr "Level"
+
+msgid "Action"
+msgstr "Action"
+
+msgid "Downgrade"
+msgstr "Downgrade"
+
+msgid "Suggest"
+msgstr "Suggest"
+
+msgid "Block"
+msgstr "Block"
+
+msgid "Models"
+msgstr "Models"
+
+msgid "All models"
+msgstr "All models"
+
+msgid "Redirect to"
+msgstr "Redirect to"
+
+msgid "Optional message"
+msgstr "Optional message"
+
+msgid "Rules saved"
+msgstr "Rules saved"
+

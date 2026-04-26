@@ -61,6 +61,16 @@
                     <div id="config-msg" class="mt-3 text-sm hidden"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-semibold mb-2">{{ _('Busyness Control Rules') }}</h2>
+                    <p class="text-xs text-gray-500 mb-4">{{ _('Auto downgrade, suggest, or block models based on system busyness level (1=extremely busy ~ 6=quiet)') }}</p>
+                    <div id="busyness-rules-list" class="space-y-3 mb-4"></div>
+                    <div class="flex gap-2">
+                        <button onclick="addBusynessRule()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm">+ {{ _('Add Rule') }}</button>
+                        <button onclick="saveBusynessRules()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm">{{ _('Save Rules') }}</button>
+                    </div>
+                    <div id="busyness-msg" class="mt-3 text-sm hidden"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-lg font-semibold mb-1">{{ _('Today\'s Client UA') }}</h2>
                     <p class="text-xs text-gray-500 mb-4">{{ _('Top user agents making requests today') }}</p>
                     <div id="ua-list" class="space-y-3 text-sm"></div>
@@ -95,6 +105,8 @@
             document.getElementById('ua-input').value = d.ua_override;
             document.getElementById('api-key-model-limit-input').value = d.api_key_model_max_concurrency || 1;
             document.getElementById('default-ua-hint').textContent = '{{ _('Default') }}: ' + d.default_ua;
+            busynessRules = d.busyness_rules || [];
+            renderBusynessRules();
         }
         async function saveConfig() {
             const ua = document.getElementById('ua-input').value.trim();
@@ -144,6 +156,46 @@
         }
         loadConfig();
         loadUAStats();
+        let busynessRules = [];
+        function renderBusynessRules() {
+            const el = document.getElementById('busyness-rules-list');
+            if (!busynessRules.length) { el.innerHTML = '<div class="text-gray-400 text-sm">{{ _('No rules configured') }}</div>'; return; }
+            el.innerHTML = busynessRules.map((r, i) => `
+                <div class="border rounded p-3 space-y-2">
+                    <div class="flex gap-2 items-center">
+                        <label class="text-xs text-gray-500 w-20 shrink-0">{{ _('Level') }} ≤</label>
+                        <input type="number" min="1" max="6" value="${r.min_level}" onchange="busynessRules[${i}].min_level=Number(this.value)" class="border rounded px-2 py-1 text-sm w-16">
+                        <label class="text-xs text-gray-500 ml-2">{{ _('Action') }}</label>
+                        <select onchange="busynessRules[${i}].action=this.value; renderBusynessRules()" class="border rounded px-2 py-1 text-sm">
+                            <option value="downgrade" ${r.action==='downgrade'?'selected':''}>{{ _('Downgrade') }}</option>
+                            <option value="suggest" ${r.action==='suggest'?'selected':''}>{{ _('Suggest') }}</option>
+                            <option value="block" ${r.action==='block'?'selected':''}>{{ _('Block') }}</option>
+                        </select>
+                        <button onclick="busynessRules.splice(${i},1); renderBusynessRules()" class="text-red-400 hover:text-red-600 text-sm ml-auto">✕</button>
+                    </div>
+                    <div class="flex gap-2 items-center">
+                        <label class="text-xs text-gray-500 w-20 shrink-0">{{ _('Models') }}</label>
+                        <input value="${(r.target_models||[]).join(', ')}" onchange="busynessRules[${i}].target_models=this.value.split(',').map(s=>s.trim()).filter(Boolean)" placeholder="{{ _('All models') }}" class="border rounded px-2 py-1 text-sm flex-1">
+                    </div>
+                    ${r.action==='downgrade' ? `<div class="flex gap-2 items-center"><label class="text-xs text-gray-500 w-20 shrink-0">{{ _('Redirect to') }}</label><input value="${r.redirect_to||''}" onchange="busynessRules[${i}].redirect_to=this.value" placeholder="e.g. deepseek/deepseek-v4-flash" class="border rounded px-2 py-1 text-sm flex-1"></div>` : ''}
+                    <div class="flex gap-2 items-center">
+                        <label class="text-xs text-gray-500 w-20 shrink-0">{{ _('Message') }}</label>
+                        <input value="${r.message||''}" onchange="busynessRules[${i}].message=this.value" placeholder="{{ _('Optional message') }}" class="border rounded px-2 py-1 text-sm flex-1">
+                    </div>
+                </div>
+            `).join('');
+        }
+        function addBusynessRule() { busynessRules.push({min_level: 3, action: 'suggest', target_models: [], message: ''}); renderBusynessRules(); }
+        async function saveBusynessRules() {
+            const r = await fetch(APP_BASE_PATH + '/admin/api/system/config', {
+                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({busyness_rules: busynessRules})
+            });
+            const d = await r.json();
+            const msg = document.getElementById('busyness-msg');
+            if (r.ok) { busynessRules = d.busyness_rules || []; renderBusynessRules(); msg.textContent = '{{ _('Rules saved') }}'; msg.className = 'mt-3 text-sm text-green-600'; }
+            else { msg.textContent = d.detail || '{{ _('Save failed') }}'; msg.className = 'mt-3 text-sm text-red-600'; }
+        }
     </script>
 </body>
 </html>

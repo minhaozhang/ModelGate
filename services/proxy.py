@@ -31,6 +31,7 @@ from services.tokens import (
     estimate_request_context_tokens,
 )
 from services.deepseek_compat import is_deepseek_thinking_active, patch_reasoning_content
+from services.busyness import LEVEL_LABELS
 from services.message import preprocess_messages
 from services.proxy_runtime import (
     LOCAL_RATE_LIMITED_STATUS,
@@ -58,6 +59,64 @@ INTERNAL_ANALYSIS_CLIENT_IP = "internal"
 INTERNAL_ANALYSIS_USER_AGENT = "modelgate/internal-analysis"
 
 
+def _check_busyness_rules(model: str) -> str | None:
+    from core.config import busyness_state, system_config
+
+    if not busyness_state:
+        return model
+    rules = system_config.get("busyness_rules", [])
+    if not rules:
+        return model
+    current_level = busyness_state.get("level", 6)
+    for rule in rules:
+        min_level = rule.get("min_level", 0)
+        if current_level > min_level:
+            continue
+        action = rule.get("action")
+        target_models = rule.get("target_models", [])
+        if target_models and model not in target_models:
+            continue
+        if action == "block":
+            return None
+        if action == "downgrade":
+            redirect_to = rule.get("redirect_to")
+            if redirect_to and redirect_to != model:
+                logger.info("[BUSYNESS] Downgrading %s -> %s (level %d)", model, redirect_to, current_level)
+                return redirect_to
+            break
+        if action == "suggest":
+            break
+    return model
+
+
+def _check_busyness_block(model: str):
+    from core.config import busyness_state, system_config
+
+    if not busyness_state:
+        return None
+    rules = system_config.get("busyness_rules", [])
+    if not rules:
+        return None
+    current_level = busyness_state.get("level", 6)
+    for rule in rules:
+        min_level = rule.get("min_level", 0)
+        if current_level > min_level:
+            continue
+        action = rule.get("action")
+        if action != "block":
+            continue
+        target_models = rule.get("target_models", [])
+        if target_models and model not in target_models:
+            continue
+        return _openai_error_response(
+            rule.get("message", f"System busy (level {current_level}), model {model} temporarily unavailable"),
+            503,
+            "server_error",
+            "busyness_block",
+        )
+    return None
+
+
 async def proxy_request(request: Request, endpoint: str):
     start_time = time.time()
     request_id = str(uuid.uuid4())[:8]
@@ -79,6 +138,17 @@ async def proxy_request(request: Request, endpoint: str):
     client_ip = get_client_ip(request)
     user_agent = request.headers.get("user-agent")
     _schedule_api_key_last_used_update(api_key_id)
+
+    busyness_model = _check_busyness_rules(model)
+    if busyness_model is None:
+        return _check_busyness_block(model)
+    if busyness_model != model:
+        model = busyness_model
+        body_json["model"] = model
+
+    block_response = _check_busyness_block(model)
+    if block_response:
+        return block_response
 
     provider_config, actual_model, provider_name = await get_provider_and_model(model)
     if not provider_config:

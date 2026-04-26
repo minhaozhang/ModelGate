@@ -1339,3 +1339,51 @@ msgstr "家供应商被限流"
 msgid "active users"
 msgstr "活跃用户"
 
+msgid "Busyness Control Rules"
+msgstr "繁忙控制规则"
+
+msgid "Auto downgrade, suggest, or block models based on system busyness level (1=extremely busy ~ 6=quiet)"
+msgstr "根据系统繁忙程度自动降级、建议或阻止模型（1=极度繁忙 ~ 6=无人问津）"
+
+msgid "Add Rule"
+msgstr "添加规则"
+
+msgid "Save Rules"
+msgstr "保存规则"
+
+msgid "No rules configured"
+msgstr "未配置规则"
+
+msgid "Level"
+msgstr "级别"
+
+msgid "Action"
+msgstr "动作"
+
+msgid "Downgrade"
+msgstr "降级"
+
+msgid "Suggest"
+msgstr "建议"
+
+msgid "Block"
+msgstr "阻止"
+
+msgid "Models"
+msgstr "模型"
+
+msgid "All models"
+msgstr "所有模型"
+
+msgid "Redirect to"
+msgstr "重定向到"
+
+msgid "Message"
+msgstr "消息"
+
+msgid "Optional message"
+msgstr "可选消息"
+
+msgid "Rules saved"
+msgstr "规则已保存"
+

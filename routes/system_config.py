@@ -30,6 +30,7 @@ async def get_config(_: bool = Depends(require_admin)):
         "api_key_model_max_concurrency": int(
             config.system_config.get("api_key_model_max_concurrency") or 1
         ),
+        "busyness_rules": config.system_config.get("busyness_rules", []),
     }
 
 
@@ -54,11 +55,24 @@ async def update_config(body: dict, _: bool = Depends(require_admin)):
                 detail="api_key_model_max_concurrency must be at least 1",
             )
         config.system_config["api_key_model_max_concurrency"] = limit
+    raw_rules = body.get("busyness_rules")
+    if raw_rules is not None:
+        if not isinstance(raw_rules, list):
+            raise HTTPException(status_code=400, detail="busyness_rules must be a list")
+        for rule in raw_rules:
+            if not isinstance(rule, dict):
+                raise HTTPException(status_code=400, detail="Each busyness rule must be an object")
+            if "min_level" not in rule or "action" not in rule:
+                raise HTTPException(status_code=400, detail="Each rule needs min_level and action")
+            if rule["action"] not in ("downgrade", "suggest", "block"):
+                raise HTTPException(status_code=400, detail="action must be downgrade, suggest, or block")
+        config.system_config["busyness_rules"] = raw_rules
     return {
         "ua_override": config.OUTBOUND_USER_AGENT,
         "api_key_model_max_concurrency": int(
             config.system_config.get("api_key_model_max_concurrency") or 1
         ),
+        "busyness_rules": config.system_config.get("busyness_rules", []),
     }
 
 
