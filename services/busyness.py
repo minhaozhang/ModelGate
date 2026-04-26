@@ -3,10 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from core.config import (
-    providers_cache,
-    stats,
-)
+from core.config import providers_cache
 
 
 LEVEL_NAMES = {
@@ -36,9 +33,6 @@ LEVEL_COLORS = {
     6: "slate",
 }
 
-WINDOW_10MIN = timedelta(minutes=10)
-WINDOW_1HOUR = timedelta(hours=1)
-
 
 def _count_disabled_providers() -> int:
     count = 0
@@ -48,45 +42,31 @@ def _count_disabled_providers() -> int:
     return count
 
 
-def _count_active_users_10min() -> int:
-    cutoff = (datetime.now() - WINDOW_10MIN).strftime("%Y%m%d_%H%M")
-    user_ids = set()
-    for minute_key, api_key_id in stats.get("active_api_keys_per_minute", []):
-        if minute_key >= cutoff:
-            user_ids.add(api_key_id)
-    return len(user_ids)
+async def compute_busyness_level() -> dict[str, Any]:
+    from core.database import async_session_maker, RequestLog
+    from sqlalchemy import select, func, distinct, case
 
-
-def _calc_429_ratio_10min() -> float:
     now = datetime.now()
-    cutoff = (now - WINDOW_10MIN).strftime("%Y%m%d_%H%M")
-    total = sum(1 for key in stats.get("requests_per_minute", []) if key >= cutoff)
-    rate_limited = sum(
-        1 for key in stats.get("rate_limited_per_minute", []) if key >= cutoff
-    )
-    if total <= 0:
-        return 0.0
-    return rate_limited / total
+    cutoff_10min = now - timedelta(minutes=10)
+    cutoff_1hour = now - timedelta(hours=1)
 
-
-def _has_recent_requests(window: timedelta) -> bool:
-    cutoff = (datetime.now() - window).strftime("%Y%m%d_%H%M")
-    for key in stats.get("requests_per_minute", []):
-        if key >= cutoff:
-            return True
-    return False
-
-
-def compute_busyness_level() -> dict[str, Any]:
-    now = datetime.now()
+    async with async_session_maker() as session:
+        base = select(RequestLog).where(RequestLog.created_at >= cutoff_10min)
+        active_users = (await session.execute(
+            select(func.count(distinct(RequestLog.api_key_id))).select_from(base.subquery())
+        )).scalar() or 0
+        total_10min = (await session.execute(
+            select(func.count()).select_from(base.subquery())
+        )).scalar() or 0
+        rate_limited_10min = (await session.execute(
+            select(func.count()).where(RequestLog.created_at >= cutoff_10min, RequestLog.status.in_(["rate_limited", "local_rate_limited"]))
+        )).scalar() or 0
+        has_1hour = (await session.execute(
+            select(func.count()).where(RequestLog.created_at >= cutoff_1hour).limit(1)
+        )).scalar() or 0
 
     disabled_providers = _count_disabled_providers()
-    active_users = _count_active_users_10min()
-    ratio_429 = _calc_429_ratio_10min()
-    has_active = len(active_requests) > 0
-    has_10min = _has_recent_requests(WINDOW_10MIN)
-    has_1hour = _has_recent_requests(WINDOW_1HOUR)
-
+    ratio_429 = rate_limited_10min / total_10min if total_10min > 0 else 0.0
     busy_condition = active_users > 10 and ratio_429 > 0.5
 
     if busy_condition and disabled_providers >= 2:
@@ -95,9 +75,9 @@ def compute_busyness_level() -> dict[str, Any]:
         level = 2
     elif busy_condition:
         level = 3
-    elif has_active or has_10min:
+    elif total_10min > 0:
         level = 4
-    elif has_1hour:
+    elif has_1hour > 0:
         level = 5
     else:
         level = 6
@@ -110,8 +90,5 @@ def compute_busyness_level() -> dict[str, Any]:
         "disabled_providers": disabled_providers,
         "active_users_10min": active_users,
         "rate_429_ratio": round(ratio_429, 4),
-        "has_active_requests": has_active,
-        "has_recent_10min": has_10min,
-        "has_recent_1hour": has_1hour,
         "computed_at": now.isoformat(),
     }

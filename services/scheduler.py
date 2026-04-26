@@ -56,7 +56,7 @@ TASK_REGISTRY = {
     "compute_busyness_level": {
         "name": "繁忙程度计算",
         "description": "计算系统繁忙级别（1-6）并更新缓存",
-        "default_cron": "*/5 * * * *",
+        "default_cron": "*/10 * * * *",
         "func": compute_busyness_level,
     },
 }
@@ -184,7 +184,7 @@ async def _task_auto_reenable():
 async def _task_busyness():
     from core.config import busyness_state
 
-    result = compute_busyness_level()
+    result = await compute_busyness_level()
     old_level = busyness_state.get("level")
     new_level = result["level"]
     busyness_state.update(result)

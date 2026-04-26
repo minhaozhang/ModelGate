@@ -124,7 +124,6 @@ stats = {
     ),
     "requests_per_minute": [],
     "rate_limited_per_minute": [],
-    "active_api_keys_per_minute": [],
 }
 
 requests_per_second: list[tuple[str, int]] = []
@@ -204,12 +203,6 @@ def update_stats(
     if is_rate_limited:
         stats.setdefault("rate_limited_per_minute", []).append(minute_key)
         stats["rate_limited_per_minute"] = stats["rate_limited_per_minute"][-1000:]
-    if api_key_id:
-        stats["active_api_keys_per_minute"].append((minute_key, api_key_id))
-        cutoff_min = (now - timedelta(minutes=11)).strftime("%Y%m%d_%H%M")
-        stats["active_api_keys_per_minute"] = [
-            (k, v) for k, v in stats["active_api_keys_per_minute"] if k >= cutoff_min
-        ]
 
     second_key = now.strftime("%Y%m%d_%H%M%S")
     requests_per_second.append((second_key, 1))
