@@ -1919,10 +1919,14 @@ async def stats_live_websocket(websocket: WebSocket):
 @router.get("/stats/busyness")
 async def get_busyness_level(_: bool = Depends(require_admin)):
     from services.busyness import compute_busyness_level, LEVEL_LABELS
+    from services.proxy_runtime.concurrency import _get_provider_key_model_limit
 
     if not busyness_state:
-        return compute_busyness_level()
-    return dict(busyness_state)
+        result = compute_busyness_level()
+    else:
+        result = dict(busyness_state)
+    result["provider_key_model_limit"] = _get_provider_key_model_limit()
+    return result
 
 
 @router.get("/stats/slow")

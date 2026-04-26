@@ -28,6 +28,8 @@ class ProviderModelCreate(BaseModel):
 class ProviderModelUpdate(BaseModel):
     model_name_override: Optional[str] = None
     is_active: Optional[bool] = None
+    max_busyness_level: Optional[int] = None
+    clear_busyness_level: Optional[bool] = None
 
 
 @router.get("/providers/{provider_id}/models")
@@ -52,6 +54,7 @@ async def list_provider_models(provider_id: int, _: bool = Depends(require_admin
                         "display_name": model.display_name,
                         "model_name_override": pm.model_name_override,
                         "is_active": pm.is_active,
+                        "max_busyness_level": pm.max_busyness_level,
                     }
                 )
         return {"models": models_data}
@@ -94,6 +97,10 @@ async def update_provider_model(
             pm.model_name_override = data.model_name_override
         if data.is_active is not None:
             pm.is_active = data.is_active
+        if data.clear_busyness_level:
+            pm.max_busyness_level = None
+        elif data.max_busyness_level is not None:
+            pm.max_busyness_level = data.max_busyness_level if data.max_busyness_level > 0 else None
         await session.commit()
         await load_providers()
         return {"id": pm.id}

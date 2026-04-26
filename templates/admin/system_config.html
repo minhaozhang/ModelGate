@@ -48,12 +48,6 @@
                     <p class="text-xs text-gray-500 mb-1">{{ _('Current outbound UA (used for all proxy requests)') }}</p>
                     <input id="ua-input" class="w-full border rounded px-3 py-2 text-sm font-mono mb-3" placeholder="User-Agent">
                     <div id="default-ua-hint" class="text-xs text-gray-400 mb-3"></div>
-                    <div class="border-t pt-4 mt-4">
-                        <h3 class="text-base font-semibold mb-2">{{ _('API Key Model Concurrency') }}</h3>
-                        <p class="text-xs text-gray-500 mb-1">{{ _('Maximum concurrent requests allowed for the same API key on the same model') }}</p>
-                        <input id="api-key-model-limit-input" type="number" min="1" step="1" class="w-full border rounded px-3 py-2 text-sm mb-3" placeholder="1">
-                        <div class="text-xs text-gray-400 mb-3">{{ _('Set to 1 to force one active request per API key and model pair') }}</div>
-                    </div>
                     <div class="flex gap-2">
                         <button onclick="saveConfig()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
                         <button onclick="resetConfig()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm">{{ _('Reset to Default') }}</button>
@@ -89,26 +83,20 @@
             if (!r.ok) { console.error('Failed to load config'); return; }
             const d = await r.json();
             document.getElementById('ua-input').value = d.ua_override;
-            document.getElementById('api-key-model-limit-input').value = d.api_key_model_max_concurrency || 1;
             document.getElementById('default-ua-hint').textContent = '{{ _('Default') }}: ' + d.default_ua;
         }
         async function saveConfig() {
             const ua = document.getElementById('ua-input').value.trim();
-            const limit = parseInt(document.getElementById('api-key-model-limit-input').value || '1', 10);
             const r = await fetch(APP_BASE_PATH + '/admin/api/system/config', {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    ua_override: ua,
-                    api_key_model_max_concurrency: Number.isFinite(limit) && limit > 0 ? limit : 1
-                })
+                body: JSON.stringify({ ua_override: ua })
             });
             const d = await r.json();
             const msg = document.getElementById('config-msg');
             if (r.ok) {
-                msg.textContent = '{{ _('Saved') }}: UA / API Key Model Limit = ' + d.api_key_model_max_concurrency;
+                msg.textContent = '{{ _('Saved') }}';
                 msg.className = 'mt-3 text-sm text-green-600';
-                document.getElementById('api-key-model-limit-input').value = d.api_key_model_max_concurrency || 1;
             } else {
                 msg.textContent = d.detail || '{{ _('Save failed') }}';
                 msg.className = 'mt-3 text-sm text-red-600';
@@ -116,7 +104,6 @@
         }
         async function resetConfig() {
             document.getElementById('ua-input').value = document.getElementById('default-ua-hint').textContent.replace('{{ _('Default') }}: ', '');
-            document.getElementById('api-key-model-limit-input').value = 1;
             await saveConfig();
         }
         async function loadUAStats() {
