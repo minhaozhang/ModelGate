@@ -200,6 +200,22 @@ async def proxy_request(request: Request, endpoint: str):
             "model_not_found",
         )
 
+    model_config = get_model_config(provider_config, actual_model)
+    if model_config:
+        max_level = model_config.get("max_busyness_level")
+        if max_level is not None:
+            from core.config import busyness_state
+            current_level = busyness_state.get("level", 6)
+            if current_level > max_level:
+                level_label = LEVEL_LABELS.get(current_level, "")
+                return _openai_error_response(
+                    f"当前系统{level_label}，该模型不可用，请前往用户界面查看推荐模型列表",
+                    503,
+                    "server_error",
+                    "model_unavailable",
+                    headers=busyness_headers or None,
+                )
+
     provider_key_semaphore = None
     provider_key_model_semaphore = None
     acquired = False

@@ -107,6 +107,7 @@ class ProviderModel(Base):
     model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
     model_name_override = Column(String(100), nullable=True)
     is_active = Column(Boolean, default=True)
+    max_busyness_level = Column(Integer, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (

@@ -42,13 +42,14 @@ def _get_or_create_scoped_semaphore(
 
 
 def _get_provider_key_model_limit() -> int:
-    try:
-        target_limit = int(
-            config.system_config.get("api_key_model_max_concurrency")
-            or DEFAULT_PROVIDER_KEY_MODEL_MAX_CONCURRENCY
-        )
-    except (TypeError, ValueError):
-        target_limit = DEFAULT_PROVIDER_KEY_MODEL_MAX_CONCURRENCY
+    from core.config import busyness_state
+    level = busyness_state.get("level", 6)
+    if level >= 5:
+        target_limit = 3
+    elif level == 4:
+        target_limit = 2
+    else:
+        target_limit = 1
     return max(target_limit, 1)
 
 
