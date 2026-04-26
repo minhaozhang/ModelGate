@@ -51,6 +51,27 @@ USER_RECOMMENDATIONS_CACHE: dict[tuple[int, str, str], dict] = {}
 AGGREGATED_USER_PERIODS = {"month"}
 
 
+def _check_model_available(model_full_name: str) -> bool:
+    parts = model_full_name.split("/", 1)
+    if len(parts) != 2:
+        return True
+    provider_name, model_name = parts
+    pconf = providers_cache.get(provider_name)
+    if not pconf:
+        return False
+    if pconf.get("disabled_reason"):
+        return False
+    for m in pconf.get("models", []):
+        if m.get("actual_model_name") == model_name:
+            max_level = m.get("max_busyness_level")
+            if max_level is not None:
+                current_level = busyness_state.get("level", 6)
+                if current_level > max_level:
+                    return False
+            return True
+    return True
+
+
 class UserLoginRequest(BaseModel):
     api_key: str
 
@@ -1344,6 +1365,10 @@ async def get_user_recommendations(
             pass
 
     items = content_dict.get("items") or []
+    items = [
+        item for item in items
+        if _check_model_available(item.get("model", ""))
+    ]
     for idx, item in enumerate(items):
         if "rank" not in item:
             item["rank"] = idx + 1
@@ -1522,6 +1547,22 @@ async def get_user_catalog(
         else [pm for pm in active_provider_models if pm.id in allowed_pm_ids]
     )
 
+    def _is_model_available(provider_name: str, model_name: str) -> bool:
+        pconf = providers_cache.get(provider_name)
+        if not pconf:
+            return False
+        if pconf.get("disabled_reason"):
+            return False
+        for m in pconf.get("models", []):
+            if m.get("actual_model_name") == model_name:
+                max_level = m.get("max_busyness_level")
+                if max_level is not None:
+                    current_level = busyness_state.get("level", 6)
+                    if current_level > max_level:
+                        return False
+                return True
+        return False
+
     def serialize_provider_models(items: list[ProviderModel]) -> list[dict]:
         grouped: dict[str, dict] = {}
         for provider_model in items:
@@ -1530,6 +1571,9 @@ async def get_user_catalog(
             provider_name = provider.name
             model_name = model.name
             display_name = model.display_name or model_name
+
+            if not _is_model_available(provider_name, model_name):
+                continue
 
             if provider_name not in grouped:
                 grouped[provider_name] = {
