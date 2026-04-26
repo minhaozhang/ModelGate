@@ -44,22 +44,24 @@ def _count_disabled_providers() -> int:
 
 async def compute_busyness_level() -> dict[str, Any]:
     from core.database import async_session_maker, RequestLog
-    from sqlalchemy import select, func, distinct, case
+    from sqlalchemy import select, func, distinct
 
     now = datetime.now()
-    cutoff_10min = now - timedelta(minutes=10)
-    cutoff_1hour = now - timedelta(hours=1)
+    current_10min_slot = now.replace(minute=(now.minute // 10) * 10, second=0, microsecond=0)
+    cutoff_10min = current_10min_slot - timedelta(minutes=10)
+    end_10min = current_10min_slot
+    cutoff_1hour = current_10min_slot - timedelta(hours=1)
 
     async with async_session_maker() as session:
-        base = select(RequestLog).where(RequestLog.created_at >= cutoff_10min)
         active_users = (await session.execute(
-            select(func.count(distinct(RequestLog.api_key_id))).select_from(base.subquery())
+            select(func.count(distinct(RequestLog.api_key_id)))
+            .where(RequestLog.created_at >= cutoff_10min, RequestLog.created_at < end_10min, RequestLog.api_key_id.isnot(None))
         )).scalar() or 0
         total_10min = (await session.execute(
-            select(func.count()).select_from(base.subquery())
+            select(func.count()).where(RequestLog.created_at >= cutoff_10min, RequestLog.created_at < end_10min)
         )).scalar() or 0
         rate_limited_10min = (await session.execute(
-            select(func.count()).where(RequestLog.created_at >= cutoff_10min, RequestLog.status.in_(["rate_limited", "local_rate_limited"]))
+            select(func.count()).where(RequestLog.created_at >= cutoff_10min, RequestLog.created_at < end_10min, RequestLog.status.in_(["rate_limited", "local_rate_limited"]))
         )).scalar() or 0
         has_1hour = (await session.execute(
             select(func.count()).where(RequestLog.created_at >= cutoff_1hour).limit(1)
