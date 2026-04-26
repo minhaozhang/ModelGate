@@ -51,6 +51,7 @@ async def handle_normal(
     request_id,
     chosen_key_id=None,
     protocol="openai",
+    extra_response_headers: dict[str, str] | None = None,
 ):
     logger.debug(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -87,6 +88,7 @@ async def handle_normal(
                 429,
                 "rate_limit_error",
                 "provider_disabled",
+                headers=extra_response_headers,
             )
 
         adapter = get_adapter(protocol)
@@ -183,6 +185,8 @@ async def handle_normal(
         logger.debug("[RESPONSE] Body: %s", sanitize_text_for_log(resp.text))
 
         resp_headers = {"content-type": "application/json"}
+        if extra_response_headers:
+            resp_headers.update(extra_response_headers)
         if _is_rate_limited_status(resp.status_code):
             if retry_after:
                 resp_headers["retry-after"] = retry_after
@@ -207,7 +211,8 @@ async def handle_normal(
             status_code=resp.status_code,
             headers=resp_headers,
         )
-        api_key_model_semaphore.release()
+        if api_key_model_semaphore is not None:
+            api_key_model_semaphore.release()
         if semaphore is not None:
             semaphore.release()
         semaphores_released = True
@@ -218,4 +223,5 @@ async def handle_normal(
         if not semaphores_released:
             if semaphore is not None:
                 semaphore.release()
-            api_key_model_semaphore.release()
+            if api_key_model_semaphore is not None:
+                api_key_model_semaphore.release()

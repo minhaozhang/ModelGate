@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi import Request
 
-from core.config import api_key_model_semaphores, provider_key_semaphores
+from core.config import provider_key_model_semaphores, provider_key_semaphores
 from services import provider as provider_service
 from services.proxy import (
-    _get_or_create_api_key_model_semaphore,
+    _get_or_create_provider_key_model_semaphore,
     _get_or_create_provider_key_semaphore,
     _get_provider_key_limit,
     proxy_request,
@@ -18,11 +18,11 @@ from services.proxy import (
 class ProviderKeyConcurrencyTests(unittest.TestCase):
     def setUp(self):
         provider_key_semaphores.clear()
-        api_key_model_semaphores.clear()
+        provider_key_model_semaphores.clear()
 
     def tearDown(self):
         provider_key_semaphores.clear()
-        api_key_model_semaphores.clear()
+        provider_key_model_semaphores.clear()
         provider_service._key_sticky_map.clear()
 
     def test_provider_key_limit_is_shared_across_models(self):
@@ -49,20 +49,20 @@ class ProviderKeyConcurrencyTests(unittest.TestCase):
         semaphore_a.release()
         semaphore_a.release()
 
-    def test_api_key_model_limit_is_isolated_per_model(self):
-        sem_key_a, semaphore_a = _get_or_create_api_key_model_semaphore(
-            api_key_id=1,
-            model="openai/gpt-4o",
+    def test_provider_key_model_limit_is_isolated_per_model(self):
+        sem_key_a, semaphore_a = _get_or_create_provider_key_model_semaphore(
+            provider_key_id=11,
+            provider_model_key="openai/gpt-4o",
             target_limit=1,
         )
-        sem_key_b, semaphore_b = _get_or_create_api_key_model_semaphore(
-            api_key_id=1,
-            model="openai/gpt-4.1",
+        sem_key_b, semaphore_b = _get_or_create_provider_key_model_semaphore(
+            provider_key_id=11,
+            provider_model_key="openai/gpt-4.1",
             target_limit=1,
         )
 
-        self.assertEqual(sem_key_a, "1:openai/gpt-4o")
-        self.assertEqual(sem_key_b, "1:openai/gpt-4.1")
+        self.assertEqual(sem_key_a, "11:openai/gpt-4o")
+        self.assertEqual(sem_key_b, "11:openai/gpt-4.1")
         self.assertIsNot(semaphore_a, semaphore_b)
 
         self.assertTrue(asyncio.run(asyncio.wait_for(semaphore_a.acquire(), timeout=0.1)))
@@ -135,7 +135,7 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
                     )
                 ),
             ),
-            patch("services.proxy.update_api_key_last_used", new=AsyncMock(return_value=None)),
+            patch("services.proxy.schedule_api_key_last_used_update", return_value=None),
         ):
             response = await proxy_request(request, "/chat/completions")
 

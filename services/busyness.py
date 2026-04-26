@@ -6,7 +6,6 @@ from typing import Any
 from core.config import (
     active_requests,
     providers_cache,
-    requests_per_second,
     stats,
 )
 
@@ -67,22 +66,19 @@ def _count_active_users_10min() -> int:
 def _calc_429_ratio_10min() -> float:
     now = datetime.now()
     cutoff = (now - WINDOW_10MIN).strftime("%Y%m%d_%H%M")
-    total = 0
-    rate_limited = 0
-    for key in stats["requests_per_minute"]:
-        if key >= cutoff:
-            total += 1
-    for provider_stats in stats["providers"].values():
-        rate_limited += provider_stats.get("rate_limited", 0)
+    total = sum(1 for key in stats.get("requests_per_minute", []) if key >= cutoff)
+    rate_limited = sum(
+        1 for key in stats.get("rate_limited_per_minute", []) if key >= cutoff
+    )
     if total <= 0:
         return 0.0
-    return rate_limited / (total + rate_limited)
+    return rate_limited / total
 
 
 def _has_recent_requests(window: timedelta) -> bool:
-    cutoff = (datetime.now() - window).strftime("%Y%m%d_%H%M%S")
-    for ts, _ in requests_per_second:
-        if ts >= cutoff:
+    cutoff = (datetime.now() - window).strftime("%Y%m%d_%H%M")
+    for key in stats.get("requests_per_minute", []):
+        if key >= cutoff:
             return True
     return False
 

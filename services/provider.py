@@ -11,6 +11,7 @@ from core.config import (
     providers_cache,
     PROVIDERS_CACHE_TTL_MINUTES,
     logger,
+    provider_key_model_semaphores,
     provider_key_semaphores,
 )
 from core.database import (
@@ -172,6 +173,18 @@ async def load_providers():
         in_flight = max(current_limit - available, 0)
         if in_flight == 0 and not waiters:
             provider_key_semaphores.pop(sem_key, None)
+    for sem_key in list(provider_key_model_semaphores.keys()):
+        if any(sem_key.startswith(prefix + "/") for prefix in active_provider_key_prefixes):
+            continue
+        semaphore = provider_key_model_semaphores.get(sem_key)
+        if semaphore is None:
+            continue
+        waiters = getattr(semaphore, "_waiters", None)
+        available = getattr(semaphore, "_value", 0)
+        current_limit = getattr(semaphore, "_modelgate_scoped_limit", available) or available
+        in_flight = max(current_limit - available, 0)
+        if in_flight == 0 and not waiters:
+            provider_key_model_semaphores.pop(sem_key, None)
 
 
 async def get_provider_config(provider_name: str) -> Optional[dict]:

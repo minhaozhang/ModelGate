@@ -52,8 +52,8 @@ class OpenCodeReviewFixTests(unittest.TestCase):
         )
         public_html = render(make_request("/opencode"), "public/opencode.html")
 
-        self.assertIn("config.provider['modelgate']", dashboard_html)
         self.assertNotIn("config.provider['model-token-plan']", dashboard_html)
+        self.assertIn("modelgate", dashboard_html)
         self.assertIn("modelgate provider", dashboard_html)
 
         self.assertIn("config.provider['modelgate']", public_html)

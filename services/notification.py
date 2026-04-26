@@ -9,6 +9,17 @@ from core.config import logger
 from core.database import Notification, async_session_maker
 
 
+def _notification_visible_to_user(notification: Notification, api_key_id: int) -> bool:
+    return notification.target_api_key_id in (None, api_key_id)
+
+
+def _user_visible_notification_clause(api_key_id: int):
+    return or_(
+        Notification.target_api_key_id == None,
+        Notification.target_api_key_id == api_key_id,
+    )
+
+
 async def create_notification(
     type: str,
     level: str,
@@ -129,10 +140,7 @@ async def get_user_notifications(
     unread_only: bool = False,
 ) -> dict:
     async with async_session_maker() as session:
-        base_where = or_(
-            Notification.target_api_key_id == None,
-            Notification.target_api_key_id == api_key_id,
-        )
+        base_where = _user_visible_notification_clause(api_key_id)
         if unread_only:
             base_where = and_(
                 base_where,
@@ -191,7 +199,12 @@ async def get_user_unread_count(api_key_id: int) -> int:
 async def mark_user_read(notification_id: int, api_key_id: int) -> bool:
     async with async_session_maker() as session:
         result = await session.execute(
-            select(Notification).where(Notification.id == notification_id)
+            select(Notification).where(
+                and_(
+                    Notification.id == notification_id,
+                    _user_visible_notification_clause(api_key_id),
+                )
+            )
         )
         n = result.scalar_one_or_none()
         if n:
@@ -208,7 +221,10 @@ async def mark_all_user_read(api_key_id: int) -> int:
     async with async_session_maker() as session:
         result = await session.execute(
             select(Notification).where(
-                ~Notification.read_api_key_ids.contains([api_key_id]),
+                and_(
+                    _user_visible_notification_clause(api_key_id),
+                    ~Notification.read_api_key_ids.contains([api_key_id]),
+                )
             )
         )
         items = result.scalars().all()

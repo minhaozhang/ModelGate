@@ -52,6 +52,7 @@ async def handle_streaming(
     request,
     chosen_key_id=None,
     protocol="openai",
+    extra_response_headers: dict[str, str] | None = None,
 ):
     logger.debug(
         "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -139,6 +140,8 @@ async def handle_streaming(
                 f"  Response: {sanitize_text_for_log(error_text)}"
             )
             resp_headers = {"content-type": "application/json"}
+            if extra_response_headers:
+                resp_headers.update(extra_response_headers)
             if _is_rate_limited_status(resp.status_code):
                 if retry_after:
                     resp_headers["retry-after"] = retry_after
@@ -160,7 +163,8 @@ async def handle_streaming(
                 status_code=resp.status_code,
                 headers=resp_headers,
             )
-            api_key_model_semaphore.release()
+            if api_key_model_semaphore is not None:
+                api_key_model_semaphore.release()
             if semaphore is not None:
                 semaphore.release()
             semaphores_released = True
@@ -171,7 +175,8 @@ async def handle_streaming(
         if not semaphores_released:
             if semaphore is not None:
                 semaphore.release()
-            api_key_model_semaphore.release()
+            if api_key_model_semaphore is not None:
+                api_key_model_semaphore.release()
         raise e
 
     async def stream_generator():
@@ -419,8 +424,13 @@ async def handle_streaming(
             yield f"data: {json.dumps({'error': {'message': str(e), 'type': type(e).__name__}})}\n\n"
         finally:
             await finish_active_request(request_id)
-            api_key_model_semaphore.release()
+            if api_key_model_semaphore is not None:
+                api_key_model_semaphore.release()
             if semaphore is not None:
                 semaphore.release()
 
-    return StreamingResponse(stream_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        stream_generator(),
+        media_type="text/event-stream",
+        headers=extra_response_headers,
+    )

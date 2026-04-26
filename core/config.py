@@ -97,8 +97,8 @@ providers_cache_time: Optional[datetime] = None
 PROVIDERS_CACHE_TTL_MINUTES = 10
 api_keys_cache: dict[str, dict] = {}
 sessions: dict[str, datetime] = {}
-api_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 provider_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
+provider_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 
 DEFAULT_OUTBOUND_USER_AGENT = (
     "opencode/1.14.20 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.11"
@@ -123,6 +123,7 @@ stats = {
         }
     ),
     "requests_per_minute": [],
+    "rate_limited_per_minute": [],
 }
 
 requests_per_second: list[tuple[str, int]] = []
@@ -199,6 +200,9 @@ def update_stats(
     minute_key = now.strftime("%Y%m%d_%H%M")
     stats["requests_per_minute"].append(minute_key)
     stats["requests_per_minute"] = stats["requests_per_minute"][-1000:]
+    if is_rate_limited:
+        stats.setdefault("rate_limited_per_minute", []).append(minute_key)
+        stats["rate_limited_per_minute"] = stats["rate_limited_per_minute"][-1000:]
 
     second_key = now.strftime("%Y%m%d_%H%M%S")
     requests_per_second.append((second_key, 1))

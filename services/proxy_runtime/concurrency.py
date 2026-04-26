@@ -1,10 +1,10 @@
 import asyncio
 
 import core.config as config
-from core.config import api_key_model_semaphores, provider_key_semaphores
+from core.config import provider_key_model_semaphores, provider_key_semaphores
 
 DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY = 3
-DEFAULT_API_KEY_MODEL_MAX_CONCURRENCY = 1
+DEFAULT_PROVIDER_KEY_MODEL_MAX_CONCURRENCY = 1
 SEMAPHORE_RETRY_AFTER_SECONDS = 5
 SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS = 1
 RATE_LIMITED_STATUS = "rate_limited"
@@ -41,14 +41,14 @@ def _get_or_create_scoped_semaphore(
     return sem_key, semaphore
 
 
-def _get_api_key_model_limit() -> int:
+def _get_provider_key_model_limit() -> int:
     try:
         target_limit = int(
             config.system_config.get("api_key_model_max_concurrency")
-            or DEFAULT_API_KEY_MODEL_MAX_CONCURRENCY
+            or DEFAULT_PROVIDER_KEY_MODEL_MAX_CONCURRENCY
         )
     except (TypeError, ValueError):
-        target_limit = DEFAULT_API_KEY_MODEL_MAX_CONCURRENCY
+        target_limit = DEFAULT_PROVIDER_KEY_MODEL_MAX_CONCURRENCY
     return max(target_limit, 1)
 
 
@@ -68,12 +68,12 @@ def _get_provider_key_limit(
     return max(target_limit, 1)
 
 
-def _get_or_create_api_key_model_semaphore(
-    api_key_id: int, model: str, target_limit: int
+def _get_or_create_provider_key_model_semaphore(
+    provider_key_id: int, provider_model_key: str, target_limit: int
 ) -> tuple[str, asyncio.Semaphore]:
-    sem_key = f"{api_key_id}:{model}"
+    sem_key = f"{provider_key_id}:{provider_model_key}"
     return _get_or_create_scoped_semaphore(
-        api_key_model_semaphores, sem_key, target_limit
+        provider_key_model_semaphores, sem_key, target_limit
     )
 
 

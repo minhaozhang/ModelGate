@@ -26,8 +26,8 @@ from services.proxy_runtime.common import schedule_api_key_last_used_update
 from services.proxy_runtime.concurrency import (
     RATE_LIMITED_STATUSES,
     SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
-    _get_api_key_model_limit,
-    _get_or_create_api_key_model_semaphore,
+    _get_provider_key_model_limit,
+    _get_or_create_provider_key_model_semaphore,
     _get_or_create_provider_key_semaphore,
     _get_provider_key_limit,
 )
@@ -88,42 +88,16 @@ async def call_internal_model_via_proxy(
             "error": f"Unknown provider for model: {requested_model}",
         }
 
-    api_key_model_sem_key, api_key_model_semaphore = (
-        _get_or_create_api_key_model_semaphore(
-            api_key_id, requested_model, _get_api_key_model_limit()
-        )
-    )
-    api_key_model_acquired = False
     provider_key_semaphore = None
+    provider_key_model_semaphore = None
     acquired = False
-
-    try:
-        await asyncio.wait_for(
-            api_key_model_semaphore.acquire(),
-            timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
-        )
-        api_key_model_acquired = True
-    except asyncio.TimeoutError:
-        message = (
-            f"API key {api_key_id} already reached max concurrency for model '{requested_model}'"
-        )
-        logger.warning("[RATE LIMIT] %s at max concurrency", api_key_model_sem_key)
-        return {
-            "ok": False,
-            "provider_name": provider_name,
-            "actual_model_name": actual_model,
-            "status_code": 429,
-            "payload": None,
-            "error": message,
-        }
+    provider_key_model_acquired = False
 
     try:
         chosen_api_key, chosen_key_id = pick_api_key(
             provider_config, api_key_id, provider_name
         )
         if not chosen_api_key:
-            api_key_model_semaphore.release()
-            api_key_model_acquired = False
             return {
                 "ok": False,
                 "provider_name": provider_name,
@@ -148,12 +122,43 @@ async def call_internal_model_via_proxy(
                 )
                 acquired = True
             except asyncio.TimeoutError:
-                api_key_model_semaphore.release()
-                api_key_model_acquired = False
                 message = (
                     f"Provider key {chosen_key_id} for '{provider_name}' is at max concurrency"
                 )
                 logger.warning("[RATE LIMIT] %s at max concurrency", provider_key_sem_key)
+                return {
+                    "ok": False,
+                    "provider_name": provider_name,
+                    "actual_model_name": actual_model,
+                    "status_code": 429,
+                    "payload": None,
+                    "error": message,
+                }
+
+            provider_model_key = f"{provider_name}/{actual_model}"
+            provider_key_model_sem_key, provider_key_model_semaphore = (
+                _get_or_create_provider_key_model_semaphore(
+                    chosen_key_id,
+                    provider_model_key,
+                    _get_provider_key_model_limit(),
+                )
+            )
+            try:
+                await asyncio.wait_for(
+                    provider_key_model_semaphore.acquire(),
+                    timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
+                )
+                provider_key_model_acquired = True
+            except asyncio.TimeoutError:
+                if acquired and provider_key_semaphore is not None:
+                    provider_key_semaphore.release()
+                    acquired = False
+                message = (
+                    f"Provider key {chosen_key_id} already reached max concurrency for model '{provider_model_key}'"
+                )
+                logger.warning(
+                    "[RATE LIMIT] %s at max concurrency", provider_key_model_sem_key
+                )
                 return {
                     "ok": False,
                     "provider_name": provider_name,
@@ -353,5 +358,5 @@ async def call_internal_model_via_proxy(
     finally:
         if acquired and provider_key_semaphore is not None:
             provider_key_semaphore.release()
-        if api_key_model_acquired:
-            api_key_model_semaphore.release()
+        if provider_key_model_acquired and provider_key_model_semaphore is not None:
+            provider_key_model_semaphore.release()
