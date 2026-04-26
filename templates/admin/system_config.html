@@ -61,40 +61,15 @@
                     <div id="config-msg" class="mt-3 text-sm hidden"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-2">{{ _('Busyness Control Rules') }}</h2>
-                    <p class="text-xs text-gray-500 mb-4">{{ _('Auto downgrade, suggest, or block models based on system busyness level (1=extremely busy ~ 6=quiet)') }}</p>
-                    <div id="busyness-rules-list" class="space-y-3 mb-4"></div>
-                    <div class="flex gap-2">
-                        <button onclick="addBusynessRule()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm">+ {{ _('Add Rule') }}</button>
-                        <button onclick="saveBusynessRules()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm">{{ _('Save Rules') }}</button>
-                    </div>
-                    <div id="busyness-msg" class="mt-3 text-sm hidden"></div>
-                </div>
-                <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-lg font-semibold mb-1">{{ _('Today\'s Client UA') }}</h2>
                     <p class="text-xs text-gray-500 mb-4">{{ _('Top user agents making requests today') }}</p>
                     <div id="ua-list" class="space-y-3 text-sm"></div>
-                </div>
-            </div>
-            <h2 class="text-xl font-semibold mb-4 mt-6">{{ _('Scheduled Tasks') }}</h2>
-            <div id="scheduler-tasks" class="space-y-3 mb-6">{{ _('Loading...') }}</div>
-            <div id="scheduler-logs-modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
-                <div class="bg-white rounded-lg shadow-xl w-[700px] max-h-[80vh] overflow-y-auto p-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 id="log-modal-title" class="text-lg font-semibold">{{ _('Execution Log') }}</h3>
-                        <button onclick="document.getElementById('scheduler-logs-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
-                    </div>
-                    <div id="log-modal-content"></div>
                 </div>
             </div>
         </main>
     </div>
     <script>
         const APP_BASE_PATH = "{{ app_base_path }}";
-        const SYSTEM_CONFIG_I18N = {
-            lightMode: '{{ _("Light Mode") }}',
-            darkMode: '{{ _("Dark Mode") }}',
-        };
         async function logout() {
             await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
             window.location.href = `${APP_BASE_PATH}/admin/login`;
@@ -116,8 +91,6 @@
             document.getElementById('ua-input').value = d.ua_override;
             document.getElementById('api-key-model-limit-input').value = d.api_key_model_max_concurrency || 1;
             document.getElementById('default-ua-hint').textContent = '{{ _('Default') }}: ' + d.default_ua;
-            busynessRules = d.busyness_rules || [];
-            renderBusynessRules();
         }
         async function saveConfig() {
             const ua = document.getElementById('ua-input').value.trim();
@@ -167,114 +140,6 @@
         }
         loadConfig();
         loadUAStats();
-        loadSchedulerTasks();
-        let busynessRules = [];
-        function renderBusynessRules() {
-            const el = document.getElementById('busyness-rules-list');
-            if (!busynessRules.length) { el.innerHTML = '<div class="text-gray-400 text-sm">{{ _('No rules configured') }}</div>'; return; }
-            el.innerHTML = busynessRules.map((r, i) => `
-                <div class="border rounded p-3 space-y-2">
-                    <div class="flex gap-2 items-center">
-                        <label class="text-xs text-gray-500 w-20 shrink-0">{{ _('Level') }} ≤</label>
-                        <input type="number" min="1" max="6" value="${r.min_level}" onchange="busynessRules[${i}].min_level=Number(this.value)" class="border rounded px-2 py-1 text-sm w-16">
-                        <label class="text-xs text-gray-500 ml-2">{{ _('Action') }}</label>
-                        <select onchange="busynessRules[${i}].action=this.value; renderBusynessRules()" class="border rounded px-2 py-1 text-sm">
-                            <option value="downgrade" ${r.action==='downgrade'?'selected':''}>{{ _('Downgrade') }}</option>
-                            <option value="suggest" ${r.action==='suggest'?'selected':''}>{{ _('Suggest') }}</option>
-                            <option value="block" ${r.action==='block'?'selected':''}>{{ _('Block') }}</option>
-                        </select>
-                        <button onclick="busynessRules.splice(${i},1); renderBusynessRules()" class="text-red-400 hover:text-red-600 text-sm ml-auto">✕</button>
-                    </div>
-                    <div class="flex gap-2 items-center">
-                        <label class="text-xs text-gray-500 w-20 shrink-0">{{ _('Models') }}</label>
-                        <input value="${(r.target_models||[]).join(', ')}" onchange="busynessRules[${i}].target_models=this.value.split(',').map(s=>s.trim()).filter(Boolean)" placeholder="{{ _('All models') }}" class="border rounded px-2 py-1 text-sm flex-1">
-                    </div>
-                    ${r.action==='downgrade' ? `<div class="flex gap-2 items-center"><label class="text-xs text-gray-500 w-20 shrink-0">{{ _('Redirect to') }}</label><input value="${r.redirect_to||''}" onchange="busynessRules[${i}].redirect_to=this.value" placeholder="e.g. deepseek/deepseek-v4-flash" class="border rounded px-2 py-1 text-sm flex-1"></div>` : ''}
-                    <div class="flex gap-2 items-center">
-                        <label class="text-xs text-gray-500 w-20 shrink-0">{{ _('Message') }}</label>
-                        <input value="${r.message||''}" onchange="busynessRules[${i}].message=this.value" placeholder="{{ _('Optional message') }}" class="border rounded px-2 py-1 text-sm flex-1">
-                    </div>
-                </div>
-            `).join('');
-        }
-        function addBusynessRule() { busynessRules.push({min_level: 3, action: 'suggest', target_models: [], message: ''}); renderBusynessRules(); }
-        async function saveBusynessRules() {
-            const r = await fetch(APP_BASE_PATH + '/admin/api/system/config', {
-                method: 'PUT', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({busyness_rules: busynessRules})
-            });
-            const d = await r.json();
-            const msg = document.getElementById('busyness-msg');
-            if (r.ok) { busynessRules = d.busyness_rules || []; renderBusynessRules(); msg.textContent = '{{ _('Rules saved') }}'; msg.className = 'mt-3 text-sm text-green-600'; }
-            else { msg.textContent = d.detail || '{{ _('Save failed') }}'; msg.className = 'mt-3 text-sm text-red-600'; }
-        }
-        async function loadSchedulerTasks() {
-            const r = await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks');
-            if (!r.ok) return;
-            const d = await r.json();
-            const el = document.getElementById('scheduler-tasks');
-            if (!d.items.length) { el.innerHTML = '<div class="text-gray-400">{{ _("No tasks") }}</div>'; return; }
-            el.innerHTML = d.items.map(t => {
-                const statusColors = {success:'bg-green-500',failed:'bg-red-500',running:'bg-yellow-500'};
-                const dot = statusColors[t.last_status] || 'bg-gray-300';
-                const duration = t.last_duration_ms != null ? (t.last_duration_ms >= 1000 ? (t.last_duration_ms/1000).toFixed(1)+'s' : t.last_duration_ms+'ms') : '--';
-                return `<div class="bg-white rounded-lg shadow p-4">
-                    <div class="flex items-center gap-3 mb-2">
-                        <div class="w-2.5 h-2.5 rounded-full ${dot} shrink-0"></div>
-                        <span class="font-semibold text-gray-800">${t.name}</span>
-                        <span class="text-xs text-gray-400">${t.task_id}</span>
-                        ${t.is_paused ? '<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">{{ _("Paused") }}</span>' : ''}
-                        <div class="ml-auto flex gap-2">
-                            <button onclick="triggerTask('${t.task_id}')" class="text-xs text-blue-500 hover:text-blue-700 border rounded px-2 py-1">{{ _('Run Now') }}</button>
-                            <button onclick="toggleTask('${t.task_id}', ${!t.is_paused})" class="text-xs ${t.is_paused ? 'text-green-500 hover:text-green-700' : 'text-yellow-500 hover:text-yellow-700'} border rounded px-2 py-1">${t.is_paused ? '{{ _("Resume") }}' : '{{ _("Pause") }}'}</button>
-                            <button onclick="showTaskLogs('${t.task_id}', '${t.name}')" class="text-xs text-gray-500 hover:text-gray-700 border rounded px-2 py-1">{{ _('Logs') }}</button>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-2">${t.description || ''}</p>
-                    <div class="flex gap-4 text-xs text-gray-500">
-                        <div>Cron: <input value="${t.cron_expression}" onchange="updateTaskCron('${t.task_id}', this.value)" class="border rounded px-1 py-0.5 text-xs font-mono w-28"></div>
-                        <div>{{ _('Last run') }}: ${t.last_run_at ? new Date(t.last_run_at).toLocaleString() : '--'}</div>
-                        <div>{{ _('Duration') }}: ${duration}</div>
-                        <div>{{ _('Next run') }}: ${t.next_run_at ? new Date(t.next_run_at).toLocaleString() : '--'}</div>
-                    </div>
-                    ${t.last_error ? `<div class="mt-2 text-xs text-red-500 bg-red-50 rounded p-2">${t.last_error}</div>` : ''}
-                </div>`;
-            }).join('');
-        }
-        async function triggerTask(taskId) {
-            await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks/' + taskId + '/trigger', {method:'POST'});
-            setTimeout(loadSchedulerTasks, 2000);
-        }
-        async function toggleTask(taskId, pause) {
-            await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks/' + taskId, {
-                method:'PUT', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({is_paused: pause})
-            });
-            loadSchedulerTasks();
-        }
-        async function updateTaskCron(taskId, cron) {
-            await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks/' + taskId, {
-                method:'PUT', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({cron_expression: cron})
-            });
-            loadSchedulerTasks();
-        }
-        async function showTaskLogs(taskId, name) {
-            document.getElementById('log-modal-title').textContent = name + ' - {{ _('Execution Log') }}';
-            const r = await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks/' + taskId + '/logs?page_size=20');
-            const d = await r.json();
-            const el = document.getElementById('log-modal-content');
-            if (!d.items.length) { el.innerHTML = '<div class="text-gray-400 text-center py-4">{{ _("No logs") }}</div>'; }
-            else {
-                el.innerHTML = '<table class="w-full text-sm"><thead><tr class="border-b text-gray-500 text-left"><th class="pb-2">{{ _('Time') }}</th><th class="pb-2">{{ _('Status') }}</th><th class="pb-2">{{ _('Duration') }}</th><th class="pb-2">{{ _('Result') }}</th></tr></thead><tbody>' +
-                d.items.map(l => {
-                    const sc = {success:'text-green-600',failed:'text-red-600',running:'text-yellow-600'};
-                    const dur = l.duration_ms != null ? (l.duration_ms >= 1000 ? (l.duration_ms/1000).toFixed(1)+'s' : l.duration_ms+'ms') : '--';
-                    return `<tr class="border-b"><td class="py-2 text-xs">${l.started_at ? new Date(l.started_at).toLocaleString() : '--'}</td><td class="py-2 ${sc[l.status]||''}">${l.status}</td><td class="py-2">${dur}</td><td class="py-2 text-xs text-gray-500">${l.result_summary || (l.error ? '<span class="text-red-500">'+l.error.substring(0,80)+'</span>' : '')}</td></tr>`;
-                }).join('') + '</tbody></table>';
-            }
-            document.getElementById('scheduler-logs-modal').classList.remove('hidden');
-        }
     </script>
 </body>
 </html>

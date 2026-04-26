@@ -1,0 +1,55 @@
+<div id="tab-tasks" class="space-y-3">{{ _('Loading...') }}</div>
+
+<script>
+async function loadTasks() {
+    const r = await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks');
+    if (!r.ok) return;
+    const d = await r.json();
+    const el = document.getElementById('tab-tasks');
+    if (!d.items.length) { el.innerHTML = '<div class="text-gray-400">{{ _("No tasks") }}</div>'; return; }
+    el.innerHTML = d.items.map(t => {
+        const statusColors = {success:'bg-green-500',failed:'bg-red-500',running:'bg-yellow-500'};
+        const dot = statusColors[t.last_status] || 'bg-gray-300';
+        const duration = t.last_duration_ms != null ? (t.last_duration_ms >= 1000 ? (t.last_duration_ms/1000).toFixed(1)+'s' : t.last_duration_ms+'ms') : '--';
+        return `<div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-2.5 h-2.5 rounded-full ${dot} shrink-0"></div>
+                <span class="font-semibold text-gray-800">${t.name}</span>
+                <span class="text-xs text-gray-400">${t.task_id}</span>
+                ${t.is_paused ? '<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">{{ _("Paused") }}</span>' : ''}
+                <div class="ml-auto flex gap-2">
+                    <button onclick="triggerTask('${t.task_id}')" class="text-xs text-blue-500 hover:text-blue-700 border rounded px-2 py-1">{{ _('Run Now') }}</button>
+                    <button onclick="toggleTask('${t.task_id}', ${!t.is_paused})" class="text-xs ${t.is_paused ? 'text-green-500 hover:text-green-700' : 'text-yellow-500 hover:text-yellow-700'} border rounded px-2 py-1">${t.is_paused ? '{{ _("Resume") }}' : '{{ _("Pause") }}'}</button>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 mb-2">${t.description || ''}</p>
+            <div class="flex gap-4 text-xs text-gray-500 flex-wrap">
+                <div>Cron: <input value="${t.cron_expression}" onchange="updateTaskCron('${t.task_id}', this.value)" class="border rounded px-1 py-0.5 text-xs font-mono w-28"></div>
+                <div>{{ _('Last run') }}: ${t.last_run_at ? new Date(t.last_run_at).toLocaleString() : '--'}</div>
+                <div>{{ _('Duration') }}: ${duration}</div>
+                <div>{{ _('Next run') }}: ${t.next_run_at ? new Date(t.next_run_at).toLocaleString() : '--'}</div>
+            </div>
+            ${t.last_error ? `<div class="mt-2 text-xs text-red-500 bg-red-50 rounded p-2">${t.last_error}</div>` : ''}
+        </div>`;
+    }).join('');
+}
+async function triggerTask(taskId) {
+    await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks/' + taskId + '/trigger', {method:'POST'});
+    setTimeout(loadTasks, 2000);
+}
+async function toggleTask(taskId, pause) {
+    await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks/' + taskId, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({is_paused: pause})
+    });
+    loadTasks();
+}
+async function updateTaskCron(taskId, cron) {
+    await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks/' + taskId, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({cron_expression: cron})
+    });
+    loadTasks();
+}
+loadTasks();
+</script>

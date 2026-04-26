@@ -247,6 +247,7 @@ async def register_active_request(
     model: str,
     api_key_id: int | None,
     client_ip: str | None = None,
+    prompt_tokens: int = 0,
 ) -> None:
     now = datetime.now()
     async with active_requests_lock:
@@ -256,6 +257,7 @@ async def register_active_request(
             "model": model,
             "api_key_id": api_key_id,
             "client_ip": client_ip,
+            "prompt_tokens": prompt_tokens,
             "started_at": now,
         }
     asyncio.create_task(broadcast_live_stats())
@@ -314,21 +316,13 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             )
             model_name = request_data.get("model")
             provider_name = request_data.get("provider", "")
+            prompt_tokens = request_data.get("prompt_tokens", 0)
             if model_name:
                 display_model = f"{provider_name}/{model_name}" if provider_name else model_name
                 entry = bucket["models"].setdefault(display_model, {"count": 0, "tokens": 0})
                 entry["count"] += 1
-
-        for key_name, bucket in grouped_users.items():
-            api_key_id = bucket.get("api_key_id")
-            api_key_stats = stats["api_keys"].get(api_key_id) if api_key_id else None
-            for model_key, entry in bucket["models"].items():
-                raw_model = model_key.split("/", 1)[-1] if "/" in model_key else model_key
-                model_tokens = 0
-                if api_key_stats:
-                    model_tokens = api_key_stats.get("models", {}).get(raw_model, {}).get("tokens", 0)
-                entry["tokens"] = model_tokens
-            bucket["tokens"] = sum(e["tokens"] for e in bucket["models"].values())
+                entry["tokens"] += prompt_tokens
+            bucket["tokens"] += prompt_tokens
 
         disabled_providers = {}
         for pname, pconf in providers_cache.items():

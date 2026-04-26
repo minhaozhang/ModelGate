@@ -30,7 +30,6 @@ async def get_config(_: bool = Depends(require_admin)):
         "api_key_model_max_concurrency": int(
             config.system_config.get("api_key_model_max_concurrency") or 1
         ),
-        "busyness_rules": config.system_config.get("busyness_rules", []),
     }
 
 
@@ -55,24 +54,11 @@ async def update_config(body: dict, _: bool = Depends(require_admin)):
                 detail="api_key_model_max_concurrency must be at least 1",
             )
         config.system_config["api_key_model_max_concurrency"] = limit
-    raw_rules = body.get("busyness_rules")
-    if raw_rules is not None:
-        if not isinstance(raw_rules, list):
-            raise HTTPException(status_code=400, detail="busyness_rules must be a list")
-        for rule in raw_rules:
-            if not isinstance(rule, dict):
-                raise HTTPException(status_code=400, detail="Each busyness rule must be an object")
-            if "min_level" not in rule or "action" not in rule:
-                raise HTTPException(status_code=400, detail="Each rule needs min_level and action")
-            if rule["action"] not in ("downgrade", "suggest", "block"):
-                raise HTTPException(status_code=400, detail="action must be downgrade, suggest, or block")
-        config.system_config["busyness_rules"] = raw_rules
     return {
         "ua_override": config.OUTBOUND_USER_AGENT,
         "api_key_model_max_concurrency": int(
             config.system_config.get("api_key_model_max_concurrency") or 1
         ),
-        "busyness_rules": config.system_config.get("busyness_rules", []),
     }
 
 
@@ -142,6 +128,13 @@ async def mark_all_notifications_read(_: bool = Depends(require_admin)):
 async def notifications_page(request: Request, _: bool = Depends(require_admin)):
     return HTMLResponse(
         content=render(request, "admin/notifications.html", active_page="notifications")
+    )
+
+
+@router.get("/scheduler-tasks")
+async def scheduler_tasks_page(request: Request, _: bool = Depends(require_admin)):
+    return HTMLResponse(
+        content=render(request, "admin/scheduler_tasks.html", active_page="scheduler-tasks")
     )
 
 
@@ -251,6 +244,59 @@ async def get_scheduler_task_logs(
             "items": [
                 {
                     "id": l.id,
+                    "status": l.status,
+                    "started_at": l.started_at.isoformat() if l.started_at else None,
+                    "finished_at": l.finished_at.isoformat() if l.finished_at else None,
+                    "duration_ms": l.duration_ms,
+                    "error": l.error,
+                    "result_summary": l.result_summary,
+                }
+                for l in logs
+            ],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
+
+
+@router.get("/api/scheduler/logs")
+async def get_all_scheduler_logs(
+    _: bool = Depends(require_admin),
+    task_id: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+):
+    from core.database import SchedulerTaskLog as STL, SchedulerTask as ST
+
+    async with async_session_maker() as session:
+        from sqlalchemy import func as sa_func
+
+        query = select(STL)
+        count_query = select(sa_func.count(STL.id))
+        if task_id:
+            query = query.where(STL.task_id == task_id)
+            count_query = count_query.where(STL.task_id == task_id)
+
+        total = (await session.execute(count_query)).scalar() or 0
+
+        result = await session.execute(
+            query.order_by(STL.started_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        logs = result.scalars().all()
+
+        task_names = {}
+        task_result = await session.execute(select(ST.task_id, ST.name))
+        for tid, tname in task_result.fetchall():
+            task_names[tid] = tname
+
+        return {
+            "items": [
+                {
+                    "id": l.id,
+                    "task_id": l.task_id,
+                    "task_name": task_names.get(l.task_id, l.task_id),
                     "status": l.status,
                     "started_at": l.started_at.isoformat() if l.started_at else None,
                     "finished_at": l.finished_at.isoformat() if l.finished_at else None,
