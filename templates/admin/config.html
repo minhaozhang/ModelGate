@@ -939,11 +939,11 @@
                 bindings.forEach(b => {
                     const bindingLabel = (b.display_name || b.model_name).replace(/'/g, "\\'");
                     const blVal = b.max_busyness_level || '';
-                    const blOpts = [{v:'',l:'不限'},{v:'1',l:'1-极度繁忙'},{v:'2',l:'2-较繁忙'},{v:'3',l:'3-繁忙'},{v:'4',l:'4-正常'},{v:'5',l:'5-空闲'},{v:'6',l:'6-无人问津'}].map(o => `<option value="${o.v}" ${blVal==o.v?'selected':''}>${o.l}</option>`).join('');
+                    const blOpts = [{v:'',l:'不限'},{v:'1',l:'1 · 过载'},{v:'2',l:'2 · 拥挤'},{v:'3',l:'3 · 活跃'},{v:'4',l:'4 · 流畅'},{v:'5',l:'5 · 平静'},{v:'6',l:'6 · 寂静'}].map(o => `<option value="${o.v}" ${blVal==o.v?'selected':''}>${o.l}</option>`).join('');
                     html += `
-                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded gap-2">
-                            <span class="text-sm shrink-0">${b.display_name || b.model_name}</span>
-                            <select onchange="updateBusynessLevel(${b.id}, this.value)" class="border rounded px-1 py-0.5 text-xs" title="繁忙可用级别">${blOpts}</select>
+                        <div class="flex items-center p-2 bg-gray-50 rounded gap-2">
+                            <span class="text-sm shrink-0 flex-1 min-w-0 truncate">${b.display_name || b.model_name}</span>
+                            <select onchange="updateBusynessLevel(${b.id}, this.value)" class="border rounded px-1.5 py-0.5 text-xs shrink-0" title="繁忙可用级别">${blOpts}</select>
                             <div class="flex items-center gap-1 shrink-0">
                                 <button onclick="openProviderModelKeys(${b.id}, ${b.model_id}, '${bindingLabel}')" class="icon-btn text-green-500 hover:text-green-700" title="${t('keys', 'Keys')}">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
