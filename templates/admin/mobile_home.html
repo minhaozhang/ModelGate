@@ -758,7 +758,16 @@
             try {
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/busyness`);
                 const el = document.getElementById('busyness-level');
-                if (el && data.label) el.textContent = data.label;
+                if (!el || !data.level) return;
+                const colorMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-600'};
+                el.className = 'metric-flip mt-1 text-lg font-bold leading-none ' + (colorMap[data.color] || 'text-slate-600');
+                const locale = document.documentElement.lang || 'zh';
+                if (locale === 'zh' || locale === 'zh-CN') {
+                    el.textContent = data.label;
+                } else {
+                    const nameMap = {extremely_busy:'Ext.Busy',very_busy:'V.Busy',busy:'Busy',normal:'Normal',idle:'Idle',quiet:'Quiet'};
+                    el.textContent = nameMap[data.name] || data.name;
+                }
             } catch(e) {}
         }
 
