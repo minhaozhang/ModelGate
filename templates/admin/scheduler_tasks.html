@@ -43,8 +43,8 @@
             <div id="panel-logs" class="hidden">{% include 'admin/scheduler_logs_tab.html' %}</div>
         </main>
     </div>
+    <script>const APP_BASE_PATH = "{{ app_base_path }}";</script>
     <script>
-        const APP_BASE_PATH = "{{ app_base_path }}";
         async function logout() {
             await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
             window.location.href = `${APP_BASE_PATH}/admin/login`;

@@ -285,19 +285,9 @@
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('documents')">{{ _('Documents') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('mcp')">MCP Tools</button>
-                <div class="ml-auto relative flex items-center px-4">
-                    <button onclick="toggleNotifPopup()" class="relative p-1">
-                        <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                        <span id="user-notif-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center hidden">0</span>
-                    </button>
-                    <div id="notif-popup" class="hidden absolute right-4 top-10 w-80 bg-white rounded-lg shadow-xl border z-50 max-h-96 overflow-y-auto">
-                        <div class="p-3 border-b font-semibold text-sm text-gray-700 flex justify-between">
-                            <span>{{ _('Notifications') }}</span>
-                            <button onclick="markAllUserRead()" class="text-xs text-blue-500 hover:text-blue-700">{{ _('Mark All Read') }}</button>
-                        </div>
-                        <div id="notif-popup-list" class="divide-y"></div>
-                    </div>
-                </div>
+                <button class="tab-btn px-6 py-3 font-medium relative" onclick="showTab('notifications')">{{ _('Notifications') }}
+                    <span id="user-notif-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 hidden">0</span>
+                </button>
             </div>
             
             {% include 'user/tab_stats.html' %}
@@ -306,6 +296,7 @@
             {% include 'user/tab_usage.html' %}
             {% include 'user/tab_documents.html' %}
             {% include 'user/tab_mcp.html' %}
+            {% include 'user/tab_notifications.html' %}
         </div>
     </div>
     
@@ -467,13 +458,14 @@
         function showTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            event.target.classList.add('active');
+            event.target.closest('.tab-btn').classList.add('active');
             document.getElementById('tab-' + tab).classList.add('active');
             
             if (tab === 'opencode') loadOpenCodeConfig();
             if (tab === 'catalog' && !catalogLoaded) loadCatalog();
             if (tab === 'documents') loadDocList();
             if (tab === 'mcp') loadMcpInfo();
+            if (tab === 'notifications') { loadUserNotifList(1); userNotifMarkAllRead(); }
         }
 
         let _cachedSystemModels = {};
@@ -1054,55 +1046,10 @@
         }
 
         function renderSystemHealth(health) {
-            const badge = document.getElementById('system-health-badge');
-            const score = document.getElementById('system-health-score');
-            const summary = document.getElementById('system-health-summary');
-            const activeUsers = document.getElementById('system-health-users');
-            const pending = document.getElementById('system-health-pending');
             const errorRate = document.getElementById('system-health-error-rate');
-            const latency = document.getElementById('system-health-latency');
-
-            const statusMap = {
-                excellent: {
-                    label: window.I18N.healthExcellent,
-                    badgeClass: 'rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700',
-                    scoreClass: 'text-3xl font-bold text-emerald-600',
-                },
-                healthy: {
-                    label: window.I18N.healthHealthy,
-                    badgeClass: 'rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-900',
-                    scoreClass: 'text-3xl font-bold text-blue-600',
-                },
-                busy: {
-                    label: window.I18N.healthBusy,
-                    badgeClass: 'rounded-full bg-yellow-100 px-2.5 py-1 text-xs font-semibold text-yellow-700',
-                    scoreClass: 'text-3xl font-bold text-yellow-600',
-                },
-                degraded: {
-                    label: window.I18N.healthDegraded,
-                    badgeClass: 'rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700',
-                    scoreClass: 'text-3xl font-bold text-red-600',
-                },
-                idle: {
-                    label: window.I18N.healthIdle,
-                    badgeClass: 'rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600',
-                    scoreClass: 'text-3xl font-bold text-slate-700',
-                }
-            };
-
-            const statusKey = statusMap[health?.status] ? health.status : 'idle';
-            const statusConfig = statusMap[statusKey];
-            badge.className = statusConfig.badgeClass;
-            badge.textContent = statusConfig.label;
-            score.className = statusConfig.scoreClass;
-            score.textContent = health?.score === null || health?.score === undefined ? '--' : Math.round(Number(health.score));
-            summary.textContent = statusKey === 'idle' || health?.score === null || health?.score === undefined
-                ? window.I18N.noRecentTraffic
-                : window.I18N.healthSummary;
-            activeUsers.textContent = Number(health?.active_api_keys || 0).toLocaleString();
-            pending.textContent = Number(health?.pending_requests || 0).toLocaleString();
-            errorRate.textContent = `${(Number(health?.error_rate || 0) * 100).toFixed(1)}%`;
-            latency.textContent = formatHealthLatency(health?.avg_latency_ms);
+            if (errorRate) {
+                errorRate.textContent = `${(Number(health?.error_rate || 0) * 100).toFixed(1)}%`;
+            }
         }
 
         function renderBusyness(data) {
@@ -1557,18 +1504,7 @@
         setInterval(loadMyRequests, 10000);
         setInterval(loadSystemActiveSessions, 10000);
 
-        let notifPopupOpen = false;
-        function toggleNotifPopup() {
-            notifPopupOpen = !notifPopupOpen;
-            document.getElementById('notif-popup').classList.toggle('hidden', !notifPopupOpen);
-            if (notifPopupOpen) loadNotifPopup();
-        }
-        document.addEventListener('click', e => {
-            const popup = document.getElementById('notif-popup');
-            if (notifPopupOpen && !e.target.closest('#notif-popup') && !e.target.closest('button[onclick*="toggleNotifPopup"]')) {
-                notifPopupOpen = false; popup.classList.add('hidden');
-            }
-        });
+        let _userNotifPage = 1;
         async function pollUserNotifs() {
             try {
                 const r = await fetch(APP_BASE_PATH + '/user/api/notifications/unread-count');
@@ -1577,16 +1513,41 @@
                 if (b) { if (d.count > 0) { b.textContent = d.count > 99 ? '99+' : d.count; b.classList.remove('hidden'); } else { b.classList.add('hidden'); } }
             } catch {}
         }
-        async function loadNotifPopup() {
-            const r = await fetch(APP_BASE_PATH + '/user/api/notifications?page=1&page_size=5');
+        async function loadUserNotifList(page) {
+            _userNotifPage = page;
+            const r = await fetch(APP_BASE_PATH + '/user/api/notifications?page=' + page + '&page_size=10');
             const d = await r.json();
-            const el = document.getElementById('notif-popup-list');
-            if (!d.items.length) { el.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + (window.I18N.noNotifications || 'No notifications') + '</div>'; return; }
-            el.innerHTML = d.items.map(n => `<div class="p-3 text-sm ${n.is_read?'':'bg-blue-50'}"><div class="font-medium text-gray-700">${n.title}</div>${n.body?'<div class="text-gray-500 text-xs mt-1">'+n.body+'</div>':''}<div class="text-xs text-gray-400 mt-1">${new Date(n.created_at).toLocaleString()}</div></div>`).join('');
+            const el = document.getElementById('user-notif-list');
+            if (!d.items || !d.items.length) { el.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + (window.I18N.noNotifications || 'No notifications') + '</div>'; document.getElementById('user-notif-pagination').innerHTML = ''; return; }
+            const levelColors = {info:'border-blue-400 bg-blue-50',warning:'border-yellow-400 bg-yellow-50',error:'border-red-400 bg-red-50'};
+            const levelDots = {info:'bg-blue-500',warning:'bg-yellow-500',error:'bg-red-500'};
+            el.innerHTML = d.items.map(function(n) {
+                const lc = levelColors[n.level]||levelColors.info;
+                const ld = levelDots[n.level]||levelDots.info;
+                return '<div class="bg-white rounded-lg p-3 border ' + lc + ' ' + (n.is_read?'':'border-l-[3px] border-l-blue-500') + '">' +
+                    '<div class="flex items-start gap-2">' +
+                        '<div class="w-2 h-2 rounded-full ' + ld + ' mt-1.5 shrink-0"></div>' +
+                        '<div class="flex-1 min-w-0">' +
+                            '<div class="flex justify-between gap-2"><span class="font-medium text-gray-700 text-sm">' + (n.title||'') + '</span><span class="text-xs text-gray-400 shrink-0">' + new Date(n.created_at).toLocaleString() + '</span></div>' +
+                            (n.body ? '<p class="text-xs text-gray-500 mt-1">' + n.body + '</p>' : '') +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+            const totalPages = Math.ceil(d.total / d.page_size);
+            const pg = document.getElementById('user-notif-pagination');
+            if (totalPages <= 1) { pg.innerHTML = ''; return; }
+            let html = '';
+            if (page > 1) html += '<button onclick="loadUserNotifList(' + (page-1) + ')" class="px-3 py-1 border rounded text-sm">&lt;</button>';
+            for (let i = Math.max(1,page-2); i <= Math.min(totalPages,page+2); i++) {
+                html += '<button onclick="loadUserNotifList(' + i + ')" class="px-3 py-1 border rounded text-sm ' + (i===page?'bg-blue-500 text-white':'') + '">' + i + '</button>';
+            }
+            if (page < totalPages) html += '<button onclick="loadUserNotifList(' + (page+1) + ')" class="px-3 py-1 border rounded text-sm">&gt;</button>';
+            pg.innerHTML = html;
         }
-        async function markAllUserRead() {
+        async function userNotifMarkAllRead() {
             await fetch(APP_BASE_PATH + '/user/api/notifications/read-all', {method:'PUT'});
-            pollUserNotifs(); loadNotifPopup();
+            pollUserNotifs();
         }
         pollUserNotifs(); setInterval(pollUserNotifs, 30000);
     </script>

@@ -551,6 +551,7 @@ async def handle_normal(
     request_id,
     chosen_key_id=None,
     protocol="openai",
+    extra_response_headers=None,
 ):
     return await runtime_handle_normal(
         client=client,
@@ -571,6 +572,7 @@ async def handle_normal(
         request_id=request_id,
         chosen_key_id=chosen_key_id,
         protocol=protocol,
+        extra_response_headers=extra_response_headers,
     )
 
 
@@ -594,6 +596,7 @@ async def handle_streaming(
     request,
     chosen_key_id=None,
     protocol="openai",
+    extra_response_headers=None,
 ):
     return await runtime_handle_streaming(
         url=url,
@@ -615,4 +618,5 @@ async def handle_streaming(
         request=request,
         chosen_key_id=chosen_key_id,
         protocol=protocol,
+        extra_response_headers=extra_response_headers,
     )
