@@ -46,7 +46,6 @@
         <a href="{{ app_base_path }}/admin/notifications" class="nav-link {{ 'active' if active_page == 'notifications' else '' }} flex items-center px-4 py-3 text-gray-700">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
             {{ '消息中心' if current_locale == 'zh' else 'Notifications' }}
-            <span id="nav-unread-badge" class="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 hidden">0</span>
         </a>
         <a href="{{ app_base_path }}/admin/scheduler-tasks" class="nav-link {{ 'active' if active_page == 'scheduler-tasks' else '' }} flex items-center px-4 py-3 text-gray-700">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -66,7 +65,5 @@
             {{ _('Logout') }}
         </button>
     </div>
-    <script>
-        (function(){const APP_BASE_PATH='{{ app_base_path }}';function pollUnread(){fetch(APP_BASE_PATH+'/admin/api/notifications/unread-count').then(r=>r.json()).then(d=>{const b=document.getElementById('nav-unread-badge');if(b){if(d.count>0){b.textContent=d.count>99?'99+':d.count;b.classList.remove('hidden');}else{b.classList.add('hidden');}}}).catch(()=>{});}pollUnread();setInterval(pollUnread,30000);})();
     </script>
 </nav>

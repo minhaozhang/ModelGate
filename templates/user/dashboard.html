@@ -285,9 +285,13 @@
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('documents')">{{ _('Documents') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('mcp')">MCP Tools</button>
-                <button class="tab-btn px-6 py-3 font-medium relative" onclick="showTab('notifications')">{{ _('Notifications') }}
-                    <span id="user-notif-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 hidden">0</span>
-                </button>
+                <button class="tab-btn px-6 py-3 font-medium" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}</button>
+                <div class="ml-auto flex items-center pr-4">
+                    <button onclick="showTab('notifications')" class="relative">
+                        <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                        <span id="user-notif-badge" class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5 leading-none hidden">0</span>
+                    </button>
+                </div>
             </div>
             
             {% include 'user/tab_stats.html' %}
@@ -458,8 +462,9 @@
         function showTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            var btn = event.currentTarget || event.target.closest('.tab-btn') || event.target;
-            btn.classList.add('active');
+            var btn = event.target.closest('.tab-btn');
+            if (btn) { btn.classList.add('active'); }
+            else { document.querySelectorAll('.tab-btn').forEach(function(b){ if(b.getAttribute('data-tab')===tab) b.classList.add('active'); }); }
             document.getElementById('tab-' + tab).classList.add('active');
             
             if (tab === 'opencode') loadOpenCodeConfig();
