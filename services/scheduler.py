@@ -198,16 +198,18 @@ async def _task_busyness():
 
     if old_level is not None and old_level != new_level:
         logger.info("[BUSYNESS] Level changed: %s -> %s", old_level, new_level)
-        try:
-            from services.notification import create_notification
-            await create_notification(
-                "system",
-                "warning" if new_level <= 3 else "info",
-                f"系统繁忙程度变更：{LEVEL_LABELS.get(old_level, '?')} → {LEVEL_LABELS.get(new_level, '?')}",
-                f"当前级别：{new_level}（{LEVEL_LABELS.get(new_level, '?')}）",
-            )
-        except Exception as e:
-            logger.warning("[BUSYNESS] Failed to create notification: %s", e)
+        should_notify = old_level == 2 and new_level == 1
+        if should_notify:
+            try:
+                from services.notification import create_notification
+                await create_notification(
+                    "system",
+                    "warning" if new_level <= 3 else "info",
+                    f"系统繁忙程度变更：{LEVEL_LABELS.get(old_level, '?')} → {LEVEL_LABELS.get(new_level, '?')}",
+                    f"当前级别：{new_level}（{LEVEL_LABELS.get(new_level, '?')}）",
+                )
+            except Exception as e:
+                logger.warning("[BUSYNESS] Failed to create notification: %s", e)
 
     await _run_task_with_logging("compute_busyness_level", None, summary)
 
