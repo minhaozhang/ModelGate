@@ -59,6 +59,12 @@ TASK_REGISTRY = {
         "default_cron": "*/10 * * * *",
         "func": compute_busyness_level,
     },
+    "daily_recommendation_analysis": {
+        "name": "每日推荐分析",
+        "description": "基于7天使用统计计算模型推荐排行并缓存到数据库",
+        "default_cron": "0 8 * * *",
+        "func": None,
+    },
 }
 
 
@@ -208,6 +214,11 @@ async def _task_busyness():
     await _run_task_with_logging("compute_busyness_level", None, summary)
 
 
+async def _task_recommendation():
+    from routes.user import scheduled_daily_recommendation_analysis
+    await _run_task_with_logging("daily_recommendation_analysis", scheduled_daily_recommendation_analysis)
+
+
 TASK_HANDLERS = {
     "aggregate_daily_stats": _task_aggregate_daily,
     "aggregate_mcp_daily_stats": _task_aggregate_mcp,
@@ -215,6 +226,7 @@ TASK_HANDLERS = {
     "cleanup_stale_pending": _task_cleanup,
     "auto_reenable_disabled": _task_auto_reenable,
     "compute_busyness_level": _task_busyness,
+    "daily_recommendation_analysis": _task_recommendation,
 }
 
 

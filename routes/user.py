@@ -144,11 +144,120 @@ def get_hour_cache_bucket(now: datetime) -> str:
     return now.strftime("%Y%m%d%H")
 
 
-# DEPRECATED: AI recommendation functions removed (build_recommendation_scope_key,
-# build_rule_based_recommendation_reason, format_hour_range, build_rule_based_timing_advice,
-# _strip_cot_from_content, extract_text_content, extract_json_payload,
-# generate_recommendation_insights, parse_recommendation_analysis_record,
-# run_user_recommendation_analysis)
+async def scheduled_daily_recommendation_analysis():
+    from core.database import ProviderModel, Provider
+    from services.analysis_store import (
+        ANALYSIS_TYPE_USER_RECOMMENDATION,
+        ANALYSIS_STATUS_RUNNING,
+        ANALYSIS_STATUS_SUCCESS,
+        ANALYSIS_STATUS_FAILED,
+        upsert_analysis_record,
+    )
+
+    now = get_local_now()
+    start = now - timedelta(days=7)
+
+    async with async_session_maker() as session:
+        rows_result = await session.execute(
+            select(
+                RequestLog.provider_id,
+                RequestLog.model,
+                func.count(RequestLog.id).label("requests"),
+                func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                func.sum(
+                    case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                ).label("errors"),
+            )
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.status != "pending",
+            )
+            .group_by(RequestLog.provider_id, RequestLog.model)
+        )
+        rows = rows_result.fetchall()
+
+        model_names_in_rows = {row.model for row in rows if row.model}
+        display_name_map = {}
+        if model_names_in_rows:
+            dm_result = await session.execute(
+                select(Model.name, Model.display_name).where(Model.name.in_(model_names_in_rows))
+            )
+            for r in dm_result.fetchall():
+                display_name_map[r[0]] = r[1] or r[0]
+
+    recommendations = []
+    for row in rows:
+        model_name = row.model
+        if not model_name:
+            continue
+        requests_count = int(row.requests or 0)
+        if requests_count <= 0:
+            continue
+        errors_count = int(row.errors or 0)
+        avg_latency_ms = float(row.avg_latency_ms or 0)
+        error_rate = errors_count / requests_count if requests_count else 1.0
+        reliability_score = max(0.0, 1.0 - (error_rate * 1.5))
+        latency_score = 1 / (1 + (avg_latency_ms / 2500.0)) if avg_latency_ms > 0 else 0.0
+        sample_score = min(requests_count / 20.0, 1.0)
+        score = (reliability_score * 0.55) + (latency_score * 0.30) + (sample_score * 0.15)
+
+        provider_name = _get_provider_name_by_id(row.provider_id)
+        if not provider_name:
+            continue
+        full_name = f"{provider_name}/{model_name}"
+
+        display_name = display_name_map.get(model_name, model_name)
+        recommendations.append({
+            "model": full_name,
+            "display_name": display_name,
+            "provider": provider_name,
+            "actual_model_name": model_name,
+            "requests": requests_count,
+            "errors": errors_count,
+            "error_rate": round(error_rate, 4),
+            "avg_latency_ms": round(avg_latency_ms, 2),
+            "score": round(score, 4),
+        })
+
+    recommendations.sort(
+        key=lambda item: (-item["score"], item["error_rate"], item["avg_latency_ms"])
+    )
+    top = recommendations[:10]
+    for idx, rec in enumerate(top):
+        rec["rank"] = idx + 1
+
+    import json
+    scope_key = "global:day:stats"
+    try:
+        await upsert_analysis_record(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+            status=ANALYSIS_STATUS_RUNNING,
+            language="zh",
+        )
+        content = json.dumps(top, ensure_ascii=False)
+        await upsert_analysis_record(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+            status=ANALYSIS_STATUS_SUCCESS,
+            language="zh",
+            content=content,
+            expires_at=now + timedelta(hours=RECOMMENDATION_ANALYSIS_EXPIRES_HOURS),
+        )
+        logger.info(
+            "[SCHEDULER] Daily recommendation analysis completed (%d recommendations)",
+            len(top),
+        )
+    except Exception as exc:
+        logger.warning("[SCHEDULER] Failed to save recommendation analysis: %s", exc)
+        await upsert_analysis_record(
+            ANALYSIS_TYPE_USER_RECOMMENDATION,
+            scope_key,
+            status=ANALYSIS_STATUS_FAILED,
+            language="zh",
+            error=str(exc),
+            expires_at=now + timedelta(hours=RECOMMENDATION_ANALYSIS_EXPIRES_HOURS),
+        )
 
 def get_cached_payload(
     cache: dict,
@@ -817,79 +926,103 @@ async def get_user_recommendations(
     if cached_payload is not None:
         return cached_payload
 
-    start = now - timedelta(days=7)
-    async with async_session_maker() as session:
-        rows_result = await session.execute(
-            select(
-                RequestLog.provider_id,
-                RequestLog.model,
-                func.count(RequestLog.id).label("requests"),
-                func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
-                func.sum(
-                    case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
-                ).label("errors"),
+    import json as _json
+    from services.analysis_store import (
+        ANALYSIS_TYPE_USER_RECOMMENDATION,
+        ANALYSIS_STATUS_SUCCESS,
+        get_analysis_record,
+    )
+
+    all_items = []
+    generated_at = now.isoformat()
+
+    scope_key = "global:day:stats"
+    record = await get_analysis_record(ANALYSIS_TYPE_USER_RECOMMENDATION, scope_key)
+    if record and record.status == ANALYSIS_STATUS_SUCCESS and record.content:
+        try:
+            stored = _json.loads(record.content)
+            if isinstance(stored, list):
+                all_items = stored
+                generated_at = record.updated_at.isoformat() if record.updated_at else generated_at
+        except Exception:
+            pass
+
+    if not all_items:
+        start = now - timedelta(days=7)
+        async with async_session_maker() as session:
+            rows_result = await session.execute(
+                select(
+                    RequestLog.provider_id,
+                    RequestLog.model,
+                    func.count(RequestLog.id).label("requests"),
+                    func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                    func.sum(
+                        case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                    ).label("errors"),
+                )
+                .where(
+                    RequestLog.created_at >= start,
+                    RequestLog.status != "pending",
+                )
+                .group_by(RequestLog.provider_id, RequestLog.model)
             )
-            .where(
-                RequestLog.created_at >= start,
-                RequestLog.status != "pending",
-            )
-            .group_by(RequestLog.provider_id, RequestLog.model)
-        )
-        rows = rows_result.fetchall()
+            rows = rows_result.fetchall()
 
-        model_names_in_rows = {row.model for row in rows if row.model}
-        display_name_map = {}
-        if model_names_in_rows:
-            dm_result = await session.execute(
-                select(Model.name, Model.display_name).where(Model.name.in_(model_names_in_rows))
-            )
-            for r in dm_result.fetchall():
-                display_name_map[r[0]] = r[1] or r[0]
+            model_names_in_rows = {row.model for row in rows if row.model}
+            display_name_map_fallback = {}
+            if model_names_in_rows:
+                dm_result = await session.execute(
+                    select(Model.name, Model.display_name).where(Model.name.in_(model_names_in_rows))
+                )
+                for r in dm_result.fetchall():
+                    display_name_map_fallback[r[0]] = r[1] or r[0]
 
-    recommendations = []
-    for row in rows:
-        model_name = row.model
-        if not model_name:
-            continue
-        requests_count = int(row.requests or 0)
-        if requests_count <= 0:
-            continue
-        errors_count = int(row.errors or 0)
-        avg_latency_ms = float(row.avg_latency_ms or 0)
-        error_rate = errors_count / requests_count if requests_count else 1.0
-        reliability_score = max(0.0, 1.0 - (error_rate * 1.5))
-        latency_score = 1 / (1 + (avg_latency_ms / 2500.0)) if avg_latency_ms > 0 else 0.0
-        sample_score = min(requests_count / 20.0, 1.0)
-        score = (reliability_score * 0.55) + (latency_score * 0.30) + (sample_score * 0.15)
+        for row in rows:
+            model_name = row.model
+            if not model_name:
+                continue
+            requests_count = int(row.requests or 0)
+            if requests_count <= 0:
+                continue
+            errors_count = int(row.errors or 0)
+            avg_latency_ms = float(row.avg_latency_ms or 0)
+            error_rate = errors_count / requests_count if requests_count else 1.0
+            reliability_score = max(0.0, 1.0 - (error_rate * 1.5))
+            latency_score = 1 / (1 + (avg_latency_ms / 2500.0)) if avg_latency_ms > 0 else 0.0
+            sample_score = min(requests_count / 20.0, 1.0)
+            score = (reliability_score * 0.55) + (latency_score * 0.30) + (sample_score * 0.15)
 
-        provider_name = _get_provider_name_by_id(row.provider_id)
-        if not provider_name:
-            continue
-        full_name = f"{provider_name}/{model_name}"
-        if not _check_model_available(full_name, api_key_id):
-            continue
+            provider_name = _get_provider_name_by_id(row.provider_id)
+            if not provider_name:
+                continue
+            full_name = f"{provider_name}/{model_name}"
 
-        display_name = display_name_map.get(model_name, model_name)
-        recommendations.append({
-            "model": full_name,
-            "display_name": display_name,
-            "provider": provider_name,
-            "actual_model_name": model_name,
-            "requests": requests_count,
-            "errors": errors_count,
-            "error_rate": round(error_rate, 4),
-            "avg_latency_ms": round(avg_latency_ms, 2),
-            "score": round(score, 4),
-        })
+            display_name = display_name_map_fallback.get(model_name, model_name)
+            all_items.append({
+                "model": full_name,
+                "display_name": display_name,
+                "provider": provider_name,
+                "actual_model_name": model_name,
+                "requests": requests_count,
+                "errors": errors_count,
+                "error_rate": round(error_rate, 4),
+                "avg_latency_ms": round(avg_latency_ms, 2),
+                "score": round(score, 4),
+            })
 
-    recommendations.sort(key=lambda item: (-item["score"], item["error_rate"], item["avg_latency_ms"]))
-    top = recommendations[:10]
+        all_items.sort(key=lambda item: (-item["score"], item["error_rate"], item["avg_latency_ms"]))
+
+    filtered = [
+        item for item in all_items
+        if _check_model_available(item.get("model", ""), api_key_id)
+    ]
+    top = filtered[:10]
     for idx, rec in enumerate(top):
         rec["rank"] = idx + 1
 
     payload = {
         "period": period,
-        "generated_at": now.isoformat(),
+        "generated_at": generated_at,
         "items": top,
         "hourly_stats": [],
         "timing_advice": None,
