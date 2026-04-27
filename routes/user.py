@@ -965,6 +965,7 @@ async def get_user_recommendations(
                     RequestLog.status != "pending",
                 )
                 .group_by(RequestLog.provider_id, RequestLog.model)
+                .having(func.count(RequestLog.id) >= 10)
             )
             rows = rows_result.fetchall()
 
@@ -982,8 +983,6 @@ async def get_user_recommendations(
             if not model_name:
                 continue
             requests_count = int(row.requests or 0)
-            if requests_count < 10:
-                continue
             errors_count = int(row.errors or 0)
             avg_latency_ms = float(row.avg_latency_ms or 0)
             error_rate = errors_count / requests_count if requests_count else 1.0
