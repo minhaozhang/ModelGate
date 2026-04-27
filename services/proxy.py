@@ -23,10 +23,7 @@ from services.provider import (
     pick_api_key,
 )
 from services.auth import validate_api_key
-from services.logging import (
-    create_request_log,
-    log_request,
-)
+from services.logging import create_request_log
 from services.tokens import (
     estimate_request_context_tokens,
 )
@@ -274,19 +271,17 @@ async def proxy_request(request: Request, endpoint: str):
                     api_key_id=api_key_id,
                     is_rate_limited=True,
                 )
-                await log_request(
+                await create_request_log(
                     provider_name,
                     actual_model,
-                    "",
-                    {},
-                    (time.time() - start_time) * 1000,
-                    LOCAL_RATE_LIMITED_STATUS,
+                    status=LOCAL_RATE_LIMITED_STATUS,
                     api_key_id=api_key_id,
-                    upstream_status_code=429,
-                    downstream_status_code=429,
                     client_ip=client_ip,
                     user_agent=user_agent,
                     request_context_tokens=estimate_request_context_tokens(body_json),
+                    latency_ms=(time.time() - start_time) * 1000,
+                    upstream_status_code=429,
+                    downstream_status_code=429,
                     error=message,
                 )
                 return _openai_error_response(
@@ -332,19 +327,17 @@ async def proxy_request(request: Request, endpoint: str):
                     api_key_id=api_key_id,
                     is_rate_limited=True,
                 )
-                await log_request(
+                await create_request_log(
                     provider_name,
                     actual_model,
-                    "",
-                    {},
-                    (time.time() - start_time) * 1000,
-                    LOCAL_RATE_LIMITED_STATUS,
+                    status=LOCAL_RATE_LIMITED_STATUS,
                     api_key_id=api_key_id,
-                    upstream_status_code=429,
-                    downstream_status_code=429,
                     client_ip=client_ip,
                     user_agent=user_agent,
                     request_context_tokens=estimate_request_context_tokens(body_json),
+                    latency_ms=(time.time() - start_time) * 1000,
+                    upstream_status_code=429,
+                    downstream_status_code=429,
                     error=message,
                 )
                 return _openai_error_response(
@@ -483,18 +476,16 @@ async def proxy_request(request: Request, endpoint: str):
         update_stats(
             provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True
         )
-        await log_request(
+        await create_request_log(
             provider_name,
             actual_model,
-            "",
-            {},
-            latency,
-            "error",
+            status="error",
             api_key_id=api_key_id,
-            downstream_status_code=502,
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=estimate_request_context_tokens(body_json),
+            latency_ms=latency,
+            downstream_status_code=502,
             error=str(e),
         )
         error_logger.error(

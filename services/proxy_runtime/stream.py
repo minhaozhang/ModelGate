@@ -12,7 +12,7 @@ from core.config import (
     update_stats,
 )
 from core.log_sanitizer import sanitize_text_for_log
-from services.logging import log_request, update_request_log
+from services.logging import create_request_log, update_request_log
 from services.minimax import MinimaxStreamProcessor
 from services.provider_limiter import check_usage_limit_error, disable_provider_key
 from services.proxy_runtime.adapters import get_adapter
@@ -104,30 +104,32 @@ async def handle_streaming(
                 is_error=request_status == "error",
                 is_rate_limited=request_status in RATE_LIMITED_STATUSES,
             )
-            await log_request(
-                provider,
-                model,
-                "",
-                {},
-                latency,
-                request_status,
-                api_key_id=api_key_id,
-                upstream_status_code=resp.status_code,
-                downstream_status_code=resp.status_code,
-                client_ip=client_ip,
-                user_agent=user_agent,
-                request_context_tokens=request_context_tokens,
-                error=sanitize_text_for_log(provider_error or error_text, limit=2000),
+            error_detail = sanitize_text_for_log(
+                provider_error or error_text, limit=2000
             )
+            updated = False
             if log_id:
-                await update_request_log(
+                updated = await update_request_log(
                     log_id,
                     status=request_status,
+                    latency_ms=latency,
                     upstream_status_code=resp.status_code,
                     downstream_status_code=resp.status_code,
-                    error=sanitize_text_for_log(
-                        provider_error or error_text, limit=2000
-                    ),
+                    error=error_detail,
+                )
+            if not log_id or not updated:
+                await create_request_log(
+                    provider,
+                    model,
+                    status=request_status,
+                    api_key_id=api_key_id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                    request_context_tokens=request_context_tokens,
+                    latency_ms=latency,
+                    upstream_status_code=resp.status_code,
+                    downstream_status_code=resp.status_code,
+                    error=error_detail,
                 )
             if is_active_request_registered:
                 await finish_active_request(request_id)

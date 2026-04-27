@@ -105,6 +105,7 @@ DEFAULT_OUTBOUND_USER_AGENT = (
 )
 OUTBOUND_USER_AGENT = DEFAULT_OUTBOUND_USER_AGENT
 system_config: dict[str, Any] = {}
+system_settings: dict[str, str] = {}
 
 stats = {
     "total_requests": 0,

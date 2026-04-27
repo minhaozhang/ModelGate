@@ -224,7 +224,7 @@ class InternalProxyConcurrencyTests(unittest.IsolatedAsyncioTestCase):
                 return_value=("sk-test", 11),
             ),
             patch("services.proxy_runtime.internal.asyncio.wait_for", new=fake_wait_for),
-            patch("services.proxy_runtime.internal.log_request", new=AsyncMock()),
+            patch("services.proxy_runtime.internal.create_request_log", new=AsyncMock(return_value=1)),
             patch("services.proxy_runtime.internal.update_stats", new=Mock()),
             patch("services.proxy_runtime.internal.logger.warning", new=Mock()),
         ):

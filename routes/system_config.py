@@ -23,25 +23,40 @@ def require_admin(session: str = Cookie(None)):
 
 @router.get("/api/system/config")
 async def get_config(_: bool = Depends(require_admin)):
+    from services.system_config import ALL_DEFAULTS, get_setting
+
+    busyness_settings = {}
+    for key in ALL_DEFAULTS.get("busyness", {}):
+        busyness_settings[key] = await get_setting("busyness", key)
+
+    ua = await get_setting("proxy", "ua_override", "")
+
     return {
-        "ua_override": config.system_config.get("ua_override")
-        or DEFAULT_OUTBOUND_USER_AGENT,
+        "ua_override": ua or DEFAULT_OUTBOUND_USER_AGENT,
         "default_ua": DEFAULT_OUTBOUND_USER_AGENT,
+        "busyness": busyness_settings,
     }
 
 
 @router.put("/api/system/config")
 async def update_config(body: dict, _: bool = Depends(require_admin)):
+    from services.system_config import ALL_DEFAULTS, save_setting
+
     ua = body.get("ua_override", "").strip()
     if ua:
+        await save_setting("proxy", "ua_override", ua)
         config.OUTBOUND_USER_AGENT = ua
-        config.system_config["ua_override"] = ua
     else:
+        await save_setting("proxy", "ua_override", "")
         config.OUTBOUND_USER_AGENT = DEFAULT_OUTBOUND_USER_AGENT
-        config.system_config.pop("ua_override", None)
-    return {
-        "ua_override": config.OUTBOUND_USER_AGENT,
-    }
+
+    busyness_updates = body.get("busyness", {})
+    valid_busyness_keys = ALL_DEFAULTS.get("busyness", {})
+    for key, value in busyness_updates.items():
+        if key in valid_busyness_keys:
+            await save_setting("busyness", key, str(value))
+
+    return {"ok": True}
 
 
 @router.get("/api/system/ua-stats")

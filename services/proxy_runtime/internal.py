@@ -7,7 +7,7 @@ from sqlalchemy import select
 from core.config import logger, record_request_rate, update_stats
 from core.database import ApiKey, async_session_maker
 from core.log_sanitizer import sanitize_text_for_log
-from services.logging import log_request
+from services.logging import create_request_log
 from services.deepseek_compat import is_deepseek_thinking_active, patch_reasoning_content
 from services.message import preprocess_messages
 from services.minimax import process_minimax_response
@@ -272,19 +272,19 @@ async def call_internal_model_via_proxy(
         if not is_error and total_tokens > 0:
             record_request_rate(total_tokens, latency)
         log_response_meta(provider_name, actual_model, response_meta)
-        await log_request(
+        await create_request_log(
             provider_name,
             actual_model,
-            response_text,
-            tokens_record,
-            latency,
-            request_status,
+            status=request_status,
             api_key_id=api_key_id,
-            upstream_status_code=resp.status_code,
-            downstream_status_code=None,
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=request_context_tokens,
+            response=response_text,
+            tokens=tokens_record,
+            latency_ms=latency,
+            upstream_status_code=resp.status_code,
+            downstream_status_code=resp.status_code,
             error=(
                 sanitize_text_for_log(provider_error, limit=2000)
                 if provider_error
@@ -328,18 +328,16 @@ async def call_internal_model_via_proxy(
         update_stats(
             provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True
         )
-        await log_request(
+        await create_request_log(
             provider_name,
             actual_model,
-            "",
-            {},
-            latency,
-            "error",
+            status="error",
             api_key_id=api_key_id,
-            downstream_status_code=None,
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=estimate_request_context_tokens(req_body),
+            latency_ms=latency,
+            downstream_status_code=502,
             error=str(exc),
         )
         logger.warning(

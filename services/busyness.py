@@ -45,6 +45,7 @@ def _count_disabled_providers() -> int:
 async def compute_busyness_level() -> dict[str, Any]:
     from core.database import async_session_maker, RequestLog
     from sqlalchemy import select, func, distinct
+    from services.system_config import get_int_setting, get_float_setting
 
     now = datetime.now()
     current_10min_slot = now.replace(minute=(now.minute // 10) * 10, second=0, microsecond=0)
@@ -61,7 +62,7 @@ async def compute_busyness_level() -> dict[str, Any]:
             select(func.count()).where(RequestLog.created_at >= cutoff_10min, RequestLog.created_at < end_10min)
         )).scalar() or 0
         rate_limited_10min = (await session.execute(
-            select(func.count()).where(RequestLog.created_at >= cutoff_10min, RequestLog.created_at < end_10min, RequestLog.status.in_(["rate_limited", "local_rate_limited"]))
+            select(func.count()).where(RequestLog.created_at >= cutoff_10min, RequestLog.created_at < end_10min, RequestLog.downstream_status_code == 429)
         )).scalar() or 0
         has_1hour = (await session.execute(
             select(func.count()).where(RequestLog.created_at >= cutoff_1hour).limit(1)
@@ -69,11 +70,17 @@ async def compute_busyness_level() -> dict[str, Any]:
 
     disabled_providers = _count_disabled_providers()
     ratio_429 = rate_limited_10min / total_10min if total_10min > 0 else 0.0
-    busy_condition = active_users > 10 and ratio_429 > 0.5
 
-    if busy_condition and disabled_providers >= 2:
+    active_threshold = await get_int_setting("busyness", "active_users_threshold", 10)
+    rate_threshold = await get_float_setting("busyness", "rate_429_threshold", 0.5)
+    critical_disabled = await get_int_setting("busyness", "disabled_providers_critical", 2)
+    busy_disabled = await get_int_setting("busyness", "disabled_providers_busy", 1)
+
+    busy_condition = active_users > active_threshold and ratio_429 > rate_threshold
+
+    if busy_condition and disabled_providers >= critical_disabled:
         level = 1
-    elif busy_condition and disabled_providers >= 1:
+    elif busy_condition and disabled_providers >= busy_disabled:
         level = 2
     elif busy_condition:
         level = 3

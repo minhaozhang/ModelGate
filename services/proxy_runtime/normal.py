@@ -13,7 +13,7 @@ from core.config import (
     update_stats,
 )
 from core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
-from services.logging import log_request
+from services.logging import create_request_log
 from services.minimax import process_minimax_response
 from services.provider_limiter import check_usage_limit_error, disable_provider_key
 from services.proxy_runtime.adapters import get_adapter
@@ -148,19 +148,19 @@ async def handle_normal(
         if not is_error and total_tokens > 0:
             record_request_rate(total_tokens, latency)
         log_response_meta(provider, model, response_meta)
-        await log_request(
+        await create_request_log(
             provider,
             model,
-            response_text,
-            tokens_record,
-            latency,
-            request_status,
+            status=request_status,
             api_key_id=api_key_id,
-            upstream_status_code=resp.status_code,
-            downstream_status_code=resp.status_code,
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=request_context_tokens,
+            response=response_text,
+            tokens=tokens_record,
+            latency_ms=latency,
+            upstream_status_code=resp.status_code,
+            downstream_status_code=resp.status_code,
             error=(
                 sanitize_text_for_log(provider_error, limit=2000)
                 if provider_error

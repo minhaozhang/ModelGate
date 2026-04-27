@@ -1,6 +1,6 @@
 services:
   modelgate:
-    build: .
+    image: localhost:5002/modelgate:latest
     expose:
       - "8765"
     environment:

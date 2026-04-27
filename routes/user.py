@@ -13,8 +13,10 @@ from core.config import logger, providers_cache, validate_session, busyness_stat
 from core.database import (
     async_session_maker,
     ApiKey,
+    ApiKeyModel,
     Model,
     Provider,
+    ProviderModel,
     RequestLogRead as RequestLog,
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
@@ -78,6 +80,44 @@ def _get_provider_name_by_id(provider_id: int) -> str | None:
         if pconf.get("id") == provider_id:
             return name
     return None
+
+
+async def _get_user_allowed_model_names(api_key_id: int) -> set[str] | None:
+    """Return set of 'provider_name/model_name' the user's key is allowed to use.
+    Returns None if the key has no restrictions (allow all).
+    """
+    async with async_session_maker() as session:
+        pm_result = await session.execute(
+            select(ApiKeyModel.provider_model_id).where(ApiKeyModel.api_key_id == api_key_id)
+        )
+        pm_ids = [row[0] for row in pm_result.fetchall()]
+        if not pm_ids:
+            return None
+
+        provider_model_result = await session.execute(
+            select(ProviderModel.provider_id, ProviderModel.model_id, ProviderModel.model_name_override)
+            .where(ProviderModel.id.in_(pm_ids))
+        )
+        pm_rows = provider_model_result.fetchall()
+
+        model_id_to_name: dict[int, str] = {}
+        model_ids = {row[1] for row in pm_rows}
+        if model_ids:
+            name_result = await session.execute(
+                select(Model.id, Model.name).where(Model.id.in_(model_ids))
+            )
+            model_id_to_name = {row[0]: row[1] for row in name_result.fetchall()}
+
+        allowed: set[str] = set()
+        for row in pm_rows:
+            provider_id, model_id, override = row
+            provider_name = _get_provider_name_by_id(provider_id)
+            if not provider_name:
+                continue
+            model_name = override or model_id_to_name.get(model_id, "")
+            if model_name:
+                allowed.add(f"{provider_name}/{model_name}")
+        return allowed
 
 
 class UserLoginRequest(BaseModel):
@@ -1011,10 +1051,16 @@ async def get_user_recommendations(
 
         all_items.sort(key=lambda item: (-item["requests"], item["error_rate"], item["avg_latency_ms"]))
 
-    filtered = [
-        item for item in all_items
-        if _check_model_available(item.get("model", ""), api_key_id)
-    ]
+    user_allowed_models = await _get_user_allowed_model_names(api_key_id)
+
+    filtered = []
+    for item in all_items:
+        model_name = item.get("model", "")
+        if not _check_model_available(model_name, api_key_id):
+            continue
+        if user_allowed_models is not None and model_name not in user_allowed_models:
+            continue
+        filtered.append(item)
     top = filtered[:10]
     for idx, rec in enumerate(top):
         rec["rank"] = idx + 1

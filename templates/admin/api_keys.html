@@ -138,6 +138,14 @@
                     </label>
                     <p class="text-xs text-gray-500 mt-1">{{ _('Ignore model busyness availability restrictions') }}</p>
                 </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Tags' if current_locale != 'zh' else '标签') }}</label>
+                    <div id="apikey-tags-container" class="flex flex-wrap gap-1 mb-2"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="apikey-tag-input" class="flex-1 border rounded px-3 py-1 text-sm" placeholder="{{ _('Add tag...' if current_locale != 'zh' else '添加标签...') }}" onkeydown="if(event.key==='Enter'){event.preventDefault();addTag()}">
+                        <button type="button" onclick="addTag()" class="px-3 py-1 text-sm border rounded hover:bg-gray-50">{{ _('Add' if current_locale != 'zh' else '添加') }}</button>
+                    </div>
+                </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" onclick="closeApiKeyModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                     <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ _('Save') }}</button>
@@ -450,6 +458,7 @@
     </script>
     <script>
         let selectedModelIds = [];
+        let currentTags = [];
         const APP_BASE_PATH = {{ app_base_path | tojson }};
         let providerModels = [];
         let apiKeysData = [];
@@ -607,6 +616,7 @@
                             ` : ''}
                             ${timeRulesDisplay}
                             ${k.bypass_busyness ? '<span class="inline-block text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded mt-1">' + (window.I18N.bypassBusyness || 'Bypass busyness') + '</span>' : ''}
+                            ${(k.tags && k.tags.length > 0) ? '<div class="flex flex-wrap gap-1 mt-1">' + k.tags.map(t => '<span class="inline-block text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">' + t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>').join('') + '</div>' : ''}
                         </div>
                         <div class="flex flex-wrap gap-2 shrink-0">
                             <button onclick="showTimeRulesModal(${k.id})" class="text-purple-500 hover:text-purple-700 text-sm">${window.I18N.timeRules}</button>
@@ -757,6 +767,26 @@ ${setupMdUrl}`;
             navigator.clipboard.writeText(text).then(() => showToast(window.I18N.apiKeyAndUsageCopied, 'info'));
         }
         
+        function renderTags() {
+            const container = document.getElementById('apikey-tags-container');
+            container.innerHTML = currentTags.map((tag, i) => 
+                `<span class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">${tag}<button type="button" onclick="removeTag(${i})" class="text-blue-400 hover:text-blue-600">&times;</button></span>`
+            ).join('');
+        }
+        function addTag() {
+            const input = document.getElementById('apikey-tag-input');
+            const tag = input.value.trim();
+            if (tag && !currentTags.includes(tag)) {
+                currentTags.push(tag);
+                renderTags();
+            }
+            input.value = '';
+        }
+        function removeTag(index) {
+            currentTags.splice(index, 1);
+            renderTags();
+        }
+        
         function showAddApiKey() {
             document.getElementById('apikey-modal-title').textContent = window.I18N.addApiKey;
             document.getElementById('apikey-id').value = '';
@@ -766,6 +796,8 @@ ${setupMdUrl}`;
             renderModelCheckboxes();
             renderMcpServerCheckboxes([]);
             document.getElementById('apikey-bypass-busyness').checked = false;
+            currentTags = [];
+            renderTags();
             document.getElementById('apikey-modal').classList.remove('hidden');
             document.getElementById('apikey-modal').classList.add('flex');
         }
@@ -781,6 +813,8 @@ ${setupMdUrl}`;
             renderModelCheckboxes();
             renderMcpServerCheckboxes(key.mcp_server_ids || []);
             document.getElementById('apikey-bypass-busyness').checked = key.bypass_busyness || false;
+            currentTags = [...(key.tags || [])];
+            renderTags();
             document.getElementById('apikey-modal').classList.remove('hidden');
             document.getElementById('apikey-modal').classList.add('flex');
         }
@@ -797,6 +831,7 @@ ${setupMdUrl}`;
                 name: document.getElementById('apikey-name').value,
                 allowed_provider_model_ids: selectedModelIds,
                 bypass_busyness: document.getElementById('apikey-bypass-busyness').checked,
+                tags: currentTags,
             };
             data.mcp_server_ids = Array.from(document.querySelectorAll('.mcp-server-check:checked')).map(c => parseInt(c.value));
             

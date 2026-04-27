@@ -11,6 +11,7 @@ from core.database import (
     ApiKey,
     ApiKeyModel,
     ApiKeyMcpServer,
+    ApiKeyTag,
     ApiKeyTimeRule,
     RequestLogRead as RequestLog,
     generate_api_key,
@@ -35,6 +36,7 @@ class ApiKeyCreate(BaseModel):
     allowed_provider_model_ids: list[int] = []
     mcp_server_ids: list[int] = []
     bypass_busyness: bool = False
+    tags: list[str] = []
 
 
 class ApiKeyUpdate(BaseModel):
@@ -43,6 +45,7 @@ class ApiKeyUpdate(BaseModel):
     is_active: Optional[bool] = None
     mcp_server_ids: Optional[list[int]] = None
     bypass_busyness: Optional[bool] = None
+    tags: Optional[list[str]] = None
 
 
 @router.get("/keys")
@@ -86,6 +89,11 @@ async def list_api_keys(_: bool = Depends(require_admin)):
             )
             mcp_server_ids = [row[0] for row in mcp_result.fetchall()]
 
+            tags_result = await session.execute(
+                select(ApiKeyTag.tag).where(ApiKeyTag.api_key_id == k.id)
+            )
+            tags = [row[0] for row in tags_result.fetchall()]
+
             api_keys.append(
                 {
                     "id": k.id,
@@ -96,6 +104,7 @@ async def list_api_keys(_: bool = Depends(require_admin)):
                     "is_active": k.is_active,
                     "bypass_busyness": k.bypass_busyness or False,
                     "mcp_server_ids": mcp_server_ids,
+                    "tags": tags,
                     "last_used_at": k.last_used_at.isoformat()
                     if k.last_used_at
                     else None,
@@ -118,6 +127,9 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(require_admin)):
         for sid in data.mcp_server_ids:
             assoc = ApiKeyMcpServer(api_key_id=new_key.id, mcp_server_id=sid)
             session.add(assoc)
+        for tag in data.tags:
+            t = ApiKeyTag(api_key_id=new_key.id, tag=tag)
+            session.add(t)
         await session.commit()
         await load_api_keys()
         return {"id": new_key.id, "name": new_key.name, "key": new_key.key}
@@ -174,6 +186,13 @@ async def update_api_key(
                     [pm_name_map.get(pid, str(pid)) for pid in added_pm_ids],
                     [pm_name_map.get(pid, str(pid)) for pid in removed_pm_ids],
                 )
+        if data.tags is not None:
+            await session.execute(
+                delete(ApiKeyTag).where(ApiKeyTag.api_key_id == key_id)
+            )
+            for tag in data.tags:
+                t = ApiKeyTag(api_key_id=key_id, tag=tag)
+                session.add(t)
         await session.commit()
         await load_api_keys()
         return {"id": key.id}
