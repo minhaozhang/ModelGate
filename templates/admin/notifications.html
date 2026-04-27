@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="{{ current_locale }}">
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ '消息中心' if current_locale == 'zh' else 'Notifications' }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <style>
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav, body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border { border-color: #1f2937 !important; }
+        body.theme-dark .border-b { border-color: #1f2937 !important; }
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .notif-card { transition: background 0.15s; }
+        .notif-card:hover { background: rgba(59, 130, 246, 0.04); }
+        .notif-unread { border-left: 3px solid #3b82f6; }
+    </style>
+</head>
+<body class="theme-dark bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header(_('Notifications')) %}
+            <button onclick="markAllRead()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Mark All Read') }}</button>
+            {% endcall %}
+            <div id="notifications-list" class="space-y-3">{{ _('Loading...') }}</div>
+            <div id="pagination" class="flex justify-center gap-2 mt-6"></div>
+        </main>
+    </div>
+    <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+        let currentPage = 1;
+        async function logout() { await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method:'POST'}); window.location.href=`${APP_BASE_PATH}/admin/login`; }
+        function getThemeMode() { return localStorage.getItem('admin_theme')||'dark'; }
+        function applyTheme(mode) { document.body.classList.toggle('theme-dark',mode==='dark'); localStorage.setItem('admin_theme',mode); document.getElementById('theme-toggle').value=mode; }
+        applyTheme(getThemeMode());
+        const levelColors = {info:'border-blue-400 bg-blue-50',warning:'border-yellow-400 bg-yellow-50',error:'border-red-400 bg-red-50'};
+        const levelDots = {info:'bg-blue-500',warning:'bg-yellow-500',error:'bg-red-500'};
+        async function loadNotifications(page) {
+            currentPage = page;
+            const r = await fetch(`${APP_BASE_PATH}/admin/api/notifications?page=${page}&page_size=15`);
+            if (!r.ok) return;
+            const d = await r.json();
+            const el = document.getElementById('notifications-list');
+            if (!d.items.length) { el.innerHTML = '<div class="text-gray-400 text-center py-8">{{ _("No notifications") }}</div>'; return; }
+            el.innerHTML = d.items.map(n => {
+                const lc = levelColors[n.level]||levelColors.info;
+                const ld = levelDots[n.level]||levelDots.info;
+                return `<div class="notif-card bg-white rounded-lg shadow p-4 border ${lc} ${n.is_read?'':'notif-unread'}">
+                    <div class="flex items-start gap-3">
+                        <div class="w-2.5 h-2.5 rounded-full ${ld} mt-1.5 shrink-0"></div>
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <span class="font-medium text-gray-800">${n.title}</span>
+                                <span class="text-xs text-gray-400 shrink-0 ml-3">${new Date(n.created_at).toLocaleString()}</span>
+                            </div>
+                            ${n.body ? `<p class="text-sm text-gray-500 mt-1">${n.body}</p>` : ''}
+                        </div>
+                        ${n.is_read ? '' : `<button onclick="markRead(${n.id})" class="text-xs text-blue-500 hover:text-blue-700 shrink-0 ml-2">{{ _("Read") }}</button>`}
+                    </div>
+                </div>`;
+            }).join('');
+            const totalPages = Math.ceil(d.total / d.page_size);
+            const pg = document.getElementById('pagination');
+            if (totalPages <= 1) { pg.innerHTML = ''; return; }
+            let html = '';
+            if (page > 1) html += `<button onclick="loadNotifications(${page-1})" class="px-3 py-1 border rounded text-sm">&lt;</button>`;
+            for (let i = Math.max(1,page-2); i <= Math.min(totalPages,page+2); i++) {
+                html += `<button onclick="loadNotifications(${i})" class="px-3 py-1 border rounded text-sm ${i===page?'bg-blue-500 text-white':''}">${i}</button>`;
+            }
+            if (page < totalPages) html += `<button onclick="loadNotifications(${page+1})" class="px-3 py-1 border rounded text-sm">&gt;</button>`;
+            pg.innerHTML = html;
+        }
+        async function markRead(id) { await fetch(`${APP_BASE_PATH}/admin/api/notifications/${id}/read`,{method:'PUT'}); loadNotifications(currentPage); }
+        async function markAllRead() { await fetch(`${APP_BASE_PATH}/admin/api/notifications/read-all`,{method:'PUT'}); loadNotifications(1); }
+        loadNotifications(1);
+    </script>
+</body>
+</html>

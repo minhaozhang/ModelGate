@@ -1,0 +1,87 @@
+<div id="tab-tasks" class="space-y-3">{{ _('Loading...') }}</div>
+
+<style>
+    .spinner { border-radius: 9999px; border: 2px solid rgba(59,130,246,0.3); border-top-color: #3b82f6; animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+async function loadTasks() {
+    const r = await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks');
+    if (!r.ok) return;
+    const d = await r.json();
+    const el = document.getElementById('tab-tasks');
+    if (!d.items.length) { el.innerHTML = '<div class="text-gray-400">{{ _("No tasks") }}</div>'; return; }
+    el.innerHTML = d.items.map(t => {
+        const statusColors = {success:'bg-green-500',failed:'bg-red-500',running:'bg-yellow-500'};
+        const dot = statusColors[t.last_status] || 'bg-gray-300';
+        const duration = t.last_duration_ms != null ? (t.last_duration_ms >= 1000 ? (t.last_duration_ms/1000).toFixed(1)+'s' : t.last_duration_ms+'ms') : '--';
+        return `<div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-2.5 h-2.5 rounded-full ${dot} shrink-0"></div>
+                <span class="font-semibold text-gray-800">${t.name}</span>
+                <span class="text-xs text-gray-400">${t.task_id}</span>
+                ${t.is_paused ? '<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">{{ _("Paused") }}</span>' : ''}
+                <div class="ml-auto flex gap-2">
+                    <button onclick="triggerTask('${t.task_id}')" class="text-xs text-blue-500 hover:text-blue-700 border rounded px-2 py-1">{{ _('Run Now') }}</button>
+                    <button onclick="toggleTask('${t.task_id}', ${!t.is_paused})" class="text-xs ${t.is_paused ? 'text-green-500 hover:text-green-700' : 'text-yellow-500 hover:text-yellow-700'} border rounded px-2 py-1">${t.is_paused ? '{{ _("Resume") }}' : '{{ _("Pause") }}'}</button>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 mb-2">${t.description || ''}</p>
+            <div class="flex gap-4 text-xs text-gray-500 flex-wrap">
+                <div>Cron: <input value="${t.cron_expression}" onchange="updateTaskCron('${t.task_id}', this.value)" class="border rounded px-1 py-0.5 text-xs font-mono w-28"></div>
+                <div>{{ _('Last run') }}: ${t.last_run_at ? new Date(t.last_run_at).toLocaleString() : '--'}</div>
+                <div>{{ _('Duration') }}: ${duration}</div>
+                <div>{{ _('Next run') }}: ${t.next_run_at ? new Date(t.next_run_at).toLocaleString() : '--'}</div>
+            </div>
+            ${t.last_error ? `<div class="mt-2 text-xs text-red-500 bg-red-50 rounded p-2">${t.last_error}</div>` : ''}
+        </div>`;
+    }).join('');
+}
+async function triggerTask(taskId) {
+    const btn = document.querySelector(`button[onclick="triggerTask('${taskId}')"]`);
+    if (btn) { btn.disabled = true; const orig = btn.textContent; btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:4px"></span>' + orig; }
+    try {
+        const r = await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks/' + taskId + '/trigger', {method:'POST'});
+        const d = await r.json();
+        if (r.ok) { showToast('{{ _("Task triggered") }}', 'success'); } else { showToast(d.detail || '{{ _("Trigger failed") }}', 'error'); }
+    } catch (e) { showToast('{{ _("Trigger failed") }}', 'error'); }
+    if (btn) { btn.disabled = false; btn.textContent = '{{ _("Run Now") }}'; }
+    setTimeout(loadTasks, 3000);
+}
+async function toggleTask(taskId, pause) {
+    const btn = document.querySelector(`button[onclick="toggleTask('${taskId}', ${pause})"]`);
+    if (btn) { btn.disabled = true; }
+    try {
+        const r = await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks/' + taskId, {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({is_paused: pause})
+        });
+        if (r.ok) { showToast(pause ? '{{ _("Task paused") }}' : '{{ _("Task resumed") }}', 'success'); } else { showToast('{{ _("Operation failed") }}', 'error'); }
+    } catch (e) { showToast('{{ _("Operation failed") }}', 'error'); }
+    if (btn) { btn.disabled = false; }
+    loadTasks();
+}
+async function updateTaskCron(taskId, cron) {
+    try {
+        const r = await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks/' + taskId, {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({cron_expression: cron})
+        });
+        if (r.ok) { showToast('{{ _("Cron updated") }}', 'success'); } else { showToast('{{ _("Update failed") }}', 'error'); }
+    } catch (e) { showToast('{{ _("Update failed") }}', 'error'); }
+    loadTasks();
+}
+function showToast(msg, type) {
+    let c = document.getElementById('toast-container');
+    if (!c) { c = document.createElement('div'); c.id = 'toast-container'; c.style.cssText = 'position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;'; document.body.appendChild(c); }
+    const colors = {success:'bg-green-500',error:'bg-red-500',info:'bg-blue-500'};
+    const t = document.createElement('div');
+    t.className = `${colors[type]||colors.info} text-white text-sm px-4 py-2 rounded shadow-lg transition-all duration-300 opacity-0`;
+    t.textContent = msg;
+    c.appendChild(t);
+    requestAnimationFrame(() => t.classList.remove('opacity-0'));
+    setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.remove(), 300); }, 2500);
+}
+loadTasks();
+</script>

@@ -12,7 +12,7 @@ from core.config import (
     update_stats,
 )
 from core.log_sanitizer import sanitize_text_for_log
-from services.logging import log_request, update_request_log
+from services.logging import create_request_log, update_request_log
 from services.minimax import MinimaxStreamProcessor
 from services.provider_limiter import check_usage_limit_error, disable_provider_key
 from services.proxy_runtime.adapters import get_adapter
@@ -45,13 +45,14 @@ async def handle_streaming(
     client_ip,
     user_agent,
     request_context_tokens,
-    semaphore,
-    api_key_model_semaphore,
+    provider_key_semaphore,
+    user_provider_model_semaphore,
     request_id,
     log_id,
     request,
     chosen_key_id=None,
     protocol="openai",
+    extra_response_headers: dict[str, str] | None = None,
 ):
     logger.debug(
         "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -67,6 +68,7 @@ async def handle_streaming(
             model,
             api_key_id,
             client_ip=client_ip,
+            prompt_tokens=request_context_tokens,
         )
         is_active_request_registered = True
         req = client.build_request("POST", url, headers=headers, content=body)
@@ -102,30 +104,32 @@ async def handle_streaming(
                 is_error=request_status == "error",
                 is_rate_limited=request_status in RATE_LIMITED_STATUSES,
             )
-            await log_request(
-                provider,
-                model,
-                "",
-                {},
-                latency,
-                request_status,
-                api_key_id=api_key_id,
-                upstream_status_code=resp.status_code,
-                downstream_status_code=resp.status_code,
-                client_ip=client_ip,
-                user_agent=user_agent,
-                request_context_tokens=request_context_tokens,
-                error=sanitize_text_for_log(provider_error or error_text, limit=2000),
+            error_detail = sanitize_text_for_log(
+                provider_error or error_text, limit=2000
             )
+            updated = False
             if log_id:
-                await update_request_log(
+                updated = await update_request_log(
                     log_id,
                     status=request_status,
+                    latency_ms=latency,
                     upstream_status_code=resp.status_code,
                     downstream_status_code=resp.status_code,
-                    error=sanitize_text_for_log(
-                        provider_error or error_text, limit=2000
-                    ),
+                    error=error_detail,
+                )
+            if not log_id or not updated:
+                await create_request_log(
+                    provider,
+                    model,
+                    status=request_status,
+                    api_key_id=api_key_id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                    request_context_tokens=request_context_tokens,
+                    latency_ms=latency,
+                    upstream_status_code=resp.status_code,
+                    downstream_status_code=resp.status_code,
+                    error=error_detail,
                 )
             if is_active_request_registered:
                 await finish_active_request(request_id)
@@ -139,6 +143,8 @@ async def handle_streaming(
                 f"  Response: {sanitize_text_for_log(error_text)}"
             )
             resp_headers = {"content-type": "application/json"}
+            if extra_response_headers:
+                resp_headers.update(extra_response_headers)
             if _is_rate_limited_status(resp.status_code):
                 if retry_after:
                     resp_headers["retry-after"] = retry_after
@@ -160,18 +166,20 @@ async def handle_streaming(
                 status_code=resp.status_code,
                 headers=resp_headers,
             )
-            api_key_model_semaphore.release()
-            if semaphore is not None:
-                semaphore.release()
+            if user_provider_model_semaphore is not None:
+                user_provider_model_semaphore.release()
+            if provider_key_semaphore is not None:
+                provider_key_semaphore.release()
             semaphores_released = True
             return response
     except Exception as e:
         if is_active_request_registered:
             await finish_active_request(request_id)
         if not semaphores_released:
-            if semaphore is not None:
-                semaphore.release()
-            api_key_model_semaphore.release()
+            if provider_key_semaphore is not None:
+                provider_key_semaphore.release()
+            if user_provider_model_semaphore is not None:
+                user_provider_model_semaphore.release()
         raise e
 
     async def stream_generator():
@@ -192,6 +200,11 @@ async def handle_streaming(
         try:
             chunk_count = 0
             async for raw_line in normalize_sse_stream(resp.aiter_lines()):
+                if chunk_count == 0:
+                    logger.debug(
+                        "[STREAM DEBUG] %s/%s first_chunk=%s",
+                        provider, model, raw_line[:500] if raw_line else "<empty>",
+                    )
                 if is_adapter_stream:
                     adapter_results = await adapter.transform_stream_chunk(
                         raw_line if raw_line.startswith("data: ") else f"data: {raw_line}",
@@ -414,8 +427,13 @@ async def handle_streaming(
             yield f"data: {json.dumps({'error': {'message': str(e), 'type': type(e).__name__}})}\n\n"
         finally:
             await finish_active_request(request_id)
-            api_key_model_semaphore.release()
-            if semaphore is not None:
-                semaphore.release()
+            if user_provider_model_semaphore is not None:
+                user_provider_model_semaphore.release()
+            if provider_key_semaphore is not None:
+                provider_key_semaphore.release()
 
-    return StreamingResponse(stream_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        stream_generator(),
+        media_type="text/event-stream",
+        headers=extra_response_headers,
+    )

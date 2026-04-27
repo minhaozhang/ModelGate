@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="{{ current_locale }}">
 <head>
     <meta charset="utf-8">
     {% include 'components/site_head_meta.html' %}
@@ -12,6 +12,11 @@
         .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        .stats-sub-tab { border-bottom: 2px solid transparent; color: #6b7280; cursor: pointer; transition: all 0.15s; }
+        .stats-sub-tab:hover { color: #374151; }
+        .stats-sub-tab.active { border-bottom-color: #3b82f6; color: #3b82f6; }
+        .stats-sub-content { display: block; }
+        .stats-sub-content.hidden { display: none; }
         pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
         code { font-family: 'Monaco', 'Menlo', monospace; font-size: 0.875rem; }
         body.theme-dark { background: #020617 !important; color: #e2e8f0; }
@@ -52,6 +57,13 @@
         body.theme-dark .shadow,
         body.theme-dark .shadow-sm { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
         body.theme-dark .tab-btn.active { border-bottom-color: #60a5fa; color: #60a5fa !important; }
+        body.theme-dark .stats-sub-tab { color: #94a3b8; }
+        body.theme-dark .stats-sub-tab.active { border-bottom-color: #60a5fa; color: #60a5fa !important; }
+        .stats-summary-tab { color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+        .stats-summary-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+        .stats-summary-tab:hover { color: #3b82f6; }
+        body.theme-dark .stats-summary-tab { color: #94a3b8; }
+        body.theme-dark .stats-summary-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
         body.theme-dark .bg-white.rounded,
         body.theme-dark .bg-white.rounded-lg,
         body.theme-dark .bg-white.rounded-xl,
@@ -273,6 +285,7 @@
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('documents')">{{ _('Documents') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('mcp')">MCP Tools</button>
+                <button class="tab-btn px-6 py-3 font-medium" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}</button>
             </div>
             
             {% include 'user/tab_stats.html' %}
@@ -281,6 +294,7 @@
             {% include 'user/tab_usage.html' %}
             {% include 'user/tab_documents.html' %}
             {% include 'user/tab_mcp.html' %}
+            {% include 'user/tab_notifications.html' %}
         </div>
     </div>
     
@@ -306,8 +320,17 @@
         noDocuments: {{ _('No documents available') | tojson }},
         viewDetails: {{ _('View Details') | tojson }},
         noActiveSessions: {{ _('No active sessions') | tojson }},
+        noRequests: {{ _('No requests yet') | tojson }},
         noModels: {{ _('No models') | tojson }},
         copied: {{ _('Copied!') | tojson }},
+        uploadConfig: {{ _('Upload opencode.json') | tojson }},
+        downloadMerged: {{ _('Download Merged Config') | tojson }},
+        mergeSuccess: {{ _('Merged config downloaded!') | tojson }},
+        mergeFailed: {{ _('Merge failed') | tojson }},
+        invalidFile: {{ _('Invalid JSON file') | tojson }},
+        disabledProviders: {{ _('Disabled Providers') | tojson }},
+        personal: {{ _('Personal') | tojson }},
+        system: {{ _('System') | tojson }},
         clearSavedApiKey: {{ _('Clear saved API Key?') | tojson }},
         active: {{ _('active') | tojson }},
         req: {{ _('req') | tojson }},
@@ -353,6 +376,20 @@
         onRightAxis: {{ _('on right axis') | tojson }},
         yourApiKey: {{ _('Your API key') | tojson }},
         allApiKeys: {{ _('All API keys') | tojson }},
+        soEmpty: {{ _('So empty...') | tojson }},
+        estCostNote: {{ _('Estimated cost based on token usage and model pricing') | tojson }},
+        activeTitles: {
+            empty: {{ _('Online Users') | tojson }},
+            justYou: {{ _('Only You Online') | tojson }},
+            lonelyNight: {{ _('Night Owl — Just You') | tojson }},
+            earlyBird: {{ _('Early Bird — Just You') | tojson }},
+            companions: {{ _('Companions at Work') | tojson }},
+            nightOwls: {{ _('Night Owls Club') | tojson }},
+            earlyBirds: {{ _('Early Birds') | tojson }},
+            tokenFighters: {{ _('Token Rivals') | tojson }},
+            crowded: {{ _('Peak Hours') | tojson }},
+            shouldSleep: {{ _('Shouldn\'t You Be Asleep?') | tojson }},
+        },
     };
     </script>
 
@@ -370,7 +407,7 @@
         let statsRequestVersion = 0;
         let catalogLoaded = false;
         const ownModelPalette = ['#2563eb', '#0f766e', '#0891b2', '#1d4ed8', '#059669', '#0ea5e9', '#14b8a6', '#0284c7'];
-        const systemModelPalette = ['#f59e0b', '#ef4444', '#f97316', '#dc2626', '#eab308', '#fb7185', '#ea580c', '#f43f5e'];
+        const systemModelPalette = ['#6366f1', '#06b6d4', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#f97316', '#14b8a6', '#ef4444', '#3b82f6'];
         
         document.getElementById('proxy-url').textContent = baseUrl;
         document.getElementById('base-python').textContent = baseUrl;
@@ -419,13 +456,45 @@
         function showTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            event.target.classList.add('active');
+            var btn = event.target.closest('.tab-btn');
+            if (btn) { btn.classList.add('active'); }
+            else { document.querySelectorAll('.tab-btn').forEach(function(b){ if(b.getAttribute('data-tab')===tab) b.classList.add('active'); }); }
             document.getElementById('tab-' + tab).classList.add('active');
             
             if (tab === 'opencode') loadOpenCodeConfig();
             if (tab === 'catalog' && !catalogLoaded) loadCatalog();
             if (tab === 'documents') loadDocList();
             if (tab === 'mcp') loadMcpInfo();
+            if (tab === 'notifications') { loadUserNotifList(1); userNotifMarkAllRead(); }
+        }
+
+        let _cachedSystemModels = {};
+        let _cachedPersonalModels = {};
+        let _latestTrendData = {};
+        let _activeSubTab = 'personal';
+
+        function showStatsSubTab(sub) {
+            document.querySelectorAll('.stats-sub-tab').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.stats-sub-content').forEach(c => c.classList.add('hidden'));
+            event.target.classList.add('active');
+            _activeSubTab = sub;
+            const el = document.getElementById('stats-sub-' + sub);
+            el.classList.remove('hidden');
+            setTimeout(() => {
+                if (sub === 'system') {
+                    _renderTrendChartToCanvas(document.getElementById('system-trend-chart').getContext('2d'), _latestTrendData, true);
+                }
+                if (sub === 'personal') {
+                    renderTrendChart(_latestTrendData);
+                }
+            }, 50);
+        }
+
+        function showStatsSummaryTab(sub, evt) {
+            document.querySelectorAll('.stats-summary-tab').forEach(b => b.classList.remove('active'));
+            evt.target.classList.add('active');
+            document.getElementById('stats-summary-personal').classList.toggle('hidden', sub !== 'personal');
+            document.getElementById('stats-summary-system').classList.toggle('hidden', sub !== 'system');
         }
 
         function openDocumentPage(docId) {
@@ -721,8 +790,10 @@
         }
 
         function renderOwnModelChart(models) {
+            const canvas = document.getElementById('model-usage-chart');
+            if (!canvas) return;
             const series = buildDonutSeries(models, ownModelPalette, 'requests', 6);
-            const ctx = document.getElementById('model-usage-chart').getContext('2d');
+            const ctx = canvas.getContext('2d');
             const chartTheme = getChartTheme();
             if (modelUsageChart) modelUsageChart.destroy();
 
@@ -788,11 +859,23 @@
 
         function renderSystemModelChart(models) {
             const series = buildDonutSeries(models, systemModelPalette, 'requests', 6);
-            const ctx = document.getElementById('system-model-chart').getContext('2d');
+            const canvas = document.getElementById('system-model-chart');
+            if (!canvas) return;
             const chartTheme = getChartTheme();
-            if (systemModelChart) systemModelChart.destroy();
 
-            systemModelChart = new Chart(ctx, {
+            renderModelUsageLegend(
+                'system-model-legend',
+                'system-model-meta',
+                models,
+                series,
+                systemModelPalette,
+                window.I18N.allApiKeys
+            );
+
+            if (series.labels.length === 0) return;
+            if (systemModelChart) { systemModelChart.destroy(); systemModelChart = null; }
+
+            systemModelChart = new Chart(canvas.getContext('2d'), {
                 type: 'doughnut',
                 data: {
                     labels: series.labels,
@@ -827,21 +910,38 @@
                     }
                 }
             });
+        }
 
-            renderModelUsageLegend(
-                'system-model-legend',
-                'system-model-meta',
-                models,
-                series,
-                systemModelPalette,
-                window.I18N.allApiKeys
-            );
+        function getDynamicActiveTitle(activeCount) {
+            const hour = new Date().getHours();
+            const titles = window.I18N.activeTitles || {};
+            if (activeCount === 0) return titles.empty || window.I18N.systemActiveRequests;
+            if (activeCount === 1) {
+                if (hour >= 0 && hour < 5) return titles.lonelyNight || window.I18N.systemActiveRequests;
+                if (hour >= 5 && hour < 9) return titles.earlyBird || window.I18N.systemActiveRequests;
+                if (hour >= 22) return titles.lonelyNight || window.I18N.systemActiveRequests;
+                return titles.justYou || window.I18N.systemActiveRequests;
+            }
+            if (activeCount >= 2 && activeCount <= 4) {
+                if (hour >= 0 && hour < 5) return titles.nightOwls || window.I18N.systemActiveRequests;
+                if (hour >= 5 && hour < 9) return titles.earlyBirds || window.I18N.systemActiveRequests;
+                if (hour >= 22) return titles.nightOwls || window.I18N.systemActiveRequests;
+                return titles.companions || window.I18N.systemActiveRequests;
+            }
+            if (activeCount >= 5 && activeCount <= 10) {
+                if (hour >= 0 && hour < 6) return titles.shouldSleep || window.I18N.systemActiveRequests;
+                return titles.tokenFighters || window.I18N.systemActiveRequests;
+            }
+            if (hour >= 0 && hour < 6) return titles.shouldSleep || window.I18N.systemActiveRequests;
+            return titles.crowded || window.I18N.systemActiveRequests;
         }
 
         function renderSystemActiveSessions(data) {
-            document.getElementById('system-active-count').textContent = `${data.active_count || 0} ${window.I18N.active} / ${(data.request_count || 0).toLocaleString()} ${window.I18N.req}`;
-            if (!data.active_count) {
-                document.getElementById('system-active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${window.I18N.noActiveSessions}</div>`;
+            const count = data.active_count || 0;
+            document.getElementById('system-active-title').textContent = getDynamicActiveTitle(count);
+            document.getElementById('system-active-count').textContent = `${count} ${window.I18N.active} / ${(data.request_count || 0).toLocaleString()} ${window.I18N.req}`;
+            if (!count) {
+                document.getElementById('system-active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${window.I18N.soEmpty}</div>`;
                 return;
             }
 
@@ -948,84 +1048,40 @@
         }
 
         function renderSystemHealth(health) {
-            const badge = document.getElementById('system-health-badge');
-            const score = document.getElementById('system-health-score');
-            const summary = document.getElementById('system-health-summary');
-            const activeUsers = document.getElementById('system-health-users');
-            const pending = document.getElementById('system-health-pending');
             const errorRate = document.getElementById('system-health-error-rate');
-            const latency = document.getElementById('system-health-latency');
-
-            const statusMap = {
-                excellent: {
-                    label: window.I18N.healthExcellent,
-                    badgeClass: 'rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700',
-                    scoreClass: 'text-3xl font-bold text-emerald-600',
-                },
-                healthy: {
-                    label: window.I18N.healthHealthy,
-                    badgeClass: 'rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-900',
-                    scoreClass: 'text-3xl font-bold text-blue-600',
-                },
-                busy: {
-                    label: window.I18N.healthBusy,
-                    badgeClass: 'rounded-full bg-yellow-100 px-2.5 py-1 text-xs font-semibold text-yellow-700',
-                    scoreClass: 'text-3xl font-bold text-yellow-600',
-                },
-                degraded: {
-                    label: window.I18N.healthDegraded,
-                    badgeClass: 'rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700',
-                    scoreClass: 'text-3xl font-bold text-red-600',
-                },
-                idle: {
-                    label: window.I18N.healthIdle,
-                    badgeClass: 'rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600',
-                    scoreClass: 'text-3xl font-bold text-slate-700',
-                }
-            };
-
-            const statusKey = statusMap[health?.status] ? health.status : 'idle';
-            const statusConfig = statusMap[statusKey];
-            badge.className = statusConfig.badgeClass;
-            badge.textContent = statusConfig.label;
-            score.className = statusConfig.scoreClass;
-            score.textContent = health?.score === null || health?.score === undefined ? '--' : Math.round(Number(health.score));
-            summary.textContent = statusKey === 'idle' || health?.score === null || health?.score === undefined
-                ? window.I18N.noRecentTraffic
-                : window.I18N.healthSummary;
-            activeUsers.textContent = Number(health?.active_api_keys || 0).toLocaleString();
-            pending.textContent = Number(health?.pending_requests || 0).toLocaleString();
-            errorRate.textContent = `${(Number(health?.error_rate || 0) * 100).toFixed(1)}%`;
-            latency.textContent = formatHealthLatency(health?.avg_latency_ms);
-        }
-         
-        let recommendationPollTimer = null;
-        let recommendationsInitialized = false;
-
-        function scheduleRecommendationPoll(period, requestVersion) {
-            if (recommendationPollTimer) {
-                clearTimeout(recommendationPollTimer);
+            if (errorRate) {
+                errorRate.textContent = `${(Number(health?.error_rate || 0) * 100).toFixed(1)}%`;
             }
-            recommendationPollTimer = setTimeout(() => {
-                const activePeriod = document.getElementById('period-select')?.value || 'day';
-                if (requestVersion !== statsRequestVersion || activePeriod !== period) return;
-                fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/recommendations?period=' + period)
-                    .then(recommendations => {
-                        const latestPeriod = document.getElementById('period-select')?.value || 'day';
-                        if (requestVersion !== statsRequestVersion || latestPeriod !== period) return;
-                        renderRecommendations(recommendations || {}, period, requestVersion);
-                    })
-                    .catch(() => {});
-            }, 3000);
+        }
+
+        function renderBusyness(data) {
+            if (!data) return;
+            const colorMap = {red:'bg-red-500',orange:'bg-orange-500',yellow:'bg-yellow-500',green:'bg-green-500',blue:'bg-blue-500',slate:'bg-slate-400'};
+            const badgeBgMap = {red:'bg-red-100 text-red-700',orange:'bg-orange-100 text-orange-700',yellow:'bg-yellow-100 text-yellow-700',green:'bg-green-100 text-green-700',blue:'bg-blue-100 text-blue-700',slate:'bg-slate-100 text-slate-600'};
+            const textMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-700'};
+            const c = data.color || 'slate';
+            const locale = document.documentElement.lang || '{{ current_locale }}' || 'zh';
+            const isZh = locale === 'zh' || locale === 'zh-CN' || locale.startsWith('zh');
+            const zhMap = {extremely_busy:'过载',very_busy:'拥挤',busy:'活跃',normal:'流畅',idle:'平静',quiet:'寂静'};
+            const enMap = {extremely_busy:'Overloaded',very_busy:'Crowded',busy:'Active',normal:'Smooth',idle:'Calm',quiet:'Silent'};
+            const busynessLabel = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
+            const dot = document.getElementById('busyness-dot');
+            const badge = document.getElementById('busyness-badge');
+            const levelText = document.getElementById('busyness-level-text');
+            const activeUsers = document.getElementById('busyness-active-users');
+            const disabled = document.getElementById('busyness-disabled');
+            const ratio429 = document.getElementById('busyness-429-ratio');
+            if (dot) dot.className = 'w-4 h-4 rounded-full shrink-0 ' + (colorMap[c] || 'bg-slate-400');
+            if (badge) { badge.className = 'rounded-full px-2.5 py-1 text-xs font-semibold ' + (badgeBgMap[c] || 'bg-slate-100 text-slate-600'); badge.textContent = busynessLabel; }
+            if (levelText) { levelText.className = 'text-2xl font-bold ' + (textMap[c] || 'text-slate-700'); levelText.textContent = busynessLabel; }
+            if (activeUsers) activeUsers.textContent = Number(data.active_users_10min || 0).toLocaleString();
+            if (disabled) disabled.textContent = Number(data.disabled_providers || 0).toLocaleString();
+            if (ratio429) ratio429.textContent = (Number(data.rate_429_ratio || 0) * 100).toFixed(1) + '%';
         }
 
         async function loadStats() {
             const period = document.getElementById('period-select').value;
             const requestVersion = ++statsRequestVersion;
-            if (recommendationPollTimer) {
-                clearTimeout(recommendationPollTimer);
-                recommendationPollTimer = null;
-            }
             const [data, systemModels] = await Promise.all([
                 fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/stats?period=' + period),
                 fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-models?period=' + period)
@@ -1034,20 +1090,47 @@
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
             document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
             document.getElementById('total-errors').textContent = data.total_errors;
-            document.getElementById('model-count').textContent = Object.keys(data.models || {}).length;
+            const cost = data.estimated_cost || 0;
+            const costEl = document.getElementById('estimated-cost');
+            const costNote = document.getElementById('estimated-cost-note');
+            if (cost > 0) {
+                costEl.textContent = cost >= 1 ? '$' + cost.toFixed(2) : '$' + cost.toFixed(4);
+                costNote.textContent = window.I18N.estCostNote || '';
+            } else {
+                costEl.textContent = '-';
+                costNote.textContent = '';
+            }
+
+            const sysModels = systemModels.models || {};
+            const sysTotalReqs = systemModels.total_requests || 0;
+            const sysTotalTokens = systemModels.total_tokens || 0;
+            const sysModelCount = Object.keys(sysModels).length;
+            document.getElementById('system-total-requests').textContent = sysTotalReqs.toLocaleString();
+            document.getElementById('system-total-tokens').textContent = formatCompactTokens(sysTotalTokens);
+            document.getElementById('system-model-count').textContent = sysModelCount;
+            document.getElementById('system-avg-per-model').textContent = sysModelCount > 0 ? Math.round(sysTotalReqs / sysModelCount).toLocaleString() : '0';
+
+            const disabledProviders = data.disabled_providers || {};
+            const alertEl = document.getElementById('disabled-providers-alert');
+            const listEl = document.getElementById('disabled-providers-list');
+            if (Object.keys(disabledProviders).length > 0) {
+                alertEl.classList.remove('hidden');
+                listEl.innerHTML = Object.entries(disabledProviders).map(([name, reason]) =>
+                    `<div class="flex items-center gap-2"><span class="font-medium">${name}</span><span class="text-red-500 text-xs">— ${reason}</span></div>`
+                ).join('');
+            } else {
+                alertEl.classList.add('hidden');
+            }
 
             latestTrendData = data.trend || {};
+            _latestTrendData = latestTrendData;
+            _cachedPersonalModels = data.models || {};
+            _cachedSystemModels = systemModels.models || {};
             renderSystemHealth(data.system_health || {});
+            renderBusyness(data.busyness || null);
             renderTrendChart(latestTrendData);
             renderOwnModelChart(data.models || {});
             renderSystemModelChart(systemModels.models || {});
-
-            if (!recommendationsInitialized) {
-                document.getElementById('recommendation-meta').textContent = window.I18N.basedOnCurrentPeriod;
-                document.getElementById('recommendation-analysis-meta').textContent = '';
-                document.getElementById('recommendation-timing-advice').textContent = window.I18N.analyzingBestTimeWindows;
-                document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.loadingRecommendations}</div>`;
-            }
 
             fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/recommendations?period=' + period)
                 .then(recommendations => {
@@ -1057,66 +1140,29 @@
                 })
                 .catch(() => {
                     if (requestVersion !== statsRequestVersion) return;
-                    if (!recommendationsInitialized) {
-                        document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
-                    }
+                    document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
                 });
         }
 
         function renderRecommendations(data, period, requestVersion) {
-            const escapeAttr = (value) => String(value || '')
-                .replaceAll('&', '&amp;')
-                .replaceAll('"', '&quot;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;');
-            const items = data.items || [];
-            const isPending = data.analysis_source === 'pending';
             recommendationsInitialized = true;
-            const timingAdvice = data.timing_advice || (isPending
-                ? window.I18N.analyzingBestTimeWindows
-                : window.I18N.aiUnavailable);
-            document.getElementById('recommendation-meta').textContent = window.I18N.basedOnCurrentPeriod;
-            const analysisMetaParts = [];
-            if (data.analysis_source) {
-                if (data.analysis_source === 'ai') {
-                    analysisMetaParts.push(window.I18N.aiGenerated);
-                } else if (isPending) {
-                    analysisMetaParts.push(window.I18N.loadingRecommendations);
-                } else {
-                    analysisMetaParts.push(window.I18N.aiUnavailable);
-                }
-            }
-            if (data.analysis_model_used) {
-                analysisMetaParts.push(`${window.I18N.modelUsed}: ${data.analysis_model_used}`);
-            }
-            document.getElementById('recommendation-analysis-meta').textContent = analysisMetaParts.join(' · ');
-            document.getElementById('recommendation-timing-advice').textContent = timingAdvice;
-            if (isPending && period) {
-                scheduleRecommendationPoll(period, requestVersion);
-            } else if (recommendationPollTimer) {
-                clearTimeout(recommendationPollTimer);
-                recommendationPollTimer = null;
-            }
+            const items = data.items || [];
             if (!items.length) {
                 document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
                 return;
             }
 
             const html = items.map(item => {
-                const scoreClass = item.rank === 1
-                    ? 'bg-emerald-500'
-                    : item.rank === 2
-                        ? 'bg-sky-500'
-                        : item.rank === 3
-                        ? 'bg-amber-500'
-                            : 'bg-slate-400';
-                const tooltip = item.reason
-                    ? `${item.display_name}: ${item.reason}`
-                    : item.model;
+                const scoreClass = item.rank <= 3
+                    ? ['bg-emerald-500', 'bg-sky-500', 'bg-amber-500'][item.rank - 1]
+                    : 'bg-slate-400';
+                const errPct = (item.error_rate * 100).toFixed(1);
+                const latStr = item.avg_latency_ms >= 1000 ? (item.avg_latency_ms/1000).toFixed(1)+'s' : Math.round(item.avg_latency_ms)+'ms';
                 return `
-                    <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm" title="${escapeAttr(tooltip)}">
+                    <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
                         <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full ${scoreClass} px-1.5 text-[11px] font-semibold text-white">#${item.rank}</span>
-                        <span class="max-w-[13rem] truncate font-medium">${item.display_name}</span>
+                        <span class="max-w-[13rem] truncate font-medium">${item.model || item.display_name}</span>
+                        <span class="text-xs text-gray-400">${item.requests}req · ${errPct}%err · ${latStr}</span>
                     </div>
                 `;
             }).join('');
@@ -1131,9 +1177,18 @@
         }
          
         function renderTrendChart(trendData) {
-            const ctx = document.getElementById('trend-chart').getContext('2d');
+            const canvas = document.getElementById('trend-chart');
+            if (!canvas) return;
+            _renderTrendChartToCanvas(canvas.getContext('2d'), trendData, false);
+            const sysCtx = document.getElementById('system-trend-chart');
+            if (sysCtx) _renderTrendChartToCanvas(sysCtx.getContext('2d'), trendData, true);
+        }
+
+        let systemTrendChart = null;
+        function _renderTrendChartToCanvas(canvasEl, trendData, isSystem) {
             const chartTheme = getChartTheme();
-            if (trendChart) trendChart.destroy();
+            if (isSystem) { if (systemTrendChart) systemTrendChart.destroy(); }
+            else { if (trendChart) trendChart.destroy(); }
 
             const normalizedTrendData = normalizeTrendData(trendData);
             const labels = Object.keys(normalizedTrendData);
@@ -1144,9 +1199,10 @@
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
             const tokenLabel = tokenScale.suffix ? `${window.I18N.tokensLabel} (${tokenScale.suffix})` : window.I18N.tokensLabel;
-            document.getElementById('trend-meta').textContent = `${tokenLabel} ${window.I18N.onRightAxis}`;
+
              
-            trendChart = new Chart(ctx, {
+            const ctx = canvasEl;
+            const chart = new Chart(ctx, {
                 data: {
                     labels: labels,
                     datasets: [
@@ -1247,8 +1303,9 @@
                     }
                 }
             });
+            if (isSystem) systemTrendChart = chart;
+            else trendChart = chart;
         }
-
         let trendLayoutRaf = null;
         window.addEventListener('resize', () => {
             if (trendLayoutRaf) cancelAnimationFrame(trendLayoutRaf);
@@ -1279,6 +1336,55 @@
             const config = document.getElementById('config-output').textContent;
             navigator.clipboard.writeText(config).then(() => alert(window.I18N.copied));
         }
+
+        async function mergeConfigFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const statusEl = document.getElementById('merge-status');
+            const label = document.getElementById('upload-label');
+            try {
+                const text = await file.text();
+                let userConfig;
+                try {
+                    userConfig = JSON.parse(text);
+                } catch {
+                    statusEl.textContent = window.I18N.invalidFile;
+                    statusEl.className = 'mt-2 text-sm text-red-500';
+                    statusEl.classList.remove('hidden');
+                    return;
+                }
+                label.textContent = window.I18N.loading || 'Loading...';
+                const resp = await fetch(APP_BASE_PATH + '/opencode/merge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ config: userConfig }),
+                });
+                if (!resp.ok) {
+                    statusEl.textContent = window.I18N.mergeFailed;
+                    statusEl.className = 'mt-2 text-sm text-red-500';
+                    statusEl.classList.remove('hidden');
+                    return;
+                }
+                const merged = await resp.json();
+                const blob = new Blob([JSON.stringify(merged, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'opencode.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                statusEl.textContent = window.I18N.mergeSuccess;
+                statusEl.className = 'mt-2 text-sm text-green-600';
+                statusEl.classList.remove('hidden');
+            } catch (e) {
+                statusEl.textContent = (window.I18N.mergeFailed || 'Merge failed') + ': ' + e.message;
+                statusEl.className = 'mt-2 text-sm text-red-500';
+                statusEl.classList.remove('hidden');
+            } finally {
+                label.textContent = window.I18N.uploadConfig || 'Upload opencode.json';
+                input.value = '';
+            }
+        }
         
         function copyCode(type) {
             const el = document.getElementById('code-' + type);
@@ -1292,27 +1398,38 @@
             window.location.href = `${APP_BASE_PATH}/user/login`;
         }
         
-        async function loadActiveSessions() {
+        async function loadMyRequests() {
             const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active');
-            
-            document.getElementById('active-count').textContent = data.active_count + ' ' + window.I18N.active;
-            
-            if (data.active_count === 0) {
-                document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${window.I18N.noActiveSessions}</div>`;
+            const list = data.requests || [];
+            const el = document.getElementById('my-requests-list');
+            if (!list.length) {
+                el.innerHTML = `<div class="text-gray-400 text-center py-2">${window.I18N.noRequests || 'No requests'}</div>`;
                 return;
             }
-            
-            const html = Object.entries(data.sessions)
-                .sort((a, b) => new Date(b[1].last_activity || 0) - new Date(a[1].last_activity || 0))
-                .map(([model, session]) => `
-                <div class="rounded bg-white p-3 shadow-sm">
-                    <div class="flex justify-between items-start gap-3">
-                        <span class="font-medium text-sm min-w-0">${model}</span>
-                        <span class="text-sm text-gray-600 shrink-0">${session.requests} ${window.I18N.req}</span>
+            el.innerHTML = list.map(r => {
+                const statusDot = r.status === 'error'
+                    ? '<span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>'
+                    : '<span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>';
+                const latency = r.latency_ms != null ? (r.latency_ms >= 1000 ? (r.latency_ms / 1000).toFixed(1) + 's' : r.latency_ms + 'ms') : '-';
+                const tokens = r.tokens > 0 ? formatCompactTokens(r.tokens) : '-';
+                const time = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+                const errorHtml = r.error ? `<div class="text-xs text-red-500 mt-1 truncate" title="${r.error}">${r.error}</div>` : '';
+                return `
+                    <div class="rounded bg-white p-3 shadow-sm mb-2 last:mb-0">
+                        <div class="flex items-center gap-2 text-sm">
+                            ${statusDot}
+                            <span class="font-medium truncate">${r.model}</span>
+                            <span class="text-gray-400 text-xs ml-auto shrink-0">${time}</span>
+                        </div>
+                        <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                            <span>${r.provider}</span>
+                            <span>${window.I18N.tokensLabel || 'Tokens'}: ${tokens}</span>
+                            <span>${latency}</span>
+                        </div>
+                        ${errorHtml}
                     </div>
-                </div>
-            `).join('');
-            document.getElementById('active-sessions').innerHTML = html;
+                `;
+            }).join('');
         }
 
         async function loadSystemActiveSessions() {
@@ -1321,11 +1438,49 @@
         }
         
         loadStats();
-        loadActiveSessions();
+        loadMyRequests();
         loadSystemActiveSessions();
         setInterval(loadStats, 30000);
-        setInterval(loadActiveSessions, 10000);
+        setInterval(loadMyRequests, 10000);
         setInterval(loadSystemActiveSessions, 10000);
+
+        let _userNotifPage = 1;
+        async function loadUserNotifList(page) {
+            _userNotifPage = page;
+            const r = await fetch(APP_BASE_PATH + '/user/api/notifications?page=' + page + '&page_size=10');
+            const d = await r.json();
+            const el = document.getElementById('user-notif-list');
+            if (!d.items || !d.items.length) { el.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + (window.I18N.noNotifications || 'No notifications') + '</div>'; document.getElementById('user-notif-pagination').innerHTML = ''; return; }
+            const levelColors = {info:'border-blue-400 bg-blue-50',warning:'border-yellow-400 bg-yellow-50',error:'border-red-400 bg-red-50'};
+            const levelDots = {info:'bg-blue-500',warning:'bg-yellow-500',error:'bg-red-500'};
+            el.innerHTML = d.items.map(function(n) {
+                const lc = levelColors[n.level]||levelColors.info;
+                const ld = levelDots[n.level]||levelDots.info;
+                return '<div class="bg-white rounded-lg p-3 border ' + lc + ' ' + (n.is_read?'':'border-l-[3px] border-l-blue-500') + '">' +
+                    '<div class="flex items-start gap-2">' +
+                        '<div class="w-2 h-2 rounded-full ' + ld + ' mt-1.5 shrink-0"></div>' +
+                        '<div class="flex-1 min-w-0">' +
+                            '<div class="flex justify-between gap-2"><span class="font-medium text-gray-700 text-sm">' + (n.title||'') + '</span><span class="text-xs text-gray-400 shrink-0">' + new Date(n.created_at).toLocaleString() + '</span></div>' +
+                            (n.body ? '<p class="text-xs text-gray-500 mt-1">' + n.body + '</p>' : '') +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+            const totalPages = Math.ceil(d.total / d.page_size);
+            const pg = document.getElementById('user-notif-pagination');
+            if (totalPages <= 1) { pg.innerHTML = ''; return; }
+            let html = '';
+            if (page > 1) html += '<button onclick="loadUserNotifList(' + (page-1) + ')" class="px-3 py-1 border rounded text-sm">&lt;</button>';
+            for (let i = Math.max(1,page-2); i <= Math.min(totalPages,page+2); i++) {
+                html += '<button onclick="loadUserNotifList(' + i + ')" class="px-3 py-1 border rounded text-sm ' + (i===page?'bg-blue-500 text-white':'') + '">' + i + '</button>';
+            }
+            if (page < totalPages) html += '<button onclick="loadUserNotifList(' + (page+1) + ')" class="px-3 py-1 border rounded text-sm">&gt;</button>';
+            pg.innerHTML = html;
+        }
+        async function userNotifMarkAllRead() {
+            await fetch(APP_BASE_PATH + '/user/api/notifications/read-all', {method:'PUT'});
+            loadUserNotifList(_userNotifPage);
+        }
     </script>
 {% endraw %}
 </body>

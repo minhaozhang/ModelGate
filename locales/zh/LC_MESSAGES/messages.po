@@ -54,6 +54,12 @@ msgstr "活跃用户"
 msgid "Active Sessions"
 msgstr "活跃会话"
 
+msgid "My Requests"
+msgstr "我的请求"
+
+msgid "No requests yet"
+msgstr "暂无请求"
+
 msgid "Slow Requests"
 msgstr "慢请求"
 
@@ -1176,4 +1182,271 @@ msgstr "开始时间"
 
 msgid "End Time"
 msgstr "结束时间"
+
+msgid "Disabled Providers"
+msgstr "已禁用供应商"
+
+msgid "Personal"
+msgstr "个人"
+
+msgid "Avg Requests/Model"
+msgstr "平均请求数/模型"
+
+msgid "Ranked by stability, response time, and sample size"
+msgstr "按稳定性、响应时间和样本量排序"
+
+msgid "Loading recommendations..."
+msgstr "正在加载推荐..."
+
+msgid "Analyzing the best daily time windows..."
+msgstr "正在分析最佳时间段..."
+
+msgid "Based on recent load, error rate, and latency"
+msgstr "基于近期负载、错误率和延迟"
+
+msgid "System Request Trend"
+msgstr "系统请求趋势"
+
+msgid "Anonymized across all API keys. Your own traffic is labeled as Yourself."
+msgstr "所有 API Key 匿名汇总，你的流量标记为「你自己」。"
+
+msgid "Based on the current period and accessible models"
+msgstr "基于当前时间段和可用模型"
+
+msgid "No recommendation data yet"
+msgstr "暂无推荐数据"
+
+msgid "AI analysis unavailable"
+msgstr "AI 分析不可用"
+
+msgid "Model Used"
+msgstr "使用模型"
+
+msgid "AI Generated"
+msgstr "AI 生成"
+
+msgid "No recent traffic in the last 20 minutes"
+msgstr "最近 20 分钟无流量"
+
+msgid "models"
+msgstr "个模型"
+
+msgid "providers"
+msgstr "个供应商"
+
+msgid "ctx"
+msgstr "上下文"
+
+msgid "out"
+msgstr "输出"
+
+msgid "multimodal"
+msgstr "多模态"
+
+msgid "alias"
+msgstr "别名"
+
+msgid "Recommendation score"
+msgstr "推荐分数"
+
+msgid "No active providers or models"
+msgstr "无活跃供应商或模型"
+
+msgid "No accessible models"
+msgstr "无可访问模型"
+
+msgid "This API key currently has access to all active models on the platform."
+msgstr "此 API Key 当前可访问平台上所有活跃模型。"
+
+msgid "Models explicitly available to this API key."
+msgstr "此 API Key 明确可用的模型。"
+
+msgid "Models available to this API key."
+msgstr "此 API Key 可用的模型。"
+
+msgid "Platform provider catalog"
+msgstr "平台供应商目录"
+
+msgid "Models this key can use"
+msgstr "此 Key 可用的模型"
+
+msgid "err"
+msgstr "错误"
+
+msgid "So empty..."
+msgstr "空空如也"
+
+msgid "Online Users"
+msgstr "今天有点冷清"
+
+msgid "Only You Online"
+msgstr "一个人的舞台"
+
+msgid "Night Owl — Just You"
+msgstr "夜猫子，只有你"
+
+msgid "Early Bird — Just You"
+msgstr "早起的鸟儿"
+
+msgid "Companions at Work"
+msgstr "陪伴你的牛马"
+
+msgid "Night Owls Club"
+msgstr "修仙小分队"
+
+msgid "Early Birds"
+msgstr "早起的鸟儿们"
+
+msgid "Token Rivals"
+msgstr "和你抢 Token 的人"
+
+msgid "Peak Hours"
+msgstr "高峰时刻，Token 大战"
+
+msgid "Shouldn't You Be Asleep?"
+msgstr "都这个点了，该睡觉了"
+
+msgid "Active 1h"
+msgstr "活跃(1h)"
+
+msgid "disabled"
+msgstr "已禁用"
+
+msgid "Config path: %USERPROFILE%\\.config\\opencode\\opencode.json"
+msgstr "配置路径：%USERPROFILE%\\.config\\opencode\\opencode.json"
+
+msgid "Config path: ~/.config/opencode/opencode.json"
+msgstr "配置路径：~/.config/opencode/opencode.json"
+
+msgid "Est. Cost"
+msgstr "估算费用"
+
+msgid "Estimated cost based on token usage and model pricing"
+msgstr "基于 Token 用量和模型定价的估算费用"
+
+msgid "System Status"
+msgstr "系统状态"
+
+msgid "Real-time busyness level"
+msgstr "实时繁忙程度"
+
+msgid "Active users (10min)"
+msgstr "活跃用户（10分钟）"
+
+msgid "Limited providers"
+msgstr "被限流供应商"
+
+msgid "ratio"
+msgstr "占比"
+
+msgid "providers limited"
+msgstr "家供应商被限流"
+
+msgid "active users"
+msgstr "活跃用户"
+
+msgid "Busyness Control Rules"
+msgstr "繁忙控制规则"
+
+msgid "Auto downgrade, suggest, or block models based on system busyness level (1=extremely busy ~ 6=quiet)"
+msgstr "根据系统繁忙程度自动降级、建议或阻止模型（1=极度繁忙 ~ 6=无人问津）"
+
+msgid "Add Rule"
+msgstr "添加规则"
+
+msgid "Save Rules"
+msgstr "保存规则"
+
+msgid "No rules configured"
+msgstr "未配置规则"
+
+msgid "Level"
+msgstr "级别"
+
+msgid "Action"
+msgstr "动作"
+
+msgid "Downgrade"
+msgstr "降级"
+
+msgid "Suggest"
+msgstr "建议"
+
+msgid "Block"
+msgstr "阻止"
+
+msgid "Models"
+msgstr "模型"
+
+msgid "All models"
+msgstr "所有模型"
+
+msgid "Redirect to"
+msgstr "重定向到"
+
+msgid "Message"
+msgstr "消息"
+
+msgid "Optional message"
+msgstr "可选消息"
+
+msgid "Rules saved"
+msgstr "规则已保存"
+
+msgid "Notifications"
+msgstr "消息中心"
+
+msgid "Mark All Read"
+msgstr "全部已读"
+
+msgid "No notifications"
+msgstr "暂无通知"
+
+msgid "Read"
+msgstr "已读"
+
+msgid "Scheduled Tasks"
+msgstr "定时任务"
+
+msgid "No tasks"
+msgstr "暂无任务"
+
+msgid "Paused"
+msgstr "已暂停"
+
+msgid "Run Now"
+msgstr "立即执行"
+
+msgid "Resume"
+msgstr "恢复"
+
+msgid "Pause"
+msgstr "暂停"
+
+msgid "Logs"
+msgstr "日志"
+
+msgid "Last run"
+msgstr "上次执行"
+
+msgid "Duration"
+msgstr "耗时"
+
+msgid "Next run"
+msgstr "下次执行"
+
+msgid "Execution Log"
+msgstr "执行日志"
+
+msgid "No logs"
+msgstr "暂无日志"
+
+msgid "Time"
+msgstr "时间"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Result"
+msgstr "结果"
 

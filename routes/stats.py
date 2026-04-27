@@ -25,6 +25,7 @@ from core.config import (
     add_live_stats_subscriber,
     api_keys_cache,
     build_live_stats_snapshot,
+    busyness_state,
     get_api_key_name,
     prune_stale_active_requests,
     remove_live_stats_subscriber,
@@ -1520,6 +1521,20 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
             )
             total_rate_limited = rate_limited_result.scalar() or 0
 
+        disabled_result = await session.execute(
+            select(Provider.name, Provider.disabled_reason).where(
+                Provider.is_active == False,  # noqa: E712
+            )
+        )
+        disabled_providers = {row.name: row.disabled_reason or "Disabled" for row in disabled_result.fetchall()}
+
+        active_1h_result = await session.execute(
+            select(func.count(func.distinct(RequestLog.api_key_id))).where(
+                RequestLog.created_at >= now - timedelta(hours=1),
+            )
+        )
+        active_1h = active_1h_result.scalar() or 0
+
         return {
             "period": period,
             "start": start.isoformat(),
@@ -1528,9 +1543,11 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
             "total_errors": total_errors,
             "total_timeouts": total_timeouts,
             "total_rate_limited": total_rate_limited,
+            "active_1h": active_1h,
             "providers": provider_stats,
             "api_keys": api_key_stats,
             "models": model_stats,
+            "disabled_providers": disabled_providers,
         }
 
 
@@ -1897,6 +1914,18 @@ async def stats_live_websocket(websocket: WebSocket):
     finally:
         await remove_live_stats_subscriber(websocket)
         await prune_stale_active_requests()
+
+
+@router.get("/stats/busyness")
+async def get_busyness_level(_: bool = Depends(require_admin)):
+    from services.busyness import compute_busyness_level, LEVEL_LABELS
+    from services.proxy_runtime.concurrency import _get_user_provider_model_limit
+
+    if not busyness_state:
+        busyness_state.update(await compute_busyness_level())
+    result = dict(busyness_state)
+    result["user_provider_model_limit"] = _get_user_provider_model_limit()
+    return result
 
 
 @router.get("/stats/slow")

@@ -13,7 +13,7 @@ from core.config import (
     update_stats,
 )
 from core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
-from services.logging import log_request
+from services.logging import create_request_log
 from services.minimax import process_minimax_response
 from services.provider_limiter import check_usage_limit_error, disable_provider_key
 from services.proxy_runtime.adapters import get_adapter
@@ -46,11 +46,12 @@ async def handle_normal(
     client_ip,
     user_agent,
     request_context_tokens,
-    semaphore,
-    api_key_model_semaphore,
+    provider_key_semaphore,
+    user_provider_model_semaphore,
     request_id,
     chosen_key_id=None,
     protocol="openai",
+    extra_response_headers: dict[str, str] | None = None,
 ):
     logger.debug(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -65,6 +66,7 @@ async def handle_normal(
             model,
             api_key_id,
             client_ip=client_ip,
+            prompt_tokens=request_context_tokens,
         )
         is_active_request_registered = True
 
@@ -87,6 +89,7 @@ async def handle_normal(
                 429,
                 "rate_limit_error",
                 "provider_disabled",
+                headers=extra_response_headers,
             )
 
         adapter = get_adapter(protocol)
@@ -145,19 +148,19 @@ async def handle_normal(
         if not is_error and total_tokens > 0:
             record_request_rate(total_tokens, latency)
         log_response_meta(provider, model, response_meta)
-        await log_request(
+        await create_request_log(
             provider,
             model,
-            response_text,
-            tokens_record,
-            latency,
-            request_status,
+            status=request_status,
             api_key_id=api_key_id,
-            upstream_status_code=resp.status_code,
-            downstream_status_code=resp.status_code,
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=request_context_tokens,
+            response=response_text,
+            tokens=tokens_record,
+            latency_ms=latency,
+            upstream_status_code=resp.status_code,
+            downstream_status_code=resp.status_code,
             error=(
                 sanitize_text_for_log(provider_error, limit=2000)
                 if provider_error
@@ -183,6 +186,8 @@ async def handle_normal(
         logger.debug("[RESPONSE] Body: %s", sanitize_text_for_log(resp.text))
 
         resp_headers = {"content-type": "application/json"}
+        if extra_response_headers:
+            resp_headers.update(extra_response_headers)
         if _is_rate_limited_status(resp.status_code):
             if retry_after:
                 resp_headers["retry-after"] = retry_after
@@ -207,15 +212,17 @@ async def handle_normal(
             status_code=resp.status_code,
             headers=resp_headers,
         )
-        api_key_model_semaphore.release()
-        if semaphore is not None:
-            semaphore.release()
+        if user_provider_model_semaphore is not None:
+            user_provider_model_semaphore.release()
+        if provider_key_semaphore is not None:
+            provider_key_semaphore.release()
         semaphores_released = True
         return response
     finally:
         if is_active_request_registered:
             await finish_active_request(request_id)
         if not semaphores_released:
-            if semaphore is not None:
-                semaphore.release()
-            api_key_model_semaphore.release()
+            if provider_key_semaphore is not None:
+                provider_key_semaphore.release()
+            if user_provider_model_semaphore is not None:
+                user_provider_model_semaphore.release()

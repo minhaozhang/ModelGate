@@ -2,7 +2,8 @@ import json
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 
 from core.app_paths import get_app_base_path
@@ -169,3 +170,38 @@ async def get_opencode_setup_markdown(
 
         md = build_setup_markdown(config)
         return PlainTextResponse(content=md, media_type="text/markdown; charset=utf-8")
+
+
+class MergeRequest(BaseModel):
+    config: dict
+
+
+@router.post("/opencode/merge")
+async def merge_opencode_config(
+    request: Request,
+    body: MergeRequest,
+    api_key: Optional[str] = None,
+    api_key_id: Optional[int] = Depends(get_user_session),
+):
+    if not api_key and not api_key_id:
+        return JSONResponse({"error": "API Key is required"}, status_code=400)
+
+    async with async_session_maker() as session:
+        base_url = build_opencode_base_url(request)
+        modelgate_config = await build_opencode_config(
+            session, base_url, api_key=api_key, api_key_id=api_key_id
+        )
+        if not modelgate_config:
+            return JSONResponse({"error": "Invalid API Key"}, status_code=401)
+
+        user_config = body.config
+        if not isinstance(user_config, dict):
+            user_config = {}
+
+        providers = user_config.get("provider", {})
+        if not isinstance(providers, dict):
+            providers = {}
+        providers["modelgate"] = modelgate_config["provider"]["modelgate"]
+        user_config["provider"] = providers
+
+        return JSONResponse(user_config)

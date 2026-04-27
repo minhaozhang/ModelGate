@@ -111,6 +111,7 @@ def _serialize_error_log(
         "model": log.model,
         "status": log.status,
         "upstream_status_code": log.upstream_status_code,
+        "downstream_status_code": log.downstream_status_code,
         "latency_ms": log.latency_ms,
         "request_context_tokens": log.request_context_tokens,
         "tokens": log.tokens,

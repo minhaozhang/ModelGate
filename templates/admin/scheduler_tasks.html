@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ '定时任务' if current_locale == 'zh' else 'Scheduled Tasks' }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <style>
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav, body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border, body.theme-dark .border-b { border-color: #1f2937 !important; }
+        body.theme-dark input, body.theme-dark select { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-yellow-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow { box-shadow: 0 12px 30px rgba(2,6,23,0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96,165,250,0.15); color: #60a5fa !important; border-right: 3px solid #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148,163,184,0.12); }
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59,130,246,0.1); }
+        .stab { padding: 0.5rem 1.25rem; font-size: 0.875rem; border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.2s; color: #6b7280; }
+        .stab:hover { color: #3b82f6; }
+        .stab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
+    </style>
+</head>
+<body class="theme-dark bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header('定时任务' if current_locale == 'zh' else 'Scheduled Tasks') %}{% endcall %}
+            <div class="flex border-b mb-6">
+                <button class="stab active" onclick="switchTab('tasks', this)">{{ '任务列表' if current_locale == 'zh' else 'Task List' }}</button>
+                <button class="stab" onclick="switchTab('logs', this)">{{ '执行日志' if current_locale == 'zh' else 'Execution Logs' }}</button>
+            </div>
+            <script>const APP_BASE_PATH = "{{ app_base_path }}";</script>
+            <div id="panel-tasks">{% include 'admin/scheduler_tasks_tab.html' %}</div>
+            <div id="panel-logs" class="hidden">{% include 'admin/scheduler_logs_tab.html' %}</div>
+        </main>
+    </div>
+    <script>
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
+        function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
+        function applyTheme(mode) {
+            document.body.classList.toggle('theme-dark', mode === 'dark');
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').value = mode;
+        }
+        applyTheme(getThemeMode());
+        function switchTab(name, btn) {
+            document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('panel-tasks').classList.toggle('hidden', name !== 'tasks');
+            document.getElementById('panel-logs').classList.toggle('hidden', name !== 'logs');
+        }
+    </script>
+</body>
+</html>

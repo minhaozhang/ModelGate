@@ -11,9 +11,12 @@ from core.database import (
     ApiKey,
     ApiKeyModel,
     ApiKeyMcpServer,
+    ApiKeyTag,
     ApiKeyTimeRule,
     RequestLogRead as RequestLog,
     generate_api_key,
+    Model,
+    ProviderModel,
 )
 from services.auth import load_api_keys
 from routes.user import get_user_session
@@ -32,6 +35,8 @@ class ApiKeyCreate(BaseModel):
     name: str
     allowed_provider_model_ids: list[int] = []
     mcp_server_ids: list[int] = []
+    bypass_busyness: bool = False
+    tags: list[str] = []
 
 
 class ApiKeyUpdate(BaseModel):
@@ -39,6 +44,8 @@ class ApiKeyUpdate(BaseModel):
     allowed_provider_model_ids: Optional[list[int]] = None
     is_active: Optional[bool] = None
     mcp_server_ids: Optional[list[int]] = None
+    bypass_busyness: Optional[bool] = None
+    tags: Optional[list[str]] = None
 
 
 @router.get("/keys")
@@ -82,6 +89,11 @@ async def list_api_keys(_: bool = Depends(require_admin)):
             )
             mcp_server_ids = [row[0] for row in mcp_result.fetchall()]
 
+            tags_result = await session.execute(
+                select(ApiKeyTag.tag).where(ApiKeyTag.api_key_id == k.id)
+            )
+            tags = [row[0] for row in tags_result.fetchall()]
+
             api_keys.append(
                 {
                     "id": k.id,
@@ -90,7 +102,9 @@ async def list_api_keys(_: bool = Depends(require_admin)):
                     "allowed_provider_model_ids": model_ids,
                     "time_rules": time_rules,
                     "is_active": k.is_active,
+                    "bypass_busyness": k.bypass_busyness or False,
                     "mcp_server_ids": mcp_server_ids,
+                    "tags": tags,
                     "last_used_at": k.last_used_at.isoformat()
                     if k.last_used_at
                     else None,
@@ -102,7 +116,7 @@ async def list_api_keys(_: bool = Depends(require_admin)):
 @router.post("/keys")
 async def create_api_key(data: ApiKeyCreate, _: bool = Depends(require_admin)):
     async with async_session_maker() as session:
-        new_key = ApiKey(name=data.name, key=generate_api_key())
+        new_key = ApiKey(name=data.name, key=generate_api_key(), bypass_busyness=data.bypass_busyness)
         session.add(new_key)
         await session.commit()
         await session.refresh(new_key)
@@ -113,6 +127,9 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(require_admin)):
         for sid in data.mcp_server_ids:
             assoc = ApiKeyMcpServer(api_key_id=new_key.id, mcp_server_id=sid)
             session.add(assoc)
+        for tag in data.tags:
+            t = ApiKeyTag(api_key_id=new_key.id, tag=tag)
+            session.add(t)
         await session.commit()
         await load_api_keys()
         return {"id": new_key.id, "name": new_key.name, "key": new_key.key}
@@ -131,6 +148,8 @@ async def update_api_key(
             key.name = data.name
         if data.is_active is not None:
             key.is_active = data.is_active
+        if data.bypass_busyness is not None:
+            key.bypass_busyness = data.bypass_busyness
         if data.mcp_server_ids is not None:
             await session.execute(
                 delete(ApiKeyMcpServer).where(ApiKeyMcpServer.api_key_id == key_id)
@@ -139,12 +158,41 @@ async def update_api_key(
                 assoc = ApiKeyMcpServer(api_key_id=key_id, mcp_server_id=sid)
                 session.add(assoc)
         if data.allowed_provider_model_ids is not None:
+            old_result = await session.execute(
+                select(ApiKeyModel.provider_model_id).where(
+                    ApiKeyModel.api_key_id == key_id
+                )
+            )
+            old_pm_ids = set(row[0] for row in old_result.fetchall())
+            new_pm_ids = set(data.allowed_provider_model_ids)
             await session.execute(
                 delete(ApiKeyModel).where(ApiKeyModel.api_key_id == key_id)
             )
             for pm_id in data.allowed_provider_model_ids:
                 assoc = ApiKeyModel(api_key_id=key_id, provider_model_id=pm_id)
                 session.add(assoc)
+            added_pm_ids = new_pm_ids - old_pm_ids
+            removed_pm_ids = old_pm_ids - new_pm_ids
+            if added_pm_ids or removed_pm_ids:
+                from services.notification import notify_model_changes_async
+                model_names_result = await session.execute(
+                    select(ProviderModel.id, Model.display_name, Model.name)
+                    .join(Model, ProviderModel.model_id == Model.id)
+                    .where(ProviderModel.id.in_(added_pm_ids | removed_pm_ids))
+                )
+                pm_name_map = {row[0]: row[1] or row[2] for row in model_names_result.fetchall()}
+                notify_model_changes_async(
+                    key_id, key.name,
+                    [pm_name_map.get(pid, str(pid)) for pid in added_pm_ids],
+                    [pm_name_map.get(pid, str(pid)) for pid in removed_pm_ids],
+                )
+        if data.tags is not None:
+            await session.execute(
+                delete(ApiKeyTag).where(ApiKeyTag.api_key_id == key_id)
+            )
+            for tag in data.tags:
+                t = ApiKeyTag(api_key_id=key_id, tag=tag)
+                session.add(t)
         await session.commit()
         await load_api_keys()
         return {"id": key.id}

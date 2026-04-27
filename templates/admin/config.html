@@ -62,7 +62,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b flex justify-between items-center">
-                        <h3 class="text-lg font-semibold">{{ _('Providers') }}</h3>
+                        <h3 class="text-lg font-semibold">{{ _('Providers') }} <span id="provider-count" class="text-sm font-normal text-gray-500"></span></h3>
                         <button onclick="showAddProvider()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ _('+ Add') }}</button>
                     </div>
                     <div id="providers-list" class="p-4 space-y-2 max-h-80 overflow-y-auto"></div>
@@ -70,7 +70,7 @@
 
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b flex justify-between items-center">
-                        <h3 class="text-lg font-semibold">{{ _('Models') }}</h3>
+                        <h3 class="text-lg font-semibold">{{ _('Models') }} <span id="model-count" class="text-sm font-normal text-gray-500"></span></h3>
                         <div class="flex gap-2">
                             <button onclick="showAddModel()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ _('+ Add') }}</button>
                             <button onclick="syncSelectedProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600">{{ _('Sync') }}</button>
@@ -170,6 +170,10 @@
                         </label>
                     </div>
                 </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Estimated blended price per 1M tokens (USD). Used for cost estimation on user dashboard.') }}">{{ _('Est. Price $/1M tokens') }} <span class="text-gray-400">?</span></label>
+                    <input type="number" step="0.01" id="model-estimated-price" value="" placeholder="0.00" class="w-full border rounded px-3 py-2">
+                </div>
                 <div class="flex items-center gap-4">
                     <label class="flex items-center">
                         <input type="checkbox" id="model-multimodal" class="mr-2">
@@ -189,12 +193,12 @@
     </div>
 
     <div id="model-keys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 h-[90vh] flex flex-col">
             <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
                 <h3 id="model-keys-title" class="font-semibold">{{ _('API Key Access') }}</h3>
                 <button onclick="closeModelKeysModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
-            <div class="p-4 overflow-y-auto flex-1">
+            <div class="p-4 overflow-y-auto flex-1 min-h-0">
                 <div id="model-keys-content" class="space-y-4">
                     <div class="text-center text-gray-400 py-4">Loading...</div>
                 </div>
@@ -206,7 +210,7 @@
     </div>
 
     <div id="provider-keys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 h-[90vh] flex flex-col">
             <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
                 <h3 id="provider-keys-title" class="font-semibold">{{ _('Provider Keys') }}</h3>
                 <button onclick="closeProviderKeysModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
@@ -391,6 +395,7 @@
                 </div>
             `).join('');
             document.getElementById('providers-list').innerHTML = html || `<div class="text-gray-400 text-center py-4">${t('noProviders', 'No providers')}</div>`;
+            document.getElementById('provider-count').textContent = `(${allProviders.length})`;
         }
 
         async function openModelKeys(modelId, titleOverride = null) {
@@ -444,7 +449,7 @@
                             <button onclick="deselectAllKeys(${pm.id})" class="text-xs text-gray-500 hover:text-gray-700">${t('clear', 'Clear')}</button>
                         </div>
                     </div>
-                    <div class="space-y-1 max-h-80 overflow-y-auto">
+                    <div class="space-y-1 max-h-[50vh] overflow-y-auto">
                         ${pageApiKeys.map(k => `
                             <label class="mk-item flex items-center text-sm py-2 px-2 rounded cursor-pointer ${selectedIds.has(k.id) ? 'selected' : ''}" data-pm-id="${pm.id}" data-ak-id="${k.id}">
                                 <input type="checkbox" class="mr-2 mk-check" data-pm-id="${pm.id}" data-ak-id="${k.id}" onchange="toggleModelKeySelection(${pm.id}, ${k.id}, this.checked)" ${selectedIds.has(k.id) ? 'checked' : ''}>
@@ -554,6 +559,15 @@
             try {
                 await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {method: 'DELETE'}, {success: t('modelUnbound', 'Model unbound'), error: t('unbindFailed', 'Unbind failed')});
                 loadProviderBindings(selectedProviderId);
+            } catch(e) {}
+        }
+
+        async function updateBusynessLevel(pmId, value) {
+            const body = value ? {max_busyness_level: parseInt(value)} : {clear_busyness_level: true};
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+                });
             } catch(e) {}
         }
 
@@ -694,6 +708,7 @@
             document.getElementById('model-context-length').value = m.context_length;
             document.getElementById('model-thinking-enabled').checked = m.thinking_enabled;
             document.getElementById('model-thinking-budget').value = m.thinking_budget;
+            document.getElementById('model-estimated-price').value = m.estimated_price || '';
             document.getElementById('model-multimodal').checked = m.is_multimodal;
             document.getElementById('model-active').checked = m.is_active;
 
@@ -716,6 +731,7 @@
                 context_length: parseInt(document.getElementById('model-context-length').value) || 131072,
                 thinking_enabled: document.getElementById('model-thinking-enabled').checked,
                 thinking_budget: parseInt(document.getElementById('model-thinking-budget').value) || 8192,
+                estimated_price: parseFloat(document.getElementById('model-estimated-price').value) || null,
                 is_multimodal: document.getElementById('model-multimodal').checked,
                 is_active: document.getElementById('model-active').checked
             };
@@ -906,6 +922,7 @@
                 </div>
             `).join('');
             document.getElementById('models-list').innerHTML = html || `<div class="text-gray-400 text-center py-4">${t('noModels', 'No models')}</div>`;
+            document.getElementById('model-count').textContent = `(${allModels.length})`;
             if (selectedProviderId) {
                 await loadProviderBindings(selectedProviderId);
             }
@@ -921,10 +938,13 @@
                 html += '<div class="space-y-2 mb-4">';
                 bindings.forEach(b => {
                     const bindingLabel = (b.display_name || b.model_name).replace(/'/g, "\\'");
+                    const blVal = b.max_busyness_level || '';
+                    const blOpts = [{v:'',l:'不限'},{v:'1',l:'1 · 过载'},{v:'2',l:'2 · 拥挤'},{v:'3',l:'3 · 活跃'},{v:'4',l:'4 · 流畅'},{v:'5',l:'5 · 平静'},{v:'6',l:'6 · 寂静'}].map(o => `<option value="${o.v}" ${blVal==o.v?'selected':''}>${o.l}</option>`).join('');
                     html += `
-                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                            <span class="text-sm">${b.display_name || b.model_name}</span>
-                            <div class="flex items-center gap-1">
+                        <div class="flex items-center p-2 bg-gray-50 rounded gap-2">
+                            <span class="text-sm shrink-0 flex-1 min-w-0 truncate">${b.display_name || b.model_name}</span>
+                            <select onchange="updateBusynessLevel(${b.id}, this.value)" class="border rounded px-1.5 py-0.5 text-xs shrink-0" title="繁忙可用级别">${blOpts}</select>
+                            <div class="flex items-center gap-1 shrink-0">
                                 <button onclick="openProviderModelKeys(${b.id}, ${b.model_id}, '${bindingLabel}')" class="icon-btn text-green-500 hover:text-green-700" title="${t('keys', 'Keys')}">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
                                 </button>

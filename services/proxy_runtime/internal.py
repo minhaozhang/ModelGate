@@ -7,7 +7,8 @@ from sqlalchemy import select
 from core.config import logger, record_request_rate, update_stats
 from core.database import ApiKey, async_session_maker
 from core.log_sanitizer import sanitize_text_for_log
-from services.logging import log_request
+from services.logging import create_request_log
+from services.deepseek_compat import is_deepseek_thinking_active, patch_reasoning_content
 from services.message import preprocess_messages
 from services.minimax import process_minimax_response
 from services.provider import (
@@ -25,8 +26,9 @@ from services.proxy_runtime.common import schedule_api_key_last_used_update
 from services.proxy_runtime.concurrency import (
     RATE_LIMITED_STATUSES,
     SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
-    _get_api_key_model_limit,
-    _get_or_create_api_key_model_semaphore,
+    USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+    _get_user_provider_model_limit,
+    _get_or_create_user_provider_model_semaphore,
     _get_or_create_provider_key_semaphore,
     _get_provider_key_limit,
 )
@@ -87,42 +89,16 @@ async def call_internal_model_via_proxy(
             "error": f"Unknown provider for model: {requested_model}",
         }
 
-    api_key_model_sem_key, api_key_model_semaphore = (
-        _get_or_create_api_key_model_semaphore(
-            api_key_id, requested_model, _get_api_key_model_limit()
-        )
-    )
-    api_key_model_acquired = False
     provider_key_semaphore = None
+    user_provider_model_semaphore = None
     acquired = False
-
-    try:
-        await asyncio.wait_for(
-            api_key_model_semaphore.acquire(),
-            timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
-        )
-        api_key_model_acquired = True
-    except asyncio.TimeoutError:
-        message = (
-            f"API key {api_key_id} already reached max concurrency for model '{requested_model}'"
-        )
-        logger.warning("[RATE LIMIT] %s at max concurrency", api_key_model_sem_key)
-        return {
-            "ok": False,
-            "provider_name": provider_name,
-            "actual_model_name": actual_model,
-            "status_code": 429,
-            "payload": None,
-            "error": message,
-        }
+    user_provider_model_acquired = False
 
     try:
         chosen_api_key, chosen_key_id = pick_api_key(
             provider_config, api_key_id, provider_name
         )
         if not chosen_api_key:
-            api_key_model_semaphore.release()
-            api_key_model_acquired = False
             return {
                 "ok": False,
                 "provider_name": provider_name,
@@ -147,12 +123,44 @@ async def call_internal_model_via_proxy(
                 )
                 acquired = True
             except asyncio.TimeoutError:
-                api_key_model_semaphore.release()
-                api_key_model_acquired = False
                 message = (
                     f"Provider key {chosen_key_id} for '{provider_name}' is at max concurrency"
                 )
                 logger.warning("[RATE LIMIT] %s at max concurrency", provider_key_sem_key)
+                return {
+                    "ok": False,
+                    "provider_name": provider_name,
+                    "actual_model_name": actual_model,
+                    "status_code": 429,
+                    "payload": None,
+                    "error": message,
+                }
+
+            provider_model_key = f"{provider_name}/{actual_model}"
+            user_provider_model_sem_key, user_provider_model_semaphore = (
+                _get_or_create_user_provider_model_semaphore(
+                    api_key_id,
+                    chosen_key_id,
+                    provider_model_key,
+                    _get_user_provider_model_limit(),
+                )
+            )
+            try:
+                await asyncio.wait_for(
+                    user_provider_model_semaphore.acquire(),
+                    timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                )
+                user_provider_model_acquired = True
+            except asyncio.TimeoutError:
+                if acquired and provider_key_semaphore is not None:
+                    provider_key_semaphore.release()
+                    acquired = False
+                message = (
+                    f"User {api_key_id} already reached max concurrency for provider key {chosen_key_id} model '{provider_model_key}'"
+                )
+                logger.warning(
+                    "[RATE LIMIT] %s at max concurrency", user_provider_model_sem_key
+                )
                 return {
                     "ok": False,
                     "provider_name": provider_name,
@@ -172,6 +180,9 @@ async def call_internal_model_via_proxy(
         )
         merge_messages = provider_config.get("merge_consecutive_messages", False)
         req_body = preprocess_messages(req_body, merge_messages, is_multimodal)
+
+        if is_deepseek_thinking_active(provider_name, actual_model, req_body, model_config):
+            patch_reasoning_content(req_body.get("messages", []))
 
         if req_body.get("stream"):
             req_body["stream"] = False
@@ -261,19 +272,19 @@ async def call_internal_model_via_proxy(
         if not is_error and total_tokens > 0:
             record_request_rate(total_tokens, latency)
         log_response_meta(provider_name, actual_model, response_meta)
-        await log_request(
+        await create_request_log(
             provider_name,
             actual_model,
-            response_text,
-            tokens_record,
-            latency,
-            request_status,
+            status=request_status,
             api_key_id=api_key_id,
-            upstream_status_code=resp.status_code,
-            downstream_status_code=None,
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=request_context_tokens,
+            response=response_text,
+            tokens=tokens_record,
+            latency_ms=latency,
+            upstream_status_code=resp.status_code,
+            downstream_status_code=resp.status_code,
             error=(
                 sanitize_text_for_log(provider_error, limit=2000)
                 if provider_error
@@ -317,18 +328,16 @@ async def call_internal_model_via_proxy(
         update_stats(
             provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True
         )
-        await log_request(
+        await create_request_log(
             provider_name,
             actual_model,
-            "",
-            {},
-            latency,
-            "error",
+            status="error",
             api_key_id=api_key_id,
-            downstream_status_code=None,
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=estimate_request_context_tokens(req_body),
+            latency_ms=latency,
+            downstream_status_code=502,
             error=str(exc),
         )
         logger.warning(
@@ -349,5 +358,5 @@ async def call_internal_model_via_proxy(
     finally:
         if acquired and provider_key_semaphore is not None:
             provider_key_semaphore.release()
-        if api_key_model_acquired:
-            api_key_model_semaphore.release()
+        if user_provider_model_acquired and user_provider_model_semaphore is not None:
+            user_provider_model_semaphore.release()

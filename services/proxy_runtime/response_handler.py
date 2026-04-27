@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from core.config import error_logger, logger, record_request_rate, update_stats
 from core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
-from services.logging import log_request, update_request_log
+from services.logging import create_request_log, update_request_log
 from services.minimax import process_minimax_response
 from services.tokens import (
     build_response_meta,
@@ -185,19 +185,19 @@ async def _record_stream_result(
             downstream_status_code=200,
         )
         if not updated:
-            await log_request(
+            await create_request_log(
                 provider,
                 model,
-                total_content,
-                tokens_record,
-                latency,
-                "success",
+                status="success",
                 api_key_id=api_key_id,
-                upstream_status_code=upstream_status_code,
-                downstream_status_code=200,
                 client_ip=client_ip,
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,
+                response=total_content,
+                tokens=tokens_record,
+                latency_ms=latency,
+                upstream_status_code=upstream_status_code,
+                downstream_status_code=200,
             )
         logger.info(
             f"[STREAM COMPLETE] ~{total_tokens} tokens "
@@ -216,19 +216,19 @@ async def _record_stream_result(
             downstream_status_code=200,
         )
         if not updated:
-            await log_request(
+            await create_request_log(
                 provider,
                 model,
-                total_content,
-                tokens_record,
-                latency,
-                "cancelled",
+                status="cancelled",
                 api_key_id=api_key_id,
-                upstream_status_code=upstream_status_code,
-                downstream_status_code=200,
                 client_ip=client_ip,
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,
+                response=total_content,
+                tokens=tokens_record,
+                latency_ms=latency,
+                upstream_status_code=upstream_status_code,
+                downstream_status_code=200,
             )
     elif status in {"error", RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}:
         update_stats(
@@ -250,19 +250,19 @@ async def _record_stream_result(
             error=str(error) if error is not None else None,
         )
         if not updated:
-            await log_request(
+            await create_request_log(
                 provider,
                 model,
-                total_content,
-                tokens_record,
-                latency,
-                status,
+                status=status,
                 api_key_id=api_key_id,
-                upstream_status_code=upstream_status_code,
-                downstream_status_code=200,
                 client_ip=client_ip,
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,
+                response=total_content,
+                tokens=tokens_record,
+                latency_ms=latency,
+                upstream_status_code=upstream_status_code,
+                downstream_status_code=200,
                 error=str(error) if error is not None else None,
             )
         log_fn = (

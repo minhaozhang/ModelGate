@@ -58,6 +58,7 @@ class Provider(Base):
     is_active = Column(Boolean, default=True)
     disabled_reason = Column(String(255), nullable=True)
     disabled_at = Column(DateTime, nullable=True)
+    reset_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -73,6 +74,7 @@ class ProviderKey(Base):
     is_active = Column(Boolean, default=True)
     disabled_reason = Column(String(255), nullable=True)
     disabled_at = Column(DateTime, nullable=True)
+    reset_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -94,6 +96,7 @@ class Model(Base):
     thinking_budget = Column(Integer, default=8192)
     is_multimodal = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    estimated_price = Column(Float, nullable=True, server_default="0")
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -106,6 +109,7 @@ class ProviderModel(Base):
     model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
     model_name_override = Column(String(100), nullable=True)
     is_active = Column(Boolean, default=True)
+    max_busyness_level = Column(Integer, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
@@ -134,9 +138,23 @@ class ApiKey(Base):
     name = Column(String(100), nullable=False)
     key = Column(String(64), unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
+    bypass_busyness = Column(Boolean, default=False)
     last_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ApiKeyTag(Base):
+    __tablename__ = "api_key_tags"
+
+    id = Column(Integer, primary_key=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id", ondelete="CASCADE"), nullable=False)
+    tag = Column(String(50), nullable=False)
+
+    __table_args__ = (
+        Index("idx_api_key_tags_key", "api_key_id"),
+        UniqueConstraint("api_key_id", "tag", name="uq_api_key_tag"),
+    )
 
 
 class ApiKeyMcpServer(Base):
@@ -580,6 +598,78 @@ class McpCallDailyStat(Base):
     )
 
 
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True)
+    type = Column(String(20), nullable=False)
+    level = Column(String(20), nullable=False, default="info")
+    title = Column(String(255), nullable=False)
+    body = Column(Text, nullable=True)
+    target_api_key_id = Column(Integer, nullable=True)
+    is_read_by_admin = Column(Boolean, default=False)
+    read_api_key_ids = Column(JSONB, default=list)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_notifications_type", "type"),
+        Index("idx_notifications_target", "target_api_key_id"),
+        Index("idx_notifications_created", "created_at"),
+    )
+
+
+class SchedulerTask(Base):
+    __tablename__ = "scheduler_tasks"
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(String(100), unique=True, nullable=False)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    cron_expression = Column(String(50), nullable=False)
+    default_cron = Column(String(50), nullable=False)
+    is_paused = Column(Boolean, default=False)
+    last_run_at = Column(DateTime, nullable=True)
+    last_duration_ms = Column(Integer, nullable=True)
+    last_status = Column(String(20), nullable=True)
+    last_error = Column(Text, nullable=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class SchedulerTaskLog(Base):
+    __tablename__ = "scheduler_task_logs"
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(String(100), nullable=False)
+    status = Column(String(20), nullable=False)
+    started_at = Column(DateTime, nullable=False)
+    finished_at = Column(DateTime, nullable=True)
+    duration_ms = Column(Integer, nullable=True)
+    error = Column(Text, nullable=True)
+    result_summary = Column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("idx_task_logs_task", "task_id"),
+        Index("idx_task_logs_started", "started_at"),
+    )
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    id = Column(Integer, primary_key=True)
+    category = Column(String(50), nullable=False)
+    key = Column(String(100), nullable=False, unique=True)
+    value = Column(Text, nullable=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_system_settings_category", "category"),
+        Index("idx_system_settings_key", "key"),
+    )
+
+
 def generate_api_key():
     return "sk-" + secrets.token_hex(24)
 
@@ -663,6 +753,9 @@ async def init_db():
             text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP")
         )
         await conn.execute(
+            text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS bypass_busyness BOOLEAN DEFAULT FALSE")
+        )
+        await conn.execute(
             text(
                 "ALTER TABLE providers ADD COLUMN IF NOT EXISTS disabled_reason VARCHAR(255)"
             )
@@ -677,6 +770,12 @@ async def init_db():
         )
         await conn.execute(
             text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS disabled_at TIMESTAMP")
+        )
+        await conn.execute(
+            text("ALTER TABLE providers ADD COLUMN IF NOT EXISTS reset_at TIMESTAMP")
+        )
+        await conn.execute(
+            text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS reset_at TIMESTAMP")
         )
         await conn.execute(
             text(

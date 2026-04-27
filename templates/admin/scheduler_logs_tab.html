@@ -1,0 +1,60 @@
+<div class="bg-white rounded-lg shadow p-4 mb-4">
+    <div class="flex items-center gap-3">
+        <label class="text-sm text-gray-500">{{ _('Filter by task') }}:</label>
+        <select id="log-task-filter" onchange="loadLogs(1)" class="border rounded px-2 py-1 text-sm">
+            <option value="">{{ _('All tasks') }}</option>
+        </select>
+    </div>
+</div>
+<div id="logs-table-wrap">{{ _('Loading...') }}</div>
+<div id="logs-pagination" class="flex justify-center gap-2 mt-4"></div>
+
+<script>
+let logTaskNames = {};
+
+async function loadLogTaskFilter() {
+    const r = await fetch(APP_BASE_PATH + '/admin/api/scheduler/tasks');
+    if (!r.ok) return;
+    const d = await r.json();
+    const sel = document.getElementById('log-task-filter');
+    d.items.forEach(t => {
+        logTaskNames[t.task_id] = t.name;
+        const opt = document.createElement('option');
+        opt.value = t.task_id;
+        opt.textContent = t.name;
+        sel.appendChild(opt);
+    });
+}
+
+async function loadLogs(page) {
+    const filterTask = document.getElementById('log-task-filter').value;
+    let url = APP_BASE_PATH + '/admin/api/scheduler/logs?page=' + page + '&page_size=20';
+    if (filterTask) url += '&task_id=' + encodeURIComponent(filterTask);
+    const r = await fetch(url);
+    if (!r.ok) return;
+    const d = await r.json();
+    const wrap = document.getElementById('logs-table-wrap');
+    if (!d.items.length) {
+        wrap.innerHTML = '<div class="text-gray-400 text-center py-8">{{ _("No logs") }}</div>';
+        document.getElementById('logs-pagination').innerHTML = '';
+        return;
+    }
+    wrap.innerHTML = '<table class="w-full text-sm"><thead><tr class="border-b text-gray-500 text-left"><th class="pb-2">{{ _('Time') }}</th><th class="pb-2">{{ _('Task') }}</th><th class="pb-2">{{ _('Status') }}</th><th class="pb-2">{{ _('Duration') }}</th><th class="pb-2">{{ _('Result') }}</th></tr></thead><tbody>' +
+    d.items.map(l => {
+        const sc = {success:'text-green-600',failed:'text-red-600',running:'text-yellow-600'};
+        const dur = l.duration_ms != null ? (l.duration_ms >= 1000 ? (l.duration_ms/1000).toFixed(1)+'s' : l.duration_ms+'ms') : '--';
+        return `<tr class="border-b"><td class="py-2 text-xs">${l.started_at ? new Date(l.started_at).toLocaleString() : '--'}</td><td class="py-2 text-xs">${l.task_name || l.task_id}</td><td class="py-2 ${sc[l.status]||''}">${l.status}</td><td class="py-2">${dur}</td><td class="py-2 text-xs text-gray-500 max-w-[300px] truncate">${l.result_summary || (l.error ? '<span class="text-red-500">'+l.error.substring(0,80)+'</span>' : '--')}</td></tr>`;
+    }).join('') + '</tbody></table>';
+
+    const totalPages = Math.ceil(d.total / d.page_size);
+    const pg = document.getElementById('logs-pagination');
+    if (totalPages <= 1) { pg.innerHTML = ''; return; }
+    let btns = '';
+    for (let i = 1; i <= totalPages; i++) {
+        btns += `<button onclick="loadLogs(${i})" class="px-3 py-1 rounded text-sm ${i === d.page ? 'bg-blue-500 text-white' : 'bg-white border text-gray-600'}">${i}</button>`;
+    }
+    pg.innerHTML = btns;
+}
+
+loadLogTaskFilter().then(() => loadLogs(1));
+</script>

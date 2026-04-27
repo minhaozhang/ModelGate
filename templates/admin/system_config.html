@@ -48,12 +48,6 @@
                     <p class="text-xs text-gray-500 mb-1">{{ _('Current outbound UA (used for all proxy requests)') }}</p>
                     <input id="ua-input" class="w-full border rounded px-3 py-2 text-sm font-mono mb-3" placeholder="User-Agent">
                     <div id="default-ua-hint" class="text-xs text-gray-400 mb-3"></div>
-                    <div class="border-t pt-4 mt-4">
-                        <h3 class="text-base font-semibold mb-2">{{ _('API Key Model Concurrency') }}</h3>
-                        <p class="text-xs text-gray-500 mb-1">{{ _('Maximum concurrent requests allowed for the same API key on the same model') }}</p>
-                        <input id="api-key-model-limit-input" type="number" min="1" step="1" class="w-full border rounded px-3 py-2 text-sm mb-3" placeholder="1">
-                        <div class="text-xs text-gray-400 mb-3">{{ _('Set to 1 to force one active request per API key and model pair') }}</div>
-                    </div>
                     <div class="flex gap-2">
                         <button onclick="saveConfig()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
                         <button onclick="resetConfig()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm">{{ _('Reset to Default') }}</button>
@@ -66,14 +60,40 @@
                     <div id="ua-list" class="space-y-3 text-sm"></div>
                 </div>
             </div>
+            <div class="mt-6 bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold mb-1">{{ _('Busyness Parameters' if current_locale != 'zh' else '繁忙程度参数') }}</h2>
+                <p class="text-xs text-gray-500 mb-4">{{ _('Parameters for computing system busyness level' if current_locale != 'zh' else '控制系统繁忙程度计算的参数') }}</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">{{ _('Active Users Threshold' if current_locale != 'zh' else '活跃用户阈值') }}</label>
+                        <input id="busyness-active_users_threshold" type="number" min="1" class="w-full border rounded px-3 py-2 text-sm" placeholder="10">
+                        <p class="text-xs text-gray-400 mt-1">{{ _('Users in 10min to trigger busy' if current_locale != 'zh' else '10分钟内超过此用户数视为繁忙') }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">{{ _('429 Rate Threshold' if current_locale != 'zh' else '429 比例阈值') }}</label>
+                        <input id="busyness-rate_429_threshold" type="number" step="0.05" min="0" max="1" class="w-full border rounded px-3 py-2 text-sm" placeholder="0.5">
+                        <p class="text-xs text-gray-400 mt-1">{{ _('Downstream 429 ratio to trigger busy' if current_locale != 'zh' else '下游 429 比例超过此值视为繁忙') }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">{{ _('Critical Disabled Count' if current_locale != 'zh' else '过载所需禁用数') }}</label>
+                        <input id="busyness-disabled_providers_critical" type="number" min="1" class="w-full border rounded px-3 py-2 text-sm" placeholder="2">
+                        <p class="text-xs text-gray-400 mt-1">{{ _('Disabled providers for level 1 (overload)' if current_locale != 'zh' else '禁用供应商数达到此值判定为过载') }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">{{ _('Busy Disabled Count' if current_locale != 'zh' else '拥挤所需禁用数') }}</label>
+                        <input id="busyness-disabled_providers_busy" type="number" min="1" class="w-full border rounded px-3 py-2 text-sm" placeholder="1">
+                        <p class="text-xs text-gray-400 mt-1">{{ _('Disabled providers for level 2 (crowded)' if current_locale != 'zh' else '禁用供应商数达到此值判定为拥挤') }}</p>
+                    </div>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button onclick="saveBusyness()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
+                </div>
+                <div id="busyness-msg" class="mt-3 text-sm hidden"></div>
+            </div>
         </main>
     </div>
     <script>
         const APP_BASE_PATH = "{{ app_base_path }}";
-        const SYSTEM_CONFIG_I18N = {
-            lightMode: '{{ _("Light Mode") }}',
-            darkMode: '{{ _("Dark Mode") }}',
-        };
         async function logout() {
             await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
             window.location.href = `${APP_BASE_PATH}/admin/login`;
@@ -93,34 +113,55 @@
             if (!r.ok) { console.error('Failed to load config'); return; }
             const d = await r.json();
             document.getElementById('ua-input').value = d.ua_override;
-            document.getElementById('api-key-model-limit-input').value = d.api_key_model_max_concurrency || 1;
             document.getElementById('default-ua-hint').textContent = '{{ _('Default') }}: ' + d.default_ua;
+            if (d.busyness) {
+                for (const [key, val] of Object.entries(d.busyness)) {
+                    const el = document.getElementById('busyness-' + key);
+                    if (el) el.value = val;
+                }
+            }
         }
         async function saveConfig() {
             const ua = document.getElementById('ua-input').value.trim();
-            const limit = parseInt(document.getElementById('api-key-model-limit-input').value || '1', 10);
             const r = await fetch(APP_BASE_PATH + '/admin/api/system/config', {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    ua_override: ua,
-                    api_key_model_max_concurrency: Number.isFinite(limit) && limit > 0 ? limit : 1
-                })
+                body: JSON.stringify({ ua_override: ua })
             });
             const d = await r.json();
             const msg = document.getElementById('config-msg');
             if (r.ok) {
-                msg.textContent = '{{ _('Saved') }}: UA / API Key Model Limit = ' + d.api_key_model_max_concurrency;
+                msg.textContent = '{{ _('Saved') }}';
                 msg.className = 'mt-3 text-sm text-green-600';
-                document.getElementById('api-key-model-limit-input').value = d.api_key_model_max_concurrency || 1;
             } else {
+                msg.textContent = d.detail || '{{ _('Save failed') }}';
+                msg.className = 'mt-3 text-sm text-red-600';
+            }
+        }
+        async function saveBusyness() {
+            const keys = ['active_users_threshold', 'rate_429_threshold', 'disabled_providers_critical', 'disabled_providers_busy'];
+            const busyness = {};
+            for (const key of keys) {
+                const el = document.getElementById('busyness-' + key);
+                if (el) busyness[key] = el.value;
+            }
+            const r = await fetch(APP_BASE_PATH + '/admin/api/system/config', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ busyness })
+            });
+            const msg = document.getElementById('busyness-msg');
+            if (r.ok) {
+                msg.textContent = '{{ _('Saved') }}';
+                msg.className = 'mt-3 text-sm text-green-600';
+            } else {
+                const d = await r.json();
                 msg.textContent = d.detail || '{{ _('Save failed') }}';
                 msg.className = 'mt-3 text-sm text-red-600';
             }
         }
         async function resetConfig() {
             document.getElementById('ua-input').value = document.getElementById('default-ua-hint').textContent.replace('{{ _('Default') }}: ', '');
-            document.getElementById('api-key-model-limit-input').value = 1;
             await saveConfig();
         }
         async function loadUAStats() {
