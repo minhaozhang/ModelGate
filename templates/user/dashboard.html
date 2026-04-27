@@ -285,7 +285,7 @@
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('documents')">{{ _('Documents') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('mcp')">MCP Tools</button>
-                <button class="tab-btn px-6 py-3 font-medium" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}<span id="user-notif-badge" class="ml-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] inline-flex items-center justify-center px-0.5 leading-none align-middle hidden">0</span></button>
+                <button class="tab-btn px-6 py-3 font-medium" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}</button>
             </div>
             
             {% include 'user/tab_stats.html' %}
@@ -1445,14 +1445,6 @@
         setInterval(loadSystemActiveSessions, 10000);
 
         let _userNotifPage = 1;
-        async function pollUserNotifs() {
-            try {
-                const r = await fetch(APP_BASE_PATH + '/user/api/notifications/unread-count');
-                const d = await r.json();
-                const b = document.getElementById('user-notif-badge');
-                if (b) { if (d.count > 0) { b.textContent = d.count > 99 ? '99+' : d.count; b.classList.remove('hidden'); } else { b.classList.add('hidden'); } }
-            } catch {}
-        }
         async function loadUserNotifList(page) {
             _userNotifPage = page;
             const r = await fetch(APP_BASE_PATH + '/user/api/notifications?page=' + page + '&page_size=10');
@@ -1487,9 +1479,8 @@
         }
         async function userNotifMarkAllRead() {
             await fetch(APP_BASE_PATH + '/user/api/notifications/read-all', {method:'PUT'});
-            pollUserNotifs();
+            loadUserNotifList(_userNotifPage);
         }
-        pollUserNotifs(); setInterval(pollUserNotifs, 30000);
     </script>
 {% endraw %}
 </body>

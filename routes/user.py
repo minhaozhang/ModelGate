@@ -191,7 +191,7 @@ async def scheduled_daily_recommendation_analysis():
         if not model_name:
             continue
         requests_count = int(row.requests or 0)
-        if requests_count <= 0:
+        if requests_count < 10:
             continue
         errors_count = int(row.errors or 0)
         avg_latency_ms = float(row.avg_latency_ms or 0)
@@ -220,7 +220,7 @@ async def scheduled_daily_recommendation_analysis():
         })
 
     recommendations.sort(
-        key=lambda item: (-item["score"], item["error_rate"], item["avg_latency_ms"])
+        key=lambda item: (-item["requests"], item["error_rate"], item["avg_latency_ms"])
     )
     top = recommendations[:10]
     for idx, rec in enumerate(top):
@@ -982,7 +982,7 @@ async def get_user_recommendations(
             if not model_name:
                 continue
             requests_count = int(row.requests or 0)
-            if requests_count <= 0:
+            if requests_count < 10:
                 continue
             errors_count = int(row.errors or 0)
             avg_latency_ms = float(row.avg_latency_ms or 0)
@@ -1010,7 +1010,7 @@ async def get_user_recommendations(
                 "score": round(score, 4),
             })
 
-        all_items.sort(key=lambda item: (-item["score"], item["error_rate"], item["avg_latency_ms"]))
+        all_items.sort(key=lambda item: (-item["requests"], item["error_rate"], item["avg_latency_ms"]))
 
     filtered = [
         item for item in all_items
