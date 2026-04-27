@@ -58,6 +58,7 @@ class Provider(Base):
     is_active = Column(Boolean, default=True)
     disabled_reason = Column(String(255), nullable=True)
     disabled_at = Column(DateTime, nullable=True)
+    reset_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -73,6 +74,7 @@ class ProviderKey(Base):
     is_active = Column(Boolean, default=True)
     disabled_reason = Column(String(255), nullable=True)
     disabled_at = Column(DateTime, nullable=True)
+    reset_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -768,6 +770,12 @@ async def init_db():
         )
         await conn.execute(
             text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS disabled_at TIMESTAMP")
+        )
+        await conn.execute(
+            text("ALTER TABLE providers ADD COLUMN IF NOT EXISTS reset_at TIMESTAMP")
+        )
+        await conn.execute(
+            text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS reset_at TIMESTAMP")
         )
         await conn.execute(
             text(

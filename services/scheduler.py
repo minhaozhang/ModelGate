@@ -250,6 +250,7 @@ async def startup_scheduler():
 
     import asyncio
     asyncio.create_task(run_backfill())
+    asyncio.create_task(_restore_reenable_jobs_on_startup())
 
 
 async def run_backfill():
@@ -258,6 +259,16 @@ async def run_backfill():
     logger.info("[SCHEDULER] Running backfill for missing dates...")
     await _run_task_with_logging("aggregate_daily_stats", backfill_historical_stats, "backfill")
     await _run_task_with_logging("archive_old_request_logs", archive_old_request_logs, "backfill")
+
+
+async def _restore_reenable_jobs_on_startup():
+    import asyncio
+    await asyncio.sleep(3)
+    try:
+        from services.provider_limiter import restore_pending_reenable_jobs
+        await restore_pending_reenable_jobs()
+    except Exception as e:
+        logger.error("[SCHEDULER] Failed to restore re-enable jobs: %s", e)
 
 
 def shutdown_scheduler():
