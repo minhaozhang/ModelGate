@@ -74,9 +74,9 @@ def _check_model_available(model_full_name: str, api_key_id: int | None = None) 
 
 
 def _get_provider_name_by_id(provider_id: int) -> str | None:
-    for pconf in providers_cache.values():
+    for name, pconf in providers_cache.items():
         if pconf.get("id") == provider_id:
-            return pconf.get("name")
+            return name
     return None
 
 
