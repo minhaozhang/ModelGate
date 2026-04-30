@@ -123,7 +123,7 @@ async def save_login(
             account.ilink_user_id = ilink_user_id
             account.is_active = True
             account.api_key_id = api_key_id
-            account.login_at = datetime.utcnow()
+            account.login_at = datetime.now()
         else:
             account = WeixinAccount(
                 bot_token=bot_token,
@@ -132,7 +132,7 @@ async def save_login(
                 api_key_id=api_key_id,
                 is_active=True,
                 reply_mode="manual",
-                login_at=datetime.utcnow(),
+                login_at=datetime.now(),
             )
             session.add(account)
         await session.commit()

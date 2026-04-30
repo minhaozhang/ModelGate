@@ -1088,7 +1088,8 @@
             ]);
              
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
-            document.getElementById('total-tokens').textContent = formatCompactTokens(data.total_tokens || 0);
+            document.getElementById('total-prompt-tokens').textContent = formatCompactTokens(data.total_prompt_tokens || 0);
+            document.getElementById('total-completion-tokens').textContent = formatCompactTokens(data.total_completion_tokens || 0);
             document.getElementById('total-errors').textContent = data.total_errors;
             const cost = data.estimated_cost || 0;
             const costEl = document.getElementById('estimated-cost');
@@ -1104,9 +1105,12 @@
             const sysModels = systemModels.models || {};
             const sysTotalReqs = systemModels.total_requests || 0;
             const sysTotalTokens = systemModels.total_tokens || 0;
+            const sysTotalPromptTokens = systemModels.total_prompt_tokens || 0;
+            const sysTotalCompletionTokens = systemModels.total_completion_tokens || 0;
             const sysModelCount = Object.keys(sysModels).length;
             document.getElementById('system-total-requests').textContent = sysTotalReqs.toLocaleString();
-            document.getElementById('system-total-tokens').textContent = formatCompactTokens(sysTotalTokens);
+            document.getElementById('system-total-prompt-tokens').textContent = formatCompactTokens(sysTotalPromptTokens);
+            document.getElementById('system-total-completion-tokens').textContent = formatCompactTokens(sysTotalCompletionTokens);
             document.getElementById('system-model-count').textContent = sysModelCount;
             document.getElementById('system-avg-per-model').textContent = sysModelCount > 0 ? Math.round(sysTotalReqs / sysModelCount).toLocaleString() : '0';
 

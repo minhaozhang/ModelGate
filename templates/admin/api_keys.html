@@ -95,6 +95,7 @@
                     <span id="total-count">0</span> {{ _('keys') }}
                 </div>
             </div>
+            <div id="tag-filter-bar" class="mb-4 hidden"></div>
             
             <div class="bg-white rounded-lg shadow">
                 <div id="apikeys-list" class="divide-y"></div>
@@ -464,6 +465,8 @@
         let apiKeysData = [];
         let mcpServers = [];
         let filteredData = [];
+        let allListTags = [];
+        let selectedListTagFilter = new Set();
         let currentPage = 1;
         const pageSize = 10;
         
@@ -508,18 +511,54 @@
                 if (!a.last_used_at && !b.last_used_at) return 0;
                 return new Date(b.last_used_at) - new Date(a.last_used_at);
             });
+            const tagsSet = new Set();
+            apiKeysData.forEach(k => (k.tags || []).forEach(t => tagsSet.add(t)));
+            allListTags = Array.from(tagsSet).sort();
+            selectedListTagFilter = new Set();
+            renderTagFilterBar();
+            handleSearch();
+        }
+
+        function renderTagFilterBar() {
+            const bar = document.getElementById('tag-filter-bar');
+            if (allListTags.length === 0) {
+                bar.classList.add('hidden');
+                return;
+            }
+            bar.classList.remove('hidden');
+            let html = '<div class="flex flex-wrap gap-1.5">';
+            html += `<button onclick="filterListByTag(null)" class="text-xs px-2.5 py-1 rounded-full border ${selectedListTagFilter.size === 0 ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">{{ _("All") }}</button>`;
+            allListTags.forEach(tag => {
+                const active = selectedListTagFilter.has(tag);
+                html += `<button onclick="filterListByTag('${tag.replace(/'/g, "\\'")}')" class="text-xs px-2.5 py-1 rounded-full border ${active ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${tag}</button>`;
+            });
+            html += '</div>';
+            bar.innerHTML = html;
+        }
+
+        function filterListByTag(tag) {
+            if (tag === null) {
+                selectedListTagFilter.clear();
+            } else if (selectedListTagFilter.has(tag)) {
+                selectedListTagFilter.delete(tag);
+            } else {
+                selectedListTagFilter.add(tag);
+            }
+            renderTagFilterBar();
             handleSearch();
         }
         
         function handleSearch() {
             const query = document.getElementById('search-input').value.toLowerCase().trim();
+            filteredData = apiKeysData;
+            if (selectedListTagFilter.size > 0) {
+                filteredData = filteredData.filter(k => (k.tags || []).some(t => selectedListTagFilter.has(t)));
+            }
             if (query) {
-                filteredData = apiKeysData.filter(k => 
-                    k.name.toLowerCase().includes(query) || 
+                filteredData = filteredData.filter(k =>
+                    k.name.toLowerCase().includes(query) ||
                     k.key.toLowerCase().includes(query)
                 );
-            } else {
-                filteredData = apiKeysData;
             }
             document.getElementById('total-count').textContent = filteredData.length;
             currentPage = 1;

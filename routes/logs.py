@@ -665,7 +665,7 @@ async def _call_analysis_model(
                 model_config = m
                 break
 
-    db_max_tokens = (model_config or {}).get("max_tokens", 16384)
+    db_max_tokens = (model_config or {}).get("max_tokens", 131072)
     thinking_enabled = (model_config or {}).get("thinking_enabled", False)
 
     if thinking_enabled:

@@ -104,7 +104,7 @@
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Tokens') }}</div>
-                    <div id="total-tokens" class="metric-flip text-3xl font-bold leading-none text-green-600">0</div>
+                    <div class="metric-flip text-xl font-bold leading-none text-green-600">↑<span id="total-prompt-tokens">0</span> / ↓<span id="total-completion-tokens">0</span></div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Active Requests') }}</div>
@@ -260,7 +260,8 @@
                 fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/busyness`).catch(() => null),
             ]);
             flipCounter('total-requests', data.total_requests.toLocaleString());
-            flipCounter('total-tokens', formatCompactTokens(data.total_tokens || 0));
+            flipCounter('total-prompt-tokens', formatCompactTokens(data.total_prompt_tokens || 0));
+            flipCounter('total-completion-tokens', formatCompactTokens(data.total_completion_tokens || 0));
             flipCounter('total-errors', data.total_errors);
             flipCounter('total-timeouts', data.total_timeouts);
             flipCounter('total-rate-limited', data.total_rate_limited || 0);

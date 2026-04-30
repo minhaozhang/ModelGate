@@ -173,7 +173,7 @@
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Tokens') }}</div>
-                    <div id="total-tokens" class="text-3xl font-bold text-green-600">0</div>
+                    <div class="text-xl font-bold leading-none text-green-600">↑<span id="total-prompt-tokens">0</span> / ↓<span id="total-completion-tokens">0</span></div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Errors') }}</div>
@@ -1120,12 +1120,15 @@
 
             const totalRequests = providerData.total_requests || 0;
             const totalTokens = providerData.total_tokens || 0;
+            const totalPromptTokens = providerData.total_prompt_tokens || 0;
+            const totalCompletionTokens = providerData.total_completion_tokens || 0;
             const totalErrors = monitorData.total_errors || 0;
             const totalTimeouts = monitorData.total_timeouts || 0;
             const totalRateLimited = monitorData.total_rate_limited || 0;
 
             document.getElementById('total-requests').textContent = totalRequests.toLocaleString();
-            document.getElementById('total-tokens').textContent = formatCompactTokens(totalTokens);
+            document.getElementById('total-prompt-tokens').textContent = formatCompactTokens(totalPromptTokens);
+            document.getElementById('total-completion-tokens').textContent = formatCompactTokens(totalCompletionTokens);
             document.getElementById('total-errors').textContent = totalErrors.toLocaleString();
             document.getElementById('total-timeouts').textContent = totalTimeouts.toLocaleString();
             document.getElementById('total-rate-limited').textContent = totalRateLimited.toLocaleString();

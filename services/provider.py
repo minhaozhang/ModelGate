@@ -133,7 +133,7 @@ async def load_providers():
                         or (model.display_name if model else None),
                         "actual_model_name": model.name if model else None,
                         "is_multimodal": model.is_multimodal if model else False,
-                        "max_tokens": model.max_tokens if model else 16384,
+                        "max_tokens": model.max_tokens if model else 131072,
                         "thinking_enabled": model.thinking_enabled if model else False,
                         "thinking_budget": model.thinking_budget if model else 8192,
                         "max_busyness_level": pm.max_busyness_level,

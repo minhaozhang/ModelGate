@@ -34,6 +34,24 @@
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
         .bar { height: 6px; border-radius: 3px; background: #3b82f6; transition: width 0.5s ease; }
         body.theme-dark .bar { background: #60a5fa; }
+        body.theme-dark .bg-red-50 { background: rgba(127, 29, 29, 0.3) !important; }
+        body.theme-dark .bg-orange-50 { background: rgba(124, 45, 18, 0.3) !important; }
+        body.theme-dark .bg-yellow-50 { background: rgba(113, 63, 18, 0.3) !important; }
+        body.theme-dark .bg-green-50 { background: rgba(20, 83, 45, 0.3) !important; }
+        body.theme-dark .bg-blue-50 { background: rgba(30, 58, 138, 0.3) !important; }
+        body.theme-dark .bg-slate-50 { background: rgba(51, 51, 51, 0.3) !important; }
+        body.theme-dark .text-red-700 { color: #fca5a5 !important; }
+        body.theme-dark .text-orange-700 { color: #fdba74 !important; }
+        body.theme-dark .text-yellow-700 { color: #fde047 !important; }
+        body.theme-dark .text-green-700 { color: #86efac !important; }
+        body.theme-dark .text-blue-700 { color: #93c5fd !important; }
+        body.theme-dark .text-slate-700 { color: #cbd5e1 !important; }
+        body.theme-dark .border-red-500 { border-color: #ef4444 !important; }
+        body.theme-dark .border-orange-500 { border-color: #f97316 !important; }
+        body.theme-dark .border-yellow-500 { border-color: #eab308 !important; }
+        body.theme-dark .border-green-500 { border-color: #22c55e !important; }
+        body.theme-dark .border-blue-500 { border-color: #3b82f6 !important; }
+        body.theme-dark .border-slate-500 { border-color: #64748b !important; }
     </style>
 </head>
 <body class="theme-dark bg-gray-100 min-h-screen">
@@ -61,28 +79,47 @@
                 </div>
             </div>
             <div class="mt-6 bg-white rounded-lg shadow p-6">
-                <h2 class="text-lg font-semibold mb-1">{{ _('Busyness Parameters' if current_locale != 'zh' else '繁忙程度参数') }}</h2>
-                <p class="text-xs text-gray-500 mb-4">{{ _('Parameters for computing system busyness level' if current_locale != 'zh' else '控制系统繁忙程度计算的参数') }}</p>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">{{ _('Active Users Threshold' if current_locale != 'zh' else '活跃用户阈值') }}</label>
-                        <input id="busyness-active_users_threshold" type="number" min="1" class="w-full border rounded px-3 py-2 text-sm" placeholder="10">
-                        <p class="text-xs text-gray-400 mt-1">{{ _('Users in 10min to trigger busy' if current_locale != 'zh' else '10分钟内超过此用户数视为繁忙') }}</p>
+                <h2 class="text-lg font-semibold mb-1">{{ _('Busyness Levels' if current_locale != 'zh' else '繁忙程度等级') }}</h2>
+                <p class="text-xs text-gray-500 mb-4">{{ _('Busyness is computed from active users, 429 ratio and disabled providers' if current_locale != 'zh' else '根据活跃用户数、429比例和禁用供应商数量综合判定') }}</p>
+                <div class="space-y-3">
+                    <div class="flex items-center gap-3 p-3 rounded bg-red-50 border-l-4 border-red-500">
+                        <span class="text-sm font-semibold text-red-700 w-12 shrink-0">过载</span>
+                        <span class="text-xs text-gray-500 whitespace-nowrap">活跃用户 &gt;</span>
+                        <input id="busyness-level1_active_users_threshold" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="10">
+                        <span class="text-xs text-gray-500 whitespace-nowrap">429比例 &gt;</span>
+                        <input id="busyness-level1_rate_429_threshold" type="number" step="0.05" min="0" max="1" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="0.5">
+                        <span class="text-xs text-gray-500 whitespace-nowrap">禁用供应商 ≥</span>
+                        <input id="busyness-level1_disabled_providers" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="2">
                     </div>
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">{{ _('429 Rate Threshold' if current_locale != 'zh' else '429 比例阈值') }}</label>
-                        <input id="busyness-rate_429_threshold" type="number" step="0.05" min="0" max="1" class="w-full border rounded px-3 py-2 text-sm" placeholder="0.5">
-                        <p class="text-xs text-gray-400 mt-1">{{ _('Downstream 429 ratio to trigger busy' if current_locale != 'zh' else '下游 429 比例超过此值视为繁忙') }}</p>
+                    <div class="flex items-center gap-3 p-3 rounded bg-orange-50 border-l-4 border-orange-500">
+                        <span class="text-sm font-semibold text-orange-700 w-12 shrink-0">拥挤</span>
+                        <span class="text-xs text-gray-500 whitespace-nowrap">活跃用户 &gt;</span>
+                        <input id="busyness-level2_active_users_threshold" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="8">
+                        <span class="text-xs text-gray-500 whitespace-nowrap">429比例 &gt;</span>
+                        <input id="busyness-level2_rate_429_threshold" type="number" step="0.05" min="0" max="1" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="0.3">
+                        <span class="text-xs text-gray-500 whitespace-nowrap">禁用供应商 ≥</span>
+                        <input id="busyness-level2_disabled_providers" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="1">
                     </div>
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">{{ _('Critical Disabled Count' if current_locale != 'zh' else '过载所需禁用数') }}</label>
-                        <input id="busyness-disabled_providers_critical" type="number" min="1" class="w-full border rounded px-3 py-2 text-sm" placeholder="2">
-                        <p class="text-xs text-gray-400 mt-1">{{ _('Disabled providers for level 1 (overload)' if current_locale != 'zh' else '禁用供应商数达到此值判定为过载') }}</p>
+                    <div class="flex items-center gap-3 p-3 rounded bg-yellow-50 border-l-4 border-yellow-500">
+                        <span class="text-sm font-semibold text-yellow-700 w-12 shrink-0">活跃</span>
+                        <span class="text-xs text-gray-500 whitespace-nowrap">活跃用户 &gt;</span>
+                        <input id="busyness-level3_active_users_threshold" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="5">
+                        <span class="text-xs text-gray-500 whitespace-nowrap">429比例 &gt;</span>
+                        <input id="busyness-level3_rate_429_threshold" type="number" step="0.05" min="0" max="1" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="0.1">
                     </div>
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">{{ _('Busy Disabled Count' if current_locale != 'zh' else '拥挤所需禁用数') }}</label>
-                        <input id="busyness-disabled_providers_busy" type="number" min="1" class="w-full border rounded px-3 py-2 text-sm" placeholder="1">
-                        <p class="text-xs text-gray-400 mt-1">{{ _('Disabled providers for level 2 (crowded)' if current_locale != 'zh' else '禁用供应商数达到此值判定为拥挤') }}</p>
+                    <div class="flex items-center gap-3 p-3 rounded bg-green-50 border-l-4 border-green-500">
+                        <span class="text-sm font-semibold text-green-700 w-12 shrink-0">流畅</span>
+                        <span class="text-xs text-gray-500 whitespace-nowrap">活跃用户 &gt;</span>
+                        <input id="busyness-level4_active_users_threshold" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="1">
+                        <span class="text-xs text-gray-600 flex-1">10分钟内有请求，且未达到以上条件</span>
+                    </div>
+                    <div class="flex items-center gap-3 p-3 rounded bg-blue-50 border-l-4 border-blue-500">
+                        <span class="text-sm font-semibold text-blue-700 w-12 shrink-0">平静</span>
+                        <span class="text-xs text-gray-600 flex-1">10分钟内无请求，但1小时内有请求</span>
+                    </div>
+                    <div class="flex items-center gap-3 p-3 rounded bg-slate-50 border-l-4 border-slate-500">
+                        <span class="text-sm font-semibold text-slate-700 w-12 shrink-0">寂静</span>
+                        <span class="text-xs text-gray-600 flex-1">1小时内无任何请求</span>
                     </div>
                 </div>
                 <div class="mt-4 flex gap-2">
@@ -139,7 +176,7 @@
             }
         }
         async function saveBusyness() {
-            const keys = ['active_users_threshold', 'rate_429_threshold', 'disabled_providers_critical', 'disabled_providers_busy'];
+            const keys = ['level1_active_users_threshold', 'level1_rate_429_threshold', 'level1_disabled_providers', 'level2_active_users_threshold', 'level2_rate_429_threshold', 'level2_disabled_providers', 'level3_active_users_threshold', 'level3_rate_429_threshold', 'level4_active_users_threshold'];
             const busyness = {};
             for (const key of keys) {
                 const el = document.getElementById('busyness-' + key);

@@ -128,7 +128,6 @@ async def get_admin_notifications(
                     "level": n.level,
                     "title": n.title,
                     "body": n.body,
-                    "is_read": n.is_read_by_admin,
                     "created_at": n.created_at.isoformat() if n.created_at else None,
                 }
                 for n in items

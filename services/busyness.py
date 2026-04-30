@@ -71,22 +71,25 @@ async def compute_busyness_level() -> dict[str, Any]:
     disabled_providers = _count_disabled_providers()
     ratio_429 = rate_limited_10min / total_10min if total_10min > 0 else 0.0
 
-    active_threshold = await get_int_setting("busyness", "active_users_threshold", 10)
-    rate_threshold = await get_float_setting("busyness", "rate_429_threshold", 0.5)
-    critical_disabled = await get_int_setting("busyness", "disabled_providers_critical", 2)
-    busy_disabled = await get_int_setting("busyness", "disabled_providers_busy", 1)
+    active_threshold_1 = await get_int_setting("busyness", "level1_active_users_threshold", 10)
+    rate_threshold_1 = await get_float_setting("busyness", "level1_rate_429_threshold", 0.5)
+    disabled_critical_1 = await get_int_setting("busyness", "level1_disabled_providers", 2)
+    active_threshold_2 = await get_int_setting("busyness", "level2_active_users_threshold", 8)
+    rate_threshold_2 = await get_float_setting("busyness", "level2_rate_429_threshold", 0.3)
+    disabled_critical_2 = await get_int_setting("busyness", "level2_disabled_providers", 1)
+    active_threshold_3 = await get_int_setting("busyness", "level3_active_users_threshold", 5)
+    rate_threshold_3 = await get_float_setting("busyness", "level3_rate_429_threshold", 0.1)
+    active_threshold_4 = await get_int_setting("busyness", "level4_active_users_threshold", 1)
 
-    busy_condition = active_users > active_threshold and ratio_429 > rate_threshold
-
-    if busy_condition and disabled_providers >= critical_disabled:
+    if active_users > active_threshold_1 and ratio_429 > rate_threshold_1 and disabled_providers >= disabled_critical_1:
         level = 1
-    elif busy_condition and disabled_providers >= busy_disabled:
+    elif active_users > active_threshold_2 and ratio_429 > rate_threshold_2 and disabled_providers >= disabled_critical_2:
         level = 2
-    elif busy_condition:
+    elif active_users > active_threshold_3 and ratio_429 > rate_threshold_3:
         level = 3
-    elif total_10min > 0:
+    elif active_users > active_threshold_4 and total_10min > 0:
         level = 4
-    elif has_1hour > 0:
+    elif total_10min > 0 or has_1hour > 0:
         level = 5
     else:
         level = 6

@@ -630,11 +630,29 @@ async def get_aggregate_stats(
     total_errors = sum(d["errors"] for d in stats_data.values())
     total_rate_limited = sum(d.get("rate_limited", 0) for d in stats_data.values())
 
+    async with async_session_maker() as session:
+        prompt_result = await session.execute(
+            select(func.sum(RequestLog.tokens["prompt_tokens"].as_integer())).where(
+                RequestLog.created_at >= start,
+                RequestLog.status.notin_(RATE_LIMITED_STATUSES),
+            )
+        )
+        total_prompt_tokens = prompt_result.scalar() or 0
+        completion_result = await session.execute(
+            select(func.sum(RequestLog.tokens["completion_tokens"].as_integer())).where(
+                RequestLog.created_at >= start,
+                RequestLog.status.notin_(RATE_LIMITED_STATUSES),
+            )
+        )
+        total_completion_tokens = completion_result.scalar() or 0
+
     return {
         "dimension": dimension,
         "period": period,
         "total_requests": total_requests,
         "total_tokens": total_tokens,
+        "total_prompt_tokens": total_prompt_tokens,
+        "total_completion_tokens": total_completion_tokens,
         "total_errors": total_errors,
         "total_rate_limited": total_rate_limited,
         "data": stats_data,
@@ -1521,6 +1539,22 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
             )
             total_rate_limited = rate_limited_result.scalar() or 0
 
+        rate_limited_upstream_result = await session.execute(
+            select(func.count(RequestLog.id)).where(
+                RequestLog.created_at >= start,
+                RequestLog.status == RATE_LIMITED_STATUS,
+            )
+        )
+        total_rate_limited_upstream = rate_limited_upstream_result.scalar() or 0
+
+        rate_limited_local_result = await session.execute(
+            select(func.count(RequestLog.id)).where(
+                RequestLog.created_at >= start,
+                RequestLog.status == LOCAL_RATE_LIMITED_STATUS,
+            )
+        )
+        total_rate_limited_local = rate_limited_local_result.scalar() or 0
+
         disabled_result = await session.execute(
             select(Provider.name, Provider.disabled_reason).where(
                 Provider.is_active == False,  # noqa: E712
@@ -1535,14 +1569,34 @@ async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)
         )
         active_1h = active_1h_result.scalar() or 0
 
+        prompt_tokens_result = await session.execute(
+            select(func.sum(RequestLog.tokens["prompt_tokens"].as_integer())).where(
+                RequestLog.created_at >= start,
+                RequestLog.status.notin_(RATE_LIMITED_STATUSES),
+            )
+        )
+        total_prompt_tokens = prompt_tokens_result.scalar() or 0
+
+        completion_tokens_result = await session.execute(
+            select(func.sum(RequestLog.tokens["completion_tokens"].as_integer())).where(
+                RequestLog.created_at >= start,
+                RequestLog.status.notin_(RATE_LIMITED_STATUSES),
+            )
+        )
+        total_completion_tokens = completion_tokens_result.scalar() or 0
+
         return {
             "period": period,
             "start": start.isoformat(),
             "total_requests": total_requests,
             "total_tokens": total_tokens,
+            "total_prompt_tokens": total_prompt_tokens,
+            "total_completion_tokens": total_completion_tokens,
             "total_errors": total_errors,
             "total_timeouts": total_timeouts,
             "total_rate_limited": total_rate_limited,
+            "total_rate_limited_upstream": total_rate_limited_upstream,
+            "total_rate_limited_local": total_rate_limited_local,
             "active_1h": active_1h,
             "providers": provider_stats,
             "api_keys": api_key_stats,

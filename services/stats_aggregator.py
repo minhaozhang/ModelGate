@@ -359,6 +359,20 @@ async def archive_old_request_logs() -> int:
             len(archived_ids),
         )
 
+    notif_cutoff = datetime.now() - timedelta(days=7)
+    async with async_session_maker() as session:
+        notif_result = await session.execute(
+            text("DELETE FROM notifications WHERE type = 'system' AND created_at < :cutoff"),
+            {"cutoff": notif_cutoff},
+        )
+        deleted_notifs = notif_result.rowcount
+        await session.commit()
+        if deleted_notifs:
+            logger.info(
+                "[AGGREGATOR] Cleaned %s system notifications older than 7 days",
+                deleted_notifs,
+            )
+
     return len(archived_ids)
 
 

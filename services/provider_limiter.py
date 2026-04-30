@@ -20,7 +20,7 @@ def parse_reset_time(reason: str) -> datetime | None:
 
 
 async def _do_reenable_provider(provider_id: int) -> None:
-    logger.info("[REENABLE-JOB] Re-enabling provider id=%d at %s", provider_id, datetime.utcnow())
+    logger.info("[REENABLE-JOB] Re-enabling provider id=%d at %s", provider_id, datetime.now())
     async with async_session_maker() as session:
         await session.execute(
             update(Provider)
@@ -47,7 +47,7 @@ async def _do_reenable_provider(provider_id: int) -> None:
 
 
 async def _do_reenable_key(key_id: int) -> None:
-    logger.info("[REENABLE-JOB] Re-enabling key id=%d at %s", key_id, datetime.utcnow())
+    logger.info("[REENABLE-JOB] Re-enabling key id=%d at %s", key_id, datetime.now())
     async with async_session_maker() as session:
         await session.execute(
             update(ProviderKey)
@@ -110,7 +110,7 @@ async def disable_provider(provider_name: str, reason: str) -> None:
         result = await session.execute(
             update(Provider)
             .where(Provider.name == provider_name)
-            .values(is_active=False, disabled_reason=reason[:255], disabled_at=datetime.utcnow(), reset_at=reset_at)
+            .values(is_active=False, disabled_reason=reason[:255], disabled_at=datetime.now(), reset_at=reset_at)
             .returning(Provider.id)
         )
         provider_id = result.scalar()
@@ -124,7 +124,7 @@ async def disable_provider(provider_name: str, reason: str) -> None:
     from services.provider import load_providers
     await load_providers()
 
-    if reset_at and reset_at > datetime.utcnow() and provider_id:
+    if reset_at and reset_at > datetime.now() and provider_id:
         await schedule_reenable_job("provider", provider_id, reset_at)
 
     try:
@@ -157,7 +157,7 @@ async def disable_provider_key(
         await session.execute(
             update(ProviderKey)
             .where(ProviderKey.id == provider_key_id)
-            .values(is_active=False, disabled_reason=reason[:255], disabled_at=datetime.utcnow(), reset_at=reset_at)
+            .values(is_active=False, disabled_reason=reason[:255], disabled_at=datetime.now(), reset_at=reset_at)
         )
         await session.commit()
 
@@ -173,7 +173,7 @@ async def disable_provider_key(
         await disable_provider(provider_name, reason)
         return
 
-    if reset_at and reset_at > datetime.utcnow():
+    if reset_at and reset_at > datetime.now():
         await schedule_reenable_job("key", provider_key_id, reset_at)
 
     from services.provider import invalidate_provider_key_sticky_cache, load_providers
@@ -235,7 +235,7 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
 
     from core.database import Provider, ProviderKey, async_session_maker
 
-    now = datetime.utcnow()
+    now = datetime.now()
 
     reenabled_keys = []
     reenabled_providers = []
@@ -310,7 +310,7 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
 async def restore_pending_reenable_jobs() -> None:
     from core.database import Provider, ProviderKey, async_session_maker
 
-    now = datetime.utcnow()
+    now = datetime.now()
     restored = 0
 
     async with async_session_maker() as session:

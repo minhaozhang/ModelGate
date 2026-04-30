@@ -21,8 +21,8 @@ def require_admin(session: Optional[str] = Cookie(None)):
 class ModelCreate(BaseModel):
     name: str
     display_name: Optional[str] = None
-    max_tokens: int = 16384
-    context_length: int = 131072
+    max_tokens: int = 131072
+    context_length: int = 204800
     thinking_enabled: bool = True
     thinking_budget: int = 8192
     is_multimodal: bool = False
@@ -160,13 +160,33 @@ async def get_model_api_keys(model_id: int, _: bool = Depends(require_admin)):
             pm_id = row[0]
             bound_keys.setdefault(pm_id, []).append({"id": row[1], "name": row[2]})
 
+        from core.database import ApiKeyTag
+
         all_keys_result = await session.execute(
             select(ApiKey).where(ApiKey.is_active == True)  # noqa: E712
         )
-        all_keys = [{"id": k.id, "name": k.name} for k in all_keys_result.scalars()]
+        all_keys_raw = all_keys_result.scalars().all()
+        all_key_ids = [k.id for k in all_keys_raw]
+
+        tags_result = await session.execute(
+            select(ApiKeyTag.api_key_id, ApiKeyTag.tag).where(
+                ApiKeyTag.api_key_id.in_(all_key_ids)
+            )
+        )
+        tags_map: dict[int, list[str]] = {}
+        all_tags_set: set[str] = set()
+        for row in tags_result.fetchall():
+            tags_map.setdefault(row[0], []).append(row[1])
+            all_tags_set.add(row[1])
+
+        all_keys = [
+            {"id": k.id, "name": k.name, "tags": tags_map.get(k.id, [])}
+            for k in all_keys_raw
+        ]
 
         return {
             "api_keys": all_keys,
+            "all_tags": sorted(all_tags_set),
             "provider_models": [{"id": k, "label": v} for k, v in pm_labels.items()],
             "bound_keys": bound_keys,
         }
