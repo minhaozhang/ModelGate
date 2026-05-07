@@ -20,7 +20,6 @@
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
         .notif-card { transition: background 0.15s; }
         .notif-card:hover { background: rgba(59, 130, 246, 0.04); }
-        .notif-unread { border-left: 3px solid #3b82f6; }
     </style>
 </head>
 <body class="theme-dark bg-gray-100 min-h-screen">
@@ -28,9 +27,7 @@
     <div class="flex">
         {% include "components/nav.html" %}
         <main class="ml-56 flex-1 p-6">
-            {% call admin_page_header(_('Notifications')) %}
-            <button onclick="markAllRead()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Mark All Read') }}</button>
-            {% endcall %}
+            {% call admin_page_header(_('Notifications')) %}{% endcall %}
             <div id="notifications-list" class="space-y-3">{{ _('Loading...') }}</div>
             <div id="pagination" class="flex justify-center gap-2 mt-6"></div>
         </main>
@@ -54,7 +51,7 @@
             el.innerHTML = d.items.map(n => {
                 const lc = levelColors[n.level]||levelColors.info;
                 const ld = levelDots[n.level]||levelDots.info;
-                return `<div class="notif-card bg-white rounded-lg shadow p-4 border ${lc} ${n.is_read?'':'notif-unread'}">
+                return `<div class="notif-card bg-white rounded-lg shadow p-4 border ${lc}">
                     <div class="flex items-start gap-3">
                         <div class="w-2.5 h-2.5 rounded-full ${ld} mt-1.5 shrink-0"></div>
                         <div class="flex-1">
@@ -64,7 +61,6 @@
                             </div>
                             ${n.body ? `<p class="text-sm text-gray-500 mt-1">${n.body}</p>` : ''}
                         </div>
-                        ${n.is_read ? '' : `<button onclick="markRead(${n.id})" class="text-xs text-blue-500 hover:text-blue-700 shrink-0 ml-2">{{ _("Read") }}</button>`}
                     </div>
                 </div>`;
             }).join('');
@@ -79,9 +75,6 @@
             if (page < totalPages) html += `<button onclick="loadNotifications(${page+1})" class="px-3 py-1 border rounded text-sm">&gt;</button>`;
             pg.innerHTML = html;
         }
-        async function markRead(id) { await fetch(`${APP_BASE_PATH}/admin/api/notifications/${id}/read`,{method:'PUT'}); loadNotifications(currentPage); }
-        async function markAllRead() { await fetch(`${APP_BASE_PATH}/admin/api/notifications/read-all`,{method:'PUT'}); loadNotifications(1); }
         loadNotifications(1);
     </script>
 </body>
-</html>

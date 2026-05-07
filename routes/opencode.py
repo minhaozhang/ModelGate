@@ -78,8 +78,8 @@ async def build_opencode_config(
 
         model_key = f"{provider.name}/{model.name}"
         display_name = model.display_name or model.name
-        max_output = model.max_tokens or 16384
-        context_window = model.context_length or (max_output * 8)
+        max_output = model.max_tokens or 131072
+        context_window = model.context_length or 204800
 
         input_modalities = ["text"]
         if model.is_multimodal:

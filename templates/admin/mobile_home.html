@@ -105,7 +105,7 @@
                 <div id="total-rate-limited" class="metric-flip mt-1 text-lg font-bold leading-none text-sky-500">0</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
-                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Active') }}</div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Active Requests') }}</div>
                 <div id="rps" class="metric-flip mt-1 text-lg font-bold leading-none text-orange-500">0</div>
             </div>
         </div>
@@ -119,7 +119,7 @@
                 <div id="error-rate" class="metric-flip mt-1 text-lg font-bold leading-none text-purple-600">0%</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
-                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Fluency') }}</div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Busyness') }}</div>
                 <div id="busyness-level" class="metric-flip mt-1 text-lg font-bold leading-none text-slate-600">--</div>
             </div>
         </div>
@@ -719,7 +719,7 @@
                     const maskedKeyName = maskName(rawKeyName);
                     html += `<div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-orange-600 mt-1">${elapsedText}${req.input_tokens ? ' | ' + req.input_tokens.toLocaleString() + ' tokens' : ''}</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-orange-600 mt-1">${elapsedText}${req.input_tokens ? ' | ' + formatCompactTokens(req.input_tokens) : ''}</div></div>
                             <span class="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">${window.I18N.pending}</span>
                         </div>
                     </div>`;
@@ -730,7 +730,7 @@
                     const maskedKeyName = maskName(rawKeyName);
                     html += `<div class="bg-gray-50 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-gray-500 mt-1">${Math.round(req.latency_ms / 1000)}s${req.input_tokens ? ' | ' + req.input_tokens.toLocaleString() + ' tokens' : ''}</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-gray-500 mt-1">${Math.round(req.latency_ms / 1000)}s${req.input_tokens ? ' | ' + formatCompactTokens(req.input_tokens) : ''}</div></div>
                             <span class="text-[10px] ${statusClass} px-1.5 py-0.5 rounded">${req.status}</span>
                         </div>
                     </div>`;

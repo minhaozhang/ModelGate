@@ -748,10 +748,26 @@ async def get_user_stats(
             if price and stats.get("tokens"):
                 estimated_cost += (stats["tokens"] / 1_000_000) * price
 
+        prompt_tokens_result = await session.execute(
+            select(func.sum(RequestLog.tokens["prompt_tokens"].as_integer())).where(
+                RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
+            )
+        )
+        total_prompt_tokens = prompt_tokens_result.scalar() or 0
+
+        completion_tokens_result = await session.execute(
+            select(func.sum(RequestLog.tokens["completion_tokens"].as_integer())).where(
+                RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
+            )
+        )
+        total_completion_tokens = completion_tokens_result.scalar() or 0
+
         payload = {
             "name": key.name,
             "total_requests": total_requests,
             "total_tokens": total_tokens,
+            "total_prompt_tokens": total_prompt_tokens,
+            "total_completion_tokens": total_completion_tokens,
             "total_errors": total_errors,
             "estimated_cost": round(estimated_cost, 4),
             "models": model_stats,
@@ -939,10 +955,28 @@ async def get_system_model_stats(
                 if row.model
             }
 
+    total_tokens = sum(v["tokens"] for v in models.values())
+
+    async with async_session_maker() as session:
+        prompt_result = await session.execute(
+            select(func.sum(RequestLog.tokens["prompt_tokens"].as_integer())).where(
+                RequestLog.created_at >= start
+            )
+        )
+        total_prompt_tokens = prompt_result.scalar() or 0
+        completion_result = await session.execute(
+            select(func.sum(RequestLog.tokens["completion_tokens"].as_integer())).where(
+                RequestLog.created_at >= start
+            )
+        )
+        total_completion_tokens = completion_result.scalar() or 0
+
     payload = {
         "period": period,
         "total_requests": sum(v["requests"] for v in models.values()),
-        "total_tokens": sum(v["tokens"] for v in models.values()),
+        "total_tokens": total_tokens,
+        "total_prompt_tokens": total_prompt_tokens,
+        "total_completion_tokens": total_completion_tokens,
         "models": models,
     }
 

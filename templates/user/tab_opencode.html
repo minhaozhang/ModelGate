@@ -5,7 +5,7 @@
         <h3 class="font-semibold mb-2">{{ _('Merge with existing config') }}</h3>
         <p class="text-sm text-gray-600 mb-1">{{ _('Upload your existing opencode.json to merge the latest ModelGate config into it') }}</p>
         <p id="config-path-hint" class="text-sm text-gray-400 mb-3"></p>
-        <script>document.getElementById('config-path-hint').textContent = /Win/i.test(navigator.userAgent) ? '{{ _("Config path: %USERPROFILE%\\.config\\opencode\\opencode.json") }}' : '{{ _("Config path: ~/.config/opencode/opencode.json") }}';</script>
+        <script>document.getElementById('config-path-hint').textContent = /Win/i.test(navigator.userAgent) ? '{{ _("Config path: %USERPROFILE%\\\\.config\\\\opencode\\\\opencode.json") }}' : '{{ _("Config path: ~/.config/opencode/opencode.json") }}';</script>
         <div class="flex items-center gap-3">
             <label class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600 cursor-pointer">
                 <span id="upload-label">{{ _('Upload opencode.json') }}</span>

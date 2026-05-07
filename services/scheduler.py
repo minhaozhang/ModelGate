@@ -121,7 +121,7 @@ async def _run_task_with_logging(task_id: str, func, summary: str | None = None)
         return
 
     start = time.time()
-    started_at = datetime.utcnow()
+    started_at = datetime.now()
     error = None
     status = "running"
 
@@ -141,7 +141,7 @@ async def _run_task_with_logging(task_id: str, func, summary: str | None = None)
         logger.error("[SCHEDULER] Task %s failed: %s", task_id, exc)
     finally:
         duration_ms = int((time.time() - start) * 1000)
-        finished_at = datetime.utcnow()
+        finished_at = datetime.now()
 
         async with async_session_maker() as session:
             await session.execute(

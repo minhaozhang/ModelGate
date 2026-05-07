@@ -8,10 +8,15 @@ from core.database import async_session_maker, SystemSetting
 CACHE_TTL_SECONDS = 300
 
 BUSYNESS_DEFAULTS = {
-    "active_users_threshold": "10",
-    "rate_429_threshold": "0.5",
-    "disabled_providers_critical": "2",
-    "disabled_providers_busy": "1",
+    "level1_active_users_threshold": "10",
+    "level1_rate_429_threshold": "0.5",
+    "level1_disabled_providers": "2",
+    "level2_active_users_threshold": "8",
+    "level2_rate_429_threshold": "0.3",
+    "level2_disabled_providers": "1",
+    "level3_active_users_threshold": "5",
+    "level3_rate_429_threshold": "0.1",
+    "level4_active_users_threshold": "1",
 }
 
 ALL_DEFAULTS = {

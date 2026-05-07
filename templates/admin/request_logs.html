@@ -275,9 +275,23 @@
             }
         }
 
+        function formatK(value) {
+            if (value === null || value === undefined || value === '-') return '-';
+            const v = Number(value);
+            if (isNaN(v) || v === 0) return '-';
+            if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+            return String(v);
+        }
         function getTokenCount(tokens) {
             if (!tokens) return '-';
             return tokens.total_tokens || tokens.estimated || '-';
+        }
+        function getTokenParts(tokens) {
+            if (!tokens || typeof tokens !== 'object') return { prompt: '-', completion: '-' };
+            const p = tokens.prompt_tokens || 0;
+            const c = tokens.completion_tokens || 0;
+            if (!p && !c && tokens.estimated) return { prompt: tokens.estimated, completion: '-' };
+            return { prompt: p || 0, completion: c || 0 };
         }
 
         function getStatusBadgeClass(status) {
@@ -328,7 +342,7 @@
             emptyEl.classList.add('hidden');
             listEl.innerHTML = logs.map(log => {
                 const badgeClass = getStatusBadgeClass(log.status);
-                const tokenCount = typeof log.tokens === 'object' ? getTokenCount(log.tokens) : (log.tokens || '-');
+                const tokenParts = typeof log.tokens === 'object' ? getTokenParts(log.tokens) : null;
                 const hasResponse = log.response && log.response.trim();
                 const hasError = log.error && log.error.trim();
                 return `
@@ -362,7 +376,7 @@
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.tokens}</div>
-                                <div class="font-medium text-gray-800">${formatNumber(tokenCount)}</div>
+                                <div class="font-medium text-gray-800">${tokenParts ? `↑${formatK(tokenParts.prompt)} / ↓${formatK(tokenParts.completion)}` : '-'}</div>
                                 <div class="text-xs text-gray-500 mt-1 mono break-all">${escapeHtml(log.client_ip || '-')}</div>
                             </div>
                             <div>
@@ -456,7 +470,8 @@
                 try {
                     const t = JSON.parse(tokens);
                     if (t && typeof t === 'object') {
-                        body += `<div class="mt-2 text-xs text-gray-500"><strong>Tokens:</strong> ${JSON.stringify(t)}</div>`;
+                        const parts = getTokenParts(t);
+                        body += `<div class="mt-2 text-xs text-gray-500"><strong>Tokens:</strong> ↑${formatK(parts.prompt)} / ↓${formatK(parts.completion)}</div>`;
                     }
                 } catch(e) {}
             }

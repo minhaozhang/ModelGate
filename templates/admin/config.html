@@ -285,6 +285,7 @@
             next: '{{ _("Next") }}',
             apiKeyAccessSuffix: '{{ _(" - API Key Access") }}',
             modelFallback: '{{ _("Model") }}',
+            all: '{{ _("All") }}',
             addProvider: '{{ _("Add Provider") }}',
             editProvider: '{{ _("Edit Provider") }}',
             disabledReasonPrefix: '{{ _("Disabled:") }}',
@@ -315,6 +316,8 @@
         let allProviders = [];
         let allModels = [];
         let allApiKeys = [];
+        let allApiKeyTags = [];
+        let selectedTagFilter = new Set();
         let modelKeysTarget = null;
         let modelKeysScopePmId = null;
         let modelKeysData = {};
@@ -410,6 +413,8 @@
             try {
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models/${modelId}/api-keys`);
                 allApiKeys = data.api_keys || [];
+                allApiKeyTags = data.all_tags || [];
+                selectedTagFilter = new Set();
                 modelKeysPmList = data.provider_models || [];
                 modelKeysData = data.bound_keys || {};
                 modelKeysPmList.forEach(pm => {
@@ -431,11 +436,29 @@
                 container.innerHTML = `<div class="text-center text-gray-400 py-4">${t('noProviderBindings', 'No provider bindings. Bind this model to a provider first.')}</div>`;
                 return;
             }
-            const totalPages = Math.max(1, Math.ceil(allApiKeys.length / MODEL_KEYS_PAGE_SIZE));
+
+            let filteredKeys = allApiKeys;
+            if (selectedTagFilter.size > 0) {
+                filteredKeys = allApiKeys.filter(k => (k.tags || []).some(tag => selectedTagFilter.has(tag)));
+            }
+
+            const totalPages = Math.max(1, Math.ceil(filteredKeys.length / MODEL_KEYS_PAGE_SIZE));
             modelKeysPage = Math.min(modelKeysPage, totalPages);
             const start = (modelKeysPage - 1) * MODEL_KEYS_PAGE_SIZE;
-            const pageApiKeys = allApiKeys.slice(start, start + MODEL_KEYS_PAGE_SIZE);
-            let html = '';
+            const pageApiKeys = filteredKeys.slice(start, start + MODEL_KEYS_PAGE_SIZE);
+
+            let tagFilterHtml = '';
+            if (allApiKeyTags.length > 0) {
+                tagFilterHtml = '<div class="flex flex-wrap gap-1.5 mb-3 pb-3 border-b">';
+                tagFilterHtml += `<button onclick="filterByTag(null)" class="text-xs px-2.5 py-1 rounded-full border ${selectedTagFilter.size === 0 ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${t('all', '全部')}</button>`;
+                allApiKeyTags.forEach(tag => {
+                    const active = selectedTagFilter.has(tag);
+                    tagFilterHtml += `<button onclick="filterByTag('${tag.replace(/'/g, "\\'")}')" class="text-xs px-2.5 py-1 rounded-full border ${active ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${tag}</button>`;
+                });
+                tagFilterHtml += '</div>';
+            }
+
+            let html = tagFilterHtml;
             visiblePmList.forEach(pm => {
                 const selectedIds = modelKeysSelection[pm.id] || new Set();
                 html += `<div class="border rounded p-3">
@@ -454,6 +477,7 @@
                             <label class="mk-item flex items-center text-sm py-2 px-2 rounded cursor-pointer ${selectedIds.has(k.id) ? 'selected' : ''}" data-pm-id="${pm.id}" data-ak-id="${k.id}">
                                 <input type="checkbox" class="mr-2 mk-check" data-pm-id="${pm.id}" data-ak-id="${k.id}" onchange="toggleModelKeySelection(${pm.id}, ${k.id}, this.checked)" ${selectedIds.has(k.id) ? 'checked' : ''}>
                                 ${k.name}
+                                ${(k.tags || []).map(tag => `<span class="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600">${tag}</span>`).join('')}
                             </label>
                         `).join('')}
                     </div>
@@ -483,7 +507,8 @@
         }
 
         function selectAllKeys(pmId) {
-            modelKeysSelection[pmId] = new Set(allApiKeys.map(k => k.id));
+            const keys = selectedTagFilter.size > 0 ? allApiKeys.filter(k => (k.tags || []).some(tag => selectedTagFilter.has(tag))) : allApiKeys;
+            modelKeysSelection[pmId] = new Set(keys.map(k => k.id));
             renderModelKeysContent();
         }
 
@@ -493,10 +518,23 @@
         }
 
         function changeModelKeysPage(delta) {
-            const totalPages = Math.max(1, Math.ceil(allApiKeys.length / MODEL_KEYS_PAGE_SIZE));
+            const filteredKeys = selectedTagFilter.size > 0 ? allApiKeys.filter(k => (k.tags || []).some(tag => selectedTagFilter.has(tag))) : allApiKeys;
+            const totalPages = Math.max(1, Math.ceil(filteredKeys.length / MODEL_KEYS_PAGE_SIZE));
             const nextPage = modelKeysPage + delta;
             if (nextPage < 1 || nextPage > totalPages) return;
             modelKeysPage = nextPage;
+            renderModelKeysContent();
+        }
+
+        function filterByTag(tag) {
+            if (tag === null) {
+                selectedTagFilter.clear();
+            } else if (selectedTagFilter.has(tag)) {
+                selectedTagFilter.delete(tag);
+            } else {
+                selectedTagFilter.add(tag);
+            }
+            modelKeysPage = 1;
             renderModelKeysContent();
         }
 
@@ -507,6 +545,7 @@
             modelKeysScopePmId = null;
             modelKeysSelection = {};
             modelKeysPage = 1;
+            selectedTagFilter = new Set();
         }
 
         async function openProviderModelKeys(pmId, modelId, label) {

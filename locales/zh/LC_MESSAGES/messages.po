@@ -1313,7 +1313,7 @@ msgid "disabled"
 msgstr "已禁用"
 
 msgid "Config path: %USERPROFILE%\\.config\\opencode\\opencode.json"
-msgstr "配置路径：%USERPROFILE%\\.config\\opencode\\opencode.json"
+msgstr "配置路径：%USERPROFILE%\\\\.config\\\\opencode\\\\opencode.json"
 
 msgid "Config path: ~/.config/opencode/opencode.json"
 msgstr "配置路径：~/.config/opencode/opencode.json"
@@ -1347,6 +1347,9 @@ msgstr "活跃用户"
 
 msgid "Busyness Control Rules"
 msgstr "繁忙控制规则"
+
+msgid "Busyness"
+msgstr "繁忙程度"
 
 msgid "Auto downgrade, suggest, or block models based on system busyness level (1=extremely busy ~ 6=quiet)"
 msgstr "根据系统繁忙程度自动降级、建议或阻止模型（1=极度繁忙 ~ 6=无人问津）"

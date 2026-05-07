@@ -309,6 +309,14 @@
             return Number(value).toLocaleString();
         }
 
+        function formatK(value) {
+            if (value === null || value === undefined || value === '-') return '-';
+            const v = Number(value);
+            if (isNaN(v) || v === 0) return '-';
+            if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+            return String(v);
+        }
+
         function escapeHtml(value) {
             return String(value ?? '')
                 .replace(/&/g, '&amp;')
@@ -346,8 +354,8 @@
             document.getElementById('metric-timeouts').textContent = formatNumber(summary.total_timeouts);
             document.getElementById('metric-provider').textContent = summary.top_providers?.[0]?.[0] || '-';
             document.getElementById('metric-status-code').textContent = summary.top_status_codes?.[0]?.[0] || '-';
-            document.getElementById('metric-context').textContent = summary.max_context_tokens ? formatNumber(summary.max_context_tokens) : '-';
-            document.getElementById('avg-timeout-context').textContent = summary.avg_timeout_context_tokens ? formatNumber(summary.avg_timeout_context_tokens) : '-';
+            document.getElementById('metric-context').textContent = summary.max_context_tokens ? formatK(summary.max_context_tokens) : '-';
+            document.getElementById('avg-timeout-context').textContent = summary.avg_timeout_context_tokens ? formatK(summary.avg_timeout_context_tokens) : '-';
             document.getElementById('logs-count').textContent = formatNumber(summary.total_logs);
             formatListChips('top-providers', summary.top_providers, 'badge-report');
             formatListChips('top-models', summary.top_models, 'badge-report');
@@ -396,7 +404,7 @@
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.context}</div>
-                                <div class="font-medium text-gray-800">${log.request_context_tokens ? formatNumber(log.request_context_tokens) : '-'}</div>
+                                <div class="font-medium text-gray-800">${log.request_context_tokens ? formatK(log.request_context_tokens) : '-'}</div>
                                 <div class="text-xs text-gray-500 mt-1 mono break-all">${escapeHtml(log.client_ip || '-')}</div>
                             </div>
                             <div>

@@ -203,17 +203,17 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
                 for model_info in models:
                     if isinstance(model_info, str):
                         model_name = model_info
-                        max_tokens = 16384
-                        context_length = 131072
+                        max_tokens = 131072
+                        context_length = 204800
                     else:
                         model_name = model_info.get("id", model_info.get("name", ""))
-                        max_tokens = model_info.get("max_tokens", 16384)
+                        max_tokens = model_info.get("max_tokens", 131072)
                         if isinstance(max_tokens, str):
                             try:
                                 max_tokens = int(max_tokens)
                             except ValueError:
-                                max_tokens = 16384
-                        context_length = context_length_map.get(model_name, 131072)
+                                max_tokens = 131072
+                        context_length = context_length_map.get(model_name, 204800)
 
                     if not model_name:
                         continue

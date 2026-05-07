@@ -124,7 +124,7 @@ async def sync_server_tools(server: McpServer) -> list[dict]:
                         await db.execute(
                             update(McpServer)
                             .where(McpServer.id == server.id)
-                            .values(last_sync_error=None, last_sync_at=datetime.utcnow())
+                            .values(last_sync_error=None, last_sync_at=datetime.now())
                         )
                         await db.commit()
 
