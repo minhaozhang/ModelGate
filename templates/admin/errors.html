@@ -9,9 +9,6 @@
     <link rel="stylesheet" href="/static/css/output.css">
     <script src="/static/js/marked.min.js"></script>
     <style>
-        .nav-link { transition: all 0.2s; }
-        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
-        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
         .summary-card {
             background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
             border: 1px solid #e5e7eb;
@@ -85,46 +82,21 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
-        body.theme-dark nav,
-        body.theme-dark .bg-white,
-        body.theme-dark .summary-card { background: #0f172a !important; }
-        body.theme-dark .bg-gray-50,
-        body.theme-dark .bg-blue-50 { background: #111827 !important; }
-        body.theme-dark .bg-gray-100 { background: #020617 !important; }
-        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
-        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
-        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
-        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
-        body.theme-dark .border,
-        body.theme-dark .border-b,
-        body.theme-dark .border-t,
-        body.theme-dark .summary-card,
-        body.theme-dark .log-row + .log-row { border-color: #1f2937 !important; }
-        body.theme-dark .nav-link { color: #cbd5e1 !important; }
-        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
-        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
-        body.theme-dark input,
-        body.theme-dark select,
-        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
-        body.theme-dark button:not(.bg-blue-600):not(.bg-slate-700) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
-        body.theme-dark .shadow,
-        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
-        body.theme-dark .badge-error { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
-        body.theme-dark .badge-timeout { background: rgba(249, 115, 22, 0.16); color: #fdba74; }
-        body.theme-dark .badge-report { background: rgba(59, 130, 246, 0.16); color: #93c5fd; }
-        body.theme-dark .markdown-body h1,
-        body.theme-dark .markdown-body h2,
-        body.theme-dark .markdown-body h3,
-        body.theme-dark .markdown-body p,
-        body.theme-dark .markdown-body li { color: #e5e7eb !important; }
-        body.theme-dark .markdown-body code { background: #1f2937; color: #e5e7eb; }
-        body.theme-dark .markdown-body pre { background: #020617; color: #e5e7eb; }
-        body.theme-dark #report-modal > div { background: #0f172a !important; }
-        body.theme-dark #report-modal label { color: #e5e8eb !important; }
+        body.mg-dark .badge-error { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+        body.mg-dark .badge-timeout { background: rgba(249, 115, 22, 0.16); color: #fdba74; }
+        body.mg-dark .badge-report { background: rgba(59, 130, 246, 0.16); color: #93c5fd; }
+        body.mg-dark .markdown-body h1,
+        body.mg-dark .markdown-body h2,
+        body.mg-dark .markdown-body h3,
+        body.mg-dark .markdown-body p,
+        body.mg-dark .markdown-body li { color: #e5e7eb !important; }
+        body.mg-dark .markdown-body code { background: #1f2937; color: #e5e7eb; }
+        body.mg-dark .markdown-body pre { background: #020617; color: #e5e7eb; }
+        body.mg-dark #report-modal > div { background: #0f172a !important; }
+        body.mg-dark #report-modal label { color: #e5e8eb !important; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="mg-dark bg-gray-100 min-h-screen">
     {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% include "components/nav.html" %}
@@ -291,10 +263,15 @@
         }
 
         function applyTheme(mode) {
-            const isDark = mode === 'dark';
-            document.body.classList.toggle('theme-dark', isDark);
+            document.body.classList.toggle('mg-dark', mode === 'dark');
+            document.documentElement.setAttribute('data-color-mode', mode);
             localStorage.setItem('admin_theme', mode);
             document.getElementById('theme-toggle').value = mode;
+        }
+        function applyColorTheme(theme) {
+            document.documentElement.setAttribute('data-color-theme', theme);
+            localStorage.setItem('admin_color_theme', theme);
+            document.querySelectorAll('.mg-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
         }
 
         async function logout() {
@@ -654,6 +631,7 @@
         }
 
         applyTheme(getThemeMode());
+        applyColorTheme(localStorage.getItem('admin_color_theme') || 'teal');
         loadErrorLogs();
         loadReportStatus();
         loadReportHistory();

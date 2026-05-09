@@ -8,9 +8,6 @@
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/output.css">
     <style>
-        .nav-link { transition: all 0.2s; }
-        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
-        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
         .badge {
             display: inline-flex;
             align-items: center;
@@ -49,7 +46,7 @@
             transition: all 0.15s;
         }
         .time-btn:hover { background: #f9fafb; border-color: #d1d5db; }
-        .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
+        .time-btn.active { background: var(--color-primary); color: #ffffff; border-color: var(--color-primary); }
         .spinner {
             width: 1rem;
             height: 1rem;
@@ -61,48 +58,27 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
-        body.theme-dark nav,
-        body.theme-dark .bg-white { background: #0f172a !important; }
-        body.theme-dark .bg-gray-50 { background: #111827 !important; }
-        body.theme-dark .bg-gray-100 { background: #020617 !important; }
-        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
-        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
-        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
-        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
-        body.theme-dark .border,
-        body.theme-dark .border-b,
-        body.theme-dark .border-t,
-        body.theme-dark .log-row + .log-row { border-color: #1f2937 !important; }
-        body.theme-dark .nav-link { color: #cbd5e1 !important; }
-        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
-        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
-        body.theme-dark input,
-        body.theme-dark select { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
-        body.theme-dark button:not(.bg-blue-600):not(.bg-slate-700):not(.time-btn.active) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
-        body.theme-dark .shadow,
-        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
-        body.theme-dark .badge-success { background: rgba(34, 197, 94, 0.16); color: #86efac; }
-        body.theme-dark .badge-error { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
-        body.theme-dark .badge-timeout { background: rgba(249, 115, 22, 0.16); color: #fdba74; }
-        body.theme-dark .badge-pending { background: rgba(234, 179, 8, 0.16); color: #fde047; }
-        body.theme-dark .badge-cancelled { background: rgba(100, 116, 139, 0.16); color: #94a3b8; }
+        body.mg-dark .badge-success { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+        body.mg-dark .badge-error { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+        body.mg-dark .badge-timeout { background: rgba(249, 115, 22, 0.16); color: #fdba74; }
+        body.mg-dark .badge-pending { background: rgba(234, 179, 8, 0.16); color: #fde047; }
+        body.mg-dark .badge-cancelled { background: rgba(100, 116, 139, 0.16); color: #94a3b8; }
 
-        body.theme-dark .time-btn { background: #0f172a; color: #e5e7eb; border-color: #334155; }
-        body.theme-dark .time-btn:hover { background: #1e293b; }
-        body.theme-dark .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
-        .resp-btn { color: #3b82f6; cursor: pointer; font-size: 0.75rem; }
+        body.mg-dark .time-btn { background: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.mg-dark .time-btn:hover { background: #1e293f; }
+        body.mg-dark .time-btn.active { background: var(--color-primary); color: #ffffff; border-color: var(--color-primary); }
+        .resp-btn { color: var(--color-primary); cursor: pointer; font-size: 0.75rem; }
         .resp-btn:hover { text-decoration: underline; }
         .detail-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
         .detail-modal { background: #fff; border-radius: 0.75rem; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 90%; max-width: 700px; max-height: 80vh; display: flex; flex-direction: column; }
-        body.theme-dark .detail-modal { background: #0f172a; color: #e5e7eb; }
+        body.mg-dark .detail-modal { background: #0f172a; color: #e5e7eb; }
         .detail-modal-header { padding: 1rem 1.5rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
-        body.theme-dark .detail-modal-header { border-color: #1f2937; }
+        body.mg-dark .detail-modal-header { border-color: #1f2937; }
         .detail-modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
         .detail-modal-body pre { white-space: pre-wrap; word-break: break-all; font-size: 0.8125rem; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="mg-dark bg-gray-100 min-h-screen">
     {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% include "components/nav.html" %}
@@ -175,7 +151,7 @@
                 </div>
                 <div id="logs-empty" class="hidden p-6 text-sm text-gray-500">{{ _('No logs found matching the current filters.') }}</div>
                 <div id="logs-loading" class="hidden p-6 flex items-center justify-center gap-3 text-sm text-gray-500">
-                    <div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25)"></div>
+                    <div class="spinner" style="border-top-color:var(--color-primary);border-color:color-mix(in srgb, var(--color-primary) 25%, transparent)"></div>
                     {{ _('Loading...') }}
                 </div>
                 <div id="logs-list" class="divide-y divide-gray-200"></div>
@@ -225,10 +201,15 @@
         }
 
         function applyTheme(mode) {
-            const isDark = mode === 'dark';
-            document.body.classList.toggle('theme-dark', isDark);
+            document.body.classList.toggle('mg-dark', mode === 'dark');
+            document.documentElement.setAttribute('data-color-mode', mode);
             localStorage.setItem('admin_theme', mode);
             document.getElementById('theme-toggle').value = mode;
+        }
+        function applyColorTheme(theme) {
+            document.documentElement.setAttribute('data-color-theme', theme);
+            localStorage.setItem('admin_color_theme', theme);
+            document.querySelectorAll('.mg-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
         }
 
         async function logout() {
@@ -503,6 +484,7 @@
         }
 
         applyTheme(getThemeMode());
+        applyColorTheme(localStorage.getItem('admin_color_theme') || 'teal');
         loadProviders();
         loadLogs();
     </script>

@@ -10,30 +10,6 @@
     <script src="/static/js/chart.min.js"></script>
     <style>
         body { -webkit-tap-highlight-color: transparent; }
-        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
-        body.theme-dark nav,
-        body.theme-dark .bg-white { background: #0f172a !important; }
-        body.theme-dark .bg-gray-50 { background: #111827 !important; }
-        body.theme-dark .bg-gray-100 { background: #020617 !important; }
-        body.theme-dark .bg-gray-200 { background: #1f2937 !important; }
-        body.theme-dark .bg-orange-50 { background: rgba(249, 115, 22, 0.12) !important; }
-        body.theme-dark .bg-orange-100 { background: rgba(249, 115, 22, 0.18) !important; }
-        body.theme-dark .bg-green-100 { background: rgba(34, 197, 94, 0.18) !important; }
-        body.theme-dark .bg-red-100 { background: rgba(239, 68, 68, 0.18) !important; }
-        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
-        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
-        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
-        body.theme-dark .text-gray-400 { color: #64748b !important; }
-        body.theme-dark .text-orange-600 { color: #fdba74 !important; }
-        body.theme-dark .text-orange-700 { color: #fed7aa !important; }
-        body.theme-dark .text-green-700 { color: #bbf7d0 !important; }
-        body.theme-dark .text-red-700 { color: #fecaca !important; }
-        body.theme-dark .border,
-        body.theme-dark .border-l-2,
-        body.theme-dark .border-orange-200 { border-color: rgba(249, 115, 22, 0.28) !important; }
-        body.theme-dark select,
-        body.theme-dark button:not(.text-red-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
-        body.theme-dark .shadow-sm { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
         .stat-card { transition: transform 0.15s; }
         .stat-card:active { transform: scale(0.97); }
         .collapsible-header { -webkit-tap-highlight-color: transparent; }
@@ -53,7 +29,7 @@
         .warn-icon:hover .warn-tip { display: block; }
     </style>
 </head>
-<body class="theme-dark bg-gray-50 min-h-screen pb-20">
+<body class="mg-dark bg-gray-50 min-h-screen pb-20">
     <nav class="bg-white shadow-sm sticky top-0 z-50">
         <div class="flex items-center justify-between px-4 py-3">
             <div>
@@ -224,6 +200,13 @@
         let liveStatsReconnectTimer = null;
         const MOBILE_HOME_OVERVIEW_REFRESH_MS = 8000;
         const MOBILE_HOME_SLOW_REFRESH_MS = 5000;
+
+        function applyColorTheme(theme) {
+            document.documentElement.setAttribute('data-color-theme', theme);
+            localStorage.setItem('admin_color_theme', theme);
+            document.querySelectorAll('.mg-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
+        }
+        applyColorTheme(localStorage.getItem('admin_color_theme') || 'teal');
 
         Chart.defaults.color = '#cbd5e1';
         Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.15)';

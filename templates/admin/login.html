@@ -40,7 +40,7 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center overflow-hidden">
+<body class="mg-dark min-h-screen flex items-center justify-center overflow-hidden">
     <div id="particles-container"></div>
     <div class="fixed top-4 right-4 z-10">
         <select id="lang-select" onchange="switchLang(this.value)" class="bg-black/20 text-white/80 border border-white/20 rounded px-3 py-2 text-sm backdrop-blur-sm focus:outline-none">
@@ -241,6 +241,13 @@
             particles.rotation.y += (mouseX * 0.1 - particles.rotation.y) * 0.02;
             renderer.render(scene, camera);
         }
+
+        function applyColorTheme(theme) {
+            document.documentElement.setAttribute('data-color-theme', theme);
+            localStorage.setItem('admin_color_theme', theme);
+            document.querySelectorAll('.mg-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
+        }
+        applyColorTheme(localStorage.getItem('admin_color_theme') || 'teal');
 
         init();
 

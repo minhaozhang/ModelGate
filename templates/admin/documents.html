@@ -8,30 +8,12 @@
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/output.css">
     <style>
-        .nav-link { transition: all 0.2s; }
-        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
-        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
-        .spinner { width: 1rem; height: 1rem; border-radius: 9999px; border: 2px solid rgba(59,130,246,0.3); border-top-color: #3b82f6; animation: spin 0.9s linear infinite; display: inline-block; }
+        .spinner { width: 1rem; height: 1rem; border-radius: 9999px; border: 2px solid color-mix(in srgb, var(--color-primary) 30%, transparent); border-top-color: var(--color-primary); animation: spin 0.9s linear infinite; display: inline-block; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
-        body.theme-dark nav, body.theme-dark .bg-white { background: #0f172a !important; }
-        body.theme-dark .bg-gray-50 { background: #111827 !important; }
-        body.theme-dark .bg-gray-100 { background: #020617 !important; }
-        body.theme-dark .bg-blue-50 { background: rgba(37, 99, 235, 0.12) !important; }
-        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
-        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
-        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
-        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
-        body.theme-dark .border, body.theme-dark .border-b, body.theme-dark .border-t, body.theme-dark .border-gray-200 { border-color: #1f2937 !important; }
-        body.theme-dark input, body.theme-dark select, body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
-        body.theme-dark button:not(.bg-blue-600):not(.bg-blue-500):not(.bg-emerald-600):not(.bg-red-600) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
-        body.theme-dark .shadow, body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
-        body.theme-dark .nav-link { color: #cbd5e1 !important; }
-        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
-        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.mg-dark .bg-blue-50 { background: rgba(37, 99, 235, 0.12) !important; }
         #edit-modal > div { background: #fff; }
-        body.theme-dark #edit-modal > div { background: #0f172a !important; }
-        body.theme-dark #edit-modal label { color: #e5e7eb !important; }
+        body.mg-dark #edit-modal > div { background: #0f172a !important; }
+        body.mg-dark #edit-modal label { color: #e5e7eb !important; }
         .md-preview { line-height: 1.7; }
         .md-preview h1 { font-size: 1.5rem; font-weight: 700; margin: 1rem 0 0.5rem; }
         .md-preview h2 { font-size: 1.25rem; font-weight: 600; margin: 0.8rem 0 0.4rem; }
@@ -40,20 +22,20 @@
         .md-preview pre { background: #f5f5f5; padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.5rem 0; }
         .md-preview code { font-family: monospace; font-size: 0.9em; }
         .md-preview ul, .md-preview ol { padding-left: 1.5rem; margin: 0.4rem 0; }
-        .md-preview blockquote { border-left: 3px solid #3b82f6; padding-left: 1rem; color: #6b7280; margin: 0.5rem 0; }
-        body.theme-dark .md-preview pre { background: #1e293b !important; }
-        body.theme-dark .md-preview blockquote { color: #94a3b8; }
+        .md-preview blockquote { border-left: 3px solid var(--color-primary); padding-left: 1rem; color: #6b7280; margin: 0.5rem 0; }
+        body.mg-dark .md-preview pre { background: #1e293b !important; }
+        body.mg-dark .md-preview blockquote { color: #94a3b8; }
         .editor-preview { min-height: 20rem; max-height: 70vh; overflow-y: auto; }
         .drop-zone { border: 2px dashed #d1d5db; border-radius: 0.5rem; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; }
-        .drop-zone:hover, .drop-zone.dragover { border-color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
-        body.theme-dark .drop-zone { border-color: #334155; }
-        body.theme-dark .drop-zone:hover, body.theme-dark .drop-zone.dragover { border-color: #60a5fa; background: rgba(96, 165, 250, 0.08); }
+        .drop-zone:hover, .drop-zone.dragover { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 5%, transparent); }
+        body.mg-dark .drop-zone { border-color: #334155; }
+        body.mg-dark .drop-zone:hover, body.mg-dark .drop-zone.dragover { border-color: #60a5fa; background: rgba(96, 165, 250, 0.08); }
         .file-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.375rem; margin-top: 0.5rem; }
-        body.theme-dark .file-item { border-color: #334155; }
+        body.mg-dark .file-item { border-color: #334155; }
         .file-thumb { width: 2rem; height: 2rem; border-radius: 0.25rem; object-fit: cover; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="mg-dark bg-gray-100 min-h-screen">
     {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% include "components/nav.html" %}
@@ -177,12 +159,18 @@
 
         function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
         function applyTheme(mode) {
-            const isDark = mode === 'dark';
-            document.body.classList.toggle('theme-dark', isDark);
+            document.body.classList.toggle('mg-dark', mode === 'dark');
+            document.documentElement.setAttribute('data-color-mode', mode);
             localStorage.setItem('admin_theme', mode);
             document.getElementById('theme-toggle').value = mode;
         }
+        function applyColorTheme(theme) {
+            document.documentElement.setAttribute('data-color-theme', theme);
+            localStorage.setItem('admin_color_theme', theme);
+            document.querySelectorAll('.mg-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
+        }
         applyTheme(getThemeMode());
+        applyColorTheme(localStorage.getItem('admin_color_theme') || 'teal');
 
         function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }
         async function logout() { await fetch(`${BASE}/admin/api/auth/logout`, { method: 'POST' }); window.location.href = `${BASE}/admin/login`; }

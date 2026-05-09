@@ -7,54 +7,29 @@
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/output.css">
     <style>
-        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
-        body.theme-dark nav,
-        body.theme-dark .bg-white { background: #0f172a !important; }
-        body.theme-dark .bg-gray-50 { background: #111827 !important; }
-        body.theme-dark .bg-gray-100 { background: #1f2937 !important; }
-        body.theme-dark .bg-gray-200 { background: #2d3748 !important; }
-        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
-        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
-        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
-        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
-        body.theme-dark .text-gray-400 { color: #64748b !important; }
-        body.theme-dark .border,
-        body.theme-dark .border-b,
-        body.theme-dark .border-t { border-color: #1f2937 !important; }
-        body.theme-dark input,
-        body.theme-dark select,
-        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
-        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
-        body.theme-dark .shadow,
-        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
-        body.theme-dark .nav-link { color: #cbd5e1 !important; }
-        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right: 3px solid #60a5fa; }
-        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
-        .nav-link { transition: all 0.2s; }
-        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
-        .bar { height: 6px; border-radius: 3px; background: #3b82f6; transition: width 0.5s ease; }
-        body.theme-dark .bar { background: #60a5fa; }
-        body.theme-dark .bg-red-50 { background: rgba(127, 29, 29, 0.3) !important; }
-        body.theme-dark .bg-orange-50 { background: rgba(124, 45, 18, 0.3) !important; }
-        body.theme-dark .bg-yellow-50 { background: rgba(113, 63, 18, 0.3) !important; }
-        body.theme-dark .bg-green-50 { background: rgba(20, 83, 45, 0.3) !important; }
-        body.theme-dark .bg-blue-50 { background: rgba(30, 58, 138, 0.3) !important; }
-        body.theme-dark .bg-slate-50 { background: rgba(51, 51, 51, 0.3) !important; }
-        body.theme-dark .text-red-700 { color: #fca5a5 !important; }
-        body.theme-dark .text-orange-700 { color: #fdba74 !important; }
-        body.theme-dark .text-yellow-700 { color: #fde047 !important; }
-        body.theme-dark .text-green-700 { color: #86efac !important; }
-        body.theme-dark .text-blue-700 { color: #93c5fd !important; }
-        body.theme-dark .text-slate-700 { color: #cbd5e1 !important; }
-        body.theme-dark .border-red-500 { border-color: #ef4444 !important; }
-        body.theme-dark .border-orange-500 { border-color: #f97316 !important; }
-        body.theme-dark .border-yellow-500 { border-color: #eab308 !important; }
-        body.theme-dark .border-green-500 { border-color: #22c55e !important; }
-        body.theme-dark .border-blue-500 { border-color: #3b82f6 !important; }
-        body.theme-dark .border-slate-500 { border-color: #64748b !important; }
+        .bar { height: 6px; border-radius: 3px; background: var(--color-primary); transition: width 0.5s ease; }
+        body.mg-dark .bar { background: #60a5fa; }
+        body.mg-dark .bg-red-50 { background: rgba(127, 29, 29, 0.3) !important; }
+        body.mg-dark .bg-orange-50 { background: rgba(124, 45, 18, 0.3) !important; }
+        body.mg-dark .bg-yellow-50 { background: rgba(113, 63, 18, 0.3) !important; }
+        body.mg-dark .bg-green-50 { background: rgba(20, 83, 45, 0.3) !important; }
+        body.mg-dark .bg-blue-50 { background: rgba(30, 58, 138, 0.3) !important; }
+        body.mg-dark .bg-slate-50 { background: rgba(51, 51, 51, 0.3) !important; }
+        body.mg-dark .text-red-700 { color: #fca5a5 !important; }
+        body.mg-dark .text-orange-700 { color: #fdba74 !important; }
+        body.mg-dark .text-yellow-700 { color: #fde047 !important; }
+        body.mg-dark .text-green-700 { color: #86efac !important; }
+        body.mg-dark .text-blue-700 { color: #93c5fd !important; }
+        body.mg-dark .text-slate-700 { color: #cbd5e1 !important; }
+        body.mg-dark .border-red-500 { border-color: #ef4444 !important; }
+        body.mg-dark .border-orange-500 { border-color: #f97316 !important; }
+        body.mg-dark .border-yellow-500 { border-color: #eab308 !important; }
+        body.mg-dark .border-green-500 { border-color: #22c55e !important; }
+        body.mg-dark .border-blue-500 { border-color: var(--color-primary) !important; }
+        body.mg-dark .border-slate-500 { border-color: #64748b !important; }
     </style>
 </head>
-<body class="theme-dark bg-gray-100 min-h-screen">
+<body class="mg-dark bg-gray-100 min-h-screen">
     {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% include "components/nav.html" %}
@@ -139,12 +114,18 @@
             return localStorage.getItem('admin_theme') || 'dark';
         }
         function applyTheme(mode) {
-            const isDark = mode === 'dark';
-            document.body.classList.toggle('theme-dark', isDark);
+            document.body.classList.toggle('mg-dark', mode === 'dark');
+            document.documentElement.setAttribute('data-color-mode', mode);
             localStorage.setItem('admin_theme', mode);
             document.getElementById('theme-toggle').value = mode;
         }
+        function applyColorTheme(theme) {
+            document.documentElement.setAttribute('data-color-theme', theme);
+            localStorage.setItem('admin_color_theme', theme);
+            document.querySelectorAll('.mg-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
+        }
         applyTheme(getThemeMode());
+        applyColorTheme(localStorage.getItem('admin_color_theme') || 'teal');
         async function loadConfig() {
             const r = await fetch(APP_BASE_PATH + '/admin/api/system/config');
             if (!r.ok) { console.error('Failed to load config'); return; }

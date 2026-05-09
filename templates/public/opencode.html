@@ -8,11 +8,11 @@
     <link rel="stylesheet" href="/static/css/output.css">
     <style>
         .nav-link { transition: all 0.2s; }
-        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
-        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        .nav-link:hover { background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
+        .nav-link.active { background: color-mix(in srgb, var(--color-primary) 10%, transparent); color: var(--color-primary); border-right: 3px solid var(--color-primary); }
         pre { white-space: pre-wrap; word-break: break-all; }
         .copy-btn { transition: all 0.2s; }
-        .copy-btn:hover { background: #3b82f6; color: white; }
+        .copy-btn:hover { background: var(--color-primary); color: white; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">

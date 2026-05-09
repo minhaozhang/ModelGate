@@ -9,247 +9,22 @@
     <script src="/static/js/chart.min.js"></script>
     <script src="/static/js/marked.min.js"></script>
     <style>
-        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
+        .tab-btn.active { border-bottom: 2px solid var(--color-primary); color: var(--color-primary); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .stats-sub-tab { border-bottom: 2px solid transparent; color: #6b7280; cursor: pointer; transition: all 0.15s; }
         .stats-sub-tab:hover { color: #374151; }
-        .stats-sub-tab.active { border-bottom-color: #3b82f6; color: #3b82f6; }
+        .stats-sub-tab.active { border-bottom-color: var(--color-primary); color: var(--color-primary); }
         .stats-sub-content { display: block; }
         .stats-sub-content.hidden { display: none; }
         pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
         code { font-family: 'Monaco', 'Menlo', monospace; font-size: 0.875rem; }
-        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
-        body.theme-dark .bg-white { background: #0f172a !important; }
-        body.theme-dark .bg-gray-50 { background: #111827 !important; }
-        body.theme-dark .bg-gray-200 { background: #243244 !important; }
-        body.theme-dark .bg-gray-100 { background: #020617 !important; }
-        body.theme-dark .bg-blue-50 { background: rgba(37, 99, 235, 0.12) !important; }
-        body.theme-dark .bg-blue-100 { background: rgba(59, 130, 246, 0.18) !important; }
-        body.theme-dark .bg-emerald-50 { background: rgba(16, 185, 129, 0.12) !important; }
-        body.theme-dark .bg-emerald-100 { background: rgba(16, 185, 129, 0.18) !important; }
-        body.theme-dark .bg-yellow-100 { background: rgba(234, 179, 8, 0.18) !important; }
-        body.theme-dark .bg-red-100 { background: rgba(239, 68, 68, 0.18) !important; }
-        body.theme-dark .bg-slate-100 { background: #1e293b !important; }
-        body.theme-dark .from-blue-50,
-        body.theme-dark .to-cyan-50,
-        body.theme-dark .from-emerald-50,
-        body.theme-dark .to-teal-50 { background-image: none !important; }
-        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
-        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
-        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
-        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
-        body.theme-dark .text-gray-400 { color: #64748b !important; }
-        body.theme-dark .text-blue-900 { color: #dbeafe !important; }
-        body.theme-dark .text-blue-700 { color: #bfdbfe !important; }
-        body.theme-dark .text-slate-600 { color: #cbd5e1 !important; }
-        body.theme-dark .text-emerald-700 { color: #a7f3d0 !important; }
-        body.theme-dark .text-yellow-700 { color: #fde68a !important; }
-        body.theme-dark .text-red-700 { color: #fecaca !important; }
-        body.theme-dark .border,
-        body.theme-dark .border-b,
-        body.theme-dark .border-blue-200,
-        body.theme-dark .border-gray-200,
-        body.theme-dark .border-slate-200,
-        body.theme-dark .border-emerald-200 { border-color: #243244 !important; }
-        body.theme-dark select,
-        body.theme-dark button:not(.bg-red-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
-        body.theme-dark .shadow,
-        body.theme-dark .shadow-sm { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
-        body.theme-dark .tab-btn.active { border-bottom-color: #60a5fa; color: #60a5fa !important; }
-        body.theme-dark .stats-sub-tab { color: #94a3b8; }
-        body.theme-dark .stats-sub-tab.active { border-bottom-color: #60a5fa; color: #60a5fa !important; }
         .stats-summary-tab { color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
-        .stats-summary-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
-        .stats-summary-tab:hover { color: #3b82f6; }
-        body.theme-dark .stats-summary-tab { color: #94a3b8; }
-        body.theme-dark .stats-summary-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
-        body.theme-dark .bg-white.rounded,
-        body.theme-dark .bg-white.rounded-lg,
-        body.theme-dark .bg-white.rounded-xl,
-        body.theme-dark .bg-white.rounded-2xl,
-        body.theme-dark .bg-gray-50.rounded,
-        body.theme-dark .bg-gray-50.rounded-lg,
-        body.theme-dark .bg-gray-50.rounded-xl,
-        body.theme-dark .bg-gray-50.rounded-2xl,
-        body.theme-dark .bg-blue-50.rounded-lg,
-        body.theme-dark .bg-blue-50.rounded-2xl {
-            border: 1px solid rgba(71, 85, 105, 0.55) !important;
-            box-shadow:
-                0 18px 36px rgba(2, 6, 23, 0.34),
-                inset 0 1px 0 rgba(148, 163, 184, 0.08) !important;
-        }
-        body.theme-dark .tab-content > .bg-gray-50.rounded-lg,
-        body.theme-dark .tab-content > .bg-white.rounded-lg,
-        body.theme-dark .tab-content > .grid .bg-gray-50.rounded-lg,
-        body.theme-dark .tab-content > .grid .bg-white.rounded-lg {
-            background-image: linear-gradient(180deg, rgba(148, 163, 184, 0.04), transparent 28%) !important;
-        }
-        body.theme-dark .bg-white.p-3.rounded,
-        body.theme-dark .bg-white.p-3.rounded-lg,
-        body.theme-dark .bg-white.p-4.rounded,
-        body.theme-dark .bg-white.p-4.rounded-lg,
-        body.theme-dark .bg-gray-50.p-3.rounded,
-        body.theme-dark .bg-gray-50.p-3.rounded-lg {
-            border-color: rgba(71, 85, 105, 0.5) !important;
-        }
-        body.theme-dark code.bg-white,
-        body.theme-dark .bg-white.px-2,
-        body.theme-dark .bg-white.p-3:not(.rounded-2xl) {
-            background: #111827 !important;
-        }
-        body.theme-dark .bg-white.text-gray-600,
-        body.theme-dark .bg-white.text-gray-700,
-        body.theme-dark .bg-gray-200.text-gray-700,
-        body.theme-dark .bg-gray-100.text-gray-500,
-        body.theme-dark .bg-slate-100.text-slate-600,
-        body.theme-dark .bg-emerald-100.text-emerald-700 {
-            color: #cbd5e1 !important;
-        }
-        body.theme-dark .bg-black\/5,
-        body.theme-dark .bg-white\/70 {
-            background: rgba(148, 163, 184, 0.12) !important;
-            color: #dbeafe !important;
-            border: 1px solid rgba(71, 85, 105, 0.45);
-        }
-        body.theme-dark #recommendation-meta {
-            color: #cbd5e1 !important;
-        }
-        body.theme-dark #recommendation-analysis-meta {
-            color: #93c5fd !important;
-        }
-        body.theme-dark #recommendation-list > div {
-            color: #e2e8f0;
-        }
-        body.theme-dark #recommendation-list .text-gray-400 {
-            color: #cbd5e1 !important;
-        }
-        body.theme-dark #recommendation-list .text-slate-700 {
-            color: #f8fafc !important;
-        }
-        body.theme-dark #recommendation-timing-advice {
-            color: #cbd5e1 !important;
-            background: rgba(148, 163, 184, 0.08) !important;
-            border-color: rgba(71, 85, 105, 0.45) !important;
-        }
-        body.theme-dark pre {
-            border: 1px solid rgba(71, 85, 105, 0.6);
-            box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
-        }
-
-        body.theme-blackgold { background: #09090b !important; color: #fafaf9; }
-        body.theme-blackgold .bg-white { background: #1a1814 !important; }
-        body.theme-blackgold .bg-gray-50 { background: #1c1917 !important; }
-        body.theme-blackgold .bg-gray-200 { background: #292524 !important; }
-        body.theme-blackgold .bg-gray-100 { background: #09090b !important; }
-        body.theme-blackgold .bg-blue-50 { background: rgba(212, 168, 83, 0.10) !important; }
-        body.theme-blackgold .bg-blue-100 { background: rgba(212, 168, 83, 0.18) !important; }
-        body.theme-blackgold .bg-emerald-50 { background: rgba(16, 185, 129, 0.10) !important; }
-        body.theme-blackgold .bg-emerald-100 { background: rgba(16, 185, 129, 0.16) !important; }
-        body.theme-blackgold .bg-yellow-100 { background: rgba(234, 179, 8, 0.15) !important; }
-        body.theme-blackgold .bg-red-100 { background: rgba(239, 68, 68, 0.15) !important; }
-        body.theme-blackgold .bg-slate-100 { background: #1c1917 !important; }
-        body.theme-blackgold .from-blue-50,
-        body.theme-blackgold .to-cyan-50,
-        body.theme-blackgold .from-emerald-50,
-        body.theme-blackgold .to-teal-50 { background-image: none !important; }
-        body.theme-blackgold .text-gray-800 { color: #fafaf9 !important; }
-        body.theme-blackgold .text-gray-700 { color: #d6d3d1 !important; }
-        body.theme-blackgold .text-gray-600 { color: #c9b896 !important; }
-        body.theme-blackgold .text-gray-500 { color: #a8a29e !important; }
-        body.theme-blackgold .text-gray-400 { color: #8b7d65 !important; }
-        body.theme-blackgold .text-blue-900 { color: #fde68a !important; }
-        body.theme-blackgold .text-blue-700 { color: #d4a853 !important; }
-        body.theme-blackgold .text-slate-600 { color: #c9b896 !important; }
-        body.theme-blackgold .text-emerald-700 { color: #a7f3d0 !important; }
-        body.theme-blackgold .text-yellow-700 { color: #fde68a !important; }
-        body.theme-blackgold .text-red-700 { color: #fecaca !important; }
-        body.theme-blackgold .border,
-        body.theme-blackgold .border-b,
-        body.theme-blackgold .border-blue-200,
-        body.theme-blackgold .border-gray-200,
-        body.theme-blackgold .border-slate-200,
-        body.theme-blackgold .border-emerald-200 { border-color: rgba(212, 168, 83, 0.22) !important; }
-        body.theme-blackgold select,
-        body.theme-blackgold button:not(.bg-red-500):not(.bg-blue-600) { background-color: #1a1814; color: #d6d3d1; border-color: rgba(212, 168, 83, 0.30); }
-        body.theme-blackgold .shadow,
-        body.theme-blackgold .shadow-sm { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55) !important; }
-        body.theme-blackgold .tab-btn.active { border-bottom-color: #d4a853 !important; color: #d4a853 !important; }
-        body.theme-blackgold .bg-white.rounded,
-        body.theme-blackgold .bg-white.rounded-lg,
-        body.theme-blackgold .bg-white.rounded-xl,
-        body.theme-blackgold .bg-white.rounded-2xl,
-        body.theme-blackgold .bg-gray-50.rounded,
-        body.theme-blackgold .bg-gray-50.rounded-lg,
-        body.theme-blackgold .bg-gray-50.rounded-xl,
-        body.theme-blackgold .bg-gray-50.rounded-2xl,
-        body.theme-blackgold .bg-blue-50.rounded-lg,
-        body.theme-blackgold .bg-blue-50.rounded-2xl {
-            border: 1px solid rgba(212, 168, 83, 0.25) !important;
-            box-shadow:
-                0 18px 36px rgba(0, 0, 0, 0.45),
-                inset 0 1px 0 rgba(212, 168, 83, 0.06) !important;
-        }
-        body.theme-blackgold .tab-content > .bg-gray-50.rounded-lg,
-        body.theme-blackgold .tab-content > .bg-white.rounded-lg,
-        body.theme-blackgold .tab-content > .grid .bg-gray-50.rounded-lg,
-        body.theme-blackgold .tab-content > .grid .bg-white.rounded-lg {
-            background-image: linear-gradient(180deg, rgba(212, 168, 83, 0.04), transparent 28%) !important;
-        }
-        body.theme-blackgold .bg-white.p-3.rounded,
-        body.theme-blackgold .bg-white.p-3.rounded-lg,
-        body.theme-blackgold .bg-white.p-4.rounded,
-        body.theme-blackgold .bg-white.p-4.rounded-lg,
-        body.theme-blackgold .bg-gray-50.p-3.rounded,
-        body.theme-blackgold .bg-gray-50.p-3.rounded-lg {
-            border-color: rgba(212, 168, 83, 0.22) !important;
-        }
-        body.theme-blackgold code.bg-white,
-        body.theme-blackgold .bg-white.px-2,
-        body.theme-blackgold .bg-white.p-3:not(.rounded-2xl) {
-            background: #1c1917 !important;
-        }
-        body.theme-blackgold .bg-white.text-gray-600,
-        body.theme-blackgold .bg-white.text-gray-700,
-        body.theme-blackgold .bg-gray-200.text-gray-700,
-        body.theme-blackgold .bg-gray-100.text-gray-500,
-        body.theme-blackgold .bg-slate-100.text-slate-600,
-        body.theme-blackgold .bg-emerald-100.text-emerald-700 {
-            color: #c9b896 !important;
-        }
-        body.theme-blackgold .bg-black\/5,
-        body.theme-blackgold .bg-white\/70 {
-            background: rgba(212, 168, 83, 0.08) !important;
-            color: #d4a853 !important;
-            border: 1px solid rgba(212, 168, 83, 0.22);
-        }
-        body.theme-blackgold #recommendation-meta {
-            color: #c9b896 !important;
-        }
-        body.theme-blackgold #recommendation-analysis-meta {
-            color: #d4a853 !important;
-        }
-        body.theme-blackgold #recommendation-list > div {
-            color: #fafaf9;
-        }
-        body.theme-blackgold #recommendation-list .text-gray-400 {
-            color: #c9b896 !important;
-        }
-        body.theme-blackgold #recommendation-list .text-slate-700 {
-            color: #fafaf9 !important;
-        }
-        body.theme-blackgold #recommendation-timing-advice {
-            color: #c9b896 !important;
-            background: rgba(212, 168, 83, 0.06) !important;
-            border-color: rgba(212, 168, 83, 0.22) !important;
-        }
-        body.theme-blackgold pre {
-            border: 1px solid rgba(212, 168, 83, 0.25);
-            box-shadow: inset 0 1px 0 rgba(212, 168, 83, 0.05);
-        }
+        .stats-summary-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+        .stats-summary-tab:hover { color: var(--color-primary); }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="mg-dark bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
         <div class="flex justify-between items-center mb-6">
             <div>
@@ -266,10 +41,16 @@
                     <option value="en">English</option>
                     <option value="zh">中文</option>
                 </select>
+                <div class="flex items-center gap-1.5">
+                    <span class="mg-theme-dot" data-theme="teal" onclick="applyColorTheme('teal')" title="Teal"></span>
+                    <span class="mg-theme-dot" data-theme="blue" onclick="applyColorTheme('blue')" title="Blue"></span>
+                    <span class="mg-theme-dot" data-theme="gold" onclick="applyColorTheme('gold')" title="Gold"></span>
+                    <span class="mg-theme-dot" data-theme="purple" onclick="applyColorTheme('purple')" title="Purple"></span>
+                    <span class="mg-theme-dot" data-theme="green" onclick="applyColorTheme('green')" title="Green"></span>
+                </div>
                 <select id="theme-toggle" onchange="applyTheme(this.value)" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm cursor-pointer">
                     <option value="light">{{ _('Light Mode') }}</option>
                     <option value="dark">{{ _('Dark Mode') }}</option>
-                    <option value="blackgold">{{ _('Black Gold') }}</option>
                 </select>
                 <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
                     {{ _('Logout') }}
@@ -414,9 +195,7 @@
         document.getElementById('base-js').textContent = baseUrl;
         document.getElementById('base-curl').textContent = baseUrl;
 
-        function getThemeMode() {
-            return localStorage.getItem('dashboard_theme') || 'dark';
-        }
+        function getThemeMode() { return localStorage.getItem('user_theme') || 'dark'; }
 
         function getChartTheme() {
             const mode = getThemeMode();
@@ -435,14 +214,19 @@
         }
 
         function applyTheme(mode) {
-            document.body.classList.remove('theme-dark', 'theme-blackgold');
-            if (mode === 'dark') document.body.classList.add('theme-dark');
-            else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
-            localStorage.setItem('dashboard_theme', mode);
+            document.body.classList.toggle('mg-dark', mode === 'dark');
+            document.documentElement.setAttribute('data-color-mode', mode);
+            localStorage.setItem('user_theme', mode);
             document.getElementById('theme-toggle').value = mode;
+        }
+        function applyColorTheme(theme) {
+            document.documentElement.setAttribute('data-color-theme', theme);
+            localStorage.setItem('user_color_theme', theme);
+            document.querySelectorAll('.mg-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
         }
 
         applyTheme(getThemeMode());
+        applyColorTheme(localStorage.getItem('user_color_theme') || 'teal');
 
         async function fetchJsonOrRedirect(url, options) {
             const resp = await fetch(url, options);

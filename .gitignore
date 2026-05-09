@@ -33,3 +33,5 @@ bin-release/
 *.apk
 modelgate.tar
 AGENTS.md
+/node_modules/
+/node_modules/

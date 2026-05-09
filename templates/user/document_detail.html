@@ -13,10 +13,10 @@
         .markdown-body h3 { font-size: 1.15rem; font-weight: 600; margin: 1rem 0 0.5rem; }
         .markdown-body h4 { font-size: 1rem; font-weight: 600; margin: 0.8rem 0 0.4rem; }
         .markdown-body p { margin: 0.6rem 0; }
-        .markdown-body a { color: #3b82f6; text-decoration: underline; }
+        .markdown-body a { color: var(--color-primary); text-decoration: underline; }
         .markdown-body ul, .markdown-body ol { padding-left: 1.5rem; margin: 0.5rem 0; }
         .markdown-body li { margin: 0.25rem 0; }
-        .markdown-body blockquote { border-left: 4px solid #3b82f6; padding: 0.5rem 1rem; margin: 0.75rem 0; background: #f8fafc; color: #475569; }
+        .markdown-body blockquote { border-left: 4px solid var(--color-primary); padding: 0.5rem 1rem; margin: 0.75rem 0; background: #f8fafc; color: #475569; }
         .markdown-body pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.75rem 0; }
         .markdown-body code { font-family: 'JetBrains Mono', 'Monaco', 'Menlo', monospace; font-size: 0.875em; }
         .markdown-body :not(pre) > code { background: #f1f5f9; padding: 0.15rem 0.4rem; border-radius: 0.25rem; color: #be185d; }
@@ -25,51 +25,22 @@
         .markdown-body th { background: #f8fafc; font-weight: 600; }
         .markdown-body img { max-width: 100%; border-radius: 0.5rem; }
         .markdown-body hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
-        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
-        body.theme-dark .bg-white { background: #0f172a !important; }
-        body.theme-dark .bg-gray-100 { background: #020617 !important; }
-        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
-        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
-        body.theme-dark .text-gray-700 { color: #cbd5e1 !important; }
-        body.theme-dark .border-gray-200 { border-color: #243244 !important; }
-        body.theme-dark select, body.theme-dark button:not(.bg-blue-600) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
-        body.theme-dark .shadow { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
-        body.theme-dark .bg-white.rounded-lg { border: 1px solid rgba(71, 85, 105, 0.55) !important; }
-        body.theme-dark .markdown-body h1 { border-bottom-color: #334155; }
-        body.theme-dark .markdown-body blockquote { background: rgba(59, 130, 246, 0.08); color: #94a3b8; }
-        body.theme-dark .markdown-body :not(pre) > code { background: #1e293b; color: #f472b6; }
-        body.theme-dark .markdown-body th { background: #1e293b; }
-        body.theme-dark .markdown-body th, body.theme-dark .markdown-body td { border-color: #334155; }
-        body.theme-dark .markdown-body hr { border-top-color: #334155; }
-        body.theme-dark .markdown-body pre { border: 1px solid rgba(71, 85, 105, 0.6); }
-
-        body.theme-blackgold { background: #09090b !important; color: #fafaf9; }
-        body.theme-blackgold .bg-white { background: #1a1814 !important; }
-        body.theme-blackgold .bg-gray-100 { background: #09090b !important; }
-        body.theme-blackgold .text-gray-800 { color: #fafaf9 !important; }
-        body.theme-blackgold .text-gray-500 { color: #a8a29e !important; }
-        body.theme-blackgold .text-gray-700 { color: #d6d3d1 !important; }
-        body.theme-blackgold .border-gray-200 { border-color: rgba(212, 168, 83, 0.22) !important; }
-        body.theme-blackgold select, body.theme-blackgold button:not(.bg-blue-600) { background-color: #1a1814; color: #d6d3d1; border-color: rgba(212, 168, 83, 0.30); }
-        body.theme-blackgold .shadow { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55) !important; }
-        body.theme-blackgold .bg-white.rounded-lg { border: 1px solid rgba(212, 168, 83, 0.25) !important; }
-        body.theme-blackgold .markdown-body h1 { border-bottom-color: rgba(212, 168, 83, 0.30); }
-        body.theme-blackgold .markdown-body blockquote { background: rgba(212, 168, 83, 0.06); color: #a8a29e; border-left-color: #d4a853; }
-        body.theme-blackgold .markdown-body :not(pre) > code { background: #1c1917; color: #d4a853; }
-        body.theme-blackgold .markdown-body th { background: #1c1917; }
-        body.theme-blackgold .markdown-body th, body.theme-blackgold .markdown-body td { border-color: rgba(212, 168, 83, 0.22); }
-        body.theme-blackgold .markdown-body hr { border-top-color: rgba(212, 168, 83, 0.22); }
-        body.theme-blackgold .markdown-body pre { border: 1px solid rgba(212, 168, 83, 0.25); }
+        body.mg-dark .markdown-body h1 { border-bottom-color: #334155; }
+        body.mg-dark .markdown-body blockquote { background: rgba(59, 130, 246, 0.08); color: #94a3b8; }
+        body.mg-dark .markdown-body :not(pre) > code { background: #1e293b; color: #f472b6; }
+        body.mg-dark .markdown-body th { background: #1e293b; }
+        body.mg-dark .markdown-body th, body.mg-dark .markdown-body td { border-color: #334155; }
+        body.mg-dark .markdown-body hr { border-top-color: #334155; }
+        body.mg-dark .markdown-body pre { border: 1px solid rgba(71, 85, 105, 0.6); }
         .file-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 0.5rem; }
-        body.theme-dark .file-card { border-color: #334155; }
-        body.theme-blackgold .file-card { border-color: rgba(212, 168, 83, 0.25); }
-        .file-card:hover { border-color: #3b82f6; }
+        body.mg-dark .file-card { border-color: #334155; }
+        .file-card:hover { border-color: var(--color-primary); }
         .file-icon { width: 2.5rem; height: 2.5rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; flex-shrink: 0; }
         .inline-image { margin: 1rem 0; border-radius: 0.5rem; cursor: pointer; }
         .inline-image img { max-width: 100%; border-radius: 0.5rem; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="mg-dark bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-4xl">
         <div class="flex justify-between items-center mb-6">
             <a href="{{ app_base_path }}/user/documents" class="text-blue-600 hover:underline text-sm flex items-center gap-1">
@@ -108,14 +79,21 @@
         const content = {{ doc.content | tojson }};
         document.getElementById('doc-content').innerHTML = marked.parse(content);
 
-        function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
         function applyTheme(mode) {
-            document.body.classList.remove('theme-dark', 'theme-blackgold');
-            if (mode === 'dark') document.body.classList.add('theme-dark');
-            else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
-            localStorage.setItem('admin_theme', mode);
+            document.body.classList.toggle('mg-dark', mode === 'dark');
+            document.documentElement.setAttribute('data-color-mode', mode);
+            localStorage.setItem('user_theme', mode);
+            var el = document.getElementById('theme-toggle');
+            if (el) el.value = mode;
+        }
+        function getThemeMode() { return localStorage.getItem('user_theme') || 'dark'; }
+        function applyColorTheme(theme) {
+            document.documentElement.setAttribute('data-color-theme', theme);
+            localStorage.setItem('user_color_theme', theme);
+            document.querySelectorAll('.mg-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
         }
         applyTheme(getThemeMode());
+        applyColorTheme(localStorage.getItem('user_color_theme') || 'teal');
         function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }
 
         function escapeHtml(value) {

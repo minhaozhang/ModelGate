@@ -1,0 +1,194 @@
+body.mg-dark {
+    background: var(--bg-page) !important;
+    color: var(--text-secondary);
+}
+
+body.mg-dark nav,
+body.mg-dark .mg-card {
+    background: var(--bg-surface) !important;
+}
+
+body.mg-dark .bg-gray-50,
+body.mg-dark .bg-slate-50 {
+    background: var(--bg-surface-alt) !important;
+}
+
+body.mg-dark .bg-gray-100 {
+    background: var(--bg-page) !important;
+}
+
+body.mg-dark .bg-gray-200 {
+    background: var(--bg-surface-hover) !important;
+}
+
+body.mg-dark .text-gray-800,
+body.mg-dark .text-slate-800 {
+    color: var(--text-primary) !important;
+}
+
+body.mg-dark .text-gray-700,
+body.mg-dark .text-slate-700 {
+    color: var(--text-secondary) !important;
+}
+
+body.mg-dark .text-gray-600,
+body.mg-dark .text-slate-600 {
+    color: var(--text-tertiary) !important;
+}
+
+body.mg-dark .text-gray-500,
+body.mg-dark .text-slate-500 {
+    color: var(--text-muted) !important;
+}
+
+body.mg-dark .text-gray-400 {
+    color: var(--text-muted) !important;
+}
+
+body.mg-dark .border,
+body.mg-dark .border-b,
+body.mg-dark .border-t,
+body.mg-dark .border-gray-200,
+body.mg-dark .border-slate-200,
+body.mg-dark .border-blue-200,
+body.mg-dark .border-emerald-200,
+body.mg-dark .border-blue-100,
+body.mg-dark .border-emerald-100,
+body.mg-dark .border-violet-100,
+body.mg-dark .border-green-100,
+body.mg-dark .border-amber-100,
+body.mg-dark .border-red-100,
+body.mg-dark .divide-y > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--border-default) !important;
+}
+
+body.mg-dark input,
+body.mg-dark select,
+body.mg-dark textarea {
+    background: var(--bg-input) !important;
+    color: var(--text-secondary) !important;
+    border-color: var(--border-input) !important;
+}
+
+body.mg-dark .shadow,
+body.mg-dark .shadow-sm,
+body.mg-dark .shadow-lg,
+body.mg-dark .shadow-xl {
+    box-shadow: var(--shadow-elevated) !important;
+}
+
+body.mg-dark code {
+    background: var(--code-bg) !important;
+    color: var(--code-text) !important;
+}
+
+body.mg-dark pre {
+    background: var(--code-bg) !important;
+    color: var(--code-text) !important;
+}
+
+body.mg-dark .bg-blue-50 {
+    background: var(--color-accent-bg) !important;
+}
+
+body.mg-dark .bg-blue-100 {
+    background: var(--color-accent-bg-strong) !important;
+}
+
+body.mg-dark .bg-green-50,
+body.mg-dark .bg-emerald-50 {
+    background: rgba(16, 185, 129, 0.12) !important;
+}
+
+body.mg-dark .bg-green-100,
+body.mg-dark .bg-emerald-100 {
+    background: rgba(16, 185, 129, 0.18) !important;
+}
+
+body.mg-dark .bg-red-50 {
+    background: rgba(239, 68, 68, 0.14) !important;
+}
+
+body.mg-dark .bg-red-100 {
+    background: rgba(239, 68, 68, 0.18) !important;
+}
+
+body.mg-dark .bg-yellow-50,
+body.mg-dark .bg-amber-50 {
+    background: rgba(245, 158, 11, 0.14) !important;
+}
+
+body.mg-dark .bg-yellow-100 {
+    background: rgba(234, 179, 8, 0.18) !important;
+}
+
+body.mg-dark .bg-orange-50 {
+    background: rgba(249, 115, 22, 0.16) !important;
+}
+
+body.mg-dark .text-blue-900 {
+    color: var(--color-accent-text) !important;
+}
+
+body.mg-dark .text-blue-800 {
+    color: var(--color-primary-light) !important;
+}
+
+body.mg-dark .text-blue-700 {
+    color: var(--color-primary-light) !important;
+}
+
+body.mg-dark .text-emerald-700 {
+    color: #a7f3d0 !important;
+}
+
+body.mg-dark .text-yellow-700 {
+    color: #fde68a !important;
+}
+
+body.mg-dark .text-red-700,
+body.mg-dark .text-red-800 {
+    color: #fecaca !important;
+}
+
+body.mg-dark .text-green-700 {
+    color: #86efac !important;
+}
+
+body.mg-dark .text-orange-700 {
+    color: #fdba74 !important;
+}
+
+body.mg-dark .text-slate-700 {
+    color: var(--text-tertiary) !important;
+}
+
+body.mg-dark .bg-slate-100 {
+    background: var(--bg-surface-alt) !important;
+}
+
+body.mg-dark .from-blue-50,
+body.mg-dark .to-cyan-50,
+body.mg-dark .from-emerald-50,
+body.mg-dark .to-teal-50 {
+    background-image: none !important;
+}
+
+body.mg-dark .bg-white.rounded,
+body.mg-dark .bg-white.rounded-lg,
+body.mg-dark .bg-white.rounded-xl,
+body.mg-dark .bg-white.rounded-2xl,
+body.mg-dark .bg-gray-50.rounded,
+body.mg-dark .bg-gray-50.rounded-lg,
+body.mg-dark .bg-gray-50.rounded-xl {
+    border: 1px solid var(--border-default) !important;
+    box-shadow: var(--shadow-elevated) !important;
+}
+
+body.mg-dark .md-preview pre {
+    background: var(--code-bg) !important;
+}
+
+body.mg-dark .md-preview blockquote {
+    color: var(--text-muted);
+}

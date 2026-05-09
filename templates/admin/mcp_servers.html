@@ -7,36 +7,9 @@
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/output.css">
     <style>
-        .nav-link { transition: all 0.2s; }
-        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
-        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
-        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
-        body.theme-dark nav,
-        body.theme-dark .bg-white { background: #0f172a !important; }
-        body.theme-dark .bg-gray-50 { background: #111827 !important; }
-        body.theme-dark .bg-gray-100 { background: #020617 !important; }
-        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
-        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
-        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
-        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
-        body.theme-dark .text-gray-400 { color: #64748b !important; }
-        body.theme-dark .border,
-        body.theme-dark .border-b,
-        body.theme-dark .border-t,
-        body.theme-dark .divide-y > :not([hidden]) ~ :not([hidden]) { border-color: #1f2937 !important; }
-        body.theme-dark input,
-        body.theme-dark select,
-        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
-        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
-        body.theme-dark .shadow,
-        body.theme-dark .shadow-lg,
-        body.theme-dark .shadow-xl { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
-        body.theme-dark .nav-link { color: #cbd5e1 !important; }
-        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
-        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
-        body.theme-dark tr.hover\:bg-gray-50:hover { background-color: rgba(148, 163, 184, 0.12) !important; }
-        body.theme-dark code { background: #111827 !important; color: #e2e8f0 !important; }
-        body.theme-dark .tools-panel { background: #111827 !important; }
+        body.mg-dark tr.hover\:bg-gray-50:hover { background-color: rgba(148, 163, 184, 0.12) !important; }
+        body.mg-dark code { background: #111827 !important; color: #e2e8f0 !important; }
+        body.mg-dark .tools-panel { background: #111827 !important; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
         .status-dot.active { background: #22c55e; }
         .status-dot.inactive { background: #ef4444; }
@@ -45,7 +18,7 @@
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen theme-dark">
+<body class="mg-dark bg-gray-100 min-h-screen">
     {% from 'components/admin_header.html' import admin_page_header with context %}
     <div class="flex">
         {% include "components/nav.html" %}
@@ -156,13 +129,19 @@
     }
 
     function applyTheme(mode) {
-        const isDark = mode === 'dark';
-        document.body.classList.toggle('theme-dark', isDark);
+        document.body.classList.toggle('mg-dark', mode === 'dark');
+        document.documentElement.setAttribute('data-color-mode', mode);
         localStorage.setItem('admin_theme', mode);
         document.getElementById('theme-toggle').value = mode;
     }
+    function applyColorTheme(theme) {
+        document.documentElement.setAttribute('data-color-theme', theme);
+        localStorage.setItem('admin_color_theme', theme);
+        document.querySelectorAll('.mg-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
+    }
 
     applyTheme(getThemeMode());
+    applyColorTheme(localStorage.getItem('admin_color_theme') || 'teal');
 
     async function logout() {
         await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});

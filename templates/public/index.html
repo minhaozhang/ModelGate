@@ -26,7 +26,7 @@
         }
     </style>
 </head>
-<body class="min-h-screen text-slate-100">
+<body class="mg-dark min-h-screen text-slate-100">
     {% set is_zh = current_locale == 'zh' %}
     <div id="particles-container"></div>
 
@@ -339,6 +339,13 @@
                     document.getElementById('stat-tokens').textContent = formatNumber(data.total_tokens);
                 });
         }, 600000);
+
+        function applyColorTheme(theme) {
+            document.documentElement.setAttribute('data-color-theme', theme);
+            localStorage.setItem('admin_color_theme', theme);
+            document.querySelectorAll('.mg-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
+        }
+        applyColorTheme(localStorage.getItem('admin_color_theme') || 'teal');
 
         init();
     </script>

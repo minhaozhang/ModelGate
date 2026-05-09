@@ -43,7 +43,7 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center overflow-hidden">
+<body class="mg-dark min-h-screen flex items-center justify-center overflow-hidden">
     <div id="particles-container"></div>
 
     <div class="fixed top-4 right-4 z-50">
@@ -293,6 +293,13 @@
             renderer.render(scene, camera);
         }
         
+        function applyColorTheme(theme) {
+            document.documentElement.setAttribute('data-color-theme', theme);
+            localStorage.setItem('user_color_theme', theme);
+            document.querySelectorAll('.mg-theme-dot').forEach(d => d.classList.toggle('active', d.dataset.theme === theme));
+        }
+        applyColorTheme(localStorage.getItem('user_color_theme') || 'teal');
+
         init();
         
         // Login form handler
