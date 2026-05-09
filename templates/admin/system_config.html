@@ -13,19 +13,16 @@
         body.mg-dark .bg-orange-50 { background: rgba(124, 45, 18, 0.3) !important; }
         body.mg-dark .bg-yellow-50 { background: rgba(113, 63, 18, 0.3) !important; }
         body.mg-dark .bg-green-50 { background: rgba(20, 83, 45, 0.3) !important; }
-        body.mg-dark .bg-blue-50 { background: rgba(30, 58, 138, 0.3) !important; }
         body.mg-dark .bg-slate-50 { background: rgba(51, 51, 51, 0.3) !important; }
         body.mg-dark .text-red-700 { color: #fca5a5 !important; }
         body.mg-dark .text-orange-700 { color: #fdba74 !important; }
         body.mg-dark .text-yellow-700 { color: #fde047 !important; }
         body.mg-dark .text-green-700 { color: #86efac !important; }
-        body.mg-dark .text-blue-700 { color: #93c5fd !important; }
         body.mg-dark .text-slate-700 { color: #cbd5e1 !important; }
         body.mg-dark .border-red-500 { border-color: #ef4444 !important; }
         body.mg-dark .border-orange-500 { border-color: #f97316 !important; }
         body.mg-dark .border-yellow-500 { border-color: #eab308 !important; }
         body.mg-dark .border-green-500 { border-color: #22c55e !important; }
-        body.mg-dark .border-blue-500 { border-color: var(--color-primary) !important; }
         body.mg-dark .border-slate-500 { border-color: #64748b !important; }
     </style>
 </head>
@@ -42,7 +39,7 @@
                     <input id="ua-input" class="w-full border rounded px-3 py-2 text-sm font-mono mb-3" placeholder="User-Agent">
                     <div id="default-ua-hint" class="text-xs text-gray-400 mb-3"></div>
                     <div class="flex gap-2">
-                        <button onclick="saveConfig()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
+                        <button onclick="saveConfig()" class="mg-btn-primary px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
                         <button onclick="resetConfig()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm">{{ _('Reset to Default') }}</button>
                     </div>
                     <div id="config-msg" class="mt-3 text-sm hidden"></div>
@@ -88,8 +85,8 @@
                         <input id="busyness-level4_active_users_threshold" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="1">
                         <span class="text-xs text-gray-600 flex-1">10分钟内有请求，且未达到以上条件</span>
                     </div>
-                    <div class="flex items-center gap-3 p-3 rounded bg-blue-50 border-l-4 border-blue-500">
-                        <span class="text-sm font-semibold text-blue-700 w-12 shrink-0">平静</span>
+                    <div class="flex items-center gap-3 p-3 rounded mg-bg-light border-l-4 mg-border-strong">
+                        <span class="text-sm font-semibold mg-text-accent w-12 shrink-0">平静</span>
                         <span class="text-xs text-gray-600 flex-1">10分钟内无请求，但1小时内有请求</span>
                     </div>
                     <div class="flex items-center gap-3 p-3 rounded bg-slate-50 border-l-4 border-slate-500">
@@ -98,7 +95,7 @@
                     </div>
                 </div>
                 <div class="mt-4 flex gap-2">
-                    <button onclick="saveBusyness()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
+                    <button onclick="saveBusyness()" class="mg-btn-primary px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
                 </div>
                 <div id="busyness-msg" class="mt-3 text-sm hidden"></div>
             </div>

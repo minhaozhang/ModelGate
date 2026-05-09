@@ -51,13 +51,13 @@
         
         <main class="ml-56 flex-1 p-6">
             {% call admin_page_header(_('API Keys')) %}
-            <button onclick="showAddApiKey()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Add API Key') }}</button>
+            <button onclick="showAddApiKey()" class="mg-btn-primary px-4 py-2 rounded">{{ _('Add API Key') }}</button>
             {% endcall %}
             
             <div class="mb-4 flex items-center gap-4">
                 <div class="relative flex-1 max-w-md">
                     <input type="text" id="search-input" placeholder="{{ _('Search by name or key...') }}"
-                        class="w-full border rounded-lg px-4 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        class="w-full border rounded-lg px-4 py-2 pl-10 mg-focus:focus"
                         oninput="handleSearch()">
                     <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -121,7 +121,7 @@
                 </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" onclick="closeApiKeyModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                        <button type="submit" class="px-4 py-2 mg-btn-primary rounded">{{ _('Save') }}</button>
                 </div>
             </form>
         </div>
@@ -210,7 +210,7 @@
             </div>
             <div class="p-4">
                 <div id="timerule-list" class="space-y-2 mb-4"></div>
-                <button onclick="showAddTimeRuleForm()" class="text-blue-500 hover:text-blue-700 text-sm mb-4">+ {{ _('Add Time Rule') }}</button>
+                <button onclick="showAddTimeRuleForm()" class="mg-text text-sm mb-4">+ {{ _('Add Time Rule') }}</button>
                 <form id="timerule-form" class="hidden space-y-3 border-t pt-4 mt-2">
                     <input type="hidden" id="timerule-id">
                     <input type="hidden" id="timerule-key-id">
@@ -252,7 +252,7 @@
                     </div>
                     <div class="flex justify-end gap-2">
                         <button type="button" onclick="cancelTimeRuleForm()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
-                        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                    <button type="submit" class="px-4 py-2 mg-btn-primary rounded">{{ _('Save') }}</button>
                     </div>
                 </form>
             </div>
@@ -322,12 +322,12 @@
             const typeLabel = r.rule_type === 'time_range' ? window.I18N.timeRange : r.rule_type === 'date_range' ? window.I18N.dateRange : window.I18N.weekday;
             return `<div class="flex items-center justify-between p-2 bg-gray-50 rounded">
                 <div>
-                    <span class="text-xs font-medium px-2 py-0.5 rounded bg-blue-100 text-blue-700">${typeLabel}</span>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded mg-badge">${typeLabel}</span>
                     <span class="ml-2 text-sm">${desc}</span>
                     <span class="ml-2 text-xs ${r.allowed ? 'text-green-600' : 'text-red-600'}">${statusLabel}</span>
                 </div>
                 <div class="flex gap-2">
-                    <button onclick="editTimeRuleForm(${r.id})" class="text-blue-500 hover:text-blue-700 text-xs">${window.I18N.edit}</button>
+                    <button onclick="editTimeRuleForm(${r.id})" class="mg-text text-xs">${window.I18N.edit}</button>
                     <button onclick="deleteTimeRule(${r.id})" class="text-red-500 hover:text-red-700 text-xs">${window.I18N.delete}</button>
                 </div>
             </div>`;
@@ -502,10 +502,10 @@
             }
             bar.classList.remove('hidden');
             let html = '<div class="flex flex-wrap gap-1.5">';
-            html += `<button onclick="filterListByTag(null)" class="text-xs px-2.5 py-1 rounded-full border ${selectedListTagFilter.size === 0 ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">{{ _("All") }}</button>`;
+            html += `<button onclick="filterListByTag(null)" class="text-xs px-2.5 py-1 rounded-full border ${selectedListTagFilter.size === 0 ? 'mg-tag-active' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">{{ _("All") }}</button>`;
             allListTags.forEach(tag => {
                 const active = selectedListTagFilter.has(tag);
-                html += `<button onclick="filterListByTag('${tag.replace(/'/g, "\\'")}')" class="text-xs px-2.5 py-1 rounded-full border ${active ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${tag}</button>`;
+                html += `<button onclick="filterListByTag('${tag.replace(/'/g, "\\'")}')" class="text-xs px-2.5 py-1 rounded-full border ${active ? 'mg-tag-active' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${tag}</button>`;
             });
             html += '</div>';
             bar.innerHTML = html;
@@ -616,7 +616,7 @@
                             <div class="font-medium">${k.name}</div>
                             <div class="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-2">
                                 <code class="bg-gray-100 px-2 py-0.5 rounded text-xs break-all">${maskedKey}</code>
-                                <button onclick="copyKey('${k.key}')" class="text-blue-500 hover:text-blue-700 text-xs">${window.I18N.copy}</button>
+                                <button onclick="copyKey('${k.key}')" class="mg-text text-xs">${window.I18N.copy}</button>
                             </div>
                             <div class="mt-2 text-xs text-gray-500">${window.I18N.lastUsed}: ${formatLastUsed(k.last_used_at)}</div>
                             ${modelsDisplay}
@@ -634,7 +634,7 @@
                         </div>
                         <div class="flex flex-wrap gap-2 shrink-0">
                             <button onclick="showTimeRulesModal(${k.id})" class="text-purple-500 hover:text-purple-700 text-sm">${window.I18N.timeRules}</button>
-                            <button onclick="editApiKey(${k.id})" class="text-blue-500 hover:text-blue-700 text-sm">${window.I18N.edit}</button>
+                            <button onclick="editApiKey(${k.id})" class="mg-text text-sm">${window.I18N.edit}</button>
                             <button onclick="deleteApiKey(${k.id})" class="text-red-500 hover:text-red-700 text-sm">${window.I18N.delete}</button>
                         </div>
                     </div>
@@ -642,7 +642,7 @@
                         <div class="flex justify-between items-center">
                             <div>
                                 <span class="text-gray-500">${window.I18N.userPage} </span>
-                                <a href="${userPageUrl}" target="_blank" class="text-blue-500 hover:underline">${userPageUrl}</a>
+                                <a href="${userPageUrl}" target="_blank" class="mg-text hover:underline">${userPageUrl}</a>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -688,7 +688,7 @@
             
             for (let i = startPage; i <= endPage; i++) {
                 if (i === currentPage) {
-                    html += `<button class="px-3 py-1 border rounded bg-blue-500 text-white">${i}</button>`;
+                    html += `<button class="px-3 py-1 border rounded mg-bg">${i}</button>`;
                 } else {
                     html += `<button onclick="goToPage(${i})" class="px-3 py-1 border rounded hover:bg-gray-50">${i}</button>`;
                 }
@@ -795,7 +795,7 @@ ${setupMdUrl}`;
         function renderTags() {
             const container = document.getElementById('apikey-tags-container');
             container.innerHTML = currentTags.map((tag, i) => 
-                `<span class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">${tag}<button type="button" onclick="removeTag(${i})" class="text-blue-400 hover:text-blue-600">&times;</button></span>`
+                `<span class="inline-flex items-center gap-1 mg-badge text-xs px-2 py-1 rounded">${tag}<button type="button" onclick="removeTag(${i})" class="mg-text">&times;</button></span>`
             ).join('');
         }
         function addTag() {

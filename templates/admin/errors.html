@@ -105,7 +105,7 @@
                 <button id="refresh-btn" onclick="loadErrorLogs()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
                     {{ _('Refresh') }}
                 </button>
-                <button id="report-btn" onclick="openReportModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 inline-flex items-center gap-2">
+                <button id="report-btn" onclick="openReportModal()" class="mg-btn-primary px-4 py-2 rounded inline-flex items-center gap-2">
                     <span id="report-spinner" class="spinner hidden"></span>
                     <span id="report-btn-text">{{ _('Generate Report') }}</span>
                 </button>
@@ -205,20 +205,20 @@
             <h3 class="text-lg font-semibold text-gray-800 mb-5">{{ _('Generate Report') }}</h3>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Language') }}</label>
-                <select id="modal-language" class="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <select id="modal-language" class="w-full border border-gray-200 rounded px-3 py-2 text-sm mg-focus:focus">
                     <option value="zh">{{ _('Chinese') }}</option>
                     <option value="en">{{ _('English') }}</option>
                 </select>
             </div>
             <div class="mb-5">
                 <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Analysis Model') }}</label>
-                <select id="modal-model" class="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <select id="modal-model" class="w-full border border-gray-200 rounded px-3 py-2 text-sm mg-focus:focus">
                     <option value="">{{ _('Auto (Recommended)') }}</option>
                 </select>
             </div>
             <div class="flex justify-end gap-3">
                 <button onclick="closeReportModal()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">{{ _('Cancel') }}</button>
-                <button id="modal-confirm-btn" onclick="confirmGenerateReport()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">{{ _('Generate') }}</button>
+                <button id="modal-confirm-btn" onclick="confirmGenerateReport()" class="mg-btn-primary px-4 py-2 rounded text-sm">{{ _('Generate') }}</button>
             </div>
         </div>
     </div>
@@ -514,7 +514,7 @@
                 const isActive = currentReportLanguage === r.language && dateStr === new Date().toLocaleDateString();
                 const seqLabel = r.seq && r.seq > 1 ? ` #${r.seq}` : '';
                 return `
-                    <div class="flex items-center justify-between p-2 rounded hover:bg-gray-50 cursor-pointer text-sm ${isActive ? 'bg-blue-50' : ''}" onclick="loadHistoryReport(${r.id})">
+                    <div class="flex items-center justify-between p-2 rounded hover:bg-gray-50 cursor-pointer text-sm ${isActive ? 'mg-bg-light' : ''}" onclick="loadHistoryReport(${r.id})">
                         <div class="flex items-center gap-2">
                             <span class="badge ${statusClass}" style="font-size:0.65rem;padding:0.1rem 0.4rem">${statusText}</span>
                             <span class="text-gray-800 font-medium">${escapeHtml(dateStr)}${escapeHtml(seqLabel)}</span>

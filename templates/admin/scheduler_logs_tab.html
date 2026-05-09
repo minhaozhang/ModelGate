@@ -51,7 +51,7 @@ async function loadLogs(page) {
     if (totalPages <= 1) { pg.innerHTML = ''; return; }
     let btns = '';
     for (let i = 1; i <= totalPages; i++) {
-        btns += `<button onclick="loadLogs(${i})" class="px-3 py-1 rounded text-sm ${i === d.page ? 'bg-blue-500 text-white' : 'bg-white border text-gray-600'}">${i}</button>`;
+        btns += `<button onclick="loadLogs(${i})" class="px-3 py-1 rounded text-sm ${i === d.page ? 'mg-btn-primary' : 'bg-white border text-gray-600'}">${i}</button>`;
     }
     pg.innerHTML = btns;
 }

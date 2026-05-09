@@ -31,7 +31,7 @@
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b flex justify-between items-center">
                         <h3 class="text-lg font-semibold">{{ _('Providers') }} <span id="provider-count" class="text-sm font-normal text-gray-500"></span></h3>
-                        <button onclick="showAddProvider()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ _('+ Add') }}</button>
+                        <button onclick="showAddProvider()" class="mg-btn-primary px-4 py-2 rounded text-sm">{{ _('+ Add') }}</button>
                     </div>
                     <div id="providers-list" class="p-4 space-y-2 max-h-80 overflow-y-auto"></div>
                 </div>
@@ -40,7 +40,7 @@
                     <div class="p-4 border-b flex justify-between items-center">
                         <h3 class="text-lg font-semibold">{{ _('Models') }} <span id="model-count" class="text-sm font-normal text-gray-500"></span></h3>
                         <div class="flex gap-2">
-                            <button onclick="showAddModel()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ _('+ Add') }}</button>
+                            <button onclick="showAddModel()" class="mg-btn-primary px-4 py-2 rounded text-sm">{{ _('+ Add') }}</button>
                             <button onclick="syncSelectedProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600">{{ _('Sync') }}</button>
                         </div>
                     </div>
@@ -93,7 +93,7 @@
                     <label class="text-sm text-gray-700">{{ _('Merge consecutive same-role messages') }} <span class="text-xs text-gray-400">({{ _('For providers like MiniMax requiring role alternation') }})</span></label>
                 </div>
                 <div class="flex gap-2">
-                    <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                    <button type="submit" class="flex-1 mg-btn-primary px-4 py-2 rounded">{{ _('Save') }}</button>
                     <button type="button" onclick="closeProviderModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                 </div>
             </form>
@@ -153,7 +153,7 @@
                     </label>
                 </div>
                 <div class="flex gap-2">
-                    <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                    <button type="submit" class="flex-1 mg-btn-primary px-4 py-2 rounded">{{ _('Save') }}</button>
                     <button type="button" onclick="closeModelModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                 </div>
             </form>
@@ -172,7 +172,7 @@
                 </div>
             </div>
             <div class="p-4 border-t flex-shrink-0">
-                <button onclick="saveModelKeysModal()" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                <button onclick="saveModelKeysModal()" class="w-full mg-btn-primary px-4 py-2 rounded">{{ _('Save') }}</button>
             </div>
         </div>
     </div>
@@ -361,7 +361,7 @@
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers`);
             allProviders = data.providers || [];
             const html = allProviders.map(p => `
-                <div class="flex justify-between items-center p-3 bg-gray-50 rounded cursor-pointer hover:bg-blue-50 ${selectedProviderId === p.id ? 'ring-2 ring-blue-500' : ''}" onclick="selectProvider(${p.id})">
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded cursor-pointer hover:bg-blue-50 ${selectedProviderId === p.id ? 'mg-ring' : ''}" onclick="selectProvider(${p.id})">
                     <div>
                         <span class="font-medium">${p.name}</span>
                         <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded ${p.protocol === 'anthropic' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}">${(p.protocol || 'openai').toUpperCase()}</span>
@@ -373,7 +373,7 @@
                         <button onclick="openProviderKeys(${p.id}, '${p.name}')" class="icon-btn text-green-500 hover:text-green-700" title="${t('keys', 'Keys')}">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
                         </button>
-                        <button onclick="editProvider(${p.id})" class="icon-btn text-blue-500 hover:text-blue-700" title="${t('edit', 'Edit')}">
+                        <button onclick="editProvider(${p.id})" class="icon-btn mg-text" title="${t('edit', 'Edit')}">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
                         <button onclick="deleteProvider(${p.id})" class="icon-btn text-red-500 hover:text-red-700" title="${t('delete', 'Delete')}">
@@ -435,10 +435,10 @@
             let tagFilterHtml = '';
             if (allApiKeyTags.length > 0) {
                 tagFilterHtml = '<div class="flex flex-wrap gap-1.5 mb-3 pb-3 border-b">';
-                tagFilterHtml += `<button onclick="filterByTag(null)" class="text-xs px-2.5 py-1 rounded-full border ${selectedTagFilter.size === 0 ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${t('all', '全部')}</button>`;
+                tagFilterHtml += `<button onclick="filterByTag(null)" class="text-xs px-2.5 py-1 rounded-full border ${selectedTagFilter.size === 0 ? 'mg-tag-active' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${t('all', '全部')}</button>`;
                 allApiKeyTags.forEach(tag => {
                     const active = selectedTagFilter.has(tag);
-                    tagFilterHtml += `<button onclick="filterByTag('${tag.replace(/'/g, "\\'")}')" class="text-xs px-2.5 py-1 rounded-full border ${active ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${tag}</button>`;
+                    tagFilterHtml += `<button onclick="filterByTag('${tag.replace(/'/g, "\\'")}')" class="text-xs px-2.5 py-1 rounded-full border ${active ? 'mg-tag-active' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${tag}</button>`;
                 });
                 tagFilterHtml += '</div>';
             }
@@ -453,7 +453,7 @@
                             <div class="text-xs text-gray-400 mt-1">${t('bindingScopeHint', 'Access is configured on the bound provider-model, not on the model itself.')}</div>
                         </div>
                         <div class="flex flex-wrap gap-2">
-                            <button onclick="selectAllKeys(${pm.id})" class="text-xs text-blue-500 hover:text-blue-700">${t('selectAll', 'Select All')}</button>
+                            <button onclick="selectAllKeys(${pm.id})" class="text-xs mg-text">${t('selectAll', 'Select All')}</button>
                             <button onclick="deselectAllKeys(${pm.id})" class="text-xs text-gray-500 hover:text-gray-700">${t('clear', 'Clear')}</button>
                         </div>
                     </div>
@@ -833,7 +833,7 @@
                             <input type="number" min="1" value="${k.max_concurrent || ''}" placeholder="${t('default', 'Default')}"
                                    id="provider-key-mc-${k.id}"
                                    class="w-16 border rounded px-1.5 py-0.5 text-xs text-center">
-                            <button onclick="updateProviderKeyConcurrency(${k.id})" class="pk-action text-blue-500 hover:text-blue-700">${t('save', 'Save')}</button>
+                            <button onclick="updateProviderKeyConcurrency(${k.id})" class="pk-action mg-text">${t('save', 'Save')}</button>
                         </div>
                     </div>
                     <div class="pk-actions">
@@ -936,7 +936,7 @@
                         </div>
                     </div>
                     <div class="flex gap-1">
-                        <button onclick="editModel(${m.id})" class="icon-btn text-blue-500 hover:text-blue-700" title="${t('edit', 'Edit')}">
+                        <button onclick="editModel(${m.id})" class="icon-btn mg-text" title="${t('edit', 'Edit')}">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
                         <button onclick="deleteModel(${m.id})" class="icon-btn text-red-500 hover:text-red-700" title="${t('delete', 'Delete')}">

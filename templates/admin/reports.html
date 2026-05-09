@@ -43,11 +43,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         <div>
                             <label class="block text-sm text-gray-600 mb-1">{{ _('Start Date') }}</label>
-                            <input type="date" id="start-date" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full">
+                            <input type="date" id="start-date" class="border border-gray-200 rounded px-3 py-2 text-sm mg-focus:focus w-full">
                         </div>
                         <div>
                             <label class="block text-sm text-gray-600 mb-1">{{ _('End Date') }}</label>
-                            <input type="date" id="end-date" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full">
+                            <input type="date" id="end-date" class="border border-gray-200 rounded px-3 py-2 text-sm mg-focus:focus w-full">
                         </div>
                         <div>
                             <button id="exclude-btn" onclick="openExcludeModal()" class="w-full border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">
@@ -56,13 +56,13 @@
                             </button>
                         </div>
                         <div>
-                            <button id="generate-btn" onclick="generateReport()" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm inline-flex items-center justify-center gap-2">
+                            <button id="generate-btn" onclick="generateReport()" class="w-full mg-btn-primary px-4 py-2 rounded text-sm inline-flex items-center justify-center gap-2">
                                 <span id="generate-spinner" class="spinner hidden"></span>
                                 <span id="generate-btn-text">{{ _('Generate') }}</span>
                             </button>
                         </div>
                     </div>
-                    <div class="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-gray-700">
+                    <div class="mt-4 rounded-lg mg-info-border px-4 py-3 text-sm text-gray-700">
                         <div class="font-medium text-gray-800">{{ _('Task orchestration mode') }}</div>
                         <div class="mt-1">{{ _('Each report now runs as subtasks with retries, self-checks, and reusable artifacts before DOCX assembly.') }}</div>
                     </div>
@@ -107,7 +107,7 @@
             </div>
             <div class="p-4 border-t border-gray-200 flex justify-end gap-3">
                 <button onclick="closeExcludeModal()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">{{ _('Cancel') }}</button>
-                <button onclick="confirmExclude()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">{{ _('Confirm') }}</button>
+                <button onclick="confirmExclude()" class="mg-btn-primary px-4 py-2 rounded text-sm">{{ _('Confirm') }}</button>
             </div>
         </div>
     </div>
@@ -203,7 +203,7 @@
         function statusBadge(status) {
             if (status === 'success') return 'bg-green-100 text-green-700';
             if (status === 'failed') return 'bg-red-100 text-red-700';
-            if (status === 'running' || status === 'retrying') return 'bg-blue-100 text-blue-700';
+            if (status === 'running' || status === 'retrying') return 'mg-badge';
             return 'bg-gray-100 text-gray-700';
         }
 
@@ -291,7 +291,7 @@
                 const dotClass = item.status === 'success'
                     ? 'bg-green-500'
                     : (item.status === 'running' || item.status === 'retrying')
-                        ? 'bg-blue-500 animate-pulse'
+                        ? 'mg-bg animate-pulse'
                         : item.status === 'failed'
                             ? 'bg-red-500'
                             : 'bg-gray-300';
@@ -349,7 +349,7 @@
             }
             return artifacts.map(item => {
                 const downloadLink = item.path && item.artifact_type === 'docx'
-                    ? `<a href="${escapeHtml(item.path)}" class="text-blue-600 hover:underline text-xs">${escapeHtml(window.I18N.download)}</a>`
+                    ? `<a href="${escapeHtml(item.path)}" class="mg-text hover:underline text-xs">${escapeHtml(window.I18N.download)}</a>`
                     : '';
                 const detailItems = [];
                 if (item.path) {
@@ -526,7 +526,7 @@
                 const artifactHtml = renderArtifacts(task.artifacts || []);
                 const subtasksHtml = renderSubtasks(task.subtasks || []);
                 const downloadLink = task.download_url
-                    ? `<a href="${escapeHtml(task.download_url)}" class="text-blue-600 hover:underline text-sm">${escapeHtml(window.I18N.download)}</a>`
+                    ? `<a href="${escapeHtml(task.download_url)}" class="mg-text hover:underline text-sm">${escapeHtml(window.I18N.download)}</a>`
                     : '';
                 return `
                     <article class="rounded-lg border border-gray-200 p-4">

@@ -121,7 +121,7 @@
         <main class="ml-56 flex-1 p-6">
             {% call admin_page_header(_('Statistics Monitor'), _('Composition, concentration, hotspots, and trend behavior')) %}
             <div class="flex bg-white rounded border overflow-hidden">
-                <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">{{ _('Day') }}</button>
+                <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium mg-btn-primary">{{ _('Day') }}</button>
                 <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Week') }}</button>
                 <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Month') }}</button>
                 <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Year') }}</button>
@@ -131,7 +131,7 @@
             <div class="grid grid-cols-1 md:grid-cols-6 xl:grid-cols-9 gap-4 mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
-                    <div id="total-requests" class="text-3xl font-bold text-blue-600">0</div>
+                    <div id="total-requests" class="text-3xl font-bold mg-text-light">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Tokens') }}</div>
@@ -343,10 +343,10 @@
         function setPeriod(period) {
             currentPeriod = period;
             document.querySelectorAll('[id^="btn-"]').forEach(btn => {
-                btn.classList.remove('bg-blue-500', 'text-white');
+                btn.classList.remove('mg-btn-primary');
                 btn.classList.add('text-gray-600', 'hover:bg-gray-100');
             });
-            document.getElementById('btn-' + period).classList.add('bg-blue-500', 'text-white');
+            document.getElementById('btn-' + period).classList.add('mg-btn-primary');
             document.getElementById('btn-' + period).classList.remove('text-gray-600', 'hover:bg-gray-100');
             loadData();
         }
@@ -1108,7 +1108,7 @@
                 rotation: -90,
                 palette: providerPalette,
                 accentColor: '#2563eb',
-                cardBorder: 'border-blue-100',
+                cardBorder: 'mg-border',
                 maskLabels: false
             });
             providerChart = providerResult.chart;

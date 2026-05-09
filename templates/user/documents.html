@@ -99,7 +99,7 @@
 
             listEl.innerHTML = docs.map(doc => {
                 const categoryBadge = doc.category
-                    ? `<span class="inline-block text-xs rounded-full bg-blue-50 text-blue-600 px-2 py-0.5 mb-2">${escapeHtml(doc.category)}</span>`
+                    ? `<span class="inline-block text-xs rounded-full mg-badge px-2 py-0.5 mb-2">${escapeHtml(doc.category)}</span>`
                     : '';
                 const preview = (doc.content || '').substring(0, 120).replace(/[#*_`]/g, '');
                 return `
@@ -109,7 +109,7 @@
                         <p class="text-sm text-gray-500 line-clamp-2">${escapeHtml(preview)}...</p>
                         <div class="flex items-center justify-between mt-3">
                             <span class="text-xs text-gray-400">${escapeHtml(doc.created_at || '')}</span>
-                            <button type="button" onclick="event.stopPropagation();openDocumentDetail(${doc.id})" class="text-xs text-blue-600 hover:underline">${window.I18N.viewDetails} &rarr;</button>
+                            <button type="button" onclick="event.stopPropagation();openDocumentDetail(${doc.id})" class="text-xs mg-text hover:underline">${window.I18N.viewDetails} &rarr;</button>
                         </div>
                     </div>
                 `;

@@ -50,7 +50,7 @@
             <div class="top-metrics-grid mb-6">
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
-                    <div id="total-requests" class="metric-flip text-3xl font-bold leading-none text-blue-600">0</div>
+                    <div id="total-requests" class="metric-flip text-3xl font-bold leading-none mg-text-light">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Total Tokens') }}</div>
@@ -331,7 +331,7 @@
                 const warnIcon = disabledReason
                     ? `<span class="warn-icon ml-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${disabledReason}</span></span>`
                     : '';
-                return `<div class="rounded p-2 bg-gray-50"><div class="flex justify-between text-xs mb-1 gap-2"><span class="font-medium truncate cursor-default" title="${name}">${name}${warnIcon}</span><span class="text-gray-500 shrink-0">${p.requests} req / ${formatCompactTokens(p.tokens || 0)}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>${modelsHtml}</div>`;
+                return `<div class="rounded p-2 bg-gray-50"><div class="flex justify-between text-xs mb-1 gap-2"><span class="font-medium truncate cursor-default" title="${name}">${name}${warnIcon}</span><span class="text-gray-500 shrink-0">${p.requests} req / ${formatCompactTokens(p.tokens || 0)}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="mg-bg h-1.5 rounded-full" style="width: ${pct}%"></div></div>${modelsHtml}</div>`;
             }).join('');
             document.getElementById('provider-bars').innerHTML = html || '<div class="text-gray-400 text-center py-2 text-xs">No data</div>';
             document.getElementById('provider-usage-count').textContent = entries.length > 0 ? `(${entries.length})` : '';
@@ -407,9 +407,9 @@
                             type: 'line',
                             label: 'Requests',
                             data: requests,
-                            borderColor: '#3b82f6',
+                            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#0e7490',
                             backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                            pointBackgroundColor: '#3b82f6',
+                            pointBackgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#0e7490',
                             pointBorderColor: '#ffffff',
                             pointBorderWidth: 1,
                             pointRadius: 3,
@@ -590,7 +590,7 @@
                         : modelTokens >= 1_000
                             ? (modelTokens / 1_000).toFixed(1) + 'K'
                             : String(modelTokens);
-                    return `<div class="flex items-center gap-2 py-0.5"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded inline-block max-w-[220px] truncate">${model} (${count})${warnIcon}</span><span class="text-xs text-gray-500 flex-shrink-0 ml-auto">${td}</span></div>`;
+                    return `<div class="flex items-center gap-2 py-0.5"><span class="mg-badge text-xs px-2 py-1 rounded inline-block max-w-[220px] truncate">${model} (${count})${warnIcon}</span><span class="text-xs text-gray-500 flex-shrink-0 ml-auto">${td}</span></div>`;
                 }).join('');
                 const tokensVal = session.tokens || 0;
                 const tokensDisplay = tokensVal >= 1_000_000

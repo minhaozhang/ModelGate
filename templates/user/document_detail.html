@@ -43,7 +43,7 @@
 <body class="mg-dark bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-4xl">
         <div class="flex justify-between items-center mb-6">
-            <a href="{{ app_base_path }}/user/documents" class="text-blue-600 hover:underline text-sm flex items-center gap-1">
+            <a href="{{ app_base_path }}/user/documents" class="mg-text hover:underline text-sm flex items-center gap-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                 {{ _('Back to Documents') }}
             </a>
@@ -58,7 +58,7 @@
                 <h1 class="text-2xl font-bold text-gray-800">{{ doc.title }}</h1>
                 <div class="flex items-center gap-3 mt-2">
                     {% if doc.category %}
-                    <span class="text-xs rounded-full bg-blue-50 text-blue-600 px-2 py-0.5">{{ doc.category }}</span>
+                    <span class="text-xs rounded-full mg-badge px-2 py-0.5">{{ doc.category }}</span>
                     {% endif %}
                     <span class="text-xs text-gray-400">{{ doc.created_at or '' }}</span>
                 </div>
@@ -108,7 +108,7 @@
         }
 
         function getFileIcon(fileType) {
-            const colors = { pdf: 'bg-red-100 text-red-600', word: 'bg-blue-100 text-blue-600', markdown: 'bg-gray-100 text-gray-600' };
+            const colors = { pdf: 'bg-red-100 text-red-600', word: 'mg-badge', markdown: 'bg-gray-100 text-gray-600' };
             const labels = { pdf: 'PDF', word: 'DOC', markdown: 'MD' };
             const c = colors[fileType] || 'bg-gray-100 text-gray-500';
             const l = labels[fileType] || 'FILE';

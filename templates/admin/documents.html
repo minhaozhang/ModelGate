@@ -10,7 +10,6 @@
     <style>
         .spinner { width: 1rem; height: 1rem; border-radius: 9999px; border: 2px solid color-mix(in srgb, var(--color-primary) 30%, transparent); border-top-color: var(--color-primary); animation: spin 0.9s linear infinite; display: inline-block; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        body.mg-dark .bg-blue-50 { background: rgba(37, 99, 235, 0.12) !important; }
         #edit-modal > div { background: #fff; }
         body.mg-dark #edit-modal > div { background: #0f172a !important; }
         body.mg-dark #edit-modal label { color: #e5e7eb !important; }
@@ -46,7 +45,7 @@
                 <section class="xl:col-span-2 bg-white rounded-lg shadow p-6">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-800">{{ _('Document List') }}</h3>
-                        <button onclick="openCreateModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm inline-flex items-center gap-2">
+                        <button onclick="openCreateModal()" class="mg-btn-primary px-4 py-2 rounded text-sm inline-flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                             {{ _('Create') }}
                         </button>
@@ -72,12 +71,12 @@
                 <input type="hidden" id="edit-doc-id" value="">
                 <div>
                     <label class="block text-sm text-gray-600 mb-1">{{ _('Title') }}</label>
-                    <input type="text" id="edit-title" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full">
+                    <input type="text" id="edit-title" class="border border-gray-200 rounded px-3 py-2 text-sm mg-focus:focus w-full">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm text-gray-600 mb-1">{{ _('Category') }}</label>
-                        <input type="text" id="edit-category" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full" placeholder="e.g. Guide, Tutorial">
+                        <input type="text" id="edit-category" class="border border-gray-200 rounded px-3 py-2 text-sm mg-focus:focus w-full" placeholder="e.g. Guide, Tutorial">
                     </div>
                     <div class="flex items-end">
                         <label class="flex items-center gap-2 text-sm text-gray-600">
@@ -103,7 +102,7 @@
                 </div>
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-0">
                     <div class="flex flex-col min-h-0">
-                        <textarea id="edit-content" oninput="renderEditorPreview()" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full font-mono resize-none flex-1 min-h-0"></textarea>
+                        <textarea id="edit-content" oninput="renderEditorPreview()" class="border border-gray-200 rounded px-3 py-2 text-sm mg-focus:focus w-full font-mono resize-none flex-1 min-h-0"></textarea>
                     </div>
                     <div class="border border-gray-200 rounded p-4 bg-gray-50 overflow-y-auto">
                         <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">{{ _('Preview') }}</div>
@@ -116,7 +115,7 @@
             </div>
             <div class="p-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
                 <button onclick="closeEditModal()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">{{ _('Cancel') }}</button>
-                <button id="edit-save-btn" onclick="saveDocument()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">{{ _('Save') }}</button>
+                <button id="edit-save-btn" onclick="saveDocument()" class="mg-btn-primary px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
             </div>
         </div>
     </div>
@@ -217,13 +216,13 @@
             emptyEl.classList.add('hidden');
             listEl.innerHTML = docs.map(doc => {
                 const selectedClass = selectedDocId === doc.id
-                    ? 'border-blue-400 bg-blue-50/60'
+                    ? 'mg-card-selected'
                     : 'border-gray-200';
                 const statusBadge = doc.is_published
                     ? '<span class="text-xs font-semibold rounded px-2 py-1 bg-emerald-100 text-emerald-700">' + window.I18N.published + '</span>'
                     : '<span class="text-xs font-semibold rounded px-2 py-1 bg-gray-100 text-gray-500">' + window.I18N.draft + '</span>';
                 const categoryBadge = doc.category
-                    ? '<span class="text-xs rounded-full bg-blue-50 text-blue-600 px-2 py-0.5">' + escapeHtml(doc.category) + '</span>'
+                    ? '<span class="text-xs rounded-full mg-badge px-2 py-0.5">' + escapeHtml(doc.category) + '</span>'
                     : '';
                 const fileBadge = doc.file_count > 0
                     ? `<span class="text-xs rounded-full bg-gray-100 text-gray-500 px-2 py-0.5">${window.I18N.files}: ${doc.file_count}</span>`
@@ -242,7 +241,7 @@
                             <div class="flex items-center gap-2 shrink-0">
                                 ${statusBadge}
                                 <button onclick="event.stopPropagation();previewDoc(${doc.id})" class="text-gray-600 hover:underline text-xs">${window.I18N.details}</button>
-                                <button onclick="event.stopPropagation();openEditModalWith(${doc.id})" class="text-blue-600 hover:underline text-xs">${window.I18N.edit}</button>
+                                <button onclick="event.stopPropagation();openEditModalWith(${doc.id})" class="mg-text hover:underline text-xs">${window.I18N.edit}</button>
                                 <button onclick="event.stopPropagation();deleteDoc(${doc.id})" class="text-red-600 hover:underline text-xs">${window.I18N.delete}</button>
                             </div>
                         </div>

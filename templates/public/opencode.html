@@ -28,8 +28,8 @@
                 <label class="block text-sm font-medium text-gray-700 mb-2">{{ _('Enter your API Key to generate config') }}</label>
                 <div class="flex gap-2">
                     <input type="text" id="api-key-input" placeholder="sk-..."
-                        class="flex-1 border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <button onclick="generateConfig()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        class="flex-1 border rounded px-3 py-2 mg-focus:focus">
+                    <button onclick="generateConfig()" class="mg-btn-primary px-4 py-2 rounded">
                         {{ _('Generate') }}
                     </button>
                 </div>
@@ -39,7 +39,7 @@
                 <div class="bg-white rounded-lg shadow mb-6">
                     <div class="flex justify-between items-center p-4 border-b">
                         <h3 class="text-lg font-semibold">opencode.json</h3>
-                        <button onclick="copyConfig()" class="copy-btn border border-blue-500 text-blue-500 px-3 py-1 rounded text-sm">
+                        <button onclick="copyConfig()" class="copy-btn border mg-border-strong mg-text-light px-3 py-1 rounded text-sm">
                             {{ _('Copy') }}
                         </button>
                     </div>

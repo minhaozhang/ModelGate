@@ -25,7 +25,7 @@
 
         <main class="ml-56 flex-1 p-6">
             {% call admin_page_header('MCP Servers' if current_locale == 'en' else 'MCP 服务器') %}
-            <button onclick="showAddServer()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">+ {{ 'Add Server' if current_locale == 'en' else '添加服务器' }}</button>
+            <button onclick="showAddServer()" class="mg-btn-primary px-4 py-2 rounded">+ {{ 'Add Server' if current_locale == 'en' else '添加服务器' }}</button>
             {% endcall %}
 
             <div class="bg-white rounded-lg shadow overflow-hidden">
@@ -99,7 +99,7 @@
                 </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" onclick="closeServerModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ 'Cancel' if current_locale == 'en' else '取消' }}</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ 'Save' if current_locale == 'en' else '保存' }}</button>
+                    <button type="submit" class="px-4 py-2 mg-btn-primary rounded">{{ 'Save' if current_locale == 'en' else '保存' }}</button>
                 </div>
             </form>
         </div>
@@ -228,8 +228,8 @@
                 </td>
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-2">
-                        <button onclick="viewTools(${s.id})" class="text-blue-500 hover:text-blue-700 text-sm">{{ 'Tools' if current_locale == 'en' else '工具' }}</button>
-                        <button onclick="editServer(${s.id})" class="text-blue-500 hover:text-blue-700 text-sm">{{ 'Edit' if current_locale == 'en' else '编辑' }}</button>
+                        <button onclick="viewTools(${s.id})" class="mg-text text-sm">{{ 'Tools' if current_locale == 'en' else '工具' }}</button>
+                        <button onclick="editServer(${s.id})" class="mg-text text-sm">{{ 'Edit' if current_locale == 'en' else '编辑' }}</button>
                         <button onclick="syncServer(${s.id})" class="text-purple-500 hover:text-purple-700 text-sm" id="sync-btn-${s.id}">{{ 'Sync' if current_locale == 'en' else '同步' }}</button>
                         <button onclick="deleteServer(${s.id})" class="text-red-500 hover:text-red-700 text-sm">{{ 'Delete' if current_locale == 'en' else '删除' }}</button>
                     </div>
@@ -382,7 +382,7 @@
                 const displayName = prefix ? `${prefix}${t.name}` : t.name;
                 return `
                 <div class="px-4 py-3">
-                    <div class="font-mono text-sm font-medium text-blue-600">${escapeHtml(displayName)}</div>
+                    <div class="font-mono text-sm font-medium mg-text-light">${escapeHtml(displayName)}</div>
                     <div class="text-sm text-gray-600 mt-1">${escapeHtml(t.description || '-')}</div>
                     ${t.inputSchema ? `<details class="mt-2"><summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">{{ 'Input Schema' if current_locale == 'en' else '输入 Schema' }}</summary><pre class="mt-1 text-xs bg-gray-50 p-2 rounded overflow-x-auto"><code>${escapeHtml(JSON.stringify(t.inputSchema, null, 2))}</code></pre></details>` : ''}
                 </div>`;

@@ -60,7 +60,7 @@
         <div class="grid grid-cols-3 gap-3">
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Requests') }}</div>
-                <div id="total-requests" class="metric-flip mt-1 text-lg font-bold leading-none text-blue-600">0</div>
+                <div id="total-requests" class="metric-flip mt-1 text-lg font-bold leading-none mg-text-light">0</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
                 <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Tokens') }}</div>
@@ -146,7 +146,7 @@
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
             <div class="collapsible-header flex items-center justify-between p-4" onclick="toggleSection('providers')">
                 <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-4 h-4 mg-text-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/>
                     </svg>
                     <span class="font-medium text-sm text-gray-800">{{ _('Provider Usage') }}</span>
@@ -267,7 +267,7 @@
             const disabledCount = Object.keys(disabledProviders || {}).length;
             const badgeHtml = disabledCount > 0 ? `<span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">${disabledCount} {{ _('disabled') }}</span>` : '';
             document.querySelector('[onclick="toggleSection(\'providers\')"] .flex.items-center').innerHTML = `
-                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
+                    <svg class="w-4 h-4 mg-text-light" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
                     <span class="font-medium text-sm text-gray-800">{{ _('Provider Usage') }}</span>
                     ${badgeHtml}
             `;
@@ -280,7 +280,7 @@
                     : '';
                 return `<div class="bg-gray-50 rounded-lg p-3">
                     <div class="flex justify-between text-xs gap-2"><span class="font-medium truncate">${name}${warnIcon}</span><span class="text-gray-500 shrink-0">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span></div>
-                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2"><div class="mg-bg h-1.5 rounded-full" style="width: ${pct}%"></div></div>
                     ${modelsHtml}
                 </div>`;
             }).join('');
@@ -422,9 +422,9 @@
                             type: 'line',
                             label: window.I18N.requests,
                             data: requests,
-                            borderColor: '#3b82f6',
+                            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#0e7490',
                             backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                            pointBackgroundColor: '#3b82f6',
+                            pointBackgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#0e7490',
                             pointRadius: 2,
                             pointHoverRadius: 3,
                             borderWidth: 2,

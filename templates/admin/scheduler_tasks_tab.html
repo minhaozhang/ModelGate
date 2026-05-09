@@ -23,7 +23,7 @@ async function loadTasks() {
                 <span class="text-xs text-gray-400">${t.task_id}</span>
                 ${t.is_paused ? '<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">{{ _("Paused") }}</span>' : ''}
                 <div class="ml-auto flex gap-2">
-                    <button onclick="triggerTask('${t.task_id}')" class="text-xs text-blue-500 hover:text-blue-700 border rounded px-2 py-1">{{ _('Run Now') }}</button>
+                    <button onclick="triggerTask('${t.task_id}')" class="text-xs mg-text border rounded px-2 py-1">{{ _('Run Now') }}</button>
                     <button onclick="toggleTask('${t.task_id}', ${!t.is_paused})" class="text-xs ${t.is_paused ? 'text-green-500 hover:text-green-700' : 'text-yellow-500 hover:text-yellow-700'} border rounded px-2 py-1">${t.is_paused ? '{{ _("Resume") }}' : '{{ _("Pause") }}'}</button>
                 </div>
             </div>
@@ -75,7 +75,7 @@ async function updateTaskCron(taskId, cron) {
 function showToast(msg, type) {
     let c = document.getElementById('toast-container');
     if (!c) { c = document.createElement('div'); c.id = 'toast-container'; c.style.cssText = 'position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;'; document.body.appendChild(c); }
-    const colors = {success:'bg-green-500',error:'bg-red-500',info:'bg-blue-500'};
+    const colors = {success:'bg-green-500',error:'bg-red-500',info:'mg-bg'};
     const t = document.createElement('div');
     t.className = `${colors[type]||colors.info} text-white text-sm px-4 py-2 rounded shadow-lg transition-all duration-300 opacity-0`;
     t.textContent = msg;

@@ -39,8 +39,8 @@
         }
         applyTheme(getThemeMode());
         applyColorTheme(localStorage.getItem('admin_color_theme') || 'teal');
-        const levelColors = {info:'border-blue-400 bg-blue-50',warning:'border-yellow-400 bg-yellow-50',error:'border-red-400 bg-red-50'};
-        const levelDots = {info:'bg-blue-500',warning:'bg-yellow-500',error:'bg-red-500'};
+        const levelColors = {info:'mg-card-selected',warning:'border-yellow-400 bg-yellow-50',error:'border-red-400 bg-red-50'};
+        const levelDots = {info:'mg-bg',warning:'bg-yellow-500',error:'bg-red-500'};
         async function loadNotifications(page) {
             currentPage = page;
             const r = await fetch(`${APP_BASE_PATH}/admin/api/notifications?page=${page}&page_size=15`);
@@ -70,7 +70,7 @@
             let html = '';
             if (page > 1) html += `<button onclick="loadNotifications(${page-1})" class="px-3 py-1 border rounded text-sm">&lt;</button>`;
             for (let i = Math.max(1,page-2); i <= Math.min(totalPages,page+2); i++) {
-                html += `<button onclick="loadNotifications(${i})" class="px-3 py-1 border rounded text-sm ${i===page?'bg-blue-500 text-white':''}">${i}</button>`;
+                html += `<button onclick="loadNotifications(${i})" class="px-3 py-1 border rounded text-sm ${i===page?'mg-btn-primary':''}">${i}</button>`;
             }
             if (page < totalPages) html += `<button onclick="loadNotifications(${page+1})" class="px-3 py-1 border rounded text-sm">&gt;</button>`;
             pg.innerHTML = html;

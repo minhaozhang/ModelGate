@@ -93,21 +93,21 @@
                 <div class="flex flex-wrap items-end gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('API Key') }}</label>
-                        <input id="filter-key" type="text" placeholder="{{ _('Key name') }}" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <input id="filter-key" type="text" placeholder="{{ _('Key name') }}" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 mg-focus:focus">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Model') }}</label>
-                        <input id="filter-model" type="text" placeholder="e.g. glm-5" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <input id="filter-model" type="text" placeholder="e.g. glm-5" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 mg-focus:focus">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Provider') }}</label>
-                        <select id="filter-provider" class="border border-gray-200 rounded px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <select id="filter-provider" class="border border-gray-200 rounded px-3 py-2 text-sm w-40 mg-focus:focus">
                             <option value="">{{ _('All') }}</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Status') }}</label>
-                        <select id="filter-status" class="border border-gray-200 rounded px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <select id="filter-status" class="border border-gray-200 rounded px-3 py-2 text-sm w-36 mg-focus:focus">
                             <option value="">{{ _('All') }}</option>
                             <option value="success">success</option>
                             <option value="error">error</option>
@@ -131,14 +131,14 @@
                     <div id="custom-range" class="hidden items-end gap-2">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Start Time') }}</label>
-                            <input id="filter-start" type="datetime-local" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            <input id="filter-start" type="datetime-local" class="border border-gray-200 rounded px-3 py-2 text-sm mg-focus:focus">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('End Time') }}</label>
-                            <input id="filter-end" type="datetime-local" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            <input id="filter-end" type="datetime-local" class="border border-gray-200 rounded px-3 py-2 text-sm mg-focus:focus">
                         </div>
                     </div>
-                    <button onclick="loadLogs()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+                    <button onclick="loadLogs()" class="mg-btn-primary px-4 py-2 rounded text-sm font-medium">
                         {{ _('Query') }}
                     </button>
                 </div>
