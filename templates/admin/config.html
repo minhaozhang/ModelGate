@@ -150,28 +150,28 @@
                 </div>
                 <div class="flex gap-4">
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens the model can generate in a single response') }}">{{ _('Max Output') }} <span class="text-gray-400">?</span></label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens the model can generate in a single response') }}">{{ _('Max Output') }}</label>
                         <input type="text" id="model-max-tokens" value="131072" placeholder="e.g. 131072 or 128k" class="w-full border rounded px-3 py-2">
                     </div>
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Total input + output tokens the model can process at once') }}">{{ _('Context Window') }} <span class="text-gray-400">?</span></label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Total input + output tokens the model can process at once') }}">{{ _('Context Window') }}</label>
                         <input type="text" id="model-context-length" value="204800" placeholder="e.g. 204800 or 200k" class="w-full border rounded px-3 py-2">
                     </div>
                 </div>
                 <div class="flex gap-4">
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled') }}">{{ _('Reasoning Budget') }} <span class="text-gray-400">?</span></label>
-                        <input type="text" id="model-thinking-budget" value="8192" placeholder="e.g. 8192 or 8k" class="w-full border rounded px-3 py-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled') }}">{{ _('Reasoning Budget') }}</label>
+                        <input type="text" id="model-thinking-budget" value="8k" placeholder="e.g. 8192 or 8k" class="w-full border rounded px-3 py-2">
                     </div>
                     <div class="flex-1 flex flex-col justify-end">
                         <label class="flex items-center" title="{{ _('Enable extended reasoning / chain-of-thought for this model') }}">
                             <input type="checkbox" id="model-thinking-enabled" checked class="mr-2">
-                            <span class="text-sm text-gray-700">{{ _('Reasoning') }} <span class="text-gray-400">?</span></span>
+                            <span class="text-sm text-gray-700">{{ _('Reasoning') }}</span>
                         </label>
                     </div>
                 </div>
                 <div class="flex-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Estimated blended price per 1M tokens (USD). Used for cost estimation on user dashboard.') }}">{{ _('Est. Price $/1M tokens') }} <span class="text-gray-400">?</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Estimated blended price per 1M tokens (USD). Used for cost estimation on user dashboard.') }}">{{ _('Est. Price $/1M tokens') }}</label>
                     <input type="number" step="0.01" id="model-estimated-price" value="" placeholder="0.00" class="w-full border rounded px-3 py-2">
                 </div>
                 <div class="flex items-center gap-4">
@@ -742,7 +742,7 @@
             document.getElementById('model-max-tokens').value = '128k';
             document.getElementById('model-context-length').value = '200k';
             document.getElementById('model-thinking-enabled').checked = true;
-            document.getElementById('model-thinking-budget').value = '8192';
+            document.getElementById('model-thinking-budget').value = '8k';
             document.getElementById('model-multimodal').checked = false;
             document.getElementById('model-active').checked = true;
             document.getElementById('model-modal').classList.remove('hidden');
@@ -960,7 +960,7 @@
                         <span class="ml-2 text-xs text-gray-500">${m.name}</span>
                         <span class="ml-2 text-xs ${m.is_active ? 'text-green-600' : 'text-red-600'}">${m.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
                         <div class="text-xs text-gray-400 mt-1">
-                            output=${(m.max_tokens||0).toLocaleString()} / context=${(m.context_length||0).toLocaleString()} / reasoning=${m.thinking_enabled ? (m.thinking_budget||0).toLocaleString() : t('thinkingOff', 'off')}${m.is_multimodal ? ` / ${t('multimodal', 'multimodal')}` : ''}
+                            output=${formatTokenValue(m.max_tokens)||'0'} / context=${formatTokenValue(m.context_length)||'0'} / reasoning=${m.thinking_enabled ? (formatTokenValue(m.thinking_budget)||'0') : t('thinkingOff', 'off')}${m.is_multimodal ? ` / ${t('multimodal', 'multimodal')}` : ''}
                             ${m.bound_key_count > 0 ? ` / <span class="text-green-500">${formatI18n('keyCount', {count: m.bound_key_count.toLocaleString()}, `${m.bound_key_count.toLocaleString()} key(s)`)}</span>` : ''}
                         </div>
                     </div>
