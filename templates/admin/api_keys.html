@@ -659,7 +659,6 @@
                         </div>
                         <div class="flex flex-wrap gap-2 shrink-0">
                             <button onclick="showTimeRulesModal(${k.id})" class="text-purple-500 hover:text-purple-700 text-sm">${window.I18N.timeRules}</button>
-                            <a href="/api-keys/${k.id}/query" target="_blank" class="text-green-500 hover:text-green-700 text-sm">${window.I18N.query}</a>
                             <button onclick="editApiKey(${k.id})" class="text-blue-500 hover:text-blue-700 text-sm">${window.I18N.edit}</button>
                             <button onclick="deleteApiKey(${k.id})" class="text-red-500 hover:text-red-700 text-sm">${window.I18N.delete}</button>
                         </div>
@@ -749,11 +748,23 @@
                 container.innerHTML = `<div class="text-gray-400 text-center py-4">${window.I18N.noModels}</div>`;
                 return;
             }
-            container.innerHTML = providerModels.map(pm => `
-                <label class="flex items-center p-2 hover:bg-gray-50 cursor-pointer ${selectedModelIds.includes(pm.id) ? 'selected' : ''}" data-pm-id="${pm.id}">
-                    <input type="checkbox" class="mr-2" value="${pm.id}" ${selectedModelIds.includes(pm.id) ? 'checked' : ''} onchange="toggleModel(${pm.id})">
-                    <span class="text-sm">${pm.display_name}</span>
-                </label>
+            const sorted = [...providerModels].sort((a, b) => (a.provider_name || '').localeCompare(b.provider_name || '') || (a.display_name || '').localeCompare(b.display_name || ''));
+            const groups = {};
+            sorted.forEach(pm => {
+                const key = pm.provider_name || 'Unknown';
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(pm);
+            });
+            container.innerHTML = Object.entries(groups).map(([name, pms]) => `
+                <div class="mb-1">
+                    <div class="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-gray-700 dark:text-gray-400">${name}</div>
+                    ${pms.map(pm => `
+                        <label class="flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedModelIds.includes(pm.id) ? 'selected' : ''}" data-pm-id="${pm.id}">
+                            <input type="checkbox" class="mr-2" value="${pm.id}" ${selectedModelIds.includes(pm.id) ? 'checked' : ''} onchange="toggleModel(${pm.id})">
+                            <span class="text-sm">${pm.display_name}</span>
+                        </label>
+                    `).join('')}
+                </div>
             `).join('');
         }
         

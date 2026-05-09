@@ -150,28 +150,28 @@
                 </div>
                 <div class="flex gap-4">
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens the model can generate in a single response') }}">{{ _('Max Output') }} <span class="text-gray-400">?</span></label>
-                        <input type="number" id="model-max-tokens" value="16384" class="w-full border rounded px-3 py-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens the model can generate in a single response') }}">{{ _('Max Output') }}</label>
+                        <input type="text" id="model-max-tokens" value="131072" placeholder="e.g. 131072 or 128k" class="w-full border rounded px-3 py-2">
                     </div>
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Total input + output tokens the model can process at once') }}">{{ _('Context Window') }} <span class="text-gray-400">?</span></label>
-                        <input type="number" id="model-context-length" value="131072" class="w-full border rounded px-3 py-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Total input + output tokens the model can process at once') }}">{{ _('Context Window') }}</label>
+                        <input type="text" id="model-context-length" value="204800" placeholder="e.g. 204800 or 200k" class="w-full border rounded px-3 py-2">
                     </div>
                 </div>
                 <div class="flex gap-4">
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled') }}">{{ _('Reasoning Budget') }} <span class="text-gray-400">?</span></label>
-                        <input type="number" id="model-thinking-budget" value="8192" class="w-full border rounded px-3 py-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled') }}">{{ _('Reasoning Budget') }}</label>
+                        <input type="text" id="model-thinking-budget" value="8k" placeholder="e.g. 8192 or 8k" class="w-full border rounded px-3 py-2">
                     </div>
                     <div class="flex-1 flex flex-col justify-end">
                         <label class="flex items-center" title="{{ _('Enable extended reasoning / chain-of-thought for this model') }}">
                             <input type="checkbox" id="model-thinking-enabled" checked class="mr-2">
-                            <span class="text-sm text-gray-700">{{ _('Reasoning') }} <span class="text-gray-400">?</span></span>
+                            <span class="text-sm text-gray-700">{{ _('Reasoning') }}</span>
                         </label>
                     </div>
                 </div>
                 <div class="flex-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Estimated blended price per 1M tokens (USD). Used for cost estimation on user dashboard.') }}">{{ _('Est. Price $/1M tokens') }} <span class="text-gray-400">?</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Estimated blended price per 1M tokens (USD). Used for cost estimation on user dashboard.') }}">{{ _('Est. Price $/1M tokens') }}</label>
                     <input type="number" step="0.01" id="model-estimated-price" value="" placeholder="0.00" class="w-full border rounded px-3 py-2">
                 </div>
                 <div class="flex items-center gap-4">
@@ -322,6 +322,20 @@
         let modelKeysScopePmId = null;
         let modelKeysData = {};
         let modelKeysPmList = [];
+
+        function parseTokenValue(v) {
+            if (!v) return 0;
+            const s = String(v).trim().toLowerCase();
+            const m = s.match(/^(\d+(?:\.\d+)?)\s*k$/);
+            if (m) return Math.round(parseFloat(m[1]) * 1024);
+            return parseInt(s) || 0;
+        }
+        function formatTokenValue(v) {
+            if (!v) return '';
+            v = parseInt(v);
+            if (v > 0) return Math.round(v / 1024) + 'k';
+            return '';
+        }
         let modelKeysSelection = {};
         let modelKeysPage = 1;
         let selectedProviderId = null;
@@ -725,10 +739,10 @@
             document.getElementById('model-name').value = '';
             document.getElementById('model-name').disabled = false;
             document.getElementById('model-display-name').value = '';
-            document.getElementById('model-max-tokens').value = '16384';
-            document.getElementById('model-context-length').value = '131072';
+            document.getElementById('model-max-tokens').value = '128k';
+            document.getElementById('model-context-length').value = '200k';
             document.getElementById('model-thinking-enabled').checked = true;
-            document.getElementById('model-thinking-budget').value = '8192';
+            document.getElementById('model-thinking-budget').value = '8k';
             document.getElementById('model-multimodal').checked = false;
             document.getElementById('model-active').checked = true;
             document.getElementById('model-modal').classList.remove('hidden');
@@ -743,10 +757,10 @@
             document.getElementById('model-name').value = m.name;
             document.getElementById('model-name').disabled = true;
             document.getElementById('model-display-name').value = m.display_name || '';
-            document.getElementById('model-max-tokens').value = m.max_tokens;
-            document.getElementById('model-context-length').value = m.context_length;
+            document.getElementById('model-max-tokens').value = formatTokenValue(m.max_tokens);
+            document.getElementById('model-context-length').value = formatTokenValue(m.context_length);
             document.getElementById('model-thinking-enabled').checked = m.thinking_enabled;
-            document.getElementById('model-thinking-budget').value = m.thinking_budget;
+            document.getElementById('model-thinking-budget').value = formatTokenValue(m.thinking_budget);
             document.getElementById('model-estimated-price').value = m.estimated_price || '';
             document.getElementById('model-multimodal').checked = m.is_multimodal;
             document.getElementById('model-active').checked = m.is_active;
@@ -766,10 +780,10 @@
             const data = {
                 name: document.getElementById('model-name').value,
                 display_name: document.getElementById('model-display-name').value || null,
-                max_tokens: parseInt(document.getElementById('model-max-tokens').value) || 16384,
-                context_length: parseInt(document.getElementById('model-context-length').value) || 131072,
+                max_tokens: parseTokenValue(document.getElementById('model-max-tokens').value) || 131072,
+                context_length: parseTokenValue(document.getElementById('model-context-length').value) || 204800,
                 thinking_enabled: document.getElementById('model-thinking-enabled').checked,
-                thinking_budget: parseInt(document.getElementById('model-thinking-budget').value) || 8192,
+                thinking_budget: parseTokenValue(document.getElementById('model-thinking-budget').value) || 8192,
                 estimated_price: parseFloat(document.getElementById('model-estimated-price').value) || null,
                 is_multimodal: document.getElementById('model-multimodal').checked,
                 is_active: document.getElementById('model-active').checked
@@ -946,7 +960,7 @@
                         <span class="ml-2 text-xs text-gray-500">${m.name}</span>
                         <span class="ml-2 text-xs ${m.is_active ? 'text-green-600' : 'text-red-600'}">${m.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
                         <div class="text-xs text-gray-400 mt-1">
-                            output=${(m.max_tokens||0).toLocaleString()} / context=${(m.context_length||0).toLocaleString()} / reasoning=${m.thinking_enabled ? (m.thinking_budget||0).toLocaleString() : t('thinkingOff', 'off')}${m.is_multimodal ? ` / ${t('multimodal', 'multimodal')}` : ''}
+                            output=${formatTokenValue(m.max_tokens)||'0'} / context=${formatTokenValue(m.context_length)||'0'} / reasoning=${m.thinking_enabled ? (formatTokenValue(m.thinking_budget)||'0') : t('thinkingOff', 'off')}${m.is_multimodal ? ` / ${t('multimodal', 'multimodal')}` : ''}
                             ${m.bound_key_count > 0 ? ` / <span class="text-green-500">${formatI18n('keyCount', {count: m.bound_key_count.toLocaleString()}, `${m.bound_key_count.toLocaleString()} key(s)`)}</span>` : ''}
                         </div>
                     </div>
