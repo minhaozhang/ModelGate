@@ -333,8 +333,8 @@
         function formatTokenValue(v) {
             if (!v) return '';
             v = parseInt(v);
-            if (v > 0 && v % 1024 === 0) return (v / 1024) + 'k';
-            return String(v);
+            if (v > 0) return Math.round(v / 1024) + 'k';
+            return '';
         }
         let modelKeysSelection = {};
         let modelKeysPage = 1;
