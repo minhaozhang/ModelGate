@@ -6,6 +6,7 @@
     <title>{{ _('API Keys') }} - ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/output.css">
+    <script src="/static/js/date-picker.js"></script>
     <style>
         .nav-link { transition: all 0.2s; }
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
@@ -264,15 +265,9 @@
                             <input type="text" id="timerule-end-time" class="w-full border rounded px-3 py-2" placeholder="{{ _('HH:MM') }}">
                         </div>
                     </div>
-                    <div id="timerule-date-fields" class="hidden flex gap-2">
-                        <div class="flex-1">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Start Date') }}</label>
-                            <input type="date" id="timerule-start-date" class="w-full border rounded px-3 py-2">
-                        </div>
-                        <div class="flex-1">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('End Date') }}</label>
-                            <input type="date" id="timerule-end-date" class="w-full border rounded px-3 py-2">
-                        </div>
+                    <div id="timerule-date-fields" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Date Range') }}</label>
+                        <div id="timerule-date-picker"></div>
                     </div>
                     <div id="timerule-weekday-fields" class="hidden">
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Weekdays') }}</label>
@@ -295,6 +290,7 @@
     ];
     let currentTimeruleKeyId = null;
     let currentTimerules = [];
+    let timeruleDatePicker = null;
 
     function renderTimeRulesBadges(rules) {
         if (!rules || rules.length === 0) return '';
@@ -368,6 +364,13 @@
         document.getElementById('timerule-date-fields').classList.toggle('hidden', type !== 'date_range');
         document.getElementById('timerule-weekday-fields').classList.toggle('hidden', type !== 'weekday');
         if (type === 'weekday') renderWeekdayCheckboxes();
+        if (type === 'date_range' && !timeruleDatePicker) {
+            timeruleDatePicker = MgDateRangePicker.create({
+                el: '#timerule-date-picker',
+                type: 'date',
+                placeholder: '{{ _("Select date range") }}'
+            });
+        }
     }
 
     function renderWeekdayCheckboxes(selected) {
@@ -385,8 +388,7 @@
         document.getElementById('timerule-allowed').checked = true;
         document.getElementById('timerule-start-time').value = '';
         document.getElementById('timerule-end-time').value = '';
-        document.getElementById('timerule-start-date').value = '';
-        document.getElementById('timerule-end-date').value = '';
+        if (timeruleDatePicker) timeruleDatePicker.clear();
         onRuleTypeChange();
         document.getElementById('timerule-form').classList.remove('hidden');
     }
@@ -399,9 +401,12 @@
         document.getElementById('timerule-allowed').checked = rule.allowed;
         document.getElementById('timerule-start-time').value = (rule.start_time || '').substring(0, 5);
         document.getElementById('timerule-end-time').value = (rule.end_time || '').substring(0, 5);
-        document.getElementById('timerule-start-date').value = rule.start_date || '';
-        document.getElementById('timerule-end-date').value = rule.end_date || '';
         onRuleTypeChange();
+        if (rule.rule_type === 'date_range' && timeruleDatePicker && rule.start_date && rule.end_date) {
+            timeruleDatePicker.setRange(new Date(rule.start_date), new Date(rule.end_date));
+        } else if (timeruleDatePicker) {
+            timeruleDatePicker.clear();
+        }
         if (rule.rule_type === 'weekday') renderWeekdayCheckboxes(rule.weekdays || '');
         document.getElementById('timerule-form').classList.remove('hidden');
     }
@@ -414,13 +419,21 @@
         e.preventDefault();
         const ruleId = document.getElementById('timerule-id').value;
         const ruleType = document.getElementById('timerule-type').value;
+        function pad(n) { return String(n).padStart(2, '0'); }
+        let startDate = null, endDate = null;
+        if (ruleType === 'date_range' && timeruleDatePicker) {
+            const s = timeruleDatePicker.getStartDate();
+            const ed = timeruleDatePicker.getEndDate();
+            if (s) startDate = `${s.getFullYear()}-${pad(s.getMonth()+1)}-${pad(s.getDate())}`;
+            if (ed) endDate = `${ed.getFullYear()}-${pad(ed.getMonth()+1)}-${pad(ed.getDate())}`;
+        }
         const data = {
             rule_type: ruleType,
             allowed: document.getElementById('timerule-allowed').checked,
             start_time: document.getElementById('timerule-start-time').value || null,
             end_time: document.getElementById('timerule-end-time').value || null,
-            start_date: document.getElementById('timerule-start-date').value || null,
-            end_date: document.getElementById('timerule-end-date').value || null,
+            start_date: startDate,
+            end_date: endDate,
             weekdays: null,
         };
         if (ruleType === 'weekday') {
