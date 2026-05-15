@@ -1430,6 +1430,97 @@ async def query_logs(
         }
 
 
+@router.get("/logs/aggregate")
+async def aggregate_logs(
+    provider: Optional[int] = None,
+    time_range: str = "24h",
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    _: bool = Depends(require_admin),
+):
+    now = datetime.now()
+
+    if start_time or end_time:
+        try:
+            dt_start = (
+                datetime.fromisoformat(start_time)
+                if start_time
+                else now - timedelta(days=7)
+            )
+            dt_end = datetime.fromisoformat(end_time) if end_time else now
+        except ValueError:
+            return {"rows": []}
+    else:
+        deltas = {
+            "1h": timedelta(hours=1),
+            "6h": timedelta(hours=6),
+            "24h": timedelta(hours=24),
+            "7d": timedelta(days=7),
+            "30d": timedelta(days=30),
+        }
+        dt_start = now - deltas.get(time_range, timedelta(hours=24))
+        dt_end = now
+
+    async with async_session_maker() as session:
+        base_where = [
+            RequestLog.created_at >= dt_start,
+            RequestLog.created_at <= dt_end,
+            RequestLog.status == "success",
+            RequestLog.latency_ms.is_not(None),
+        ]
+
+        q = (
+            select(
+                RequestLog.provider_id,
+                RequestLog.model,
+                func.count(RequestLog.id).label("request_count"),
+                func.round(func.avg(RequestLog.latency_ms), 2).label("avg_latency_ms"),
+                func.round(func.max(RequestLog.latency_ms), 2).label("max_latency_ms"),
+                func.round(func.min(RequestLog.latency_ms), 2).label("min_latency_ms"),
+                func.round(
+                    func.avg(
+                        func.coalesce(RequestLog.prompt_tokens, 0)
+                        + func.coalesce(RequestLog.completion_tokens, 0)
+                    ),
+                    1,
+                ).label("avg_tokens"),
+            )
+            .where(*base_where)
+            .group_by(RequestLog.provider_id, RequestLog.model)
+            .order_by(func.count(RequestLog.id).desc())
+        )
+
+        if provider:
+            q = q.where(RequestLog.provider_id == provider)
+
+        result = await session.execute(q)
+        rows = result.fetchall()
+
+        provider_ids = {r.provider_id for r in rows if r.provider_id}
+        provider_map = {}
+        if provider_ids:
+            p_result = await session.execute(
+                select(Provider.id, Provider.name).where(Provider.id.in_(provider_ids))
+            )
+            provider_map = {p.id: p.name for p in p_result.scalars().all()}
+
+        return {
+            "rows": [
+                {
+                    "provider_id": r.provider_id,
+                    "provider_name": provider_map.get(r.provider_id, "-"),
+                    "model": r.model,
+                    "request_count": r.request_count,
+                    "avg_latency_ms": float(r.avg_latency_ms) if r.avg_latency_ms else 0,
+                    "max_latency_ms": float(r.max_latency_ms) if r.max_latency_ms else 0,
+                    "min_latency_ms": float(r.min_latency_ms) if r.min_latency_ms else 0,
+                    "avg_tokens": float(r.avg_tokens) if r.avg_tokens else 0,
+                }
+                for r in rows
+            ]
+        }
+
+
 @router.get("/mcp-logs/query")
 async def query_mcp_logs(
     tool_name: Optional[str] = None,

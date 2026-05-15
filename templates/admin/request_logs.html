@@ -100,6 +100,9 @@
         body.theme-dark .detail-modal-header { border-color: #1f2937; }
         .detail-modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
         .detail-modal-body pre { white-space: pre-wrap; word-break: break-all; font-size: 0.8125rem; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+        body.theme-dark #agg-table-wrap thead tr { color: #94a3b8; border-color: #1f2937; }
+        body.theme-dark #agg-table-wrap tbody tr { border-color: #1f2937; }
+        body.theme-dark #agg-table-wrap tbody tr:hover { background: #1e293b !important; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -165,6 +168,47 @@
                     <button onclick="loadLogs()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
                         {{ _('Query') }}
                     </button>
+                </div>
+            </section>
+
+            <div class="flex gap-2 mb-4">
+                <button id="view-tab-logs" onclick="switchView('logs')" class="px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-blue-600 text-white border-blue-600">{{ _('Request Logs') }}</button>
+                <button id="view-tab-aggregate" onclick="switchView('aggregate')" class="px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50">{{ _('Aggregate Stats') }}</button>
+            </div>
+
+            <section id="aggregate-section" class="bg-white rounded-xl shadow hidden">
+                <div class="p-6 border-b border-gray-200 flex flex-wrap items-center gap-4">
+                    <h3 class="text-lg font-semibold text-gray-800">{{ _('Aggregate Stats') }}</h3>
+                    <div class="flex gap-2 ml-auto">
+                        <select id="agg-provider" class="border border-gray-200 rounded px-3 py-1.5 text-sm">
+                            <option value="">{{ _('All Providers') }}</option>
+                        </select>
+                        <button class="time-btn active" data-agg-range="24h" onclick="setAggRange(this)">24h</button>
+                        <button class="time-btn" data-agg-range="7d" onclick="setAggRange(this)">7d</button>
+                        <button class="time-btn" data-agg-range="30d" onclick="setAggRange(this)">30d</button>
+                        <button onclick="loadAggregate()" class="mg-btn-primary text-xs px-3 py-1.5">{{ _('Query') }}</button>
+                    </div>
+                </div>
+                <div id="agg-loading" class="hidden p-6 flex items-center justify-center gap-3 text-sm text-gray-500">
+                    <div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25)"></div>
+                    {{ _('Loading...') }}
+                </div>
+                <div id="agg-empty" class="hidden p-6 text-sm text-gray-500">{{ _('No data found for the selected time range.') }}</div>
+                <div id="agg-table-wrap" class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200 text-left text-gray-500">
+                                <th class="px-6 py-3 font-medium">{{ _('Provider') }}</th>
+                                <th class="px-6 py-3 font-medium">{{ _('Model') }}</th>
+                                <th class="px-6 py-3 font-medium text-right">{{ _('Requests') }}</th>
+                                <th class="px-6 py-3 font-medium text-right">{{ _('Avg Latency') }}</th>
+                                <th class="px-6 py-3 font-medium text-right">{{ _('Max Latency') }}</th>
+                                <th class="px-6 py-3 font-medium text-right">{{ _('Min Latency') }}</th>
+                                <th class="px-6 py-3 font-medium text-right">{{ _('Avg Tokens') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agg-tbody"></tbody>
+                    </table>
                 </div>
             </section>
 
@@ -372,7 +416,7 @@
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.latency}</div>
-                                <div class="font-medium text-gray-800">${log.latency_ms ? `${formatNumber(Math.round(log.latency_ms))} ms` : '-'}</div>
+                                <div class="font-medium text-gray-800">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + ' s' : '-'}</div>
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.tokens}</div>
@@ -505,6 +549,96 @@
         applyTheme(getThemeMode());
         loadProviders();
         loadLogs();
+
+        let currentView = 'logs';
+        let currentAggRange = '24h';
+
+        function switchView(view) {
+            currentView = view;
+            const logsSection = document.querySelector('#logs-empty').closest('section');
+            const aggSection = document.getElementById('aggregate-section');
+            const tabLogs = document.getElementById('view-tab-logs');
+            const tabAgg = document.getElementById('view-tab-aggregate');
+
+            if (view === 'logs') {
+                logsSection.classList.remove('hidden');
+                aggSection.classList.add('hidden');
+                tabLogs.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-blue-600 text-white border-blue-600';
+                tabAgg.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50';
+            } else {
+                logsSection.classList.add('hidden');
+                aggSection.classList.remove('hidden');
+                tabAgg.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-blue-600 text-white border-blue-600';
+                tabLogs.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50';
+                loadAggregate();
+            }
+        }
+
+        function setAggRange(btn) {
+            document.querySelectorAll('[data-agg-range]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentAggRange = btn.dataset.aggRange;
+        }
+
+        async function loadAggregate() {
+            const loading = document.getElementById('agg-loading');
+            const empty = document.getElementById('agg-empty');
+            const tbody = document.getElementById('agg-tbody');
+            const wrap = document.getElementById('agg-table-wrap');
+
+            loading.classList.remove('hidden');
+            empty.classList.add('hidden');
+            wrap.classList.add('hidden');
+            tbody.innerHTML = '';
+
+            try {
+                const provider = document.getElementById('agg-provider').value;
+                const params = new URLSearchParams({ time_range: currentAggRange });
+                if (provider) params.set('provider', provider);
+
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/aggregate?${params}`);
+                if (!data) return;
+
+                const rows = data.rows || [];
+                if (!rows.length) {
+                    empty.classList.remove('hidden');
+                    return;
+                }
+
+                wrap.classList.remove('hidden');
+                tbody.innerHTML = rows.map(r => `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-6 py-3 text-gray-800">${escapeHtml(r.provider_name)}</td>
+                        <td class="px-6 py-3 font-mono text-xs text-gray-700">${escapeHtml(r.model)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${formatNumber(r.request_count)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.avg_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.max_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.min_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${r.avg_tokens > 0 ? Math.round(r.avg_tokens).toLocaleString() : '-'}</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load aggregate', e);
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        async function loadAggProviders() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers`);
+                if (!data || !data.providers) return;
+                const select = document.getElementById('agg-provider');
+                data.providers.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.name;
+                    select.appendChild(opt);
+                });
+            } catch (e) { console.error('Failed to load providers', e); }
+        }
+
+        loadAggProviders();
     </script>
 </body>
 </html>
