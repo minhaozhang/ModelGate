@@ -10,8 +10,10 @@ ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key man
 
 - Multi-provider routing: Zhipu, DeepSeek, Ollama, Minimax, and any OpenAI-compatible API
 - OpenAI-compatible proxy endpoints: `/v1/chat/completions`, `/v1/embeddings`, `/v1/models`
+- Anthropic-compatible proxy endpoint: `/anthropic/v1/messages` with full protocol translation (streaming, tool calls, thinking, cache_control)
 - Layered concurrency control: API key model limit -> provider key limit with per-key semaphore
 - Provider multi-key support with sticky routing and key-level disable/reenable
+- Provider key fallback: automatically tries the next API key on 401/403/429 errors
 - Auto-disable provider/key on usage limit errors, auto-reenable on scheduled task
 - API key management with per-key model access control
 - Streaming request lifecycle tracking: `pending` -> `success` / `error` / `timeout`
@@ -137,6 +139,19 @@ The app performs runtime compatibility migrations on startup (e.g., adding new c
 - `POST /v1/embeddings` - Text embeddings
 - `GET /v1/models` - List available models
 
+### Anthropic-compatible Endpoint
+
+- `POST /anthropic/v1/messages` - Anthropic Messages API (streaming and non-streaming)
+
+ModelGate translates Anthropic protocol requests to OpenAI format for upstream providers, and translates responses back. Supported features:
+
+- Streaming and non-streaming responses
+- Tool use (function calling) with parallel tool call control
+- Extended thinking with signature passthrough
+- Cache control (`cache_control` markers on system, user, assistant, and tool_result blocks)
+- System prompt as structured content blocks
+- `inbound_protocol` tracking in request logs for protocol-level analytics
+
 ### Model Naming
 
 ```text
@@ -208,6 +223,16 @@ Three-layer semaphore-based rate control:
 
 Provider keys support sticky routing (requests from the same API key route to the same provider key).
 
+## Provider Key Fallback
+
+When a provider has multiple API keys configured, ModelGate automatically falls back to the next key if the current one fails:
+
+- **Retryable errors**: HTTP 401 (authentication), 403 (forbidden), 429 (rate limit), 529 (overloaded)
+- Keys are shuffled on each request for even distribution
+- Sticky routing takes priority — if a sticky key is available, only that key is used
+- Concurrency-limited keys are skipped with a warning, trying the next available key
+- Fallback attempts are logged with `[KEY FALLBACK]` prefix
+
 ## Provider Auto-Disable & Reenable
 
 - When a usage limit error is detected (quota exceeded, billing deactivated, etc.), the provider or provider key is automatically disabled with a reason
@@ -241,6 +266,7 @@ modelgate/
 │   └── log_sanitizer.py     # Sensitive data redaction for logs
 ├── routes/
 │   ├── proxy.py             # /v1/chat/completions, /v1/embeddings, /v1/models
+│   ├── anthropic_proxy.py   # /anthropic/v1/messages — Anthropic protocol proxy
 │   ├── auth.py              # Admin login/logout
 │   ├── providers.py         # Provider CRUD
 │   ├── models.py            # Model CRUD
@@ -256,8 +282,9 @@ modelgate/
 │   ├── mcp.py               # MCP server CRUD endpoints
 │   └── weixin.py            # WeChat MCP server endpoints
 ├── services/
-│   ├── proxy.py             # Main proxy logic, streaming, provider dispatch
+│   ├── proxy.py             # Main proxy logic, streaming, provider dispatch, key fallback
 │   ├── proxy_runtime/       # Runtime helpers: SSE, MiniMax, message preprocessing
+│   ├── anthropic_inbound.py # Anthropic↔OpenAI protocol translation (request & response)
 │   ├── auth.py              # API key validation + time-based access rules
 │   ├── provider.py          # Provider/model resolution, sticky routing
 │   ├── provider_limiter.py  # Provider/key disable, reenable, usage limit detection

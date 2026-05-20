@@ -10,7 +10,10 @@ ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、AP
 
 - 支持智谱、DeepSeek、Ollama、MiniMax 以及任意 OpenAI 兼容接口
 - 提供 OpenAI 兼容代理接口：`/v1/chat/completions`、`/v1/embeddings`、`/v1/models`
+- 提供 Anthropic 兼容代理接口：`/anthropic/v1/messages`，完整协议转换（流式、工具调用、思考模式、缓存控制）
 - 按供应商维度做 asyncio 信号量并发控制和限流
+- 供应商多 Key 支持，粘性路由和 Key 级别禁用/恢复
+- 供应商 Key 自动降级：401/403/429 错误时自动尝试下一个 Key
 - API Key 管理及按 Key 分配可用模型
 - 流式请求生命周期追踪：`pending` -> `success` / `error` / `timeout`
 - 记录上游真实 HTTP 状态码（200、429、500 等）
@@ -126,6 +129,19 @@ CREATE DATABASE "modelgate" OWNER "modelgate";
 - `POST /v1/embeddings` - 文本向量
 - `GET /v1/models` - 查询可用模型列表
 
+### Anthropic 兼容接口
+
+- `POST /anthropic/v1/messages` - Anthropic Messages API（支持流式和非流式）
+
+ModelGate 将 Anthropic 协议请求翻译为 OpenAI 格式发送给上游供应商，并将响应翻译回 Anthropic 格式。支持特性：
+
+- 流式和非流式响应
+- 工具调用（function calling），支持并行工具调用控制
+- 扩展思考模式（thinking），含签名透传
+- 缓存控制（`cache_control` 标记，支持 system、user、assistant、tool_result 块）
+- 系统提示词支持结构化内容块
+- 请求日志中记录 `inbound_protocol` 字段，支持协议级分析
+
 ### 模型命名格式
 
 ```text
@@ -185,6 +201,16 @@ ModelGate 内置 MCP（Model Context Protocol）服务器，支持微信 iLink �
 
 超过 30 天的日志自动归档到 `request_logs_history`。`request_logs_all` 视图联合两张表，对外透明查询。
 
+## 供应商 Key 自动降级
+
+当供应商配置了多个 API Key 时，如果当前 Key 调用失败，ModelGate 会自动尝试下一个 Key：
+
+- **可重试错误**：HTTP 401（认证失败）、403（禁止访问）、429（限流）、529（过载）
+- 每次请求时 Key 随机打乱，实现均匀分布
+- 粘性路由优先——如果粘性 Key 可用，只使用该 Key
+- 并发受限的 Key 会被跳过（带警告日志），尝试下一个可用 Key
+- 降级尝试日志以 `[KEY FALLBACK]` 前缀记录
+
 ## 定时任务
 
 | 任务 | 执行周期 | 说明 |
@@ -208,6 +234,7 @@ modelgate/
 │   └── log_sanitizer.py     # 日志敏感信息脱敏
 ├── routes/
 │   ├── proxy.py             # /v1/chat/completions、/v1/embeddings、/v1/models
+│   ├── anthropic_proxy.py   # /anthropic/v1/messages — Anthropic 协议代理
 │   ├── auth.py              # 管理员登录/登出
 │   ├── providers.py         # 供应商增删改查
 │   ├── models.py            # 模型增删改查
@@ -222,7 +249,9 @@ modelgate/
 │   ├── system_config.py     # 系统配置（出站 UA 管理）
 │   └── weixin.py            # 微信 MCP 服务端点
 ├── services/
-│   ├── proxy.py             # 核心代理逻辑、流式处理、供应商分发
+│   ├── proxy.py             # 核心代理逻辑、流式处理、供应商分发、Key 自动降级
+│   ├── proxy_runtime/       # 运行时辅助：SSE、MiniMax、消息预处理
+│   ├── anthropic_inbound.py # Anthropic↔OpenAI 协议转换（请求与响应）
 │   ├── auth.py              # API Key 验证 + 时段访问规则校验
 │   ├── provider.py          # 供应商/模型解析
 │   ├── scheduler.py         # APScheduler 定时任务
