@@ -45,12 +45,17 @@ class AnthropicAdapter(ProviderAdapter):
             anthropic_body["temperature"] = body["temperature"]
         if "top_p" in body:
             anthropic_body["top_p"] = body["top_p"]
+        if "top_k" in body:
+            anthropic_body["top_k"] = body["top_k"]
         if "stop" in body:
             anthropic_body["stop_sequences"] = (
                 body["stop"]
                 if isinstance(body["stop"], list)
                 else [body["stop"]]
             )
+        thinking = body.get("thinking")
+        if isinstance(thinking, dict):
+            anthropic_body["thinking"] = thinking
 
         messages = body.get("messages", [])
         system_parts: list[dict] = []
@@ -65,18 +70,33 @@ class AnthropicAdapter(ProviderAdapter):
                     for block in content:
                         if isinstance(block, dict):
                             text = block.get("text", "")
-                        else:
-                            text = str(block)
-                        if text:
-                            system_parts.append({"type": "text", "text": text})
+                            if text:
+                                entry: dict = {"type": "text", "text": text}
+                                if block.get("cache_control"):
+                                    entry["cache_control"] = block["cache_control"]
+                                system_parts.append(entry)
+                        elif isinstance(block, str) and block:
+                            system_parts.append({"type": "text", "text": block})
                 elif isinstance(content, str) and content:
                     system_parts.append({"type": "text", "text": content})
                 continue
 
             if role == "user":
-                anthropic_messages.append(
-                    {"role": role, "content": self._convert_content(content)}
-                )
+                new_content = self._convert_content(content)
+                # Merge into the previous user message if there is one. This
+                # collapses (tool_result_user, text_user) pairs that the
+                # inbound translator emits — Anthropic rejects consecutive
+                # same-role messages.
+                if (
+                    anthropic_messages
+                    and anthropic_messages[-1].get("role") == "user"
+                    and isinstance(anthropic_messages[-1].get("content"), list)
+                ):
+                    anthropic_messages[-1]["content"].extend(new_content)
+                else:
+                    anthropic_messages.append(
+                        {"role": role, "content": new_content}
+                    )
             elif role == "assistant":
                 assistant_content = self._convert_content(content)
                 assistant_content.extend(
@@ -86,36 +106,30 @@ class AnthropicAdapter(ProviderAdapter):
                     {"role": role, "content": assistant_content}
                 )
             elif role == "tool":
-                tool_result_content = []
+                tool_result_content: list[dict] = []
                 if isinstance(content, str):
                     tool_result_content.append(
                         {"type": "text", "text": content}
                     )
                 elif isinstance(content, list):
                     tool_result_content = content
+                tool_result_block: dict = {
+                    "type": "tool_result",
+                    "tool_use_id": msg.get("tool_call_id", ""),
+                    "content": tool_result_content,
+                }
+                if msg.get("cache_control"):
+                    tool_result_block["cache_control"] = msg["cache_control"]
+                if msg.get("is_error"):
+                    tool_result_block["is_error"] = True
                 if anthropic_messages and anthropic_messages[-1].get("role") == "user":
                     existing = anthropic_messages[-1].get("content", [])
                     if isinstance(existing, list):
-                        existing.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": msg.get("tool_call_id", ""),
-                                "content": tool_result_content,
-                            }
-                        )
+                        existing.append(tool_result_block)
                         anthropic_messages[-1]["content"] = existing
                 else:
                     anthropic_messages.append(
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "tool_result",
-                                    "tool_use_id": msg.get("tool_call_id", ""),
-                                    "content": tool_result_content,
-                                }
-                            ],
-                        }
+                        {"role": "user", "content": [tool_result_block]}
                     )
 
         if system_parts:
@@ -134,6 +148,15 @@ class AnthropicAdapter(ProviderAdapter):
             anthropic_body["tool_choice"] = self._convert_tool_choice(
                 body["tool_choice"]
             )
+        if body.get("parallel_tool_calls") is False:
+            tc = anthropic_body.get("tool_choice")
+            if isinstance(tc, dict):
+                tc["disable_parallel_tool_use"] = True
+            else:
+                anthropic_body["tool_choice"] = {
+                    "type": "auto",
+                    "disable_parallel_tool_use": True,
+                }
 
         return anthropic_body
 
@@ -173,7 +196,7 @@ class AnthropicAdapter(ProviderAdapter):
                 return [{"type": "text", "text": content}]
             return []
         if isinstance(content, list):
-            result = []
+            result: list[dict] = []
             for block in content:
                 if isinstance(block, str):
                     if block:
@@ -181,35 +204,35 @@ class AnthropicAdapter(ProviderAdapter):
                 elif isinstance(block, dict):
                     block_type = block.get("type", "")
                     if block_type == "text":
-                        result.append(
-                            {"type": "text", "text": block.get("text", "")}
-                        )
+                        entry: dict = {"type": "text", "text": block.get("text", "")}
+                        if block.get("cache_control"):
+                            entry["cache_control"] = block["cache_control"]
+                        result.append(entry)
                     elif block_type == "image_url":
                         url = block.get("image_url", {}).get("url", "")
                         if url.startswith("data:"):
                             parts = url.split(",", 1)
                             media_type = parts[0].split(";")[0].split(":")[1]
                             data = parts[1] if len(parts) > 1 else ""
-                            result.append(
-                                {
-                                    "type": "image",
-                                    "source": {
-                                        "type": "base64",
-                                        "media_type": media_type,
-                                        "data": data,
-                                    },
-                                }
-                            )
+                            img: dict = {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": media_type,
+                                    "data": data,
+                                },
+                            }
                         else:
-                            result.append(
-                                {
-                                    "type": "image",
-                                    "source": {
-                                        "type": "url",
-                                        "url": url,
-                                    },
-                                }
-                            )
+                            img = {
+                                "type": "image",
+                                "source": {
+                                    "type": "url",
+                                    "url": url,
+                                },
+                            }
+                        if block.get("cache_control"):
+                            img["cache_control"] = block["cache_control"]
+                        result.append(img)
                     elif block_type == "thinking":
                         result.append(
                             {
@@ -217,8 +240,6 @@ class AnthropicAdapter(ProviderAdapter):
                                 "thinking": block.get("thinking", ""),
                             }
                         )
-                    elif block_type == "text":
-                        result.append(block)
             return result
         return []
 
@@ -300,13 +321,22 @@ class AnthropicAdapter(ProviderAdapter):
             }
         ]
 
-        usage = resp_json.get("usage", {})
-        openai_resp["usage"] = {
-            "prompt_tokens": usage.get("input_tokens", 0),
-            "completion_tokens": usage.get("output_tokens", 0),
-            "total_tokens": usage.get("input_tokens", 0)
-            + usage.get("output_tokens", 0),
+        usage = resp_json.get("usage", {}) or {}
+        input_tokens = int(usage.get("input_tokens", 0) or 0)
+        output_tokens = int(usage.get("output_tokens", 0) or 0)
+        usage_out: dict = {
+            "prompt_tokens": input_tokens,
+            "completion_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
         }
+        cache_read = usage.get("cache_read_input_tokens")
+        cache_creation = usage.get("cache_creation_input_tokens")
+        if cache_read:
+            usage_out["cache_read_input_tokens"] = int(cache_read)
+            usage_out.setdefault("prompt_tokens_details", {})["cached_tokens"] = int(cache_read)
+        if cache_creation:
+            usage_out["cache_creation_input_tokens"] = int(cache_creation)
+        openai_resp["usage"] = usage_out
 
         return openai_resp
 
@@ -449,12 +479,23 @@ class AnthropicAdapter(ProviderAdapter):
             stop_reason = delta.get("stop_reason", "")
             usage_delta = event.get("usage", {})
             if usage_delta:
-                context["usage"] = {
-                    "input_tokens": (context.get("usage") or {}).get(
-                        "input_tokens", 0
+                prev = context.get("usage") or {}
+                merged_usage: dict = {
+                    "input_tokens": usage_delta.get(
+                        "input_tokens", prev.get("input_tokens", 0)
                     ),
-                    "output_tokens": usage_delta.get("output_tokens", 0),
+                    "output_tokens": usage_delta.get(
+                        "output_tokens", prev.get("output_tokens", 0)
+                    ),
                 }
+                for key in (
+                    "cache_creation_input_tokens",
+                    "cache_read_input_tokens",
+                ):
+                    val = usage_delta.get(key) or prev.get(key)
+                    if val:
+                        merged_usage[key] = val
+                context["usage"] = merged_usage
             finish_reason = self._convert_stop_reason(stop_reason) if stop_reason else None
             chunk = self._build_openai_stream_chunk(
                 context,
@@ -493,13 +534,21 @@ class AnthropicAdapter(ProviderAdapter):
     def _convert_usage(self, usage: dict | None) -> dict | None:
         if not usage:
             return None
-        input_tokens = usage.get("input_tokens", 0)
-        output_tokens = usage.get("output_tokens", 0)
-        return {
+        input_tokens = int(usage.get("input_tokens", 0) or 0)
+        output_tokens = int(usage.get("output_tokens", 0) or 0)
+        out: dict = {
             "prompt_tokens": input_tokens,
             "completion_tokens": output_tokens,
             "total_tokens": input_tokens + output_tokens,
         }
+        cache_read = usage.get("cache_read_input_tokens")
+        cache_creation = usage.get("cache_creation_input_tokens")
+        if cache_read:
+            out["cache_read_input_tokens"] = int(cache_read)
+            out.setdefault("prompt_tokens_details", {})["cached_tokens"] = int(cache_read)
+        if cache_creation:
+            out["cache_creation_input_tokens"] = int(cache_creation)
+        return out
 
     def transform_stream_done(self) -> str:
         return "data: [DONE]\n\n"

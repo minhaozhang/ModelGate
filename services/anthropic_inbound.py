@@ -39,17 +39,22 @@ def anthropic_to_openai_request(body: dict[str, Any]) -> dict[str, Any]:
         openai_body["stream"] = body["stream"]
     if "stop_sequences" in body:
         openai_body["stop"] = body["stop_sequences"]
+    if "thinking" in body:
+        openai_body["thinking"] = body["thinking"]
+    if "service_tier" in body:
+        openai_body["service_tier"] = body["service_tier"]
 
     metadata = body.get("metadata")
     if isinstance(metadata, dict):
         user_id = metadata.get("user_id")
         if user_id:
             openai_body["user"] = user_id
+        openai_body["_anthropic_metadata"] = metadata
 
     messages: list[dict[str, Any]] = []
-    system_text = _flatten_system(body.get("system"))
-    if system_text:
-        messages.append({"role": "system", "content": system_text})
+    system_content = _convert_system(body.get("system"))
+    if system_content:
+        messages.append({"role": "system", "content": system_content})
 
     for msg in body.get("messages", []) or []:
         if not isinstance(msg, dict):
@@ -74,26 +79,62 @@ def anthropic_to_openai_request(body: dict[str, Any]) -> dict[str, Any]:
         converted = _convert_anthropic_tool_choice(tool_choice)
         if converted is not None:
             openai_body["tool_choice"] = converted
+        if isinstance(tool_choice, dict) and tool_choice.get("disable_parallel_tool_use"):
+            openai_body["parallel_tool_calls"] = False
 
     return openai_body
 
 
-def _flatten_system(system: Any) -> str:
+def _convert_system(system: Any) -> Any:
+    """Convert Anthropic ``system`` to an OpenAI ``content`` value.
+
+    If any system block carries ``cache_control`` we preserve the structured list
+    form so a downstream Anthropic adapter can reattach the cache markers.
+    Otherwise we fold to a plain joined string (what OpenAI providers expect).
+    """
     if system is None:
         return ""
     if isinstance(system, str):
         return system
-    if isinstance(system, list):
-        parts: list[str] = []
+    if not isinstance(system, list):
+        return ""
+
+    has_cache_control = any(
+        isinstance(b, dict) and b.get("cache_control") for b in system
+    )
+
+    if has_cache_control:
+        blocks: list[dict[str, Any]] = []
         for block in system:
-            if isinstance(block, dict):
-                if block.get("type") == "text":
-                    text = block.get("text", "")
-                    if text:
-                        parts.append(text)
+            if isinstance(block, dict) and block.get("type") == "text":
+                entry: dict[str, Any] = {"type": "text", "text": block.get("text", "")}
+                if block.get("cache_control"):
+                    entry["cache_control"] = block["cache_control"]
+                blocks.append(entry)
             elif isinstance(block, str) and block:
-                parts.append(block)
-        return "\n\n".join(parts)
+                blocks.append({"type": "text", "text": block})
+        return blocks
+
+    parts: list[str] = []
+    for block in system:
+        if isinstance(block, dict) and block.get("type") == "text":
+            text = block.get("text", "")
+            if text:
+                parts.append(text)
+        elif isinstance(block, str) and block:
+            parts.append(block)
+    return "\n\n".join(parts)
+
+
+def _flatten_system(system: Any) -> str:
+    """Backwards-compat helper that always returns a string."""
+    converted = _convert_system(system)
+    if isinstance(converted, str):
+        return converted
+    if isinstance(converted, list):
+        return "\n\n".join(
+            b.get("text", "") for b in converted if isinstance(b, dict)
+        )
     return ""
 
 
@@ -117,50 +158,80 @@ def _convert_user_message(content: Any) -> list[dict[str, Any]]:
         if block_type == "text":
             text = block.get("text", "")
             if text:
-                content_parts.append({"type": "text", "text": text})
+                entry: dict[str, Any] = {"type": "text", "text": text}
+                if block.get("cache_control"):
+                    entry["cache_control"] = block["cache_control"]
+                content_parts.append(entry)
         elif block_type == "image":
             converted = _convert_anthropic_image(block)
             if converted:
+                if block.get("cache_control"):
+                    converted["cache_control"] = block["cache_control"]
                 content_parts.append(converted)
         elif block_type == "tool_result":
             tool_results.append(block)
 
     result: list[dict[str, Any]] = []
+
+    # Tool results MUST precede the new user text so they sit directly after the
+    # assistant tool_calls message — OpenAI providers reject otherwise.
+    for tr in tool_results:
+        result.append(_convert_tool_result(tr))
+
     if content_parts:
-        if len(content_parts) == 1 and content_parts[0]["type"] == "text":
+        has_cache = any(p.get("cache_control") for p in content_parts)
+        if (
+            len(content_parts) == 1
+            and content_parts[0]["type"] == "text"
+            and not has_cache
+        ):
             result.append({"role": "user", "content": content_parts[0]["text"]})
         else:
             result.append({"role": "user", "content": content_parts})
-
-    for tr in tool_results:
-        result.append(_convert_tool_result(tr))
 
     return result
 
 
 def _convert_tool_result(block: dict[str, Any]) -> dict[str, Any]:
     raw = block.get("content", "")
+    structured: list[dict[str, Any]] | None = None
+
     if isinstance(raw, str):
         text = raw
     elif isinstance(raw, list):
         text_parts: list[str] = []
+        structured = []
+        has_image = False
         for sub in raw:
             if isinstance(sub, dict):
                 if sub.get("type") == "text":
                     text_parts.append(sub.get("text", ""))
+                    structured.append({"type": "text", "text": sub.get("text", "")})
                 elif sub.get("type") == "image":
+                    has_image = True
+                    img = _convert_anthropic_image(sub)
+                    if img:
+                        structured.append(img)
                     text_parts.append("[image]")
             elif isinstance(sub, str):
                 text_parts.append(sub)
+                structured.append({"type": "text", "text": sub})
         text = "\n".join(p for p in text_parts if p)
+        if not has_image:
+            structured = None  # plain text — collapse
     else:
         text = json.dumps(raw, ensure_ascii=False)
 
-    return {
+    msg: dict[str, Any] = {
         "role": "tool",
         "tool_call_id": block.get("tool_use_id", ""),
-        "content": text,
+        "content": structured if structured else text,
     }
+    if block.get("cache_control"):
+        msg["cache_control"] = block["cache_control"]
+    if block.get("is_error"):
+        msg["is_error"] = True
+    return msg
 
 
 def _convert_assistant_message(content: Any) -> list[dict[str, Any]]:
@@ -171,6 +242,7 @@ def _convert_assistant_message(content: Any) -> list[dict[str, Any]]:
 
     text_parts: list[str] = []
     reasoning_parts: list[str] = []
+    thinking_signature: str = ""
     tool_calls: list[dict[str, Any]] = []
 
     for block in content:
@@ -181,6 +253,9 @@ def _convert_assistant_message(content: Any) -> list[dict[str, Any]]:
             text_parts.append(block.get("text", ""))
         elif block_type == "thinking":
             reasoning_parts.append(block.get("thinking", ""))
+            sig = block.get("signature")
+            if sig:
+                thinking_signature = sig
         elif block_type == "tool_use":
             tool_input = block.get("input", {})
             if isinstance(tool_input, dict):
@@ -200,11 +275,28 @@ def _convert_assistant_message(content: Any) -> list[dict[str, Any]]:
 
     msg: dict[str, Any] = {"role": "assistant"}
     joined_text = "".join(text_parts)
-    msg["content"] = joined_text if joined_text else None
-    if reasoning_parts:
-        msg["reasoning_content"] = "".join(reasoning_parts)
+    joined_reasoning = "".join(reasoning_parts)
+
     if tool_calls:
+        # OpenAI spec allows content=None when tool_calls is present.
+        msg["content"] = joined_text if joined_text else None
         msg["tool_calls"] = tool_calls
+    elif joined_text:
+        msg["content"] = joined_text
+    elif joined_reasoning:
+        # No visible text and no tool_calls — strict providers (Kimi/Moonshot)
+        # reject assistant turns with empty content. Fall back to the reasoning
+        # text so the turn is preserved without shifting message indices.
+        msg["content"] = joined_reasoning
+    else:
+        # Truly empty assistant turn (e.g. content=[] from a truncated response):
+        # drop it instead of emitting an invalid empty message.
+        return []
+
+    if joined_reasoning:
+        msg["reasoning_content"] = joined_reasoning
+    if thinking_signature:
+        msg["reasoning_signature"] = thinking_signature
     return [msg]
 
 
@@ -324,10 +416,19 @@ def openai_to_anthropic_response(
             )
 
     usage_in = resp.get("usage") or {}
-    usage_out = {
+    usage_out: dict[str, int] = {
         "input_tokens": int(usage_in.get("prompt_tokens", 0) or 0),
         "output_tokens": int(usage_in.get("completion_tokens", 0) or 0),
     }
+    prompt_details = usage_in.get("prompt_tokens_details") or {}
+    if isinstance(prompt_details, dict):
+        cached = prompt_details.get("cached_tokens") or 0
+        if cached:
+            usage_out["cache_read_input_tokens"] = int(cached)
+    # Some upstreams (anthropic adapter passthrough) put native cache counts here.
+    for key in ("cache_creation_input_tokens", "cache_read_input_tokens"):
+        if usage_in.get(key):
+            usage_out[key] = int(usage_in[key])
 
     return {
         "id": msg_id,
@@ -447,14 +548,16 @@ class AnthropicStreamTranslator:
       message_stop
     """
 
-    def __init__(self, requested_model: str):
+    def __init__(self, requested_model: str, estimated_input_tokens: int = 0):
         self._model = requested_model
         self._msg_id = f"msg_{uuid.uuid4().hex[:24]}"
         self._started = False
         self._closed = False
         self._stop_reason = "end_turn"
-        self._prompt_tokens = 0
+        self._prompt_tokens = int(estimated_input_tokens or 0)
         self._completion_tokens = 0
+        self._cache_creation_tokens = 0
+        self._cache_read_tokens = 0
 
         self._current_block_type: str | None = None
         self._current_block_index = -1
@@ -469,6 +572,14 @@ class AnthropicStreamTranslator:
         if self._started:
             return []
         self._started = True
+        usage: dict[str, int] = {
+            "input_tokens": self._prompt_tokens,
+            "output_tokens": 0,
+        }
+        if self._cache_read_tokens:
+            usage["cache_read_input_tokens"] = self._cache_read_tokens
+        if self._cache_creation_tokens:
+            usage["cache_creation_input_tokens"] = self._cache_creation_tokens
         payload = {
             "type": "message_start",
             "message": {
@@ -479,7 +590,7 @@ class AnthropicStreamTranslator:
                 "model": self._model,
                 "stop_reason": None,
                 "stop_sequence": None,
-                "usage": {"input_tokens": 0, "output_tokens": 0},
+                "usage": usage,
             },
         }
         return [_format_sse_event("message_start", payload)]
@@ -495,6 +606,11 @@ class AnthropicStreamTranslator:
             self._completion_tokens = int(
                 usage.get("completion_tokens", self._completion_tokens) or 0
             )
+            details = usage.get("prompt_tokens_details") or {}
+            if isinstance(details, dict):
+                cached = details.get("cached_tokens")
+                if cached:
+                    self._cache_read_tokens = int(cached)
 
         choices = chunk.get("choices") or []
         if not choices:
@@ -536,6 +652,17 @@ class AnthropicStreamTranslator:
         if not self._started:
             events.extend(self.message_start_event())
         events.extend(self._close_current_block())
+        # message_delta carries cumulative usage; Anthropic spec allows
+        # input_tokens here so clients can recover the prompt count even when
+        # we did not know it at message_start time.
+        delta_usage: dict[str, int] = {
+            "input_tokens": self._prompt_tokens,
+            "output_tokens": self._completion_tokens,
+        }
+        if self._cache_read_tokens:
+            delta_usage["cache_read_input_tokens"] = self._cache_read_tokens
+        if self._cache_creation_tokens:
+            delta_usage["cache_creation_input_tokens"] = self._cache_creation_tokens
         events.append(
             _format_sse_event(
                 "message_delta",
@@ -545,7 +672,7 @@ class AnthropicStreamTranslator:
                         "stop_reason": self._stop_reason,
                         "stop_sequence": None,
                     },
-                    "usage": {"output_tokens": self._completion_tokens},
+                    "usage": delta_usage,
                 },
             )
         )
@@ -682,10 +809,14 @@ class AnthropicStreamTranslator:
 
 
 async def translate_openai_sse_stream(
-    source: AsyncIterator[bytes | str], requested_model: str
+    source: AsyncIterator[bytes | str],
+    requested_model: str,
+    estimated_input_tokens: int = 0,
 ) -> AsyncIterator[bytes]:
     """Consume an OpenAI SSE byte/str stream and yield Anthropic SSE bytes."""
-    translator = AnthropicStreamTranslator(requested_model)
+    translator = AnthropicStreamTranslator(
+        requested_model, estimated_input_tokens=estimated_input_tokens
+    )
     buffer = ""
 
     try:

@@ -122,12 +122,16 @@ async def _translate_non_streaming_response(
 
 
 def _translate_streaming_response(
-    response: StreamingResponse, requested_model: str
+    response: StreamingResponse,
+    requested_model: str,
+    estimated_input_tokens: int = 0,
 ) -> StreamingResponse:
     source = response.body_iterator
     headers = _strip_hop_headers(response.headers)
     return StreamingResponse(
-        translate_openai_sse_stream(source, requested_model),
+        translate_openai_sse_stream(
+            source, requested_model, estimated_input_tokens=estimated_input_tokens
+        ),
         status_code=response.status_code or 200,
         media_type="text/event-stream",
         headers=headers,
@@ -159,6 +163,11 @@ async def anthropic_messages(request: Request):
         )
 
     requested_model = anthropic_body.get("model", "") or ""
+    raw_messages = anthropic_body.get("messages")
+    if not isinstance(raw_messages, list) or not raw_messages:
+        return _anthropic_error_response(
+            "Field 'messages' must be a non-empty array", 400, "invalid_request_error"
+        )
 
     try:
         openai_body = anthropic_to_openai_request(anthropic_body)
@@ -172,6 +181,19 @@ async def anthropic_messages(request: Request):
         return _anthropic_error_response(
             "Missing 'model' field", 400, "invalid_request_error"
         )
+
+    # Pre-estimate input tokens so streaming message_start carries a sensible
+    # input_tokens value (OpenAI providers only send the real count at end-of-stream).
+    estimated_input_tokens = 0
+    if openai_body.get("stream"):
+        try:
+            from services.tokens import estimate_request_context_tokens
+
+            estimated_input_tokens = int(
+                estimate_request_context_tokens(openai_body) or 0
+            )
+        except Exception:  # noqa: BLE001
+            estimated_input_tokens = 0
 
     new_body = json.dumps(openai_body, ensure_ascii=False).encode("utf-8")
     new_headers = _normalize_auth_header(dict(request.headers))
@@ -191,7 +213,9 @@ async def anthropic_messages(request: Request):
         )
 
     if isinstance(proxied, StreamingResponse):
-        return _translate_streaming_response(proxied, requested_model)
+        return _translate_streaming_response(
+            proxied, requested_model, estimated_input_tokens=estimated_input_tokens
+        )
     return await _translate_non_streaming_response(proxied, requested_model)
 
 
