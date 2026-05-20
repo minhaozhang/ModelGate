@@ -77,6 +77,28 @@ def pick_api_key(
     return chosen["api_key"], chosen["id"]
 
 
+def pick_api_keys(
+    provider_config: dict, api_key_id: int | None, provider_name: str
+) -> list[tuple[str, int | None]]:
+    keys = provider_config.get("api_keys") or []
+    if not keys:
+        fallback = provider_config.get("api_key") or ""
+        if fallback:
+            return [(fallback, None)]
+        return []
+    if api_key_id is not None:
+        sticky = _key_sticky_map.get((api_key_id, provider_name))
+        if sticky:
+            key_id, ts = sticky
+            if time.monotonic() - ts < KEY_STICKY_TTL_SECONDS:
+                for k in keys:
+                    if k["id"] == key_id:
+                        return [(k["api_key"], k["id"])]
+    shuffled = list(keys)
+    random.shuffle(shuffled)
+    return [(k["api_key"], k["id"]) for k in shuffled]
+
+
 async def invalidate_provider_key_sticky_cache(
     provider_name: str,
     provider_key_id: int,

@@ -45,6 +45,13 @@ def _is_rate_limited_status(status_code: int) -> bool:
     return status_code in (429, 529)
 
 
+KEY_RETRYABLE_STATUSES = (401, 403, 429, 529)
+
+
+def _is_key_retryable_status(status_code: int) -> bool:
+    return status_code in KEY_RETRYABLE_STATUSES
+
+
 def _resolve_request_status(status_code: int, provider_error: str | None = None) -> str:
     if _is_rate_limited_status(status_code):
         return RATE_LIMITED_STATUS

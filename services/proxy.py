@@ -4,6 +4,7 @@ import time
 import uuid
 
 from fastapi import Request
+from fastapi.responses import Response, StreamingResponse
 
 from core.config import (
     providers_cache,
@@ -20,7 +21,7 @@ from services.provider import (
     get_provider_and_model,
     get_model_config,
     get_disabled_provider_reason,
-    pick_api_key,
+    pick_api_keys,
 )
 from services.auth import validate_api_key
 from services.logging import create_request_log
@@ -48,6 +49,7 @@ from services.proxy_runtime import (
     log_request_info,
     schedule_api_key_last_used_update,
 )
+from services.proxy_runtime.response_handler import _is_key_retryable_status
 from services.proxy_runtime.adapters import get_adapter
 
 
@@ -232,10 +234,10 @@ async def proxy_request(request: Request, endpoint: str):
 
     entered_handler = False
     try:
-        chosen_api_key, chosen_key_id = pick_api_key(
+        all_keys = pick_api_keys(
             provider_config, api_key_id, provider_name
         )
-        if not chosen_api_key:
+        if not all_keys:
             reasons = provider_config.get("disabled_key_reasons") or []
             msg = f"供应商 '{provider_name}' 无可用的 API Key"
             if reasons:
@@ -247,112 +249,6 @@ async def proxy_request(request: Request, endpoint: str):
                 "no_api_key",
                 headers=busyness_headers or None,
             )
-
-        if chosen_key_id is not None:
-            provider_key_sem_key, provider_key_semaphore = _get_or_create_provider_key_semaphore(
-                chosen_key_id,
-                provider_name,
-                _get_provider_key_limit(provider_config, chosen_key_id),
-            )
-            try:
-                await asyncio.wait_for(
-                    provider_key_semaphore.acquire(),
-                    timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
-                )
-                acquired = True
-            except asyncio.TimeoutError:
-                message = (
-                    f"Provider key {chosen_key_id} for '{provider_name}' is at max concurrency"
-                )
-                logger.warning("[RATE LIMIT] %s at max concurrency", provider_key_sem_key)
-                update_stats(
-                    provider_name,
-                    actual_model,
-                    0,
-                    api_key_id=api_key_id,
-                    is_rate_limited=True,
-                )
-                await create_request_log(
-                    provider_name,
-                    actual_model,
-                    status=LOCAL_RATE_LIMITED_STATUS,
-                    api_key_id=api_key_id,
-                    client_ip=client_ip,
-                    user_agent=user_agent,
-                    request_context_tokens=estimate_request_context_tokens(body_json),
-                    latency_ms=(time.time() - start_time) * 1000,
-                    upstream_status_code=429,
-                    downstream_status_code=429,
-                    error=message,
-                    inbound_protocol=inbound_protocol,
-                )
-                return _openai_error_response(
-                    message,
-                    429,
-                    "rate_limit_error",
-                    "provider_key_concurrency_reached",
-                    headers={
-                        **busyness_headers,
-                        "retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS),
-                    },
-                )
-
-            provider_model_key = f"{provider_name}/{actual_model}"
-            user_provider_model_sem_key, user_provider_model_semaphore = (
-                _get_or_create_user_provider_model_semaphore(
-                    api_key_id,
-                    chosen_key_id,
-                    provider_model_key,
-                    _get_user_provider_model_limit(),
-                )
-            )
-            try:
-                await asyncio.wait_for(
-                    user_provider_model_semaphore.acquire(),
-                    timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
-                )
-                user_provider_model_acquired = True
-            except asyncio.TimeoutError:
-                if acquired and provider_key_semaphore is not None:
-                    provider_key_semaphore.release()
-                    acquired = False
-                message = (
-                    f"User {api_key_id} already reached max concurrency for provider key {chosen_key_id} model '{provider_model_key}'"
-                )
-                logger.warning(
-                    "[RATE LIMIT] %s at max concurrency", user_provider_model_sem_key
-                )
-                update_stats(
-                    provider_name,
-                    actual_model,
-                    0,
-                    api_key_id=api_key_id,
-                    is_rate_limited=True,
-                )
-                await create_request_log(
-                    provider_name,
-                    actual_model,
-                    status=LOCAL_RATE_LIMITED_STATUS,
-                    api_key_id=api_key_id,
-                    client_ip=client_ip,
-                    user_agent=user_agent,
-                    request_context_tokens=estimate_request_context_tokens(body_json),
-                    latency_ms=(time.time() - start_time) * 1000,
-                    upstream_status_code=429,
-                    downstream_status_code=429,
-                    error=message,
-                    inbound_protocol=inbound_protocol,
-                )
-                return _openai_error_response(
-                    message,
-                    429,
-                    "rate_limit_error",
-                    "user_provider_model_concurrency_reached",
-                    headers={
-                        **busyness_headers,
-                        "retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS),
-                    },
-                )
 
         model_config = get_model_config(provider_config, actual_model)
         body_json["model"] = actual_model
@@ -396,80 +292,214 @@ async def proxy_request(request: Request, endpoint: str):
         body = json.dumps(body_json).encode()
         request_context_tokens = estimate_request_context_tokens(body_json)
         adapter_endpoint = adapter.get_target_path(endpoint)
-        target_url = f"{provider_config['base_url']}{adapter_endpoint}"
-        headers = build_headers(provider_config, api_key=chosen_api_key, protocol=provider_config.get("protocol", "openai"))
-
-        _log_request_info(
-            provider_name,
-            actual_model,
-            auth_header,
-            messages,
-            is_multimodal,
-            stream,
-            target_url,
-            headers,
-            body,
-        )
-
-        stream_log_id = None
-        if stream:
-            stream_log_id = await create_request_log(
-                provider_name,
-                actual_model,
-                api_key_id=api_key_id,
-                client_ip=client_ip,
-                user_agent=user_agent,
-                request_context_tokens=request_context_tokens,
-                inbound_protocol=inbound_protocol,
-            )
-
-        client = get_http_client()
         provider_protocol = provider_config.get("protocol", "openai")
-        entered_handler = True
-        if stream:
-            return await handle_streaming(
-                target_url,
-                headers,
-                body,
-                provider_name,
-                actual_model,
-                messages,
-                start_time,
-                body_json,
-                api_key_id,
-                client_ip,
-                user_agent,
-                request_context_tokens,
-                provider_key_semaphore,
-                user_provider_model_semaphore,
-                request_id,
-                stream_log_id,
-                request,
-                chosen_key_id=chosen_key_id,
-                protocol=provider_protocol,
-                extra_response_headers=busyness_headers,
-            )
-        return await handle_normal(
-            client,
-            target_url,
-            headers,
-            body,
-            provider_name,
-            actual_model,
-            messages,
-            start_time,
-            body_json,
-            api_key_id,
-            client_ip,
-            user_agent,
-            request_context_tokens,
-            provider_key_semaphore,
-            user_provider_model_semaphore,
-            request_id,
-            chosen_key_id=chosen_key_id,
-            protocol=provider_protocol,
-            extra_response_headers=busyness_headers,
-        )
+
+        last_response = None
+        for attempt_idx, (chosen_api_key, chosen_key_id) in enumerate(all_keys):
+            target_url = f"{provider_config['base_url']}{adapter_endpoint}"
+            headers = build_headers(provider_config, api_key=chosen_api_key, protocol=provider_protocol)
+
+            if attempt_idx == 0:
+                _log_request_info(
+                    provider_name,
+                    actual_model,
+                    auth_header,
+                    messages,
+                    is_multimodal,
+                    stream,
+                    target_url,
+                    headers,
+                    body,
+                )
+
+            if chosen_key_id is not None:
+                provider_key_sem_key, provider_key_semaphore = _get_or_create_provider_key_semaphore(
+                    chosen_key_id,
+                    provider_name,
+                    _get_provider_key_limit(provider_config, chosen_key_id),
+                )
+                try:
+                    await asyncio.wait_for(
+                        provider_key_semaphore.acquire(),
+                        timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                    )
+                    acquired = True
+                except asyncio.TimeoutError:
+                    if attempt_idx < len(all_keys) - 1:
+                        logger.warning("[KEY FALLBACK] Key %s concurrency reached, trying next key", chosen_key_id)
+                        continue
+                    message = (
+                        f"Provider key {chosen_key_id} for '{provider_name}' is at max concurrency"
+                    )
+                    logger.warning("[RATE LIMIT] %s at max concurrency", provider_key_sem_key)
+                    update_stats(
+                        provider_name,
+                        actual_model,
+                        0,
+                        api_key_id=api_key_id,
+                        is_rate_limited=True,
+                    )
+                    await create_request_log(
+                        provider_name,
+                        actual_model,
+                        status=LOCAL_RATE_LIMITED_STATUS,
+                        api_key_id=api_key_id,
+                        client_ip=client_ip,
+                        user_agent=user_agent,
+                        request_context_tokens=estimate_request_context_tokens(body_json),
+                        latency_ms=(time.time() - start_time) * 1000,
+                        upstream_status_code=429,
+                        downstream_status_code=429,
+                        error=message,
+                        inbound_protocol=inbound_protocol,
+                    )
+                    return _openai_error_response(
+                        message,
+                        429,
+                        "rate_limit_error",
+                        "provider_key_concurrency_reached",
+                        headers={
+                            **busyness_headers,
+                            "retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS),
+                        },
+                    )
+
+                provider_model_key = f"{provider_name}/{actual_model}"
+                user_provider_model_sem_key, user_provider_model_semaphore = (
+                    _get_or_create_user_provider_model_semaphore(
+                        api_key_id,
+                        chosen_key_id,
+                        provider_model_key,
+                        _get_user_provider_model_limit(),
+                    )
+                )
+                try:
+                    await asyncio.wait_for(
+                        user_provider_model_semaphore.acquire(),
+                        timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                    )
+                    user_provider_model_acquired = True
+                except asyncio.TimeoutError:
+                    if acquired and provider_key_semaphore is not None:
+                        provider_key_semaphore.release()
+                        acquired = False
+                    if attempt_idx < len(all_keys) - 1:
+                        logger.warning("[KEY FALLBACK] Key %s user concurrency reached, trying next key", chosen_key_id)
+                        continue
+                    message = (
+                        f"User {api_key_id} already reached max concurrency for provider key {chosen_key_id} model '{provider_model_key}'"
+                    )
+                    logger.warning(
+                        "[RATE LIMIT] %s at max concurrency", user_provider_model_sem_key
+                    )
+                    update_stats(
+                        provider_name,
+                        actual_model,
+                        0,
+                        api_key_id=api_key_id,
+                        is_rate_limited=True,
+                    )
+                    await create_request_log(
+                        provider_name,
+                        actual_model,
+                        status=LOCAL_RATE_LIMITED_STATUS,
+                        api_key_id=api_key_id,
+                        client_ip=client_ip,
+                        user_agent=user_agent,
+                        request_context_tokens=estimate_request_context_tokens(body_json),
+                        latency_ms=(time.time() - start_time) * 1000,
+                        upstream_status_code=429,
+                        downstream_status_code=429,
+                        error=message,
+                        inbound_protocol=inbound_protocol,
+                    )
+                    return _openai_error_response(
+                        message,
+                        429,
+                        "rate_limit_error",
+                        "user_provider_model_concurrency_reached",
+                        headers={
+                            **busyness_headers,
+                            "retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS),
+                        },
+                    )
+
+            stream_log_id = None
+            if stream:
+                stream_log_id = await create_request_log(
+                    provider_name,
+                    actual_model,
+                    api_key_id=api_key_id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                    request_context_tokens=request_context_tokens,
+                    inbound_protocol=inbound_protocol,
+                )
+
+            client = get_http_client()
+            entered_handler = True
+            if stream:
+                response = await handle_streaming(
+                    target_url,
+                    headers,
+                    body,
+                    provider_name,
+                    actual_model,
+                    messages,
+                    start_time,
+                    body_json,
+                    api_key_id,
+                    client_ip,
+                    user_agent,
+                    request_context_tokens,
+                    provider_key_semaphore,
+                    user_provider_model_semaphore,
+                    request_id,
+                    stream_log_id,
+                    request,
+                    chosen_key_id=chosen_key_id,
+                    protocol=provider_protocol,
+                    extra_response_headers=busyness_headers,
+                )
+            else:
+                response = await handle_normal(
+                    client,
+                    target_url,
+                    headers,
+                    body,
+                    provider_name,
+                    actual_model,
+                    messages,
+                    start_time,
+                    body_json,
+                    api_key_id,
+                    client_ip,
+                    user_agent,
+                    request_context_tokens,
+                    provider_key_semaphore,
+                    user_provider_model_semaphore,
+                    request_id,
+                    chosen_key_id=chosen_key_id,
+                    protocol=provider_protocol,
+                    extra_response_headers=busyness_headers,
+                )
+
+            acquired = False
+            user_provider_model_acquired = False
+            provider_key_semaphore = None
+            user_provider_model_semaphore = None
+
+            if isinstance(response, Response) and not isinstance(response, StreamingResponse):
+                if _is_key_retryable_status(response.status_code) and attempt_idx < len(all_keys) - 1:
+                    logger.warning(
+                        "[KEY FALLBACK] Key %s returned status %d, trying next key",
+                        chosen_key_id, response.status_code,
+                    )
+                    last_response = response
+                    continue
+            return response
+
+        return last_response
     except Exception as e:
         if not entered_handler:
             if user_provider_model_acquired and user_provider_model_semaphore is not None:
