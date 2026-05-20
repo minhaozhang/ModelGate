@@ -1456,3 +1456,24 @@ msgstr "状态"
 msgid "Result"
 msgstr "结果"
 
+msgid "OpenAI Protocol"
+msgstr "OpenAI 协议"
+
+msgid "Anthropic Protocol"
+msgstr "Anthropic 协议"
+
+msgid "Python (Anthropic SDK)"
+msgstr "Python (Anthropic SDK)"
+
+msgid "Python (Streaming)"
+msgstr "Python (流式)"
+
+msgid "Tool Use (Function Calling)"
+msgstr "工具调用 (Function Calling)"
+
+msgid "Required Header"
+msgstr "必填 Header"
+
+msgid "The Anthropic endpoint translates requests to OpenAI format internally. All models registered in ModelGate can be used, just use <code class=\"bg-white px-1 py-0.5 rounded\">provider/model</code> as the model name."
+msgstr "Anthropic 端点会在内部将请求转换为 OpenAI 格式。ModelGate 中注册的所有模型均可使用，只需用 <code class=\"bg-white px-1 py-0.5 rounded\">provider/model</code> 作为模型名称即可。"
+

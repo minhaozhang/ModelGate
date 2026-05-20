@@ -409,10 +409,16 @@
         const ownModelPalette = ['#2563eb', '#0f766e', '#0891b2', '#1d4ed8', '#059669', '#0ea5e9', '#14b8a6', '#0284c7'];
         const systemModelPalette = ['#6366f1', '#06b6d4', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#f97316', '#14b8a6', '#ef4444', '#3b82f6'];
         
-        document.getElementById('proxy-url').textContent = baseUrl;
-        document.getElementById('base-python').textContent = baseUrl;
-        document.getElementById('base-js').textContent = baseUrl;
-        document.getElementById('base-curl').textContent = baseUrl;
+        document.getElementById('proxy-url-openai').textContent = baseUrl;
+        document.getElementById('base-python-openai').textContent = baseUrl;
+        document.getElementById('base-js-openai').textContent = baseUrl;
+        document.getElementById('base-curl-openai').textContent = baseUrl;
+        document.getElementById('proxy-url-anthropic').textContent = baseUrl;
+        document.getElementById('base-python-anthropic').textContent = baseUrl;
+        document.getElementById('base-python-anthropic-stream').textContent = baseUrl;
+        document.getElementById('base-python-tool').textContent = baseUrl;
+        document.getElementById('base-js-anthropic').textContent = baseUrl;
+        document.getElementById('base-curl-anthropic').textContent = baseUrl;
 
         function getThemeMode() {
             return localStorage.getItem('dashboard_theme') || 'dark';
@@ -1393,6 +1399,24 @@
         function copyCode(type) {
             const el = document.getElementById('code-' + type);
             navigator.clipboard.writeText(el.textContent).then(() => alert(window.I18N.copied));
+        }
+
+        function switchProtocol(proto) {
+            document.getElementById('proto-openai').classList.toggle('hidden', proto !== 'openai');
+            document.getElementById('proto-anthropic').classList.toggle('hidden', proto !== 'anthropic');
+            var tabOpenai = document.getElementById('proto-tab-openai');
+            var tabAnthropic = document.getElementById('proto-tab-anthropic');
+            if (proto === 'openai') {
+                tabOpenai.classList.add('border-blue-500', 'text-blue-600');
+                tabOpenai.classList.remove('border-transparent', 'text-gray-500');
+                tabAnthropic.classList.remove('border-blue-500', 'text-blue-600');
+                tabAnthropic.classList.add('border-transparent', 'text-gray-500');
+            } else {
+                tabAnthropic.classList.add('border-blue-500', 'text-blue-600');
+                tabAnthropic.classList.remove('border-transparent', 'text-gray-500');
+                tabOpenai.classList.remove('border-blue-500', 'text-blue-600');
+                tabOpenai.classList.add('border-transparent', 'text-gray-500');
+            }
         }
         
         async function logout() {
