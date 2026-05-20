@@ -4,7 +4,7 @@
   <img src="assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
 </p>
 
-ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、API Key 管控、请求日志、监控看板和用户仪表盘能力。
+ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、API Key 管控、请求日志、监控看板和用户仪表盘能力。适用于集团或企业内部统一管理和分配 AI 模型 Token，实现跨部门的模型调用管控与成本追踪。
 
 ## 核心特性
 

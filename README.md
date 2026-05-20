@@ -4,7 +4,7 @@
   <img src="assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
 </p>
 
-ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key management, request logging, and dashboard monitoring.
+ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key management, request logging, and dashboard monitoring. Designed for teams and organizations to centrally manage and distribute AI model access across departments.
 
 ## Highlights
 
