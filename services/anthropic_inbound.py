@@ -242,7 +242,7 @@ def _convert_assistant_message(content: Any) -> list[dict[str, Any]]:
 
     text_parts: list[str] = []
     reasoning_parts: list[str] = []
-    thinking_signature: str = ""
+    thinking_entries: list[tuple[str, str]] = []  # (thinking_text, signature)
     tool_calls: list[dict[str, Any]] = []
 
     for block in content:
@@ -252,10 +252,10 @@ def _convert_assistant_message(content: Any) -> list[dict[str, Any]]:
         if block_type == "text":
             text_parts.append(block.get("text", ""))
         elif block_type == "thinking":
-            reasoning_parts.append(block.get("thinking", ""))
-            sig = block.get("signature")
-            if sig:
-                thinking_signature = sig
+            txt = block.get("thinking", "")
+            reasoning_parts.append(txt)
+            sig = block.get("signature", "")
+            thinking_entries.append((txt, sig))
         elif block_type == "tool_use":
             tool_input = block.get("input", {})
             if isinstance(tool_input, dict):
@@ -295,8 +295,8 @@ def _convert_assistant_message(content: Any) -> list[dict[str, Any]]:
 
     if joined_reasoning:
         msg["reasoning_content"] = joined_reasoning
-    if thinking_signature:
-        msg["reasoning_signature"] = thinking_signature
+    if thinking_entries:
+        msg["reasoning_signature"] = thinking_entries
     return [msg]
 
 

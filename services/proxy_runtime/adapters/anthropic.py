@@ -98,7 +98,29 @@ class AnthropicAdapter(ProviderAdapter):
                         {"role": role, "content": new_content}
                     )
             elif role == "assistant":
-                assistant_content = self._convert_content(content)
+                rsig = msg.get("reasoning_signature")
+                if isinstance(rsig, list):
+                    sig_data = rsig
+                elif isinstance(rsig, str) and rsig:
+                    # Legacy single-signature format
+                    sig_data = [("", rsig)]
+                else:
+                    sig_data = None
+                assistant_content = self._convert_content(
+                    content, reasoning_signature=sig_data
+                )
+                # If reasoning_content is stored on the message but no
+                # thinking blocks were in the content array, reconstruct them.
+                if not any(
+                    isinstance(b, dict) and b.get("type") == "thinking"
+                    for b in (content if isinstance(content, list) else [])
+                ):
+                    rc = msg.get("reasoning_content")
+                    if rc:
+                        tb: dict = {"type": "thinking", "thinking": rc}
+                        if sig_data and sig_data[0][1]:
+                            tb["signature"] = sig_data[0][1]
+                        assistant_content.insert(0, tb)
                 assistant_content.extend(
                     self._convert_assistant_tool_calls(msg.get("tool_calls"))
                 )
@@ -190,13 +212,18 @@ class AnthropicAdapter(ProviderAdapter):
             )
         return result
 
-    def _convert_content(self, content) -> list[dict]:
+    def _convert_content(
+        self,
+        content,
+        reasoning_signature: list[tuple[str, str]] | None = None,
+    ) -> list[dict]:
         if isinstance(content, str):
             if content:
                 return [{"type": "text", "text": content}]
             return []
         if isinstance(content, list):
             result: list[dict] = []
+            sig_idx = 0
             for block in content:
                 if isinstance(block, str):
                     if block:
@@ -234,12 +261,16 @@ class AnthropicAdapter(ProviderAdapter):
                             img["cache_control"] = block["cache_control"]
                         result.append(img)
                     elif block_type == "thinking":
-                        result.append(
-                            {
-                                "type": "thinking",
-                                "thinking": block.get("thinking", ""),
-                            }
-                        )
+                        tb: dict = {
+                            "type": "thinking",
+                            "thinking": block.get("thinking", ""),
+                        }
+                        if reasoning_signature and sig_idx < len(reasoning_signature):
+                            _, sig = reasoning_signature[sig_idx]
+                            if sig:
+                                tb["signature"] = sig
+                            sig_idx += 1
+                        result.append(tb)
             return result
         return []
 
