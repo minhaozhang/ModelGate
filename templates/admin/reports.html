@@ -7,6 +7,7 @@
     <title>{{ _('Usage Report') }} - ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/output.css">
+    <script src="/static/js/date-picker.js"></script>
     <style>
         .nav-link { transition: all 0.2s; }
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
@@ -66,14 +67,10 @@
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
                 <section class="xl:col-span-2 bg-white rounded-lg shadow p-6">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ _('Create Report Task') }}</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                         <div>
-                            <label class="block text-sm text-gray-600 mb-1">{{ _('Start Date') }}</label>
-                            <input type="date" id="start-date" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full">
-                        </div>
-                        <div>
-                            <label class="block text-sm text-gray-600 mb-1">{{ _('End Date') }}</label>
-                            <input type="date" id="end-date" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full">
+                            <label class="block text-sm text-gray-600 mb-1">{{ _('Date Range') }}</label>
+                            <div id="report-date-picker"></div>
                         </div>
                         <div>
                             <button id="exclude-btn" onclick="openExcludeModal()" class="w-full border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm">
@@ -177,6 +174,7 @@
         let historyRefreshTimer = null;
         let currentTaskId = null;
         let reportTemplate = DEFAULT_TEMPLATE;
+        let reportDatePicker = null;
 
         function getThemeMode() {
             return localStorage.getItem('admin_theme') || 'dark';
@@ -469,12 +467,20 @@
         }
 
         async function generateReport() {
-            const startDate = document.getElementById('start-date').value;
-            const endDate = document.getElementById('end-date').value;
+            if (!reportDatePicker) {
+                showToast(window.I18N.pleaseSelectDates, 'info');
+                return;
+            }
+            const startDate = reportDatePicker.getStartDate();
+            const endDate = reportDatePicker.getEndDate();
             if (!startDate || !endDate) {
                 showToast(window.I18N.pleaseSelectDates, 'info');
                 return;
             }
+
+            function pad(n) { return String(n).padStart(2, '0'); }
+            const sd = `${startDate.getFullYear()}-${pad(startDate.getMonth()+1)}-${pad(startDate.getDate())}`;
+            const ed = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}`;
 
             const btn = document.getElementById('generate-btn');
             const btnText = document.getElementById('generate-btn-text');
@@ -487,8 +493,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        start_date: startDate,
-                        end_date: endDate,
+                        start_date: sd,
+                        end_date: ed,
                         exclude_api_key_ids: excludeIds,
                     }),
                 });
@@ -591,6 +597,11 @@
         loadTemplate();
         loadKeys();
         loadHistory();
+        reportDatePicker = MgDateRangePicker.create({
+            el: '#report-date-picker',
+            type: 'date',
+            placeholder: '{{ _("Select date range") }}'
+        });
     </script>
 </body>
 </html>

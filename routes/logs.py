@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, cast, Numeric
 
 from core.config import validate_session, providers_cache, logger
 from core.database import (
@@ -1427,6 +1427,109 @@ async def query_logs(
             "total": total,
             "page": page,
             "page_size": page_size,
+        }
+
+
+@router.get("/logs/aggregate")
+async def aggregate_logs(
+    provider: Optional[int] = None,
+    status: Optional[str] = None,
+    time_range: str = "24h",
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    _: bool = Depends(require_admin),
+):
+    now = datetime.now()
+
+    if start_time or end_time:
+        try:
+            dt_start = (
+                datetime.fromisoformat(start_time)
+                if start_time
+                else now - timedelta(days=7)
+            )
+            dt_end = datetime.fromisoformat(end_time) if end_time else now
+        except ValueError:
+            return {"rows": []}
+    else:
+        deltas = {
+            "1h": timedelta(hours=1),
+            "6h": timedelta(hours=6),
+            "24h": timedelta(hours=24),
+            "7d": timedelta(days=7),
+            "30d": timedelta(days=30),
+        }
+        dt_start = now - deltas.get(time_range, timedelta(hours=24))
+        dt_end = now
+
+    async with async_session_maker() as session:
+        base_where = [
+            RequestLog.created_at >= dt_start,
+            RequestLog.created_at <= dt_end,
+            RequestLog.latency_ms.is_not(None),
+        ]
+        if status:
+            base_where.append(RequestLog.status == status)
+        else:
+            base_where.append(RequestLog.status == "success")
+
+        q = (
+            select(
+                RequestLog.provider_id,
+                RequestLog.model,
+                func.count(RequestLog.id).label("request_count"),
+                func.round(cast(func.avg(RequestLog.latency_ms), Numeric), 2).label("avg_latency_ms"),
+                func.round(cast(func.max(RequestLog.latency_ms), Numeric), 2).label("max_latency_ms"),
+                func.round(cast(func.min(RequestLog.latency_ms), Numeric), 2).label("min_latency_ms"),
+                func.round(
+                    cast(
+                        func.avg(
+                            func.coalesce(RequestLog.tokens["prompt_tokens"].as_integer(), 0)
+                            + func.coalesce(RequestLog.tokens["completion_tokens"].as_integer(), 0)
+                        ),
+                        Numeric,
+                    ),
+                    1,
+                ).label("avg_tokens"),
+                func.sum(
+                    func.coalesce(RequestLog.tokens["prompt_tokens"].as_integer(), 0)
+                    + func.coalesce(RequestLog.tokens["completion_tokens"].as_integer(), 0)
+                ).label("total_tokens"),
+            )
+            .where(*base_where)
+            .group_by(RequestLog.provider_id, RequestLog.model)
+            .order_by(func.count(RequestLog.id).desc())
+        )
+
+        if provider:
+            q = q.where(RequestLog.provider_id == provider)
+
+        result = await session.execute(q)
+        rows = result.fetchall()
+
+        provider_ids = {r.provider_id for r in rows if r.provider_id}
+        provider_map = {}
+        if provider_ids:
+            p_result = await session.execute(
+                select(Provider.id, Provider.name).where(Provider.id.in_(provider_ids))
+            )
+            provider_map = {p[0]: p[1] for p in p_result.all()}
+
+        return {
+            "rows": [
+                {
+                    "provider_id": r.provider_id,
+                    "provider_name": provider_map.get(r.provider_id, "-"),
+                    "model": r.model,
+                    "request_count": r.request_count,
+                    "avg_latency_ms": float(r.avg_latency_ms) if r.avg_latency_ms else 0,
+                    "max_latency_ms": float(r.max_latency_ms) if r.max_latency_ms else 0,
+                    "min_latency_ms": float(r.min_latency_ms) if r.min_latency_ms else 0,
+                    "avg_tokens": float(r.avg_tokens) if r.avg_tokens else 0,
+                    "total_tokens": int(r.total_tokens) if r.total_tokens else 0,
+                }
+                for r in rows
+            ]
         }
 
 

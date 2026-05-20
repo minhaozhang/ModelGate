@@ -400,7 +400,7 @@
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.latency}</div>
-                                <div class="font-medium text-gray-800">${log.latency_ms ? `${formatNumber(Math.round(log.latency_ms))} ms` : '-'}</div>
+                                <div class="font-medium text-gray-800">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + ' s' : '-'}</div>
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.context}</div>

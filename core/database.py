@@ -28,6 +28,11 @@ DATABASE_URL = os.getenv(
     "postgresql+asyncpg://modelgate:change_me@localhost:5432/modelgate",
 )
 
+_search_path = os.getenv("DB_SEARCH_PATH")
+_connect_args = {}
+if _search_path:
+    _connect_args["server_settings"] = {"search_path": _search_path}
+
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
@@ -36,6 +41,7 @@ engine = create_async_engine(
     pool_size=20,
     max_overflow=30,
     pool_timeout=30,
+    connect_args=_connect_args,
 )
 async_session_maker = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False

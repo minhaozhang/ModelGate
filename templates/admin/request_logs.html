@@ -7,6 +7,7 @@
     <title>{{ _('Request Logs') }} - ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/output.css">
+    <script src="/static/js/date-picker.js"></script>
     <style>
         .nav-link { transition: all 0.2s; }
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
@@ -100,6 +101,9 @@
         body.theme-dark .detail-modal-header { border-color: #1f2937; }
         .detail-modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
         .detail-modal-body pre { white-space: pre-wrap; word-break: break-all; font-size: 0.8125rem; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+        body.theme-dark #agg-table-wrap thead tr { color: #94a3b8; border-color: #1f2937; }
+        body.theme-dark #agg-table-wrap tbody tr { border-color: #1f2937; }
+        body.theme-dark #agg-table-wrap tbody tr:hover { background: #1e293b !important; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -113,80 +117,148 @@
                 </button>
             {% endcall %}
 
-            <section class="bg-white rounded-xl shadow p-6 mb-6">
-                <div class="flex flex-wrap items-end gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('API Key') }}</label>
-                        <input id="filter-key" type="text" placeholder="{{ _('Key name') }}" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Model') }}</label>
-                        <input id="filter-model" type="text" placeholder="e.g. glm-5" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Provider') }}</label>
-                        <select id="filter-provider" class="border border-gray-200 rounded px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                            <option value="">{{ _('All') }}</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Status') }}</label>
-                        <select id="filter-status" class="border border-gray-200 rounded px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                            <option value="">{{ _('All') }}</option>
-                            <option value="success">success</option>
-                            <option value="error">error</option>
-                            <option value="rate_limited">rate_limited</option>
-                            <option value="local_rate_limited">local_rate_limited</option>
-                            <option value="timeout">timeout</option>
-                            <option value="cancelled">cancelled</option>
-                            <option value="pending">pending</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Time Range') }}</label>
-                        <div class="flex gap-2">
-                            <button class="time-btn active" data-range="1h" onclick="setTimeRange(this)">1h</button>
-                            <button class="time-btn" data-range="6h" onclick="setTimeRange(this)">6h</button>
-                            <button class="time-btn" data-range="24h" onclick="setTimeRange(this)">24h</button>
-                            <button class="time-btn" data-range="7d" onclick="setTimeRange(this)">7d</button>
-                            <button class="time-btn" data-range="custom" onclick="setTimeRange(this)">{{ _('Custom') }}</button>
-                        </div>
-                    </div>
-                    <div id="custom-range" class="hidden items-end gap-2">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Start Time') }}</label>
-                            <input id="filter-start" type="datetime-local" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('End Time') }}</label>
-                            <input id="filter-end" type="datetime-local" class="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                        </div>
-                    </div>
-                    <button onclick="loadLogs()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
-                        {{ _('Query') }}
-                    </button>
-                </div>
-            </section>
+            <div class="flex gap-2 mb-4">
+                <button id="view-tab-logs" onclick="switchView('logs')" class="px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-blue-600 text-white border-blue-600">{{ _('Request Logs') }}</button>
+                <button id="view-tab-aggregate" onclick="switchView('aggregate')" class="px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50">{{ _('Aggregate Stats') }}</button>
+            </div>
 
-            <section class="bg-white rounded-xl shadow">
-                <div class="p-6 border-b border-gray-200 flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-gray-800">{{ _('Query Results') }}</h3>
-                    <div id="result-meta" class="text-sm text-gray-500"></div>
-                </div>
-                <div id="logs-empty" class="hidden p-6 text-sm text-gray-500">{{ _('No logs found matching the current filters.') }}</div>
-                <div id="logs-loading" class="hidden p-6 flex items-center justify-center gap-3 text-sm text-gray-500">
-                    <div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25)"></div>
-                    {{ _('Loading...') }}
-                </div>
-                <div id="logs-list" class="divide-y divide-gray-200"></div>
-                <div id="pagination" class="p-4 border-t border-gray-200 flex items-center justify-between hidden">
-                    <div id="page-info" class="text-sm text-gray-500"></div>
-                    <div class="flex gap-2">
-                        <button id="prev-btn" onclick="prevPage()" class="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">{{ _('Previous') }}</button>
-                        <button id="next-btn" onclick="nextPage()" class="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">{{ _('Next') }}</button>
+            <div id="tab-logs">
+                <section class="bg-white rounded-xl shadow p-6 mb-6">
+                    <div class="flex flex-wrap items-end gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('API Key') }}</label>
+                            <input id="filter-key" type="text" placeholder="{{ _('Key name') }}" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Model') }}</label>
+                            <input id="filter-model" type="text" placeholder="e.g. glm-5" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Provider') }}</label>
+                            <select id="filter-provider" class="border border-gray-200 rounded px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                <option value="">{{ _('All') }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Status') }}</label>
+                            <select id="filter-status" class="border border-gray-200 rounded px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                <option value="">{{ _('All') }}</option>
+                                <option value="success">success</option>
+                                <option value="error">error</option>
+                                <option value="rate_limited">rate_limited</option>
+                                <option value="local_rate_limited">local_rate_limited</option>
+                                <option value="timeout">timeout</option>
+                                <option value="cancelled">cancelled</option>
+                                <option value="pending">pending</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Time Range') }}</label>
+                            <div class="flex gap-2">
+                                <button class="time-btn active" data-range="1h" onclick="setTimeRange(this)">1h</button>
+                                <button class="time-btn" data-range="6h" onclick="setTimeRange(this)">6h</button>
+                                <button class="time-btn" data-range="24h" onclick="setTimeRange(this)">24h</button>
+                                <button class="time-btn" data-range="7d" onclick="setTimeRange(this)">7d</button>
+                                <button class="time-btn" data-range="custom" onclick="setTimeRange(this)">{{ _('Custom') }}</button>
+                            </div>
+                        </div>
+                        <div id="logs-custom-range" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Custom Range') }}</label>
+                            <div id="logs-datetime-picker"></div>
+                        </div>
+                        <button onclick="loadLogs()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+                            {{ _('Query') }}
+                        </button>
                     </div>
-                </div>
-            </section>
+                </section>
+
+                <section id="logs-section" class="bg-white rounded-xl shadow">
+                    <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-800">{{ _('Query Results') }}</h3>
+                        <div id="result-meta" class="text-sm text-gray-500"></div>
+                    </div>
+                    <div id="logs-empty" class="hidden p-6 text-sm text-gray-500">{{ _('No logs found matching the current filters.') }}</div>
+                    <div id="logs-loading" class="hidden p-6 flex items-center justify-center gap-3 text-sm text-gray-500">
+                        <div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25)"></div>
+                        {{ _('Loading...') }}
+                    </div>
+                    <div id="logs-list" class="divide-y divide-gray-200"></div>
+                    <div id="pagination" class="p-4 border-t border-gray-200 flex items-center justify-between hidden">
+                        <div id="page-info" class="text-sm text-gray-500"></div>
+                        <div class="flex gap-2">
+                            <button id="prev-btn" onclick="prevPage()" class="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">{{ _('Previous') }}</button>
+                            <button id="next-btn" onclick="nextPage()" class="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">{{ _('Next') }}</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div id="tab-aggregate" class="hidden">
+                <section class="bg-white rounded-xl shadow p-6 mb-6">
+                    <div class="flex flex-wrap items-end gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Provider') }}</label>
+                            <select id="agg-provider" class="border border-gray-200 rounded px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                <option value="">{{ _('All') }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Status') }}</label>
+                            <select id="agg-status" class="border border-gray-200 rounded px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                <option value="">{{ _('All') }}</option>
+                                <option value="success">success</option>
+                                <option value="error">error</option>
+                                <option value="rate_limited">rate_limited</option>
+                                <option value="local_rate_limited">local_rate_limited</option>
+                                <option value="timeout">timeout</option>
+                                <option value="cancelled">cancelled</option>
+                                <option value="pending">pending</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Time Range') }}</label>
+                            <div class="flex gap-2">
+                                <button class="time-btn active" data-agg-range="24h" onclick="setAggRange(this)">24h</button>
+                                <button class="time-btn" data-agg-range="7d" onclick="setAggRange(this)">7d</button>
+                                <button class="time-btn" data-agg-range="30d" onclick="setAggRange(this)">30d</button>
+                                <button class="time-btn" data-agg-range="custom" onclick="setAggRange(this)">{{ _('Custom') }}</button>
+                            </div>
+                        </div>
+                        <div id="agg-custom-range" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Custom Range') }}</label>
+                            <div id="agg-date-picker"></div>
+                        </div>
+                        <button onclick="loadAggregate()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+                            {{ _('Query') }}
+                        </button>
+                    </div>
+                </section>
+
+                <section id="aggregate-section" class="bg-white rounded-xl shadow">
+                    <div id="agg-loading" class="hidden p-6 flex items-center justify-center gap-3 text-sm text-gray-500">
+                        <div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25)"></div>
+                        {{ _('Loading...') }}
+                    </div>
+                    <div id="agg-empty" class="hidden p-6 text-sm text-gray-500">{{ _('No data found for the selected time range.') }}</div>
+                    <div id="agg-table-wrap" class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 text-left text-gray-500">
+                                    <th class="px-6 py-3 font-medium">{{ _('Provider') }}</th>
+                                    <th class="px-6 py-3 font-medium">{{ _('Model') }}</th>
+                                    <th class="px-6 py-3 font-medium text-right">{{ _('Requests') }}</th>
+                                    <th class="px-6 py-3 font-medium text-right">{{ _('Avg Latency') }}</th>
+                                    <th class="px-6 py-3 font-medium text-right">{{ _('Max Latency') }}</th>
+                                    <th class="px-6 py-3 font-medium text-right">{{ _('Min Latency') }}</th>
+                                    <th class="px-6 py-3 font-medium text-right">{{ _('Avg Tokens') }}</th>
+                                    <th class="px-6 py-3 font-medium text-right">{{ _('Total Tokens') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agg-tbody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
         </main>
     </div>
 
@@ -219,6 +291,11 @@
         let totalRecords = 0;
         let currentRange = '1h';
         let currentPageSize = 50;
+        let currentView = 'logs';
+        let currentAggRange = '24h';
+
+        let logsDatePicker = null;
+        let aggDatePicker = null;
 
         function getThemeMode() {
             return localStorage.getItem('admin_theme') || 'dark';
@@ -261,17 +338,41 @@
         }
 
         function setTimeRange(btn) {
-            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#tab-logs .time-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentRange = btn.dataset.range;
-            const customEl = document.getElementById('custom-range');
+            const customEl = document.getElementById('logs-custom-range');
             if (currentRange === 'custom') {
                 customEl.classList.remove('hidden');
-                customEl.classList.add('flex');
+                if (!logsDatePicker) {
+                    logsDatePicker = MgDateRangePicker.create({
+                        el: '#logs-datetime-picker',
+                        type: 'date',
+                        placeholder: '{{ _("Select date range") }}'
+                    });
+                }
             } else {
                 customEl.classList.add('hidden');
-                customEl.classList.remove('flex');
                 loadLogs();
+            }
+        }
+
+        function setAggRange(btn) {
+            document.querySelectorAll('#tab-aggregate .time-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentAggRange = btn.dataset.aggRange;
+            const customEl = document.getElementById('agg-custom-range');
+            if (currentAggRange === 'custom') {
+                customEl.classList.remove('hidden');
+                if (!aggDatePicker) {
+                    aggDatePicker = MgDateRangePicker.create({
+                        el: '#agg-date-picker',
+                        type: 'date',
+                        placeholder: '{{ _("Select date range") }}'
+                    });
+                }
+            } else {
+                customEl.classList.add('hidden');
             }
         }
 
@@ -317,11 +418,11 @@
             const providerVal = document.getElementById('filter-provider').value;
             if (providerVal) params.set('provider', providerVal);
 
-            if (currentRange === 'custom') {
-                const startVal = document.getElementById('filter-start').value;
-                const endVal = document.getElementById('filter-end').value;
-                if (startVal) params.set('start_time', new Date(startVal).toISOString());
-                if (endVal) params.set('end_time', new Date(endVal).toISOString());
+            if (currentRange === 'custom' && logsDatePicker) {
+                const s = logsDatePicker.getStartISO();
+                const e = logsDatePicker.getEndISO();
+                if (s) params.set('start_time', s);
+                if (e) params.set('end_time', e);
             } else {
                 params.set('time_range', currentRange);
             }
@@ -372,7 +473,7 @@
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.latency}</div>
-                                <div class="font-medium text-gray-800">${log.latency_ms ? `${formatNumber(Math.round(log.latency_ms))} ms` : '-'}</div>
+                                <div class="font-medium text-gray-800">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + ' s' : '-'}</div>
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.tokens}</div>
@@ -488,16 +589,101 @@
             document.body.appendChild(overlay);
         }
 
+        function switchView(view) {
+            currentView = view;
+            const tabLogs = document.getElementById('tab-logs');
+            const tabAgg = document.getElementById('tab-aggregate');
+            const btnLogs = document.getElementById('view-tab-logs');
+            const btnAgg = document.getElementById('view-tab-aggregate');
+
+            if (view === 'logs') {
+                tabLogs.classList.remove('hidden');
+                tabAgg.classList.add('hidden');
+                btnLogs.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-blue-600 text-white border-blue-600';
+                btnAgg.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50';
+            } else {
+                tabLogs.classList.add('hidden');
+                tabAgg.classList.remove('hidden');
+                btnAgg.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-blue-600 text-white border-blue-600';
+                btnLogs.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50';
+                loadAggregate();
+            }
+        }
+
+        async function loadAggregate() {
+            const loading = document.getElementById('agg-loading');
+            const empty = document.getElementById('agg-empty');
+            const tbody = document.getElementById('agg-tbody');
+            const wrap = document.getElementById('agg-table-wrap');
+
+            loading.classList.remove('hidden');
+            empty.classList.add('hidden');
+            wrap.classList.add('hidden');
+            tbody.innerHTML = '';
+
+            try {
+                const provider = document.getElementById('agg-provider').value;
+                const status = document.getElementById('agg-status').value;
+                const params = new URLSearchParams();
+
+                if (currentAggRange === 'custom' && aggDatePicker) {
+                    const s = aggDatePicker.getStartISO();
+                    const e = aggDatePicker.getEndISO();
+                    if (s) params.set('start_time', s);
+                    if (e) params.set('end_time', e);
+                    else params.set('time_range', '24h');
+                } else {
+                    params.set('time_range', currentAggRange);
+                }
+
+                if (provider) params.set('provider', provider);
+                if (status) params.set('status', status);
+
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/aggregate?${params}`);
+                if (!data) return;
+
+                const rows = data.rows || [];
+                if (!rows.length) {
+                    empty.classList.remove('hidden');
+                    return;
+                }
+
+                wrap.classList.remove('hidden');
+                tbody.innerHTML = rows.map(r => `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-6 py-3 text-gray-800">${escapeHtml(r.provider_name)}</td>
+                        <td class="px-6 py-3 font-mono text-xs text-gray-700">${escapeHtml(r.model)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${formatNumber(r.request_count)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.avg_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.max_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.min_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${r.avg_tokens > 0 ? (r.avg_tokens / 1000).toFixed(1) + 'k' : '-'}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${r.total_tokens > 0 ? (r.total_tokens / 1000000).toFixed(2) + 'm' : '-'}</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load aggregate', e);
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
         async function loadProviders() {
             try {
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers`);
                 if (!data || !data.providers) return;
-                const select = document.getElementById('filter-provider');
+                const logsSelect = document.getElementById('filter-provider');
+                const aggSelect = document.getElementById('agg-provider');
                 data.providers.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.id;
-                    opt.textContent = p.name;
-                    select.appendChild(opt);
+                    const opt1 = document.createElement('option');
+                    opt1.value = p.id;
+                    opt1.textContent = p.name;
+                    logsSelect.appendChild(opt1);
+
+                    const opt2 = document.createElement('option');
+                    opt2.value = p.id;
+                    opt2.textContent = p.name;
+                    aggSelect.appendChild(opt2);
                 });
             } catch (e) { console.error('Failed to load providers', e); }
         }

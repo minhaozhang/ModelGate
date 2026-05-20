@@ -4,7 +4,7 @@
   <img src="assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
 </p>
 
-ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、API Key 管控、请求日志、监控看板和用户仪表盘能力。
+ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、API Key 管控、请求日志、监控看板和用户仪表盘能力。适用于集团或企业内部统一管理和分配 AI 模型 Token，实现跨部门的模型调用管控与成本追踪。
 
 ## 核心特性
 
@@ -70,8 +70,8 @@ Windows 可直接使用 `start.bat`，会提示选择日志级别并自动重启
 ### Docker Run
 
 ```bash
-docker build -t localhost:5002/modelgate:latest .
-docker push localhost:5002/modelgate:latest
+docker build -t your-registry:5002/modelgate:latest .
+docker push your-registry:5002/modelgate:latest
 
 docker run -d --name modelgate \
   -p 8765:8765 \
@@ -82,7 +82,7 @@ docker run -d --name modelgate \
   -v /opt/modelgate/reports:/app/reports \
   -v /opt/modelgate/uploads:/app/uploads/documents \
   --restart unless-stopped \
-  localhost:5002/modelgate:latest
+  your-registry:5002/modelgate:latest
 ```
 
 ### Docker Compose
@@ -250,6 +250,12 @@ modelgate/
 - 类型检查：`mypy main.py core/*.py --ignore-missing-imports`
 - 国际化编译：`pybabel compile -d locales`
 - 日志文件：`logs/proxy.log`、`logs/admin.log`、`logs/error.log`
+
+## 商业支持
+
+生产级集群部署、定制化集成或功能定制开发，请联系：
+
+**minhaozhang@henngtiansoft.com**
 
 ## License
 

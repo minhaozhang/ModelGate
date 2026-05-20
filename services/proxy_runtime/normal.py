@@ -146,7 +146,7 @@ async def handle_normal(
             is_rate_limited=request_status in RATE_LIMITED_STATUSES,
         )
         if not is_error and total_tokens > 0:
-            record_request_rate(total_tokens, latency)
+            record_request_rate(tokens_record.get('completion_tokens', 0), latency)
         log_response_meta(provider, model, response_meta)
         await create_request_log(
             provider,

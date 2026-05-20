@@ -174,7 +174,7 @@ async def _record_stream_result(
 
     if status == "success":
         update_stats(provider, model, total_tokens, api_key_id=api_key_id)
-        record_request_rate(total_tokens, latency)
+        record_request_rate(tokens_record.get('completion_tokens', 0), latency)
         updated = await update_request_log(
             log_id,
             response=total_content,

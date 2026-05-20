@@ -117,6 +117,9 @@ msgstr "总请求数"
 msgid "Total Tokens"
 msgstr "总 Token 数"
 
+msgid "Avg Tokens"
+msgstr "平均 Tokens"
+
 msgid "Req/sec"
 msgstr "请求/秒"
 
