@@ -168,6 +168,7 @@ async def shutdown():
 
 from routes import (
     proxy,
+    anthropic_proxy,
     auth,
     providers,
     models,
@@ -185,6 +186,7 @@ from routes import (
 )
 
 app.include_router(proxy.router)
+app.include_router(anthropic_proxy.router)
 app.include_router(auth.router)
 app.include_router(providers.router)
 app.include_router(models.router)

@@ -25,6 +25,7 @@ async def create_request_log(
     upstream_status_code: Optional[int] = None,
     downstream_status_code: Optional[int] = None,
     error: Optional[str] = None,
+    inbound_protocol: Optional[str] = None,
 ) -> int:
     async with async_session_maker() as session:
         provider_id = None
@@ -47,6 +48,7 @@ async def create_request_log(
             user_agent=user_agent,
             request_context_tokens=request_context_tokens,
             error=error,
+            inbound_protocol=inbound_protocol,
         )
         session.add(log)
         await session.commit()

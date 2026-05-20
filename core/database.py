@@ -210,6 +210,7 @@ class RequestLog(Base):
     downstream_status_code = Column(Integer, nullable=True)
     client_ip = Column(String(64), nullable=True)
     user_agent = Column(String(1024), nullable=True)
+    inbound_protocol = Column(String(20), nullable=True)
     error = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -238,6 +239,7 @@ class RequestLogHistory(Base):
     downstream_status_code = Column(Integer, nullable=True)
     client_ip = Column(String(64), nullable=True)
     user_agent = Column(String(1024), nullable=True)
+    inbound_protocol = Column(String(20), nullable=True)
     error = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, index=True)
     updated_at = Column(DateTime, nullable=True)
@@ -274,6 +276,7 @@ if request_logs_all_table is None:
         Column("downstream_status_code", Integer),
         Column("client_ip", String(64)),
         Column("user_agent", String(1024)),
+        Column("inbound_protocol", String(20)),
         Column("error", Text),
         Column("created_at", DateTime),
         Column("updated_at", DateTime),
@@ -733,6 +736,18 @@ async def init_db():
         )
         await conn.execute(
             text(
+                "ALTER TABLE request_logs "
+                "ADD COLUMN IF NOT EXISTS inbound_protocol VARCHAR(20)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE request_logs_history "
+                "ADD COLUMN IF NOT EXISTS inbound_protocol VARCHAR(20)"
+            )
+        )
+        await conn.execute(
+            text(
                 "ALTER TABLE provider_daily_stats "
                 "ADD COLUMN IF NOT EXISTS rate_limited INTEGER DEFAULT 0"
             )
@@ -851,12 +866,12 @@ async def init_db():
                 "CREATE VIEW request_logs_all AS "
                 "SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, "
                 "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
-                "error, created_at, updated_at "
+                "inbound_protocol, error, created_at, updated_at "
                 "FROM request_logs "
                 "UNION ALL "
                 "SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, "
                 "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
-                "error, created_at, updated_at "
+                "inbound_protocol, error, created_at, updated_at "
                 "FROM request_logs_history"
             )
         )

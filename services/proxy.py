@@ -161,6 +161,7 @@ async def proxy_request(request: Request, endpoint: str):
 
     model = body_json.get("model", "unknown")
     auth_header = request.headers.get("authorization", "")
+    inbound_protocol = request.headers.get("x-inbound-protocol", "openai") or "openai"
     api_key_id, auth_error = await validate_api_key(auth_header, model)
     if auth_error:
         return _openai_error_response(
@@ -283,6 +284,7 @@ async def proxy_request(request: Request, endpoint: str):
                     upstream_status_code=429,
                     downstream_status_code=429,
                     error=message,
+                    inbound_protocol=inbound_protocol,
                 )
                 return _openai_error_response(
                     message,
@@ -339,6 +341,7 @@ async def proxy_request(request: Request, endpoint: str):
                     upstream_status_code=429,
                     downstream_status_code=429,
                     error=message,
+                    inbound_protocol=inbound_protocol,
                 )
                 return _openai_error_response(
                     message,
@@ -417,6 +420,7 @@ async def proxy_request(request: Request, endpoint: str):
                 client_ip=client_ip,
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,
+                inbound_protocol=inbound_protocol,
             )
 
         client = get_http_client()
@@ -487,6 +491,7 @@ async def proxy_request(request: Request, endpoint: str):
             latency_ms=latency,
             downstream_status_code=502,
             error=str(e),
+            inbound_protocol=inbound_protocol,
         )
         error_logger.error(
             f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}\n"

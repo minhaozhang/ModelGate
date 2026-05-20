@@ -117,6 +117,7 @@ def _serialize_error_log(
         "tokens": log.tokens,
         "client_ip": log.client_ip,
         "user_agent": log.user_agent,
+        "inbound_protocol": getattr(log, "inbound_protocol", None),
         "response": log.response,
         "error": log.error,
         "created_at": log.created_at.isoformat(),
@@ -1056,6 +1057,7 @@ async def get_today_logs(_: bool = Depends(require_admin)):
                     "tokens": log.tokens,
                     "client_ip": log.client_ip,
                     "user_agent": log.user_agent,
+                    "inbound_protocol": getattr(log, "inbound_protocol", None),
                     "created_at": log.created_at.isoformat(),
                 }
                 for log in logs
@@ -1307,6 +1309,7 @@ async def get_all_logs(limit: int = 100, _: bool = Depends(require_admin)):
                     "tokens": log.tokens,
                     "client_ip": log.client_ip,
                     "user_agent": log.user_agent,
+                    "inbound_protocol": getattr(log, "inbound_protocol", None),
                     "created_at": log.created_at.isoformat(),
                     "response": log.response,
                     "error": log.error,
