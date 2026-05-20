@@ -76,8 +76,8 @@ Windows helper: `start.bat` prompts for log level and restarts the service on po
 ### Docker Run
 
 ```bash
-docker build -t localhost:5002/modelgate:latest .
-docker push localhost:5002/modelgate:latest
+docker build -t your-registry:5002/modelgate:latest .
+docker push your-registry:5002/modelgate:latest
 
 docker run -d --name modelgate \
   -p 8765:8765 \
@@ -88,7 +88,7 @@ docker run -d --name modelgate \
   -v /opt/modelgate/reports:/app/reports \
   -v /opt/modelgate/uploads:/app/uploads/documents \
   --restart unless-stopped \
-  localhost:5002/modelgate:latest
+  your-registry:5002/modelgate:latest
 ```
 
 ### Docker Compose
@@ -288,6 +288,12 @@ modelgate/
 - Type check: `mypy main.py core/*.py --ignore-missing-imports`
 - i18n compile: `pybabel compile -d locales`
 - Logs: `logs/proxy.log`, `logs/admin.log`, `logs/error.log`
+
+## Commercial Support
+
+For production-grade cluster deployment, custom integration, or tailored feature development, contact:
+
+**minhaozhang@henngtiansoft.com**
 
 ## License
 

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, cast, Numeric
 
 from core.config import validate_session, providers_cache, logger
 from core.database import (
@@ -1433,6 +1433,7 @@ async def query_logs(
 @router.get("/logs/aggregate")
 async def aggregate_logs(
     provider: Optional[int] = None,
+    status: Optional[str] = None,
     time_range: str = "24h",
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
@@ -1465,25 +1466,35 @@ async def aggregate_logs(
         base_where = [
             RequestLog.created_at >= dt_start,
             RequestLog.created_at <= dt_end,
-            RequestLog.status == "success",
             RequestLog.latency_ms.is_not(None),
         ]
+        if status:
+            base_where.append(RequestLog.status == status)
+        else:
+            base_where.append(RequestLog.status == "success")
 
         q = (
             select(
                 RequestLog.provider_id,
                 RequestLog.model,
                 func.count(RequestLog.id).label("request_count"),
-                func.round(func.avg(RequestLog.latency_ms), 2).label("avg_latency_ms"),
-                func.round(func.max(RequestLog.latency_ms), 2).label("max_latency_ms"),
-                func.round(func.min(RequestLog.latency_ms), 2).label("min_latency_ms"),
+                func.round(cast(func.avg(RequestLog.latency_ms), Numeric), 2).label("avg_latency_ms"),
+                func.round(cast(func.max(RequestLog.latency_ms), Numeric), 2).label("max_latency_ms"),
+                func.round(cast(func.min(RequestLog.latency_ms), Numeric), 2).label("min_latency_ms"),
                 func.round(
-                    func.avg(
-                        func.coalesce(RequestLog.prompt_tokens, 0)
-                        + func.coalesce(RequestLog.completion_tokens, 0)
+                    cast(
+                        func.avg(
+                            func.coalesce(RequestLog.tokens["prompt_tokens"].as_integer(), 0)
+                            + func.coalesce(RequestLog.tokens["completion_tokens"].as_integer(), 0)
+                        ),
+                        Numeric,
                     ),
                     1,
                 ).label("avg_tokens"),
+                func.sum(
+                    func.coalesce(RequestLog.tokens["prompt_tokens"].as_integer(), 0)
+                    + func.coalesce(RequestLog.tokens["completion_tokens"].as_integer(), 0)
+                ).label("total_tokens"),
             )
             .where(*base_where)
             .group_by(RequestLog.provider_id, RequestLog.model)
@@ -1502,7 +1513,7 @@ async def aggregate_logs(
             p_result = await session.execute(
                 select(Provider.id, Provider.name).where(Provider.id.in_(provider_ids))
             )
-            provider_map = {p.id: p.name for p in p_result.scalars().all()}
+            provider_map = {p[0]: p[1] for p in p_result.all()}
 
         return {
             "rows": [
@@ -1515,6 +1526,7 @@ async def aggregate_logs(
                     "max_latency_ms": float(r.max_latency_ms) if r.max_latency_ms else 0,
                     "min_latency_ms": float(r.min_latency_ms) if r.min_latency_ms else 0,
                     "avg_tokens": float(r.avg_tokens) if r.avg_tokens else 0,
+                    "total_tokens": int(r.total_tokens) if r.total_tokens else 0,
                 }
                 for r in rows
             ]

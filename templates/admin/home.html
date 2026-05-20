@@ -127,6 +127,10 @@
                     <div id="total-rate-limited" class="metric-flip text-3xl font-bold leading-none text-sky-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Disabled Providers') }}</div>
+                    <div id="disabled-providers" class="metric-flip text-3xl font-bold leading-none text-rose-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>
                     <div id="error-rate" class="metric-flip text-3xl font-bold leading-none text-purple-600">0%</div>
                 </div>
@@ -137,22 +141,22 @@
                         <h3 class="text-sm md:text-base lg:text-lg font-semibold">{{ _('Active Users') }}</h3>
                         <span id="active-count" class="text-xs text-gray-500">0</span>
                     </div>
-                    <div id="active-sessions" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No active users') }}</div>
+                    <div id="active-sessions" class="space-y-2 text-sm" style="height: 400px; overflow-y: auto;">{{ _('No active users') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
                         <h3 class="text-sm md:text-base lg:text-lg font-semibold text-orange-600">{{ _('Slow Requests (>60s)') }}</h3>
                         <span id="slow-count" class="text-xs text-gray-500">0</span>
                     </div>
-                    <div id="slow-requests" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;">{{ _('No slow requests') }}</div>
+                    <div id="slow-requests" class="space-y-2 text-sm" style="height: 400px; overflow-y: auto;">{{ _('No slow requests') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <h3 class="text-sm md:text-base lg:text-lg font-semibold mb-3">{{ _('Provider Usage') }} <span id="provider-usage-count" class="text-sm font-normal text-gray-500"></span></h3>
-                    <div id="provider-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
+                    <div id="provider-bars" class="space-y-2 text-sm" style="height: 400px; overflow-y: auto;"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <h3 class="text-sm md:text-base lg:text-lg font-semibold mb-3">{{ _('API Key Usage') }} <span id="apikey-usage-count" class="text-sm font-normal text-gray-500"></span></h3>
-                    <div id="apikey-bars" class="space-y-2 text-sm" style="height: 280px; overflow-y: auto;"></div>
+                    <div id="apikey-bars" class="space-y-2 text-sm" style="height: 400px; overflow-y: auto;"></div>
                 </div>
             </div>
             <div class="bg-white rounded-lg shadow p-5 mb-6">
@@ -270,6 +274,7 @@
             renderProviderBars(data.providers || {}, liveData.disabled_providers || {});
             renderApiKeyBars(data.api_keys || {});
             renderBusyness(busynessData);
+            flipCounter('disabled-providers', (busynessData && busynessData.disabled_providers) || 0);
             loadChart();
         }
         function maskName(name) {
@@ -299,9 +304,9 @@
             label.textContent = (data.label || '--');
             const parts = [];
             if (data.user_provider_model_limit != null) parts.push('{{ _("User Concurrency Limit") }}: ' + data.user_provider_model_limit);
-            if (data.disabled_providers > 0) parts.push(data.disabled_providers + ' {{ _("providers limited") }}');
-            if (data.active_users_10min > 0) parts.push(data.active_users_10min + ' {{ _("active users") }}');
-            if (data.rate_429_ratio > 0) parts.push('429: ' + (data.rate_429_ratio * 100).toFixed(1) + '%');
+            parts.push(data.disabled_providers + ' {{ _("providers limited") }}');
+            parts.push(data.active_users_10min + ' {{ _("active users") }}');
+            parts.push('429: ' + (data.rate_429_ratio * 100).toFixed(1) + '%');
             detail.textContent = parts.join(' · ');
         }
         function getTokenChartScale(requestValues, tokenValues) {

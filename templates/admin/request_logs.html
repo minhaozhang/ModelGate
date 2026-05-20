@@ -251,6 +251,7 @@
                                     <th class="px-6 py-3 font-medium text-right">{{ _('Max Latency') }}</th>
                                     <th class="px-6 py-3 font-medium text-right">{{ _('Min Latency') }}</th>
                                     <th class="px-6 py-3 font-medium text-right">{{ _('Avg Tokens') }}</th>
+                                    <th class="px-6 py-3 font-medium text-right">{{ _('Total Tokens') }}</th>
                                 </tr>
                             </thead>
                             <tbody id="agg-tbody"></tbody>
@@ -656,7 +657,8 @@
                         <td class="px-6 py-3 text-right text-gray-800">${(r.avg_latency_ms / 1000).toFixed(2)} s</td>
                         <td class="px-6 py-3 text-right text-gray-800">${(r.max_latency_ms / 1000).toFixed(2)} s</td>
                         <td class="px-6 py-3 text-right text-gray-800">${(r.min_latency_ms / 1000).toFixed(2)} s</td>
-                        <td class="px-6 py-3 text-right text-gray-800">${r.avg_tokens > 0 ? Math.round(r.avg_tokens).toLocaleString() : '-'}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${r.avg_tokens > 0 ? (r.avg_tokens / 1000).toFixed(1) + 'k' : '-'}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${r.total_tokens > 0 ? (r.total_tokens / 1000000).toFixed(2) + 'm' : '-'}</td>
                     </tr>
                 `).join('');
             } catch (e) {
