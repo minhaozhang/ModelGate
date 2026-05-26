@@ -1,35 +1,54 @@
 INTENT_RULES = [
-    ("develop", {
+    ("coding", {
         "keywords": [
             "function", "def ", "class ", "import ", "const ", "let ",
             "return", "console.log", "print(", "async ", "await ",
-            "```python", "```javascript", "```java", "```go",
+            "```python", "```javascript", "```java", "```go", "```cpp",
             "bug", "fix", "debug", "compile", "runtime error",
-            "git ", "npm ", "pip ", "cargo ", "API endpoint",
-            "refactor", "unit test", "code review",
+            "git ", "npm ", "pip ", "cargo ", "maven", "gradle",
+            "API endpoint", "REST API", "webhook", "sdk",
+            "refactor", "code review", "CRUD", "database",
+            "algorithm", "data structure", "leetcode",
         ],
         "system_hint": [
-            "you are a", "programming", "coding assistant",
-            "developer", "software engineer",
+            "programming", "coding assistant", "developer",
+            "software engineer", "backend", "frontend", "fullstack",
         ],
     }),
-    ("document", {
+    ("writing", {
         "keywords": [
             "write a", "draft", "report", "summary", "outline",
             "article", "blog", "essay", "proposal", "memo",
             "translate", "rewrite", "paraphrase", "polish",
             "grammar", "spelling", "proofread",
+            "email", "letter", "document", "whitepaper",
         ],
         "system_hint": [
-            "you are a writer", "copywriter", "editor",
+            "writer", "copywriter", "editor", "translator",
+            "content creator", "technical writer",
         ],
     }),
-    ("test", {
+    ("testing", {
         "keywords": [
-            "test case", "unit test", "integration test",
-            "pytest", "jest", "junit", "assert",
-            "coverage", "mock", "stub", "fixture",
-            "qa", "regression", "validation",
+            "test case", "unit test", "integration test", "e2e test",
+            "pytest", "jest", "junit", "assert", "test suite",
+            "coverage", "mock", "stub", "fixture", "benchmark",
+            "qa", "regression", "validation", "load test", "stress test",
+        ],
+        "system_hint": [
+            "qa engineer", "tester", "quality assurance",
+        ],
+    }),
+    ("design", {
+        "keywords": [
+            "UI", "UX", "wireframe", "mockup", "prototype",
+            "Figma", "Sketch", "Photoshop", "illustration",
+            "logo", "icon", "color palette", "typography",
+            "layout", "responsive", "component",
+            "user flow", "design system", "brand",
+        ],
+        "system_hint": [
+            "designer", "UI/UX", "graphic designer", "product designer",
         ],
     }),
 ]

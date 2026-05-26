@@ -406,6 +406,17 @@
             return map[status] || 'badge-cancelled';
         }
 
+        function getIntentBadgeClass(intent) {
+            const map = {
+                coding: 'bg-blue-100 text-blue-700',
+                writing: 'bg-amber-100 text-amber-700',
+                testing: 'bg-rose-100 text-rose-700',
+                design: 'bg-purple-100 text-purple-700',
+                chat: 'bg-gray-100 text-gray-600',
+            };
+            return map[intent] || 'bg-gray-100 text-gray-600';
+        }
+
         function buildQueryUrl(page) {
             const params = new URLSearchParams();
             const keyName = document.getElementById('filter-key').value.trim();
@@ -455,7 +466,10 @@
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.status}</div>
-                                <span class="badge ${badgeClass}">${escapeHtml(log.status)}</span>
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="badge ${badgeClass}">${escapeHtml(log.status)}</span>
+                                    ${log.intent ? `<span class="inline-block text-[10px] px-1.5 py-0.5 rounded-full font-medium ${getIntentBadgeClass(log.intent)}">${escapeHtml(log.intent)}</span>` : ''}
+                                </div>
                             </div>
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.provider}</div>
@@ -464,7 +478,6 @@
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.model}</div>
                                 <div class="font-medium text-gray-800 break-all">${escapeHtml(log.model || '-')}${log.inbound_protocol && log.inbound_protocol !== 'openai' ? ` <span class="inline-block text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">${escapeHtml(log.inbound_protocol)}</span>` : ''}</div>
-                                ${log.intent ? `<span class="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 mt-0.5">${escapeHtml(log.intent)}</span>` : ''}
                                 ${log.requested_model && log.requested_model !== log.model ? `<div class="text-xs text-blue-500 mt-0.5">→ ${escapeHtml(log.requested_model)}</div>` : ''}
                                 ${log.provider_key_label ? `<div class="text-xs text-gray-400 mt-0.5">Key: ${escapeHtml(log.provider_key_label)}</div>` : ''}
                                 <div class="text-xs text-gray-500 mt-1">${window.I18N.apiKey}: ${escapeHtml(log.api_key || '-')}</div>
