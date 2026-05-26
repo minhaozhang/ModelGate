@@ -165,11 +165,13 @@ ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0;
 
 2. 如果不包含 "/" → 走别名匹配
    a. 遍历 providers_cache，找所有 ProviderModel.alias == "gpt-4o" 的记录
-   b. 收集候选: [(provider_name, provider_config, model_config, key_health_score, priority), ...]
+   b. 收集候选: [(provider_name, provider_config, model_config, key_health_score, priority, tag_match), ...]
    c. 过滤: 排除 provider 已禁用、model 已禁用、无可用 key 的
-   d. 排序: 按 (key_health_score DESC, priority DESC) 排序
-   e. 选第一个 → provider_name, actual_model
-   f. 如果无匹配 → 返回错误 "No provider available for model 'gpt-4o'"
+   d. 计算意图: classify_intent(messages) → intent (如 "develop")
+   e. tag_match: 候选模型的 Model.tags 包含 intent → 1，否则 → 0
+   f. 排序: 按 (tag_match DESC, key_health_score DESC, priority DESC) 排序
+   g. 选第一个 → provider_name, actual_model
+   h. 如果无匹配 → 返回错误 "No provider available for model 'gpt-4o'"
 ```
 
 ### 2.4 别名索引
@@ -177,11 +179,11 @@ ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0;
 别名匹配需要高效查找。在 `load_providers` 时构建内存索引：
 
 ```python
-# alias_index: {alias: [(provider_name, pm_dict, priority), ...]}
-_alias_index: dict[str, list[tuple[str, dict, int]]] = {}
+# alias_index: {alias: [(provider_name, pm_dict, model_tags, priority), ...]}
+_alias_index: dict[str, list[tuple[str, dict, str, int]]] = {}
 ```
 
-`load_providers` 时重建索引。
+`load_providers` 时重建索引，同时附带 Model.tags 供意图匹配使用。
 
 ### 2.5 API 变更
 
@@ -244,7 +246,115 @@ Response: {
 用户侧：
 - 用户 Dashboard 的可用模型列表按别名展示
 - 标签显示为小 badge（来自 Model.tags）
-- 标签显示为小 badge
+
+### 2.7 上下文意图分类
+
+根据请求 messages 内容自动判断用户用途（develop/document/test/chat），用于：
+1. **实时路由**：别名匹配时，优先选标签匹配的供应商（如写代码 → 优先 develop 标签的模型）
+2. **事后记录**：分类结果写入 request_logs，用于统计和展示
+
+#### 分类规则（关键词匹配，无需调 LLM）
+
+```python
+INTENT_RULES = [
+    ("develop", {
+        "keywords": ["function", "def ", "class ", "import ", "const ", "let ",
+                      "return", "console.log", "print(", "async ", "await ",
+                      "```python", "```javascript", "```java", "```go",
+                      "bug", "fix", "debug", "compile", "runtime error",
+                      "git ", "npm ", "pip ", "cargo ", "API endpoint",
+                      "refactor", "unit test", "code review"],
+        "system_hint": ["you are a", "programming", "coding assistant",
+                        "developer", "software engineer"],
+    }),
+    ("document", {
+        "keywords": ["write a", "draft", "report", "summary", "outline",
+                      "article", "blog", "essay", "proposal", "memo",
+                      "translate", "rewrite", "paraphrase", "polish",
+                      "grammar", "spelling", "proofread"],
+        "system_hint": ["you are a writer", "copywriter", "editor"],
+    }),
+    ("test", {
+        "keywords": ["test case", "unit test", "integration test",
+                      "pytest", "jest", "junit", "assert",
+                      "coverage", "mock", "stub", "fixture",
+                      "qa", "regression", "validation"],
+    }),
+]
+
+DEFAULT_INTENT = "chat"
+```
+
+#### 分类算法
+
+```python
+def classify_intent(messages: list[dict]) -> str:
+    """
+    1. 取 system message（如有），检查 system_hint 匹配
+    2. 取最近 3 条 user/assistant message，检查 keywords 匹配
+    3. 统计各 intent 命中数，取最高
+    4. 都没命中 → "chat"
+    """
+    scores = {intent: 0 for intent in INTENT_RULES}
+    
+    for msg in messages:
+        role = msg.get("role", "")
+        content = (msg.get("content") or "").lower()
+        
+        if role == "system":
+            for intent, rules in INTENT_RULES:
+                for hint in rules.get("system_hint", []):
+                    if hint in content:
+                        scores[intent] += 3  # system prompt 权重高
+        
+        if role in ("user", "assistant"):
+            for intent, rules in INTENT_RULES:
+                for kw in rules.get("keywords", []):
+                    if kw.lower() in content:
+                        scores[intent] += 1
+    
+    best = max(scores, key=scores.get)
+    if scores[best] == 0:
+        return DEFAULT_INTENT
+    return best
+```
+
+#### 路由集成
+
+别名匹配排序改为三级：
+
+```
+排序: (tag_match DESC, key_health_score DESC, priority DESC)
+```
+
+`tag_match`：候选模型的 tags 包含当前请求意图 → 1，否则 → 0。
+
+即：同别名多供应商时，标签匹配 + 健康度高 + 优先级高的胜出。
+
+#### 日志记录
+
+`request_logs` 增加字段：
+
+```sql
+ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS intent VARCHAR(20);
+```
+
+每次请求写入 `intent` 分类结果。
+
+#### API Key 级别偏好
+
+`api_keys` 表增加可选字段：
+
+```sql
+ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS preferred_tags TEXT;
+```
+
+用户 API Key 可设置偏好标签（如 `develop,flash`），分类后优先匹配用户偏好。
+
+#### Admin 前端
+
+- 请求日志列表：显示意图 badge（develop 绿 / document 蓝 / test 橙 / chat 灰）
+- API Key 管理：增加偏好标签输入
 
 ---
 
@@ -392,5 +502,5 @@ Phase 1 和 Phase 3 可以并行开发，Phase 2 依赖 Phase 1。
 | 变更 | 影响文件 |
 |---|---|
 | Key 健康度 | 新增 `services/key_health.py`；修改 `response_handler.py`, `provider_limiter.py`, `provider.py`, `providers.py` (Admin route) |
-| 模型别名/标签 | 修改 `core/database.py`, `provider.py`, `provider_models.py`, `models.py` (Admin route), 前端模板 |
+| 模型别名/标签/意图分类 | 修改 `core/database.py`, `provider.py`, `provider_models.py`, `models.py` (Admin route), `proxy.py`, `logging.py`, 新增 `services/intent_classifier.py`, 前端模板 |
 | 请求内容日志 | 修改 `core/database.py`, `services/logging.py`, `routes/logs.py`, 前端模板 |
