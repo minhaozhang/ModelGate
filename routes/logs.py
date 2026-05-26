@@ -1064,6 +1064,11 @@ async def get_today_logs(_: bool = Depends(require_admin)):
                     "client_ip": log.client_ip,
                     "user_agent": log.user_agent,
                     "inbound_protocol": getattr(log, "inbound_protocol", None),
+                    "intent": getattr(log, "intent", None),
+                    "requested_model": getattr(log, "requested_model", None),
+                    "actual_model": getattr(log, "actual_model", None),
+                    "provider_key_id": getattr(log, "provider_key_id", None),
+                    "provider_key_label": getattr(log, "provider_key_label", None),
                     "created_at": log.created_at.isoformat(),
                 }
                 for log in logs
@@ -1316,6 +1321,11 @@ async def get_all_logs(limit: int = 100, _: bool = Depends(require_admin)):
                     "client_ip": log.client_ip,
                     "user_agent": log.user_agent,
                     "inbound_protocol": getattr(log, "inbound_protocol", None),
+                    "intent": getattr(log, "intent", None),
+                    "requested_model": getattr(log, "requested_model", None),
+                    "actual_model": getattr(log, "actual_model", None),
+                    "provider_key_id": getattr(log, "provider_key_id", None),
+                    "provider_key_label": getattr(log, "provider_key_label", None),
                     "created_at": log.created_at.isoformat(),
                     "response": log.response,
                     "error": log.error,

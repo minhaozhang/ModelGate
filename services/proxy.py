@@ -569,6 +569,8 @@ async def proxy_request(request: Request, endpoint: str):
             intent=request_intent,
             requested_model=requested_model,
             actual_model=actual_model,
+            provider_key_id=chosen_key_id,
+            provider_key_label=_get_key_label(provider_config, chosen_key_id),
         )
         error_logger.error(
             f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}\n"
