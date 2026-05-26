@@ -403,7 +403,7 @@ async def proxy_request(request: Request, endpoint: str):
                         api_key_id,
                         chosen_key_id,
                         provider_model_key,
-                        _get_user_provider_model_limit(),
+                        _get_user_provider_model_limit(bypass_busyness),
                     )
                 )
                 try:

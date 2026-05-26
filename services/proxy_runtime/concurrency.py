@@ -41,7 +41,9 @@ def _get_or_create_scoped_semaphore(
     return sem_key, semaphore
 
 
-def _get_user_provider_model_limit() -> int:
+def _get_user_provider_model_limit(bypass_busyness: bool = False) -> int:
+    if bypass_busyness:
+        return 9999
     from core.config import busyness_state
     level = busyness_state.get("level", 6)
     if level >= 5:
