@@ -1114,16 +1114,16 @@
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
             document.getElementById('total-prompt-tokens').textContent = formatCompactTokens(data.total_prompt_tokens || 0);
             document.getElementById('total-completion-tokens').textContent = formatCompactTokens(data.total_completion_tokens || 0);
-            document.getElementById('total-errors').textContent = data.total_errors;
-            const cost = data.estimated_cost || 0;
-            const costEl = document.getElementById('estimated-cost');
-            const costNote = document.getElementById('estimated-cost-note');
-            if (cost > 0) {
-                costEl.textContent = cost >= 1 ? '$' + cost.toFixed(2) : '$' + cost.toFixed(4);
-                costNote.textContent = window.I18N.estCostNote || '';
+            document.getElementById('personal-errors').textContent = (data.total_errors || 0).toLocaleString();
+            const pCost = data.estimated_cost || 0;
+            const pCostEl = document.getElementById('personal-cost');
+            const pCostNote = document.getElementById('personal-cost-note');
+            if (pCost > 0) {
+                pCostEl.textContent = pCost >= 1 ? '$' + pCost.toFixed(2) : '$' + pCost.toFixed(4);
+                pCostNote.textContent = window.I18N.estCostNote || '';
             } else {
-                costEl.textContent = '-';
-                costNote.textContent = '';
+                pCostEl.textContent = '-';
+                pCostNote.textContent = '';
             }
 
             const sysModels = systemModels.models || {};

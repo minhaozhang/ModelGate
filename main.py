@@ -2,14 +2,16 @@ from pathlib import Path
 
 import os
 
+from datetime import datetime
+
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Form
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from core.app_paths import APP_BASE_PATH
-from core.config import CONFIG, error_logger
+from core.config import CONFIG, error_logger, logger as app_logger
 from core.database import init_db
 from core.i18n import render
 from core.log_sanitizer import sanitize_text_for_log
@@ -60,6 +62,27 @@ async def favicon_svg():
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon_ico():
     return FileResponse(ASSETS_DIR / "favicon.ico", media_type="image/x-icon")
+
+
+@app.post("/v1/test")
+async def test_endpoint(
+    request: Request,
+    name: str = Form(""),
+    message: str = Form(""),
+    tag: str = Form(""),
+):
+    client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    app_logger.info(
+        f"[TEST ENDPOINT] ip={client_ip} time={now} "
+        f"name={name!r} message={message!r} tag={tag!r}"
+    )
+    return {
+        "success": True,
+        "ip": client_ip,
+        "time": now,
+        "received": {"name": name, "message": message, "tag": tag},
+    }
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -183,6 +206,10 @@ from routes import (
     system_config,
     documents,
     mcp_servers,
+    users,
+    roles,
+    permissions,
+    menus,
 )
 
 app.include_router(proxy.router)
@@ -202,6 +229,10 @@ app.include_router(reports.router)
 app.include_router(system_config.router)
 app.include_router(documents.router)
 app.include_router(mcp_servers.router)
+app.include_router(users.router)
+app.include_router(roles.router)
+app.include_router(permissions.router)
+app.include_router(menus.router)
 
 from routes.weixin import get_mcp_asgi_app
 

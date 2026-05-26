@@ -1106,3 +1106,94 @@ async def init_db():
                 ")"
             )
         )
+
+
+# ==================== RBAC Models ====================
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    email = Column(String(100), nullable=True)
+    full_name = Column(String(100), nullable=True)
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Role(Base):
+    __tablename__ = "roles"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False)
+    display_name = Column(String(100), nullable=True)
+    description = Column(Text, nullable=True)
+    is_system = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class UserRole(Base):
+    __tablename__ = "user_roles"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "role_id", name="uq_user_role"),
+        Index("idx_user_roles_user_id", "user_id"),
+        Index("idx_user_roles_role_id", "role_id"),
+    )
+
+
+class Menu(Base):
+    __tablename__ = "menus"
+
+    id = Column(Integer, primary_key=True)
+    parent_id = Column(Integer, ForeignKey("menus.id", ondelete="CASCADE"), nullable=True)
+    name = Column(String(50), nullable=False)
+    display_name = Column(String(100), nullable=True)
+    icon = Column(String(50), nullable=True)
+    path = Column(String(200), nullable=True)
+    component = Column(String(200), nullable=True)
+    permission_code = Column(String(100), nullable=True)
+    sort_order = Column(Integer, default=0)
+    is_visible = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(100), unique=True, nullable=False)
+    name = Column(String(100), nullable=True)
+    type = Column(String(20), nullable=False)  # menu, page, element, data
+    resource = Column(String(50), nullable=True)
+    action = Column(String(20), nullable=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_permissions_code", "code"),
+        Index("idx_permissions_resource", "resource"),
+    )
+
+
+class RolePermission(Base):
+    __tablename__ = "role_permissions"
+
+    id = Column(Integer, primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
+    permission_id = Column(Integer, ForeignKey("permissions.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),
+        Index("idx_role_permissions_role_id", "role_id"),
+        Index("idx_role_permissions_permission_id", "permission_id"),
+    )

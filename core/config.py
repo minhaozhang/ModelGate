@@ -152,6 +152,17 @@ def create_session() -> str:
 def validate_session(token: Optional[str]) -> bool:
     if not token:
         return False
+    if token.startswith("ey"):
+        try:
+            import jwt as pyjwt
+            payload = pyjwt.decode(
+                token,
+                os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production"),
+                algorithms=["HS256"],
+            )
+            return bool(payload.get("user_id"))
+        except Exception:
+            return False
     expiry = sessions.get(token)
     if not expiry:
         return False

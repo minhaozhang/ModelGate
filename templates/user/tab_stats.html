@@ -19,6 +19,15 @@
                     <div class="text-gray-500 text-sm">{{ _('Total Tokens') }}</div>
                     <div class="text-xl font-bold text-green-600">↑<span id="total-prompt-tokens">0</span> / ↓<span id="total-completion-tokens">0</span></div>
                 </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Errors') }}</div>
+                    <div id="personal-errors" class="text-2xl font-bold text-red-600">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Est. Cost') }}</div>
+                    <div id="personal-cost" class="text-2xl font-bold text-amber-600">$0</div>
+                    <div id="personal-cost-note" class="text-[10px] text-gray-400 mt-0.5"></div>
+                </div>
             </div>
         </div>
         <div id="stats-summary-system" class="hidden">
@@ -30,27 +39,6 @@
                 <div class="rounded-lg bg-white/70 p-3">
                     <div class="text-gray-500 text-sm">{{ _('Total Tokens') }}</div>
                     <div class="text-xl font-bold text-green-600">↑<span id="system-total-prompt-tokens">0</span> / ↓<span id="system-total-completion-tokens">0</span></div>
-                </div>
-                <div class="rounded-lg bg-white/70 p-3">
-                    <div class="text-gray-500 text-sm">{{ _('Errors') }}</div>
-                    <div id="total-errors" class="text-2xl font-bold text-red-600">0</div>
-                </div>
-                <div class="rounded-lg bg-white/70 p-3">
-                    <div class="text-gray-500 text-sm">{{ _('Est. Cost') }}</div>
-                    <div id="estimated-cost" class="text-2xl font-bold text-amber-600">$0</div>
-                    <div id="estimated-cost-note" class="text-[10px] text-gray-400 mt-0.5"></div>
-                </div>
-            </div>
-        </div>
-        <div id="stats-summary-system" class="hidden">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="rounded-lg bg-white/70 p-3">
-                    <div class="text-gray-500 text-sm">{{ _('Total Requests') }}</div>
-                    <div id="system-total-requests" class="text-2xl font-bold text-blue-600">0</div>
-                </div>
-                <div class="rounded-lg bg-white/70 p-3">
-                    <div class="text-gray-500 text-sm">{{ _('Total Tokens') }}</div>
-                    <div id="system-total-tokens" class="text-2xl font-bold text-green-600">0</div>
                 </div>
                 <div class="rounded-lg bg-white/70 p-3">
                     <div class="text-gray-500 text-sm">{{ _('Models Used') }}</div>

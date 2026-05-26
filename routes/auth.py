@@ -25,6 +25,60 @@ class LoginRequest(BaseModel):
     password: str
 
 
+def _check_lockout(client_ip: str):
+    if client_ip in login_lockout:
+        if datetime.now() < login_lockout[client_ip]:
+            remaining = (login_lockout[client_ip] - datetime.now()).seconds // 60 + 1
+            return JSONResponse(
+                {"error": f"Too many failed attempts. Try again in {remaining} minute(s)."},
+                status_code=429,
+            )
+        else:
+            del login_lockout[client_ip]
+            login_attempts.pop(client_ip, None)
+    return None
+
+
+def _record_failure(client_ip: str, username: str):
+    login_attempts[client_ip] = login_attempts.get(client_ip, 0) + 1
+    admin_logger.warning(
+        f"[LOGIN] Failed - User: {username or '<empty>'}, IP: {client_ip}, "
+        f"Attempts: {login_attempts[client_ip]}"
+    )
+    if login_attempts[client_ip] >= LOGIN_MAX_ATTEMPTS:
+        login_lockout[client_ip] = datetime.now() + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
+        return JSONResponse(
+            {"error": f"Too many failed attempts. Account locked for {LOGIN_LOCKOUT_MINUTES} minutes."},
+            status_code=429,
+        )
+    remaining = LOGIN_MAX_ATTEMPTS - login_attempts[client_ip]
+    return JSONResponse(
+        {"error": f"Invalid username or password. {remaining} attempt(s) remaining."},
+        status_code=401,
+    )
+
+
+async def _try_rbac_login(username: str, password: str):
+    try:
+        from services.rbac import get_user_by_username
+        from services.rbac_auth import verify_password, create_access_token
+        user = await get_user_by_username(username)
+        if not user:
+            return None
+        if not verify_password(password, user.password_hash):
+            return None
+        token = create_access_token(user.id, user.username)
+        return token
+    except Exception:
+        return None
+
+
+def _try_config_login(username: str, password: str):
+    if username in admin_users and password == admin_users[username]:
+        return create_session()
+    return None
+
+
 @router.post("/login")
 async def login(data: LoginRequest, response: Response, request: Request):
     client_ip = get_client_ip(request) or "unknown"
@@ -33,23 +87,17 @@ async def login(data: LoginRequest, response: Response, request: Request):
     if not username and len(admin_users) == 1:
         username = next(iter(admin_users.keys()))
 
-    if client_ip in login_lockout:
-        if datetime.now() < login_lockout[client_ip]:
-            remaining = (login_lockout[client_ip] - datetime.now()).seconds // 60 + 1
-            return JSONResponse(
-                {
-                    "error": f"Too many failed attempts. Try again in {remaining} minute(s)."
-                },
-                status_code=429,
-            )
-        else:
-            del login_lockout[client_ip]
-            login_attempts.pop(client_ip, None)
+    lockout_resp = _check_lockout(client_ip)
+    if lockout_resp:
+        return lockout_resp
 
-    if username in admin_users and data.password == admin_users[username]:
+    token = await _try_rbac_login(username, data.password)
+    if not token:
+        token = _try_config_login(username, data.password)
+
+    if token:
         login_attempts.pop(client_ip, None)
         admin_logger.info(f"[LOGIN] Success - User: {username}, IP: {client_ip}")
-        token = create_session()
         response.set_cookie(
             key="session",
             value=token,
@@ -59,27 +107,7 @@ async def login(data: LoginRequest, response: Response, request: Request):
         )
         return {"success": True}
 
-    login_attempts[client_ip] = login_attempts.get(client_ip, 0) + 1
-    admin_logger.warning(
-        f"[LOGIN] Failed - User: {username or '<empty>'}, IP: {client_ip}, Attempts: {login_attempts[client_ip]}"
-    )
-
-    if login_attempts[client_ip] >= LOGIN_MAX_ATTEMPTS:
-        login_lockout[client_ip] = datetime.now() + timedelta(
-            minutes=LOGIN_LOCKOUT_MINUTES
-        )
-        return JSONResponse(
-            {
-                "error": f"Too many failed attempts. Account locked for {LOGIN_LOCKOUT_MINUTES} minutes."
-            },
-            status_code=429,
-        )
-
-    remaining = LOGIN_MAX_ATTEMPTS - login_attempts[client_ip]
-    return JSONResponse(
-        {"error": f"Invalid username or password. {remaining} attempt(s) remaining."},
-        status_code=401,
-    )
+    return _record_failure(client_ip, username)
 
 
 @router.post("/logout")

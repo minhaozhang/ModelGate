@@ -127,10 +127,6 @@
                     <div id="total-rate-limited" class="metric-flip text-3xl font-bold leading-none text-sky-600">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Disabled Providers') }}</div>
-                    <div id="disabled-providers" class="metric-flip text-3xl font-bold leading-none text-rose-600">0</div>
-                </div>
-                <div class="stat-card bg-white rounded-lg shadow p-5">
                     <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>
                     <div id="error-rate" class="metric-flip text-3xl font-bold leading-none text-purple-600">0%</div>
                 </div>
@@ -274,7 +270,6 @@
             renderProviderBars(data.providers || {}, liveData.disabled_providers || {});
             renderApiKeyBars(data.api_keys || {});
             renderBusyness(busynessData);
-            flipCounter('disabled-providers', (busynessData && busynessData.disabled_providers) || 0);
             loadChart();
         }
         function maskName(name) {

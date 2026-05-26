@@ -1,9 +1,9 @@
 import json
+import re
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Body
 from fastapi.responses import JSONResponse, PlainTextResponse
-from pydantic import BaseModel
 from sqlalchemy import select
 
 from core.app_paths import get_app_base_path
@@ -18,6 +18,13 @@ from core.database import (
 from routes.user import get_user_session
 
 router = APIRouter(tags=["docs"])
+
+
+def strip_json_trailing_commas(json_str: str) -> str:
+    """Remove trailing commas from JSON string to make it valid JSON."""
+    # Remove trailing commas before } or ]
+    json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
+    return json_str
 
 
 def build_opencode_base_url(request: Request) -> str:
@@ -172,19 +179,25 @@ async def get_opencode_setup_markdown(
         return PlainTextResponse(content=md, media_type="text/markdown; charset=utf-8")
 
 
-class MergeRequest(BaseModel):
-    config: dict
-
-
 @router.post("/opencode/merge")
 async def merge_opencode_config(
     request: Request,
-    body: MergeRequest,
+    raw_body: str = Body(..., media_type="application/json"),
     api_key: Optional[str] = None,
     api_key_id: Optional[int] = Depends(get_user_session),
 ):
     if not api_key and not api_key_id:
         return JSONResponse({"error": "API Key is required"}, status_code=400)
+
+    # Strip trailing commas to support relaxed JSON
+    try:
+        cleaned_json = strip_json_trailing_commas(raw_body)
+        body_data = json.loads(cleaned_json)
+        user_config = body_data.get("config", {})
+    except (json.JSONDecodeError, ValueError) as e:
+        return JSONResponse(
+            {"error": f"Invalid JSON: {str(e)}"}, status_code=400
+        )
 
     async with async_session_maker() as session:
         base_url = build_opencode_base_url(request)
@@ -194,7 +207,6 @@ async def merge_opencode_config(
         if not modelgate_config:
             return JSONResponse({"error": "Invalid API Key"}, status_code=401)
 
-        user_config = body.config
         if not isinstance(user_config, dict):
             user_config = {}
 
