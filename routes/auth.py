@@ -98,6 +98,15 @@ async def login(data: LoginRequest, response: Response, request: Request):
     if token:
         login_attempts.pop(client_ip, None)
         admin_logger.info(f"[LOGIN] Success - User: {username}, IP: {client_ip}")
+        try:
+            from services.audit import write_audit_log
+            await write_audit_log(
+                request, "create", "session", None,
+                f"登录 系统 (User: {username})", None, 200,
+                username=username,
+            )
+        except Exception:
+            pass
         response.set_cookie(
             key="session",
             value=token,
@@ -111,8 +120,30 @@ async def login(data: LoginRequest, response: Response, request: Request):
 
 
 @router.post("/logout")
-async def logout(response: Response, session: Optional[str] = Cookie(None)):
+async def logout(response: Response, request: Request, session: Optional[str] = Cookie(None)):
+    logout_username = None
     if session:
+        if session.startswith("ey"):
+            try:
+                from services.rbac_auth import decode_access_token
+                payload = decode_access_token(session)
+                if payload:
+                    logout_username = payload.get("username")
+            except Exception:
+                pass
+        else:
+            if validate_session(session):
+                for uname in admin_users:
+                    logout_username = uname
+                    break
+        try:
+            from services.audit import write_audit_log
+            await write_audit_log(
+                request, "delete", "session", None, "登出 系统", None, 200,
+                username=logout_username,
+            )
+        except Exception:
+            pass
         clear_session(session)
     response.delete_cookie("session")
     return {"success": True}

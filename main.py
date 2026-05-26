@@ -41,6 +41,45 @@ app.add_middleware(BasePathMiddleware, base_path=APP_BASE_PATH)
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 
 
+@app.middleware("http")
+async def audit_middleware(request: Request, call_next):
+    from services.audit import should_audit, audit_from_request
+
+    do_audit = should_audit(request)
+    if do_audit:
+        body_bytes = await request.body()
+        request._body = body_bytes
+
+    response = await call_next(request)
+
+    if do_audit:
+        try:
+            import json
+            body = None
+            if request.method in ("POST", "PUT") and hasattr(request, "_body") and request._body:
+                try:
+                    body = json.loads(request._body)
+                except Exception:
+                    body = None
+            from services.audit import write_audit_log, _parse_resource
+            path = request.url.path
+            action_map = {"POST": "create", "PUT": "update", "DELETE": "delete"}
+            action = action_map.get(request.method, request.method.lower())
+            resource, resource_id = _parse_resource(path)
+            await write_audit_log(
+                request=request,
+                action=action,
+                resource=resource,
+                resource_id=resource_id,
+                body=body,
+                status_code=response.status_code,
+            )
+        except Exception:
+            pass
+
+    return response
+
+
 @app.get("/")
 async def root_page(request: Request):
     base_url = str(request.base_url).rstrip("/")
@@ -210,6 +249,7 @@ from routes import (
     roles,
     permissions,
     menus,
+    audit,
 )
 
 app.include_router(proxy.router)
@@ -233,6 +273,8 @@ app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(permissions.router)
 app.include_router(menus.router)
+app.include_router(audit.router)
+app.include_router(audit.page_router)
 
 from routes.weixin import get_mcp_asgi_app
 

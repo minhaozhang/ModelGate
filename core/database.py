@@ -1106,6 +1106,44 @@ async def init_db():
                 ")"
             )
         )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS audit_logs ("
+                "id SERIAL PRIMARY KEY, "
+                "user_id INTEGER, "
+                "username VARCHAR(50), "
+                "action VARCHAR(20) NOT NULL, "
+                "resource VARCHAR(50) NOT NULL, "
+                "resource_id VARCHAR(100), "
+                "detail TEXT, "
+                "request_body JSONB, "
+                "client_ip VARCHAR(64), "
+                "user_agent VARCHAR(1024), "
+                "status_code INTEGER, "
+                "created_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs (user_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs (resource)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs (action)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at)"
+            )
+        )
 
 
 # ==================== RBAC Models ====================
@@ -1196,4 +1234,28 @@ class RolePermission(Base):
         UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),
         Index("idx_role_permissions_role_id", "role_id"),
         Index("idx_role_permissions_permission_id", "permission_id"),
+    )
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=True)
+    username = Column(String(50), nullable=True)
+    action = Column(String(20), nullable=False)
+    resource = Column(String(50), nullable=False)
+    resource_id = Column(String(100), nullable=True)
+    detail = Column(Text, nullable=True)
+    request_body = Column(JSONB, nullable=True)
+    client_ip = Column(String(64), nullable=True)
+    user_agent = Column(String(1024), nullable=True)
+    status_code = Column(Integer, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_audit_logs_user_id", "user_id"),
+        Index("idx_audit_logs_resource", "resource"),
+        Index("idx_audit_logs_action", "action"),
+        Index("idx_audit_logs_created_at", "created_at"),
     )
