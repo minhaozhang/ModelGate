@@ -1,0 +1,362 @@
+# ModelGate v2 设计文档：Key 健康度 / 模型别名与智能路由 / 请求内容日志
+
+日期：2026-05-26
+
+---
+
+## 1. 供应商 Key 健康度
+
+### 1.1 目标
+
+实时评估每个 ProviderKey 的可用性，用于：
+- 智能路由时优先选择健康的 key
+- Admin 页面直观展示 key 状态
+- 自动降级不健康的 key
+
+### 1.2 健康度评分（0-100，100 最佳）
+
+评分基于内存滑动窗口，统计最近 5 分钟的请求结果：
+
+| 事件 | 扣分 | 衰减 |
+|---|---|---|
+| Key 被禁用（Invalid Key / 额度用尽） | 直接设为 0 | 重新启用后恢复 60 |
+| 429/529 限频 | 每次 -15 | 5 分钟窗口过期后恢复 |
+| 5xx 服务端错误 | 每次 -10 | 5 分钟窗口过期后恢复 |
+| 4xx 客户端错误（非 429） | 每次 -5 | 5 分钟窗口过期后恢复 |
+| 成功请求 | 每 10 次成功 +5 | 上限 100 |
+
+健康度等级：
+
+| 分数区间 | 等级 | 颜色 | 说明 |
+|---|---|---|---|
+| 90-100 | 优秀 | 绿色 | 正常运行 |
+| 60-89 | 良好 | 蓝色 | 偶有限频/错误 |
+| 30-59 | 警告 | 黄色 | 频繁出错/限频 |
+| 1-29 | 危险 | 橙色 | 接近不可用 |
+| 0 | 不可用 | 红色 | 已禁用 |
+
+### 1.3 数据结构
+
+**内存结构**（`services/key_health.py`）：
+
+```python
+# 滑动窗口：每个 key 维护最近 5 分钟的事件列表
+_key_events: dict[int, list[KeyEvent]] = {}
+
+class KeyEvent:
+    timestamp: float       # time.monotonic()
+    event_type: str        # "success" | "error_4xx" | "error_429" | "error_5xx" | "disabled"
+    status_code: int
+```
+
+**计算逻辑**：
+
+```python
+def compute_health_score(key_id: int) -> int:
+    # 1. 如果 key 被禁用，直接返回 0
+    # 2. 清理 5 分钟前的事件
+    # 3. 统计窗口内各类事件数量
+    # 4. 基础分 100
+    #    - disabled_count > 0 → 0
+    #    - rate_limited_count * 15
+    #    - server_error_count * 10
+    #    - client_error_count * 5
+    #    - success_count // 10 * 5
+    # 5. max(0, min(100, base - deductions + bonus))
+```
+
+### 1.4 集成点
+
+| 集成位置 | 说明 |
+|---|---|
+| `services/proxy_runtime/response_handler.py` | `_record_stream_result` 和 `handle_normal` 记录请求结果时，同步调用 `record_key_event` |
+| `services/provider_limiter.py` | `disable_provider_key` 时记录 `disabled` 事件 |
+| `services/provider.py` | `pick_api_keys` 返回 key 时按健康度降序排列 |
+| `services/provider.py` | `load_providers` 加载缓存时，附带每个 key 的当前健康度 |
+
+### 1.5 API
+
+```
+GET /admin/api/providers/{id}/keys/health
+Response: {
+  "keys": [
+    {
+      "key_id": 1,
+      "label": "default",
+      "is_active": true,
+      "health_score": 85,
+      "health_level": "good",
+      "events_5m": {
+        "success": 120,
+        "rate_limited": 2,
+        "server_error": 0,
+        "client_error": 1
+      },
+      "disabled_reason": null
+    }
+  ]
+}
+```
+
+### 1.6 Admin 前端
+
+供应商配置页面的 Key 列表增加：
+- 健康度进度条（颜色按等级）
+- 5 分钟事件统计小数字
+- hover 显示详情
+
+---
+
+## 2. 模型别名 + 标签 + 智能路由
+
+### 2.1 目标
+
+- 用户可以按别名调用模型（如 `gpt-4o`），无需 `供应商/模型` 前缀
+- 系统自动匹配所有绑定该别名的供应商，选择健康度最高的
+- 保留 `供应商/模型` 显式调用方式，向后兼容
+- 模型可打标签，方便管理和筛选
+
+### 2.2 数据库变更
+
+**ProviderModel 表增加字段**：
+
+```sql
+ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS alias VARCHAR(100);
+ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS tags TEXT;  -- 逗号分隔，如 "fast,cheap,vision"
+ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0;
+```
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `alias` | VARCHAR(100) | 模型别名，用户调用时使用的名称。如 `gpt-4o`、`claude-3.5` |
+| `tags` | TEXT | 标签列表，逗号分隔。如 `fast,cheap,vision,reasoning` |
+| `priority` | INTEGER | 手动优先级，数值越大越优先。默认 0，用于在同健康度时打破平局 |
+
+**唯一约束**：同一供应商下 alias 不能重复。
+
+### 2.3 路由匹配逻辑
+
+修改 `services/provider.py` 的 `get_provider_and_model`：
+
+```
+输入: model = "gpt-4o"
+
+1. 如果包含 "/" → 走原有逻辑（显式指定供应商）
+   model = "openai/gpt-4o" → provider="openai", actual_model="gpt-4o"
+
+2. 如果不包含 "/" → 走别名匹配
+   a. 遍历 providers_cache，找所有 ProviderModel.alias == "gpt-4o" 的记录
+   b. 收集候选: [(provider_name, provider_config, model_config, key_health_score, priority), ...]
+   c. 过滤: 排除 provider 已禁用、model 已禁用、无可用 key 的
+   d. 排序: 按 (key_health_score DESC, priority DESC) 排序
+   e. 选第一个 → provider_name, actual_model
+   f. 如果无匹配 → 返回错误 "No provider available for model 'gpt-4o'"
+```
+
+### 2.4 别名索引
+
+别名匹配需要高效查找。在 `load_providers` 时构建内存索引：
+
+```python
+# alias_index: {alias: [(provider_name, pm_dict, priority), ...]}
+_alias_index: dict[str, list[tuple[str, dict, int]]] = {}
+```
+
+`load_providers` 时重建索引。
+
+### 2.5 API 变更
+
+**ProviderModel Create/Update 增加**：
+
+```python
+class ProviderModelCreate(BaseModel):
+    model_id: int
+    model_name_override: Optional[str] = None
+    alias: Optional[str] = None          # 新增
+    tags: Optional[str] = None           # 新增
+    is_active: bool = True
+    priority: Optional[int] = 0          # 新增
+
+class ProviderModelUpdate(BaseModel):
+    model_name_override: Optional[str] = None
+    alias: Optional[str] = None          # 新增
+    tags: Optional[str] = None           # 新增
+    is_active: Optional[bool] = None
+    max_busyness_level: Optional[int] = None
+    priority: Optional[int] = None       # 新增
+```
+
+**新增 API**：
+
+```
+GET /admin/api/models/resolve?name=gpt-4o
+Response: {
+  "alias": "gpt-4o",
+  "providers": [
+    {"provider": "openai", "actual_model": "gpt-4o", "health": 95, "priority": 10},
+    {"provider": "azure", "actual_model": "gpt-4o-2024-08-06", "health": 80, "priority": 5}
+  ],
+  "selected": "openai"
+}
+```
+
+### 2.6 Admin 前端
+
+供应商绑定模型页面：
+- 增加别名输入框
+- 增加标签输入框（逗号分隔，或 chip 输入）
+- 增加优先级数字输入
+- 模型列表显示别名和标签
+
+用户侧：
+- 用户 Dashboard 的可用模型列表按别名展示
+- 标签显示为小 badge
+
+---
+
+## 3. 请求内容日志（分离存储）
+
+### 3.1 目标
+
+将请求上下文（messages）和返回内容（response、tool_calls、thinking）从 `request_logs` 分离到新表，减少主表体积，按需查询。
+
+### 3.2 新表：request_contents
+
+```sql
+CREATE TABLE request_contents (
+    id SERIAL PRIMARY KEY,
+    log_id INTEGER NOT NULL REFERENCES request_logs(id) ON DELETE CASCADE,
+    request_messages JSONB,       -- 原始 messages 数组
+    response_content TEXT,        -- 模型返回文本
+    response_tool_calls JSONB,    -- tool_calls 数据
+    response_thinking TEXT,       -- reasoning/thinking 内容
+    response_raw JSONB,           -- 完整返回 JSON（可选，大流量时可不存）
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_request_contents_log_id ON request_contents (log_id);
+CREATE INDEX idx_request_contents_created_at ON request_contents (created_at);
+```
+
+| 字段 | 说明 |
+|---|---|
+| `log_id` | 关联 request_logs.id，一对一 |
+| `request_messages` | 用户发送的 messages 数组 |
+| `response_content` | 提取的文本回复 |
+| `response_tool_calls` | 提取的 tool_calls |
+| `response_thinking` | 提取的 reasoning_content |
+| `response_raw` | 可选，完整返回 JSON |
+
+### 3.3 ORM 模型
+
+```python
+class RequestContent(Base):
+    __tablename__ = "request_contents"
+
+    id = Column(Integer, primary_key=True)
+    log_id = Column(Integer, ForeignKey("request_logs.id", ondelete="CASCADE"), unique=True, nullable=False)
+    request_messages = Column(JSONB, nullable=True)
+    response_content = Column(Text, nullable=True)
+    response_tool_calls = Column(JSONB, nullable=True)
+    response_thinking = Column(Text, nullable=True)
+    response_raw = Column(JSONB, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+```
+
+### 3.4 写入逻辑
+
+在现有的 `create_request_log` / `update_request_log` 基础上：
+
+```python
+# create_request_log 时，同时写入 request_contents
+async def create_request_log(..., request_messages=None):
+    log_id = ...  # 现有逻辑
+    if request_messages:
+        async with async_session_maker() as session:
+            content = RequestContent(
+                log_id=log_id,
+                request_messages=request_messages,
+            )
+            session.add(content)
+            await session.commit()
+    return log_id
+
+# update_request_log 时，更新 request_contents
+async def update_request_log(..., response_content=None, response_tool_calls=None,
+                              response_thinking=None, response_raw=None):
+    ...  # 现有逻辑
+    async with async_session_maker() as session:
+        await session.execute(
+            update(RequestContent)
+            .where(RequestContent.log_id == log_id)
+            .values(
+                response_content=response_content,
+                response_tool_calls=response_tool_calls,
+                response_thinking=response_thinking,
+                response_raw=response_raw,
+            )
+        )
+```
+
+### 3.5 读取逻辑
+
+- 请求日志列表页：只查 `request_logs`，不 JOIN `request_contents`（性能优先）
+- 点击某条日志查看详情时：`GET /admin/api/logs/{id}/content`，按需加载
+- 错误分析页面同理，按需加载
+
+### 3.6 清理策略
+
+- `request_contents` 随 `request_logs` 级联删除
+- 已有的 `archive_old_request_logs` 定时任务自动处理
+- 可选：增加单独的 `request_contents` 保留天数（如比主日志短），在定时任务中单独清理
+
+### 3.7 API
+
+```
+GET /admin/api/logs/{log_id}/content
+Response: {
+  "log_id": 123,
+  "request_messages": [...],
+  "response_content": "...",
+  "response_tool_calls": [...],
+  "response_thinking": "...",
+  "response_raw": {...}
+}
+```
+
+---
+
+## 4. 实现优先级和依赖关系
+
+```
+Phase 1: Key 健康度（独立，无外部依赖）
+  ├── services/key_health.py
+  ├── 集成到 response_handler / provider_limiter
+  ├── 修改 pick_api_keys 排序
+  └── Admin API + 前端
+
+Phase 2: 模型别名 + 标签 + 智能路由（依赖 Phase 1 的健康度）
+  ├── DB: ProviderModel 增加 alias/tags/priority
+  ├── 修改 load_providers 构建别名索引
+  ├── 修改 get_provider_and_model 支持别名匹配
+  ├── Admin API + 前端
+  └── 用户侧模型列表调整
+
+Phase 3: 请求内容日志（独立，但建议最后做）
+  ├── DB: 新建 request_contents 表
+  ├── 修改 create/update_request_log
+  ├── 新增详情查询 API
+  └── Admin 前端日志详情弹窗
+```
+
+Phase 1 和 Phase 3 可以并行开发，Phase 2 依赖 Phase 1。
+
+---
+
+## 5. 影响范围
+
+| 变更 | 影响文件 |
+|---|---|
+| Key 健康度 | 新增 `services/key_health.py`；修改 `response_handler.py`, `provider_limiter.py`, `provider.py`, `providers.py` (Admin route) |
+| 模型别名/标签 | 修改 `core/database.py`, `provider.py`, `provider_models.py` (Admin route), 前端模板 |
+| 请求内容日志 | 修改 `core/database.py`, `services/logging.py`, `routes/logs.py`, 前端模板 |
