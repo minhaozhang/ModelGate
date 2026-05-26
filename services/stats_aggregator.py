@@ -256,7 +256,7 @@ async def cleanup_stale_pending_requests() -> None:
             )
             .values(
                 status="timeout",
-                error="Request timed out",
+                error="请求超时",
                 latency_ms=func.extract("epoch", func.now() - RequestLog.created_at)
                 * 1000,
                 updated_at=func.now(),
