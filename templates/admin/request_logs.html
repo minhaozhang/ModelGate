@@ -486,6 +486,7 @@
                                 <div class="text-gray-500 mb-1">${window.I18N.errorDetail}</div>
                                 ${hasError ? `<div class="text-gray-700 whitespace-pre-wrap break-words text-xs">${escapeHtml(log.error.substring(0, 200))}${log.error.length > 200 ? '...' : ''}</div>` : '<div class="text-gray-400 text-xs">-</div>'}
                                 ${hasResponse ? `<div class="resp-btn mt-2" onclick="showResponseDetail(this)">${window.I18N.response}</div>` : ''}
+                                <div class="resp-btn mt-2" onclick="showContentDetail(${log.id})">Content</div>
                             </div>
                         </div>
                     </article>
@@ -589,6 +590,41 @@
                 <div class="detail-modal-body">${body || '<span class="text-gray-400">-</span>'}</div>
             </div>`;
             document.body.appendChild(overlay);
+        }
+
+        async function showContentDetail(logId) {
+            const overlay = document.createElement('div');
+            overlay.className = 'detail-modal-overlay';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            overlay.innerHTML = `<div class="detail-modal">
+                <div class="detail-modal-header">
+                    <span class="font-semibold">Content - Log #${logId}</span>
+                    <button onclick="this.closest('.detail-modal-overlay').remove()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
+                </div>
+                <div class="detail-modal-body"><div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25);margin:2rem auto"></div></div>
+            </div>`;
+            document.body.appendChild(overlay);
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/${logId}/content`);
+                if (!data) { overlay.remove(); return; }
+                let body = '';
+                if (data.request_messages) {
+                    body += `<div class="mb-3"><strong>Request Messages:</strong></div><pre class="text-xs">${escapeHtml(typeof data.request_messages === 'string' ? data.request_messages : JSON.stringify(data.request_messages, null, 2))}</pre>`;
+                }
+                if (data.response_content) {
+                    body += `<div class="mb-3 mt-4"><strong>Response:</strong></div><pre class="text-xs">${escapeHtml(data.response_content)}</pre>`;
+                }
+                if (data.response_thinking) {
+                    body += `<div class="mb-3 mt-4"><strong>Thinking:</strong></div><pre class="text-xs text-blue-600">${escapeHtml(data.response_thinking)}</pre>`;
+                }
+                if (data.response_tool_calls && data.response_tool_calls.length) {
+                    body += `<div class="mb-3 mt-4"><strong>Tool Calls:</strong></div><pre class="text-xs">${escapeHtml(JSON.stringify(data.response_tool_calls, null, 2))}</pre>`;
+                }
+                if (!body) body = '<span class="text-gray-400">No content recorded</span>';
+                overlay.querySelector('.detail-modal-body').innerHTML = body;
+            } catch (e) {
+                overlay.querySelector('.detail-modal-body').innerHTML = '<span class="text-red-500 text-sm">Failed to load content</span>';
+            }
         }
 
         function switchView(view) {
