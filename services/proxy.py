@@ -78,6 +78,15 @@ def _get_api_key_preferred_tags(api_key_id: int | None) -> str | None:
     return None
 
 
+def _get_key_label(provider_config: dict, key_id: int | None) -> str | None:
+    if not key_id:
+        return None
+    for k in (provider_config.get("api_keys") or []):
+        if k.get("id") == key_id:
+            return k.get("label") or None
+    return None
+
+
 def _check_busyness_rules(model: str) -> str | None:
     from core.config import busyness_state, system_config
 
@@ -203,6 +212,7 @@ async def proxy_request(request: Request, endpoint: str):
         messages=body_json.get("messages"),
         preferred_tags=_get_api_key_preferred_tags(api_key_id),
     )
+    requested_model = model
     if not provider_config:
         disabled_reason = (
             await get_disabled_provider_reason(provider_name) if provider_name else None
@@ -371,6 +381,10 @@ async def proxy_request(request: Request, endpoint: str):
                         error=message,
                         inbound_protocol=inbound_protocol,
                         intent=request_intent,
+                        requested_model=requested_model,
+                        actual_model=actual_model,
+                        provider_key_id=chosen_key_id,
+                        provider_key_label=_get_key_label(provider_config, chosen_key_id),
                     )
                     return _openai_error_response(
                         message,
@@ -432,6 +446,10 @@ async def proxy_request(request: Request, endpoint: str):
                         error=message,
                         inbound_protocol=inbound_protocol,
                         intent=request_intent,
+                        requested_model=requested_model,
+                        actual_model=actual_model,
+                        provider_key_id=chosen_key_id,
+                        provider_key_label=_get_key_label(provider_config, chosen_key_id),
                     )
                     return _openai_error_response(
                         message,
@@ -455,6 +473,11 @@ async def proxy_request(request: Request, endpoint: str):
                     request_context_tokens=request_context_tokens,
                     inbound_protocol=inbound_protocol,
                     intent=request_intent,
+                    request_messages=messages,
+                    requested_model=requested_model,
+                    actual_model=actual_model,
+                    provider_key_id=chosen_key_id,
+                    provider_key_label=_get_key_label(provider_config, chosen_key_id),
                 )
 
             client = get_http_client()
@@ -544,6 +567,8 @@ async def proxy_request(request: Request, endpoint: str):
             error=str(e),
             inbound_protocol=inbound_protocol,
             intent=request_intent,
+            requested_model=requested_model,
+            actual_model=actual_model,
         )
         error_logger.error(
             f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}\n"

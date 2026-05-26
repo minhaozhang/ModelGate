@@ -42,6 +42,7 @@ async def _load_provider_keys(session, provider_id: int) -> tuple[list[dict], li
             "api_key": pk.api_key,
             "label": pk.label or "",
             "max_concurrent": pk.max_concurrent,
+            "priority": pk.priority if hasattr(pk, "priority") else 0,
         }
         for pk in active_result.scalars().all()
     ]
@@ -97,12 +98,13 @@ def pick_api_keys(
                 for k in keys:
                     if k["id"] == key_id:
                         return [(k["api_key"], k["id"])]
-    scored = [
-        (k, compute_health_score(k["id"]))
-        for k in keys
-    ]
-    scored.sort(key=lambda x: x[1], reverse=True)
-    return [(k["api_key"], k["id"]) for k, _ in scored]
+    scored = []
+    for k in keys:
+        priority = k.get("priority", 0)
+        health = compute_health_score(k["id"])
+        scored.append((k, priority, health))
+    scored.sort(key=lambda x: (x[1], x[2]), reverse=True)
+    return [(k["api_key"], k["id"]) for k, _, _ in scored]
 
 
 async def invalidate_provider_key_sticky_cache(

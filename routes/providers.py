@@ -128,12 +128,14 @@ class ProviderKeyCreate(BaseModel):
     api_key: str
     label: Optional[str] = None
     max_concurrent: Optional[int] = None
+    priority: Optional[int] = 0
 
 
 class ProviderKeyUpdate(BaseModel):
     api_key: Optional[str] = None
     label: Optional[str] = None
     max_concurrent: Optional[int] = None
+    priority: Optional[int] = None
     is_active: Optional[bool] = None
     disabled_reason: Optional[str] = None
 
@@ -156,6 +158,7 @@ async def list_provider_keys(provider_id: int, _: bool = Depends(require_admin))
                     "max_concurrent": k.max_concurrent,
                     "is_active": k.is_active,
                     "disabled_reason": k.disabled_reason,
+                    "priority": k.priority if hasattr(k, "priority") else 0,
                     "health_score": compute_health_score(k.id, is_active=k.is_active),
                 }
                 for k in keys
@@ -178,6 +181,7 @@ async def create_provider_key(
             api_key=data.api_key,
             label=data.label,
             max_concurrent=data.max_concurrent,
+            priority=data.priority or 0,
         )
         session.add(pk)
         try:
@@ -214,6 +218,8 @@ async def update_provider_key(
             pk.label = data.label
         if "max_concurrent" in data.model_fields_set:
             pk.max_concurrent = data.max_concurrent
+        if "priority" in data.model_fields_set:
+            pk.priority = data.priority or 0
         if "is_active" in data.model_fields_set and data.is_active is not None:
             pk.is_active = data.is_active
             if data.is_active:

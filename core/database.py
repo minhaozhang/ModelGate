@@ -78,6 +78,7 @@ class ProviderKey(Base):
     label = Column(String(50), nullable=True)
     max_concurrent = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
+    priority = Column(Integer, default=0)
     disabled_reason = Column(String(255), nullable=True)
     disabled_at = Column(DateTime, nullable=True)
     reset_at = Column(DateTime, nullable=True)
@@ -217,6 +218,10 @@ class RequestLog(Base):
     inbound_protocol = Column(String(20), nullable=True)
     error = Column(Text, nullable=True)
     intent = Column(String(20), nullable=True)
+    requested_model = Column(String(100), nullable=True)
+    actual_model = Column(String(100), nullable=True)
+    provider_key_id = Column(Integer, nullable=True)
+    provider_key_label = Column(String(50), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -247,6 +252,10 @@ class RequestLogHistory(Base):
     inbound_protocol = Column(String(20), nullable=True)
     error = Column(Text, nullable=True)
     intent = Column(String(20), nullable=True)
+    requested_model = Column(String(100), nullable=True)
+    actual_model = Column(String(100), nullable=True)
+    provider_key_id = Column(Integer, nullable=True)
+    provider_key_label = Column(String(50), nullable=True)
     created_at = Column(DateTime, nullable=False, index=True)
     updated_at = Column(DateTime, nullable=True)
     archive_month = Column(String(7), nullable=False)
@@ -1167,6 +1176,33 @@ async def init_db():
         )
         await conn.execute(
             text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS preferred_tags TEXT")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS requested_model VARCHAR(100)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS actual_model VARCHAR(100)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS provider_key_id INTEGER")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS provider_key_label VARCHAR(50)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS requested_model VARCHAR(100)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS actual_model VARCHAR(100)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS provider_key_id INTEGER")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS provider_key_label VARCHAR(50)")
+        )
+        await conn.execute(
+            text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0")
         )
         await conn.execute(
             text(

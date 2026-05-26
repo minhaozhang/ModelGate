@@ -28,6 +28,10 @@ async def create_request_log(
     inbound_protocol: Optional[str] = None,
     intent: Optional[str] = None,
     request_messages: Optional[list] = None,
+    requested_model: Optional[str] = None,
+    actual_model: Optional[str] = None,
+    provider_key_id: Optional[int] = None,
+    provider_key_label: Optional[str] = None,
 ) -> int:
     async with async_session_maker() as session:
         provider_id = None
@@ -52,6 +56,10 @@ async def create_request_log(
             error=error,
             inbound_protocol=inbound_protocol,
             intent=intent,
+            requested_model=requested_model,
+            actual_model=actual_model,
+            provider_key_id=provider_key_id,
+            provider_key_label=provider_key_label,
         )
         session.add(log)
         await session.commit()
