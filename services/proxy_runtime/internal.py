@@ -16,7 +16,7 @@ from services.provider import (
     get_provider_and_model,
     pick_api_key,
 )
-from services.provider_limiter import check_usage_limit_error, disable_provider_key
+from services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
 from services.proxy_runtime.adapters import get_adapter
 from services.proxy_runtime.client import (
     PROVIDER_REQUEST_TIMEOUT_SECONDS,
@@ -230,6 +230,20 @@ async def call_internal_model_via_proxy(
                 "status_code": resp.status_code,
                 "payload": raw_resp_json,
                 "error": usage_limit_err,
+            }
+
+        invalid_key_err = check_invalid_api_key_error(raw_resp_json, resp.status_code)
+        if invalid_key_err:
+            await disable_provider_key(
+                provider_name, provider_config, chosen_key_id, f"Invalid API Key: {invalid_key_err}"
+            )
+            return {
+                "ok": False,
+                "provider_name": provider_name,
+                "actual_model_name": actual_model,
+                "status_code": resp.status_code,
+                "payload": raw_resp_json,
+                "error": f"Invalid API Key: {invalid_key_err}",
             }
 
         latency = (time.time() - start_time) * 1000

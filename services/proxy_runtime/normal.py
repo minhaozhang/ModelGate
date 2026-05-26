@@ -15,7 +15,7 @@ from core.config import (
 from core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
 from services.logging import create_request_log
 from services.minimax import process_minimax_response
-from services.provider_limiter import check_usage_limit_error, disable_provider_key
+from services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
 from services.proxy_runtime.adapters import get_adapter
 from services.proxy_runtime.concurrency import (
     RATE_LIMITED_STATUSES,
@@ -89,6 +89,20 @@ async def handle_normal(
                 429,
                 "rate_limit_error",
                 "provider_disabled",
+                headers=extra_response_headers,
+            )
+
+        invalid_key_err = check_invalid_api_key_error(raw_resp_json, resp.status_code)
+        if invalid_key_err:
+            provider_config = providers_cache.get(provider, {})
+            await disable_provider_key(
+                provider, provider_config, chosen_key_id, f"Invalid API Key: {invalid_key_err}"
+            )
+            return _openai_error_response(
+                f"\u4f9b\u5e94\u5546 '{provider}' \u7684 API Key \u5df2\u5931\u6548\u5df2\u81ea\u52a8\u7981\u7528\uff0c\u8bf7\u5c1d\u8bd5\u5176\u4ed6\u4f9b\u5e94\u5546",
+                401,
+                "authentication_error",
+                "invalid_api_key",
                 headers=extra_response_headers,
             )
 

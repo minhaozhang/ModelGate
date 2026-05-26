@@ -14,7 +14,7 @@ from core.config import (
 from core.log_sanitizer import sanitize_text_for_log
 from services.logging import create_request_log, update_request_log
 from services.minimax import MinimaxStreamProcessor
-from services.provider_limiter import check_usage_limit_error, disable_provider_key
+from services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
 from services.proxy_runtime.adapters import get_adapter
 from services.proxy_runtime.client import REPEATED_CHUNK_LIMIT, get_http_client
 from services.proxy_runtime.concurrency import (
@@ -93,6 +93,12 @@ async def handle_streaming(
                 provider_config = providers_cache.get(provider, {})
                 await disable_provider_key(
                     provider, provider_config, chosen_key_id, usage_limit_err
+                )
+            invalid_key_err = check_invalid_api_key_error(resp_json, resp.status_code)
+            if invalid_key_err:
+                provider_config = providers_cache.get(provider, {})
+                await disable_provider_key(
+                    provider, provider_config, chosen_key_id, f"Invalid API Key: {invalid_key_err}"
                 )
             provider_error = _extract_provider_error(resp_json)
             request_status = _resolve_request_status(resp.status_code, provider_error)

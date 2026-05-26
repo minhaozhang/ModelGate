@@ -37,22 +37,31 @@ def _resolve_user(request: Request):
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             session = auth_header[7:]
-    if not session:
-        return None, None
+    if session:
+        if session.startswith("ey"):
+            try:
+                from services.rbac_auth import decode_access_token
+                payload = decode_access_token(session)
+                if payload:
+                    return payload.get("user_id"), payload.get("username")
+            except Exception:
+                pass
+            return None, None
 
-    if session.startswith("ey"):
+        if validate_session(session):
+            for uname in admin_users:
+                return 0, uname
+
+    user_session = request.cookies.get("user_session")
+    if user_session:
         try:
-            from services.rbac_auth import decode_access_token
-            payload = decode_access_token(session)
-            if payload:
-                return payload.get("user_id"), payload.get("username")
+            from routes.user import USER_SESSIONS
+            info = USER_SESSIONS.get(user_session)
+            if info:
+                return info.get("api_key_id"), info.get("name")
         except Exception:
             pass
-        return None, None
 
-    if validate_session(session):
-        for uname in admin_users:
-            return 0, uname
     return None, None
 
 
@@ -163,7 +172,7 @@ async def write_audit_log(
 
 
 WRITE_METHODS = {"POST", "PUT", "DELETE"}
-SKIP_PATHS = {"/v1/", "/user/api/", "/weixin", "/mcp-proxy", "/admin/api/auth/check", "/admin/api/auth/login", "/admin/api/auth/logout", "/admin/api/audit"}
+SKIP_PATHS = {"/v1/", "/weixin", "/mcp-proxy", "/admin/api/auth/check", "/admin/api/audit"}
 
 
 def should_audit(request: Request) -> bool:
@@ -173,7 +182,9 @@ def should_audit(request: Request) -> bool:
     for skip in SKIP_PATHS:
         if path.startswith(skip):
             return False
-    if "/admin/" not in path and "/rbac/" not in path:
+    if "/admin/" not in path and "/user/api/" not in path:
+        return False
+    if "/user/api/" in path and request.method == "GET":
         return False
     return True
 
