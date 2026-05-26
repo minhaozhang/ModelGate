@@ -464,6 +464,7 @@
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.model}</div>
                                 <div class="font-medium text-gray-800 break-all">${escapeHtml(log.model || '-')}${log.inbound_protocol && log.inbound_protocol !== 'openai' ? ` <span class="inline-block text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">${escapeHtml(log.inbound_protocol)}</span>` : ''}</div>
+                                ${log.intent ? `<span class="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 mt-0.5">${escapeHtml(log.intent)}</span>` : ''}
                                 ${log.requested_model && log.requested_model !== log.model ? `<div class="text-xs text-blue-500 mt-0.5">→ ${escapeHtml(log.requested_model)}</div>` : ''}
                                 ${log.provider_key_label ? `<div class="text-xs text-gray-400 mt-0.5">Key: ${escapeHtml(log.provider_key_label)}</div>` : ''}
                                 <div class="text-xs text-gray-500 mt-1">${window.I18N.apiKey}: ${escapeHtml(log.api_key || '-')}</div>
