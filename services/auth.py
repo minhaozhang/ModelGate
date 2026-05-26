@@ -172,7 +172,7 @@ async def validate_api_key(
     auth_header: str, model: str
 ) -> tuple[Optional[int], Optional[str]]:
     if not auth_header:
-        return None, "Missing API key"
+        return None, "缺少 API Key"
 
     if auth_header.startswith("Bearer "):
         key = auth_header[7:]
@@ -181,10 +181,10 @@ async def validate_api_key(
 
     key_info = api_keys_cache.get(key)
     if not key_info:
-        return None, "Invalid API key"
+        return None, "API Key 无效"
 
     if not _check_time_rules(key_info.get("time_rules", [])):
-        return None, "API key not allowed at this time"
+        return None, "当前时段不允许使用该 API Key"
 
     allowed_models = key_info.get("allowed_provider_model_ids", [])
 
@@ -198,7 +198,7 @@ async def validate_api_key(
         if not provider_config:
             disabled_reason = await get_disabled_provider_reason(provider_name)
             if disabled_reason:
-                return None, f"供应商 '{provider_name}' 已被禁用：{disabled_reason}"
+                return None, f"供应商 '{provider_name}' 已被禁用"
             return None, f"供应商 '{provider_name}' 不存在"
 
         provider_model_id = None
@@ -214,10 +214,10 @@ async def validate_api_key(
         if provider_model_id is None:
             return (
                 None,
-                f"供应商 '{provider_name}' 中不存在模型 '{actual_model}'",
+                "模型不存在或您无权使用",
             )
 
         if provider_model_id not in allowed_models:
-            return None, f"API key not authorized for model '{model}'"
+            return None, "您的 API Key 无权使用该模型"
 
     return key_info["id"], None
