@@ -53,6 +53,9 @@ async def handle_streaming(
     chosen_key_id=None,
     protocol="openai",
     extra_response_headers: dict[str, str] | None = None,
+    intent=None,
+    requested_model=None,
+    provider_key_label=None,
 ):
     logger.debug(
         "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -430,7 +433,7 @@ async def handle_streaming(
                 upstream_status_code=upstream_status_code,
                 error=e,
             )
-            yield f"data: {json.dumps({'error': {'message': str(e), 'type': type(e).__name__}})}\n\n"
+            yield f"data: {json.dumps({'error': {'message': '请求处理失败，请稍后重试', 'type': 'api_error'}})}\n\n"
         finally:
             await finish_active_request(request_id)
             if user_provider_model_semaphore is not None:

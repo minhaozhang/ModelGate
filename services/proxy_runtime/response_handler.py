@@ -140,7 +140,7 @@ def _normalize_upstream_error(
         "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
     )
     return json.dumps(
-        _openai_error(f"Upstream request failed with status {status_code}", error_type)
+        _openai_error(f"上游服务返回错误 (HTTP {status_code})", error_type)
     ).encode()
 
 

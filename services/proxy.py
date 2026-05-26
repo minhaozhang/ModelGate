@@ -219,7 +219,7 @@ async def proxy_request(request: Request, endpoint: str):
         )
         if disabled_reason:
             return _openai_error_response(
-                f"Provider '{provider_name}' is disabled: {disabled_reason}",
+                f"模型 '{model}' 暂不可用，请尝试其他模型",
                 400,
                 "invalid_request_error",
                 "provider_disabled",
@@ -229,7 +229,7 @@ async def proxy_request(request: Request, endpoint: str):
             "[PROXY ERROR] Available providers: %s", list(providers_cache.keys())
         )
         return _openai_error_response(
-            f"Unknown provider for model: {model}",
+            f"未找到模型: {model}，请检查模型名称或前往用户界面查看可用模型",
             400,
             "invalid_request_error",
             "model_not_found",
@@ -357,7 +357,7 @@ async def proxy_request(request: Request, endpoint: str):
                         logger.warning("[KEY FALLBACK] Key %s concurrency reached, trying next key", chosen_key_id)
                         continue
                     message = (
-                        f"Provider key {chosen_key_id} for '{provider_name}' is at max concurrency"
+                        f"当前模型 '{provider_name}' 的请求并发数已达上限，请稍后重试"
                     )
                     logger.warning("[RATE LIMIT] %s at max concurrency", provider_key_sem_key)
                     update_stats(
@@ -420,7 +420,7 @@ async def proxy_request(request: Request, endpoint: str):
                         logger.warning("[KEY FALLBACK] Key %s user concurrency reached, trying next key", chosen_key_id)
                         continue
                     message = (
-                        f"User {api_key_id} already reached max concurrency for provider key {chosen_key_id} model '{provider_model_key}'"
+                        f"您的并发请求已达上限，请等待当前请求完成后再试"
                     )
                     logger.warning(
                         "[RATE LIMIT] %s at max concurrency", user_provider_model_sem_key
@@ -504,6 +504,9 @@ async def proxy_request(request: Request, endpoint: str):
                     chosen_key_id=chosen_key_id,
                     protocol=provider_protocol,
                     extra_response_headers=busyness_headers,
+                    intent=request_intent,
+                    requested_model=requested_model,
+                    provider_key_label=_get_key_label(provider_config, chosen_key_id),
                 )
             else:
                 response = await handle_normal(
@@ -526,6 +529,9 @@ async def proxy_request(request: Request, endpoint: str):
                     chosen_key_id=chosen_key_id,
                     protocol=provider_protocol,
                     extra_response_headers=busyness_headers,
+                    intent=request_intent,
+                    requested_model=requested_model,
+                    provider_key_label=_get_key_label(provider_config, chosen_key_id),
                 )
 
             acquired = False
@@ -578,7 +584,7 @@ async def proxy_request(request: Request, endpoint: str):
             f"  Request Body: {sanitize_payload_for_log(body_json)}"
         )
         err_msg = (
-            f"Proxy error: {type(e).__name__}: {sanitize_text_for_log(e, limit=500)}"
+            f"请求处理失败: {type(e).__name__}"
         )
         return _openai_error_response(err_msg, 502, "api_error", "proxy_error")
 
@@ -655,6 +661,9 @@ async def handle_normal(
     chosen_key_id=None,
     protocol="openai",
     extra_response_headers=None,
+    intent=None,
+    requested_model=None,
+    provider_key_label=None,
 ):
     return await runtime_handle_normal(
         client=client,
@@ -676,6 +685,9 @@ async def handle_normal(
         chosen_key_id=chosen_key_id,
         protocol=protocol,
         extra_response_headers=extra_response_headers,
+        intent=intent,
+        requested_model=requested_model,
+        provider_key_label=provider_key_label,
     )
 
 
@@ -700,6 +712,9 @@ async def handle_streaming(
     chosen_key_id=None,
     protocol="openai",
     extra_response_headers=None,
+    intent=None,
+    requested_model=None,
+    provider_key_label=None,
 ):
     return await runtime_handle_streaming(
         url=url,
@@ -722,4 +737,7 @@ async def handle_streaming(
         chosen_key_id=chosen_key_id,
         protocol=protocol,
         extra_response_headers=extra_response_headers,
+        intent=intent,
+        requested_model=requested_model,
+        provider_key_label=provider_key_label,
     )

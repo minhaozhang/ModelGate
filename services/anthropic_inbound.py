@@ -836,7 +836,7 @@ async def translate_openai_sse_stream(
         for evt in translator.close_events():
             yield evt.encode("utf-8")
     except Exception as exc:  # noqa: BLE001
-        yield translator.error_event(str(exc)).encode("utf-8")
+        yield translator.error_event("请求处理失败，请稍后重试").encode("utf-8")
 
 
 def _handle_openai_sse_block(

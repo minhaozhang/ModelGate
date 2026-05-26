@@ -53,6 +53,9 @@ async def handle_normal(
     chosen_key_id=None,
     protocol="openai",
     extra_response_headers: dict[str, str] | None = None,
+    intent=None,
+    requested_model=None,
+    provider_key_label=None,
 ):
     logger.debug(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -193,6 +196,11 @@ async def handle_normal(
             if request_status != "success"
             else None,
             request_messages=messages,
+            intent=intent,
+            requested_model=requested_model,
+            actual_model=model if requested_model and requested_model != model else None,
+            provider_key_id=chosen_key_id,
+            provider_key_label=provider_key_label,
         )
         if request_status == "success" and normal_log_id:
             try:
