@@ -118,18 +118,37 @@ Response: {
 
 ### 2.2 数据库变更
 
+**Model 表增加字段**：
+
+```sql
+ALTER TABLE models ADD COLUMN IF NOT EXISTS tags TEXT;  -- 逗号分隔，如 "develop,document,test,flash"
+```
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `tags` | TEXT | 模型用途标签，逗号分隔。如 `develop,document,test,flash` |
+
+预定义标签含义：
+
+| 标签 | 说明 |
+|---|---|
+| `develop` | 开发/编程 |
+| `document` | 文档/写作 |
+| `test` | 测试/验证 |
+| `flash` | 快速/低延迟 |
+| `reasoning` | 推理/思考 |
+| `vision` | 图像/多模态 |
+
 **ProviderModel 表增加字段**：
 
 ```sql
 ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS alias VARCHAR(100);
-ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS tags TEXT;  -- 逗号分隔，如 "fast,cheap,vision"
 ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0;
 ```
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `alias` | VARCHAR(100) | 模型别名，用户调用时使用的名称。如 `gpt-4o`、`claude-3.5` |
-| `tags` | TEXT | 标签列表，逗号分隔。如 `fast,cheap,vision,reasoning` |
 | `priority` | INTEGER | 手动优先级，数值越大越优先。默认 0，用于在同健康度时打破平局 |
 
 **唯一约束**：同一供应商下 alias 不能重复。
@@ -166,6 +185,20 @@ _alias_index: dict[str, list[tuple[str, dict, int]]] = {}
 
 ### 2.5 API 变更
 
+**Model Create/Update 增加**：
+
+```python
+class ModelCreate(BaseModel):
+    name: str
+    display_name: Optional[str] = None
+    tags: Optional[str] = None           # 新增，如 "develop,flash"
+    ...
+
+class ModelUpdate(BaseModel):
+    tags: Optional[str] = None            # 新增
+    ...
+```
+
 **ProviderModel Create/Update 增加**：
 
 ```python
@@ -173,14 +206,12 @@ class ProviderModelCreate(BaseModel):
     model_id: int
     model_name_override: Optional[str] = None
     alias: Optional[str] = None          # 新增
-    tags: Optional[str] = None           # 新增
     is_active: bool = True
     priority: Optional[int] = 0          # 新增
 
 class ProviderModelUpdate(BaseModel):
     model_name_override: Optional[str] = None
     alias: Optional[str] = None          # 新增
-    tags: Optional[str] = None           # 新增
     is_active: Optional[bool] = None
     max_busyness_level: Optional[int] = None
     priority: Optional[int] = None       # 新增
@@ -204,12 +235,15 @@ Response: {
 
 供应商绑定模型页面：
 - 增加别名输入框
-- 增加标签输入框（逗号分隔，或 chip 输入）
 - 增加优先级数字输入
-- 模型列表显示别名和标签
+
+模型管理页面：
+- 增加标签输入框（逗号分隔，或 chip 输入）
+- 模型列表显示标签 badge
 
 用户侧：
 - 用户 Dashboard 的可用模型列表按别名展示
+- 标签显示为小 badge（来自 Model.tags）
 - 标签显示为小 badge
 
 ---
@@ -358,5 +392,5 @@ Phase 1 和 Phase 3 可以并行开发，Phase 2 依赖 Phase 1。
 | 变更 | 影响文件 |
 |---|---|
 | Key 健康度 | 新增 `services/key_health.py`；修改 `response_handler.py`, `provider_limiter.py`, `provider.py`, `providers.py` (Admin route) |
-| 模型别名/标签 | 修改 `core/database.py`, `provider.py`, `provider_models.py` (Admin route), 前端模板 |
+| 模型别名/标签 | 修改 `core/database.py`, `provider.py`, `provider_models.py`, `models.py` (Admin route), 前端模板 |
 | 请求内容日志 | 修改 `core/database.py`, `services/logging.py`, `routes/logs.py`, 前端模板 |
