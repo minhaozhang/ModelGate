@@ -1168,6 +1168,25 @@ async def init_db():
         await conn.execute(
             text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS preferred_tags TEXT")
         )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS request_contents ("
+                "id SERIAL PRIMARY KEY, "
+                "log_id INTEGER NOT NULL REFERENCES request_logs(id) ON DELETE CASCADE, "
+                "request_messages JSONB, "
+                "response_content TEXT, "
+                "response_tool_calls JSONB, "
+                "response_thinking TEXT, "
+                "response_raw JSONB, "
+                "created_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_request_contents_log_id ON request_contents (log_id)"
+            )
+        )
 
 
 # ==================== RBAC Models ====================
@@ -1283,3 +1302,16 @@ class AuditLog(Base):
         Index("idx_audit_logs_action", "action"),
         Index("idx_audit_logs_created_at", "created_at"),
     )
+
+
+class RequestContent(Base):
+    __tablename__ = "request_contents"
+
+    id = Column(Integer, primary_key=True)
+    log_id = Column(Integer, ForeignKey("request_logs.id", ondelete="CASCADE"), unique=True, nullable=False)
+    request_messages = Column(JSONB, nullable=True)
+    response_content = Column(Text, nullable=True)
+    response_tool_calls = Column(JSONB, nullable=True)
+    response_thinking = Column(Text, nullable=True)
+    response_raw = Column(JSONB, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())

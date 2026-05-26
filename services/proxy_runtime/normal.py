@@ -14,7 +14,7 @@ from core.config import (
 )
 from core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
 from services.key_health import record_key_event
-from services.logging import create_request_log
+from services.logging import create_request_log, update_request_content
 from services.minimax import process_minimax_response
 from services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
 from services.proxy_runtime.adapters import get_adapter
@@ -172,7 +172,7 @@ async def handle_normal(
                 record_key_event(api_key_id, "error_5xx", resp.status_code)
             elif resp.status_code >= 400:
                 record_key_event(api_key_id, "error_4xx", resp.status_code)
-        await create_request_log(
+        normal_log_id = await create_request_log(
             provider,
             model,
             status=request_status,
@@ -192,7 +192,18 @@ async def handle_normal(
             )
             if request_status != "success"
             else None,
+            request_messages=messages,
         )
+        if request_status == "success" and normal_log_id:
+            try:
+                await update_request_content(
+                    normal_log_id,
+                    response_content=response_text,
+                    response_tool_calls=tool_calls or None,
+                    response_thinking=reasoning_text or None,
+                )
+            except Exception:
+                pass
 
         if is_error:
             error_logger.error(

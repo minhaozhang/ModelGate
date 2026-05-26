@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from core.config import error_logger, logger, record_request_rate, update_stats
 from core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
-from services.logging import create_request_log, update_request_log
+from services.logging import create_request_log, update_request_log, update_request_content
 from services.minimax import process_minimax_response
 from services.tokens import (
     build_response_meta,
@@ -292,4 +292,13 @@ async def _record_stream_result(
             f"  Error: {type(error).__name__ if error else 'Unknown'}: {sanitize_text_for_log(error)}\n"
             f"  Request Body: {sanitize_payload_for_log(req_body)}"
         )
+
+    if log_id and status == "success":
+        await update_request_content(
+            log_id,
+            response_content=total_content,
+            response_tool_calls=stream_tool_calls or None,
+            response_thinking=total_reasoning or None,
+        )
+
     return latency

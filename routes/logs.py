@@ -12,6 +12,7 @@ from core.config import validate_session, providers_cache, logger
 from core.database import (
     async_session_maker,
     RequestLogRead as RequestLog,
+    RequestContent,
     AnalysisRecord,
     Provider,
     ApiKey,
@@ -1629,4 +1630,24 @@ async def query_mcp_logs(
             "total": total,
             "page": page,
             "page_size": page_size,
+        }
+
+
+@router.get("/logs/{log_id}/content")
+async def get_log_content(log_id: int, _: bool = Depends(require_admin)):
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(RequestContent).where(RequestContent.log_id == log_id)
+        )
+        content = result.scalar_one_or_none()
+        if not content:
+            return {"log_id": log_id, "request_messages": None, "response_content": None,
+                    "response_tool_calls": None, "response_thinking": None, "response_raw": None}
+        return {
+            "log_id": log_id,
+            "request_messages": content.request_messages,
+            "response_content": content.response_content,
+            "response_tool_calls": content.response_tool_calls,
+            "response_thinking": content.response_thinking,
+            "response_raw": content.response_raw,
         }
