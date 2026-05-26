@@ -11,12 +11,18 @@ ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、AP
 - 支持智谱、DeepSeek、Ollama、MiniMax 以及任意 OpenAI 兼容接口
 - 提供 OpenAI 兼容代理接口：`/v1/chat/completions`、`/v1/embeddings`、`/v1/models`
 - 提供 Anthropic 兼容代理接口：`/anthropic/v1/messages`，完整协议转换（流式、工具调用、思考模式、缓存控制）
-- 按供应商维度做 asyncio 信号量并发控制和限流
+- 模型别名路由：按别名调用模型（如 `gpt-4o`），无需供应商前缀，自动按健康度+意图+优先级选择最优供应商
+- 意图分类：根据消息内容自动分类为 coding/writing/testing/design/chat，用于智能路由和日志分析
+- 供应商 Key 健康度评分：5 分钟滑动窗口评分（0–100），路由时优先选择健康的 Key
+- 供应商 Key 优先级：手动设置 Key 优先级，按 (priority DESC, health DESC) 排序实现有序降级
+- 按供应商维度做 asyncio 信号量并发控制和限流，bypass_busyness 的 Key 可跳过繁忙限制
 - 供应商多 Key 支持，粘性路由和 Key 级别禁用/恢复
 - 供应商 Key 自动降级：401/403/429 错误时自动尝试下一个 Key
 - API Key 管理及按 Key 分配可用模型
+- 请求内容分离存储：messages、response、thinking、tool_calls 存入独立 `request_contents` 表，按需加载
 - 流式请求生命周期追踪：`pending` -> `success` / `error` / `timeout`
-- 记录上游真实 HTTP 状态码（200、429、500 等）
+- 记录上游真实 HTTP 状态码（200、429、500 等）、意图、请求模型、实际模型、Key 标签
+- 模型标签：为模型分配标签（如 coding、reasoning、vision），用于筛选和意图路由
 - AI 驱动的每日错误分析，自动生成持久化报告
 - AI 驱动的用户模型推荐和使用时段建议
 - 管理端：总览、监控、配置、错误分析、使用指引
@@ -195,11 +201,18 @@ ModelGate 内置 MCP（Model Context Protocol）服务器，支持微信 iLink �
 
 ## 请求日志
 
-`request_logs` 记录：API Key、供应商、模型、token、延迟、状态、上游 HTTP 状态码、客户端 IP、User-Agent、错误详情。
+`request_logs` 记录：API Key、供应商、模型、token、延迟、状态、上游 HTTP 状态码、客户端 IP、User-Agent、意图（intent）、请求模型（requested_model）、实际模型（actual_model）、Key 标签（provider_key_label）、错误详情。
 
 流式请求先写入 `pending`，结束后更新为 `success`、`error`、`timeout` 或 `cancelled`。
 
 超过 30 天的日志自动归档到 `request_logs_history`。`request_logs_all` 视图联合两张表，对外透明查询。
+
+### 请求内容（分离存储）
+
+请求的 messages、返回文本、thinking/reasoning、tool_calls 存入独立的 `request_contents` 表，保持 `request_logs` 主表精简，列表查询更快。
+
+- **按需加载**：在日志查看器中点击 "Content" 按钮，通过 `GET /admin/api/logs/{id}/content` 懒加载
+- **级联删除**：主日志归档或删除时，关联内容自动清理
 
 ## 供应商 Key 自动降级
 
@@ -210,6 +223,66 @@ ModelGate 内置 MCP（Model Context Protocol）服务器，支持微信 iLink �
 - 粘性路由优先——如果粘性 Key 可用，只使用该 Key
 - 并发受限的 Key 会被跳过（带警告日志），尝试下一个可用 Key
 - 降级尝试日志以 `[KEY FALLBACK]` 前缀记录
+
+## Key 健康度评分
+
+每个供应商 Key 有基于 5 分钟滑动窗口的实时健康评分（0–100）：
+
+| 事件 | 分数影响 |
+|------|---------|
+| Key 被禁用（无效 / 额度用尽） | 直接设为 0 |
+| 429/529 限频 | 每次扣 15 |
+| 5xx 服务端错误 | 每次扣 10 |
+| 4xx 客户端错误（非 429） | 每次扣 5 |
+| 成功请求 | 每 10 次成功加 5 |
+
+健康等级：优秀（90–100，绿）/ 良好（60–89，蓝）/ 警告（30–59，黄）/ 危险（1–29，橙）/ 不可用（0，红）。
+
+`pick_api_keys` 按健康度降序返回 Key，优先使用健康的 Key。
+
+## Key 优先级
+
+供应商 Key 支持手动优先级（`priority` 字段，默认 0）。`pick_api_keys` 按 `(priority DESC, health DESC)` 排序，实现有序降级（如总是先尝试 Key A，再尝试 Key B）。
+
+## 模型别名路由
+
+模型可以通过别名调用，无需 `供应商/模型` 前缀：
+
+```text
+# 显式指定：路由到特定供应商
+zhipu/glm-5
+
+# 别名调用：自动按健康度+意图+优先级选择最优供应商
+gpt-4o
+```
+
+别名匹配多个供应商时，按 `(tag_match DESC, health DESC, priority DESC)` 排序：
+
+1. **tag_match**：模型标签包含请求意图 → 1，否则 → 0
+2. **health**：供应商 Key 健康度
+3. **priority**：供应商-模型绑定的手动优先级
+
+## 意图分类
+
+根据请求消息内容自动分类为五种意图：
+
+| 意图 | 说明 | Badge 颜色 |
+|------|------|-----------|
+| `coding` | 编程、调试、代码审查 | 蓝色 |
+| `writing` | 文档、翻译、编辑 | 琥珀色 |
+| `testing` | 单元测试、QA、验证 | 玫瑰色 |
+| `design` | UI/UX、线框图、设计系统 | 紫色 |
+| `chat` | 日常对话（默认） | 灰色 |
+
+分类基于关键词匹配（不调用 LLM），`system_hint` 权重为 3 倍。分类结果存入 `request_logs.intent`，在日志查看器中显示为彩色 badge。
+
+## 模型标签
+
+模型可以设置标签（逗号分隔），用于筛选和意图路由：
+
+- 标签如 `coding`、`reasoning`、`vision`、`flash` 表示模型特长
+- 路由时标签与请求意图匹配，优先选择标签匹配的模型
+- 在管理端配置页和用户端以 badge 形式展示
 
 ## 定时任务
 
@@ -253,10 +326,13 @@ modelgate/
 │   ├── proxy_runtime/       # 运行时辅助：SSE、MiniMax、消息预处理
 │   ├── anthropic_inbound.py # Anthropic↔OpenAI 协议转换（请求与响应）
 │   ├── auth.py              # API Key 验证 + 时段访问规则校验
-│   ├── provider.py          # 供应商/模型解析
+│   ├── provider.py          # 供应商/模型解析、别名路由、粘性路由
+│   ├── provider_limiter.py  # 供应商/Key 禁用、恢复、额度检测
+│   ├── key_health.py        # 滑动窗口 Key 健康度评分（0-100）
+│   ├── intent_classifier.py # 关键词意图分类（coding/writing/testing/design/chat）
 │   ├── scheduler.py         # APScheduler 定时任务
 │   ├── stats_aggregator.py  # 每日统计聚合、日志归档
-│   ├── logging.py           # 请求日志增改查
+│   ├── logging.py           # 请求日志增改查 + 请求内容（分离存储）
 │   ├── tokens.py            # Token 估算和响应解析
 │   ├── message.py           # 消息预处理（合并、截断）
 │   ├── minimax.py           # MiniMax 响应/tool_call 解析
