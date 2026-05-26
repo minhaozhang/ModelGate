@@ -293,6 +293,11 @@ if request_logs_all_table is None:
         Column("user_agent", String(1024)),
         Column("inbound_protocol", String(20)),
         Column("error", Text),
+        Column("intent", String(20)),
+        Column("requested_model", String(100)),
+        Column("actual_model", String(100)),
+        Column("provider_key_id", Integer),
+        Column("provider_key_label", String(50)),
         Column("created_at", DateTime),
         Column("updated_at", DateTime),
     )
@@ -881,12 +886,12 @@ async def init_db():
                 "CREATE VIEW request_logs_all AS "
                 "SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, "
                 "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
-                "inbound_protocol, error, created_at, updated_at "
+                "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, created_at, updated_at "
                 "FROM request_logs "
                 "UNION ALL "
                 "SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, "
                 "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
-                "inbound_protocol, error, created_at, updated_at "
+                "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, created_at, updated_at "
                 "FROM request_logs_history"
             )
         )

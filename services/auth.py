@@ -198,7 +198,7 @@ async def validate_api_key(
         if not provider_config:
             disabled_reason = await get_disabled_provider_reason(provider_name)
             if disabled_reason:
-                return None, f"供应商 '{provider_name}' 已被禁用"
+                return None, f"供应商 '{provider_name}' 已被禁用：{disabled_reason}"
             return None, f"供应商 '{provider_name}' 不存在"
 
         provider_model_id = None
