@@ -1,18 +1,22 @@
 INTENT_RULES = [
     ("coding", {
         "keywords": [
-            "function", "def ", "class ", "import ", "const ", "let ",
-            "return", "console.log", "print(", "async ", "await ",
-            "```python", "```javascript", "```java", "```go", "```cpp",
-            "bug", "fix", "debug", "compile", "runtime error",
+            "def ", "class ", "import ", "const ", "let ",
+            "console.log", "print(", "async ", "await ",
+            "```python", "```javascript", "```java", "```go", "```cpp", "```typescript",
+            "bug", "fix", "debug", "compile", "runtime error", "stack trace",
             "git ", "npm ", "pip ", "cargo ", "maven", "gradle",
             "API endpoint", "REST API", "webhook", "sdk",
-            "refactor", "code review", "CRUD", "database",
+            "refactor", "code review", "CRUD",
             "algorithm", "data structure", "leetcode",
+            "syntax error", "typeerror", "nullpointer", "segfault",
+            "unit test", "pytest", "jest",
+            "parameter", "function", "variable", "return",
+            "handler", "middleware", "endpoint", "route",
+            "deploy", "build", "docker", "container",
         ],
         "system_hint": [
-            "programming", "coding assistant", "developer",
-            "software engineer", "backend", "frontend", "fullstack",
+            "coding assistant", "code assistant",
         ],
     }),
     ("writing", {
@@ -21,7 +25,13 @@ INTENT_RULES = [
             "article", "blog", "essay", "proposal", "memo",
             "translate", "rewrite", "paraphrase", "polish",
             "grammar", "spelling", "proofread",
-            "email", "letter", "document", "whitepaper",
+            "email", "letter", "whitepaper",
+            "readme", "changelog", "release notes", "markdown",
+            "documentation", "doc ", "guide", "tutorial",
+            "how to use", "getting started", "usage",
+            "explain", "describe", "what is", "why does",
+            "help me write", "help me draft",
+            "bullet point", "table of contents",
         ],
         "system_hint": [
             "writer", "copywriter", "editor", "translator",
@@ -44,8 +54,7 @@ INTENT_RULES = [
             "UI", "UX", "wireframe", "mockup", "prototype",
             "Figma", "Sketch", "Photoshop", "illustration",
             "logo", "icon", "color palette", "typography",
-            "layout", "responsive", "component",
-            "user flow", "design system", "brand",
+            "layout", "responsive", "user flow", "design system", "brand",
         ],
         "system_hint": [
             "designer", "UI/UX", "graphic designer", "product designer",
@@ -54,6 +63,10 @@ INTENT_RULES = [
 ]
 
 DEFAULT_INTENT = "chat"
+
+SYSTEM_HINT_WEIGHT = 1
+LAST_MSG_WEIGHT = 3
+HISTORY_MSG_WEIGHT = 1
 
 
 def classify_intent(messages: list[dict]) -> str:
@@ -64,6 +77,7 @@ def classify_intent(messages: list[dict]) -> str:
     for intent_name, _ in INTENT_RULES:
         scores[intent_name] = 0
 
+    user_messages = []
     for msg in messages:
         role = msg.get("role", "")
         content = (msg.get("content") or "")
@@ -75,13 +89,19 @@ def classify_intent(messages: list[dict]) -> str:
             for intent_name, rules in INTENT_RULES:
                 for hint in rules.get("system_hint", []):
                     if hint.lower() in content_lower:
-                        scores[intent_name] += 3
+                        scores[intent_name] += SYSTEM_HINT_WEIGHT
 
         if role in ("user", "assistant"):
-            for intent_name, rules in INTENT_RULES:
-                for kw in rules.get("keywords", []):
-                    if kw.lower() in content_lower:
-                        scores[intent_name] += 1
+            user_messages.append(content_lower)
+
+    last_user_msg = user_messages[-1] if user_messages else ""
+
+    for msg_content in user_messages:
+        weight = LAST_MSG_WEIGHT if msg_content is last_user_msg else HISTORY_MSG_WEIGHT
+        for intent_name, rules in INTENT_RULES:
+            for kw in rules.get("keywords", []):
+                if kw.lower() in msg_content:
+                    scores[intent_name] += weight
 
     best = max(scores, key=scores.get)
     if scores[best] == 0:
