@@ -13,6 +13,7 @@ from core.config import (
     update_stats,
 )
 from core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
+from services.key_health import record_key_event
 from services.logging import create_request_log
 from services.minimax import process_minimax_response
 from services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
@@ -162,6 +163,15 @@ async def handle_normal(
         if not is_error and total_tokens > 0:
             record_request_rate(tokens_record.get('completion_tokens', 0), latency)
         log_response_meta(provider, model, response_meta)
+        if api_key_id:
+            if request_status == "success":
+                record_key_event(api_key_id, "success")
+            elif request_status in RATE_LIMITED_STATUSES:
+                record_key_event(api_key_id, "error_429", resp.status_code)
+            elif resp.status_code >= 500:
+                record_key_event(api_key_id, "error_5xx", resp.status_code)
+            elif resp.status_code >= 400:
+                record_key_event(api_key_id, "error_4xx", resp.status_code)
         await create_request_log(
             provider,
             model,

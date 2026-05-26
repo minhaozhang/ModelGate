@@ -5,6 +5,7 @@ from sqlalchemy import select, update
 
 from core.config import logger, provider_key_semaphores, providers_cache
 from core.database import Provider, ProviderKey, async_session_maker
+from services.key_health import record_key_event, on_key_reenabled
 
 
 def parse_reset_time(reason: str) -> datetime | None:
@@ -55,6 +56,8 @@ async def _do_reenable_key(key_id: int) -> None:
             .values(is_active=True, disabled_reason=None, disabled_at=None, reset_at=None)
         )
         await session.commit()
+
+    on_key_reenabled(key_id)
 
     from services.provider import load_providers
     await load_providers()
@@ -160,6 +163,9 @@ async def disable_provider_key(
             .values(is_active=False, disabled_reason=reason[:255], disabled_at=datetime.now(), reset_at=reset_at)
         )
         await session.commit()
+
+    if provider_key_id:
+        record_key_event(provider_key_id, "disabled")
 
     keys = provider_config.get("api_keys") or []
     active_keys = [k for k in keys if k["id"] != provider_key_id]
@@ -346,6 +352,9 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
         from services.provider import load_providers
 
         await load_providers()
+
+        for kid in reenabled_keys:
+            on_key_reenabled(kid)
 
         try:
             from services.notification import create_notification

@@ -21,6 +21,7 @@ from core.database import (
     ProviderModel,
     Model,
 )
+from services.key_health import compute_health_score
 
 KEY_STICKY_TTL_SECONDS = 1800
 _key_sticky_map: dict[tuple[int, str], tuple[int, float]] = {}
@@ -94,9 +95,12 @@ def pick_api_keys(
                 for k in keys:
                     if k["id"] == key_id:
                         return [(k["api_key"], k["id"])]
-    shuffled = list(keys)
-    random.shuffle(shuffled)
-    return [(k["api_key"], k["id"]) for k in shuffled]
+    scored = [
+        (k, compute_health_score(k["id"]))
+        for k in keys
+    ]
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return [(k["api_key"], k["id"]) for k, _ in scored]
 
 
 async def invalidate_provider_key_sticky_cache(
