@@ -103,6 +103,7 @@ class Model(Base):
     is_multimodal = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     estimated_price = Column(Float, nullable=True, server_default="0")
+    tags = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -116,6 +117,8 @@ class ProviderModel(Base):
     model_name_override = Column(String(100), nullable=True)
     is_active = Column(Boolean, default=True)
     max_busyness_level = Column(Integer, nullable=True)
+    alias = Column(String(100), nullable=True)
+    priority = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
@@ -145,6 +148,7 @@ class ApiKey(Base):
     key = Column(String(64), unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
     bypass_busyness = Column(Boolean, default=False)
+    preferred_tags = Column(Text, nullable=True)
     last_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -212,6 +216,7 @@ class RequestLog(Base):
     user_agent = Column(String(1024), nullable=True)
     inbound_protocol = Column(String(20), nullable=True)
     error = Column(Text, nullable=True)
+    intent = Column(String(20), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -241,6 +246,7 @@ class RequestLogHistory(Base):
     user_agent = Column(String(1024), nullable=True)
     inbound_protocol = Column(String(20), nullable=True)
     error = Column(Text, nullable=True)
+    intent = Column(String(20), nullable=True)
     created_at = Column(DateTime, nullable=False, index=True)
     updated_at = Column(DateTime, nullable=True)
     archive_month = Column(String(7), nullable=False)
@@ -1143,6 +1149,24 @@ async def init_db():
             text(
                 "CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at)"
             )
+        )
+        await conn.execute(
+            text("ALTER TABLE models ADD COLUMN IF NOT EXISTS tags TEXT")
+        )
+        await conn.execute(
+            text("ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS alias VARCHAR(100)")
+        )
+        await conn.execute(
+            text("ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS intent VARCHAR(20)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS intent VARCHAR(20)")
+        )
+        await conn.execute(
+            text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS preferred_tags TEXT")
         )
 
 

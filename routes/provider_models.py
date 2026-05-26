@@ -22,11 +22,15 @@ def require_admin(session: Optional[str] = Cookie(None)):
 class ProviderModelCreate(BaseModel):
     model_id: int
     model_name_override: Optional[str] = None
+    alias: Optional[str] = None
+    priority: Optional[int] = 0
     is_active: bool = True
 
 
 class ProviderModelUpdate(BaseModel):
     model_name_override: Optional[str] = None
+    alias: Optional[str] = None
+    priority: Optional[int] = None
     is_active: Optional[bool] = None
     max_busyness_level: Optional[int] = None
     clear_busyness_level: Optional[bool] = None
@@ -55,6 +59,9 @@ async def list_provider_models(provider_id: int, _: bool = Depends(require_admin
                         "model_name_override": pm.model_name_override,
                         "is_active": pm.is_active,
                         "max_busyness_level": pm.max_busyness_level,
+                        "alias": pm.alias if hasattr(pm, "alias") else None,
+                        "priority": pm.priority if hasattr(pm, "priority") else 0,
+                        "tags": model.tags,
                     }
                 )
         return {"models": models_data}
@@ -69,6 +76,8 @@ async def add_provider_model(
             provider_id=provider_id,
             model_id=data.model_id,
             model_name_override=data.model_name_override,
+            alias=data.alias,
+            priority=data.priority or 0,
             is_active=data.is_active,
         )
         session.add(pm)
@@ -95,6 +104,10 @@ async def update_provider_model(
             return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
         if data.model_name_override is not None:
             pm.model_name_override = data.model_name_override
+        if data.alias is not None:
+            pm.alias = data.alias if data.alias else None
+        if data.priority is not None:
+            pm.priority = data.priority
         if data.is_active is not None:
             pm.is_active = data.is_active
         if data.clear_busyness_level:

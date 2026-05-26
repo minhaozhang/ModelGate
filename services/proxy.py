@@ -67,6 +67,17 @@ def _api_key_bypasses_busyness(api_key_id: int | None) -> bool:
     return False
 
 
+def _get_api_key_preferred_tags(api_key_id: int | None) -> str | None:
+    from core.config import api_keys_cache
+
+    if not api_key_id:
+        return None
+    for key_info in api_keys_cache.values():
+        if key_info.get("id") == api_key_id:
+            return key_info.get("preferred_tags")
+    return None
+
+
 def _check_busyness_rules(model: str) -> str | None:
     from core.config import busyness_state, system_config
 
@@ -187,7 +198,11 @@ async def proxy_request(request: Request, endpoint: str):
     if block_response:
         return block_response
 
-    provider_config, actual_model, provider_name = await get_provider_and_model(model)
+    provider_config, actual_model, provider_name = await get_provider_and_model(
+        model,
+        messages=body_json.get("messages"),
+        preferred_tags=_get_api_key_preferred_tags(api_key_id),
+    )
     if not provider_config:
         disabled_reason = (
             await get_disabled_provider_reason(provider_name) if provider_name else None
@@ -261,6 +276,9 @@ async def proxy_request(request: Request, endpoint: str):
 
         if is_deepseek_thinking_active(provider_name, actual_model, body_json, model_config):
             messages = patch_reasoning_content(messages)
+
+        from services.intent_classifier import classify_intent
+        request_intent = classify_intent(messages)
 
         stream = body_json.get("stream", False)
 
@@ -352,6 +370,7 @@ async def proxy_request(request: Request, endpoint: str):
                         downstream_status_code=429,
                         error=message,
                         inbound_protocol=inbound_protocol,
+                        intent=request_intent,
                     )
                     return _openai_error_response(
                         message,
@@ -412,6 +431,7 @@ async def proxy_request(request: Request, endpoint: str):
                         downstream_status_code=429,
                         error=message,
                         inbound_protocol=inbound_protocol,
+                        intent=request_intent,
                     )
                     return _openai_error_response(
                         message,
@@ -434,6 +454,7 @@ async def proxy_request(request: Request, endpoint: str):
                     user_agent=user_agent,
                     request_context_tokens=request_context_tokens,
                     inbound_protocol=inbound_protocol,
+                    intent=request_intent,
                 )
 
             client = get_http_client()
@@ -522,6 +543,7 @@ async def proxy_request(request: Request, endpoint: str):
             downstream_status_code=502,
             error=str(e),
             inbound_protocol=inbound_protocol,
+            intent=request_intent,
         )
         error_logger.error(
             f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}\n"

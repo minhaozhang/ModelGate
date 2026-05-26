@@ -70,6 +70,7 @@ async def load_api_keys():
                 "id": k.id,
                 "name": k.name,
                 "bypass_busyness": k.bypass_busyness or False,
+                "preferred_tags": k.preferred_tags if hasattr(k, "preferred_tags") else None,
                 "allowed_provider_model_ids": key_models_map[k.id],
                 "time_rules": key_rules_map[k.id],
                 "mcp_server_ids": key_mcp_map[k.id],
