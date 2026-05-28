@@ -433,6 +433,97 @@ async def aggregate_mcp_stats(date_str: str) -> None:
     )
 
 
+async def backup_request_contents() -> dict:
+    import gzip
+    import json
+    import os
+
+    async with async_session_maker() as session:
+        today_result = await session.execute(select(func.current_date()))
+        db_today = today_result.scalar()
+    target_date = (db_today - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    backup_dir = os.path.join(os.getcwd(), "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    filename = os.path.join(backup_dir, f"request_contents_{target_date}.jsonl.gz")
+
+    if os.path.exists(filename):
+        logger.info("[BACKUP] File already exists: %s, skipping export", filename)
+        return {"date": target_date, "status": "skipped", "reason": "file_exists"}
+
+    exported = 0
+    batch_size = 50
+
+    with gzip.open(filename, "wt", encoding="utf-8") as f:
+        offset = 0
+        while True:
+            async with async_session_maker() as session:
+                result = await session.execute(
+                    text("""
+                        SELECT rc.id, rc.log_id, rc.request_messages, rc.response_content,
+                               rc.response_tool_calls, rc.response_thinking, rc.response_raw, rc.created_at
+                        FROM request_contents rc
+                        JOIN request_logs rl ON rl.id = rc.log_id AND rl.status = 'success'
+                        WHERE rc.created_at >= :start AND rc.created_at < :end
+                        ORDER BY rc.id
+                        LIMIT :limit OFFSET :offset
+                    """),
+                    {
+                        "start": f"{target_date} 00:00:00",
+                        "end": f"{db_today.strftime('%Y-%m-%d')} 00:00:00",
+                        "limit": batch_size,
+                        "offset": offset,
+                    },
+                )
+                rows = result.fetchall()
+
+            if not rows:
+                break
+
+            for row in rows:
+                record = {
+                    "id": row[0],
+                    "log_id": row[1],
+                    "request_messages": row[2],
+                    "response_content": row[3],
+                    "response_tool_calls": row[4],
+                    "response_thinking": row[5],
+                    "response_raw": row[6],
+                    "created_at": row[7].isoformat() if row[7] else None,
+                }
+                f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+                exported += 1
+
+            offset += batch_size
+            logger.info("[BACKUP] Exported %d rows for %s", exported, target_date)
+
+    file_size = os.path.getsize(filename)
+    logger.info("[BACKUP] Exported %d rows to %s (%.1f MB)", exported, filename, file_size / 1024 / 1024)
+
+    if exported == 0:
+        os.remove(filename)
+        logger.info("[BACKUP] No data for %s, removed empty file", target_date)
+        return {"date": target_date, "status": "empty", "exported": 0}
+
+    deleted = 0
+    async with async_session_maker() as session:
+        result = await session.execute(
+            text("""
+                DELETE FROM request_contents
+                WHERE created_at >= :start AND created_at < :end
+            """),
+            {
+                "start": f"{target_date} 00:00:00",
+                "end": f"{db_today.strftime('%Y-%m-%d')} 00:00:00",
+            },
+        )
+        deleted = result.rowcount or 0
+        await session.commit()
+
+    logger.info("[BACKUP] Deleted %d rows from request_contents for %s", deleted, target_date)
+    return {"date": target_date, "status": "success", "exported": exported, "deleted": deleted, "file_size_mb": round(file_size / 1024 / 1024, 1)}
+
+
 async def aggregate_mcp_yesterday_stats() -> None:
     async with async_session_maker() as session:
         today_result = await session.execute(select(func.current_date()))

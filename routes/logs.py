@@ -1456,6 +1456,9 @@ async def aggregate_logs(
     time_range: str = "24h",
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
+    group_by: str = "provider_model",
+    key_name: Optional[str] = None,
+    client_ip: Optional[str] = None,
     _: bool = Depends(require_admin),
 ):
     now = datetime.now()
@@ -1492,64 +1495,177 @@ async def aggregate_logs(
         else:
             base_where.append(RequestLog.status == "success")
 
-        q = (
-            select(
-                RequestLog.provider_id,
-                RequestLog.model,
-                func.count(RequestLog.id).label("request_count"),
-                func.round(cast(func.avg(RequestLog.latency_ms), Numeric), 2).label("avg_latency_ms"),
-                func.round(cast(func.max(RequestLog.latency_ms), Numeric), 2).label("max_latency_ms"),
-                func.round(cast(func.min(RequestLog.latency_ms), Numeric), 2).label("min_latency_ms"),
-                func.round(
-                    cast(
-                        func.avg(
-                            func.coalesce(RequestLog.tokens["prompt_tokens"].as_integer(), 0)
-                            + func.coalesce(RequestLog.tokens["completion_tokens"].as_integer(), 0)
-                        ),
-                        Numeric,
-                    ),
-                    1,
-                ).label("avg_tokens"),
-                func.sum(
-                    func.coalesce(RequestLog.tokens["prompt_tokens"].as_integer(), 0)
-                    + func.coalesce(RequestLog.tokens["completion_tokens"].as_integer(), 0)
-                ).label("total_tokens"),
-            )
-            .where(*base_where)
-            .group_by(RequestLog.provider_id, RequestLog.model)
-            .order_by(func.count(RequestLog.id).desc())
-        )
-
         if provider:
-            q = q.where(RequestLog.provider_id == provider)
+            base_where.append(RequestLog.provider_id == provider)
 
-        result = await session.execute(q)
-        rows = result.fetchall()
+        if client_ip:
+            base_where.append(RequestLog.client_ip == client_ip)
 
-        provider_ids = {r.provider_id for r in rows if r.provider_id}
-        provider_map = {}
-        if provider_ids:
-            p_result = await session.execute(
-                select(Provider.id, Provider.name).where(Provider.id.in_(provider_ids))
+        api_key_ids = None
+        if key_name:
+            k_result = await session.execute(
+                select(ApiKey.id).where(ApiKey.name.ilike(f"%{key_name}%"))
             )
-            provider_map = {p[0]: p[1] for p in p_result.all()}
+            api_key_ids = [r[0] for r in k_result.all()]
+            if not api_key_ids:
+                return {"group_by": group_by, "rows": []}
+            base_where.append(RequestLog.api_key_id.in_(api_key_ids))
 
-        return {
-            "rows": [
-                {
-                    "provider_id": r.provider_id,
-                    "provider_name": provider_map.get(r.provider_id, "-"),
-                    "model": r.model,
-                    "request_count": r.request_count,
-                    "avg_latency_ms": float(r.avg_latency_ms) if r.avg_latency_ms else 0,
-                    "max_latency_ms": float(r.max_latency_ms) if r.max_latency_ms else 0,
-                    "min_latency_ms": float(r.min_latency_ms) if r.min_latency_ms else 0,
-                    "avg_tokens": float(r.avg_tokens) if r.avg_tokens else 0,
-                    "total_tokens": int(r.total_tokens) if r.total_tokens else 0,
-                }
-                for r in rows
-            ]
-        }
+        token_expr = func.coalesce(RequestLog.tokens["prompt_tokens"].as_integer(), 0) + func.coalesce(RequestLog.tokens["completion_tokens"].as_integer(), 0)
+        common_metrics = [
+            func.count(RequestLog.id).label("request_count"),
+            func.round(cast(func.avg(RequestLog.latency_ms), Numeric), 2).label("avg_latency_ms"),
+            func.sum(token_expr).label("total_tokens"),
+        ]
+
+        if group_by == "user":
+            q = (
+                select(
+                    RequestLog.api_key_id,
+                    *common_metrics,
+                )
+                .where(*base_where)
+                .group_by(RequestLog.api_key_id)
+                .order_by(func.count(RequestLog.id).desc())
+            )
+            result = await session.execute(q)
+            rows = result.fetchall()
+
+            key_ids = {r.api_key_id for r in rows if r.api_key_id}
+            key_map = {}
+            if key_ids:
+                k_result = await session.execute(
+                    select(ApiKey.id, ApiKey.name).where(ApiKey.id.in_(key_ids))
+                )
+                key_map = {k[0]: k[1] for k in k_result.all()}
+
+            return {
+                "group_by": "user",
+                "rows": [
+                    {
+                        "api_key_id": r.api_key_id,
+                        "api_key_name": key_map.get(r.api_key_id, "-"),
+                        "request_count": r.request_count,
+                        "avg_latency_ms": float(r.avg_latency_ms) if r.avg_latency_ms else 0,
+                        "total_tokens": int(r.total_tokens) if r.total_tokens else 0,
+                    }
+                    for r in rows
+                ],
+            }
+
+        elif group_by == "ip":
+            q = (
+                select(
+                    RequestLog.client_ip,
+                    *common_metrics,
+                )
+                .where(*base_where)
+                .group_by(RequestLog.client_ip)
+                .order_by(func.count(RequestLog.id).desc())
+            )
+            result = await session.execute(q)
+            rows = result.fetchall()
+            return {
+                "group_by": "ip",
+                "rows": [
+                    {
+                        "client_ip": r.client_ip or "-",
+                        "request_count": r.request_count,
+                        "avg_latency_ms": float(r.avg_latency_ms) if r.avg_latency_ms else 0,
+                        "total_tokens": int(r.total_tokens) if r.total_tokens else 0,
+                    }
+                    for r in rows
+                ],
+            }
+
+        elif group_by == "user_ip":
+            q = (
+                select(
+                    RequestLog.api_key_id,
+                    RequestLog.client_ip,
+                    *common_metrics,
+                )
+                .where(*base_where)
+                .group_by(RequestLog.api_key_id, RequestLog.client_ip)
+                .order_by(func.count(RequestLog.id).desc())
+            )
+            result = await session.execute(q)
+            rows = result.fetchall()
+
+            key_ids = {r.api_key_id for r in rows if r.api_key_id}
+            key_map = {}
+            if key_ids:
+                k_result = await session.execute(
+                    select(ApiKey.id, ApiKey.name).where(ApiKey.id.in_(key_ids))
+                )
+                key_map = {k[0]: k[1] for k in k_result.all()}
+
+            return {
+                "group_by": "user_ip",
+                "rows": [
+                    {
+                        "api_key_id": r.api_key_id,
+                        "api_key_name": key_map.get(r.api_key_id, "-"),
+                        "client_ip": r.client_ip or "-",
+                        "request_count": r.request_count,
+                        "avg_latency_ms": float(r.avg_latency_ms) if r.avg_latency_ms else 0,
+                        "total_tokens": int(r.total_tokens) if r.total_tokens else 0,
+                    }
+                    for r in rows
+                ],
+            }
+
+        else:
+            q = (
+                select(
+                    RequestLog.provider_id,
+                    RequestLog.model,
+                    func.count(RequestLog.id).label("request_count"),
+                    func.round(cast(func.avg(RequestLog.latency_ms), Numeric), 2).label("avg_latency_ms"),
+                    func.round(cast(func.max(RequestLog.latency_ms), Numeric), 2).label("max_latency_ms"),
+                    func.round(cast(func.min(RequestLog.latency_ms), Numeric), 2).label("min_latency_ms"),
+                    func.round(
+                        cast(
+                            func.avg(token_expr),
+                            Numeric,
+                        ),
+                        1,
+                    ).label("avg_tokens"),
+                    func.sum(token_expr).label("total_tokens"),
+                )
+                .where(*base_where)
+                .group_by(RequestLog.provider_id, RequestLog.model)
+                .order_by(func.count(RequestLog.id).desc())
+            )
+
+            result = await session.execute(q)
+            rows = result.fetchall()
+
+            provider_ids = {r.provider_id for r in rows if r.provider_id}
+            provider_map = {}
+            if provider_ids:
+                p_result = await session.execute(
+                    select(Provider.id, Provider.name).where(Provider.id.in_(provider_ids))
+                )
+                provider_map = {p[0]: p[1] for p in p_result.all()}
+
+            return {
+                "group_by": "provider_model",
+                "rows": [
+                    {
+                        "provider_id": r.provider_id,
+                        "provider_name": provider_map.get(r.provider_id, "-"),
+                        "model": r.model,
+                        "request_count": r.request_count,
+                        "avg_latency_ms": float(r.avg_latency_ms) if r.avg_latency_ms else 0,
+                        "max_latency_ms": float(r.max_latency_ms) if r.max_latency_ms else 0,
+                        "min_latency_ms": float(r.min_latency_ms) if r.min_latency_ms else 0,
+                        "avg_tokens": float(r.avg_tokens) if r.avg_tokens else 0,
+                        "total_tokens": int(r.total_tokens) if r.total_tokens else 0,
+                    }
+                    for r in rows
+                ],
+            }
 
 
 @router.get("/mcp-logs/query")

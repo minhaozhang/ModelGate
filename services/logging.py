@@ -4,6 +4,7 @@ from sqlalchemy import update, func
 import core.config as config_module
 from core.config import providers_cache
 from core.database import async_session_maker, ApiKey, RequestLog, RequestContent
+from sqlalchemy import delete as sa_delete
 
 
 def invalidate_today_stats_cache() -> None:
@@ -101,6 +102,10 @@ async def update_request_log(
                 updated_at=func.now(),
             )
         )
+        if status != "success":
+            await session.execute(
+                sa_delete(RequestContent).where(RequestContent.log_id == log_id)
+            )
         await session.commit()
         invalidate_today_stats_cache()
         return (result.rowcount or 0) > 0

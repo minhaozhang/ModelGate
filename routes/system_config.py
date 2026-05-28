@@ -309,6 +309,87 @@ async def get_all_scheduler_logs(
         }
 
 
+import asyncio as _asyncio
+
+from core.config import provider_key_semaphores, provider_key_model_semaphores, providers_cache
+from services.key_health import compute_health_score, get_health_level
+
+
+@router.get("/api/provider-models-status")
+async def provider_models_status(_: bool = Depends(require_admin)):
+    rows = []
+    for provider_name, pcfg in providers_cache.items():
+        provider_id = pcfg.get("id")
+        disabled = pcfg.get("disabled_reason")
+        api_keys = pcfg.get("api_keys", [])
+        models = pcfg.get("models", [])
+
+        if not api_keys:
+            key_entry = {
+                "provider": provider_name,
+                "provider_disabled": bool(disabled),
+                "provider_disabled_reason": disabled or "",
+                "key_id": None,
+                "key_label": "(default)",
+                "key_active": not bool(disabled),
+                "health_score": 0 if disabled else 100,
+                "health_level": "unavailable" if disabled else "excellent",
+                "concurrency_limit": 0,
+                "concurrency_in_use": 0,
+                "models": [m.get("model_name") or m.get("actual_model_name", "") for m in models],
+            }
+            rows.append(key_entry)
+            continue
+
+        for k in api_keys:
+            key_id = k["id"]
+            label = k.get("label", "") or f"Key #{key_id}"
+            is_active = True
+            health = compute_health_score(key_id, is_active)
+            level = get_health_level(health)
+
+            sem_key = f"{key_id}:{provider_name}"
+            sem = provider_key_semaphores.get(sem_key)
+            conc_limit = 0
+            conc_in_use = 0
+            if sem:
+                conc_limit = getattr(sem, "_modelgate_scoped_limit", getattr(sem, "_value", 0)) or 0
+                available = getattr(sem, "_value", 0)
+                conc_in_use = max(conc_limit - available, 0)
+
+            key_models = []
+            for m in models:
+                model_name = m.get("model_name") or m.get("actual_model_name", "")
+                pkm_sem_key = f"{sem_key}/{model_name}"
+                pkm_sem = provider_key_model_semaphores.get(pkm_sem_key)
+                pkm_in_use = 0
+                if pkm_sem:
+                    pkm_limit = getattr(pkm_sem, "_modelgate_scoped_limit", getattr(pkm_sem, "_value", 0)) or 0
+                    pkm_avail = getattr(pkm_sem, "_value", 0)
+                    pkm_in_use = max(pkm_limit - pkm_avail, 0)
+                key_models.append({
+                    "name": model_name,
+                    "in_use": pkm_in_use,
+                })
+
+            rows.append({
+                "provider": provider_name,
+                "provider_disabled": bool(disabled),
+                "provider_disabled_reason": disabled or "",
+                "key_id": key_id,
+                "key_label": label,
+                "key_active": is_active,
+                "health_score": health,
+                "health_level": level,
+                "concurrency_limit": conc_limit,
+                "concurrency_in_use": conc_in_use,
+                "models": key_models,
+            })
+
+    rows.sort(key=lambda r: (r["provider"], r.get("key_label", "")))
+    return {"rows": rows}
+
+
 @router.get("/system-config", response_class=HTMLResponse)
 async def system_config_page(request: Request, _: bool = Depends(require_admin)):
     return HTMLResponse(

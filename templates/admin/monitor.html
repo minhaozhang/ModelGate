@@ -148,6 +148,31 @@
         body.theme-dark .heatmap-legend-scale {
             box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.16);
         }
+        .health-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.2rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .health-excellent { background: #dcfce7; color: #15803d; }
+        .health-good { background: #dbeafe; color: #1d4ed8; }
+        .health-warning { background: #fef3c7; color: #b45309; }
+        .health-critical { background: #fee2e2; color: #b91c1c; }
+        .health-unavailable { background: #f1f5f9; color: #64748b; }
+        body.theme-dark .health-excellent { background: rgba(34,197,94,0.16); color: #86efac; }
+        body.theme-dark .health-good { background: rgba(59,130,246,0.16); color: #93c5fd; }
+        body.theme-dark .health-warning { background: rgba(245,158,11,0.16); color: #fcd34d; }
+        body.theme-dark .health-critical { background: rgba(239,68,68,0.16); color: #fca5a5; }
+        body.theme-dark .health-unavailable { background: rgba(100,116,139,0.16); color: #94a3b8; }
+        .conc-bar-bg { width: 60px; height: 8px; border-radius: 9999px; background: #e5e7eb; overflow: hidden; }
+        .conc-bar-fill { height: 100%; border-radius: 9999px; transition: width 0.3s; }
+        body.theme-dark .conc-bar-bg { background: #1f2937; }
+        .model-tag { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.68rem; font-weight: 500; background: #f1f5f9; color: #475569; margin: 1px; }
+        body.theme-dark .model-tag { background: #1f2937; color: #94a3b8; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -264,6 +289,26 @@
                 <div class="h-80">
                     <canvas id="latencyChart"></canvas>
                     <div id="latency-heatmap" class="hidden h-full overflow-auto"></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-5 mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">{{ _('Provider / Key / Model Status') if current_locale == 'zh' else 'Provider / Key / Model Status' }}</h3>
+                    <div id="provider-status-meta" class="text-sm text-gray-500"></div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200 text-left text-gray-500">
+                                <th class="px-4 py-3 font-medium">Provider</th>
+                                <th class="px-4 py-3 font-medium">Key</th>
+                                <th class="px-4 py-3 font-medium text-center">Health</th>
+                                <th class="px-4 py-3 font-medium text-center">Concurrency</th>
+                                <th class="px-4 py-3 font-medium">Models</th>
+                            </tr>
+                        </thead>
+                        <tbody id="provider-status-tbody"></tbody>
+                    </table>
                 </div>
             </div>
         </main>
@@ -1175,8 +1220,69 @@
 
         loadData();
         setInterval(loadData, 30000);
+        loadProviderStatus();
+        setInterval(loadProviderStatus, 10000);
         loadMcpStats();
         setInterval(loadMcpStats, 60000);
+
+        async function loadProviderStatus() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models-status`);
+                if (!data || !data.rows) return;
+                const rows = data.rows;
+                let totalKeys = rows.filter(r => r.key_id !== null).length;
+                let healthyKeys = rows.filter(r => r.health_score >= 60).length;
+                document.getElementById('provider-status-meta').textContent = `${healthyKeys}/${totalKeys} keys healthy`;
+
+                const tbody = document.getElementById('provider-status-tbody');
+                tbody.innerHTML = rows.map(r => {
+                    const hClass = 'health-' + r.health_level;
+                    const hBadge = `<span class="health-badge ${hClass}">${r.health_score}</span>`;
+
+                    let concHtml = '-';
+                    if (r.concurrency_limit > 0) {
+                        const pct = Math.min((r.concurrency_in_use / r.concurrency_limit) * 100, 100);
+                        const barColor = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
+                        concHtml = `<div class="flex items-center gap-2">
+                            <div class="conc-bar-bg"><div class="conc-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+                            <span class="text-xs text-gray-600">${r.concurrency_in_use}/${r.concurrency_limit}</span>
+                        </div>`;
+                    }
+
+                    let modelsHtml = '-';
+                    if (Array.isArray(r.models)) {
+                        if (r.models.length && typeof r.models[0] === 'object') {
+                            modelsHtml = r.models.map(m => {
+                                const cls = m.in_use > 0 ? 'background:#dbeafe;color:#1d4ed8;' : '';
+                                return `<span class="model-tag" style="${cls}">${escapeHtml(m.name)}${m.in_use > 0 ? ` (${m.in_use})` : ''}</span>`;
+                            }).join('');
+                        } else {
+                            modelsHtml = r.models.map(m => `<span class="model-tag">${escapeHtml(m)}</span>`).join('');
+                        }
+                    }
+
+                    const providerStyle = r.provider_disabled ? 'text-red-500 line-through' : 'text-gray-800';
+                    const providerTitle = r.provider_disabled ? r.provider_disabled_reason : '';
+                    const keyStyle = !r.key_active ? 'text-red-400' : 'text-gray-700';
+
+                    return `<tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium ${providerStyle}" title="${escapeHtml(providerTitle)}">${escapeHtml(r.provider)}</td>
+                        <td class="px-4 py-3 ${keyStyle}">${escapeHtml(r.key_label)}</td>
+                        <td class="px-4 py-3 text-center">${hBadge}</td>
+                        <td class="px-4 py-3">${concHtml}</td>
+                        <td class="px-4 py-3 max-w-xs">${modelsHtml}</td>
+                    </tr>`;
+                }).join('');
+            } catch(e) { console.error('Failed to load provider status', e); }
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
 
         async function loadMcpStats() {
             try {
