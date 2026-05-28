@@ -441,15 +441,18 @@ async def backup_request_contents() -> dict:
     async with async_session_maker() as session:
         today_result = await session.execute(select(func.current_date()))
         db_today = today_result.scalar()
-    target_date = (db_today - timedelta(days=1)).strftime("%Y-%m-%d")
+    target_date = db_today - timedelta(days=1)
+    target_date_str = target_date.strftime("%Y-%m-%d")
+    dt_start = datetime.combine(target_date, datetime.min.time())
+    dt_end = datetime.combine(db_today, datetime.min.time())
 
     backup_dir = os.path.join(os.getcwd(), "backups")
     os.makedirs(backup_dir, exist_ok=True)
-    filename = os.path.join(backup_dir, f"request_contents_{target_date}.jsonl.gz")
+    filename = os.path.join(backup_dir, f"request_contents_{target_date_str}.jsonl.gz")
 
     if os.path.exists(filename):
         logger.info("[BACKUP] File already exists: %s, skipping export", filename)
-        return {"date": target_date, "status": "skipped", "reason": "file_exists"}
+        return {"date": target_date_str, "status": "skipped", "reason": "file_exists"}
 
     exported = 0
     batch_size = 50
@@ -469,8 +472,8 @@ async def backup_request_contents() -> dict:
                         LIMIT :limit OFFSET :offset
                     """),
                     {
-                        "start": f"{target_date} 00:00:00",
-                        "end": f"{db_today.strftime('%Y-%m-%d')} 00:00:00",
+                        "start": dt_start,
+                        "end": dt_end,
                         "limit": batch_size,
                         "offset": offset,
                     },
@@ -495,15 +498,15 @@ async def backup_request_contents() -> dict:
                 exported += 1
 
             offset += batch_size
-            logger.info("[BACKUP] Exported %d rows for %s", exported, target_date)
+            logger.info("[BACKUP] Exported %d rows for %s", exported, target_date_str)
 
     file_size = os.path.getsize(filename)
     logger.info("[BACKUP] Exported %d rows to %s (%.1f MB)", exported, filename, file_size / 1024 / 1024)
 
     if exported == 0:
         os.remove(filename)
-        logger.info("[BACKUP] No data for %s, removed empty file", target_date)
-        return {"date": target_date, "status": "empty", "exported": 0}
+        logger.info("[BACKUP] No data for %s, removed empty file", target_date_str)
+        return {"date": target_date_str, "status": "empty", "exported": 0}
 
     deleted = 0
     async with async_session_maker() as session:
@@ -513,15 +516,15 @@ async def backup_request_contents() -> dict:
                 WHERE created_at >= :start AND created_at < :end
             """),
             {
-                "start": f"{target_date} 00:00:00",
-                "end": f"{db_today.strftime('%Y-%m-%d')} 00:00:00",
+                "start": dt_start,
+                "end": dt_end,
             },
         )
         deleted = result.rowcount or 0
         await session.commit()
 
-    logger.info("[BACKUP] Deleted %d rows from request_contents for %s", deleted, target_date)
-    return {"date": target_date, "status": "success", "exported": exported, "deleted": deleted, "file_size_mb": round(file_size / 1024 / 1024, 1)}
+    logger.info("[BACKUP] Deleted %d rows from request_contents for %s", deleted, target_date_str)
+    return {"date": target_date_str, "status": "success", "exported": exported, "deleted": deleted, "file_size_mb": round(file_size / 1024 / 1024, 1)}
 
 
 async def aggregate_mcp_yesterday_stats() -> None:
