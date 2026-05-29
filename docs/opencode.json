@@ -46,20 +46,29 @@
         "apiKey": "sk-12345",
         "baseURL": "http://8.145.138.161:12355/v1"
       },
-      "models": {        
-        "local_model": {
-          "name": "local_model",
+      "models": {}
+    },
+    "modelgate_local": {
+      "name": "ModelGate Local",
+      "options": {
+        "baseURL": "http://localhost/modelgate/v1",
+        "apiKey": "sk-ab9c217e6236676878836d102fa2fef71134c99c6861cb8d"
+      },
+      "models": {
+        "jintou/local_model": {
+          "name": "jintou/local_model",
+          "modalities": {
+            "input": ["text"],
+            "output": ["text"]
+          },
           "limit": {
             "context": 204800,
-            "output": 4096
+            "output": 131072
           },
-          "modalities": {
-            "input": [
-              "text"
-            ],
-            "output": [
-              "text"
-            ]
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
           }
         }
       }

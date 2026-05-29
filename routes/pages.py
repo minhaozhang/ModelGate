@@ -71,13 +71,6 @@ async def monitor_page(request: Request, session: Optional[str] = Cookie(None)):
     return HTMLResponse(content=render(request, "admin/monitor.html"))
 
 
-@router.get("/errors", response_class=HTMLResponse)
-async def errors_page(request: Request, session: Optional[str] = Cookie(None)):
-    if not _check_auth(session):
-        return RedirectResponse(url=build_app_url(request, "/admin/login"))
-    return HTMLResponse(content=render(request, "admin/errors.html"))
-
-
 @router.get("/m/login", response_class=HTMLResponse)
 async def mobile_login_page(request: Request, session: Optional[str] = Cookie(None)):
     if _check_auth(session):
