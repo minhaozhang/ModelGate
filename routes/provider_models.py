@@ -216,17 +216,18 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
                 for model_info in models:
                     if isinstance(model_info, str):
                         model_name = model_info
-                        max_tokens = 131072
-                        context_length = 204800
+                        max_tokens = None
+                        context_length = None
                     else:
                         model_name = model_info.get("id", model_info.get("name", ""))
-                        max_tokens = model_info.get("max_tokens", 131072)
-                        if isinstance(max_tokens, str):
+                        raw_mt = model_info.get("max_tokens")
+                        if isinstance(raw_mt, str):
                             try:
-                                max_tokens = int(max_tokens)
+                                raw_mt = int(raw_mt)
                             except ValueError:
-                                max_tokens = 131072
-                        context_length = context_length_map.get(model_name, 204800)
+                                raw_mt = None
+                        max_tokens = raw_mt
+                        context_length = context_length_map.get(model_name)
 
                     if not model_name:
                         continue
@@ -236,21 +237,24 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
                     )
                     model = model_result.scalar_one_or_none()
                     if not model:
-                        model = Model(
+                        create_kwargs = dict(
                             name=model_name,
                             display_name=model_name,
-                            max_tokens=max_tokens,
-                            context_length=context_length,
                             is_active=True,
                         )
+                        if max_tokens is not None:
+                            create_kwargs["max_tokens"] = max_tokens
+                        if context_length is not None:
+                            create_kwargs["context_length"] = context_length
+                        model = Model(**create_kwargs)
                         session.add(model)
                         await session.flush()
                     else:
-                        if model.max_tokens != max_tokens:
+                        if max_tokens is not None and model.max_tokens != max_tokens:
                             model.max_tokens = max_tokens
                         if model.display_name != model_name:
                             model.display_name = model_name
-                        if model.context_length != context_length:
+                        if context_length is not None and model.context_length != context_length:
                             model.context_length = context_length
 
                     pm_result = await session.execute(
