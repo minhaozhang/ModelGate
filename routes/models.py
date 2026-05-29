@@ -35,7 +35,7 @@ class ModelUpdate(BaseModel):
     max_tokens: Optional[int] = None
     context_length: Optional[int] = None
     thinking_enabled: Optional[bool] = None
-    thinking_budget: Optional[bool] = None
+    thinking_budget: Optional[int] = None
     is_multimodal: Optional[bool] = None
     is_active: Optional[bool] = None
     estimated_price: Optional[float] = None
