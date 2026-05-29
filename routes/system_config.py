@@ -6,7 +6,6 @@ from sqlalchemy import select, func
 import core.config as config
 from core.config import (
     validate_session,
-    OUTBOUND_USER_AGENT,
     DEFAULT_OUTBOUND_USER_AGENT,
 )
 from core.database import async_session_maker, RequestLog

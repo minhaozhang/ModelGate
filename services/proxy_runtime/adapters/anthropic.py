@@ -4,6 +4,8 @@ import json
 import time
 import uuid
 
+import core.config as config
+
 from services.proxy_runtime.adapters.base import ProviderAdapter
 
 
@@ -19,7 +21,7 @@ class AnthropicAdapter(ProviderAdapter):
         key = api_key or provider_config.get("api_key") or ""
         headers = {
             "content-type": "application/json",
-            "user-agent": "modelgate/1.0",
+            "user-agent": config.OUTBOUND_USER_AGENT,
             "connection": "keep-alive",
             "accept": "*/*",
             "anthropic-version": ANTHROPIC_VERSION,
