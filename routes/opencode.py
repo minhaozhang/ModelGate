@@ -182,22 +182,16 @@ async def get_opencode_setup_markdown(
 @router.post("/opencode/merge")
 async def merge_opencode_config(
     request: Request,
-    raw_body: str = Body(..., media_type="application/json"),
+    body_data: dict = Body(..., media_type="application/json"),
     api_key: Optional[str] = None,
     api_key_id: Optional[int] = Depends(get_user_session),
 ):
     if not api_key and not api_key_id:
         return JSONResponse({"error": "API Key is required"}, status_code=400)
 
-    # Strip trailing commas to support relaxed JSON
-    try:
-        cleaned_json = strip_json_trailing_commas(raw_body)
-        body_data = json.loads(cleaned_json)
-        user_config = body_data.get("config", {})
-    except (json.JSONDecodeError, ValueError) as e:
-        return JSONResponse(
-            {"error": f"Invalid JSON: {str(e)}"}, status_code=400
-        )
+    user_config = body_data.get("config", {})
+    if not isinstance(user_config, dict):
+        return JSONResponse({"error": "config must be an object"}, status_code=400)
 
     async with async_session_maker() as session:
         base_url = build_opencode_base_url(request)
@@ -206,9 +200,6 @@ async def merge_opencode_config(
         )
         if not modelgate_config:
             return JSONResponse({"error": "Invalid API Key"}, status_code=401)
-
-        if not isinstance(user_config, dict):
-            user_config = {}
 
         providers = user_config.get("provider", {})
         if not isinstance(providers, dict):
