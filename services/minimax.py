@@ -43,7 +43,9 @@ def process_minimax_response(resp_json: dict) -> None:
     if "choices" not in resp_json or not resp_json["choices"]:
         return
     message = resp_json["choices"][0].get("message", {})
-    content = message.get("content", "")
+    content = message.get("content") or ""
+    if not isinstance(content, str):
+        return
     if "<Parsed>" in content and "</Parsed>" in content:
         start_idx = content.find("<Parsed>")
         end_idx = content.find("</Parsed>") + 9

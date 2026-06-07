@@ -473,12 +473,31 @@ async def user_login(request: Request, data: UserLoginRequest, response: Respons
             max_age=USER_SESSION_EXPIRE_HOURS * 3600,
         )
         logger.info(f"[USER LOGIN] API Key '{key.name}' logged in")
+        try:
+            from services.audit import write_audit_log
+            await write_audit_log(
+                request, "create", "user_session", str(key.id),
+                f"用户登录 (Key: {key.name})", None, 200,
+                username=key.name, user_id=key.id,
+            )
+        except Exception:
+            pass
         return {"success": True, "name": key.name}
 
 
 @router.post("/user/api/logout")
-async def user_logout(response: Response, user_session: Optional[str] = Cookie(None)):
+async def user_logout(request: Request, response: Response, user_session: Optional[str] = Cookie(None)):
     if user_session and user_session in USER_SESSIONS:
+        info = USER_SESSIONS.get(user_session, {})
+        try:
+            from services.audit import write_audit_log
+            await write_audit_log(
+                request, "delete", "user_session", str(info.get("api_key_id", "")),
+                "用户登出", None, 200,
+                username=info.get("name"), user_id=info.get("api_key_id"),
+            )
+        except Exception:
+            pass
         del USER_SESSIONS[user_session]
     response.delete_cookie("user_session")
     return {"success": True}

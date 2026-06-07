@@ -11,6 +11,7 @@ services:
       - ./logs:/app/logs
       - ./reports:/app/reports
       - ./uploads/documents:/app/uploads/documents
+      - ./backups:/app/backups
     restart: unless-stopped
 
   nginx:

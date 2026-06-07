@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ '操作审计' if current_locale == 'zh' else 'Audit Logs' }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <style>
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav, body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border, body.theme-dark .border-b { border-color: #1f2937 !important; }
+        body.theme-dark input, body.theme-dark select { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow { box-shadow: 0 12px 30px rgba(2,6,23,0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96,165,250,0.15); color: #60a5fa !important; border-right: 3px solid #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148,163,184,0.12); }
+        body.theme-blackgold { background: #0a0a0a !important; color: #e5c07b; }
+        body.theme-blackgold nav, body.theme-blackgold .bg-white { background: #1a1a1a !important; }
+        body.theme-blackgold .bg-gray-50 { background: #111111 !important; }
+        body.theme-blackgold .text-gray-800 { color: #e5c07b !important; }
+        body.theme-blackgold .text-gray-700 { color: #d4a84a !important; }
+        body.theme-blackgold .text-gray-600 { color: #b8963e !important; }
+        body.theme-blackgold .border, body.theme-blackgold .border-b { border-color: #333 !important; }
+        body.theme-blackgold input, body.theme-blackgold select { background: #1a1a1a !important; color: #e5c07b !important; border-color: #444 !important; }
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59,130,246,0.1); }
+        .badge { display: inline-flex; align-items: center; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
+        .badge-create { background: #dcfce7; color: #166534; }
+        .badge-update { background: #dbeafe; color: #1e40af; }
+        .badge-delete { background: #fee2e2; color: #991b1b; }
+        body.theme-dark .badge-create { background: #052e16; color: #4ade80; }
+        body.theme-dark .badge-update { background: #172554; color: #60a5fa; }
+        body.theme-dark .badge-delete { background: #450a0a; color: #f87171; }
+        .log-row { transition: background 0.15s; }
+        .log-row:hover { background: rgba(59,130,246,0.04); }
+        body.theme-dark .log-row:hover { background: rgba(96,165,250,0.06); }
+        .detail-cell { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.8rem; }
+    </style>
+</head>
+<body class="theme-dark bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header('操作审计' if current_locale == 'zh' else 'Audit Logs') %}{% endcall %}
+
+            <div class="bg-white rounded-lg shadow p-4 mb-6">
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">{{ '操作类型' if current_locale == 'zh' else 'Action' }}</label>
+                        <select id="filter-action" class="border rounded px-2 py-1.5 text-sm min-w-[100px]">
+                            <option value="">{{ '全部' if current_locale == 'zh' else 'All' }}</option>
+                            <option value="create">{{ '创建' if current_locale == 'zh' else 'Create' }}</option>
+                            <option value="update">{{ '更新' if current_locale == 'zh' else 'Update' }}</option>
+                            <option value="delete">{{ '删除' if current_locale == 'zh' else 'Delete' }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">{{ '资源类型' if current_locale == 'zh' else 'Resource' }}</label>
+                        <select id="filter-resource" class="border rounded px-2 py-1.5 text-sm min-w-[120px]">
+                            <option value="">{{ '全部' if current_locale == 'zh' else 'All' }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">{{ '操作人' if current_locale == 'zh' else 'User' }}</label>
+                        <input id="filter-username" type="text" class="border rounded px-2 py-1.5 text-sm w-28" placeholder="">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">{{ '开始日期' if current_locale == 'zh' else 'Start' }}</label>
+                        <input id="filter-start" type="date" class="border rounded px-2 py-1.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">{{ '结束日期' if current_locale == 'zh' else 'End' }}</label>
+                        <input id="filter-end" type="date" class="border rounded px-2 py-1.5 text-sm">
+                    </div>
+                    <button onclick="loadLogs(1)" class="bg-blue-500 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-600">
+                        {{ '查询' if current_locale == 'zh' else 'Search' }}
+                    </button>
+                    <button onclick="resetFilters()" class="border px-4 py-1.5 rounded text-sm hover:bg-gray-50">
+                        {{ '重置' if current_locale == 'zh' else 'Reset' }}
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium w-40">{{ '时间' if current_locale == 'zh' else 'Time' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium w-20">{{ '操作人' if current_locale == 'zh' else 'User' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium w-20">{{ '操作' if current_locale == 'zh' else 'Action' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium w-28">{{ '资源' if current_locale == 'zh' else 'Resource' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '详情' if current_locale == 'zh' else 'Detail' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium w-28">{{ 'IP' if current_locale == 'zh' else 'IP' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium w-16">{{ '状态' if current_locale == 'zh' else 'Status' }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-body">
+                            <tr><td colspan="7" class="text-center py-12 text-gray-400">{{ '加载中...' if current_locale == 'zh' else 'Loading...' }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex items-center justify-between px-4 py-3 border-t">
+                    <span id="total-info" class="text-sm text-gray-500"></span>
+                    <div class="flex gap-2">
+                        <button id="btn-prev" onclick="prevPage()" class="border rounded px-3 py-1 text-sm hover:bg-gray-50" disabled>{{ '上一页' if current_locale == 'zh' else 'Prev' }}</button>
+                        <span id="page-info" class="text-sm text-gray-600 py-1"></span>
+                        <button id="btn-next" onclick="nextPage()" class="border rounded px-3 py-1 text-sm hover:bg-gray-50" disabled>{{ '下一页' if current_locale == 'zh' else 'Next' }}</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const APP_BASE_PATH = "{{ app_base_path }}";
+        let currentPage = 1;
+        let pageSize = 20;
+        let total = 0;
+
+        const actionLabels = {
+            create: "{{ '创建' if current_locale == 'zh' else 'Create' }}",
+            update: "{{ '更新' if current_locale == 'zh' else 'Update' }}",
+            delete: "{{ '删除' if current_locale == 'zh' else 'Delete' }}"
+        };
+        const resourceLabels = {
+            provider: "{{ '供应商' if current_locale == 'zh' else 'Provider' }}",
+            provider_key: "{{ '供应商密钥' if current_locale == 'zh' else 'Provider Key' }}",
+            model: "{{ '模型' if current_locale == 'zh' else 'Model' }}",
+            provider_model: "{{ '供应商模型' if current_locale == 'zh' else 'Provider Model' }}",
+            api_key: "{{ 'API密钥' if current_locale == 'zh' else 'API Key' }}",
+            time_rule: "{{ '时间规则' if current_locale == 'zh' else 'Time Rule' }}",
+            mcp_server: "{{ 'MCP服务器' if current_locale == 'zh' else 'MCP Server' }}",
+            document: "{{ '文档' if current_locale == 'zh' else 'Document' }}",
+            document_file: "{{ '文档文件' if current_locale == 'zh' else 'Document File' }}",
+            system_config: "{{ '系统配置' if current_locale == 'zh' else 'System Config' }}",
+            notification: "{{ '通知' if current_locale == 'zh' else 'Notification' }}",
+            scheduler_task: "{{ '定时任务' if current_locale == 'zh' else 'Scheduler Task' }}",
+            user: "{{ '用户' if current_locale == 'zh' else 'User' }}",
+            role: "{{ '角色' if current_locale == 'zh' else 'Role' }}",
+            role_permission: "{{ '角色权限' if current_locale == 'zh' else 'Role Permission' }}",
+            menu: "{{ '菜单' if current_locale == 'zh' else 'Menu' }}",
+            permission: "{{ '权限' if current_locale == 'zh' else 'Permission' }}",
+            user_role: "{{ '用户角色' if current_locale == 'zh' else 'User Role' }}"
+        };
+
+        async function loadResources() {
+            try {
+                const r = await fetch(`${APP_BASE_PATH}/admin/api/audit/resources`);
+                const d = await r.json();
+                if (d.success && d.data) {
+                    const sel = document.getElementById('filter-resource');
+                    d.data.forEach(res => {
+                        const opt = document.createElement('option');
+                        opt.value = res;
+                        opt.textContent = resourceLabels[res] || res;
+                        sel.appendChild(opt);
+                    });
+                }
+            } catch(e) {}
+        }
+
+        async function loadLogs(page) {
+            currentPage = page || 1;
+            const params = new URLSearchParams({ page: currentPage, page_size: pageSize });
+            const action = document.getElementById('filter-action').value;
+            const resource = document.getElementById('filter-resource').value;
+            const username = document.getElementById('filter-username').value;
+            const startDate = document.getElementById('filter-start').value;
+            const endDate = document.getElementById('filter-end').value;
+            if (action) params.set('action', action);
+            if (resource) params.set('resource', resource);
+            if (username) params.set('username', username);
+            if (startDate) params.set('start_date', startDate);
+            if (endDate) params.set('end_date', endDate);
+
+            try {
+                const r = await fetch(`${APP_BASE_PATH}/admin/api/audit/logs?${params}`);
+                const d = await r.json();
+                if (!d.success) return;
+                total = d.data.total;
+                const items = d.data.items;
+                const tbody = document.getElementById('logs-body');
+                if (items.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-12 text-gray-400">{{ '暂无数据' if current_locale == 'zh' else 'No data' }}</td></tr>`;
+                } else {
+                    tbody.innerHTML = items.map(log => `
+                        <tr class="log-row border-b">
+                            <td class="px-4 py-2.5 mono text-gray-500">${formatTime(log.created_at)}</td>
+                            <td class="px-4 py-2.5 font-medium">${esc(log.username || '-')}</td>
+                            <td class="px-4 py-2.5"><span class="badge badge-${log.action}">${actionLabels[log.action] || log.action}</span></td>
+                            <td class="px-4 py-2.5 text-gray-600">${resourceLabels[log.resource] || log.resource}${log.resource_id ? ' <span class="text-gray-400 mono">#' + esc(log.resource_id) + '</span>' : ''}</td>
+                            <td class="px-4 py-2.5 detail-cell text-gray-600" title="${esc(log.detail || '')}">${esc(log.detail || '-')}</td>
+                            <td class="px-4 py-2.5 mono text-gray-400">${esc(log.client_ip || '-')}</td>
+                            <td class="px-4 py-2.5">${statusBadge(log.status_code)}</td>
+                        </tr>
+                    `).join('');
+                }
+                const totalPages = Math.ceil(total / pageSize) || 1;
+                document.getElementById('total-info').textContent = `{{ '共' if current_locale == 'zh' else 'Total' }} ${total} {{ '条' if current_locale == 'zh' else 'records' }}`;
+                document.getElementById('page-info').textContent = `${currentPage} / ${totalPages}`;
+                document.getElementById('btn-prev').disabled = currentPage <= 1;
+                document.getElementById('btn-next').disabled = currentPage >= totalPages;
+            } catch(e) {
+                document.getElementById('logs-body').innerHTML = `<tr><td colspan="7" class="text-center py-12 text-red-400">{{ '加载失败' if current_locale == 'zh' else 'Load failed' }}</td></tr>`;
+            }
+        }
+
+        function formatTime(iso) {
+            if (!iso) return '-';
+            const d = new Date(iso);
+            const pad = n => String(n).padStart(2, '0');
+            return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        }
+
+        function esc(s) {
+            const div = document.createElement('div');
+            div.textContent = s;
+            return div.innerHTML;
+        }
+
+        function statusBadge(code) {
+            if (!code) return '<span class="text-gray-400">-</span>';
+            if (code >= 200 && code < 300) return `<span class="text-green-500 text-xs font-medium">${code}</span>`;
+            if (code >= 400) return `<span class="text-red-500 text-xs font-medium">${code}</span>`;
+            return `<span class="text-gray-500 text-xs">${code}</span>`;
+        }
+
+        function prevPage() { if (currentPage > 1) loadLogs(currentPage - 1); }
+        function nextPage() { loadLogs(currentPage + 1); }
+
+        function resetFilters() {
+            document.getElementById('filter-action').value = '';
+            document.getElementById('filter-resource').value = '';
+            document.getElementById('filter-username').value = '';
+            document.getElementById('filter-start').value = '';
+            document.getElementById('filter-end').value = '';
+            loadLogs(1);
+        }
+
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
+
+        function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
+        function applyTheme(mode) {
+            document.body.classList.toggle('theme-dark', mode === 'dark');
+            document.body.classList.toggle('theme-blackgold', mode === 'blackgold');
+            localStorage.setItem('admin_theme', mode);
+            const sel = document.getElementById('theme-toggle');
+            if (sel) sel.value = mode;
+        }
+        applyTheme(getThemeMode());
+
+        loadResources();
+        loadLogs(1);
+    </script>
+</body>
+</html>

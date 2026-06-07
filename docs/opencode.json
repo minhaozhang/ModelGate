@@ -1,0 +1,473 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "file:///D:/project/github/opencode-playwright-test-agents/dist/index.js",
+    "superpowers@git+https://github.com/obra/superpowers.git"
+  ],
+  "provider": {
+    "bailian-coding-plan-test": {
+      "name": "Model Studio Coding Plan",
+      "npm": "@ai-sdk/anthropic",
+      "options": {
+        "apiKey": "sk-sp-5a52d879df0c471a98e8b40b6236f35f",
+        "baseURL": "https://coding.dashscope.aliyuncs.com/apps/anthropic/v1"
+      },
+      "models": {
+        "qwen3.5-plus": {
+          "name": "Qwen3.5 Plus",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 1024
+            }
+          }
+        },
+        "qwen3-max-2026-01-23": {
+          "name": "Qwen3 Max 2026-01-23",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 1024
+            }
+          }
+        },
+        "qwen3-coder-plus": {
+          "name": "Qwen3 Coder Plus"
+        },
+        "qwen3-coder-next": {
+          "name": "Qwen3 Coder Next"
+        }
+      }
+    },
+    "jintou": {
+      "name": "jintou",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "apiKey": "sk-12345",
+        "baseURL": "http://8.145.138.161:12355/v1"
+      },
+      "models": {}
+    },
+    "modelgate_local": {
+      "name": "ModelGate Local",
+      "options": {
+        "baseURL": "http://localhost/modelgate/v1",
+        "apiKey": "sk-ab9c217e6236676878836d102fa2fef71134c99c6861cb8d"
+      },
+      "models": {
+        "jintou/local_model": {
+          "name": "jintou/local_model",
+          "modalities": {
+            "input": ["text"],
+            "output": ["text"]
+          },
+          "limit": {
+            "context": 204800,
+            "output": 131072
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        }
+      }
+    },
+    "modelgate": {
+      "name": "ModelGate",
+      "options": {
+        "baseURL": "https://leturx.cc/modelgate/v1",
+        "apiKey": "sk-ab9c217e6236676878836d102fa2fef71134c99c6861cb8d"
+      },
+      "models": {
+        "zhipu/glm-5": {
+          "name": "zhipu/glm-5",
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "zhipu/glm-5-turbo": {
+          "name": "zhipu/glm-5-turbo",
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 204800,
+            "output": 131072
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "minimax/MiniMax-M2.7": {
+          "name": "minimax/MiniMax-M2.7",
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 204800,
+            "output": 131072
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "volcengine/glm-5.1": {
+          "name": "volcengine/glm-5.1",
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "volcengine/doubao-seed-code": {
+          "name": "volcengine/doubao-seed-code",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 8192
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "volcengine/deepseek-v3.2": {
+          "name": "volcengine/deepseek-v3.2",
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 204800,
+            "output": 131072
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "xiaomi/mimo-v2.5": {
+          "name": "xiaomi/mimo-v2.5",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "xiaomi/mimo-v2.5-pro": {
+          "name": "xiaomi/mimo-v2.5-pro",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "xiaomi/mimo-v2-omni": {
+          "name": "xiaomi/mimo-v2-omni",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "jintou/local_model": {
+          "name": "jintou/local_model",
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 204800,
+            "output": 131072
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "zhipu/glm-5.1": {
+          "name": "zhipu/glm-5.1",
+          "modalities": {
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "kimi/kimi-k2.6": {
+          "name": "kimi/kimi-k2.6",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "deepseek/deepseek-v4-flash": {
+          "name": "deepseek/deepseek-v4-flash",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "deepseek/deepseek-v4-pro": {
+          "name": "deepseek/deepseek-v4-pro",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "xiaomi/mimo-v2-pro": {
+          "name": "xiaomi/mimo-v2-pro",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        },
+        "volcengine/kimi-k2.6": {
+          "name": "volcengine/kimi-k2.6",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "options": {
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        }
+      }
+    }
+  },
+  "mcp": {
+    "playwright": {
+      "enabled": true
+    },
+    "playwright_headless": {
+      "enabled": true
+    },
+    "zai-mcp-server": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@z_ai/mcp-server"
+      ],
+      "environment": {
+        "Z_AI_API_KEY": "abe0eeb031254dfdae1d4bcbff91401e.rcX54Nm6H4wtz77f",
+        "Z_AI_MODE": "ZHIPU"
+      }
+    },
+    "modelgate-proxy": {
+      "type": "remote",
+      "url": "https://leturx.cc/modelgate/mcp-proxy/mcp",
+      "headers": {
+        "Authorization": "Bearer sk-ab9c217e6236676878836d102fa2fef71134c99c6861cb8d"
+      }
+    },
+    "web-search-prime": {
+      "type": "remote",
+      "url": "https://open.bigmodel.cn/api/mcp/web_search_prime/mcp",
+      "headers": {
+        "Authorization": "Bearer abe0eeb031254dfdae1d4bcbff91401e.rcX54Nm6H4wtz77f"
+      }
+    },
+    "web-reader": {
+      "type": "remote",
+      "url": "https://open.bigmodel.cn/api/mcp/web_reader/mcp",
+      "headers": {
+        "Authorization": "Bearer abe0eeb031254dfdae1d4bcbff91401e.rcX54Nm6H4wtz77f"
+      }
+    },
+    "zread": {
+      "type": "remote",
+      "url": "https://open.bigmodel.cn/api/mcp/zread/mcp",
+      "headers": {
+        "Authorization": "Bearer abe0eeb031254dfdae1d4bcbff91401e.rcX54Nm6H4wtz77f"
+      }
+    },
+    "drawio": {
+      "type": "local",
+      "command": [
+        "npx",
+        "@next-ai-drawio/mcp-server@latest"
+      ]
+    }
+  },
+  "disabled_providers": [
+    "volcengine-plan"
+  ]
+}

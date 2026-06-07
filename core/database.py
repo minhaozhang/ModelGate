@@ -78,6 +78,7 @@ class ProviderKey(Base):
     label = Column(String(50), nullable=True)
     max_concurrent = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
+    priority = Column(Integer, default=0)
     disabled_reason = Column(String(255), nullable=True)
     disabled_at = Column(DateTime, nullable=True)
     reset_at = Column(DateTime, nullable=True)
@@ -103,6 +104,7 @@ class Model(Base):
     is_multimodal = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     estimated_price = Column(Float, nullable=True, server_default="0")
+    tags = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -116,6 +118,8 @@ class ProviderModel(Base):
     model_name_override = Column(String(100), nullable=True)
     is_active = Column(Boolean, default=True)
     max_busyness_level = Column(Integer, nullable=True)
+    alias = Column(String(100), nullable=True)
+    priority = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
@@ -145,6 +149,7 @@ class ApiKey(Base):
     key = Column(String(64), unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
     bypass_busyness = Column(Boolean, default=False)
+    preferred_tags = Column(Text, nullable=True)
     last_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -210,7 +215,13 @@ class RequestLog(Base):
     downstream_status_code = Column(Integer, nullable=True)
     client_ip = Column(String(64), nullable=True)
     user_agent = Column(String(1024), nullable=True)
+    inbound_protocol = Column(String(20), nullable=True)
     error = Column(Text, nullable=True)
+    intent = Column(String(20), nullable=True)
+    requested_model = Column(String(100), nullable=True)
+    actual_model = Column(String(100), nullable=True)
+    provider_key_id = Column(Integer, nullable=True)
+    provider_key_label = Column(String(50), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -238,7 +249,13 @@ class RequestLogHistory(Base):
     downstream_status_code = Column(Integer, nullable=True)
     client_ip = Column(String(64), nullable=True)
     user_agent = Column(String(1024), nullable=True)
+    inbound_protocol = Column(String(20), nullable=True)
     error = Column(Text, nullable=True)
+    intent = Column(String(20), nullable=True)
+    requested_model = Column(String(100), nullable=True)
+    actual_model = Column(String(100), nullable=True)
+    provider_key_id = Column(Integer, nullable=True)
+    provider_key_label = Column(String(50), nullable=True)
     created_at = Column(DateTime, nullable=False, index=True)
     updated_at = Column(DateTime, nullable=True)
     archive_month = Column(String(7), nullable=False)
@@ -274,7 +291,13 @@ if request_logs_all_table is None:
         Column("downstream_status_code", Integer),
         Column("client_ip", String(64)),
         Column("user_agent", String(1024)),
+        Column("inbound_protocol", String(20)),
         Column("error", Text),
+        Column("intent", String(20)),
+        Column("requested_model", String(100)),
+        Column("actual_model", String(100)),
+        Column("provider_key_id", Integer),
+        Column("provider_key_label", String(50)),
         Column("created_at", DateTime),
         Column("updated_at", DateTime),
     )
@@ -733,6 +756,18 @@ async def init_db():
         )
         await conn.execute(
             text(
+                "ALTER TABLE request_logs "
+                "ADD COLUMN IF NOT EXISTS inbound_protocol VARCHAR(20)"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE request_logs_history "
+                "ADD COLUMN IF NOT EXISTS inbound_protocol VARCHAR(20)"
+            )
+        )
+        await conn.execute(
+            text(
                 "ALTER TABLE provider_daily_stats "
                 "ADD COLUMN IF NOT EXISTS rate_limited INTEGER DEFAULT 0"
             )
@@ -851,12 +886,12 @@ async def init_db():
                 "CREATE VIEW request_logs_all AS "
                 "SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, "
                 "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
-                "error, created_at, updated_at "
+                "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, created_at, updated_at "
                 "FROM request_logs "
                 "UNION ALL "
                 "SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, "
                 "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
-                "error, created_at, updated_at "
+                "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, created_at, updated_at "
                 "FROM request_logs_history"
             )
         )
@@ -1091,3 +1126,233 @@ async def init_db():
                 ")"
             )
         )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS audit_logs ("
+                "id SERIAL PRIMARY KEY, "
+                "user_id INTEGER, "
+                "username VARCHAR(50), "
+                "action VARCHAR(20) NOT NULL, "
+                "resource VARCHAR(50) NOT NULL, "
+                "resource_id VARCHAR(100), "
+                "detail TEXT, "
+                "request_body JSONB, "
+                "client_ip VARCHAR(64), "
+                "user_agent VARCHAR(1024), "
+                "status_code INTEGER, "
+                "created_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs (user_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs (resource)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs (action)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at)"
+            )
+        )
+        await conn.execute(
+            text("ALTER TABLE models ADD COLUMN IF NOT EXISTS tags TEXT")
+        )
+        await conn.execute(
+            text("ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS alias VARCHAR(100)")
+        )
+        await conn.execute(
+            text("ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS intent VARCHAR(20)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS intent VARCHAR(20)")
+        )
+        await conn.execute(
+            text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS preferred_tags TEXT")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS requested_model VARCHAR(100)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS actual_model VARCHAR(100)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS provider_key_id INTEGER")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS provider_key_label VARCHAR(50)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS requested_model VARCHAR(100)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS actual_model VARCHAR(100)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS provider_key_id INTEGER")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS provider_key_label VARCHAR(50)")
+        )
+        await conn.execute(
+            text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0")
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS request_contents ("
+                "id SERIAL PRIMARY KEY, "
+                "log_id INTEGER NOT NULL REFERENCES request_logs(id) ON DELETE CASCADE, "
+                "request_messages JSONB, "
+                "response_content TEXT, "
+                "response_tool_calls JSONB, "
+                "response_thinking TEXT, "
+                "response_raw JSONB, "
+                "created_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_request_contents_log_id ON request_contents (log_id)"
+            )
+        )
+
+
+# ==================== RBAC Models ====================
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    email = Column(String(100), nullable=True)
+    full_name = Column(String(100), nullable=True)
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Role(Base):
+    __tablename__ = "roles"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False)
+    display_name = Column(String(100), nullable=True)
+    description = Column(Text, nullable=True)
+    is_system = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class UserRole(Base):
+    __tablename__ = "user_roles"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "role_id", name="uq_user_role"),
+        Index("idx_user_roles_user_id", "user_id"),
+        Index("idx_user_roles_role_id", "role_id"),
+    )
+
+
+class Menu(Base):
+    __tablename__ = "menus"
+
+    id = Column(Integer, primary_key=True)
+    parent_id = Column(Integer, ForeignKey("menus.id", ondelete="CASCADE"), nullable=True)
+    name = Column(String(50), nullable=False)
+    display_name = Column(String(100), nullable=True)
+    icon = Column(String(50), nullable=True)
+    path = Column(String(200), nullable=True)
+    component = Column(String(200), nullable=True)
+    permission_code = Column(String(100), nullable=True)
+    sort_order = Column(Integer, default=0)
+    is_visible = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(100), unique=True, nullable=False)
+    name = Column(String(100), nullable=True)
+    type = Column(String(20), nullable=False)  # menu, page, element, data
+    resource = Column(String(50), nullable=True)
+    action = Column(String(20), nullable=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_permissions_code", "code"),
+        Index("idx_permissions_resource", "resource"),
+    )
+
+
+class RolePermission(Base):
+    __tablename__ = "role_permissions"
+
+    id = Column(Integer, primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
+    permission_id = Column(Integer, ForeignKey("permissions.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),
+        Index("idx_role_permissions_role_id", "role_id"),
+        Index("idx_role_permissions_permission_id", "permission_id"),
+    )
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=True)
+    username = Column(String(50), nullable=True)
+    action = Column(String(20), nullable=False)
+    resource = Column(String(50), nullable=False)
+    resource_id = Column(String(100), nullable=True)
+    detail = Column(Text, nullable=True)
+    request_body = Column(JSONB, nullable=True)
+    client_ip = Column(String(64), nullable=True)
+    user_agent = Column(String(1024), nullable=True)
+    status_code = Column(Integer, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_audit_logs_user_id", "user_id"),
+        Index("idx_audit_logs_resource", "resource"),
+        Index("idx_audit_logs_action", "action"),
+        Index("idx_audit_logs_created_at", "created_at"),
+    )
+
+
+class RequestContent(Base):
+    __tablename__ = "request_contents"
+
+    id = Column(Integer, primary_key=True)
+    log_id = Column(Integer, ForeignKey("request_logs.id", ondelete="CASCADE"), unique=True, nullable=False)
+    request_messages = Column(JSONB, nullable=True)
+    response_content = Column(Text, nullable=True)
+    response_tool_calls = Column(JSONB, nullable=True)
+    response_thinking = Column(Text, nullable=True)
+    response_raw = Column(JSONB, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())

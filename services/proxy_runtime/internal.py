@@ -16,7 +16,7 @@ from services.provider import (
     get_provider_and_model,
     pick_api_key,
 )
-from services.provider_limiter import check_usage_limit_error, disable_provider_key
+from services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
 from services.proxy_runtime.adapters import get_adapter
 from services.proxy_runtime.client import (
     PROVIDER_REQUEST_TIMEOUT_SECONDS,
@@ -72,7 +72,7 @@ async def call_internal_model_via_proxy(
             "actual_model_name": None,
             "status_code": None,
             "payload": None,
-            "error": f"Internal API key {api_key_id} not found or inactive",
+            "error": f"内部 API Key 无效或已禁用",
         }
 
     req_body = dict(body_json)
@@ -86,7 +86,7 @@ async def call_internal_model_via_proxy(
             "actual_model_name": None,
             "status_code": None,
             "payload": None,
-            "error": f"Unknown provider for model: {requested_model}",
+            "error": f"未找到模型: {requested_model}",
         }
 
     provider_key_semaphore = None
@@ -105,7 +105,7 @@ async def call_internal_model_via_proxy(
                 "actual_model_name": actual_model,
                 "status_code": None,
                 "payload": None,
-                "error": f"No active provider key available for '{provider_name}'",
+                "error": f"供应商 '{provider_name}' 无可用的 API Key",
             }
 
         if chosen_key_id is not None:
@@ -124,7 +124,7 @@ async def call_internal_model_via_proxy(
                 acquired = True
             except asyncio.TimeoutError:
                 message = (
-                    f"Provider key {chosen_key_id} for '{provider_name}' is at max concurrency"
+                    f"当前模型 '{provider_name}' 的请求并发数已达上限，请稍后重试"
                 )
                 logger.warning("[RATE LIMIT] %s at max concurrency", provider_key_sem_key)
                 return {
@@ -156,7 +156,7 @@ async def call_internal_model_via_proxy(
                     provider_key_semaphore.release()
                     acquired = False
                 message = (
-                    f"User {api_key_id} already reached max concurrency for provider key {chosen_key_id} model '{provider_model_key}'"
+                    f"您的并发请求已达上限，请等待当前请求完成后再试"
                 )
                 logger.warning(
                     "[RATE LIMIT] %s at max concurrency", user_provider_model_sem_key
@@ -230,6 +230,20 @@ async def call_internal_model_via_proxy(
                 "status_code": resp.status_code,
                 "payload": raw_resp_json,
                 "error": usage_limit_err,
+            }
+
+        invalid_key_err = check_invalid_api_key_error(raw_resp_json, resp.status_code)
+        if invalid_key_err:
+            await disable_provider_key(
+                provider_name, provider_config, chosen_key_id, f"Invalid API Key: {invalid_key_err}"
+            )
+            return {
+                "ok": False,
+                "provider_name": provider_name,
+                "actual_model_name": actual_model,
+                "status_code": resp.status_code,
+                "payload": raw_resp_json,
+                "error": f"Invalid API Key: {invalid_key_err}",
             }
 
         latency = (time.time() - start_time) * 1000

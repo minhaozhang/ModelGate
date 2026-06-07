@@ -34,12 +34,22 @@ LEVEL_COLORS = {
 }
 
 
-def _count_disabled_providers() -> int:
-    count = 0
-    for pconf in providers_cache.values():
-        if pconf.get("disabled_reason"):
-            count += 1
-    return count
+async def _count_disabled_providers(session=None) -> int:
+    from core.database import async_session_maker, Provider
+    from sqlalchemy import select, func
+
+    async def _query(s):
+        return (await s.execute(
+            select(func.count()).select_from(Provider).where(
+                Provider.disabled_reason.isnot(None),
+                Provider.disabled_reason != "",
+            )
+        )).scalar() or 0
+
+    if session:
+        return await _query(session)
+    async with async_session_maker() as s:
+        return await _query(s)
 
 
 async def compute_busyness_level() -> dict[str, Any]:
@@ -68,7 +78,7 @@ async def compute_busyness_level() -> dict[str, Any]:
             select(func.count()).where(RequestLog.created_at >= cutoff_1hour).limit(1)
         )).scalar() or 0
 
-    disabled_providers = _count_disabled_providers()
+        disabled_providers = await _count_disabled_providers(session)
     ratio_429 = rate_limited_10min / total_10min if total_10min > 0 else 0.0
 
     active_threshold_1 = await get_int_setting("busyness", "level1_active_users_threshold", 10)

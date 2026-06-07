@@ -18,7 +18,6 @@ ANALYSIS_STATUS_SUCCESS = "success"
 ANALYSIS_STATUS_FAILED = "failed"
 ANALYSIS_STATUS_RETRYING = "retrying"
 
-ANALYSIS_TYPE_DAILY_ERROR_REPORT = "daily_error_report"
 ANALYSIS_TYPE_USER_RECOMMENDATION = "user_recommendation"
 
 ANALYSIS_REPORT_ROOT = Path("reports") / "analysis"

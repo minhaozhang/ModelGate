@@ -184,6 +184,10 @@
                         <span class="text-sm text-gray-700">{{ _('Active') }}</span>
                     </label>
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1" title="develop,document,test,flash,reasoning,vision">Tags <span class="text-xs text-gray-400">(develop,document,test,flash...)</span></label>
+                    <input type="text" id="model-tags" class="w-full border rounded px-3 py-2 text-sm" placeholder="develop,reasoning">
+                </div>
                 <div class="flex gap-2">
                     <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
                     <button type="button" onclick="closeModelModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
@@ -229,6 +233,8 @@
                         <input type="text" id="new-provider-key-label" class="w-28 border rounded px-3 py-2 text-sm" placeholder="Label">
                         <span class="text-xs text-gray-500">{{ _('Concurrency') }}:</span>
                         <input type="number" id="new-provider-key-max-concurrent" min="1" class="w-24 border rounded px-3 py-2 text-sm" placeholder="{{ _('Default') }}">
+                        <span class="text-xs text-gray-500">Priority:</span>
+                        <input type="number" id="new-provider-key-priority" min="0" value="0" class="w-20 border rounded px-3 py-2 text-sm" placeholder="0">
                         <div class="flex-1"></div>
                         <button onclick="addProviderKey()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">{{ _('Add') }}</button>
                     </div>
@@ -624,6 +630,22 @@
             } catch(e) {}
         }
 
+        async function updatePMAlias(pmId, value) {
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({alias: value || null})
+                });
+            } catch(e) {}
+        }
+
+        async function updatePMPriority(pmId, value) {
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({priority: parseInt(value) || 0})
+                });
+            } catch(e) {}
+        }
+
         async function syncSelectedProvider() {
             if (!selectedProviderId) {
                 showToast(t('selectProviderFirst', 'Please select a provider first'), 'info');
@@ -745,6 +767,7 @@
             document.getElementById('model-thinking-budget').value = '8k';
             document.getElementById('model-multimodal').checked = false;
             document.getElementById('model-active').checked = true;
+            document.getElementById('model-tags').value = '';
             document.getElementById('model-modal').classList.remove('hidden');
             document.getElementById('model-modal').classList.add('flex');
         }
@@ -764,6 +787,7 @@
             document.getElementById('model-estimated-price').value = m.estimated_price || '';
             document.getElementById('model-multimodal').checked = m.is_multimodal;
             document.getElementById('model-active').checked = m.is_active;
+            document.getElementById('model-tags').value = m.tags || '';
 
             document.getElementById('model-modal').classList.remove('hidden');
             document.getElementById('model-modal').classList.add('flex');
@@ -800,7 +824,8 @@
                             thinking_enabled: data.thinking_enabled,
                             thinking_budget: data.thinking_budget,
                             is_multimodal: data.is_multimodal,
-                            is_active: data.is_active
+                            is_active: data.is_active,
+                            tags: document.getElementById('model-tags').value.trim() || null
                         })
                     }, {success: t('modelSaved', 'Model saved'), error: t('failedToSaveModel', 'Failed to save model')});
                 } else {
@@ -863,6 +888,12 @@
                                    id="provider-key-mc-${k.id}"
                                    class="w-16 border rounded px-1.5 py-0.5 text-xs text-center">
                             <button onclick="updateProviderKeyConcurrency(${k.id})" class="pk-action text-blue-500 hover:text-blue-700">${t('save', 'Save')}</button>
+                            <span class="ml-2">Priority:</span>
+                            <input type="number" min="0" value="${k.priority || 0}" placeholder="0"
+                                   id="provider-key-pri-${k.id}"
+                                   class="w-14 border rounded px-1.5 py-0.5 text-xs text-center">
+                            <button onclick="updateProviderKeyPriority(${k.id})" class="pk-action text-blue-500 hover:text-blue-700">${t('save', 'Save')}</button>
+                            ${k.health_score !== undefined ? '<span class="ml-2 px-1.5 py-0.5 rounded text-[10px] ' + (k.health_score >= 90 ? 'bg-green-100 text-green-700' : k.health_score >= 60 ? 'bg-blue-100 text-blue-700' : k.health_score >= 30 ? 'bg-yellow-100 text-yellow-700' : k.health_score > 0 ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700') + '">HP ' + k.health_score + '</span>' : ''}
                         </div>
                     </div>
                     <div class="pk-actions">
@@ -889,12 +920,13 @@
             const label = document.getElementById('new-provider-key-label').value.trim();
             const maxConcurrentRaw = document.getElementById('new-provider-key-max-concurrent').value.trim();
             const maxConcurrent = maxConcurrentRaw ? parseInt(maxConcurrentRaw, 10) : null;
+            const priority = parseInt(document.getElementById('new-provider-key-priority').value, 10) || 0;
             if (!apiKey) { showToast(t('apiKeyRequired', 'API Key is required'), 'error'); return; }
             try {
                 await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({api_key: apiKey, label: label || null, max_concurrent: maxConcurrent})
+                    body: JSON.stringify({api_key: apiKey, label: label || null, max_concurrent: maxConcurrent, priority: priority})
                 }, {success: t('keyAdded', 'Key added'), error: t('failedToAddKey', 'Failed to add key')});
                 document.getElementById('new-provider-key-value').value = '';
                 document.getElementById('new-provider-key-label').value = '';
@@ -938,6 +970,21 @@
             } catch(err) {}
         }
 
+        async function updateProviderKeyPriority(keyId) {
+            if (!providerKeysTargetId) return;
+            const input = document.getElementById('provider-key-pri-' + keyId);
+            const priority = input ? parseInt(input.value, 10) || 0 : 0;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({priority: priority})
+                }, {success: 'Priority saved', error: t('failedToSave', 'Failed to save')});
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {}
+        }
+
         async function deleteProviderKey(keyId) {
             if (!providerKeysTargetId) return;
             if (!confirm(t('deleteKeyConfirm', 'Delete this key?'))) return;
@@ -959,6 +1006,7 @@
                         <span class="font-medium">${m.display_name || m.name}</span>
                         <span class="ml-2 text-xs text-gray-500">${m.name}</span>
                         <span class="ml-2 text-xs ${m.is_active ? 'text-green-600' : 'text-red-600'}">${m.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
+                        ${(m.tags || '').split(',').filter(t=>t).map(tag => '<span class="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">' + tag.trim() + '</span>').join('')}
                         <div class="text-xs text-gray-400 mt-1">
                             output=${formatTokenValue(m.max_tokens)||'0'} / context=${formatTokenValue(m.context_length)||'0'} / reasoning=${m.thinking_enabled ? (formatTokenValue(m.thinking_budget)||'0') : t('thinkingOff', 'off')}${m.is_multimodal ? ` / ${t('multimodal', 'multimodal')}` : ''}
                             ${m.bound_key_count > 0 ? ` / <span class="text-green-500">${formatI18n('keyCount', {count: m.bound_key_count.toLocaleString()}, `${m.bound_key_count.toLocaleString()} key(s)`)}</span>` : ''}
@@ -996,6 +1044,9 @@
                     html += `
                         <div class="flex items-center p-2 bg-gray-50 rounded gap-2">
                             <span class="text-sm shrink-0 flex-1 min-w-0 truncate">${b.display_name || b.model_name}</span>
+                            <input type="text" value="${b.alias || ''}" placeholder="Alias" onchange="updatePMAlias(${b.id}, this.value)" class="w-24 border rounded px-1.5 py-0.5 text-xs text-center" title="别名">
+                            <input type="number" min="0" value="${b.priority || 0}" placeholder="Pri" onchange="updatePMPriority(${b.id}, this.value)" class="w-14 border rounded px-1.5 py-0.5 text-xs text-center" title="优先级">
+                            ${(b.tags || '').split(',').filter(t=>t).map(tag => '<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">' + tag.trim() + '</span>').join('')}
                             <select onchange="updateBusynessLevel(${b.id}, this.value)" class="border rounded px-1.5 py-0.5 text-xs shrink-0" title="繁忙可用级别">${blOpts}</select>
                             <div class="flex items-center gap-1 shrink-0">
                                 <button onclick="openProviderModelKeys(${b.id}, ${b.model_id}, '${bindingLabel}')" class="icon-btn text-green-500 hover:text-green-700" title="${t('keys', 'Keys')}">

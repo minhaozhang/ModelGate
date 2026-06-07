@@ -27,6 +27,7 @@ class ModelCreate(BaseModel):
     thinking_budget: int = 8192
     is_multimodal: bool = False
     is_active: bool = True
+    tags: Optional[str] = None
 
 
 class ModelUpdate(BaseModel):
@@ -38,6 +39,7 @@ class ModelUpdate(BaseModel):
     is_multimodal: Optional[bool] = None
     is_active: Optional[bool] = None
     estimated_price: Optional[float] = None
+    tags: Optional[str] = None
 
 
 @router.get("/models")
@@ -79,6 +81,7 @@ async def list_all_models(_: bool = Depends(require_admin)):
                     "thinking_budget": m.thinking_budget,
                     "is_multimodal": m.is_multimodal,
                     "is_active": m.is_active,
+                    "tags": m.tags,
                     "bound_key_count": sum(pm_key_counts.get(p, 0) for p in model_pm_map.get(m.id, [])),
                 }
                 for m in models
@@ -251,3 +254,37 @@ async def update_model_api_keys(
 
     await load_api_keys()
     return {"updated": True}
+
+
+@router.get("/models/resolve")
+async def resolve_model(name: str, _: bool = Depends(require_admin)):
+    from services.provider import _alias_index
+    from services.key_health import compute_health_score
+
+    if name not in _alias_index:
+        return {"alias": name, "providers": [], "selected": None}
+
+    candidates = _alias_index[name]
+    results = []
+    for provider_name, pm_dict, model_tags, priority in candidates:
+        from services.provider import get_provider_config
+        pc = await get_provider_config(provider_name)
+        if not pc:
+            continue
+        keys = pc.get("api_keys") or []
+        best_health = 0
+        for k in keys:
+            h = compute_health_score(k["id"])
+            if h > best_health:
+                best_health = h
+        results.append({
+            "provider": provider_name,
+            "actual_model": pm_dict.get("actual_model_name") or name,
+            "health": best_health,
+            "priority": priority,
+            "tags": model_tags,
+        })
+
+    results.sort(key=lambda x: (x["health"], x["priority"]), reverse=True)
+    selected = results[0]["provider"] if results else None
+    return {"alias": name, "providers": results, "selected": selected}

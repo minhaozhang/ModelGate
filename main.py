@@ -2,14 +2,16 @@ from pathlib import Path
 
 import os
 
+from datetime import datetime
+
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Form
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from core.app_paths import APP_BASE_PATH
-from core.config import CONFIG, error_logger
+from core.config import CONFIG, error_logger, logger as app_logger
 from core.database import init_db
 from core.i18n import render
 from core.log_sanitizer import sanitize_text_for_log
@@ -39,6 +41,45 @@ app.add_middleware(BasePathMiddleware, base_path=APP_BASE_PATH)
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 
 
+@app.middleware("http")
+async def audit_middleware(request: Request, call_next):
+    from services.audit import should_audit, audit_from_request
+
+    do_audit = should_audit(request)
+    if do_audit:
+        body_bytes = await request.body()
+        request._body = body_bytes
+
+    response = await call_next(request)
+
+    if do_audit:
+        try:
+            import json
+            body = None
+            if request.method in ("POST", "PUT") and hasattr(request, "_body") and request._body:
+                try:
+                    body = json.loads(request._body)
+                except Exception:
+                    body = None
+            from services.audit import write_audit_log, _parse_resource
+            path = request.url.path
+            action_map = {"POST": "create", "PUT": "update", "DELETE": "delete"}
+            action = action_map.get(request.method, request.method.lower())
+            resource, resource_id = _parse_resource(path)
+            await write_audit_log(
+                request=request,
+                action=action,
+                resource=resource,
+                resource_id=resource_id,
+                body=body,
+                status_code=response.status_code,
+            )
+        except Exception:
+            pass
+
+    return response
+
+
 @app.get("/")
 async def root_page(request: Request):
     base_url = str(request.base_url).rstrip("/")
@@ -60,6 +101,27 @@ async def favicon_svg():
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon_ico():
     return FileResponse(ASSETS_DIR / "favicon.ico", media_type="image/x-icon")
+
+
+@app.post("/v1/test")
+async def test_endpoint(
+    request: Request,
+    name: str = Form(""),
+    message: str = Form(""),
+    tag: str = Form(""),
+):
+    client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    app_logger.info(
+        f"[TEST ENDPOINT] ip={client_ip} time={now} "
+        f"name={name!r} message={message!r} tag={tag!r}"
+    )
+    return {
+        "success": True,
+        "ip": client_ip,
+        "time": now,
+        "received": {"name": name, "message": message, "tag": tag},
+    }
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -168,6 +230,7 @@ async def shutdown():
 
 from routes import (
     proxy,
+    anthropic_proxy,
     auth,
     providers,
     models,
@@ -182,9 +245,15 @@ from routes import (
     system_config,
     documents,
     mcp_servers,
+    users,
+    roles,
+    permissions,
+    menus,
+    audit,
 )
 
 app.include_router(proxy.router)
+app.include_router(anthropic_proxy.router)
 app.include_router(auth.router)
 app.include_router(providers.router)
 app.include_router(models.router)
@@ -200,6 +269,12 @@ app.include_router(reports.router)
 app.include_router(system_config.router)
 app.include_router(documents.router)
 app.include_router(mcp_servers.router)
+app.include_router(users.router)
+app.include_router(roles.router)
+app.include_router(permissions.router)
+app.include_router(menus.router)
+app.include_router(audit.router)
+app.include_router(audit.page_router)
 
 from routes.weixin import get_mcp_asgi_app
 

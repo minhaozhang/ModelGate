@@ -13,9 +13,10 @@ from core.config import (
     update_stats,
 )
 from core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
-from services.logging import create_request_log
+from services.key_health import record_key_event
+from services.logging import create_request_log, update_request_content
 from services.minimax import process_minimax_response
-from services.provider_limiter import check_usage_limit_error, disable_provider_key
+from services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
 from services.proxy_runtime.adapters import get_adapter
 from services.proxy_runtime.concurrency import (
     RATE_LIMITED_STATUSES,
@@ -52,6 +53,9 @@ async def handle_normal(
     chosen_key_id=None,
     protocol="openai",
     extra_response_headers: dict[str, str] | None = None,
+    intent=None,
+    requested_model=None,
+    provider_key_label=None,
 ):
     logger.debug(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -89,6 +93,20 @@ async def handle_normal(
                 429,
                 "rate_limit_error",
                 "provider_disabled",
+                headers=extra_response_headers,
+            )
+
+        invalid_key_err = check_invalid_api_key_error(raw_resp_json, resp.status_code)
+        if invalid_key_err:
+            provider_config = providers_cache.get(provider, {})
+            await disable_provider_key(
+                provider, provider_config, chosen_key_id, f"Invalid API Key: {invalid_key_err}"
+            )
+            return _openai_error_response(
+                f"\u4f9b\u5e94\u5546 '{provider}' \u7684 API Key \u5df2\u5931\u6548\u5df2\u81ea\u52a8\u7981\u7528\uff0c\u8bf7\u5c1d\u8bd5\u5176\u4ed6\u4f9b\u5e94\u5546",
+                401,
+                "authentication_error",
+                "invalid_api_key",
                 headers=extra_response_headers,
             )
 
@@ -148,7 +166,16 @@ async def handle_normal(
         if not is_error and total_tokens > 0:
             record_request_rate(tokens_record.get('completion_tokens', 0), latency)
         log_response_meta(provider, model, response_meta)
-        await create_request_log(
+        if api_key_id:
+            if request_status == "success":
+                record_key_event(api_key_id, "success")
+            elif request_status in RATE_LIMITED_STATUSES:
+                record_key_event(api_key_id, "error_429", resp.status_code)
+            elif resp.status_code >= 500:
+                record_key_event(api_key_id, "error_5xx", resp.status_code)
+            elif resp.status_code >= 400:
+                record_key_event(api_key_id, "error_4xx", resp.status_code)
+        normal_log_id = await create_request_log(
             provider,
             model,
             status=request_status,
@@ -168,7 +195,23 @@ async def handle_normal(
             )
             if request_status != "success"
             else None,
+            request_messages=messages,
+            intent=intent,
+            requested_model=requested_model,
+            actual_model=model if requested_model and requested_model != model else None,
+            provider_key_id=chosen_key_id,
+            provider_key_label=provider_key_label,
         )
+        if request_status == "success" and normal_log_id:
+            try:
+                await update_request_content(
+                    normal_log_id,
+                    response_content=response_text,
+                    response_tool_calls=tool_calls or None,
+                    response_thinking=reasoning_text or None,
+                )
+            except Exception:
+                pass
 
         if is_error:
             error_logger.error(

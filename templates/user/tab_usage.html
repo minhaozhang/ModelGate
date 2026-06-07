@@ -1,15 +1,6 @@
 <div id="tab-usage" class="tab-content p-6">
     <h2 class="text-xl font-bold mb-4">{{ _('How to Configure API Clients') }}</h2>
-    
-    <div class="bg-gray-50 rounded-lg p-4 mb-6">
-        <h3 class="font-semibold mb-3">{{ _('Basic Information') }}</h3>
-        <div class="space-y-2 text-sm">
-            <div class="flex"><span class="text-gray-500 w-32">{{ _('Proxy URL') }}:</span><code class="bg-white px-2 py-1 rounded" id="proxy-url"></code></div>
-            <div class="flex"><span class="text-gray-500 w-32">{{ _('API Endpoint') }}:</span><code class="bg-white px-2 py-1 rounded">{{ app_base_path }}/v1/chat/completions</code></div>
-            <div class="flex"><span class="text-gray-500 w-32">{{ _('Auth Header') }}:</span><code class="bg-white px-2 py-1 rounded">Authorization: Bearer YOUR_API_KEY</code></div>
-        </div>
-    </div>
-    
+
     <div class="bg-gray-50 rounded-lg p-4 mb-6">
         <h3 class="font-semibold mb-3">{{ _('Model Name Format') }}</h3>
         <p class="text-gray-600 text-sm mb-3">{{ _('Use <code class="bg-white px-2 py-1 rounded">provider/model</code> format') }}:</p>
@@ -18,20 +9,35 @@
             <div class="bg-white p-3 rounded"><div class="text-xs text-gray-500 mb-1">{{ _('Without Prefix') }}</div><code class="text-sm">glm-4</code></div>
         </div>
     </div>
-    
-    <div class="space-y-4">
-        <div class="bg-gray-50 rounded-lg p-4">
-            <h3 class="font-semibold mb-3 flex items-center">
-                <span class="w-5 h-5 mr-2 bg-green-500 text-white rounded text-xs flex items-center justify-center">Py</span>
-                {{ _('Python (OpenAI SDK)') }}
-            </h3>
-            <div class="relative">
-                <button onclick="copyCode('python')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
-                <pre id="code-python"><code>from openai import OpenAI
+
+    <div class="flex gap-2 mb-4 border-b border-gray-200">
+        <button onclick="switchProtocol('openai')" id="proto-tab-openai" class="px-4 py-2 text-sm font-medium border-b-2 border-blue-500 text-blue-600 -mb-px">{{ _('OpenAI Protocol') }}</button>
+        <button onclick="switchProtocol('anthropic')" id="proto-tab-anthropic" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">{{ _('Anthropic Protocol') }}</button>
+    </div>
+
+    <div id="proto-openai">
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <h3 class="font-semibold mb-3">{{ _('Basic Information') }}</h3>
+            <div class="space-y-2 text-sm">
+                <div class="flex"><span class="text-gray-500 w-32">{{ _('Proxy URL') }}:</span><code class="bg-white px-2 py-1 rounded" id="proxy-url-openai"></code></div>
+                <div class="flex"><span class="text-gray-500 w-32">{{ _('API Endpoint') }}:</span><code class="bg-white px-2 py-1 rounded">{{ app_base_path }}/v1/chat/completions</code></div>
+                <div class="flex"><span class="text-gray-500 w-32">{{ _('Auth Header') }}:</span><code class="bg-white px-2 py-1 rounded">Authorization: Bearer YOUR_API_KEY</code></div>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="font-semibold mb-3 flex items-center">
+                    <span class="w-5 h-5 mr-2 bg-green-500 text-white rounded text-xs flex items-center justify-center">Py</span>
+                    {{ _('Python (OpenAI SDK)') }}
+                </h3>
+                <div class="relative">
+                    <button onclick="copyCode('python-openai')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
+                    <pre id="code-python-openai"><code>from openai import OpenAI
 
 client = OpenAI(
     api_key="YOUR_API_KEY",
-    base_url="<span id="base-python"></span>"
+    base_url="<span id="base-python-openai"></span>"
 )
 
 response = client.chat.completions.create(
@@ -39,17 +45,17 @@ response = client.chat.completions.create(
     messages=[{"role": "user", "content": "Hello!"}]
 )
 print(response.choices[0].message.content)</code></pre>
+                </div>
             </div>
-        </div>
-        
-        <div class="bg-gray-50 rounded-lg p-4">
-            <h3 class="font-semibold mb-3 flex items-center">
-                <span class="w-5 h-5 mr-2 bg-yellow-500 text-white rounded text-xs flex items-center justify-center">JS</span>
-                {{ _('JavaScript') }}
-            </h3>
-            <div class="relative">
-                <button onclick="copyCode('js')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
-                <pre id="code-js"><code>const response = await fetch('<span id="base-js"></span>/chat/completions', {
+
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="font-semibold mb-3 flex items-center">
+                    <span class="w-5 h-5 mr-2 bg-yellow-500 text-white rounded text-xs flex items-center justify-center">JS</span>
+                    {{ _('JavaScript') }}
+                </h3>
+                <div class="relative">
+                    <button onclick="copyCode('js-openai')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
+                    <pre id="code-js-openai"><code>const response = await fetch('<span id="base-js-openai"></span>/chat/completions', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -61,35 +67,35 @@ print(response.choices[0].message.content)</code></pre>
   })
 });
 const data = await response.json();</code></pre>
+                </div>
             </div>
-        </div>
-        
-        <div class="bg-gray-50 rounded-lg p-4">
-            <h3 class="font-semibold mb-3 flex items-center">
-                <span class="w-5 h-5 mr-2 bg-blue-500 text-white rounded text-xs flex items-center justify-center">$</span>
-                cURL
-            </h3>
-            <div class="relative">
-                <button onclick="copyCode('curl')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
-                <pre id="code-curl"><code>curl <span id="base-curl"></span>/chat/completions \
+
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="font-semibold mb-3 flex items-center">
+                    <span class="w-5 h-5 mr-2 bg-blue-500 text-white rounded text-xs flex items-center justify-center">$</span>
+                    cURL
+                </h3>
+                <div class="relative">
+                    <button onclick="copyCode('curl-openai')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
+                    <pre id="code-curl-openai"><code>curl <span id="base-curl-openai"></span>/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"model": "zhipu/glm-4", "messages": [{"role": "user", "content": "Hello!"}]}'</code></pre>
+                </div>
             </div>
-        </div>
 
-        <div class="bg-gray-50 rounded-lg p-4">
-            <h3 class="font-semibold mb-3 flex items-center">
-                <span class="w-5 h-5 mr-2 bg-purple-500 text-white rounded text-xs flex items-center justify-center">OC</span>
-                {{ _('OpenCode') }}
-            </h3>
-            <p class="text-gray-600 text-sm mb-3">{{ _('Install OpenCode from <a href="https://opencode.ai/" target="_blank" class="text-blue-500 hover:underline">opencode.ai</a>, then go to the OpenCode Config tab to get your configuration.') }}</p>
-            <div class="text-sm text-gray-600 space-y-2">
-                <p>{{ _('Config file location') }}: <code class="bg-white px-2 py-1 rounded">~/.config/opencode/opencode.json</code></p>
-                <p>{{ _('Or place') }} <code class="bg-white px-2 py-1 rounded">opencode.json</code> {{ _('in your project root') }}</p>
-            </div>
-            <div class="mt-3 text-xs text-gray-500 space-y-3">
-                <p class="font-medium">{{ _('Common commands') }}:</p>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="font-semibold mb-3 flex items-center">
+                    <span class="w-5 h-5 mr-2 bg-purple-500 text-white rounded text-xs flex items-center justify-center">OC</span>
+                    {{ _('OpenCode') }}
+                </h3>
+                <p class="text-gray-600 text-sm mb-3">{{ _('Install OpenCode from <a href="https://opencode.ai/" target="_blank" class="text-blue-500 hover:underline">opencode.ai</a>, then go to the OpenCode Config tab to get your configuration.') }}</p>
+                <div class="text-sm text-gray-600 space-y-2">
+                    <p>{{ _('Config file location') }}: <code class="bg-white px-2 py-1 rounded">~/.config/opencode/opencode.json</code></p>
+                    <p>{{ _('Or place') }} <code class="bg-white px-2 py-1 rounded">opencode.json</code> {{ _('in your project root') }}</p>
+                </div>
+                <div class="mt-3 text-xs text-gray-500 space-y-3">
+                    <p class="font-medium">{{ _('Common commands') }}:</p>
 <pre class="bg-white p-2 rounded text-xs mt-1 overflow-x-auto"><code>opencode                              {{ _('Start TUI') }}
 opencode -c                           {{ _('Continue last session') }}
 opencode -s &lt;session-id&gt;              {{ _('Continue specific session') }}
@@ -99,7 +105,7 @@ opencode models                         {{ _('List available models') }}
 opencode session list                   {{ _('List all sessions') }}
 opencode stats --days 7                 {{ _('Token usage stats') }}</code></pre>
 
-                <p class="font-medium">{{ _('Complete opencode.json example') }}:</p>
+                    <p class="font-medium">{{ _('Complete opencode.json example') }}:</p>
 <pre class="bg-white p-2 rounded text-xs mt-1 overflow-x-auto"><code>{
   "$schema": "https://opencode.ai/config.json",
   "compaction": {
@@ -144,10 +150,167 @@ opencode stats --days 7                 {{ _('Token usage stats') }}</code></pre
     }
   }
 }</code></pre>
-                <p class="mt-2">{{ _('<code>threshold</code>: 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 50% 时开始压缩。') }}</p>
-                <p class="mt-1">{{ _('<code>strategy</code>: summarize（摘要）/ truncate（截断）/ archive（归档）') }}</p>
-                <p class="mt-1">{{ _('<code>preserveRecentMessages</code>: 压缩时保留最近 N 条消息不参与压缩（默认 10）') }}</p>
-                <p class="mt-1">{{ _('<code>preserveSystemPrompt</code>: 压缩时始终保留系统提示词（默认 true）') }}</p>
+                    <p class="mt-2">{{ _('<code>threshold</code>: 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 50% 时开始压缩。') }}</p>
+                    <p class="mt-1">{{ _('<code>strategy</code>: summarize（摘要）/ truncate（截断）/ archive（归档）') }}</p>
+                    <p class="mt-1">{{ _('<code>preserveRecentMessages</code>: 压缩时保留最近 N 条消息不参与压缩（默认 10）') }}</p>
+                    <p class="mt-1">{{ _('<code>preserveSystemPrompt</code>: 压缩时始终保留系统提示词（默认 true）') }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="proto-anthropic" class="hidden">
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <h3 class="font-semibold mb-3">{{ _('Basic Information') }}</h3>
+            <div class="space-y-2 text-sm">
+                <div class="flex"><span class="text-gray-500 w-32">{{ _('Base URL') }}:</span><code class="bg-white px-2 py-1 rounded" id="proxy-url-anthropic"></code></div>
+                <div class="flex"><span class="text-gray-500 w-32">{{ _('API Endpoint') }}:</span><code class="bg-white px-2 py-1 rounded">{{ app_base_path }}/v1/messages</code></div>
+                <div class="flex"><span class="text-gray-500 w-32">{{ _('Auth Header') }}:</span><code class="bg-white px-2 py-1 rounded">x-api-key: YOUR_API_KEY</code></div>
+                <div class="flex"><span class="text-gray-500 w-32">{{ _('Required Header') }}:</span><code class="bg-white px-2 py-1 rounded">anthropic-version: 2023-06-01</code></div>
+            </div>
+            <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                {{ _('The Anthropic endpoint translates requests to OpenAI format internally. All models registered in ModelGate can be used, just use <code class="bg-white px-1 py-0.5 rounded">provider/model</code> as the model name.') }}
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="font-semibold mb-3 flex items-center">
+                    <span class="w-5 h-5 mr-2 bg-green-500 text-white rounded text-xs flex items-center justify-center">Py</span>
+                    {{ _('Python (Anthropic SDK)') }}
+                </h3>
+                <div class="relative">
+                    <button onclick="copyCode('python-anthropic')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
+                    <pre id="code-python-anthropic"><code>import anthropic
+
+client = anthropic.Anthropic(
+    api_key="YOUR_API_KEY",
+    base_url="<span id="base-python-anthropic"></span>"
+)
+
+message = client.messages.create(
+    model="zhipu/glm-4",
+    max_tokens=1024,
+    messages=[
+        {"role": "user", "content": "Hello!"}
+    ]
+)
+print(message.content[0].text)</code></pre>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="font-semibold mb-3 flex items-center">
+                    <span class="w-5 h-5 mr-2 bg-green-500 text-white rounded text-xs flex items-center justify-center">Py</span>
+                    {{ _('Python (Streaming)') }}
+                </h3>
+                <div class="relative">
+                    <button onclick="copyCode('python-anthropic-stream')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
+                    <pre id="code-python-anthropic-stream"><code>import anthropic
+
+client = anthropic.Anthropic(
+    api_key="YOUR_API_KEY",
+    base_url="<span id="base-python-anthropic-stream"></span>"
+)
+
+with client.messages.stream(
+    model="zhipu/glm-4",
+    max_tokens=1024,
+    messages=[
+        {"role": "user", "content": "Hello!"}
+    ]
+) as stream:
+    for text in stream.text_stream:
+        print(text, end="", flush=True)</code></pre>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="font-semibold mb-3 flex items-center">
+                    <span class="w-5 h-5 mr-2 bg-yellow-500 text-white rounded text-xs flex items-center justify-center">JS</span>
+                    {{ _('JavaScript') }}
+                </h3>
+                <div class="relative">
+                    <button onclick="copyCode('js-anthropic')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
+                    <pre id="code-js-anthropic"><code>const response = await fetch('<span id="base-js-anthropic"></span>/messages', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': 'YOUR_API_KEY',
+    'anthropic-version': '2023-06-01'
+  },
+  body: JSON.stringify({
+    model: 'zhipu/glm-4',
+    max_tokens: 1024,
+    messages: [{ role: 'user', content: 'Hello!' }]
+  })
+});
+const data = await response.json();
+console.log(data.content[0].text);</code></pre>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="font-semibold mb-3 flex items-center">
+                    <span class="w-5 h-5 mr-2 bg-blue-500 text-white rounded text-xs flex items-center justify-center">$</span>
+                    cURL
+                </h3>
+                <div class="relative">
+                    <button onclick="copyCode('curl-anthropic')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
+                    <pre id="code-curl-anthropic"><code>curl <span id="base-curl-anthropic"></span>/messages \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "zhipu/glm-4",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'</code></pre>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="font-semibold mb-3 flex items-center">
+                    <span class="w-5 h-5 mr-2 bg-green-500 text-white rounded text-xs flex items-center justify-center">Py</span>
+                    {{ _('Tool Use (Function Calling)') }}
+                </h3>
+                <div class="relative">
+                    <button onclick="copyCode('python-tool')" class="absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs">{{ _('Copy') }}</button>
+                    <pre id="code-python-tool"><code>import anthropic
+import json
+
+client = anthropic.Anthropic(
+    api_key="YOUR_API_KEY",
+    base_url="<span id="base-python-tool"></span>"
+)
+
+tools = [
+    {
+        "name": "get_weather",
+        "description": "Get the current weather in a location",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "location": {"type": "string", "description": "City name"}
+            },
+            "required": ["location"]
+        }
+    }
+]
+
+message = client.messages.create(
+    model="zhipu/glm-4",
+    max_tokens=1024,
+    tools=tools,
+    messages=[
+        {"role": "user", "content": "What's the weather in Beijing?"}
+    ]
+)
+
+for block in message.content:
+    if block.type == "tool_use":
+        print(f"Tool: {block.name}, Args: {block.input}")</code></pre>
+                </div>
             </div>
         </div>
     </div>

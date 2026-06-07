@@ -16,6 +16,7 @@ from services.stats_aggregator import (
     cleanup_stale_pending_requests,
     archive_old_request_logs,
     aggregate_mcp_yesterday_stats,
+    backup_request_contents,
 )
 from services.busyness import compute_busyness_level, LEVEL_LABELS
 
@@ -64,6 +65,12 @@ TASK_REGISTRY = {
         "description": "基于7天使用统计计算模型推荐排行并缓存到数据库",
         "default_cron": "0 8 * * *",
         "func": None,
+    },
+    "backup_request_contents": {
+        "name": "请求内容备份",
+        "description": "导出前一天request_contents到gzip文件并清理数据库",
+        "default_cron": "30 0 * * *",
+        "func": backup_request_contents,
     },
 }
 
@@ -219,6 +226,12 @@ async def _task_recommendation():
     await _run_task_with_logging("daily_recommendation_analysis", scheduled_daily_recommendation_analysis)
 
 
+async def _task_backup_contents():
+    result = await backup_request_contents()
+    summary = f"date={result.get('date')}, exported={result.get('exported', 0)}, deleted={result.get('deleted', 0)}, file={result.get('file_size_mb', 0)}MB"
+    await _run_task_with_logging("backup_request_contents", None, summary)
+
+
 TASK_HANDLERS = {
     "aggregate_daily_stats": _task_aggregate_daily,
     "aggregate_mcp_daily_stats": _task_aggregate_mcp,
@@ -227,6 +240,7 @@ TASK_HANDLERS = {
     "auto_reenable_disabled": _task_auto_reenable,
     "compute_busyness_level": _task_busyness,
     "daily_recommendation_analysis": _task_recommendation,
+    "backup_request_contents": _task_backup_contents,
 }
 
 

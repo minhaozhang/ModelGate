@@ -5,13 +5,14 @@ from fastapi.responses import JSONResponse
 
 from core.config import error_logger, logger, record_request_rate, update_stats
 from core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
-from services.logging import create_request_log, update_request_log
+from services.logging import create_request_log, update_request_log, update_request_content
 from services.minimax import process_minimax_response
 from services.tokens import (
     build_response_meta,
     build_tokens_record,
     log_response_meta,
 )
+from services.key_health import record_key_event
 from services.proxy_runtime.concurrency import (
     LOCAL_RATE_LIMITED_STATUS,
     RATE_LIMITED_STATUSES,
@@ -43,6 +44,13 @@ def _openai_error_response(
 
 def _is_rate_limited_status(status_code: int) -> bool:
     return status_code in (429, 529)
+
+
+KEY_RETRYABLE_STATUSES = (401, 403, 429, 529)
+
+
+def _is_key_retryable_status(status_code: int) -> bool:
+    return status_code in KEY_RETRYABLE_STATUSES
 
 
 def _resolve_request_status(status_code: int, provider_error: str | None = None) -> str:
@@ -132,7 +140,7 @@ def _normalize_upstream_error(
         "rate_limit_error" if _is_rate_limited_status(status_code) else "api_error"
     )
     return json.dumps(
-        _openai_error(f"Upstream request failed with status {status_code}", error_type)
+        _openai_error(f"上游服务返回错误 (HTTP {status_code})", error_type)
     ).encode()
 
 
@@ -173,6 +181,8 @@ async def _record_stream_result(
     log_response_meta(provider, model, response_meta)
 
     if status == "success":
+        if api_key_id:
+            record_key_event(api_key_id, "success")
         update_stats(provider, model, total_tokens, api_key_id=api_key_id)
         record_request_rate(tokens_record.get('completion_tokens', 0), latency)
         updated = await update_request_log(
@@ -231,6 +241,13 @@ async def _record_stream_result(
                 downstream_status_code=200,
             )
     elif status in {"error", RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}:
+        if api_key_id:
+            if status in RATE_LIMITED_STATUSES:
+                record_key_event(api_key_id, "error_429", upstream_status_code or 429)
+            elif upstream_status_code and upstream_status_code >= 500:
+                record_key_event(api_key_id, "error_5xx", upstream_status_code)
+            else:
+                record_key_event(api_key_id, "error_4xx", upstream_status_code or 400)
         update_stats(
             provider,
             model,
@@ -275,4 +292,13 @@ async def _record_stream_result(
             f"  Error: {type(error).__name__ if error else 'Unknown'}: {sanitize_text_for_log(error)}\n"
             f"  Request Body: {sanitize_payload_for_log(req_body)}"
         )
+
+    if log_id and status == "success":
+        await update_request_content(
+            log_id,
+            response_content=total_content,
+            response_tool_calls=stream_tool_calls or None,
+            response_thinking=total_reasoning or None,
+        )
+
     return latency

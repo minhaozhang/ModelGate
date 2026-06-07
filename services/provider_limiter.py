@@ -5,6 +5,7 @@ from sqlalchemy import select, update
 
 from core.config import logger, provider_key_semaphores, providers_cache
 from core.database import Provider, ProviderKey, async_session_maker
+from services.key_health import record_key_event, on_key_reenabled
 
 
 def parse_reset_time(reason: str) -> datetime | None:
@@ -55,6 +56,8 @@ async def _do_reenable_key(key_id: int) -> None:
             .values(is_active=True, disabled_reason=None, disabled_at=None, reset_at=None)
         )
         await session.commit()
+
+    on_key_reenabled(key_id)
 
     from services.provider import load_providers
     await load_providers()
@@ -161,6 +164,9 @@ async def disable_provider_key(
         )
         await session.commit()
 
+    if provider_key_id:
+        record_key_event(provider_key_id, "disabled")
+
     keys = provider_config.get("api_keys") or []
     active_keys = [k for k in keys if k["id"] != provider_key_id]
     provider_config["api_keys"] = active_keys
@@ -180,6 +186,12 @@ async def disable_provider_key(
 
     await invalidate_provider_key_sticky_cache(provider_name, provider_key_id)
     await load_providers()
+
+    try:
+        from services.notification import create_notification
+        await create_notification("system", "error", f"供应商 '{provider_name}' Key#{provider_key_id} 已被禁用", reason[:200])
+    except Exception:
+        pass
 
 
 def check_usage_limit_error(resp_json: dict, provider_name: str) -> str | None:
@@ -226,6 +238,51 @@ def check_usage_limit_error(resp_json: dict, provider_name: str) -> str | None:
             and looks_like_usage_limit(status_msg, status_code)
         ):
             return f"{status_msg} ({status_code})"
+
+    return None
+
+
+INVALID_API_KEY_KEYWORDS = [
+    "invalid api key",
+    "invalid_api_key",
+    "incorrect api key",
+    "invalid x-api-key",
+    "invalid authentication",
+    "invalid_api_key_error",
+    "authentication_error",
+    "api key is invalid",
+    "api key not found",
+    "api key not valid",
+    "invalid key",
+    "key not found",
+    "key not valid",
+    "apikey invalid",
+    "invalid apikey",
+    "invalid api-key",
+]
+
+
+def check_invalid_api_key_error(resp_json: dict, status_code: int | None = None) -> str | None:
+    if status_code is not None and status_code not in (401, 403):
+        return None
+
+    error_obj = resp_json.get("error")
+    if isinstance(error_obj, dict):
+        msg = (
+            error_obj.get("message")
+            or error_obj.get("msg")
+            or error_obj.get("detail")
+            or ""
+        )
+        code = error_obj.get("code") or error_obj.get("type") or ""
+        text = f"{msg} {code}".lower()
+    else:
+        text = str(resp_json).lower()
+
+    for keyword in INVALID_API_KEY_KEYWORDS:
+        if keyword in text:
+            error_msg = msg if isinstance(error_obj, dict) and error_obj.get("message") else "Invalid API Key"
+            return error_msg
 
     return None
 
@@ -295,6 +352,9 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
         from services.provider import load_providers
 
         await load_providers()
+
+        for kid in reenabled_keys:
+            on_key_reenabled(kid)
 
         try:
             from services.notification import create_notification

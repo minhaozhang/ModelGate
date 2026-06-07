@@ -22,11 +22,15 @@ def require_admin(session: Optional[str] = Cookie(None)):
 class ProviderModelCreate(BaseModel):
     model_id: int
     model_name_override: Optional[str] = None
+    alias: Optional[str] = None
+    priority: Optional[int] = 0
     is_active: bool = True
 
 
 class ProviderModelUpdate(BaseModel):
     model_name_override: Optional[str] = None
+    alias: Optional[str] = None
+    priority: Optional[int] = None
     is_active: Optional[bool] = None
     max_busyness_level: Optional[int] = None
     clear_busyness_level: Optional[bool] = None
@@ -55,6 +59,9 @@ async def list_provider_models(provider_id: int, _: bool = Depends(require_admin
                         "model_name_override": pm.model_name_override,
                         "is_active": pm.is_active,
                         "max_busyness_level": pm.max_busyness_level,
+                        "alias": pm.alias if hasattr(pm, "alias") else None,
+                        "priority": pm.priority if hasattr(pm, "priority") else 0,
+                        "tags": model.tags,
                     }
                 )
         return {"models": models_data}
@@ -69,6 +76,8 @@ async def add_provider_model(
             provider_id=provider_id,
             model_id=data.model_id,
             model_name_override=data.model_name_override,
+            alias=data.alias,
+            priority=data.priority or 0,
             is_active=data.is_active,
         )
         session.add(pm)
@@ -95,6 +104,10 @@ async def update_provider_model(
             return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
         if data.model_name_override is not None:
             pm.model_name_override = data.model_name_override
+        if data.alias is not None:
+            pm.alias = data.alias if data.alias else None
+        if data.priority is not None:
+            pm.priority = data.priority
         if data.is_active is not None:
             pm.is_active = data.is_active
         if data.clear_busyness_level:
@@ -203,17 +216,18 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
                 for model_info in models:
                     if isinstance(model_info, str):
                         model_name = model_info
-                        max_tokens = 131072
-                        context_length = 204800
+                        max_tokens = None
+                        context_length = None
                     else:
                         model_name = model_info.get("id", model_info.get("name", ""))
-                        max_tokens = model_info.get("max_tokens", 131072)
-                        if isinstance(max_tokens, str):
+                        raw_mt = model_info.get("max_tokens")
+                        if isinstance(raw_mt, str):
                             try:
-                                max_tokens = int(max_tokens)
+                                raw_mt = int(raw_mt)
                             except ValueError:
-                                max_tokens = 131072
-                        context_length = context_length_map.get(model_name, 204800)
+                                raw_mt = None
+                        max_tokens = raw_mt
+                        context_length = context_length_map.get(model_name)
 
                     if not model_name:
                         continue
@@ -223,21 +237,24 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
                     )
                     model = model_result.scalar_one_or_none()
                     if not model:
-                        model = Model(
+                        create_kwargs = dict(
                             name=model_name,
                             display_name=model_name,
-                            max_tokens=max_tokens,
-                            context_length=context_length,
                             is_active=True,
                         )
+                        if max_tokens is not None:
+                            create_kwargs["max_tokens"] = max_tokens
+                        if context_length is not None:
+                            create_kwargs["context_length"] = context_length
+                        model = Model(**create_kwargs)
                         session.add(model)
                         await session.flush()
                     else:
-                        if model.max_tokens != max_tokens:
+                        if max_tokens is not None and model.max_tokens != max_tokens:
                             model.max_tokens = max_tokens
                         if model.display_name != model_name:
                             model.display_name = model_name
-                        if model.context_length != context_length:
+                        if context_length is not None and model.context_length != context_length:
                             model.context_length = context_length
 
                     pm_result = await session.execute(

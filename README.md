@@ -10,12 +10,20 @@ ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key man
 
 - Multi-provider routing: Zhipu, DeepSeek, Ollama, Minimax, and any OpenAI-compatible API
 - OpenAI-compatible proxy endpoints: `/v1/chat/completions`, `/v1/embeddings`, `/v1/models`
+- Anthropic-compatible proxy endpoint: `/anthropic/v1/messages` with full protocol translation (streaming, tool calls, thinking, cache_control)
+- Model alias routing: call models by alias (e.g. `gpt-4o`) without provider prefix, auto-select best provider by health + intent + priority
+- Intent classification: auto-classify requests as coding/writing/testing/design/chat based on message content, used for smart routing and log analytics
+- Provider key health scoring: sliding-window (5 min) health score (0–100), prioritize healthy keys in routing
+- Provider key priority: manual priority per key for ordered fallback, sorted by (priority DESC, health DESC)
 - Layered concurrency control: API key model limit -> provider key limit with per-key semaphore
 - Provider multi-key support with sticky routing and key-level disable/reenable
+- Provider key fallback: automatically tries the next API key on 401/403/429 errors
 - Auto-disable provider/key on usage limit errors, auto-reenable on scheduled task
-- API key management with per-key model access control
+- API key management with per-key model access control and bypass_busyness option
+- Request content logging: separate `request_contents` table for messages, response, thinking, tool_calls — lazy-loaded via Content button
 - Streaming request lifecycle tracking: `pending` -> `success` / `error` / `timeout`
 - Upstream and downstream status code logging
+- Model tags: assign tags to models (e.g. coding, reasoning, vision) for filtering and intent-based routing
 - MCP proxy: proxy remote MCP servers with API key binding, admin UI, tool sync, logging, and stats
 - AI-powered daily error analysis with persisted reports
 - AI-powered model recommendations and timing advice for users
@@ -137,6 +145,19 @@ The app performs runtime compatibility migrations on startup (e.g., adding new c
 - `POST /v1/embeddings` - Text embeddings
 - `GET /v1/models` - List available models
 
+### Anthropic-compatible Endpoint
+
+- `POST /anthropic/v1/messages` - Anthropic Messages API (streaming and non-streaming)
+
+ModelGate translates Anthropic protocol requests to OpenAI format for upstream providers, and translates responses back. Supported features:
+
+- Streaming and non-streaming responses
+- Tool use (function calling) with parallel tool call control
+- Extended thinking with signature passthrough
+- Cache control (`cache_control` markers on system, user, assistant, and tool_result blocks)
+- System prompt as structured content blocks
+- `inbound_protocol` tracking in request logs for protocol-level analytics
+
 ### Model Naming
 
 ```text
@@ -192,21 +213,98 @@ ModelGate includes an MCP (Model Context Protocol) server for WeChat iLink Bot i
 
 ## Request Logging
 
-`request_logs` stores: API key, provider, model, tokens, latency, status, upstream/downstream HTTP status codes, client IP, user agent, and error details.
+`request_logs` stores: API key, provider, model, tokens, latency, status, upstream/downstream HTTP status codes, client IP, user agent, intent, requested_model, actual_model, provider_key_label, and error details.
 
 Streaming requests are inserted as `pending` first, then updated to `success`, `error`, `timeout`, or `cancelled`.
 
 Logs older than 30 days are automatically archived to `request_logs_history`. A `request_logs_all` view unions both tables for transparent querying.
 
+### Request Content (Separate Storage)
+
+Request messages, response text, thinking/reasoning, and tool calls are stored in a separate `request_contents` table, keeping `request_logs` lean for fast list queries.
+
+- **Lazy loading**: click the "Content" button in the log viewer to fetch via `GET /admin/api/logs/{id}/content`
+- **Cascade delete**: content rows are automatically removed when the parent log is archived or deleted
+
 ## Concurrency Control
 
 Three-layer semaphore-based rate control:
 
-1. **API key model limit** — per (api_key, model) concurrency cap
+1. **API key model limit** — per (api_key, model) concurrency cap, adjustable by busyness level; `bypass_busyness` API keys bypass both busyness rules and user concurrency limits
 2. **Provider key limit** — per provider key with configurable max_concurrent
 3. **System-level limit** — global concurrency with `local_rate_limited` rejection when exceeded
 
 Provider keys support sticky routing (requests from the same API key route to the same provider key).
+
+## Key Health Scoring
+
+Each provider key has a real-time health score (0–100) based on a 5-minute sliding window:
+
+| Event | Score Impact |
+|-------|-------------|
+| Key disabled (invalid / quota exceeded) | Set to 0 |
+| 429/529 rate limited | -15 per event |
+| 5xx server error | -10 per event |
+| 4xx client error (non-429) | -5 per event |
+| Successful request | +5 per 10 successes |
+
+Health levels: Excellent (90–100, green) / Good (60–89, blue) / Warning (30–59, yellow) / Critical (1–29, orange) / Unavailable (0, red).
+
+Keys are sorted by health score in `pick_api_keys`, so healthier keys are used first.
+
+## Key Priority
+
+Provider keys support manual priority (`priority` field, default 0). `pick_api_keys` sorts by `(priority DESC, health DESC)`, enabling ordered key fallback (e.g. always try Key A first, then Key B).
+
+## Model Alias Routing
+
+Models can be called by alias instead of `provider/model`:
+
+```text
+# Explicit: route to a specific provider
+zhipu/glm-5
+
+# Alias: auto-select best provider by health + intent + priority
+gpt-4o
+```
+
+When an alias matches multiple providers, the routing sorts candidates by `(tag_match DESC, health DESC, priority DESC)`:
+
+1. **tag_match**: if the model's tags include the request's intent → 1, else → 0
+2. **health**: provider key health score
+3. **priority**: manual priority on the provider-model binding
+
+## Intent Classification
+
+Requests are auto-classified by message content into one of five intents:
+
+| Intent | Description | Badge Color |
+|--------|-------------|-------------|
+| `coding` | Programming, debugging, code review | Blue |
+| `writing` | Documentation, translation, editing | Amber |
+| `testing` | Unit tests, QA, validation | Rose |
+| `design` | UI/UX, wireframes, design systems | Purple |
+| `chat` | General conversation (default) | Gray |
+
+Classification uses keyword matching (no LLM call), with `system_hint` weighted 3× higher than user/assistant keywords. The intent is stored in `request_logs.intent` and displayed as a colored badge in the log viewer.
+
+## Model Tags
+
+Models can be assigned tags (comma-separated) for filtering and intent-based routing:
+
+- Tags like `coding`, `reasoning`, `vision`, `flash` indicate model strengths
+- Tags are matched against the request intent for smart alias routing
+- Displayed as badges in admin config and user portal
+
+## Provider Key Fallback
+
+When a provider has multiple API keys configured, ModelGate automatically falls back to the next key if the current one fails:
+
+- **Retryable errors**: HTTP 401 (authentication), 403 (forbidden), 429 (rate limit), 529 (overloaded)
+- Keys are shuffled on each request for even distribution
+- Sticky routing takes priority — if a sticky key is available, only that key is used
+- Concurrency-limited keys are skipped with a warning, trying the next available key
+- Fallback attempts are logged with `[KEY FALLBACK]` prefix
 
 ## Provider Auto-Disable & Reenable
 
@@ -241,6 +339,7 @@ modelgate/
 │   └── log_sanitizer.py     # Sensitive data redaction for logs
 ├── routes/
 │   ├── proxy.py             # /v1/chat/completions, /v1/embeddings, /v1/models
+│   ├── anthropic_proxy.py   # /anthropic/v1/messages — Anthropic protocol proxy
 │   ├── auth.py              # Admin login/logout
 │   ├── providers.py         # Provider CRUD
 │   ├── models.py            # Model CRUD
@@ -256,14 +355,17 @@ modelgate/
 │   ├── mcp.py               # MCP server CRUD endpoints
 │   └── weixin.py            # WeChat MCP server endpoints
 ├── services/
-│   ├── proxy.py             # Main proxy logic, streaming, provider dispatch
+│   ├── proxy.py             # Main proxy logic, streaming, provider dispatch, key fallback
 │   ├── proxy_runtime/       # Runtime helpers: SSE, MiniMax, message preprocessing
+│   ├── anthropic_inbound.py # Anthropic↔OpenAI protocol translation (request & response)
 │   ├── auth.py              # API key validation + time-based access rules
-│   ├── provider.py          # Provider/model resolution, sticky routing
+│   ├── provider.py          # Provider/model resolution, alias routing, sticky routing
 │   ├── provider_limiter.py  # Provider/key disable, reenable, usage limit detection
+│   ├── key_health.py        # Sliding-window key health scoring (0-100)
+│   ├── intent_classifier.py # Keyword-based intent classification (coding/writing/testing/design/chat)
 │   ├── scheduler.py         # APScheduler tasks
 │   ├── stats_aggregator.py  # Daily stats aggregation, archiving
-│   ├── logging.py           # Request log CRUD
+│   ├── logging.py           # Request log CRUD + request content (separate storage)
 │   ├── tokens.py            # Token estimation and response parsing
 │   ├── message.py           # Message preprocessing (merge, truncate)
 │   ├── minimax.py           # MiniMax-specific response/tool_call parsing

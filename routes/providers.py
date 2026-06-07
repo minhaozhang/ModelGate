@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from core.database import async_session_maker, Provider, ProviderKey
 from services.provider import load_providers
+from services.key_health import compute_health_score, get_health_level, get_events_5m
 from core.config import validate_session
 
 router = APIRouter(prefix="/admin/api", tags=["providers"])
@@ -127,12 +128,14 @@ class ProviderKeyCreate(BaseModel):
     api_key: str
     label: Optional[str] = None
     max_concurrent: Optional[int] = None
+    priority: Optional[int] = 0
 
 
 class ProviderKeyUpdate(BaseModel):
     api_key: Optional[str] = None
     label: Optional[str] = None
     max_concurrent: Optional[int] = None
+    priority: Optional[int] = None
     is_active: Optional[bool] = None
     disabled_reason: Optional[str] = None
 
@@ -155,6 +158,8 @@ async def list_provider_keys(provider_id: int, _: bool = Depends(require_admin))
                     "max_concurrent": k.max_concurrent,
                     "is_active": k.is_active,
                     "disabled_reason": k.disabled_reason,
+                    "priority": k.priority if hasattr(k, "priority") else 0,
+                    "health_score": compute_health_score(k.id, is_active=k.is_active),
                 }
                 for k in keys
             ]
@@ -176,6 +181,7 @@ async def create_provider_key(
             api_key=data.api_key,
             label=data.label,
             max_concurrent=data.max_concurrent,
+            priority=data.priority or 0,
         )
         session.add(pk)
         try:
@@ -212,6 +218,8 @@ async def update_provider_key(
             pk.label = data.label
         if "max_concurrent" in data.model_fields_set:
             pk.max_concurrent = data.max_concurrent
+        if "priority" in data.model_fields_set:
+            pk.priority = data.priority or 0
         if "is_active" in data.model_fields_set and data.is_active is not None:
             pk.is_active = data.is_active
             if data.is_active:
@@ -249,3 +257,29 @@ async def delete_provider_key(
         await session.commit()
         await load_providers()
         return {"deleted": True}
+
+
+@router.get("/providers/{provider_id}/keys/health")
+async def get_provider_keys_health(provider_id: int, _: bool = Depends(require_admin)):
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(ProviderKey)
+            .where(ProviderKey.provider_id == provider_id)
+            .order_by(ProviderKey.id)
+        )
+        keys = result.scalars().all()
+        keys_data = []
+        for k in keys:
+            score = compute_health_score(k.id, is_active=k.is_active)
+            level = get_health_level(score)
+            events = get_events_5m(k.id)
+            keys_data.append({
+                "key_id": k.id,
+                "label": k.label or "",
+                "is_active": k.is_active,
+                "health_score": score,
+                "health_level": level,
+                "events_5m": events,
+                "disabled_reason": k.disabled_reason,
+            })
+        return {"keys": keys_data}

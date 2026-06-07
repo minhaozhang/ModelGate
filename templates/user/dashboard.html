@@ -136,6 +136,15 @@
             border: 1px solid rgba(71, 85, 105, 0.6);
             box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
         }
+        body.theme-dark .bg-amber-50 {
+            background: rgba(245, 158, 11, 0.10) !important;
+        }
+        body.theme-dark .border-amber-200 {
+            border-color: rgba(245, 158, 11, 0.25) !important;
+        }
+        body.theme-dark .text-amber-800 {
+            color: #fde68a !important;
+        }
 
         body.theme-blackgold { background: #09090b !important; color: #fafaf9; }
         body.theme-blackgold .bg-white { background: #1a1814 !important; }
@@ -246,6 +255,15 @@
         body.theme-blackgold pre {
             border: 1px solid rgba(212, 168, 83, 0.25);
             box-shadow: inset 0 1px 0 rgba(212, 168, 83, 0.05);
+        }
+        body.theme-blackgold .bg-amber-50 {
+            background: rgba(212, 168, 83, 0.10) !important;
+        }
+        body.theme-blackgold .border-amber-200 {
+            border-color: rgba(212, 168, 83, 0.25) !important;
+        }
+        body.theme-blackgold .text-amber-800 {
+            color: #fde68a !important;
         }
     </style>
 </head>
@@ -409,10 +427,16 @@
         const ownModelPalette = ['#2563eb', '#0f766e', '#0891b2', '#1d4ed8', '#059669', '#0ea5e9', '#14b8a6', '#0284c7'];
         const systemModelPalette = ['#6366f1', '#06b6d4', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#f97316', '#14b8a6', '#ef4444', '#3b82f6'];
         
-        document.getElementById('proxy-url').textContent = baseUrl;
-        document.getElementById('base-python').textContent = baseUrl;
-        document.getElementById('base-js').textContent = baseUrl;
-        document.getElementById('base-curl').textContent = baseUrl;
+        document.getElementById('proxy-url-openai').textContent = baseUrl;
+        document.getElementById('base-python-openai').textContent = baseUrl;
+        document.getElementById('base-js-openai').textContent = baseUrl;
+        document.getElementById('base-curl-openai').textContent = baseUrl;
+        document.getElementById('proxy-url-anthropic').textContent = baseUrl;
+        document.getElementById('base-python-anthropic').textContent = baseUrl;
+        document.getElementById('base-python-anthropic-stream').textContent = baseUrl;
+        document.getElementById('base-python-tool').textContent = baseUrl;
+        document.getElementById('base-js-anthropic').textContent = baseUrl;
+        document.getElementById('base-curl-anthropic').textContent = baseUrl;
 
         function getThemeMode() {
             return localStorage.getItem('dashboard_theme') || 'dark';
@@ -1090,16 +1114,16 @@
             document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
             document.getElementById('total-prompt-tokens').textContent = formatCompactTokens(data.total_prompt_tokens || 0);
             document.getElementById('total-completion-tokens').textContent = formatCompactTokens(data.total_completion_tokens || 0);
-            document.getElementById('total-errors').textContent = data.total_errors;
-            const cost = data.estimated_cost || 0;
-            const costEl = document.getElementById('estimated-cost');
-            const costNote = document.getElementById('estimated-cost-note');
-            if (cost > 0) {
-                costEl.textContent = cost >= 1 ? '$' + cost.toFixed(2) : '$' + cost.toFixed(4);
-                costNote.textContent = window.I18N.estCostNote || '';
+            document.getElementById('personal-errors').textContent = (data.total_errors || 0).toLocaleString();
+            const pCost = data.estimated_cost || 0;
+            const pCostEl = document.getElementById('personal-cost');
+            const pCostNote = document.getElementById('personal-cost-note');
+            if (pCost > 0) {
+                pCostEl.textContent = pCost >= 1 ? '$' + pCost.toFixed(2) : '$' + pCost.toFixed(4);
+                pCostNote.textContent = window.I18N.estCostNote || '';
             } else {
-                costEl.textContent = '-';
-                costNote.textContent = '';
+                pCostEl.textContent = '-';
+                pCostNote.textContent = '';
             }
 
             const sysModels = systemModels.models || {};
@@ -1393,6 +1417,24 @@
         function copyCode(type) {
             const el = document.getElementById('code-' + type);
             navigator.clipboard.writeText(el.textContent).then(() => alert(window.I18N.copied));
+        }
+
+        function switchProtocol(proto) {
+            document.getElementById('proto-openai').classList.toggle('hidden', proto !== 'openai');
+            document.getElementById('proto-anthropic').classList.toggle('hidden', proto !== 'anthropic');
+            var tabOpenai = document.getElementById('proto-tab-openai');
+            var tabAnthropic = document.getElementById('proto-tab-anthropic');
+            if (proto === 'openai') {
+                tabOpenai.classList.add('border-blue-500', 'text-blue-600');
+                tabOpenai.classList.remove('border-transparent', 'text-gray-500');
+                tabAnthropic.classList.remove('border-blue-500', 'text-blue-600');
+                tabAnthropic.classList.add('border-transparent', 'text-gray-500');
+            } else {
+                tabAnthropic.classList.add('border-blue-500', 'text-blue-600');
+                tabAnthropic.classList.remove('border-transparent', 'text-gray-500');
+                tabOpenai.classList.remove('border-blue-500', 'text-blue-600');
+                tabOpenai.classList.add('border-transparent', 'text-gray-500');
+            }
         }
         
         async function logout() {

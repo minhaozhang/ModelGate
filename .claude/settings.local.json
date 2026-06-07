@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"from services import anthropic_inbound; from routes import anthropic_proxy; print\\('imports ok'\\)\")",
+      "Bash(python -c \"import main; print\\('main ok'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(r'D:\\\\project\\\\ModelGate\\\\services\\\\anthropic_inbound.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\(r'D:\\\\project\\\\ModelGate\\\\services\\\\proxy_runtime\\\\adapters\\\\anthropic.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\(r'D:\\\\project\\\\ModelGate\\\\routes\\\\anthropic_proxy.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "PowerShell(Get-NetTCPConnection -State Listen | Where-Object { @\\(3000,3100,5000,8000,8080,8888,9000\\) -contains $_.LocalPort } | Select-Object LocalAddress,LocalPort,OwningProcess)",
+      "Bash(curl -sS -N -X POST http://localhost/modelgate/v1/chat/completions -H 'Authorization: Bearer sk-8015b8eeda5cfa2eb01693e18de3f7ca33bbdbb608aad68f' -H 'Content-Type: application/json' -d @/tmp/mg-test/req_oai_stream.json)",
+      "Bash(curl -sS -X POST http://localhost/modelgate/v1/chat/completions -H 'Authorization: Bearer sk-8015b8eeda5cfa2eb01693e18de3f7ca33bbdbb608aad68f' -H 'Content-Type: application/json' -d @/tmp/mg-test/req_b_simple.json)",
+      "Bash(python -m json.tool)",
+      "Bash(docker compose *)",
+      "Bash(docker build *)",
+      "Bash(curl -sS -o /dev/null -w \"%{http_code}\\\\n\" http://localhost/modelgate/v1/models -H \"Authorization: Bearer sk-8015b8eeda5cfa2eb01693e18de3f7ca33bbdbb608aad68f\")",
+      "Bash(curl -sS -X POST http://localhost/modelgate/v1/messages -H 'x-api-key: sk-8015b8eeda5cfa2eb01693e18de3f7ca33bbdbb608aad68f' -H 'anthropic-version: 2023-06-01' -H 'Content-Type: application/json' -d @/tmp/mg-test/req_c_tool2.json)"
+    ]
+  }
+}
