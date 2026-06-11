@@ -15,7 +15,7 @@ ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key man
 - Intent classification: auto-classify requests as coding/writing/testing/design/chat based on message content, used for smart routing and log analytics
 - Provider key health scoring: sliding-window (5 min) health score (0–100), prioritize healthy keys in routing
 - Provider key priority: manual priority per key for ordered fallback, sorted by (priority DESC, health DESC)
-- Layered concurrency control: API key model limit -> provider key limit with per-key semaphore
+- Layered concurrency control: non-bypass API key global limit (2) -> API key provider-model limit -> provider key limit
 - Provider multi-key support with sticky routing and key-level disable/reenable
 - Provider key fallback: automatically tries the next API key on 401/403/429 errors
 - Auto-disable provider/key on usage limit errors, auto-reenable on scheduled task
@@ -228,11 +228,12 @@ Request messages, response text, thinking/reasoning, and tool calls are stored i
 
 ## Concurrency Control
 
-Three-layer semaphore-based rate control:
+Four-layer semaphore-based rate control:
 
-1. **API key model limit** — per (api_key, model) concurrency cap, adjustable by busyness level; `bypass_busyness` API keys bypass both busyness rules and user concurrency limits
-2. **Provider key limit** — per provider key with configurable max_concurrent
-3. **System-level limit** — global concurrency with `local_rate_limited` rejection when exceeded
+1. **API key global limit** — non-`bypass_busyness` API keys are capped at 2 concurrent requests total across all providers and models
+2. **API key provider-model limit** — per (api_key, provider_key, model) concurrency cap, adjustable by busyness level; `bypass_busyness` API keys skip user-side busyness concurrency limits
+3. **Provider key limit** — per provider key with configurable max_concurrent
+4. **System-level limit** — global concurrency with `local_rate_limited` rejection when exceeded
 
 Provider keys support sticky routing (requests from the same API key route to the same provider key).
 

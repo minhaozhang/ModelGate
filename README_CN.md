@@ -15,10 +15,10 @@ ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、AP
 - 意图分类：根据消息内容自动分类为 coding/writing/testing/design/chat，用于智能路由和日志分析
 - 供应商 Key 健康度评分：5 分钟滑动窗口评分（0–100），路由时优先选择健康的 Key
 - 供应商 Key 优先级：手动设置 Key 优先级，按 (priority DESC, health DESC) 排序实现有序降级
-- 按供应商维度做 asyncio 信号量并发控制和限流，bypass_busyness 的 Key 可跳过繁忙限制
+- 分层 asyncio 信号量并发控制：非 bypass API Key 全局最多 2 并发，再叠加供应商 Key / 模型维度限制
 - 供应商多 Key 支持，粘性路由和 Key 级别禁用/恢复
 - 供应商 Key 自动降级：401/403/429 错误时自动尝试下一个 Key
-- API Key 管理及按 Key 分配可用模型
+- API Key 管理及按 Key 分配可用模型，支持 bypass_busyness 跳过繁忙限制
 - 请求内容分离存储：messages、response、thinking、tool_calls 存入独立 `request_contents` 表，按需加载
 - 流式请求生命周期追踪：`pending` -> `success` / `error` / `timeout`
 - 记录上游真实 HTTP 状态码（200、429、500 等）、意图、请求模型、实际模型、Key 标签
@@ -213,6 +213,17 @@ ModelGate 内置 MCP（Model Context Protocol）服务器，支持微信 iLink �
 
 - **按需加载**：在日志查看器中点击 "Content" 按钮，通过 `GET /admin/api/logs/{id}/content` 懒加载
 - **级联删除**：主日志归档或删除时，关联内容自动清理
+
+## 并发控制
+
+基于 asyncio semaphore 的四层限流：
+
+1. **API Key 总并发** — 非 `bypass_busyness` API Key 在所有供应商和模型上合计最多 2 个并发请求
+2. **API Key 供应商模型并发** — 按 (api_key, provider_key, model) 控制并发，并可随繁忙等级动态调整；`bypass_busyness` API Key 跳过用户侧繁忙并发限制
+3. **供应商 Key 并发** — 每个供应商 Key 使用独立的 `max_concurrent`
+4. **系统级并发** — 全局并发超限时返回 `local_rate_limited`
+
+供应商 Key 支持粘性路由（同一个 API Key 的请求优先落到同一个供应商 Key）。
 
 ## 供应商 Key 自动降级
 

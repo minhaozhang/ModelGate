@@ -45,12 +45,18 @@ class BusynessMetricsTests(unittest.IsolatedAsyncioTestCase):
         config.providers_cache.update(self.original_providers_cache)
 
     async def test_compute_busyness_counts_database_window(self):
-        # active users, total requests, 429 requests, one-hour activity
-        query_values = [11, 20, 11, 20]
+        # active users, total requests, 429 requests, one-hour activity, disabled providers
+        query_values = [11, 20, 11, 20, 0]
 
         with patch(
             "core.database.async_session_maker",
             return_value=_FakeBusynessSessionContext(query_values),
+        ), patch(
+            "services.system_config.get_int_setting",
+            new=AsyncMock(side_effect=lambda _category, _key, default: default),
+        ), patch(
+            "services.system_config.get_float_setting",
+            new=AsyncMock(side_effect=lambda _category, _key, default: default),
         ):
             result = await busyness.compute_busyness_level()
 
@@ -66,11 +72,17 @@ class BusynessMetricsTests(unittest.IsolatedAsyncioTestCase):
                 "three": {},
             }
         )
-        query_values = [11, 20, 11, 20]
+        query_values = [11, 20, 11, 20, 2]
 
         with patch(
             "core.database.async_session_maker",
             return_value=_FakeBusynessSessionContext(query_values),
+        ), patch(
+            "services.system_config.get_int_setting",
+            new=AsyncMock(side_effect=lambda _category, _key, default: default),
+        ), patch(
+            "services.system_config.get_float_setting",
+            new=AsyncMock(side_effect=lambda _category, _key, default: default),
         ):
             result = await busyness.compute_busyness_level()
 

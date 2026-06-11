@@ -4,27 +4,50 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 from fastapi import Request
+from fastapi.responses import Response
 
-from core.config import provider_key_model_semaphores, provider_key_semaphores
+import core.config as config
+from core.config import (
+    provider_key_model_semaphores,
+    provider_key_semaphores,
+    user_api_key_semaphores,
+)
 from services import provider as provider_service
 from services import proxy as proxy_module
 from services.proxy_runtime import internal as internal_runtime
 from services.proxy import (
     _get_or_create_user_provider_model_semaphore,
+    _get_or_create_user_api_key_semaphore,
+    _get_user_api_key_limit,
     _get_or_create_provider_key_semaphore,
     _get_provider_key_limit,
     proxy_request,
 )
 
 
+class _TrackingSemaphore:
+    def __init__(self):
+        self.acquire_count = 0
+        self.release_count = 0
+
+    async def acquire(self):
+        self.acquire_count += 1
+        return True
+
+    def release(self):
+        self.release_count += 1
+
+
 class ProviderKeyConcurrencyTests(unittest.TestCase):
     def setUp(self):
         provider_key_semaphores.clear()
         provider_key_model_semaphores.clear()
+        user_api_key_semaphores.clear()
 
     def tearDown(self):
         provider_key_semaphores.clear()
         provider_key_model_semaphores.clear()
+        user_api_key_semaphores.clear()
         provider_service._key_sticky_map.clear()
 
     def test_provider_key_limit_is_shared_across_models(self):
@@ -78,6 +101,29 @@ class ProviderKeyConcurrencyTests(unittest.TestCase):
 
         semaphore_a.release()
         semaphore_b.release()
+
+    def test_user_api_key_limit_is_shared_across_models_and_providers(self):
+        sem_key_a, semaphore_a = _get_or_create_user_api_key_semaphore(
+            api_key_id=1,
+            target_limit=2,
+        )
+        sem_key_b, semaphore_b = _get_or_create_user_api_key_semaphore(
+            api_key_id=1,
+            target_limit=2,
+        )
+
+        self.assertEqual(sem_key_a, "user:1")
+        self.assertEqual(sem_key_b, "user:1")
+        self.assertIs(semaphore_a, semaphore_b)
+        self.assertEqual(_get_user_api_key_limit(False), 2)
+
+        self.assertTrue(asyncio.run(asyncio.wait_for(semaphore_a.acquire(), timeout=0.1)))
+        self.assertTrue(asyncio.run(asyncio.wait_for(semaphore_b.acquire(), timeout=0.1)))
+        with self.assertRaises(asyncio.TimeoutError):
+            asyncio.run(asyncio.wait_for(semaphore_a.acquire(), timeout=0.01))
+
+        semaphore_a.release()
+        semaphore_a.release()
 
     def test_provider_key_limit_prefers_key_override(self):
         provider_config = {
@@ -151,6 +197,7 @@ class ProxyRuntimeWrapperTests(unittest.IsolatedAsyncioTestCase):
     async def test_handle_streaming_wrapper_forwards_renamed_semaphores(self):
         provider_key_semaphore = object()
         user_provider_model_semaphore = object()
+        user_api_key_semaphore = object()
         response = object()
         runtime_handle = AsyncMock(return_value=response)
 
@@ -170,6 +217,7 @@ class ProxyRuntimeWrapperTests(unittest.IsolatedAsyncioTestCase):
                 0,
                 provider_key_semaphore,
                 user_provider_model_semaphore,
+                user_api_key_semaphore,
                 "req-1",
                 None,
                 None,
@@ -181,6 +229,7 @@ class ProxyRuntimeWrapperTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(
             kwargs["user_provider_model_semaphore"], user_provider_model_semaphore
         )
+        self.assertIs(kwargs["user_api_key_semaphore"], user_api_key_semaphore)
         self.assertNotIn("semaphore", kwargs)
         self.assertNotIn("api_key_model_semaphore", kwargs)
 
@@ -189,10 +238,12 @@ class InternalProxyConcurrencyTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         provider_key_semaphores.clear()
         provider_key_model_semaphores.clear()
+        user_api_key_semaphores.clear()
 
     def tearDown(self):
         provider_key_semaphores.clear()
         provider_key_model_semaphores.clear()
+        user_api_key_semaphores.clear()
 
     async def test_internal_user_provider_model_limit_returns_429(self):
         provider_config = {
@@ -206,7 +257,7 @@ class InternalProxyConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         async def fake_wait_for(awaitable, timeout):
             awaitable.close()
             wait_timeouts.append(timeout)
-            if len(wait_timeouts) == 1:
+            if len(wait_timeouts) <= 2:
                 return True
             raise asyncio.TimeoutError
 
@@ -238,8 +289,140 @@ class InternalProxyConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(result["status_code"], 429)
-        self.assertIn("already reached max concurrency", result["error"])
-        self.assertEqual(len(wait_timeouts), 2)
+        self.assertIn("并发请求已达上限", result["error"])
+        self.assertEqual(len(wait_timeouts), 3)
+
+
+class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        provider_key_semaphores.clear()
+        provider_key_model_semaphores.clear()
+        user_api_key_semaphores.clear()
+        self.original_api_keys_cache = dict(config.api_keys_cache)
+        config.api_keys_cache.clear()
+
+    def tearDown(self):
+        provider_key_semaphores.clear()
+        provider_key_model_semaphores.clear()
+        user_api_key_semaphores.clear()
+        config.api_keys_cache.clear()
+        config.api_keys_cache.update(self.original_api_keys_cache)
+
+    async def test_non_bypass_user_global_limit_blocks_third_request(self):
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [],
+                "query_string": b"",
+                "cookies": {},
+                "root_path": "",
+            }
+        )
+        request._body = b'{"model":"openai/gpt-other","messages":[]}'
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": False}
+        _, user_semaphore = _get_or_create_user_api_key_semaphore(
+            api_key_id=1,
+            target_limit=2,
+        )
+        await user_semaphore.acquire()
+        await user_semaphore.acquire()
+        provider_config = {
+            "base_url": "https://example.com",
+            "protocol": "openai",
+            "api_keys": [{"id": 11, "api_key": "sk-test", "max_concurrent": 3}],
+            "models": [{"model_name": "gpt-other", "actual_model_name": "gpt-other"}],
+        }
+
+        with (
+            patch("services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch(
+                "services.proxy.get_provider_and_model",
+                new=AsyncMock(return_value=(provider_config, "gpt-other", "openai")),
+            ),
+            patch(
+                "services.proxy.pick_api_keys",
+                return_value=[("sk-test", 11)],
+            ),
+            patch("services.proxy.create_request_log", new=AsyncMock()),
+            patch("services.proxy.update_stats", new=Mock()),
+            patch("services.proxy.USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS", 0.01),
+            patch("services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        self.assertEqual(response.status_code, 429)
+        body = response.body.decode("utf-8")
+        self.assertIn("user_global_concurrency_reached", body)
+
+    async def test_streaming_key_fallback_keeps_global_slot_until_final_response(self):
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [],
+                "query_string": b"",
+                "cookies": {},
+                "root_path": "",
+            }
+        )
+        request._body = (
+            b'{"model":"openai/gpt-other","messages":[],"stream":true}'
+        )
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": False}
+        tracking_semaphore = _TrackingSemaphore()
+        provider_config = {
+            "base_url": "https://example.com",
+            "protocol": "openai",
+            "api_keys": [
+                {"id": 11, "api_key": "sk-one", "max_concurrent": 3},
+                {"id": 12, "api_key": "sk-two", "max_concurrent": 3},
+            ],
+            "models": [{"model_name": "gpt-other", "actual_model_name": "gpt-other"}],
+        }
+        stream_responses = [
+            Response(content=b"{}", status_code=429),
+            Response(content=b"{}", status_code=200),
+        ]
+
+        async def fake_handle_streaming(*args, **_kwargs):
+            provider_key_semaphore = args[12]
+            user_provider_model_semaphore = args[13]
+            if user_provider_model_semaphore is not None:
+                user_provider_model_semaphore.release()
+            if provider_key_semaphore is not None:
+                provider_key_semaphore.release()
+            return stream_responses.pop(0)
+
+        stream_handler = AsyncMock(side_effect=fake_handle_streaming)
+
+        with (
+            patch("services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch(
+                "services.proxy.get_provider_and_model",
+                new=AsyncMock(return_value=(provider_config, "gpt-other", "openai")),
+            ),
+            patch(
+                "services.proxy.pick_api_keys",
+                return_value=[("sk-one", 11), ("sk-two", 12)],
+            ),
+            patch(
+                "services.proxy._get_or_create_user_api_key_semaphore",
+                return_value=("user:1", tracking_semaphore),
+            ),
+            patch("services.proxy.handle_streaming", new=stream_handler),
+            patch("services.proxy.create_request_log", new=AsyncMock(return_value=1)),
+            patch("services.proxy.update_stats", new=Mock()),
+            patch("services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(stream_handler.await_count, 2)
+        self.assertEqual(tracking_semaphore.acquire_count, 1)
+        self.assertEqual(tracking_semaphore.release_count, 1)
 
 
 class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):

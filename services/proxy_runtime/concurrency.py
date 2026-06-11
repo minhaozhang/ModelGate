@@ -1,9 +1,13 @@
 import asyncio
 
-import core.config as config
-from core.config import provider_key_model_semaphores, provider_key_semaphores
+from core.config import (
+    provider_key_model_semaphores,
+    provider_key_semaphores,
+    user_api_key_semaphores,
+)
 
 DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY = 3
+DEFAULT_USER_API_KEY_MAX_CONCURRENCY = 2
 SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS = 1
 SEMAPHORE_RETRY_AFTER_SECONDS = 5
 USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS = 1
@@ -55,6 +59,12 @@ def _get_user_provider_model_limit(bypass_busyness: bool = False) -> int:
     return max(target_limit, 1)
 
 
+def _get_user_api_key_limit(bypass_busyness: bool = False) -> int:
+    if bypass_busyness:
+        return 9999
+    return DEFAULT_USER_API_KEY_MAX_CONCURRENCY
+
+
 def _get_provider_key_limit(
     provider_config: dict, provider_key_id: int | None = None
 ) -> int:
@@ -69,6 +79,15 @@ def _get_provider_key_limit(
     except (TypeError, ValueError):
         target_limit = DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY
     return max(target_limit, 1)
+
+
+def _get_or_create_user_api_key_semaphore(
+    api_key_id: int, target_limit: int
+) -> tuple[str, asyncio.Semaphore]:
+    sem_key = f"user:{api_key_id}"
+    return _get_or_create_scoped_semaphore(
+        user_api_key_semaphores, sem_key, target_limit
+    )
 
 
 def _get_or_create_user_provider_model_semaphore(

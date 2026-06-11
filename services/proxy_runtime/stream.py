@@ -47,6 +47,7 @@ async def handle_streaming(
     request_context_tokens,
     provider_key_semaphore,
     user_provider_model_semaphore,
+    user_api_key_semaphore,
     request_id,
     log_id,
     request,
@@ -440,6 +441,8 @@ async def handle_streaming(
                 user_provider_model_semaphore.release()
             if provider_key_semaphore is not None:
                 provider_key_semaphore.release()
+            if user_api_key_semaphore is not None:
+                user_api_key_semaphore.release()
 
     return StreamingResponse(
         stream_generator(),

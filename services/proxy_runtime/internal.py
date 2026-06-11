@@ -27,7 +27,9 @@ from services.proxy_runtime.concurrency import (
     RATE_LIMITED_STATUSES,
     SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
     USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+    _get_user_api_key_limit,
     _get_user_provider_model_limit,
+    _get_or_create_user_api_key_semaphore,
     _get_or_create_user_provider_model_semaphore,
     _get_or_create_provider_key_semaphore,
     _get_provider_key_limit,
@@ -52,6 +54,15 @@ async def ensure_internal_api_key_exists(api_key_id: int) -> bool:
             select(ApiKey.id).where(ApiKey.id == api_key_id, ApiKey.is_active)
         )
         return result.scalar_one_or_none() is not None
+
+
+def _api_key_bypasses_busyness(api_key_id: int | None) -> bool:
+    from core.config import api_keys_cache
+
+    for key_info in api_keys_cache.values():
+        if key_info.get("id") == api_key_id:
+            return bool(key_info.get("bypass_busyness", False))
+    return False
 
 
 async def call_internal_model_via_proxy(
@@ -90,9 +101,12 @@ async def call_internal_model_via_proxy(
         }
 
     provider_key_semaphore = None
+    user_api_key_semaphore = None
     user_provider_model_semaphore = None
     acquired = False
+    user_api_key_acquired = False
     user_provider_model_acquired = False
+    bypass_busyness = _api_key_bypasses_busyness(api_key_id)
 
     try:
         chosen_api_key, chosen_key_id = pick_api_key(
@@ -107,6 +121,31 @@ async def call_internal_model_via_proxy(
                 "payload": None,
                 "error": f"供应商 '{provider_name}' 无可用的 API Key",
             }
+
+        if not bypass_busyness:
+            user_api_key_sem_key, user_api_key_semaphore = (
+                _get_or_create_user_api_key_semaphore(
+                    api_key_id,
+                    _get_user_api_key_limit(False),
+                )
+            )
+            try:
+                await asyncio.wait_for(
+                    user_api_key_semaphore.acquire(),
+                    timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                )
+                user_api_key_acquired = True
+            except asyncio.TimeoutError:
+                message = "您的 API Key 总并发请求已达上限，请等待当前请求完成后再试"
+                logger.warning("[RATE LIMIT] %s at max concurrency", user_api_key_sem_key)
+                return {
+                    "ok": False,
+                    "provider_name": provider_name,
+                    "actual_model_name": actual_model,
+                    "status_code": 429,
+                    "payload": None,
+                    "error": message,
+                }
 
         if chosen_key_id is not None:
             provider_key_sem_key, provider_key_semaphore = (
@@ -142,7 +181,7 @@ async def call_internal_model_via_proxy(
                     api_key_id,
                     chosen_key_id,
                     provider_model_key,
-                    _get_user_provider_model_limit(),
+                    _get_user_provider_model_limit(bypass_busyness),
                 )
             )
             try:
@@ -374,3 +413,5 @@ async def call_internal_model_via_proxy(
             provider_key_semaphore.release()
         if user_provider_model_acquired and user_provider_model_semaphore is not None:
             user_provider_model_semaphore.release()
+        if user_api_key_acquired and user_api_key_semaphore is not None:
+            user_api_key_semaphore.release()

@@ -35,7 +35,9 @@ from services.proxy_runtime import (
     LOCAL_RATE_LIMITED_STATUS,
     SEMAPHORE_RETRY_AFTER_SECONDS,
     USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+    _get_user_api_key_limit,
     _get_user_provider_model_limit,
+    _get_or_create_user_api_key_semaphore,
     _get_or_create_user_provider_model_semaphore,
     _get_or_create_provider_key_semaphore,
     _get_provider_key_limit,
@@ -253,8 +255,10 @@ async def proxy_request(request: Request, endpoint: str):
                     )
 
     provider_key_semaphore = None
+    user_api_key_semaphore = None
     user_provider_model_semaphore = None
     acquired = False
+    user_api_key_acquired = False
     user_provider_model_acquired = False
 
     entered_handler = False
@@ -289,6 +293,59 @@ async def proxy_request(request: Request, endpoint: str):
 
         from services.intent_classifier import classify_intent
         request_intent = classify_intent(messages)
+
+        if not bypass_busyness:
+            user_api_key_sem_key, user_api_key_semaphore = (
+                _get_or_create_user_api_key_semaphore(
+                    api_key_id,
+                    _get_user_api_key_limit(False),
+                )
+            )
+            try:
+                await asyncio.wait_for(
+                    user_api_key_semaphore.acquire(),
+                    timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                )
+                user_api_key_acquired = True
+            except asyncio.TimeoutError:
+                message = "您的 API Key 总并发请求已达上限，请等待当前请求完成后再试"
+                logger.warning(
+                    "[RATE LIMIT] %s at max concurrency", user_api_key_sem_key
+                )
+                update_stats(
+                    provider_name,
+                    actual_model,
+                    0,
+                    api_key_id=api_key_id,
+                    is_rate_limited=True,
+                )
+                await create_request_log(
+                    provider_name,
+                    actual_model,
+                    status=LOCAL_RATE_LIMITED_STATUS,
+                    api_key_id=api_key_id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                    request_context_tokens=estimate_request_context_tokens(body_json),
+                    latency_ms=(time.time() - start_time) * 1000,
+                    upstream_status_code=429,
+                    downstream_status_code=429,
+                    error=message,
+                    inbound_protocol=inbound_protocol,
+                    intent=request_intent,
+                    requested_model=requested_model,
+                    actual_model=actual_model,
+                )
+                return _openai_error_response(
+                    message,
+                    429,
+                    "rate_limit_error",
+                    "user_global_concurrency_reached",
+                    headers={
+                        **busyness_headers,
+                        "retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS),
+                    },
+                )
 
         stream = body_json.get("stream", False)
 
@@ -498,6 +555,7 @@ async def proxy_request(request: Request, endpoint: str):
                     request_context_tokens,
                     provider_key_semaphore,
                     user_provider_model_semaphore,
+                    user_api_key_semaphore,
                     request_id,
                     stream_log_id,
                     request,
@@ -508,6 +566,9 @@ async def proxy_request(request: Request, endpoint: str):
                     requested_model=requested_model,
                     provider_key_label=_get_key_label(provider_config, chosen_key_id),
                 )
+                if isinstance(response, StreamingResponse):
+                    user_api_key_acquired = False
+                    user_api_key_semaphore = None
             else:
                 response = await handle_normal(
                     client,
@@ -587,6 +648,9 @@ async def proxy_request(request: Request, endpoint: str):
             f"请求处理失败: {type(e).__name__}"
         )
         return _openai_error_response(err_msg, 502, "api_error", "proxy_error")
+    finally:
+        if user_api_key_acquired and user_api_key_semaphore is not None:
+            user_api_key_semaphore.release()
 
 async def _ensure_internal_api_key_exists(api_key_id: int) -> bool:
     return await runtime_ensure_internal_api_key_exists(api_key_id)
@@ -706,6 +770,7 @@ async def handle_streaming(
     request_context_tokens,
     provider_key_semaphore,
     user_provider_model_semaphore,
+    user_api_key_semaphore,
     request_id,
     log_id,
     request,
@@ -731,6 +796,7 @@ async def handle_streaming(
         request_context_tokens=request_context_tokens,
         provider_key_semaphore=provider_key_semaphore,
         user_provider_model_semaphore=user_provider_model_semaphore,
+        user_api_key_semaphore=user_api_key_semaphore,
         request_id=request_id,
         log_id=log_id,
         request=request,

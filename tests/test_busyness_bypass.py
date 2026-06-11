@@ -167,6 +167,11 @@ class BusynessBypassRecommendationTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch("routes.user.async_session_maker", side_effect=session_factory),
+            patch(
+                "routes.user._get_user_allowed_model_names",
+                new=AsyncMock(return_value=None),
+            ),
+            patch("services.analysis_store.get_analysis_record", new=AsyncMock(return_value=None)),
             patch("routes.user.get_local_now", return_value=datetime(2026, 4, 27, 10, 0, 0)),
         ):
             regular = await user_routes.get_user_recommendations(
