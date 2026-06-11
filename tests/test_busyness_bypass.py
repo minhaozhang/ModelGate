@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, patch
 
 from starlette.requests import Request
 
-import core.config as config
-from routes import user as user_routes
-from services.proxy import proxy_request
+import app.core.config as config
+from app.routes import user as user_routes
+from app.services.proxy import proxy_request
 
 
 def make_request(method: str = "GET", path: str = "/") -> Request:
@@ -90,17 +90,17 @@ class BusynessBypassProxyTests(unittest.IsolatedAsyncioTestCase):
         request._body = b'{"model":"openai/gpt-test","messages":[]}'
 
         with (
-            patch("services.proxy.validate_api_key", new=AsyncMock(return_value=(7, None))),
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(7, None))),
             patch(
-                "services.proxy.get_provider_and_model",
+                "app.services.proxy.get_provider_and_model",
                 new=AsyncMock(return_value=(None, None, "openai")),
             ) as provider_mock,
             patch(
-                "services.proxy.get_disabled_provider_reason",
+                "app.services.proxy.get_disabled_provider_reason",
                 new=AsyncMock(return_value=None),
             ),
-            patch("services.proxy.logger.error"),
-            patch("services.proxy.schedule_api_key_last_used_update", return_value=None),
+            patch("app.services.proxy.logger.error"),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
         ):
             response = await proxy_request(request, "/chat/completions")
 
@@ -166,13 +166,13 @@ class BusynessBypassRecommendationTests(unittest.IsolatedAsyncioTestCase):
             )
 
         with (
-            patch("routes.user.async_session_maker", side_effect=session_factory),
+            patch("app.routes.user.async_session_maker", side_effect=session_factory),
             patch(
-                "routes.user._get_user_allowed_model_names",
+                "app.routes.user._get_user_allowed_model_names",
                 new=AsyncMock(return_value=None),
             ),
-            patch("services.analysis_store.get_analysis_record", new=AsyncMock(return_value=None)),
-            patch("routes.user.get_local_now", return_value=datetime(2026, 4, 27, 10, 0, 0)),
+            patch("app.services.analysis_store.get_analysis_record", new=AsyncMock(return_value=None)),
+            patch("app.routes.user.get_local_now", return_value=datetime(2026, 4, 27, 10, 0, 0)),
         ):
             regular = await user_routes.get_user_recommendations(
                 make_request(), api_key_id=1, period="day"

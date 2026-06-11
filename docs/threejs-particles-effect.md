@@ -19,8 +19,9 @@
 ### 文件位置
 
 ```
-templates/
-└── login.py          # LOGIN_PAGE_HTML 包含完整的 Three.js 代码
+web/templates/
+├── admin/login.html  # 管理端登录页 Three.js 代码
+└── user/login.html   # 用户端登录页 Three.js 代码
 ```
 
 ### 核心技术点

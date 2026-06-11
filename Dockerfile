@@ -23,8 +23,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 RUN mkdir -p logs uploads/documents \
-    && pybabel compile -d locales
+    && pybabel compile -d web/locales
 
 EXPOSE 8765
 
-CMD ["python", "main.py"]
+CMD ["python", "-m", "app.main"]

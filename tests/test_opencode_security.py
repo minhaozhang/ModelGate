@@ -7,9 +7,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from core.i18n import render
-from routes import opencode
-from routes.user import USER_SESSIONS
+from app.core.i18n import render
+from app.routes import opencode
+from app.routes.user import USER_SESSIONS
 
 
 class _FakeSessionContext:
@@ -61,7 +61,7 @@ class OpenCodeReviewFixTests(unittest.TestCase):
         self.assertIn("modelgate provider", public_html)
 
     def test_placeholder_defaults_do_not_contain_internal_credentials(self):
-        database_source = Path("core/database.py").read_text(encoding="utf-8")
+        database_source = Path("app/core/database.py").read_text(encoding="utf-8")
         env_example = Path(".env.example").read_text(encoding="utf-8")
 
         for forbidden in ("192.168.58.128", "Zaq1%403edc", "ZxcvbnmZaq1#)"):
@@ -79,9 +79,9 @@ class OpenCodeReviewFixTests(unittest.TestCase):
         config = {"provider": {"modelgate": {"models": {}}}}
 
         with (
-            patch("routes.opencode.async_session_maker", return_value=_FakeSessionContext()),
+            patch("app.routes.opencode.async_session_maker", return_value=_FakeSessionContext()),
             patch(
-                "routes.opencode.build_opencode_config",
+                "app.routes.opencode.build_opencode_config",
                 new=AsyncMock(return_value=config),
             ) as build_mock,
         ):
@@ -105,9 +105,9 @@ class OpenCodeReviewFixTests(unittest.TestCase):
         app.include_router(opencode.router)
 
         with (
-            patch("routes.opencode.async_session_maker", return_value=_FakeSessionContext()),
+            patch("app.routes.opencode.async_session_maker", return_value=_FakeSessionContext()),
             patch(
-                "routes.opencode.build_opencode_config",
+                "app.routes.opencode.build_opencode_config",
                 new=AsyncMock(return_value={"provider": {"modelgate": {"models": {}}}}),
             ) as build_mock,
         ):

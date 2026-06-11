@@ -1,7 +1,7 @@
 # ModelGate
 
 <p align="center">
-  <img src="assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
+  <img src="web/assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
 </p>
 
 ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、API Key 管控、请求日志、监控看板和用户仪表盘能力。适用于集团或企业内部统一管理和分配 AI 模型 Token，实现跨部门的模型调用管控与成本追踪。
@@ -63,7 +63,7 @@ ModelGate 是一个基于 FastAPI 的 LLM 网关，提供多供应商路由、AP
 
 ```bash
 pip install -r requirements.txt
-python main.py
+python -m app.main
 ```
 
 默认本地地址：
@@ -123,7 +123,7 @@ CREATE USER "modelgate" WITH PASSWORD 'your_password';
 CREATE DATABASE "modelgate" OWNER "modelgate";
 ```
 
-表结构见 [`schema.sql`](schema.sql)。
+表结构见 [`db/schema.sql`](db/schema.sql)。
 
 应用启动时会自动执行兼容性补列逻辑（例如给 `request_logs` 增加新字段）。
 
@@ -307,54 +307,21 @@ gpt-4o
 
 ```text
 modelgate/
-├── main.py                  # 应用初始化、中间件、路由注册、异常处理
-├── core/
-│   ├── config.py            # 日志、缓存、统计、会话管理
-│   ├── database.py          # SQLAlchemy 异步引擎、所有 ORM 模型
-│   ├── deps.py              # 认证依赖
-│   ├── i18n.py              # 国际化
-│   ├── app_paths.py         # 反向代理 base path
-│   ├── client_ip.py         # 多 Header 客户端 IP 提取
-│   └── log_sanitizer.py     # 日志敏感信息脱敏
-├── routes/
-│   ├── proxy.py             # /v1/chat/completions、/v1/embeddings、/v1/models
-│   ├── anthropic_proxy.py   # /anthropic/v1/messages — Anthropic 协议代理
-│   ├── auth.py              # 管理员登录/登出
-│   ├── providers.py         # 供应商增删改查
-│   ├── models.py            # 模型增删改查
-│   ├── provider_models.py   # 供应商-模型绑定 + 自动同步
-│   ├── keys.py              # API Key 增删改查 + 按 Key 查统计/日志 + 时段规则
-│   ├── stats.py             # 统计与聚合接口
-│   ├── logs.py              # 日志查看 + AI 错误分析
-│   ├── pages.py             # 管理端 HTML 页面
-│   ├── user.py              # 用户端 API + 页面
-│   ├── opencode.py          # OpenCode 配置生成
-│   ├── reports.py           # 使用报告生成 + DOCX 导出
-│   ├── system_config.py     # 系统配置（出站 UA 管理）
-│   └── weixin.py            # 微信 MCP 服务端点
-├── services/
-│   ├── proxy.py             # 核心代理逻辑、流式处理、供应商分发、Key 自动降级
-│   ├── proxy_runtime/       # 运行时辅助：SSE、MiniMax、消息预处理
-│   ├── anthropic_inbound.py # Anthropic↔OpenAI 协议转换（请求与响应）
-│   ├── auth.py              # API Key 验证 + 时段访问规则校验
-│   ├── provider.py          # 供应商/模型解析、别名路由、粘性路由
-│   ├── provider_limiter.py  # 供应商/Key 禁用、恢复、额度检测
-│   ├── key_health.py        # 滑动窗口 Key 健康度评分（0-100）
-│   ├── intent_classifier.py # 关键词意图分类（coding/writing/testing/design/chat）
-│   ├── scheduler.py         # APScheduler 定时任务
-│   ├── stats_aggregator.py  # 每日统计聚合、日志归档
-│   ├── logging.py           # 请求日志增改查 + 请求内容（分离存储）
-│   ├── tokens.py            # Token 估算和响应解析
-│   ├── message.py           # 消息预处理（合并、截断）
-│   ├── minimax.py           # MiniMax 响应/tool_call 解析
-│   ├── sse.py               # SSE 流式数据规范化
-│   ├── analysis_store.py    # AI 分析任务持久化
-│   ├── usage_report.py      # DOCX 使用报告生成
-│   ├── system_config.py     # 出站 UA 自动探测
-│   └── weixin.py            # 微信 iLink 机器人客户端
-├── templates/               # Jinja2 模板 (admin/, user/, public/, components/)
-├── locales/                 # 国际化：en, zh
-├── schema.sql
+├── app/                     # Python 应用包
+│   ├── main.py              # FastAPI 应用入口
+│   ├── core/                # 配置、数据库模型、i18n、路径工具
+│   ├── routes/              # FastAPI 路由
+│   └── services/            # 业务逻辑和代理运行时
+├── web/                     # 运行时 Web 资源
+│   ├── templates/           # Jinja2 模板 (admin/, user/, public/, components/)
+│   ├── static/              # CSS、JS、字体等静态资源
+│   ├── assets/              # 应用图片和图标资源
+│   └── locales/             # 国际化：en, zh
+├── deploy/
+│   └── nginx/               # Docker 反向代理配置
+├── db/
+│   ├── schema.sql
+│   └── migrations/          # 数据库维护脚本
 ├── Dockerfile
 └── DEPLOY.md
 ```
@@ -363,8 +330,8 @@ modelgate/
 
 - Python 3.10+ | FastAPI | SQLAlchemy async | PostgreSQL
 - 代码检查与格式化：`ruff check . && ruff format .`
-- 类型检查：`mypy main.py core/*.py --ignore-missing-imports`
-- 国际化编译：`pybabel compile -d locales`
+- 类型检查：`mypy app --ignore-missing-imports`
+- 国际化编译：`pybabel compile -d web/locales`
 - 日志文件：`logs/proxy.log`、`logs/admin.log`、`logs/error.log`
 
 ## 商业支持

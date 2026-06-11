@@ -4,7 +4,7 @@
 
 **Goal:** Add async usage report generation that queries per-API-key usage stats, calls an LLM for fun Chinese analysis, and produces a downloadable Word (.docx) file.
 
-**Architecture:** New `services/usage_report.py` handles data aggregation, AI analysis, and docx generation. New `routes/reports.py` exposes REST endpoints for creating/polling/downloading reports. New admin page `templates/admin/reports.html` provides the UI. The existing `AnalysisRecord` + `start_analysis_task()` from `services/analysis_store.py` manages the async task lifecycle.
+**Architecture:** New `app/services/usage_report.py` handles data aggregation, AI analysis, and docx generation. New `app/routes/reports.py` exposes REST endpoints for creating/polling/downloading reports. New admin page `web/templates/admin/reports.html` provides the UI. The existing `AnalysisRecord` + `start_analysis_task()` from `app/services/analysis_store.py` manages the async task lifecycle.
 
 **Tech Stack:** python-docx, SQLAlchemy async (RequestLogRead for cross-table queries), internal LLM proxy, Jinja2 templates with Babel i18n.
 
@@ -14,15 +14,15 @@
 
 | Action | File | Responsibility |
 |--------|------|----------------|
-| Create | `services/usage_report.py` | Data aggregation, AI analysis prompt, docx generation |
-| Create | `routes/reports.py` | REST endpoints: create task, poll status, download file |
-| Create | `templates/admin/reports.html` | Admin report page with date picker, exclude modal, progress, history |
-| Modify | `templates/components/nav.html` | Add "Usage Report" nav link |
-| Modify | `routes/pages.py` | Add `/admin/reports` page route |
-| Modify | `main.py` | Register `routes.reports` router |
+| Create | `app/services/usage_report.py` | Data aggregation, AI analysis prompt, docx generation |
+| Create | `app/routes/reports.py` | REST endpoints: create task, poll status, download file |
+| Create | `web/templates/admin/reports.html` | Admin report page with date picker, exclude modal, progress, history |
+| Modify | `web/templates/components/nav.html` | Add "Usage Report" nav link |
+| Modify | `app/routes/pages.py` | Add `/admin/reports` page route |
+| Modify | `app/main.py` | Register `app.routes.reports` router |
 | Modify | `requirements.txt` | Add `python-docx` |
-| Modify | `locales/en/LC_MESSAGES/messages.po` | English translations |
-| Modify | `locales/zh/LC_MESSAGES/messages.po` | Chinese translations |
+| Modify | `web/locales/en/LC_MESSAGES/messages.po` | English translations |
+| Modify | `web/locales/zh/LC_MESSAGES/messages.po` | Chinese translations |
 
 ---
 
@@ -51,9 +51,9 @@ git commit -m "chore: add python-docx dependency for usage reports"
 ### Task 2: Create report data aggregation service
 
 **Files:**
-- Create: `services/usage_report.py`
+- Create: `app/services/usage_report.py`
 
-- [ ] **Step 1: Create `services/usage_report.py` with data query function**
+- [ ] **Step 1: Create `app/services/usage_report.py` with data query function**
 
 This file contains the core logic. Create it with the data aggregation function:
 
@@ -221,7 +221,7 @@ async def query_usage_stats(
 - [ ] **Step 2: Commit**
 
 ```bash
-git add services/usage_report.py
+git add app/services/usage_report.py
 git commit -m "feat: add usage report data aggregation service"
 ```
 
@@ -230,9 +230,9 @@ git commit -m "feat: add usage report data aggregation service"
 ### Task 3: Add AI analysis generation
 
 **Files:**
-- Modify: `services/usage_report.py`
+- Modify: `app/services/usage_report.py`
 
-- [ ] **Step 1: Add AI analysis function to `services/usage_report.py`**
+- [ ] **Step 1: Add AI analysis function to `app/services/usage_report.py`**
 
 Append after `query_usage_stats()`:
 
@@ -340,7 +340,7 @@ async def _call_llm_analysis(stats_data: dict) -> tuple[Optional[str], Optional[
 - [ ] **Step 2: Commit**
 
 ```bash
-git add services/usage_report.py
+git add app/services/usage_report.py
 git commit -m "feat: add AI analysis generation for usage reports"
 ```
 
@@ -349,9 +349,9 @@ git commit -m "feat: add AI analysis generation for usage reports"
 ### Task 4: Add docx generation
 
 **Files:**
-- Modify: `services/usage_report.py`
+- Modify: `app/services/usage_report.py`
 
-- [ ] **Step 1: Add docx generation function to `services/usage_report.py`**
+- [ ] **Step 1: Add docx generation function to `app/services/usage_report.py`**
 
 Append after `_call_llm_analysis()`:
 
@@ -472,7 +472,7 @@ def _generate_docx(stats_data: dict, ai_analysis: str, output_path: Path) -> str
 - [ ] **Step 2: Commit**
 
 ```bash
-git add services/usage_report.py
+git add app/services/usage_report.py
 git commit -m "feat: add docx generation for usage reports"
 ```
 
@@ -481,9 +481,9 @@ git commit -m "feat: add docx generation for usage reports"
 ### Task 5: Add async task orchestration
 
 **Files:**
-- Modify: `services/usage_report.py`
+- Modify: `app/services/usage_report.py`
 
-- [ ] **Step 1: Add the main orchestration function and public API to `services/usage_report.py`**
+- [ ] **Step 1: Add the main orchestration function and public API to `app/services/usage_report.py`**
 
 Append after `_generate_docx()`:
 
@@ -617,7 +617,7 @@ async def list_usage_reports(limit: int = 10) -> list[dict]:
 - [ ] **Step 2: Commit**
 
 ```bash
-git add services/usage_report.py
+git add app/services/usage_report.py
 git commit -m "feat: add async task orchestration for usage reports"
 ```
 
@@ -626,9 +626,9 @@ git commit -m "feat: add async task orchestration for usage reports"
 ### Task 6: Create API routes
 
 **Files:**
-- Create: `routes/reports.py`
+- Create: `app/routes/reports.py`
 
-- [ ] **Step 1: Create `routes/reports.py`**
+- [ ] **Step 1: Create `app/routes/reports.py`**
 
 ```python
 from typing import Optional
@@ -735,7 +735,7 @@ async def get_usage_report_history(
 - [ ] **Step 2: Commit**
 
 ```bash
-git add routes/reports.py
+git add app/routes/reports.py
 git commit -m "feat: add usage report API routes"
 ```
 
@@ -744,12 +744,12 @@ git commit -m "feat: add usage report API routes"
 ### Task 7: Register router and page route
 
 **Files:**
-- Modify: `main.py`
-- Modify: `routes/pages.py`
+- Modify: `app/main.py`
+- Modify: `app/routes/pages.py`
 
-- [ ] **Step 1: Add `reports` to router imports in `main.py`**
+- [ ] **Step 1: Add `reports` to router imports in `app/main.py`**
 
-In `main.py`, find the deferred router import block (around line 149) and add `reports` to the import and include_router:
+In `app/main.py`, find the deferred router import block (around line 149) and add `reports` to the import and include_router:
 
 Add `reports,` to the import:
 ```python
@@ -774,9 +774,9 @@ Add after `app.include_router(opencode.router)`:
 app.include_router(reports.router)
 ```
 
-- [ ] **Step 2: Add page route in `routes/pages.py`**
+- [ ] **Step 2: Add page route in `app/routes/pages.py`**
 
-Append at the end of `routes/pages.py`:
+Append at the end of `app/routes/pages.py`:
 
 ```python
 
@@ -793,7 +793,7 @@ Note: there needs to be a blank line before the function to separate from the pr
 - [ ] **Step 3: Commit**
 
 ```bash
-git add main.py routes/pages.py
+git add app/main.py app/routes/pages.py
 git commit -m "feat: register usage report router and page route"
 ```
 
@@ -802,7 +802,7 @@ git commit -m "feat: register usage report router and page route"
 ### Task 8: Add nav link for Usage Report
 
 **Files:**
-- Modify: `templates/components/nav.html`
+- Modify: `web/templates/components/nav.html`
 
 - [ ] **Step 1: Add "Usage Report" nav link**
 
@@ -818,7 +818,7 @@ After the "Usage Guide" link (around line 29, before the closing `</div>` of the
 - [ ] **Step 2: Commit**
 
 ```bash
-git add templates/components/nav.html
+git add web/templates/components/nav.html
 git commit -m "feat: add Usage Report nav link"
 ```
 
@@ -827,9 +827,9 @@ git commit -m "feat: add Usage Report nav link"
 ### Task 9: Create admin reports page
 
 **Files:**
-- Create: `templates/admin/reports.html`
+- Create: `web/templates/admin/reports.html`
 
-- [ ] **Step 1: Create `templates/admin/reports.html`**
+- [ ] **Step 1: Create `web/templates/admin/reports.html`**
 
 Create the full admin page with date picker, exclude-key modal, progress indicator, and report history list. Follow the existing admin page patterns (TailwindCSS CDN, dark theme support, `fetchJsonOrRedirect`, i18n `_()` function):
 
@@ -1064,7 +1064,7 @@ Create the full admin page with date picker, exclude-key modal, progress indicat
 - [ ] **Step 2: Commit**
 
 ```bash
-git add templates/admin/reports.html
+git add web/templates/admin/reports.html
 git commit -m "feat: add admin usage report page with exclude modal"
 ```
 
@@ -1073,12 +1073,12 @@ git commit -m "feat: add admin usage report page with exclude modal"
 ### Task 10: Add i18n translations
 
 **Files:**
-- Modify: `locales/en/LC_MESSAGES/messages.po`
-- Modify: `locales/zh/LC_MESSAGES/messages.po`
+- Modify: `web/locales/en/LC_MESSAGES/messages.po`
+- Modify: `web/locales/zh/LC_MESSAGES/messages.po`
 
 - [ ] **Step 1: Add English translations**
 
-Add the following entries to `locales/en/LC_MESSAGES/messages.po` in the `msgid/msgstr` section (before the final empty section):
+Add the following entries to `web/locales/en/LC_MESSAGES/messages.po` in the `msgid/msgstr` section (before the final empty section):
 
 ```
 msgid "Usage Report"
@@ -1135,7 +1135,7 @@ msgstr "Pending"
 
 - [ ] **Step 2: Add Chinese translations**
 
-Add the same `msgid` entries to `locales/zh/LC_MESSAGES/messages.po` with Chinese translations:
+Add the same `msgid` entries to `web/locales/zh/LC_MESSAGES/messages.po` with Chinese translations:
 
 ```
 msgid "Usage Report"
@@ -1192,12 +1192,12 @@ msgstr "等待中"
 
 - [ ] **Step 3: Compile translations**
 
-Run: `pybabel compile -d locales`
+Run: `pybabel compile -d web/locales`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add locales/
+git add web/locales/
 git commit -m "feat: add i18n translations for usage report feature"
 ```
 
@@ -1207,7 +1207,7 @@ git commit -m "feat: add i18n translations for usage report feature"
 
 - [ ] **Step 1: Start the server**
 
-Run: `python main.py`
+Run: `python -m app.main`
 
 Expected: Server starts without import errors on `http://localhost:8765`
 

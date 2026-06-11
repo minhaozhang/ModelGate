@@ -6,16 +6,16 @@ from unittest.mock import AsyncMock, Mock, patch
 from fastapi import Request
 from fastapi.responses import Response
 
-import core.config as config
-from core.config import (
+import app.core.config as config
+from app.core.config import (
     provider_key_model_semaphores,
     provider_key_semaphores,
     user_api_key_semaphores,
 )
-from services import provider as provider_service
-from services import proxy as proxy_module
-from services.proxy_runtime import internal as internal_runtime
-from services.proxy import (
+from app.services import provider as provider_service
+from app.services import proxy as proxy_module
+from app.services.proxy_runtime import internal as internal_runtime
+from app.services.proxy import (
     _get_or_create_user_provider_model_semaphore,
     _get_or_create_user_api_key_semaphore,
     _get_user_api_key_limit,
@@ -138,7 +138,7 @@ class ProviderKeyConcurrencyTests(unittest.TestCase):
         self.assertEqual(_get_provider_key_limit(provider_config, 99), 3)
 
     def test_admin_config_template_exposes_provider_key_concurrency_input(self):
-        template_source = Path("templates/admin/config.html").read_text(encoding="utf-8")
+        template_source = Path("web/templates/admin/config.html").read_text(encoding="utf-8")
 
         self.assertIn("new-provider-key-max-concurrent", template_source)
         self.assertIn("k.max_concurrent", template_source)
@@ -165,7 +165,7 @@ class ProxyRuntimeWrapperTests(unittest.IsolatedAsyncioTestCase):
         response = object()
         runtime_handle = AsyncMock(return_value=response)
 
-        with patch("services.proxy.runtime_handle_normal", new=runtime_handle):
+        with patch("app.services.proxy.runtime_handle_normal", new=runtime_handle):
             result = await proxy_module.handle_normal(
                 None,
                 "https://example.com",
@@ -201,7 +201,7 @@ class ProxyRuntimeWrapperTests(unittest.IsolatedAsyncioTestCase):
         response = object()
         runtime_handle = AsyncMock(return_value=response)
 
-        with patch("services.proxy.runtime_handle_streaming", new=runtime_handle):
+        with patch("app.services.proxy.runtime_handle_streaming", new=runtime_handle):
             result = await proxy_module.handle_streaming(
                 "https://example.com",
                 {},
@@ -263,21 +263,21 @@ class InternalProxyConcurrencyTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch(
-                "services.proxy_runtime.internal.ensure_internal_api_key_exists",
+                "app.services.proxy_runtime.internal.ensure_internal_api_key_exists",
                 new=AsyncMock(return_value=True),
             ),
             patch(
-                "services.proxy_runtime.internal.get_provider_and_model",
+                "app.services.proxy_runtime.internal.get_provider_and_model",
                 new=AsyncMock(return_value=(provider_config, "gpt-test", "openai")),
             ),
             patch(
-                "services.proxy_runtime.internal.pick_api_key",
+                "app.services.proxy_runtime.internal.pick_api_key",
                 return_value=("sk-test", 11),
             ),
-            patch("services.proxy_runtime.internal.asyncio.wait_for", new=fake_wait_for),
-            patch("services.proxy_runtime.internal.create_request_log", new=AsyncMock(return_value=1)),
-            patch("services.proxy_runtime.internal.update_stats", new=Mock()),
-            patch("services.proxy_runtime.internal.logger.warning", new=Mock()),
+            patch("app.services.proxy_runtime.internal.asyncio.wait_for", new=fake_wait_for),
+            patch("app.services.proxy_runtime.internal.create_request_log", new=AsyncMock(return_value=1)),
+            patch("app.services.proxy_runtime.internal.update_stats", new=Mock()),
+            patch("app.services.proxy_runtime.internal.logger.warning", new=Mock()),
         ):
             result = await internal_runtime.call_internal_model_via_proxy(
                 requested_model="openai/gpt-test",
@@ -336,19 +336,19 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         }
 
         with (
-            patch("services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
             patch(
-                "services.proxy.get_provider_and_model",
+                "app.services.proxy.get_provider_and_model",
                 new=AsyncMock(return_value=(provider_config, "gpt-other", "openai")),
             ),
             patch(
-                "services.proxy.pick_api_keys",
+                "app.services.proxy.pick_api_keys",
                 return_value=[("sk-test", 11)],
             ),
-            patch("services.proxy.create_request_log", new=AsyncMock()),
-            patch("services.proxy.update_stats", new=Mock()),
-            patch("services.proxy.USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS", 0.01),
-            patch("services.proxy.schedule_api_key_last_used_update", return_value=None),
+            patch("app.services.proxy.create_request_log", new=AsyncMock()),
+            patch("app.services.proxy.update_stats", new=Mock()),
+            patch("app.services.proxy.USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS", 0.01),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
         ):
             response = await proxy_request(request, "/chat/completions")
 
@@ -399,23 +399,23 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         stream_handler = AsyncMock(side_effect=fake_handle_streaming)
 
         with (
-            patch("services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
             patch(
-                "services.proxy.get_provider_and_model",
+                "app.services.proxy.get_provider_and_model",
                 new=AsyncMock(return_value=(provider_config, "gpt-other", "openai")),
             ),
             patch(
-                "services.proxy.pick_api_keys",
+                "app.services.proxy.pick_api_keys",
                 return_value=[("sk-one", 11), ("sk-two", 12)],
             ),
             patch(
-                "services.proxy._get_or_create_user_api_key_semaphore",
+                "app.services.proxy._get_or_create_user_api_key_semaphore",
                 return_value=("user:1", tracking_semaphore),
             ),
-            patch("services.proxy.handle_streaming", new=stream_handler),
-            patch("services.proxy.create_request_log", new=AsyncMock(return_value=1)),
-            patch("services.proxy.update_stats", new=Mock()),
-            patch("services.proxy.schedule_api_key_last_used_update", return_value=None),
+            patch("app.services.proxy.handle_streaming", new=stream_handler),
+            patch("app.services.proxy.create_request_log", new=AsyncMock(return_value=1)),
+            patch("app.services.proxy.update_stats", new=Mock()),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
         ):
             response = await proxy_request(request, "/chat/completions")
 
@@ -441,9 +441,9 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
         request._body = b'{"model":"zhipu/glm-4.5","messages":[]}'
 
         with (
-            patch("services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
             patch(
-                "services.proxy.get_provider_and_model",
+                "app.services.proxy.get_provider_and_model",
                 new=AsyncMock(
                     return_value=(
                         {"base_url": "https://example.com", "api_keys": []},
@@ -452,7 +452,7 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
                     )
                 ),
             ),
-            patch("services.proxy.schedule_api_key_last_used_update", return_value=None),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
         ):
             response = await proxy_request(request, "/chat/completions")
 

@@ -1,4 +1,5 @@
 services:
   modelgate:
     env_file:
-      - .env.local
+      - path: .env.local
+        required: false

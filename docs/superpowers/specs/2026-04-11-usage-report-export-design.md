@@ -200,18 +200,18 @@ python-docx>=1.1.0
 
 | 文件 | 说明 |
 |------|------|
-| `services/usage_report.py` | 报告生成核心逻辑：数据查询、AI 分析、docx 生成 |
-| `routes/reports.py` | API 端点路由 |
-| `templates/admin/reports.html` | 管理员报告页面 |
+| `app/services/usage_report.py` | 报告生成核心逻辑：数据查询、AI 分析、docx 生成 |
+| `app/routes/reports.py` | API 端点路由 |
+| `web/templates/admin/reports.html` | 管理员报告页面 |
 | `reports/usage/` | 报告文件输出目录 |
 
 ## 复用
 
 | 组件 | 来源 |
 |------|------|
-| `AnalysisRecord` + `start_analysis_task()` | `services/analysis_store.py` |
-| `RequestLogRead` (request_logs_all 视图) | `core/database.py` |
-| `call_internal_model_via_proxy()` | `services/proxy.py` |
-| `_choose_analysis_model()` | `routes/logs.py`（提取为公共函数） |
-| `get_api_key_name_map()` | `routes/stats.py`（提取为公共函数） |
-| Token 提取模式 | `routes/stats.py:44-48` |
+| `AnalysisRecord` + `start_analysis_task()` | `app/services/analysis_store.py` |
+| `RequestLogRead` (request_logs_all 视图) | `app/core/database.py` |
+| `call_internal_model_via_proxy()` | `app/services/proxy.py` |
+| `_choose_analysis_model()` | `app/routes/logs.py`（提取为公共函数） |
+| `get_api_key_name_map()` | `app/routes/stats.py`（提取为公共函数） |
+| Token 提取模式 | `app/routes/stats.py:44-48` |
