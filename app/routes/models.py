@@ -258,13 +258,13 @@ async def update_model_api_keys(
 
 @router.get("/models/resolve")
 async def resolve_model(name: str, _: bool = Depends(require_admin)):
-    from app.services.provider import _alias_index
+    from app.services.provider import _model_name_index
     from app.services.key_health import compute_health_score
 
-    if name not in _alias_index:
-        return {"alias": name, "providers": [], "selected": None}
+    if name not in _model_name_index:
+        return {"model": name, "providers": [], "selected": None}
 
-    candidates = _alias_index[name]
+    candidates = _model_name_index[name]
     results = []
     for provider_name, pm_dict, model_tags, priority in candidates:
         from app.services.provider import get_provider_config
@@ -279,7 +279,8 @@ async def resolve_model(name: str, _: bool = Depends(require_admin)):
                 best_health = h
         results.append({
             "provider": provider_name,
-            "actual_model": pm_dict.get("actual_model_name") or name,
+            "actual_model": pm_dict.get("upstream_model_name") or pm_dict.get("actual_model_name") or name,
+            "model_name": pm_dict.get("model_name") or name,
             "health": best_health,
             "priority": priority,
             "tags": model_tags,
@@ -287,4 +288,4 @@ async def resolve_model(name: str, _: bool = Depends(require_admin)):
 
     results.sort(key=lambda x: (x["health"], x["priority"]), reverse=True)
     selected = results[0]["provider"] if results else None
-    return {"alias": name, "providers": results, "selected": selected}
+    return {"model": name, "providers": results, "selected": selected}

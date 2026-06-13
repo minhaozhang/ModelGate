@@ -116,6 +116,7 @@ class ProviderModel(Base):
     provider_id = Column(Integer, ForeignKey("providers.id"), nullable=False)
     model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
     model_name_override = Column(String(100), nullable=True)
+    upstream_model_name = Column(String(100), nullable=True)
     is_active = Column(Boolean, default=True)
     max_busyness_level = Column(Integer, nullable=True)
     alias = Column(String(100), nullable=True)
@@ -138,6 +139,20 @@ class ApiKeyModel(Base):
 
     __table_args__ = (
         Index("idx_api_key_model", "api_key_id", "provider_model_id", unique=True),
+    )
+
+
+class ApiKeyModelAccess(Base):
+    __tablename__ = "api_key_model_access"
+
+    id = Column(Integer, primary_key=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=False)
+    model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
+
+    __table_args__ = (
+        Index("idx_api_key_model_access", "api_key_id", "model_id", unique=True),
+        Index("idx_api_key_model_access_api_key_id", "api_key_id"),
+        Index("idx_api_key_model_access_model_id", "model_id"),
     )
 
 
@@ -720,6 +735,12 @@ async def init_db():
         )
         await conn.execute(
             text(
+                "ALTER TABLE models "
+                "ADD COLUMN IF NOT EXISTS estimated_price FLOAT DEFAULT 0"
+            )
+        )
+        await conn.execute(
+            text(
                 "ALTER TABLE request_logs "
                 "ADD COLUMN IF NOT EXISTS upstream_status_code INTEGER"
             )
@@ -880,6 +901,76 @@ async def init_db():
                 "ON document_files (document_id)"
             )
         )
+        for table_name in ("request_logs", "request_logs_history"):
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    "ADD COLUMN IF NOT EXISTS request_context_tokens INTEGER"
+                )
+            )
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    "ADD COLUMN IF NOT EXISTS upstream_status_code INTEGER"
+                )
+            )
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    "ADD COLUMN IF NOT EXISTS downstream_status_code INTEGER"
+                )
+            )
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    "ADD COLUMN IF NOT EXISTS client_ip VARCHAR(64)"
+                )
+            )
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    "ADD COLUMN IF NOT EXISTS user_agent VARCHAR(1024)"
+                )
+            )
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    "ADD COLUMN IF NOT EXISTS inbound_protocol VARCHAR(20)"
+                )
+            )
+            await conn.execute(
+                text(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS error TEXT")
+            )
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    "ADD COLUMN IF NOT EXISTS intent VARCHAR(20)"
+                )
+            )
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    "ADD COLUMN IF NOT EXISTS requested_model VARCHAR(100)"
+                )
+            )
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    "ADD COLUMN IF NOT EXISTS actual_model VARCHAR(100)"
+                )
+            )
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    "ADD COLUMN IF NOT EXISTS provider_key_id INTEGER"
+                )
+            )
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    "ADD COLUMN IF NOT EXISTS provider_key_label VARCHAR(50)"
+                )
+            )
         await conn.execute(text("DROP VIEW IF EXISTS request_logs_all"))
         await conn.execute(
             text(
@@ -1171,7 +1262,46 @@ async def init_db():
             text("ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS alias VARCHAR(100)")
         )
         await conn.execute(
+            text(
+                "ALTER TABLE provider_models "
+                "ADD COLUMN IF NOT EXISTS max_busyness_level INTEGER"
+            )
+        )
+        await conn.execute(
+            text("ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS upstream_model_name VARCHAR(100)")
+        )
+        await conn.execute(
+            text(
+                "UPDATE provider_models "
+                "SET upstream_model_name = model_name_override "
+                "WHERE upstream_model_name IS NULL "
+                "AND model_name_override IS NOT NULL"
+            )
+        )
+        await conn.execute(
             text("ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0")
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS api_key_model_access ("
+                "id SERIAL PRIMARY KEY, "
+                "api_key_id INTEGER NOT NULL REFERENCES api_keys(id), "
+                "model_id INTEGER NOT NULL REFERENCES models(id), "
+                "UNIQUE(api_key_id, model_id)"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_api_key_model_access_api_key_id "
+                "ON api_key_model_access (api_key_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_api_key_model_access_model_id "
+                "ON api_key_model_access (model_id)"
+            )
         )
         await conn.execute(
             text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS intent VARCHAR(20)")

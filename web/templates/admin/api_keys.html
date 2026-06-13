@@ -122,10 +122,27 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         {{ _('Allowed Models') }} <span class="text-gray-400">(<span id="selected-count">0</span> {{ _('selected') }})</span>
                     </label>
-                    <div class="border rounded max-h-60 overflow-y-auto">
+                    <div class="grid grid-cols-3 gap-2 mb-2 text-sm">
+                        <label class="access-mode-option flex items-center gap-2 rounded border px-3 py-2 cursor-pointer" id="access-mode-all">
+                            <input type="radio" name="access-mode" value="all" onchange="setAccessMode('all')">
+                            {{ _('All') }}
+                        </label>
+                        <label class="access-mode-option flex items-center gap-2 rounded border px-3 py-2 cursor-pointer" id="access-mode-model">
+                            <input type="radio" name="access-mode" value="model" onchange="setAccessMode('model')">
+                            {{ _('Model') }}
+                        </label>
+                        <label class="access-mode-option flex items-center gap-2 rounded border px-3 py-2 cursor-pointer" id="access-mode-provider-model">
+                            <input type="radio" name="access-mode" value="provider_model" onchange="setAccessMode('provider_model')">
+                            {{ _('Provider Model') }}
+                        </label>
+                    </div>
+                    <div id="standard-models-panel" class="border rounded max-h-60 overflow-y-auto hidden">
+                        <div id="standard-models-checkbox-container" class="divide-y"></div>
+                    </div>
+                    <div id="provider-models-panel" class="border rounded max-h-60 overflow-y-auto hidden">
                         <div id="models-checkbox-container" class="divide-y"></div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">{{ _('Leave empty to allow all models') }}</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ _('All allows every current model. Model allows any provider for that model. Provider Model pins access to one provider binding.') }}</p>
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('MCP Servers') }}</label>
@@ -472,9 +489,12 @@
     </script>
     <script>
         let selectedModelIds = [];
+        let selectedStandardModelIds = [];
+        let selectedAccessMode = 'all';
         let currentTags = [];
         const APP_BASE_PATH = {{ app_base_path | tojson }};
         let providerModels = [];
+        let standardModels = [];
         let apiKeysData = [];
         let mcpServers = [];
         let filteredData = [];
@@ -584,6 +604,12 @@
             providerModels = data.provider_models || [];
             renderModelCheckboxes();
         }
+
+        async function loadStandardModels() {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models`);
+            standardModels = (data.models || []).filter(m => m.is_active !== false);
+            renderStandardModelCheckboxes();
+        }
         
         async function loadMcpServers() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`);
@@ -610,6 +636,11 @@
             return pm ? pm.display_name : `ID:${pmId}`;
         }
 
+        function getStandardModelDisplayName(modelId) {
+            const model = standardModels.find(m => m.id === modelId);
+            return model ? (model.display_name || model.name) : `ID:${modelId}`;
+        }
+
         function maskApiKey(key) {
             if (!key || key.length <= 10) return key;
             return key.slice(0, 4) + '****' + key.slice(-4);
@@ -630,10 +661,14 @@
             
             const html = pageData.map(k => {
                 const maskedKey = maskApiKey(k.key);
-                const modelNames = (k.allowed_provider_model_ids || []).map(id => getModelDisplayName(id));
+                const standardModelNames = (k.allowed_model_ids || []).map(id => getStandardModelDisplayName(id));
+                const providerModelNames = (k.allowed_provider_model_ids || []).map(id => getModelDisplayName(id));
+                const modelNames = standardModelNames.length > 0 ? standardModelNames : providerModelNames;
+                const accessLabel = standardModelNames.length > 0 ? 'Model' : (providerModelNames.length > 0 ? 'Provider Model' : '');
                 const modelsDisplay = modelNames.length > 0
                     ? `
                         <div class="mt-3 flex flex-wrap gap-2">
+                            ${accessLabel ? `<span class="model-chip model-chip-neutral">${accessLabel}</span>` : ''}
                             ${modelNames.map(name => `
                                 <span class="model-chip" title="${name}">${name}</span>
                             `).join('')}
@@ -780,6 +815,39 @@
                 </div>
             `).join('');
         }
+
+        function renderStandardModelCheckboxes() {
+            const container = document.getElementById('standard-models-checkbox-container');
+            if (!container) return;
+            if (standardModels.length === 0) {
+                container.innerHTML = `<div class="text-gray-400 text-center py-4">${window.I18N.noModels}</div>`;
+                return;
+            }
+            const sorted = [...standardModels].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            container.innerHTML = sorted.map(model => `
+                <label class="model-item flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedStandardModelIds.includes(model.id) ? 'selected' : ''}" data-model-id="${model.id}">
+                    <input type="checkbox" class="mr-2" value="${model.id}" ${selectedStandardModelIds.includes(model.id) ? 'checked' : ''} onchange="toggleStandardModel(${model.id})">
+                    <span class="text-sm">${model.display_name || model.name}</span>
+                    <span class="ml-2 text-xs text-gray-400">${model.name}</span>
+                </label>
+            `).join('');
+        }
+
+        function setAccessMode(mode) {
+            selectedAccessMode = mode;
+            document.querySelectorAll('input[name="access-mode"]').forEach(input => {
+                input.checked = input.value === mode;
+            });
+            document.querySelectorAll('.access-mode-option').forEach(label => {
+                const input = label.querySelector('input');
+                label.classList.toggle('selected', input && input.value === mode);
+                label.classList.toggle('bg-blue-50', input && input.value === mode);
+                label.classList.toggle('border-blue-300', input && input.value === mode);
+            });
+            document.getElementById('standard-models-panel').classList.toggle('hidden', mode !== 'model');
+            document.getElementById('provider-models-panel').classList.toggle('hidden', mode !== 'provider_model');
+            updateSelectedCount();
+        }
         
         function toggleModel(id) {
             const idx = selectedModelIds.indexOf(id);
@@ -792,9 +860,26 @@
             const label = document.querySelector(`label[data-pm-id="${id}"]`);
             if (label) label.classList.toggle('selected', selectedModelIds.includes(id));
         }
+
+        function toggleStandardModel(id) {
+            const idx = selectedStandardModelIds.indexOf(id);
+            if (idx > -1) {
+                selectedStandardModelIds.splice(idx, 1);
+            } else {
+                selectedStandardModelIds.push(id);
+            }
+            updateSelectedCount();
+            const label = document.querySelector(`label[data-model-id="${id}"]`);
+            if (label) label.classList.toggle('selected', selectedStandardModelIds.includes(id));
+        }
         
         function updateSelectedCount() {
-            document.getElementById('selected-count').textContent = selectedModelIds.length;
+            const count = selectedAccessMode === 'model'
+                ? selectedStandardModelIds.length
+                : selectedAccessMode === 'provider_model'
+                    ? selectedModelIds.length
+                    : 0;
+            document.getElementById('selected-count').textContent = count;
         }
         
         function copyKey(key) {
@@ -855,8 +940,11 @@ ${setupMdUrl}`;
             document.getElementById('apikey-id').value = '';
             document.getElementById('apikey-name').value = '';
             selectedModelIds = [];
+            selectedStandardModelIds = [];
+            setAccessMode('all');
             updateSelectedCount();
             renderModelCheckboxes();
+            renderStandardModelCheckboxes();
             renderMcpServerCheckboxes([]);
             document.getElementById('apikey-bypass-busyness').checked = false;
             currentTags = [];
@@ -872,8 +960,17 @@ ${setupMdUrl}`;
             document.getElementById('apikey-id').value = id;
             document.getElementById('apikey-name').value = key.name;
             selectedModelIds = key.allowed_provider_model_ids || [];
+            selectedStandardModelIds = key.allowed_model_ids || [];
+            if (selectedStandardModelIds.length > 0) {
+                setAccessMode('model');
+            } else if (selectedModelIds.length > 0) {
+                setAccessMode('provider_model');
+            } else {
+                setAccessMode('all');
+            }
             updateSelectedCount();
             renderModelCheckboxes();
+            renderStandardModelCheckboxes();
             renderMcpServerCheckboxes(key.mcp_server_ids || []);
             document.getElementById('apikey-bypass-busyness').checked = key.bypass_busyness || false;
             currentTags = [...(key.tags || [])];
@@ -892,7 +989,8 @@ ${setupMdUrl}`;
             const id = document.getElementById('apikey-id').value;
             const data = {
                 name: document.getElementById('apikey-name').value,
-                allowed_provider_model_ids: selectedModelIds,
+                allowed_provider_model_ids: selectedAccessMode === 'provider_model' ? selectedModelIds : [],
+                allowed_model_ids: selectedAccessMode === 'model' ? selectedStandardModelIds : [],
                 bypass_busyness: document.getElementById('apikey-bypass-busyness').checked,
                 tags: currentTags,
             };
@@ -928,7 +1026,7 @@ ${setupMdUrl}`;
             if (e.target.id === 'apikey-modal') closeApiKeyModal();
         });
         
-        loadProviderModels().then(() => { loadMcpServers(); loadApiKeys(); });
+        Promise.all([loadProviderModels(), loadStandardModels()]).then(() => { loadMcpServers(); loadApiKeys(); });
         
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {

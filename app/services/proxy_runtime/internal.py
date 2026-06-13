@@ -12,6 +12,7 @@ from app.services.deepseek_compat import is_deepseek_thinking_active, patch_reas
 from app.services.message import preprocess_messages
 from app.services.minimax import process_minimax_response
 from app.services.provider import (
+    RouteResult,
     get_model_config,
     get_provider_and_model,
     pick_api_key,
@@ -87,9 +88,15 @@ async def call_internal_model_via_proxy(
         }
 
     req_body = dict(body_json)
-    provider_config, actual_model, provider_name = await get_provider_and_model(
-        requested_model
-    )
+    route_result = await get_provider_and_model(requested_model)
+    if isinstance(route_result, RouteResult):
+        provider_config = route_result.provider_config
+        provider_name = route_result.provider_name
+        actual_model = route_result.model_name or requested_model
+        upstream_model = route_result.upstream_model_name or actual_model
+    else:
+        provider_config, upstream_model, provider_name = route_result
+        actual_model = upstream_model
     if not provider_config:
         return {
             "ok": False,
@@ -213,14 +220,14 @@ async def call_internal_model_via_proxy(
         protocol = provider_config.get("protocol", "openai")
         adapter = get_adapter(protocol)
         model_config = get_model_config(provider_config, actual_model)
-        req_body["model"] = actual_model
+        req_body["model"] = upstream_model
         is_multimodal = (
             model_config.get("is_multimodal", False) if model_config else False
         )
         merge_messages = provider_config.get("merge_consecutive_messages", False)
         req_body = preprocess_messages(req_body, merge_messages, is_multimodal)
 
-        if is_deepseek_thinking_active(provider_name, actual_model, req_body, model_config):
+        if is_deepseek_thinking_active(provider_name, upstream_model, req_body, model_config):
             patch_reasoning_content(req_body.get("messages", []))
 
         if req_body.get("stream"):

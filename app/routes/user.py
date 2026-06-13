@@ -1233,7 +1233,7 @@ async def get_user_catalog(
     if not api_key_id:
         return translated_error(request, "Not authenticated", 401)
 
-    from app.core.database import ApiKeyModel, Model, Provider, ProviderModel
+    from app.core.database import ApiKeyModel, ApiKeyModelAccess, Model, Provider, ProviderModel
 
     async with async_session_maker() as session:
         key_result = await session.execute(
@@ -1255,11 +1255,15 @@ async def get_user_catalog(
         key_models_result = await session.execute(
             select(ApiKeyModel).where(ApiKeyModel.api_key_id == api_key_id)
         )
+        key_model_access_result = await session.execute(
+            select(ApiKeyModelAccess).where(ApiKeyModelAccess.api_key_id == api_key_id)
+        )
 
         providers = providers_result.scalars().all()
         models = models_result.scalars().all()
         provider_models = provider_models_result.scalars().all()
         key_models = key_models_result.scalars().all()
+        key_model_access = key_model_access_result.scalars().all()
 
     provider_map = {provider.id: provider for provider in providers}
     model_map = {model.id: model for model in models}
@@ -1270,23 +1274,34 @@ async def get_user_catalog(
     ]
 
     allowed_pm_ids = {item.provider_model_id for item in key_models}
-    full_access = len(allowed_pm_ids) == 0
+    allowed_model_ids = {item.model_id for item in key_model_access}
+    full_access = len(allowed_pm_ids) == 0 and len(allowed_model_ids) == 0
     owned_provider_models = (
         active_provider_models
         if full_access
-        else [pm for pm in active_provider_models if pm.id in allowed_pm_ids]
+        else [
+            pm
+            for pm in active_provider_models
+            if pm.id in allowed_pm_ids or pm.model_id in allowed_model_ids
+        ]
     )
 
     bypass_busyness = _api_key_bypasses_busyness(api_key_id)
 
-    def _is_model_available(provider_name: str, model_name: str) -> bool:
+    def _is_provider_model_available(provider_model: ProviderModel) -> bool:
+        provider = provider_map.get(provider_model.provider_id)
+        model = model_map.get(provider_model.model_id)
+        if not provider or not model:
+            return False
+        provider_name = provider.name
+        model_name = model.name
         pconf = providers_cache.get(provider_name)
         if not pconf:
             return False
         if pconf.get("disabled_reason"):
             return False
         for m in pconf.get("models", []):
-            if m.get("actual_model_name") == model_name:
+            if m.get("model_id") == model.id or m.get("actual_model_name") == model_name:
                 max_level = m.get("max_busyness_level")
                 if max_level is not None:
                     current_level = busyness_state.get("level", 6)
@@ -1298,42 +1313,43 @@ async def get_user_catalog(
         return False
 
     def serialize_provider_models(items: list[ProviderModel]) -> list[dict]:
-        grouped: dict[str, dict] = {}
+        models_by_id: dict[int, dict] = {}
         for provider_model in items:
-            provider = provider_map[provider_model.provider_id]
             model = model_map[provider_model.model_id]
-            provider_name = provider.name
             model_name = model.name
             display_name = model.display_name or model_name
 
-            if not _is_model_available(provider_name, model_name):
+            if not _is_provider_model_available(provider_model):
                 continue
 
-            if provider_name not in grouped:
-                grouped[provider_name] = {
-                    "name": provider_name,
-                    "models": [],
-                }
+            existing = models_by_id.get(model.id)
+            provider_names = set(existing.get("providers", [])) if existing else set()
+            provider_names.add(provider_map[provider_model.provider_id].name)
+            models_by_id[model.id] = {
+                "id": model.id,
+                "name": model_name,
+                "model_name": model_name,
+                "display_name": display_name,
+                "context": model.context_length or 0,
+                "output": model.max_tokens or 0,
+                "is_multimodal": bool(model.is_multimodal),
+                "has_override": bool(
+                    getattr(provider_model, "upstream_model_name", None)
+                    or provider_model.model_name_override
+                ),
+                "providers": sorted(provider_names),
+            }
 
-            grouped[provider_name]["models"].append(
-                {
-                    "name": model_name,
-                    "full_name": f"{provider_name}/{model_name}",
-                    "display_name": display_name,
-                    "context": model.context_length or 0,
-                    "output": model.max_tokens or 0,
-                    "is_multimodal": bool(model.is_multimodal),
-                    "has_override": bool(provider_model.model_name_override),
-                }
-            )
-
-        providers_data = []
-        for provider_name in sorted(grouped.keys()):
-            provider_entry = grouped[provider_name]
-            provider_entry["models"].sort(key=lambda item: item["full_name"])
-            provider_entry["model_count"] = len(provider_entry["models"])
-            providers_data.append(provider_entry)
-        return providers_data
+        models_data = sorted(models_by_id.values(), key=lambda item: item["model_name"])
+        if not models_data:
+            return []
+        return [
+            {
+                "name": "ModelGate",
+                "models": models_data,
+                "model_count": len(models_data),
+            }
+        ]
 
     platform_providers = serialize_provider_models(active_provider_models)
     owned_providers = serialize_provider_models(owned_provider_models)

@@ -8,6 +8,7 @@ import uvicorn
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.app_paths import APP_BASE_PATH
@@ -40,6 +41,8 @@ app = FastAPI(title="ModelGate")
 app.add_middleware(BasePathMiddleware, base_path=APP_BASE_PATH)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ASSETS_DIR = PROJECT_ROOT / "web" / "assets"
+STATIC_DIR = PROJECT_ROOT / "web" / "static"
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.middleware("http")

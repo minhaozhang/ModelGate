@@ -250,19 +250,21 @@ async def anthropic_count_tokens(request: Request):
 async def anthropic_list_models():
     from app.core.config import providers_cache
 
-    models = []
-    for provider_name, cfg in providers_cache.items():
+    model_names = set()
+    for cfg in providers_cache.values():
         for pm in cfg.get("models", []) or []:
             model_name = pm.get("model_name") or pm.get("actual_model_name", "")
-            full_id = f"{provider_name}/{model_name}"
-            models.append(
-                {
-                    "type": "model",
-                    "id": full_id,
-                    "display_name": model_name,
-                    "created_at": None,
-                }
-            )
+            if model_name:
+                model_names.add(model_name)
+    models = [
+        {
+            "type": "model",
+            "id": model_name,
+            "display_name": model_name,
+            "created_at": None,
+        }
+        for model_name in sorted(model_names)
+    ]
     return {
         "data": models,
         "has_more": False,

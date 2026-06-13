@@ -137,6 +137,23 @@ class ProviderKeyConcurrencyTests(unittest.TestCase):
         self.assertEqual(_get_provider_key_limit(provider_config, 12), 3)
         self.assertEqual(_get_provider_key_limit(provider_config, 99), 3)
 
+    def test_pick_api_keys_skips_disabled_keys_and_orders_by_priority(self):
+        provider_config = {
+            "api_keys": [
+                {"id": 11, "api_key": "sk-disabled-high", "priority": 99, "is_active": False},
+                {"id": 12, "api_key": "sk-low", "priority": 1},
+                {"id": 13, "api_key": "sk-high", "priority": 5},
+            ],
+        }
+        provider_service._key_sticky_map[(123, "zhipu")] = (11, 1.0)
+
+        keys = provider_service.pick_api_keys(
+            provider_config, api_key_id=123, provider_name="zhipu"
+        )
+
+        self.assertEqual(keys, [("sk-high", 13), ("sk-low", 12)])
+        self.assertNotIn(("sk-disabled-high", 11), keys)
+
     def test_admin_config_template_exposes_provider_key_concurrency_input(self):
         template_source = Path("web/templates/admin/config.html").read_text(encoding="utf-8")
 

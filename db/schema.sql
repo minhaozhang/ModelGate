@@ -104,6 +104,30 @@ CREATE SEQUENCE public.api_key_models_id_seq
 ALTER SEQUENCE public.api_key_models_id_seq OWNED BY public.api_key_models.id;
 
 --
+-- Name: api_key_model_access; Type: TABLE; Schema: public
+--
+
+CREATE TABLE public.api_key_model_access (
+    id integer NOT NULL,
+    api_key_id integer NOT NULL,
+    model_id integer NOT NULL
+);
+
+--
+-- Name: api_key_model_access_id_seq; Type: SEQUENCE; Schema: public
+--
+
+CREATE SEQUENCE public.api_key_model_access_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.api_key_model_access_id_seq OWNED BY public.api_key_model_access.id;
+
+--
 -- Name: api_keys; Type: TABLE; Schema: public
 --
 
@@ -360,6 +384,7 @@ CREATE TABLE public.provider_models (
     provider_id integer NOT NULL,
     model_id integer NOT NULL,
     model_name_override character varying(100),
+    upstream_model_name character varying(100),
     max_concurrent integer DEFAULT 2,
     is_active boolean,
     created_at timestamp without time zone DEFAULT now()
@@ -487,6 +512,7 @@ ALTER SEQUENCE public.request_logs_id_seq OWNED BY public.request_logs.id;
 ALTER TABLE ONLY public.api_key_daily_stats ALTER COLUMN id SET DEFAULT nextval('public.api_key_daily_stats_id_seq'::regclass);
 ALTER TABLE ONLY public.analysis_records ALTER COLUMN id SET DEFAULT nextval('public.analysis_records_id_seq'::regclass);
 ALTER TABLE ONLY public.api_key_model_daily_stats ALTER COLUMN id SET DEFAULT nextval('public.api_key_model_daily_stats_id_seq'::regclass);
+ALTER TABLE ONLY public.api_key_model_access ALTER COLUMN id SET DEFAULT nextval('public.api_key_model_access_id_seq'::regclass);
 ALTER TABLE ONLY public.api_key_models ALTER COLUMN id SET DEFAULT nextval('public.api_key_models_id_seq'::regclass);
 ALTER TABLE ONLY public.api_keys ALTER COLUMN id SET DEFAULT nextval('public.api_keys_id_seq'::regclass);
 ALTER TABLE ONLY public.hourly_stats ALTER COLUMN id SET DEFAULT nextval('public.hourly_stats_id_seq'::regclass);
@@ -504,6 +530,7 @@ ALTER TABLE ONLY public.request_logs ALTER COLUMN id SET DEFAULT nextval('public
 ALTER TABLE ONLY public.api_key_daily_stats ADD CONSTRAINT api_key_daily_stats_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.analysis_records ADD CONSTRAINT analysis_records_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.api_key_model_daily_stats ADD CONSTRAINT api_key_model_daily_stats_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.api_key_model_access ADD CONSTRAINT api_key_model_access_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.api_key_models ADD CONSTRAINT api_key_models_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.api_keys ADD CONSTRAINT api_keys_key_key UNIQUE (key);
 ALTER TABLE ONLY public.api_keys ADD CONSTRAINT api_keys_pkey PRIMARY KEY (id);
@@ -523,6 +550,9 @@ ALTER TABLE ONLY public.request_logs_history ADD CONSTRAINT request_logs_history
 --
 
 CREATE UNIQUE INDEX idx_api_key_model ON public.api_key_models USING btree (api_key_id, provider_model_id);
+CREATE UNIQUE INDEX idx_api_key_model_access ON public.api_key_model_access USING btree (api_key_id, model_id);
+CREATE INDEX idx_api_key_model_access_api_key_id ON public.api_key_model_access USING btree (api_key_id);
+CREATE INDEX idx_api_key_model_access_model_id ON public.api_key_model_access USING btree (model_id);
 CREATE INDEX idx_analysis_records_expires_at ON public.analysis_records USING btree (expires_at);
 CREATE INDEX idx_analysis_records_status ON public.analysis_records USING btree (status);
 CREATE UNIQUE INDEX idx_analysis_records_type_scope ON public.analysis_records USING btree (analysis_type, scope_key);
@@ -550,6 +580,8 @@ CREATE INDEX ix_request_logs_created_at ON public.request_logs USING btree (crea
 
 ALTER TABLE ONLY public.api_key_daily_stats ADD CONSTRAINT api_key_daily_stats_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES public.api_keys(id);
 ALTER TABLE ONLY public.api_key_model_daily_stats ADD CONSTRAINT api_key_model_daily_stats_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES public.api_keys(id);
+ALTER TABLE ONLY public.api_key_model_access ADD CONSTRAINT api_key_model_access_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES public.api_keys(id);
+ALTER TABLE ONLY public.api_key_model_access ADD CONSTRAINT api_key_model_access_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.models(id);
 ALTER TABLE ONLY public.api_key_models ADD CONSTRAINT api_key_models_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES public.api_keys(id);
 ALTER TABLE ONLY public.api_key_models ADD CONSTRAINT api_key_models_provider_model_id_fkey FOREIGN KEY (provider_model_id) REFERENCES public.provider_models(id);
 ALTER TABLE ONLY public.provider_models ADD CONSTRAINT provider_models_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.models(id);
@@ -592,6 +624,7 @@ COMMENT ON COLUMN public.provider_models.id IS '主键ID';
 COMMENT ON COLUMN public.provider_models.provider_id IS '提供商ID';
 COMMENT ON COLUMN public.provider_models.model_id IS '模型ID';
 COMMENT ON COLUMN public.provider_models.model_name_override IS '模型名称覆盖，用于指定提供商特定的模型名';
+COMMENT ON COLUMN public.provider_models.upstream_model_name IS '上游模型名，发给供应商的模型名称';
 COMMENT ON COLUMN public.provider_models.max_concurrent IS '模型级最大并发数，NULL时使用供应商默认值';
 COMMENT ON COLUMN public.provider_models.is_active IS '是否启用';
 COMMENT ON COLUMN public.provider_models.created_at IS '创建时间';
@@ -610,6 +643,11 @@ COMMENT ON TABLE public.api_key_models IS 'API密钥可访问的模型';
 COMMENT ON COLUMN public.api_key_models.id IS '主键ID';
 COMMENT ON COLUMN public.api_key_models.api_key_id IS 'API密钥ID';
 COMMENT ON COLUMN public.api_key_models.provider_model_id IS '提供商-模型关联ID';
+
+COMMENT ON TABLE public.api_key_model_access IS 'API密钥可访问的标准模型';
+COMMENT ON COLUMN public.api_key_model_access.id IS '主键ID';
+COMMENT ON COLUMN public.api_key_model_access.api_key_id IS 'API密钥ID';
+COMMENT ON COLUMN public.api_key_model_access.model_id IS '标准模型ID';
 
 -- 请求日志表
 COMMENT ON TABLE public.request_logs IS '请求日志';

@@ -24,15 +24,14 @@ async def embeddings(request: Request):
 async def list_models():
     from app.core.config import providers_cache
 
-    models = []
-    for provider_name, cfg in providers_cache.items():
+    model_names = set()
+    for cfg in providers_cache.values():
         for pm in cfg.get("models", []):
             model_name = pm.get("model_name") or pm.get("actual_model_name", "")
-            models.append(
-                {
-                    "id": f"{provider_name}/{model_name}",
-                    "object": "model",
-                    "owned_by": provider_name,
-                }
-            )
+            if model_name:
+                model_names.add(model_name)
+    models = [
+        {"id": model_name, "object": "model", "owned_by": "modelgate"}
+        for model_name in sorted(model_names)
+    ]
     return {"object": "list", "data": models}

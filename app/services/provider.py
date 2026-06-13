@@ -1,5 +1,6 @@
 import random
 import time
+from dataclasses import dataclass
 from typing import Optional
 from datetime import datetime, timedelta
 
@@ -27,6 +28,25 @@ KEY_STICKY_TTL_SECONDS = 1800
 _key_sticky_map: dict[tuple[int, str], tuple[int, float]] = {}
 
 _alias_index: dict[str, list[tuple[str, dict, str, int]]] = {}
+_model_name_index: dict[str, list[tuple[str, dict, str, int]]] = {}
+
+
+@dataclass
+class RouteResult:
+    provider_config: Optional[dict]
+    upstream_model_name: str
+    provider_name: str
+    provider_id: int | None = None
+    provider_model_id: int | None = None
+    model_id: int | None = None
+    requested_model: str = ""
+    model_name: str = ""
+    is_forced_provider: bool = False
+
+    def __iter__(self):
+        yield self.provider_config
+        yield self.upstream_model_name
+        yield self.provider_name
 
 
 async def _load_provider_keys(session, provider_id: int) -> tuple[list[dict], list[str]]:
@@ -61,7 +81,11 @@ async def _load_provider_keys(session, provider_id: int) -> tuple[list[dict], li
 def pick_api_key(
     provider_config: dict, api_key_id: int | None, provider_name: str
 ) -> tuple[str | None, int | None]:
-    keys = provider_config.get("api_keys") or []
+    keys = [
+        key
+        for key in (provider_config.get("api_keys") or [])
+        if key.get("is_active", True)
+    ]
     if not keys:
         fallback = provider_config.get("api_key") or ""
         if fallback:
@@ -84,7 +108,11 @@ def pick_api_key(
 def pick_api_keys(
     provider_config: dict, api_key_id: int | None, provider_name: str
 ) -> list[tuple[str, int | None]]:
-    keys = provider_config.get("api_keys") or []
+    keys = [
+        key
+        for key in (provider_config.get("api_keys") or [])
+        if key.get("is_active", True)
+    ]
     if not keys:
         fallback = provider_config.get("api_key") or ""
         if fallback:
@@ -129,7 +157,11 @@ def parse_model(model: str) -> tuple[str, str]:
 
 def _get_model_aliases(pm: dict) -> set[str]:
     aliases: set[str] = set()
-    for value in (pm.get("model_name"), pm.get("actual_model_name")):
+    for value in (
+        pm.get("model_name"),
+        pm.get("actual_model_name"),
+        pm.get("upstream_model_name"),
+    ):
         if not value:
             continue
         aliases.add(value)
@@ -146,6 +178,7 @@ async def load_providers():
 
         providers_cache.clear()
         _alias_index.clear()
+        _model_name_index.clear()
         for p in providers:
             pm_result = await session.execute(
                 select(ProviderModel, Model)
@@ -160,12 +193,19 @@ async def load_providers():
                 model_tags = model.tags if model else None
                 pm_alias = pm.alias if hasattr(pm, "alias") else None
                 pm_priority = pm.priority if hasattr(pm, "priority") else 0
+                standard_model_name = model.name if model else None
+                upstream_model_name = (
+                    getattr(pm, "upstream_model_name", None)
+                    or pm.model_name_override
+                    or standard_model_name
+                )
                 provider_models_data.append(
                     {
                         "id": pm.id,
-                        "model_name": pm.model_name_override
-                        or (model.display_name if model else None),
-                        "actual_model_name": model.name if model else None,
+                        "model_id": model.id if model else None,
+                        "model_name": standard_model_name,
+                        "upstream_model_name": upstream_model_name,
+                        "actual_model_name": standard_model_name,
                         "is_multimodal": model.is_multimodal if model else False,
                         "max_tokens": model.max_tokens if model else 131072,
                         "thinking_enabled": model.thinking_enabled if model else False,
@@ -176,6 +216,12 @@ async def load_providers():
                         "priority": pm_priority or 0,
                     }
                 )
+                if standard_model_name:
+                    if standard_model_name not in _model_name_index:
+                        _model_name_index[standard_model_name] = []
+                    _model_name_index[standard_model_name].append(
+                        (p.name, provider_models_data[-1], model_tags or "", pm_priority or 0)
+                    )
                 if pm_alias:
                     if pm_alias not in _alias_index:
                         _alias_index[pm_alias] = []
@@ -232,6 +278,8 @@ async def load_providers():
 
 
 async def get_provider_config(provider_name: str) -> Optional[dict]:
+    if provider_name in providers_cache:
+        return providers_cache.get(provider_name)
     if config.providers_cache_time is None or (
         datetime.now() - config.providers_cache_time
     ) > timedelta(minutes=PROVIDERS_CACHE_TTL_MINUTES):
@@ -248,16 +296,53 @@ def get_model_config(provider_config: dict, model_name: str) -> Optional[dict]:
             return pm
     return None
 
+
+def _route_from_provider_model(
+    provider_config: Optional[dict],
+    provider_name: str,
+    pm: Optional[dict],
+    requested_model: str,
+    is_forced_provider: bool,
+) -> RouteResult:
+    if not provider_config or not pm:
+        return RouteResult(
+            provider_config=provider_config,
+            upstream_model_name=requested_model,
+            provider_name=provider_name,
+            requested_model=requested_model,
+            is_forced_provider=is_forced_provider,
+        )
+    model_name = pm.get("model_name") or pm.get("actual_model_name") or requested_model
+    upstream_model_name = pm.get("upstream_model_name") or model_name
+    return RouteResult(
+        provider_config=provider_config,
+        provider_name=provider_name,
+        provider_id=provider_config.get("id"),
+        provider_model_id=pm.get("id"),
+        model_id=pm.get("model_id"),
+        requested_model=requested_model,
+        model_name=model_name,
+        upstream_model_name=upstream_model_name,
+        is_forced_provider=is_forced_provider,
+    )
+
 async def get_provider_and_model(
     model: str, messages: list[dict] | None = None, preferred_tags: str | None = None
-) -> tuple[Optional[dict], str, str]:
+) -> RouteResult:
     provider_name, actual_model = parse_model(model)
     if provider_name:
-        config = await get_provider_config(provider_name)
-        return config, actual_model, provider_name
+        provider_config = await get_provider_config(provider_name)
+        if not provider_config:
+            return _route_from_provider_model(
+                provider_config, provider_name, None, model, True
+            )
+        pm = get_model_config(provider_config, actual_model)
+        return _route_from_provider_model(
+            provider_config, provider_name, pm, model, True
+        )
 
-    if model in _alias_index:
-        candidates = _alias_index[model]
+    candidates = _model_name_index.get(model) or _alias_index.get(model)
+    if candidates:
         from app.services.key_health import compute_health_score
         from app.services.intent_classifier import classify_intent
 
@@ -294,20 +379,20 @@ async def get_provider_and_model(
             scored.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
             best = scored[0]
             pc = await get_provider_config(best[3])
-            actual = best[4].get("actual_model_name") or model
+            route = _route_from_provider_model(pc, best[3], best[4], model, False)
             logger.info(
                 "[ALIAS ROUTE] model=%s → provider=%s, actual=%s, intent=%s, tag_match=%d, health=%d, priority=%d",
-                model, best[3], actual, intent, best[0], best[1], best[2],
+                model, best[3], route.upstream_model_name, intent, best[0], best[1], best[2],
             )
-            return pc, actual, best[3]
+            return route
 
-    if providers_cache:
-        provider_name = list(providers_cache.keys())[0]
-        logger.debug("[PROXY] No provider prefix, using default: %s", provider_name)
-    else:
-        return None, model, ""
-    config = await get_provider_config(provider_name)
-    return config, actual_model, provider_name
+    return RouteResult(
+        provider_config=None,
+        upstream_model_name=model,
+        provider_name="",
+        requested_model=model,
+        model_name=model,
+    )
 
 
 async def get_disabled_provider_reason(provider_name: str) -> str | None:

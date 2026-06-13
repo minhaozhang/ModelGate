@@ -630,10 +630,10 @@
             } catch(e) {}
         }
 
-        async function updatePMAlias(pmId, value) {
+        async function updatePMUpstreamModel(pmId, value) {
             try {
                 await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {
-                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({alias: value || null})
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({upstream_model_name: value || null})
                 });
             } catch(e) {}
         }
@@ -1044,7 +1044,7 @@
                     html += `
                         <div class="flex items-center p-2 bg-gray-50 rounded gap-2">
                             <span class="text-sm shrink-0 flex-1 min-w-0 truncate">${b.display_name || b.model_name}</span>
-                            <input type="text" value="${b.alias || ''}" placeholder="Alias" onchange="updatePMAlias(${b.id}, this.value)" class="w-24 border rounded px-1.5 py-0.5 text-xs text-center" title="别名">
+                            <input type="text" value="${b.upstream_model_name || b.model_name || ''}" placeholder="Upstream" onchange="updatePMUpstreamModel(${b.id}, this.value)" class="w-32 border rounded px-1.5 py-0.5 text-xs text-center" title="上游模型名">
                             <input type="number" min="0" value="${b.priority || 0}" placeholder="Pri" onchange="updatePMPriority(${b.id}, this.value)" class="w-14 border rounded px-1.5 py-0.5 text-xs text-center" title="优先级">
                             ${(b.tags || '').split(',').filter(t=>t).map(tag => '<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">' + tag.trim() + '</span>').join('')}
                             <select onchange="updateBusynessLevel(${b.id}, this.value)" class="border rounded px-1.5 py-0.5 text-xs shrink-0" title="繁忙可用级别">${blOpts}</select>

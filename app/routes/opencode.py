@@ -10,6 +10,7 @@ from app.core.app_paths import get_app_base_path
 from app.core.database import (
     ApiKey,
     ApiKeyModel,
+    ApiKeyModelAccess,
     Model,
     Provider,
     ProviderModel,
@@ -58,15 +59,25 @@ async def build_opencode_config(
     key_models = models_result.scalars().all()
     allowed_pm_ids = [km.provider_model_id for km in key_models]
 
+    model_access_result = await session.execute(
+        select(ApiKeyModelAccess.model_id).where(ApiKeyModelAccess.api_key_id == key.id)
+    )
+    allowed_model_ids = [row[0] for row in model_access_result.fetchall()]
+
     if allowed_pm_ids:
         pm_result = await session.execute(
             select(ProviderModel).where(ProviderModel.id.in_(allowed_pm_ids))
+        )
+    elif allowed_model_ids:
+        pm_result = await session.execute(
+            select(ProviderModel).where(ProviderModel.model_id.in_(allowed_model_ids))
         )
     else:
         pm_result = await session.execute(select(ProviderModel))
 
     provider_models = pm_result.scalars().all()
     models_config = {}
+    model_priority: dict[str, int] = {}
 
     for pm in provider_models:
         provider_result = await session.execute(
@@ -83,7 +94,14 @@ async def build_opencode_config(
         if not model:
             continue
 
-        model_key = f"{provider.name}/{model.name}"
+        if not provider.is_active or not pm.is_active:
+            continue
+
+        model_key = model.name
+        priority = pm.priority if hasattr(pm, "priority") else 0
+        if model_key in models_config and priority < model_priority.get(model_key, 0):
+            continue
+
         display_name = model.display_name or model.name
         max_output = model.max_tokens or 131072
         context_window = model.context_length or 204800
@@ -99,7 +117,7 @@ async def build_opencode_config(
             }
 
         model_entry = {
-            "name": f"{provider.name}/{display_name}",
+            "name": display_name,
             "modalities": {"input": input_modalities, "output": ["text"]},
             "limit": {"context": context_window, "output": max_output},
         }
@@ -107,6 +125,7 @@ async def build_opencode_config(
             model_entry["options"] = {"thinking": thinking_config}
 
         models_config[model_key] = model_entry
+        model_priority[model_key] = priority
 
     return {
         "$schema": "https://opencode.ai/config.json",

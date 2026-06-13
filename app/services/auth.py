@@ -4,13 +4,14 @@ from typing import Optional
 from sqlalchemy import select
 
 from app.core.config import api_keys_cache
-from app.core.database import async_session_maker, ApiKey, ApiKeyModel, ApiKeyMcpServer, ApiKeyTimeRule
-from app.services.provider import (
-    get_disabled_provider_reason,
-    get_provider_config,
-    parse_model,
+from app.core.database import (
+    async_session_maker,
+    ApiKey,
+    ApiKeyModel,
+    ApiKeyModelAccess,
+    ApiKeyMcpServer,
+    ApiKeyTimeRule,
 )
-
 
 async def load_api_keys():
     async with async_session_maker() as session:
@@ -30,6 +31,15 @@ async def load_api_keys():
         key_models_map: dict[int, list[int]] = {k.id: [] for k in keys}
         for row in all_models_result.fetchall():
             key_models_map[row[0]].append(row[1])
+
+        all_model_access_result = await session.execute(
+            select(ApiKeyModelAccess.api_key_id, ApiKeyModelAccess.model_id).where(
+                ApiKeyModelAccess.api_key_id.in_(key_ids)
+            )
+        )
+        key_model_access_map: dict[int, list[int]] = {k.id: [] for k in keys}
+        for row in all_model_access_result.fetchall():
+            key_model_access_map[row[0]].append(row[1])
 
         all_rules_result = await session.execute(
             select(ApiKeyTimeRule)
@@ -72,6 +82,7 @@ async def load_api_keys():
                 "bypass_busyness": k.bypass_busyness or False,
                 "preferred_tags": k.preferred_tags if hasattr(k, "preferred_tags") else None,
                 "allowed_provider_model_ids": key_models_map[k.id],
+                "allowed_model_ids": key_model_access_map[k.id],
                 "time_rules": key_rules_map[k.id],
                 "mcp_server_ids": key_mcp_map[k.id],
             }
@@ -185,39 +196,5 @@ async def validate_api_key(
 
     if not _check_time_rules(key_info.get("time_rules", [])):
         return None, "当前时段不允许使用该 API Key"
-
-    allowed_models = key_info.get("allowed_provider_model_ids", [])
-
-    if allowed_models:
-        provider_name, actual_model = parse_model(model)
-
-        if not provider_name:
-            return key_info["id"], None
-
-        provider_config = await get_provider_config(provider_name)
-        if not provider_config:
-            disabled_reason = await get_disabled_provider_reason(provider_name)
-            if disabled_reason:
-                return None, f"供应商 '{provider_name}' 已被禁用：{disabled_reason}"
-            return None, f"供应商 '{provider_name}' 不存在"
-
-        provider_model_id = None
-        for pm in provider_config.get("models", []):
-            pm_model_name = pm.get("model_name")
-            if (
-                pm_model_name == actual_model
-                or pm_model_name == actual_model.split("/")[-1]
-            ):
-                provider_model_id = pm["id"]
-                break
-
-        if provider_model_id is None:
-            return (
-                None,
-                "模型不存在或您无权使用",
-            )
-
-        if provider_model_id not in allowed_models:
-            return None, "您的 API Key 无权使用该模型"
 
     return key_info["id"], None

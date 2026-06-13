@@ -22,6 +22,7 @@ def require_admin(session: Optional[str] = Cookie(None)):
 class ProviderModelCreate(BaseModel):
     model_id: int
     model_name_override: Optional[str] = None
+    upstream_model_name: Optional[str] = None
     alias: Optional[str] = None
     priority: Optional[int] = 0
     is_active: bool = True
@@ -29,6 +30,7 @@ class ProviderModelCreate(BaseModel):
 
 class ProviderModelUpdate(BaseModel):
     model_name_override: Optional[str] = None
+    upstream_model_name: Optional[str] = None
     alias: Optional[str] = None
     priority: Optional[int] = None
     is_active: Optional[bool] = None
@@ -57,6 +59,9 @@ async def list_provider_models(provider_id: int, _: bool = Depends(require_admin
                         "model_name": model.name,
                         "display_name": model.display_name,
                         "model_name_override": pm.model_name_override,
+                        "upstream_model_name": pm.upstream_model_name
+                        if hasattr(pm, "upstream_model_name")
+                        else pm.model_name_override,
                         "is_active": pm.is_active,
                         "max_busyness_level": pm.max_busyness_level,
                         "alias": pm.alias if hasattr(pm, "alias") else None,
@@ -76,6 +81,7 @@ async def add_provider_model(
             provider_id=provider_id,
             model_id=data.model_id,
             model_name_override=data.model_name_override,
+            upstream_model_name=data.upstream_model_name or data.model_name_override,
             alias=data.alias,
             priority=data.priority or 0,
             is_active=data.is_active,
@@ -104,6 +110,10 @@ async def update_provider_model(
             return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
         if data.model_name_override is not None:
             pm.model_name_override = data.model_name_override
+            if not data.upstream_model_name:
+                pm.upstream_model_name = data.model_name_override
+        if data.upstream_model_name is not None:
+            pm.upstream_model_name = data.upstream_model_name or None
         if data.alias is not None:
             pm.alias = data.alias if data.alias else None
         if data.priority is not None:
@@ -268,6 +278,7 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
                         pm = ProviderModel(
                             provider_id=provider_id,
                             model_id=model.id,
+                            upstream_model_name=model_name,
                             is_active=True,
                         )
                         session.add(pm)

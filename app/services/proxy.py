@@ -18,6 +18,7 @@ from app.core.log_sanitizer import (
 )
 from app.core.client_ip import get_client_ip
 from app.services.provider import (
+    RouteResult,
     get_provider_and_model,
     get_model_config,
     get_disabled_provider_reason,
@@ -78,6 +79,69 @@ def _get_api_key_preferred_tags(api_key_id: int | None) -> str | None:
         if key_info.get("id") == api_key_id:
             return key_info.get("preferred_tags")
     return None
+
+
+def _get_api_key_info(api_key_id: int | None) -> dict | None:
+    from app.core.config import api_keys_cache
+
+    if not api_key_id:
+        return None
+    for key_info in api_keys_cache.values():
+        if key_info.get("id") == api_key_id:
+            return key_info
+    return {
+        "id": api_key_id,
+        "allowed_provider_model_ids": [],
+        "allowed_model_ids": [],
+    }
+
+
+def check_model_access(
+    key_info: dict | None,
+    provider_model_id: int | None,
+    model_id: int | None,
+) -> bool:
+    if not key_info:
+        return False
+    allowed_pm_ids = set(key_info.get("allowed_provider_model_ids") or [])
+    allowed_model_ids = set(key_info.get("allowed_model_ids") or [])
+    if not allowed_pm_ids and not allowed_model_ids:
+        return True
+    return (
+        provider_model_id is not None
+        and provider_model_id in allowed_pm_ids
+    ) or (
+        model_id is not None
+        and model_id in allowed_model_ids
+    )
+
+
+def _coerce_route_result(route, requested_model: str) -> RouteResult:
+    if isinstance(route, RouteResult):
+        return route
+    provider_config, actual_model, provider_name = route
+    model_config = get_model_config(provider_config, actual_model) if provider_config else None
+    model_name = (
+        model_config.get("model_name")
+        if model_config
+        else actual_model
+    )
+    upstream_model_name = (
+        model_config.get("upstream_model_name")
+        if model_config
+        else actual_model
+    )
+    return RouteResult(
+        provider_config=provider_config,
+        provider_name=provider_name,
+        provider_id=provider_config.get("id") if provider_config else None,
+        provider_model_id=model_config.get("id") if model_config else None,
+        model_id=model_config.get("model_id") if model_config else None,
+        requested_model=requested_model,
+        model_name=model_name or actual_model,
+        upstream_model_name=upstream_model_name or actual_model,
+        is_forced_provider="/" in requested_model,
+    )
 
 
 def _get_key_label(provider_config: dict, key_id: int | None) -> str | None:
@@ -209,12 +273,20 @@ async def proxy_request(request: Request, endpoint: str):
     if block_response:
         return block_response
 
-    provider_config, actual_model, provider_name = await get_provider_and_model(
-        model,
-        messages=body_json.get("messages"),
-        preferred_tags=_get_api_key_preferred_tags(api_key_id),
-    )
     requested_model = model
+    route_result = _coerce_route_result(
+        await get_provider_and_model(
+            model,
+            messages=body_json.get("messages"),
+            preferred_tags=_get_api_key_preferred_tags(api_key_id),
+        ),
+        requested_model,
+    )
+    provider_config = route_result.provider_config
+    provider_name = route_result.provider_name
+    standard_model = route_result.model_name or requested_model
+    upstream_model = route_result.upstream_model_name or standard_model
+    actual_model = standard_model
     if not provider_config:
         disabled_reason = (
             await get_disabled_provider_reason(provider_name) if provider_name else None
@@ -237,7 +309,20 @@ async def proxy_request(request: Request, endpoint: str):
             "model_not_found",
         )
 
-    model_config = get_model_config(provider_config, actual_model)
+    key_info = _get_api_key_info(api_key_id)
+    if not check_model_access(
+        key_info,
+        route_result.provider_model_id,
+        route_result.model_id,
+    ):
+        return _openai_error_response(
+            "您的 API Key 无权使用该模型",
+            401,
+            "authentication_error",
+            "model_access_denied",
+        )
+
+    model_config = get_model_config(provider_config, standard_model)
     if model_config:
         max_level = model_config.get("max_busyness_level")
         if max_level is not None:
@@ -279,8 +364,8 @@ async def proxy_request(request: Request, endpoint: str):
                 headers=busyness_headers or None,
             )
 
-        model_config = get_model_config(provider_config, actual_model)
-        body_json["model"] = actual_model
+        model_config = get_model_config(provider_config, standard_model)
+        body_json["model"] = upstream_model
         is_multimodal = (
             model_config.get("is_multimodal", False) if model_config else False
         )
@@ -288,7 +373,7 @@ async def proxy_request(request: Request, endpoint: str):
         body_json = preprocess_messages(body_json, merge_messages, is_multimodal)
         messages = body_json["messages"]
 
-        if is_deepseek_thinking_active(provider_name, actual_model, body_json, model_config):
+        if is_deepseek_thinking_active(provider_name, upstream_model, body_json, model_config):
             messages = patch_reasoning_content(messages)
 
         from app.services.intent_classifier import classify_intent
@@ -454,7 +539,7 @@ async def proxy_request(request: Request, endpoint: str):
                         },
                     )
 
-                provider_model_key = f"{provider_name}/{actual_model}"
+                provider_model_key = f"{provider_name}/{route_result.provider_model_id or upstream_model}"
                 user_provider_model_sem_key, user_provider_model_semaphore = (
                     _get_or_create_user_provider_model_semaphore(
                         api_key_id,
