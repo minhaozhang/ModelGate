@@ -74,7 +74,7 @@ async function updateTaskCron(taskId, cron) {
 }
 function showToast(msg, type) {
     let c = document.getElementById('toast-container');
-    if (!c) { c = document.createElement('div'); c.id = 'toast-container'; c.style.cssText = 'position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;'; document.body.appendChild(c); }
+    if (!c) { c = document.createElement('div'); c.id = 'toast-container'; c.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;display:flex;flex-direction:column;align-items:center;gap:0.5rem;'; document.body.appendChild(c); }
     const colors = {success:'bg-green-500',error:'bg-red-500',info:'bg-blue-500'};
     const t = document.createElement('div');
     t.className = `${colors[type]||colors.info} text-white text-sm px-4 py-2 rounded shadow-lg transition-all duration-300 opacity-0`;
