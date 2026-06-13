@@ -3,7 +3,6 @@ from typing import Optional
 from fastapi import APIRouter, Response, Cookie, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import update as sql_update
 
 from app.core.client_ip import get_client_ip
 from app.core.config import (
@@ -59,21 +58,12 @@ async def _try_rbac_login(username: str, password: str):
     try:
         from app.services.rbac import get_user_by_username
         from app.services.rbac_auth import verify_password, create_access_token
-        from app.core.database import User, async_session_maker
         user = await get_user_by_username(username)
         if not user:
             return None
         if not verify_password(password, user.password_hash):
             return None
-        token = create_access_token(user.id, user.username)
-        async with async_session_maker() as session:
-            await session.execute(
-                sql_update(User)
-                .where(User.id == user.id)
-                .values(last_login=datetime.now())
-            )
-            await session.commit()
-        return token
+        return create_access_token(user.id, user.username)
     except Exception:
         return None
 
