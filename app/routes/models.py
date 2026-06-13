@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Cookie, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -6,16 +6,10 @@ from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import async_session_maker, Model, ApiKey, ApiKeyModel, ProviderModel, Provider
-from app.core.config import validate_session
+from app.core.permissions import permission_required
 from app.services.auth import load_api_keys
 
 router = APIRouter(prefix="/admin/api", tags=["models"])
-
-
-def require_admin(session: Optional[str] = Cookie(None)):
-    if not validate_session(session):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
 
 
 class ModelCreate(BaseModel):
@@ -43,7 +37,7 @@ class ModelUpdate(BaseModel):
 
 
 @router.get("/models")
-async def list_all_models(_: bool = Depends(require_admin)):
+async def list_all_models(_: bool = Depends(permission_required("page.models"))):
     async with async_session_maker() as session:
         result = await session.execute(select(Model).order_by(Model.name))
         models = result.scalars().all()
@@ -90,7 +84,7 @@ async def list_all_models(_: bool = Depends(require_admin)):
 
 
 @router.post("/models")
-async def create_model(data: ModelCreate, _: bool = Depends(require_admin)):
+async def create_model(data: ModelCreate, _: bool = Depends(permission_required("model.create"))):
     async with async_session_maker() as session:
         model = Model(**data.model_dump())
         session.add(model)
@@ -100,7 +94,7 @@ async def create_model(data: ModelCreate, _: bool = Depends(require_admin)):
 
 @router.put("/models/{model_id}")
 async def update_model(
-    model_id: int, data: ModelUpdate, _: bool = Depends(require_admin)
+    model_id: int, data: ModelUpdate, _: bool = Depends(permission_required("model.update"))
 ):
     async with async_session_maker() as session:
         result = await session.execute(select(Model).where(Model.id == model_id))
@@ -114,7 +108,7 @@ async def update_model(
 
 
 @router.delete("/models/{model_id}")
-async def delete_model(model_id: int, _: bool = Depends(require_admin)):
+async def delete_model(model_id: int, _: bool = Depends(permission_required("model.delete"))):
     async with async_session_maker() as session:
         result = await session.execute(select(Model).where(Model.id == model_id))
         model = result.scalar_one_or_none()
@@ -133,7 +127,7 @@ async def delete_model(model_id: int, _: bool = Depends(require_admin)):
 
 
 @router.get("/models/{model_id}/api-keys")
-async def get_model_api_keys(model_id: int, _: bool = Depends(require_admin)):
+async def get_model_api_keys(model_id: int, _: bool = Depends(permission_required("page.models"))):
     async with async_session_maker() as session:
         pm_result = await session.execute(
             select(ProviderModel, Provider.name).join(
@@ -202,7 +196,7 @@ class ModelApiKeysUpdate(BaseModel):
 
 @router.put("/models/{model_id}/api-keys")
 async def update_model_api_keys(
-    model_id: int, data: ModelApiKeysUpdate, _: bool = Depends(require_admin)
+    model_id: int, data: ModelApiKeysUpdate, _: bool = Depends(permission_required("model.update"))
 ):
     async with async_session_maker() as session:
         pm_result = await session.execute(
@@ -257,7 +251,7 @@ async def update_model_api_keys(
 
 
 @router.get("/models/resolve")
-async def resolve_model(name: str, _: bool = Depends(require_admin)):
+async def resolve_model(name: str, _: bool = Depends(permission_required("page.models"))):
     from app.services.provider import _model_name_index
     from app.services.key_health import compute_health_score
 

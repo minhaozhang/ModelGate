@@ -1,22 +1,17 @@
 import httpx
-from fastapi import APIRouter, Cookie, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.core.config import admin_logger, validate_session
+from app.core.config import admin_logger
 from app.core.database import async_session_maker, Provider, ProviderKey, Model, ProviderModel
+from app.core.permissions import permission_required
 from app.services.provider import load_providers
 
 router = APIRouter(prefix="/admin/api", tags=["provider-models"])
-
-
-def require_admin(session: Optional[str] = Cookie(None)):
-    if not validate_session(session):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
 
 
 class ProviderModelCreate(BaseModel):
@@ -39,7 +34,10 @@ class ProviderModelUpdate(BaseModel):
 
 
 @router.get("/providers/{provider_id}/models")
-async def list_provider_models(provider_id: int, _: bool = Depends(require_admin)):
+async def list_provider_models(
+    provider_id: int,
+    _: bool = Depends(permission_required("page.provider_models")),
+):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ProviderModel).where(ProviderModel.provider_id == provider_id)
@@ -74,7 +72,9 @@ async def list_provider_models(provider_id: int, _: bool = Depends(require_admin
 
 @router.post("/providers/{provider_id}/models")
 async def add_provider_model(
-    provider_id: int, data: ProviderModelCreate, _: bool = Depends(require_admin)
+    provider_id: int,
+    data: ProviderModelCreate,
+    _: bool = Depends(permission_required("provider_model.create")),
 ):
     async with async_session_maker() as session:
         pm = ProviderModel(
@@ -97,7 +97,7 @@ async def update_provider_model(
     provider_id: int,
     pm_id: int,
     data: ProviderModelUpdate,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("provider_model.update")),
 ):
     async with async_session_maker() as session:
         result = await session.execute(
@@ -131,7 +131,9 @@ async def update_provider_model(
 
 @router.delete("/providers/{provider_id}/models/{pm_id}")
 async def remove_provider_model(
-    provider_id: int, pm_id: int, _: bool = Depends(require_admin)
+    provider_id: int,
+    pm_id: int,
+    _: bool = Depends(permission_required("provider_model.delete")),
 ):
     async with async_session_maker() as session:
         result = await session.execute(
@@ -156,7 +158,10 @@ async def remove_provider_model(
 
 
 @router.post("/providers/{provider_id}/sync-models")
-async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin)):
+async def sync_provider_models(
+    provider_id: int,
+    _: bool = Depends(permission_required("provider_model.sync")),
+):
     async with async_session_maker() as session:
         result = await session.execute(
             select(Provider).where(Provider.id == provider_id)
@@ -294,7 +299,7 @@ async def sync_provider_models(provider_id: int, _: bool = Depends(require_admin
 
 
 @router.get("/provider-models")
-async def list_all_provider_models(_: bool = Depends(require_admin)):
+async def list_all_provider_models(_: bool = Depends(permission_required("page.provider_models"))):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ProviderModel).where(ProviderModel.is_active == True)

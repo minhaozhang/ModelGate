@@ -4,7 +4,7 @@ from fastapi import APIRouter, Cookie, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.core.app_paths import build_app_url
-from app.core.config import admin_users, validate_session
+from app.core.config import validate_session
 from app.core.i18n import render
 
 router = APIRouter(prefix="/admin", tags=["pages"])
@@ -75,12 +75,11 @@ async def monitor_page(request: Request, session: Optional[str] = Cookie(None)):
 async def mobile_login_page(request: Request, session: Optional[str] = Cookie(None)):
     if _check_auth(session):
         return RedirectResponse(url=build_app_url(request, "/admin/m"))
-    default_username = next(iter(admin_users.keys())) if len(admin_users) == 1 else ""
     return HTMLResponse(
         content=render(
             request,
             "admin/mobile_login.html",
-            default_username=default_username,
+            default_username="",
         )
     )
 

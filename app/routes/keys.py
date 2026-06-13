@@ -1,6 +1,6 @@
 from datetime import time as dt_time, date as dt_date
 
-from fastapi import APIRouter, Depends, Cookie, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -21,15 +21,9 @@ from app.core.database import (
 )
 from app.services.auth import load_api_keys
 from app.routes.user import get_user_session
-from app.core.config import validate_session
+from app.core.permissions import permission_required
 
 router = APIRouter(prefix="/admin/api", tags=["api-keys"])
-
-
-def require_admin(session: Optional[str] = Cookie(None)):
-    if not validate_session(session):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
 
 
 class ApiKeyCreate(BaseModel):
@@ -52,7 +46,7 @@ class ApiKeyUpdate(BaseModel):
 
 
 @router.get("/keys")
-async def list_api_keys(_: bool = Depends(require_admin)):
+async def list_api_keys(_: bool = Depends(permission_required("page.api_keys"))):
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey))
         keys = result.scalars().all()
@@ -124,7 +118,7 @@ async def list_api_keys(_: bool = Depends(require_admin)):
 
 
 @router.post("/keys")
-async def create_api_key(data: ApiKeyCreate, _: bool = Depends(require_admin)):
+async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_required("api_key.create"))):
     async with async_session_maker() as session:
         new_key = ApiKey(name=data.name, key=generate_api_key(), bypass_busyness=data.bypass_busyness)
         session.add(new_key)
@@ -150,7 +144,7 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(require_admin)):
 
 @router.put("/keys/{key_id}")
 async def update_api_key(
-    key_id: int, data: ApiKeyUpdate, _: bool = Depends(require_admin)
+    key_id: int, data: ApiKeyUpdate, _: bool = Depends(permission_required("api_key.update"))
 ):
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
@@ -219,7 +213,7 @@ async def update_api_key(
 
 
 @router.delete("/keys/{key_id}")
-async def delete_api_key(key_id: int, _: bool = Depends(require_admin)):
+async def delete_api_key(key_id: int, _: bool = Depends(permission_required("api_key.delete"))):
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
         key = result.scalar_one_or_none()
@@ -401,7 +395,7 @@ def _serialize_date(val: dt_date | None) -> str | None:
 
 
 @router.get("/keys/{key_id}/time-rules")
-async def list_time_rules(key_id: int, _: bool = Depends(require_admin)):
+async def list_time_rules(key_id: int, _: bool = Depends(permission_required("page.api_keys"))):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ApiKeyTimeRule)
@@ -428,7 +422,9 @@ async def list_time_rules(key_id: int, _: bool = Depends(require_admin)):
 
 @router.post("/keys/{key_id}/time-rules")
 async def create_time_rule(
-    key_id: int, data: TimeRuleCreate, _: bool = Depends(require_admin)
+    key_id: int,
+    data: TimeRuleCreate,
+    _: bool = Depends(permission_required("api_key.add_time_rule")),
 ):
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
@@ -504,7 +500,10 @@ async def create_time_rule(
 
 @router.put("/keys/{key_id}/time-rules/{rule_id}")
 async def update_time_rule(
-    key_id: int, rule_id: int, data: TimeRuleUpdate, _: bool = Depends(require_admin)
+    key_id: int,
+    rule_id: int,
+    data: TimeRuleUpdate,
+    _: bool = Depends(permission_required("api_key.update_time_rule")),
 ):
     async with async_session_maker() as session:
         result = await session.execute(
@@ -593,7 +592,11 @@ async def update_time_rule(
 
 
 @router.delete("/keys/{key_id}/time-rules/{rule_id}")
-async def delete_time_rule(key_id: int, rule_id: int, _: bool = Depends(require_admin)):
+async def delete_time_rule(
+    key_id: int,
+    rule_id: int,
+    _: bool = Depends(permission_required("api_key.delete_time_rule")),
+):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ApiKeyTimeRule).where(

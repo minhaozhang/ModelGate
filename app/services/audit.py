@@ -2,7 +2,6 @@ import json
 from datetime import datetime
 from fastapi import Request
 from app.core.database import AuditLog, async_session_maker
-from app.core.config import validate_session, admin_users
 
 
 _RESOURCE_MAP = {
@@ -47,10 +46,6 @@ def _resolve_user(request: Request):
             except Exception:
                 pass
             return None, None
-
-        if validate_session(session):
-            for uname in admin_users:
-                return 0, uname
 
     user_session = request.cookies.get("user_session")
     if user_session:

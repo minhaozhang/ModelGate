@@ -290,15 +290,14 @@ app.mount("/mcp-proxy", get_mcp_proxy_asgi_app())
 
 
 if __name__ == "__main__":
-    from app.core.config import logger, admin_users
+    from app.core.config import logger
 
-    users_str = ", ".join(admin_users.keys())
     print(f"""
 ╔════════════════════════════════════════════════════════════╗
 ║  ModelGate Started                                        ║
 ║  Dashboard: http://localhost:{CONFIG["port"]}{APP_BASE_PATH}/admin/home          ║
 ║  API: http://localhost:{CONFIG["port"]}{APP_BASE_PATH}/v1/chat/completions         ║
-║  Admin Users: {users_str:<43} ║
+║  Admin Auth: RBAC / JWT                                   ║
 ╚════════════════════════════════════════════════════════════╝
     """)
     uvicorn.run(app, host="0.0.0.0", port=CONFIG["port"], access_log=False)

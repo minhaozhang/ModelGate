@@ -7,8 +7,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.core.app_paths import build_app_url
-from app.core.config import validate_session
 from app.core.database import AnalysisArtifact, AnalysisRecord, async_session_maker
+from app.core.permissions import permission_required, login_required
 from app.services.usage_report import (
     get_usage_report_template,
     get_usage_report_status,
@@ -17,12 +17,6 @@ from app.services.usage_report import (
 )
 
 router = APIRouter(prefix="/admin/api", tags=["reports"])
-
-
-def require_admin(session: Optional[str] = Cookie(None)):
-    if not validate_session(session):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
 
 
 class UsageReportRequest(BaseModel):
@@ -49,7 +43,7 @@ def _attach_app_urls(request: Request, payload):
 async def create_usage_report(
     request: Request,
     data: UsageReportRequest,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("log.create_report")),
 ):
     started, task = await start_usage_report(
         data.start_date,
@@ -72,7 +66,7 @@ async def create_usage_report(
 async def get_report_status(
     request: Request,
     task_id: int = Query(..., ge=1),
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("page.logs.requests")),
 ):
     status = await get_usage_report_status(task_id)
     if not status:
@@ -83,7 +77,7 @@ async def get_report_status(
 @router.get("/reports/usage/{task_id}/download")
 async def download_usage_report(
     task_id: str,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("page.logs.requests")),
 ):
     async with async_session_maker() as session:
         result = await session.execute(
@@ -127,12 +121,12 @@ async def download_usage_report(
 async def get_report_history(
     request: Request,
     limit: int = Query(10, ge=1, le=100),
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("page.logs.requests")),
 ):
     reports = await list_usage_reports(limit)
     return {"reports": _attach_app_urls(request, reports)}
 
 
 @router.get("/reports/usage/template")
-async def get_report_template(_: bool = Depends(require_admin)):
+async def get_report_template(_: bool = Depends(permission_required("page.logs.requests"))):
     return {"template": get_usage_report_template()}

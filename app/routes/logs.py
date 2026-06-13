@@ -1,10 +1,9 @@
 from collections import Counter
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Cookie, Depends, HTTPException
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
 from sqlalchemy import select, func, cast, Numeric
 
-from app.core.config import validate_session
 from app.core.database import (
     async_session_maker,
     RequestLogRead as RequestLog,
@@ -14,16 +13,11 @@ from app.core.database import (
     McpCallLog,
     McpServer,
 )
+from app.core.permissions import permission_required, login_required
 
 router = APIRouter(prefix="/admin/api", tags=["logs"])
 ERROR_STATUSES = ("error", "timeout")
 ERROR_REPORT_LOG_LIMIT = 200
-
-
-def require_admin(session: Optional[str] = Cookie(None)):
-    if not validate_session(session):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
 
 
 def get_token_count(tokens_payload) -> int:
@@ -159,7 +153,7 @@ async def _load_today_error_logs(
 
 
 @router.get("/logs/all")
-async def get_all_logs(limit: int = 100, _: bool = Depends(require_admin)):
+async def get_all_logs(limit: int = 100, _: bool = Depends(permission_required("page.logs.requests"))):
     async with async_session_maker() as session:
         count_result = await session.execute(select(func.count(RequestLog.id)))
         total = count_result.scalar() or 0
@@ -212,7 +206,7 @@ async def query_logs(
     end_time: Optional[str] = None,
     page: int = 1,
     page_size: int = 50,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("page.logs.requests")),
 ):
     page = max(1, page)
     page_size = max(1, min(page_size, 200))
@@ -320,7 +314,7 @@ async def aggregate_logs(
     group_by: str = "provider_model",
     key_name: Optional[str] = None,
     client_ip: Optional[str] = None,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("page.logs.requests")),
 ):
     now = datetime.now()
 
@@ -538,7 +532,7 @@ async def query_mcp_logs(
     end_time: Optional[str] = None,
     page: int = 1,
     page_size: int = 50,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("page.logs.requests")),
 ):
     page = max(1, page)
     page_size = max(1, min(page_size, 200))
@@ -626,7 +620,7 @@ async def query_mcp_logs(
 
 
 @router.get("/logs/{log_id}/content")
-async def get_log_content(log_id: int, _: bool = Depends(require_admin)):
+async def get_log_content(log_id: int, _: bool = Depends(permission_required("page.logs.requests"))):
     async with async_session_maker() as session:
         result = await session.execute(
             select(RequestContent).where(RequestContent.log_id == log_id)

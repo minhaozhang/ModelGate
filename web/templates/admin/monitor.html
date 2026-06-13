@@ -230,6 +230,53 @@
                 </div>
             </div>
 
+            <div id="system-info-panel" class="bg-white rounded-lg shadow p-5 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">{{ '系统资源' if current_locale == 'zh' else 'System Resources' }}</h3>
+                    <div id="system-uptime" class="text-sm text-gray-500">-</div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-500">CPU</span>
+                            <span id="system-cpu-percent" class="text-lg font-bold text-blue-600">-</span>
+                        </div>
+                        <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="system-cpu-bar" class="h-full rounded-full transition-all" style="width:0%;background:#10b981"></div>
+                        </div>
+                        <div id="system-cpu-detail" class="text-xs text-gray-500 mt-2">-</div>
+                    </div>
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-500">{{ '内存' if current_locale == 'zh' else 'Memory' }}</span>
+                            <span id="system-memory-percent" class="text-lg font-bold text-emerald-600">-</span>
+                        </div>
+                        <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="system-memory-bar" class="h-full rounded-full transition-all" style="width:0%;background:#10b981"></div>
+                        </div>
+                        <div id="system-memory-detail" class="text-xs text-gray-500 mt-2">-</div>
+                    </div>
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-500">{{ '磁盘' if current_locale == 'zh' else 'Disk' }}</span>
+                            <span id="system-disk-percent" class="text-lg font-bold text-amber-600">-</span>
+                        </div>
+                        <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="system-disk-bar" class="h-full rounded-full transition-all" style="width:0%;background:#10b981"></div>
+                        </div>
+                        <div id="system-disk-detail" class="text-xs text-gray-500 mt-2">-</div>
+                    </div>
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-500">{{ '进程' if current_locale == 'zh' else 'Process' }}</span>
+                            <span id="system-process-memory" class="text-lg font-bold text-purple-600">-</span>
+                        </div>
+                        <div id="system-process-detail" class="text-xs text-gray-500">-</div>
+                        <div id="system-network-detail" class="text-xs text-gray-500 mt-1">-</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="bg-white rounded-lg shadow p-5 mb-6">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold">{{ _('Request Trend') }}</h3>
@@ -1224,6 +1271,8 @@
         setInterval(loadProviderStatus, 10000);
         loadMcpStats();
         setInterval(loadMcpStats, 60000);
+        loadSystemInfo();
+        setInterval(loadSystemInfo, 10000);
 
         async function loadProviderStatus() {
             try {
@@ -1282,6 +1331,68 @@
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
+        }
+
+        function fmtBytes(value) {
+            const n = Number(value || 0);
+            if (!n) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const idx = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
+            return `${(n / Math.pow(1024, idx)).toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`;
+        }
+
+        function barColor(percent) {
+            return percent >= 85 ? '#ef4444' : percent >= 65 ? '#f59e0b' : '#10b981';
+        }
+
+        function fmtUptime(seconds) {
+            const total = Number(seconds || 0);
+            const days = Math.floor(total / 86400);
+            const hours = Math.floor((total % 86400) / 3600);
+            const minutes = Math.floor((total % 3600) / 60);
+            if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+            if (hours > 0) return `${hours}h ${minutes}m`;
+            return `${minutes}m`;
+        }
+
+        async function loadSystemInfo() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/system/info`);
+                const cpu = data.cpu || {};
+                const memory = data.memory || {};
+                const disk = data.host_disk || data.disk || {};
+                const proc = data.process || {};
+                const net = data.network || {};
+
+                const cpuPct = Number(cpu.percent || 0);
+                document.getElementById('system-cpu-percent').textContent = `${cpuPct.toFixed(1)}%`;
+                document.getElementById('system-cpu-bar').style.width = `${Math.min(cpuPct, 100)}%`;
+                document.getElementById('system-cpu-bar').style.background = barColor(cpuPct);
+                const cpuParts = [`${cpu.count_logical || '-'} cores`];
+                if (cpu.freq_current) cpuParts.push(`${cpu.freq_current} MHz`);
+                if (cpu.load_avg_1m !== null && cpu.load_avg_1m !== undefined) cpuParts.push(`load ${cpu.load_avg_1m}/${cpu.load_avg_5m}/${cpu.load_avg_15m}`);
+                document.getElementById('system-cpu-detail').textContent = cpuParts.join(' · ');
+
+                const memPct = Number(memory.percent || 0);
+                document.getElementById('system-memory-percent').textContent = `${memPct.toFixed(1)}%`;
+                document.getElementById('system-memory-bar').style.width = `${Math.min(memPct, 100)}%`;
+                document.getElementById('system-memory-bar').style.background = barColor(memPct);
+                document.getElementById('system-memory-detail').textContent = `${fmtBytes(memory.used)} / ${fmtBytes(memory.total)} · swap ${Number(memory.swap_percent || 0).toFixed(1)}%`;
+
+                const diskPct = Number(disk.percent || 0);
+                document.getElementById('system-disk-percent').textContent = `${diskPct.toFixed(1)}%`;
+                document.getElementById('system-disk-bar').style.width = `${Math.min(diskPct, 100)}%`;
+                document.getElementById('system-disk-bar').style.background = barColor(diskPct);
+                const diskLabel = data.host_disk ? '{{ "宿主机" if current_locale == "zh" else "host" }}' : '{{ "容器" if current_locale == "zh" else "container" }}';
+                document.getElementById('system-disk-detail').textContent = `${diskLabel}: ${fmtBytes(disk.used)} / ${fmtBytes(disk.total)}`;
+
+                document.getElementById('system-uptime').textContent = `{{ "运行时间" if current_locale == "zh" else "Uptime" }} ${fmtUptime(data.uptime)}`;
+                document.getElementById('system-process-memory').textContent = fmtBytes(proc.memory_rss);
+                document.getElementById('system-process-detail').textContent = `CPU ${Number(proc.cpu_percent || 0).toFixed(1)}% · ${proc.threads || 0} threads · ${proc.connections ?? '-'} conn`;
+                document.getElementById('system-network-detail').textContent = `↑ ${fmtBytes(net.bytes_sent)} · ↓ ${fmtBytes(net.bytes_recv)}`;
+            } catch (e) {
+                console.error('Failed to load system info', e);
+            }
         }
 
         async function loadMcpStats() {

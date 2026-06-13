@@ -7,10 +7,6 @@ from sqlalchemy import update as sql_update
 
 from app.core.client_ip import get_client_ip
 from app.core.config import (
-    admin_users,
-    validate_session,
-    create_session,
-    clear_session,
     login_attempts,
     login_lockout,
     LOGIN_MAX_ATTEMPTS,
@@ -82,27 +78,16 @@ async def _try_rbac_login(username: str, password: str):
         return None
 
 
-def _try_config_login(username: str, password: str):
-    if username in admin_users and password == admin_users[username]:
-        return create_session()
-    return None
-
-
 @router.post("/login")
 async def login(data: LoginRequest, response: Response, request: Request):
     client_ip = get_client_ip(request) or "unknown"
     username = data.username.strip()
-
-    if not username and len(admin_users) == 1:
-        username = next(iter(admin_users.keys()))
 
     lockout_resp = _check_lockout(client_ip)
     if lockout_resp:
         return lockout_resp
 
     token = await _try_rbac_login(username, data.password)
-    if not token:
-        token = _try_config_login(username, data.password)
 
     if token:
         login_attempts.pop(client_ip, None)
@@ -133,19 +118,13 @@ async def login(data: LoginRequest, response: Response, request: Request):
 async def logout(response: Response, request: Request, session: Optional[str] = Cookie(None)):
     logout_username = None
     if session:
-        if session.startswith("ey"):
-            try:
-                from app.services.rbac_auth import decode_access_token
-                payload = decode_access_token(session)
-                if payload:
-                    logout_username = payload.get("username")
-            except Exception:
-                pass
-        else:
-            if validate_session(session):
-                for uname in admin_users:
-                    logout_username = uname
-                    break
+        try:
+            from app.services.rbac_auth import decode_access_token
+            payload = decode_access_token(session)
+            if payload:
+                logout_username = payload.get("username")
+        except Exception:
+            pass
         try:
             from app.services.audit import write_audit_log
             await write_audit_log(
@@ -154,7 +133,6 @@ async def logout(response: Response, request: Request, session: Optional[str] = 
             )
         except Exception:
             pass
-        clear_session(session)
     response.delete_cookie("session", path="/")
     return {"success": True}
 
@@ -209,20 +187,16 @@ async def change_password(
 
 @router.get("/check")
 async def check_auth(session: Optional[str] = Cookie(None)):
-    if not session or not validate_session(session):
+    if not session:
         return {"authenticated": False}
     username = None
-    if session.startswith("ey"):
-        try:
-            from app.services.rbac_auth import decode_access_token
+    try:
+        from app.services.rbac_auth import decode_access_token
 
-            payload = decode_access_token(session)
-            if payload:
-                username = payload.get("username")
-        except Exception:
-            pass
-    else:
-        for uname in admin_users:
-            username = uname
-            break
+        payload = decode_access_token(session)
+        if not payload:
+            return {"authenticated": False}
+        username = payload.get("username")
+    except Exception:
+        return {"authenticated": False}
     return {"authenticated": True, "username": username}

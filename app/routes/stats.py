@@ -5,6 +5,7 @@ from fastapi import (
     Cookie,
     Depends,
     HTTPException,
+    Request,
     WebSocket,
     WebSocketDisconnect,
 )
@@ -52,16 +53,10 @@ TOKEN_COUNT_EXPR = func.coalesce(
     0,
 )
 
+from app.core.permissions import permission_required
+
 historical_stats_cache: dict = {}
 historical_stats_cache_date: Optional[str] = None
-
-
-def require_admin(session: Optional[str] = Cookie(None)):
-    from app.core.config import validate_session
-
-    if not validate_session(session):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
 
 
 def get_local_now() -> datetime:
@@ -320,7 +315,7 @@ async def get_cached_today_stats(start: datetime) -> dict:
 
 
 @router.get("/stats")
-async def get_stats(_: bool = Depends(require_admin)):
+async def get_stats(_: bool = Depends(permission_required("page.stats"))):
     async with async_session_maker() as session:
         total_result = await session.execute(
             select(func.count(RequestLog.id)).where(
@@ -601,7 +596,7 @@ async def get_raw_grouped_stats(
 async def get_aggregate_stats(
     dimension: Literal["provider", "api_key", "model"] = "provider",
     period: Literal["day", "week", "month", "year"] = "day",
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("page.stats")),
 ):
     now = get_local_now()
     start = get_period_start(period, now)
@@ -664,7 +659,7 @@ async def get_trend_data(
     dimension: Literal["provider", "api_key", "model"] = "provider",
     period: Literal["day", "week", "month", "year"] = "day",
     name: Optional[str] = None,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("page.stats")),
 ):
     now = get_local_now()
     start, intervals, format_func = get_period_range(period, now)
@@ -882,7 +877,7 @@ async def get_trend_data(
 @router.get("/stats/monitor-details")
 async def get_monitor_details(
     period: Literal["day", "week", "month", "year"] = "day",
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("page.stats")),
 ):
     now = get_local_now()
     start = get_period_start(period, now)
@@ -1187,7 +1182,7 @@ async def get_monitor_details(
 
 
 @router.get("/stats/period")
-async def get_stats_period(period: str = "day", _: bool = Depends(require_admin)):
+async def get_stats_period(period: str = "day", _: bool = Depends(permission_required("page.stats"))):
     now = get_local_now()
     start = get_period_start(period, now)
 
@@ -1610,7 +1605,7 @@ async def get_chart_data(
     period: str = "day",
     provider: Optional[str] = None,
     api_key_id: Optional[int] = None,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("page.stats")),
 ):
     now = get_local_now()
     start, intervals, format_func = get_period_range(period, now)
@@ -1798,7 +1793,7 @@ async def get_chart_data(
 
 
 @router.get("/stats/error-trend")
-async def get_error_trend(_: bool = Depends(require_admin)):
+async def get_error_trend(_: bool = Depends(permission_required("page.stats"))):
     now = get_local_now()
     start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=29)
     days = [(start + timedelta(days=i)).strftime("%m/%d") for i in range(30)]
@@ -1844,7 +1839,7 @@ async def get_error_trend(_: bool = Depends(require_admin)):
 
 
 @router.post("/stats/reaggregate")
-async def reaggregate_all_stats(_: bool = Depends(require_admin)):
+async def reaggregate_all_stats(_: bool = Depends(permission_required("page.stats"))):
     from app.services.stats_aggregator import (
         backfill_historical_stats,
         aggregate_stats_for_date,
@@ -1858,7 +1853,7 @@ async def reaggregate_all_stats(_: bool = Depends(require_admin)):
 
 
 @router.get("/stats/active")
-async def get_active_sessions(_: bool = Depends(require_admin)):
+async def get_active_sessions(_: bool = Depends(permission_required("page.stats"))):
     snapshot = await build_live_stats_snapshot()
     disabled_providers = dict(snapshot.get("disabled_providers", {}))
     async with async_session_maker() as session:
@@ -1880,7 +1875,7 @@ async def get_active_sessions(_: bool = Depends(require_admin)):
 
 
 @router.get("/stats/active/models")
-async def get_active_sessions_by_model(_: bool = Depends(require_admin)):
+async def get_active_sessions_by_model(_: bool = Depends(permission_required("page.stats"))):
     recent_cutoff = get_local_now() - timedelta(seconds=30)
     async with async_session_maker() as session:
         result = await session.execute(
@@ -1926,7 +1921,7 @@ async def get_active_sessions_by_model(_: bool = Depends(require_admin)):
 
 
 @router.get("/stats/realtime")
-async def get_realtime_stats(_: bool = Depends(require_admin)):
+async def get_realtime_stats(_: bool = Depends(permission_required("page.stats"))):
     snapshot = await build_live_stats_snapshot()
 
     now = datetime.now()
@@ -1950,9 +1945,10 @@ async def get_realtime_stats(_: bool = Depends(require_admin)):
 
 @router.websocket("/stats/live")
 async def stats_live_websocket(websocket: WebSocket):
-    from app.core.config import validate_session
+    from app.services.rbac_auth import decode_access_token
 
-    if not validate_session(websocket.cookies.get("session")):
+    token = websocket.cookies.get("session")
+    if not token or not token.startswith("ey") or not decode_access_token(token):
         await websocket.close(code=4401)
         return
 
@@ -1971,7 +1967,7 @@ async def stats_live_websocket(websocket: WebSocket):
 
 
 @router.get("/stats/busyness")
-async def get_busyness_level(_: bool = Depends(require_admin)):
+async def get_busyness_level(_: bool = Depends(permission_required("page.stats"))):
     from app.services.busyness import compute_busyness_level, LEVEL_LABELS
     from app.services.proxy_runtime.concurrency import _get_user_provider_model_limit
 
@@ -1983,7 +1979,7 @@ async def get_busyness_level(_: bool = Depends(require_admin)):
 
 
 @router.get("/stats/slow")
-async def get_slow_requests(_: bool = Depends(require_admin)):
+async def get_slow_requests(_: bool = Depends(permission_required("page.stats"))):
     slow_pending = []
     now = get_local_now()
     pending_cutoff = now - timedelta(seconds=60)

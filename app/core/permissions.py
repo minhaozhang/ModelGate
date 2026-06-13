@@ -1,7 +1,6 @@
 from fastapi import HTTPException, Request, status
 from typing import List, Optional
 
-from app.core.config import validate_session as _validate_config_session
 from app.services.rbac_auth import decode_access_token
 from app.services.rbac import has_permission, has_any_permission, get_user_by_id
 
@@ -24,21 +23,13 @@ async def _resolve_current_user(request: Request):
     if not token:
         return None
 
-    if _is_jwt_token(token):
-        payload = decode_access_token(token)
-        if not payload:
-            return None
-        user = await get_user_by_id(payload["user_id"])
-        return user
-    else:
-        if not _validate_config_session(token):
-            return None
-        return type("ConfigAdmin", (), {
-            "id": 0,
-            "username": "admin",
-            "is_superuser": True,
-            "is_active": True,
-        })()
+    if not _is_jwt_token(token):
+        return None
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+    user = await get_user_by_id(payload["user_id"])
+    return user
 
 
 async def require_login(request: Request):

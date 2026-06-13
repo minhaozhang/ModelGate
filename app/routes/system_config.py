@@ -1,27 +1,23 @@
+import os
+import time
 from datetime import date, datetime
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import select, func
 
 import app.core.config as config
 from app.core.config import (
-    validate_session,
     DEFAULT_OUTBOUND_USER_AGENT,
 )
 from app.core.database import async_session_maker, RequestLog
 from app.core.i18n import render
+from app.core.permissions import permission_required, login_required
 
 router = APIRouter(prefix="/admin", tags=["system-config"])
 
 
-def require_admin(session: str = Cookie(None)):
-    if not validate_session(session):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
-
-
 @router.get("/api/system/config")
-async def get_config(_: bool = Depends(require_admin)):
+async def get_config(_: bool = Depends(permission_required("page.system.config"))):
     from app.services.system_config import ALL_DEFAULTS, get_setting
 
     busyness_settings = {}
@@ -38,7 +34,7 @@ async def get_config(_: bool = Depends(require_admin)):
 
 
 @router.put("/api/system/config")
-async def update_config(body: dict, _: bool = Depends(require_admin)):
+async def update_config(body: dict, _: bool = Depends(permission_required("system_config.update"))):
     from app.services.system_config import ALL_DEFAULTS, save_setting
 
     ua = body.get("ua_override", "").strip()
@@ -59,7 +55,7 @@ async def update_config(body: dict, _: bool = Depends(require_admin)):
 
 
 @router.get("/api/system/ua-stats")
-async def get_ua_stats(limit: int = 10, _: bool = Depends(require_admin)):
+async def get_ua_stats(limit: int = 10, _: bool = Depends(permission_required("page.system.config"))):
     today_start = datetime.combine(date.today(), datetime.min.time())
     async with async_session_maker() as session:
         result = await session.execute(
@@ -92,20 +88,23 @@ async def get_notifications(
     page: int = 1,
     page_size: int = 20,
     unread: bool = False,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(login_required()),
 ):
     from app.services.notification import get_admin_notifications
     return await get_admin_notifications(page=page, page_size=page_size, unread_only=unread)
 
 
 @router.get("/api/notifications/unread-count")
-async def get_unread_count(_: bool = Depends(require_admin)):
+async def get_unread_count(_: bool = Depends(login_required())):
     from app.services.notification import get_admin_unread_count
     return {"count": await get_admin_unread_count()}
 
 
 @router.put("/api/notifications/{notification_id}/read")
-async def mark_notification_read(notification_id: int, _: bool = Depends(require_admin)):
+async def mark_notification_read(
+    notification_id: int,
+    _: bool = Depends(permission_required("notification.mark_read")),
+):
     from app.services.notification import mark_admin_read
     ok = await mark_admin_read(notification_id)
     if not ok:
@@ -114,28 +113,28 @@ async def mark_notification_read(notification_id: int, _: bool = Depends(require
 
 
 @router.put("/api/notifications/read-all")
-async def mark_all_notifications_read(_: bool = Depends(require_admin)):
+async def mark_all_notifications_read(_: bool = Depends(permission_required("notification.mark_read"))):
     from app.services.notification import mark_all_admin_read
     count = await mark_all_admin_read()
     return {"ok": True, "count": count}
 
 
 @router.get("/notifications")
-async def notifications_page(request: Request, _: bool = Depends(require_admin)):
+async def notifications_page(request: Request, _: bool = Depends(login_required())):
     return HTMLResponse(
         content=render(request, "admin/notifications.html", active_page="notifications")
     )
 
 
 @router.get("/scheduler-tasks")
-async def scheduler_tasks_page(request: Request, _: bool = Depends(require_admin)):
+async def scheduler_tasks_page(request: Request, _: bool = Depends(permission_required("page.system.scheduler"))):
     return HTMLResponse(
         content=render(request, "admin/scheduler_tasks.html", active_page="scheduler-tasks")
     )
 
 
 @router.get("/api/scheduler/tasks")
-async def get_scheduler_tasks(_: bool = Depends(require_admin)):
+async def get_scheduler_tasks(_: bool = Depends(permission_required("page.system.scheduler"))):
     from app.services.scheduler import scheduler, TASK_REGISTRY
     from app.core.database import SchedulerTask as ST
 
@@ -164,7 +163,7 @@ async def get_scheduler_tasks(_: bool = Depends(require_admin)):
 
 
 @router.post("/api/scheduler/tasks/{task_id}/trigger")
-async def trigger_scheduler_task(task_id: str, _: bool = Depends(require_admin)):
+async def trigger_scheduler_task(task_id: str, _: bool = Depends(permission_required("scheduler.trigger"))):
     from app.services.scheduler import TASK_HANDLERS
 
     handler = TASK_HANDLERS.get(task_id)
@@ -176,7 +175,11 @@ async def trigger_scheduler_task(task_id: str, _: bool = Depends(require_admin))
 
 
 @router.put("/api/scheduler/tasks/{task_id}")
-async def update_scheduler_task(task_id: str, body: dict, _: bool = Depends(require_admin)):
+async def update_scheduler_task(
+    task_id: str,
+    body: dict,
+    _: bool = Depends(permission_required("scheduler.update")),
+):
     from app.services.scheduler import scheduler, cron_to_trigger, TASK_HANDLERS
     from app.core.database import SchedulerTask as ST
 
@@ -216,7 +219,10 @@ async def update_scheduler_task(task_id: str, body: dict, _: bool = Depends(requ
 
 @router.get("/api/scheduler/tasks/{task_id}/logs")
 async def get_scheduler_task_logs(
-    task_id: str, _: bool = Depends(require_admin), page: int = 1, page_size: int = 20
+    task_id: str,
+    _: bool = Depends(permission_required("page.system.scheduler")),
+    page: int = 1,
+    page_size: int = 20,
 ):
     from app.core.database import SchedulerTaskLog as STL
 
@@ -257,7 +263,7 @@ async def get_scheduler_task_logs(
 
 @router.get("/api/scheduler/logs")
 async def get_all_scheduler_logs(
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("page.system.scheduler")),
     task_id: str | None = None,
     page: int = 1,
     page_size: int = 20,
@@ -315,7 +321,7 @@ from app.services.key_health import compute_health_score, get_health_level
 
 
 @router.get("/api/provider-models-status")
-async def provider_models_status(_: bool = Depends(require_admin)):
+async def provider_models_status(_: bool = Depends(permission_required("page.system.config"))):
     rows = []
     for provider_name, pcfg in providers_cache.items():
         provider_id = pcfg.get("id")
@@ -389,8 +395,98 @@ async def provider_models_status(_: bool = Depends(require_admin)):
     return {"rows": rows}
 
 
+@router.get("/api/system/info")
+async def get_system_info(_: bool = Depends(permission_required("page.stats"))):
+    import psutil
+
+    cpu_percent = psutil.cpu_percent(interval=0)
+    cpu_freq = psutil.cpu_freq()
+    load_avg = None
+    try:
+        load_avg = tuple(round(x, 2) for x in os.getloadavg())
+    except (AttributeError, OSError):
+        pass
+
+    mem = psutil.virtual_memory()
+    swap = psutil.swap_memory()
+    disk = psutil.disk_usage("/")
+    disk_io = psutil.disk_io_counters()
+
+    host_disk = None
+    if os.path.ismount("/host_root"):
+        try:
+            host_usage = psutil.disk_usage("/host_root")
+            host_disk = {
+                "total": host_usage.total,
+                "used": host_usage.used,
+                "free": host_usage.free,
+                "percent": host_usage.percent,
+            }
+        except Exception:
+            host_disk = None
+
+    process = psutil.Process(os.getpid())
+    process_mem = process.memory_info()
+    try:
+        fd_count = process.num_fds()
+    except AttributeError:
+        fd_count = None
+    try:
+        connection_count = len(process.net_connections())
+    except Exception:
+        connection_count = None
+
+    network = None
+    try:
+        net_io = psutil.net_io_counters()
+        network = {"bytes_sent": net_io.bytes_sent, "bytes_recv": net_io.bytes_recv}
+    except Exception:
+        pass
+
+    return {
+        "cpu": {
+            "percent": cpu_percent,
+            "count_logical": psutil.cpu_count(logical=True),
+            "count_physical": psutil.cpu_count(logical=False),
+            "freq_current": round(cpu_freq.current, 0) if cpu_freq else None,
+            "freq_max": round(cpu_freq.max, 0) if cpu_freq else None,
+            "load_avg_1m": load_avg[0] if load_avg else None,
+            "load_avg_5m": load_avg[1] if load_avg else None,
+            "load_avg_15m": load_avg[2] if load_avg else None,
+        },
+        "memory": {
+            "total": mem.total,
+            "used": mem.used,
+            "available": mem.available,
+            "percent": mem.percent,
+            "swap_total": swap.total,
+            "swap_used": swap.used,
+            "swap_percent": swap.percent,
+        },
+        "disk": {
+            "total": disk.total,
+            "used": disk.used,
+            "free": disk.free,
+            "percent": disk.percent,
+            "read_bytes": disk_io.read_bytes if disk_io else None,
+            "write_bytes": disk_io.write_bytes if disk_io else None,
+        },
+        "host_disk": host_disk,
+        "network": network,
+        "uptime": int(time.time() - psutil.boot_time()),
+        "process": {
+            "memory_rss": process_mem.rss,
+            "memory_vms": process_mem.vms,
+            "cpu_percent": process.cpu_percent(interval=0),
+            "threads": process.num_threads(),
+            "fds": fd_count,
+            "connections": connection_count,
+        },
+    }
+
+
 @router.get("/system-config", response_class=HTMLResponse)
-async def system_config_page(request: Request, _: bool = Depends(require_admin)):
+async def system_config_page(request: Request, _: bool = Depends(permission_required("page.system.config"))):
     return HTMLResponse(
         content=render(request, "admin/system_config.html", active_page="system-config")
     )

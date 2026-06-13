@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Cookie, HTTPException
+from fastapi import APIRouter, Depends, Cookie, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -6,17 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import async_session_maker, Provider, ProviderKey
+from app.core.permissions import permission_required, login_required
 from app.services.provider import load_providers
 from app.services.key_health import compute_health_score, get_health_level, get_events_5m
-from app.core.config import validate_session
 
 router = APIRouter(prefix="/admin/api", tags=["providers"])
-
-
-def require_admin(session: Optional[str] = Cookie(None)):
-    if not validate_session(session):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
 
 
 class ProviderCreate(BaseModel):
@@ -36,7 +30,7 @@ class ProviderUpdate(BaseModel):
 
 
 @router.get("/providers")
-async def list_providers(_: bool = Depends(require_admin)):
+async def list_providers(_: bool = Depends(permission_required("page.providers"))):
     async with async_session_maker() as session:
         result = await session.execute(select(Provider))
         providers = result.scalars().all()
@@ -57,7 +51,7 @@ async def list_providers(_: bool = Depends(require_admin)):
 
 
 @router.post("/providers")
-async def create_provider(data: ProviderCreate, _: bool = Depends(require_admin)):
+async def create_provider(data: ProviderCreate, _: bool = Depends(permission_required("provider.create"))):
     async with async_session_maker() as session:
         provider = Provider(
             name=data.name,
@@ -74,7 +68,7 @@ async def create_provider(data: ProviderCreate, _: bool = Depends(require_admin)
 
 @router.put("/providers/{provider_id}")
 async def update_provider(
-    provider_id: int, data: ProviderUpdate, _: bool = Depends(require_admin)
+    provider_id: int, data: ProviderUpdate, _: bool = Depends(permission_required("provider.update"))
 ):
     async with async_session_maker() as session:
         result = await session.execute(
@@ -103,7 +97,7 @@ async def update_provider(
 
 
 @router.delete("/providers/{provider_id}")
-async def delete_provider(provider_id: int, _: bool = Depends(require_admin)):
+async def delete_provider(provider_id: int, _: bool = Depends(permission_required("provider.delete"))):
     async with async_session_maker() as session:
         result = await session.execute(
             select(Provider).where(Provider.id == provider_id)
@@ -141,7 +135,7 @@ class ProviderKeyUpdate(BaseModel):
 
 
 @router.get("/providers/{provider_id}/keys")
-async def list_provider_keys(provider_id: int, _: bool = Depends(require_admin)):
+async def list_provider_keys(provider_id: int, _: bool = Depends(permission_required("page.providers"))):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ProviderKey)
@@ -168,7 +162,7 @@ async def list_provider_keys(provider_id: int, _: bool = Depends(require_admin))
 
 @router.post("/providers/{provider_id}/keys")
 async def create_provider_key(
-    provider_id: int, data: ProviderKeyCreate, _: bool = Depends(require_admin)
+    provider_id: int, data: ProviderKeyCreate, _: bool = Depends(permission_required("provider.add_key"))
 ):
     async with async_session_maker() as session:
         provider_result = await session.execute(
@@ -200,7 +194,7 @@ async def update_provider_key(
     provider_id: int,
     key_id: int,
     data: ProviderKeyUpdate,
-    _: bool = Depends(require_admin),
+    _: bool = Depends(permission_required("provider.update_key")),
 ):
     async with async_session_maker() as session:
         result = await session.execute(
@@ -241,7 +235,7 @@ async def update_provider_key(
 
 @router.delete("/providers/{provider_id}/keys/{key_id}")
 async def delete_provider_key(
-    provider_id: int, key_id: int, _: bool = Depends(require_admin)
+    provider_id: int, key_id: int, _: bool = Depends(permission_required("provider.delete_key"))
 ):
     async with async_session_maker() as session:
         result = await session.execute(
@@ -260,7 +254,7 @@ async def delete_provider_key(
 
 
 @router.get("/providers/{provider_id}/keys/health")
-async def get_provider_keys_health(provider_id: int, _: bool = Depends(require_admin)):
+async def get_provider_keys_health(provider_id: int, _: bool = Depends(permission_required("page.providers"))):
     async with async_session_maker() as session:
         result = await session.execute(
             select(ProviderKey)

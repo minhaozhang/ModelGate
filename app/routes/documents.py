@@ -1,9 +1,7 @@
-from typing import Optional
-
-from fastapi import APIRouter, Cookie, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.core.config import validate_session
+from app.core.permissions import permission_required, login_required
 from app.services import documents as doc_svc
 from app.services import document_files as file_svc
 from app.services import storage
@@ -11,22 +9,14 @@ from app.services import storage
 router = APIRouter(prefix="/admin/api/documents", tags=["documents"])
 
 
-def _check(session: Optional[str]) -> bool:
-    return validate_session(session)
-
-
 @router.get("")
-async def list_documents(request: Request, session: Optional[str] = Cookie(None)):
-    if not _check(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+async def list_documents(request: Request, _: bool = Depends(permission_required("page.documents"))):
     docs = await doc_svc.list_documents()
     return {"documents": docs}
 
 
 @router.get("/{doc_id}")
-async def get_document(doc_id: int, session: Optional[str] = Cookie(None)):
-    if not _check(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+async def get_document(doc_id: int, _: bool = Depends(permission_required("page.documents"))):
     doc = await doc_svc.get_document(doc_id)
     if not doc:
         return JSONResponse({"error": "Document not found"}, status_code=404)
@@ -40,10 +30,8 @@ async def create_document(
     content: str = Form(""),
     category: str = Form(""),
     is_published: bool = Form(False),
-    session: Optional[str] = Cookie(None),
+    _: bool = Depends(permission_required("document.create")),
 ):
-    if not _check(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
     doc = await doc_svc.create_document(
         title=title,
         content=content,
@@ -59,11 +47,8 @@ async def upload_document(
     file: UploadFile = File(...),
     category: str = Form(""),
     is_published: bool = Form(False),
-    session: Optional[str] = Cookie(None),
+    _: bool = Depends(permission_required("document.upload")),
 ):
-    if not _check(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
     if not file.filename or not file.filename.endswith(".md"):
         return JSONResponse({"error": "Only .md files are allowed"}, status_code=400)
 
@@ -86,11 +71,8 @@ async def upload_document(
 async def update_document(
     doc_id: int,
     request: Request,
-    session: Optional[str] = Cookie(None),
+    _: bool = Depends(permission_required("document.update")),
 ):
-    if not _check(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
     body = await request.json()
     result = await doc_svc.update_document(
         doc_id=doc_id,
@@ -105,9 +87,7 @@ async def update_document(
 
 
 @router.delete("/{doc_id}")
-async def delete_document(doc_id: int, session: Optional[str] = Cookie(None)):
-    if not _check(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+async def delete_document(doc_id: int, _: bool = Depends(permission_required("document.delete"))):
     await file_svc.delete_files_by_document(doc_id)
     ok = await doc_svc.delete_document(doc_id)
     if not ok:
@@ -120,11 +100,8 @@ async def upload_file(
     doc_id: int,
     request: Request,
     file: UploadFile = File(...),
-    session: Optional[str] = Cookie(None),
+    _: bool = Depends(permission_required("document.upload")),
 ):
-    if not _check(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
     doc = await doc_svc.get_document(doc_id)
     if not doc:
         return JSONResponse({"error": "Document not found"}, status_code=404)
@@ -149,17 +126,17 @@ async def upload_file(
 
 
 @router.get("/{doc_id}/files")
-async def list_files(doc_id: int, session: Optional[str] = Cookie(None)):
-    if not _check(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+async def list_files(doc_id: int, _: bool = Depends(permission_required("page.documents"))):
     files = await file_svc.list_files(doc_id)
     return {"files": files}
 
 
 @router.delete("/{doc_id}/files/{file_id}")
-async def delete_file(doc_id: int, file_id: int, session: Optional[str] = Cookie(None)):
-    if not _check(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+async def delete_file(
+    doc_id: int,
+    file_id: int,
+    _: bool = Depends(permission_required("document.delete_file")),
+):
     ok = await file_svc.delete_file(file_id)
     if not ok:
         return JSONResponse({"error": "File not found"}, status_code=404)

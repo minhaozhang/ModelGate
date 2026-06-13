@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
 
 from app.core.database import async_session_maker, McpServer, ApiKey, ApiKeyMcpServer
-from app.core.config import validate_session
+from app.core.permissions import permission_required
 from app.services.mcp_proxy import (
     sync_server_tools,
     get_cached_tools,
@@ -14,12 +14,6 @@ from app.services.mcp_proxy import (
 from app.routes.mcp_proxy import register_all_proxy_tools
 
 router = APIRouter(prefix="/admin/api", tags=["mcp-servers"])
-
-
-def require_admin(session: Optional[str] = Cookie(None)):
-    if not validate_session(session):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
 
 
 class McpServerCreate(BaseModel):
@@ -43,7 +37,7 @@ class McpServerUpdate(BaseModel):
 
 
 @router.get("/mcp-servers")
-async def list_mcp_servers(_: bool = Depends(require_admin)):
+async def list_mcp_servers(_: bool = Depends(permission_required("page.mcp_servers"))):
     async with async_session_maker() as session:
         result = await session.execute(select(McpServer))
         servers = result.scalars().all()
@@ -81,7 +75,7 @@ async def list_mcp_servers(_: bool = Depends(require_admin)):
 
 
 @router.post("/mcp-servers")
-async def create_mcp_server(data: McpServerCreate, _: bool = Depends(require_admin)):
+async def create_mcp_server(data: McpServerCreate, _: bool = Depends(permission_required("mcp_server.create"))):
     async with async_session_maker() as session:
         server = McpServer(
             name=data.name,
@@ -108,7 +102,7 @@ async def create_mcp_server(data: McpServerCreate, _: bool = Depends(require_adm
 
 @router.put("/mcp-servers/{server_id}")
 async def update_mcp_server(
-    server_id: int, data: McpServerUpdate, _: bool = Depends(require_admin)
+    server_id: int, data: McpServerUpdate, _: bool = Depends(permission_required("mcp_server.update"))
 ):
     async with async_session_maker() as session:
         result = await session.execute(
@@ -156,7 +150,7 @@ async def update_mcp_server(
 
 
 @router.delete("/mcp-servers/{server_id}")
-async def delete_mcp_server(server_id: int, _: bool = Depends(require_admin)):
+async def delete_mcp_server(server_id: int, _: bool = Depends(permission_required("mcp_server.delete"))):
     async with async_session_maker() as session:
         result = await session.execute(
             select(McpServer).where(McpServer.id == server_id)
@@ -173,7 +167,7 @@ async def delete_mcp_server(server_id: int, _: bool = Depends(require_admin)):
 
 
 @router.post("/mcp-servers/{server_id}/sync")
-async def sync_mcp_server_tools(server_id: int, _: bool = Depends(require_admin)):
+async def sync_mcp_server_tools(server_id: int, _: bool = Depends(permission_required("mcp_server.sync"))):
     async with async_session_maker() as session:
         result = await session.execute(
             select(McpServer).where(McpServer.id == server_id)
@@ -194,6 +188,6 @@ async def sync_mcp_server_tools(server_id: int, _: bool = Depends(require_admin)
 
 
 @router.get("/mcp-servers/{server_id}/tools")
-async def get_mcp_server_tools(server_id: int, _: bool = Depends(require_admin)):
+async def get_mcp_server_tools(server_id: int, _: bool = Depends(permission_required("page.mcp_servers"))):
     tools = get_cached_tools(server_id)
     return {"tools": tools}

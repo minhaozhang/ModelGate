@@ -71,22 +71,6 @@ MINIO_BUCKET = os.getenv("MINIO_BUCKET", "modelgate")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() in ("true", "1", "yes")
 
 
-def parse_admin_users() -> dict[str, str]:
-    users_env = os.getenv("ADMIN_USERS", "")
-    if users_env:
-        users = {}
-        for pair in users_env.split(","):
-            if ":" in pair:
-                username, password = pair.strip().split(":", 1)
-                users[username] = password
-        return users
-    return {
-        os.getenv("ADMIN_USERNAME", "admin"): os.getenv("ADMIN_PASSWORD", "admin123")
-    }
-
-
-admin_users: dict[str, str] = parse_admin_users()
-
 login_attempts: dict[str, int] = {}
 login_lockout: dict[str, datetime] = {}
 LOGIN_MAX_ATTEMPTS = 3
@@ -96,7 +80,6 @@ providers_cache: dict[str, dict] = {}
 providers_cache_time: Optional[datetime] = None
 PROVIDERS_CACHE_TTL_MINUTES = 10
 api_keys_cache: dict[str, dict] = {}
-sessions: dict[str, datetime] = {}
 provider_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 provider_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 user_api_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
@@ -142,41 +125,22 @@ live_stats_subscribers: set[Any] = set()
 live_stats_subscribers_lock = asyncio.Lock()
 
 
-def create_session() -> str:
-    import secrets
-
-    token = secrets.token_urlsafe(32)
-    sessions[token] = datetime.now() + timedelta(hours=24)
-    return token
-
-
 def validate_session(token: Optional[str]) -> bool:
     if not token:
         return False
-    if token.startswith("ey"):
-        try:
-            import jwt as pyjwt
-            payload = pyjwt.decode(
-                token,
-                os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production"),
-                algorithms=["HS256"],
-            )
-            return bool(payload.get("user_id"))
-        except Exception:
-            return False
-    expiry = sessions.get(token)
-    if not expiry:
+    if not token.startswith("ey"):
         return False
-    if datetime.now() > expiry:
-        del sessions[token]
+    try:
+        import jwt as pyjwt
+
+        payload = pyjwt.decode(
+            token,
+            os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production"),
+            algorithms=["HS256"],
+        )
+        return bool(payload.get("user_id"))
+    except Exception:
         return False
-    return True
-
-
-def clear_session(token: str):
-    sessions.pop(token, None)
-
-
 def update_stats(
     provider: str,
     model: str,
