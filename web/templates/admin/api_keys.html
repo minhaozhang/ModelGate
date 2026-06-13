@@ -201,6 +201,8 @@
         userPage: "{{ _('User Page:') }}",
         setupDoc: "{{ _('Setup Doc:') }}",
         copySetup: "{{ _('Copy Setup') }}",
+        copyManually: "{{ '浏览器拒绝自动复制，请按 Ctrl+C 手动复制。' if current_locale == 'zh' else 'Browser blocked automatic copy. Press Ctrl+C to copy manually.' }}",
+        close: "{{ _('Close') }}",
         bypassBusyness: "{{ _('Bypass Busyness') }}",
         loginLabel: "{{ _('Login') }}",
         lastUsed: "{{ _('Last Used') }}",
@@ -652,6 +654,14 @@
             if (Number.isNaN(date.getTime())) return value;
             return date.toLocaleString();
         }
+
+        function escapeAttr(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
         
         function renderApiKeys() {
             const baseUrl = window.location.origin;
@@ -682,6 +692,12 @@
                 const timeRulesDisplay = renderTimeRulesBadges(k.time_rules || []);
                 const userPageUrl = `${baseUrl}${APP_BASE_PATH}/user/login`;
                 const setupMdUrl = `${baseUrl}${APP_BASE_PATH}/opencode/setup.md?api_key=${k.key}`;
+                const setupPayload = {
+                    key: k.key,
+                    userPageUrl,
+                    setupMdUrl,
+                    modelNames,
+                };
                 return `
                 <div class="p-4">
                     <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -689,7 +705,7 @@
                             <div class="font-medium">${k.name}</div>
                             <div class="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-2">
                                 <code class="bg-gray-100 px-2 py-0.5 rounded text-xs break-all">${maskedKey}</code>
-                                <button onclick="copyKey('${k.key}')" class="text-blue-500 hover:text-blue-700 text-xs">${window.I18N.copy}</button>
+                                <button type="button" data-copy-key="${escapeAttr(k.key)}" class="copy-key-btn text-blue-500 hover:text-blue-700 text-xs">${window.I18N.copy}</button>
                             </div>
                             <div class="mt-2 text-xs text-gray-500">${window.I18N.lastUsed}: ${formatLastUsed(k.last_used_at)}</div>
                             ${modelsDisplay}
@@ -720,12 +736,7 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-gray-500">${window.I18N.setupDoc}</span>
-                            <button onclick='copyKeyWithInstructions(${JSON.stringify({
-                                key: k.key,
-                                userPageUrl,
-                                setupMdUrl,
-                                modelNames
-                            })})' class="text-orange-500 hover:text-orange-700">${window.I18N.copySetup}</button>
+                            <button type="button" data-copy-setup="${escapeAttr(JSON.stringify(setupPayload))}" class="copy-setup-btn text-orange-500 hover:text-orange-700">${window.I18N.copySetup}</button>
                         </div>
                     </div>
                 </div>
@@ -786,8 +797,73 @@
             window.scrollTo({top: 0, behavior: 'smooth'});
         }
         
+        async function copyText(text, successMessage) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    showToast(successMessage, 'info');
+                    return;
+                }
+            } catch (err) {
+            }
+
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '0';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            try {
+                const ok = document.execCommand('copy');
+                if (!ok) throw new Error('copy command failed');
+                showToast(successMessage, 'info');
+            } catch (err) {
+                showManualCopy(text);
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        function showManualCopy(text) {
+            let modal = document.getElementById('manual-copy-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'manual-copy-modal';
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="font-semibold">${window.I18N.copy}</div>
+                            <button type="button" class="manual-copy-close text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3">${window.I18N.copyManually}</p>
+                        <textarea id="manual-copy-text" class="w-full h-36 border rounded px-3 py-2 text-sm font-mono"></textarea>
+                        <div class="flex justify-end mt-3">
+                            <button type="button" class="manual-copy-close px-4 py-2 border rounded hover:bg-gray-50">${window.I18N.close}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modal.addEventListener('click', (e) => {
+                    if (e.target.id === 'manual-copy-modal' || e.target.closest('.manual-copy-close')) {
+                        modal.classList.add('hidden');
+                        modal.classList.remove('flex');
+                    }
+                });
+            }
+            const textarea = modal.querySelector('#manual-copy-text');
+            textarea.value = text;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            textarea.focus();
+            textarea.select();
+        }
+
         function copyExample(cmd) {
-            navigator.clipboard.writeText(cmd).then(() => showToast(window.I18N.copied, 'info'));
+            copyText(cmd, window.I18N.copied);
         }
         
         function renderModelCheckboxes() {
@@ -883,7 +959,7 @@
         }
         
         function copyKey(key) {
-            navigator.clipboard.writeText(key).then(() => showToast(window.I18N.copied, 'info'));
+            copyText(key, window.I18N.copied);
         }
         
         function copyKeyWithInstructions(payload) {
@@ -912,7 +988,7 @@ https://opencode.ai/
 ${window.I18N.opencodeSendHint}
 ${window.I18N.followThisDoc}
 ${setupMdUrl}`;
-            navigator.clipboard.writeText(text).then(() => showToast(window.I18N.apiKeyAndUsageCopied, 'info'));
+            copyText(text, window.I18N.apiKeyAndUsageCopied);
         }
         
         function renderTags() {
@@ -1024,6 +1100,22 @@ ${setupMdUrl}`;
         
         document.getElementById('apikey-modal').addEventListener('click', (e) => {
             if (e.target.id === 'apikey-modal') closeApiKeyModal();
+        });
+
+        document.getElementById('apikeys-list').addEventListener('click', (e) => {
+            const copyKeyButton = e.target.closest('.copy-key-btn');
+            if (copyKeyButton) {
+                copyKey(copyKeyButton.dataset.copyKey || '');
+                return;
+            }
+            const copySetupButton = e.target.closest('.copy-setup-btn');
+            if (copySetupButton) {
+                try {
+                    copyKeyWithInstructions(JSON.parse(copySetupButton.dataset.copySetup || '{}'));
+                } catch (err) {
+                    showToast('Copy failed', 'error');
+                }
+            }
         });
         
         Promise.all([loadProviderModels(), loadStandardModels()]).then(() => { loadMcpServers(); loadApiKeys(); });
