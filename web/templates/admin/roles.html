@@ -1,0 +1,185 @@
+{% set active_page = 'roles' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ '角色管理' if current_locale == 'zh' else 'Roles' }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <style>
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav, body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border, body.theme-dark .border-b { border-color: #1f2937 !important; }
+        body.theme-dark input, body.theme-dark select, body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow { box-shadow: 0 12px 30px rgba(2,6,23,0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96,165,250,0.15); color: #60a5fa !important; border-right: 3px solid #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148,163,184,0.12); }
+        body.theme-dark tr:hover { background: #1e293b !important; }
+        body.theme-blackgold tr:hover { background: #222 !important; }
+        body.theme-blackgold { background: #0a0a0a !important; color: #e5c07b; }
+        body.theme-blackgold nav, body.theme-blackgold .bg-white { background: #1a1a1a !important; }
+        body.theme-blackgold .bg-gray-50 { background: #111111 !important; }
+        body.theme-blackgold .text-gray-800 { color: #e5c07b !important; }
+        body.theme-blackgold .text-gray-700 { color: #d4a84a !important; }
+        body.theme-blackgold .text-gray-600 { color: #b8963e !important; }
+        body.theme-blackgold .border, body.theme-blackgold .border-b { border-color: #333 !important; }
+        body.theme-blackgold input, body.theme-blackgold select { background: #1a1a1a !important; color: #e5c07b !important; border-color: #444 !important; }
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59,130,246,0.1); }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50; display: flex; align-items: center; justify-content: center; }
+        .modal-box { background: white; border-radius: 0.5rem; padding: 1.5rem; width: 640px; max-width: 90vw; max-height: 90vh; overflow-y: auto; }
+        body.theme-dark .modal-box { background: #1e293b; }
+        body.theme-blackgold .modal-box { background: #1a1a1a; }
+        .perm-group { margin-bottom: 1rem; }
+        .perm-group-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem; color: #475569; }
+        body.theme-dark .perm-group-title { color: #94a3b8; }
+        .perm-item { display: inline-flex; align-items: center; gap: 0.25rem; margin-right: 0.75rem; font-size: 0.8rem; }
+    </style>
+</head>
+<body class="theme-dark bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header('角色管理' if current_locale == 'zh' else 'Roles') %}{% endcall %}
+
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">ID</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '角色名' if current_locale == 'zh' else 'Role Name' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '显示名' if current_locale == 'zh' else 'Display Name' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '描述' if current_locale == 'zh' else 'Description' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '权限数' if current_locale == 'zh' else 'Permissions' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '操作' if current_locale == 'zh' else 'Actions' }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="roles-body">
+                            <tr><td colspan="6" class="text-center py-12 text-gray-400">{{ '加载中...' if current_locale == 'zh' else 'Loading...' }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-perm" class="modal-overlay" style="display:none">
+        <div class="modal-box">
+            <h3 class="text-lg font-bold mb-4" id="perm-title">{{ '分配权限' if current_locale == 'zh' else 'Assign Permissions' }}</h3>
+            <input type="hidden" id="perm-role-id" value="">
+            <div id="perm-list"></div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="submitPermissions()" class="bg-blue-500 text-white px-6 py-2 rounded text-sm hover:bg-blue-600">{{ '保存' if current_locale == 'zh' else 'Save' }}</button>
+                <button onclick="document.getElementById('modal-perm').style.display='none'" class="border px-6 py-2 rounded text-sm hover:bg-gray-50">{{ '取消' if current_locale == 'zh' else 'Cancel' }}</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const B = "{{ app_base_path }}";
+        let allPermissions = [];
+
+        async function loadRoles() {
+            try {
+                const r = await fetch(`${B}/admin/api/rbac/roles?page_size=100`);
+                const d = await r.json();
+                if (!d.success) return;
+                const items = d.data.items;
+                const tbody = document.getElementById('roles-body');
+                if (items.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-gray-400">{{ '暂无数据' if current_locale == 'zh' else 'No data' }}</td></tr>`;
+                } else {
+                    tbody.innerHTML = items.map(role => `
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-2.5">${role.id}</td>
+                            <td class="px-4 py-2.5 font-medium">${esc(role.name)}</td>
+                            <td class="px-4 py-2.5">${esc(role.display_name || '-')}</td>
+                            <td class="px-4 py-2.5 text-gray-600 text-xs">${esc(role.description || '-')}</td>
+                            <td class="px-4 py-2.5">${role.permission_count}</td>
+                            <td class="px-4 py-2.5">
+                                <button onclick="showPermModal(${role.id},'${esc(role.display_name||role.name)}')" class="text-blue-500 hover:underline text-xs">{{ '分配权限' if current_locale == 'zh' else 'Permissions' }}</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch(e) {
+                document.getElementById('roles-body').innerHTML = `<tr><td colspan="6" class="text-center py-12 text-red-400">{{ '加载失败' if current_locale == 'zh' else 'Load failed' }}</td></tr>`;
+            }
+        }
+
+        async function loadAllPermissions() {
+            try {
+                const r = await fetch(`${B}/admin/api/rbac/permissions`);
+                const d = await r.json();
+                if (d.success) allPermissions = d.data || [];
+            } catch(e) {}
+        }
+
+        async function showPermModal(roleId, roleName) {
+            document.getElementById('perm-role-id').value = roleId;
+            document.getElementById('perm-title').textContent = `{{ "分配权限 -" if current_locale == "zh" else "Permissions -" }} ${roleName}`;
+
+            let currentPermIds = [];
+            try {
+                const r = await fetch(`${B}/admin/api/rbac/roles/${roleId}/permissions`);
+                const d = await r.json();
+                if (d.success) {
+                    const data = d.data || {};
+                    currentPermIds = [...(data.menus||[]), ...(data.pages||[]), ...(data.elements||[])].map(p => p.id);
+                }
+            } catch(e) {}
+
+            const grouped = {};
+            allPermissions.forEach(p => {
+                const type = p.type || 'other';
+                if (!grouped[type]) grouped[type] = [];
+                grouped[type].push(p);
+            });
+
+            const typeLabels = {menu: '{{ "菜单权限" if current_locale == "zh" else "Menu" }}', page: '{{ "页面权限" if current_locale == "zh" else "Page" }}', element: '{{ "元素权限" if current_locale == "zh" else "Element" }}'};
+            const box = document.getElementById('perm-list');
+            box.innerHTML = Object.entries(grouped).map(([type, perms]) => `
+                <div class="perm-group">
+                    <div class="perm-group-title">${typeLabels[type]||type} (${perms.length})</div>
+                    ${perms.map(p => `<label class="perm-item"><input type="checkbox" value="${p.id}" class="perm-cb" ${currentPermIds.includes(p.id)?'checked':''}> ${esc(p.name||p.code)}</label>`).join('')}
+                </div>
+            `).join('');
+
+            document.getElementById('modal-perm').style.display = 'flex';
+        }
+
+        async function submitPermissions() {
+            const roleId = document.getElementById('perm-role-id').value;
+            const permIds = [...document.querySelectorAll('.perm-cb:checked')].map(cb => parseInt(cb.value));
+            try {
+                const r = await fetch(`${B}/admin/api/rbac/roles/${roleId}/assign-permissions`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({permission_ids: permIds})
+                });
+                const d = await r.json();
+                if (d.success) { document.getElementById('modal-perm').style.display = 'none'; loadRoles(); }
+                else alert(d.detail || d.error || '{{ "保存失败" if current_locale == "zh" else "Failed" }}');
+            } catch(e) { alert(e.message); }
+        }
+
+        function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+        async function logout() { await fetch(`${B}/admin/api/auth/logout`,{method:'POST'}); window.location.href=`${B}/admin/login`; }
+        function getThemeMode(){return localStorage.getItem('admin_theme')||'dark';}
+        function applyTheme(m){document.body.classList.toggle('theme-dark',m==='dark');document.body.classList.toggle('theme-blackgold',m==='blackgold');localStorage.setItem('admin_theme',m);}
+        applyTheme(getThemeMode());
+
+        loadAllPermissions().then(()=>loadRoles());
+    </script>
+</body>
+</html>

@@ -118,3 +118,17 @@ async def request_logs_page(request: Request, session: Optional[str] = Cookie(No
     if not _check_auth(session):
         return RedirectResponse(url=build_app_url(request, "/admin/login"))
     return HTMLResponse(content=render(request, "admin/request_logs.html"))
+
+
+@router.get("/users", response_class=HTMLResponse)
+async def users_page(request: Request, session: Optional[str] = Cookie(None)):
+    if not _check_auth(session):
+        return RedirectResponse(url=build_app_url(request, "/admin/login"))
+    return HTMLResponse(content=render(request, "admin/users.html"))
+
+
+@router.get("/roles", response_class=HTMLResponse)
+async def roles_page(request: Request, session: Optional[str] = Cookie(None)):
+    if not _check_auth(session):
+        return RedirectResponse(url=build_app_url(request, "/admin/login"))
+    return HTMLResponse(content=render(request, "admin/roles.html"))

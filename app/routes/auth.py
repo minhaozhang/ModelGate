@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Response, Cookie, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from sqlalchemy import update as sql_update
 
 from app.core.client_ip import get_client_ip
 from app.core.config import (
@@ -62,12 +63,20 @@ async def _try_rbac_login(username: str, password: str):
     try:
         from app.services.rbac import get_user_by_username
         from app.services.rbac_auth import verify_password, create_access_token
+        from app.core.database import User, async_session_maker
         user = await get_user_by_username(username)
         if not user:
             return None
         if not verify_password(password, user.password_hash):
             return None
         token = create_access_token(user.id, user.username)
+        async with async_session_maker() as session:
+            await session.execute(
+                sql_update(User)
+                .where(User.id == user.id)
+                .values(last_login=datetime.now())
+            )
+            await session.commit()
         return token
     except Exception:
         return None
@@ -113,6 +122,7 @@ async def login(data: LoginRequest, response: Response, request: Request):
             httponly=True,
             max_age=86400,
             samesite="lax",
+            path="/",
         )
         return {"success": True}
 
@@ -145,10 +155,74 @@ async def logout(response: Response, request: Request, session: Optional[str] = 
         except Exception:
             pass
         clear_session(session)
-    response.delete_cookie("session")
+    response.delete_cookie("session", path="/")
     return {"success": True}
+
+
+@router.post("/change-password")
+async def change_password(
+    request: Request,
+    session: Optional[str] = Cookie(None),
+):
+    if not session:
+        return JSONResponse({"error": "未登录"}, status_code=401)
+    if not session.startswith("ey"):
+        return JSONResponse({"error": "当前会话不支持修改密码"}, status_code=401)
+
+    body = await request.json()
+    old_password = body.get("old_password", "")
+    new_password = body.get("new_password", "")
+    if not old_password or not new_password:
+        return JSONResponse({"error": "旧密码和新密码不能为空"}, status_code=400)
+    if len(new_password) < 6:
+        return JSONResponse({"error": "新密码长度不能少于6位"}, status_code=400)
+
+    try:
+        from app.services.rbac import get_user_by_id
+        from app.services.rbac_auth import (
+            decode_access_token,
+            hash_password,
+            verify_password,
+        )
+        from app.core.database import User, async_session_maker
+
+        payload = decode_access_token(session)
+        if not payload:
+            return JSONResponse({"error": "登录已过期"}, status_code=401)
+        user = await get_user_by_id(payload["user_id"])
+        if not user:
+            return JSONResponse({"error": "用户不存在"}, status_code=404)
+        if not verify_password(old_password, user.password_hash):
+            return JSONResponse({"error": "旧密码错误"}, status_code=400)
+
+        async with async_session_maker() as db:
+            await db.execute(
+                sql_update(User)
+                .where(User.id == user.id)
+                .values(password_hash=hash_password(new_password))
+            )
+            await db.commit()
+        return {"success": True, "message": "密码修改成功"}
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
 
 
 @router.get("/check")
 async def check_auth(session: Optional[str] = Cookie(None)):
-    return {"authenticated": validate_session(session)}
+    if not session or not validate_session(session):
+        return {"authenticated": False}
+    username = None
+    if session.startswith("ey"):
+        try:
+            from app.services.rbac_auth import decode_access_token
+
+            payload = decode_access_token(session)
+            if payload:
+                username = payload.get("username")
+        except Exception:
+            pass
+    else:
+        for uname in admin_users:
+            username = uname
+            break
+    return {"authenticated": True, "username": username}
