@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Provider Key Routing Config Prototype</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #fbfcfd;
+      --panel: #ffffff;
+      --line: #d9dee6;
+      --line-strong: #b9c2cf;
+      --text: #202733;
+      --muted: #657181;
+      --soft: #eef2f7;
+      --blue: #2563eb;
+      --green: #15803d;
+      --amber: #b45309;
+      --red: #b91c1c;
+      --violet: #6d28d9;
+      --cyan: #0e7490;
+      --shadow: 0 18px 45px rgba(26, 35, 50, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 228px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: #1f2937;
+      color: #e7edf5;
+      padding: 18px 14px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 16px;
+      margin-bottom: 22px;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: #4f7cff;
+      display: grid;
+      place-items: center;
+      color: #f8fbff;
+      font-weight: 800;
+    }
+
+    .nav-item {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 10px;
+      border-radius: 7px;
+      color: #b9c4d1;
+      margin-bottom: 4px;
+    }
+
+    .nav-item.active {
+      background: rgba(255,255,255,0.10);
+      color: #ffffff;
+    }
+
+    .main {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: 56px minmax(0, 1fr);
+    }
+
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 22px;
+    }
+
+    .crumb {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .content {
+      padding: 22px;
+      overflow: auto;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 14px;
+    }
+
+    .section-head h1 {
+      margin: 0 0 4px;
+      font-size: 22px;
+      line-height: 1.25;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 72ch;
+    }
+
+    .btn {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .btn.primary {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #f8fbff;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(520px, 1fr) 420px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 1px 1px rgba(30, 41, 59, 0.04);
+      min-width: 0;
+    }
+
+    .panel-head {
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-title {
+      font-weight: 700;
+    }
+
+    .panel-subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .provider-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #f9fafc;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 10px;
+      background: var(--panel);
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metric-value {
+      margin-top: 4px;
+      font-weight: 700;
+    }
+
+    .key-list {
+      display: grid;
+    }
+
+    .key-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .key-row:last-child {
+      border-bottom: none;
+    }
+
+    .key-row.selected {
+      background: #f3f7ff;
+      outline: 2px solid rgba(37, 99, 235, 0.18);
+      outline-offset: -2px;
+    }
+
+    .key-main {
+      min-width: 0;
+    }
+
+    .key-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .key-name {
+      font-weight: 700;
+    }
+
+    .mono {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      color: #475569;
+      font-size: 12px;
+    }
+
+    .chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 9px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      border-radius: 999px;
+      padding: 0 8px;
+      background: var(--soft);
+      color: #425066;
+      font-size: 12px;
+      border: 1px solid transparent;
+    }
+
+    .chip.green {
+      background: #e9f7ee;
+      color: var(--green);
+    }
+
+    .chip.amber {
+      background: #fff4df;
+      color: var(--amber);
+    }
+
+    .chip.blue {
+      background: #eaf1ff;
+      color: var(--blue);
+    }
+
+    .chip.violet {
+      background: #f0eaff;
+      color: var(--violet);
+    }
+
+    .chip.cyan {
+      background: #e6f6fa;
+      color: var(--cyan);
+    }
+
+    .row-stats {
+      display: flex;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 9px;
+      flex-wrap: wrap;
+    }
+
+    .key-actions {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 7px;
+      color: #4b5563;
+    }
+
+    .drawer {
+      position: sticky;
+      top: 0;
+      max-height: calc(100vh - 100px);
+      overflow: auto;
+    }
+
+    .drawer-body {
+      padding: 14px 16px 16px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .template-library {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f9fafc;
+      padding: 10px;
+    }
+
+    .library-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 10px;
+    }
+
+    .library-title {
+      font-weight: 700;
+    }
+
+    .library-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      margin-bottom: 8px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+
+    select, input[type="text"], input[type="number"], input[type="time"] {
+      width: 100%;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 9px;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .template-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .template {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--surface);
+      text-align: left;
+    }
+
+    .template.active {
+      border-color: rgba(37, 99, 235, 0.65);
+      background: #f2f6ff;
+    }
+
+    .template-name {
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .template-desc {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .checks {
+      display: grid;
+      gap: 8px;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #364152;
+    }
+
+    .preview-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .route-preview {
+      display: grid;
+      gap: 8px;
+    }
+
+    .route-item {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--surface);
+    }
+
+    .rank {
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      display: grid;
+      place-items: center;
+      background: #e8edf5;
+      color: #334155;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .route-item.off {
+      opacity: 0.72;
+      background: #fbfbfc;
+    }
+
+    .route-title {
+      font-weight: 700;
+    }
+
+    .route-reason {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+      line-height: 1.45;
+    }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--surface);
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    pre {
+      margin: 10px 0 0;
+      overflow: auto;
+      background: #202733;
+      color: #edf2f7;
+      padding: 10px;
+      border-radius: 7px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1120px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .drawer {
+        position: static;
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .provider-summary,
+      .field-grid,
+      .preview-controls {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        padding: 0 14px;
+      }
+
+      .content {
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">M</div>
+        <div>ModelGate</div>
+      </div>
+      <div class="nav-item">Home</div>
+      <div class="nav-item active">System Config</div>
+      <div class="nav-item">Models</div>
+      <div class="nav-item">API Keys</div>
+      <div class="nav-item">Request Logs</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="crumb">Admin / Config / Provider Keys</div>
+        </div>
+        <button class="btn">Light Mode</button>
+      </header>
+
+      <section class="content">
+        <div class="section-head">
+          <div>
+            <h1>Provider Keys Strategy Prototype</h1>
+            <p>策略配置放在 Key 抽屉里，列表只保留运维摘要。管理员先选模板，再微调开放条件和限制。</p>
+          </div>
+          <button class="btn primary">Add Key</button>
+        </div>
+
+        <div class="grid">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">jintou / zhipu / metered supplier</div>
+                <div class="panel-subtitle">Bound model: glm-5.1, upstream model: local_model / glm-5</div>
+              </div>
+              <button class="btn">Refresh Health</button>
+            </div>
+
+            <div class="provider-summary">
+              <div class="metric">
+                <div class="metric-label">Selected model</div>
+                <div class="metric-value">glm-5.1</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">Current time</div>
+                <div class="metric-value" id="summary-time">14:30</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">Context tokens</div>
+                <div class="metric-value" id="summary-context">6,000</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">Routing mode</div>
+                <div class="metric-value">Auto</div>
+              </div>
+            </div>
+
+            <div class="key-list">
+              <article class="key-row">
+                <div class="key-main">
+                  <div class="key-line">
+                    <span class="key-name">Zhipu package key</span>
+                    <span class="mono">sk-zhipu...8fa2</span>
+                    <span class="chip green">Active</span>
+                    <span class="chip blue">套餐主力</span>
+                  </div>
+                  <div class="chips">
+                    <span class="chip">Priority 100</span>
+                    <span class="chip">Concurrency 3 / 5</span>
+                    <span class="chip green">HP 100</span>
+                    <span class="chip amber">13:00-18:00 高倍率</span>
+                  </div>
+                  <div class="row-stats">默认主路由。下午高倍率窗口降低大上下文优先级。</div>
+                </div>
+                <div class="key-actions">
+                  <button class="icon-btn" title="Edit strategy" onclick="selectKey('zhipu')">⚙</button>
+                </div>
+              </article>
+
+              <article class="key-row selected">
+                <div class="key-main">
+                  <div class="key-line">
+                    <span class="key-name">Jintou local key</span>
+                    <span class="mono">sk-jintou...173b</span>
+                    <span class="chip green">Active</span>
+                    <span class="chip cyan">小上下文分流</span>
+                  </div>
+                  <div class="chips">
+                    <span class="chip">Priority 80</span>
+                    <span class="chip">Concurrency 0 / 3</span>
+                    <span class="chip green">HP 100</span>
+                    <span class="chip blue">Context ≤ 8k</span>
+                  </div>
+                  <div class="row-stats">上午小请求优先；主供应商并发满时可兜底。</div>
+                </div>
+                <div class="key-actions">
+                  <button class="icon-btn" title="Edit strategy" onclick="selectKey('jintou')">⚙</button>
+                </div>
+              </article>
+
+              <article class="key-row">
+                <div class="key-main">
+                  <div class="key-line">
+                    <span class="key-name">Metered overflow key</span>
+                    <span class="mono">sk-meter...49bc</span>
+                    <span class="chip amber">Standby</span>
+                    <span class="chip violet">按量备用</span>
+                  </div>
+                  <div class="chips">
+                    <span class="chip">Priority 60</span>
+                    <span class="chip">Concurrency 0 / 2</span>
+                    <span class="chip green">HP 100</span>
+                    <span class="chip amber">13:00-18:00 开放</span>
+                  </div>
+                  <div class="row-stats">平常不参与。套餐 Key 停用、并发耗尽或高倍率窗口时开放。</div>
+                </div>
+                <div class="key-actions">
+                  <button class="icon-btn" title="Edit strategy" onclick="selectKey('metered')">⚙</button>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <aside class="panel drawer">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title" id="drawer-title">Jintou local key</div>
+                <div class="panel-subtitle">Apply a strategy template, then adjust its parameters</div>
+              </div>
+              <button class="btn primary">Save</button>
+            </div>
+
+            <div class="drawer-body">
+              <div class="template-library">
+                <div class="library-head">
+                  <div class="library-title">策略模板库</div>
+                  <button class="btn">Manage Templates</button>
+                </div>
+                <div class="library-note">模板先在库里定义，Key 页面只选择模板并填写参数。内置模板覆盖常见场景，自定义模板用于沉淀运营规则。</div>
+                <div class="template-list">
+                  <button class="template" data-template="always" onclick="setTemplate('always')">
+                    <div class="template-name">始终可用 <span class="chip blue">内置</span></div>
+                    <div class="template-desc">Key 总是进入候选，按 priority 和 health 排序。</div>
+                  </button>
+                  <button class="template active" data-template="small" onclick="setTemplate('small')">
+                    <div class="template-name">小上下文优先 <span class="chip blue">内置</span></div>
+                    <div class="template-desc">只暴露时间段、上下文上限、命中优先级三个参数。</div>
+                  </button>
+                  <button class="template" data-template="standby" onclick="setTemplate('standby')">
+                    <div class="template-name">按量计费 standby <span class="chip violet">自定义</span></div>
+                    <div class="template-desc">默认关闭，主套餐 Key 不可用或高峰窗口再开放。</div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="field-grid">
+                <div>
+                  <label>成本角色</label>
+                  <select id="cost-role">
+                    <option>套餐主力</option>
+                    <option selected>小上下文分流</option>
+                    <option>按量备用</option>
+                  </select>
+                </div>
+                <div>
+                  <label>已应用模板</label>
+                  <select id="strategy-template" onchange="setTemplate(this.value)">
+                    <option value="always">始终可用</option>
+                    <option value="small" selected>小上下文优先</option>
+                    <option value="peak">高峰期分流</option>
+                    <option value="standby">按量计费 standby</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label>模板参数</label>
+                <div class="field-grid">
+                <div>
+                  <label>开放开始</label>
+                  <input type="time" value="08:00">
+                </div>
+                <div>
+                  <label>开放结束</label>
+                  <input type="time" value="11:00">
+                </div>
+                <div>
+                  <label>上下文上限 tokens</label>
+                  <input id="context-limit" type="number" value="8000">
+                </div>
+                <div>
+                  <label>命中后策略优先级</label>
+                  <input type="number" value="40">
+                </div>
+                </div>
+              </div>
+
+              <div>
+                <label>开放条件</label>
+                <div class="checks">
+                  <label class="check"><input type="checkbox" checked> 当前时间命中策略窗口</label>
+                  <label class="check"><input type="checkbox" checked> 上下文小于限制</label>
+                  <label class="check"><input type="checkbox"> 主 Key 并发耗尽时也开放</label>
+                  <label class="check"><input type="checkbox"> 主 Key health 低于 60 时开放</label>
+                </div>
+              </div>
+
+              <div>
+                <label>路由预览输入</label>
+                <div class="preview-controls">
+                  <input id="preview-time" type="time" value="14:30" onchange="updatePreview()">
+                  <input id="preview-context" type="number" value="6000" onchange="updatePreview()" oninput="updatePreview()">
+                </div>
+              </div>
+
+              <div>
+                <label>当前预计顺序</label>
+                <div class="route-preview" id="route-preview"></div>
+              </div>
+
+              <details>
+                <summary>高级规则</summary>
+                <pre id="advanced-rules">template: small-context-prefer
+template_version: 1
+params:
+  start_time: 08:00
+  end_time: 11:00
+  max_context_tokens: 8000
+generated_rules:
+  action: prefer
+when:
+  time_range: 08:00-11:00
+  max_context_tokens: 8000
+score:
+  policy_priority: 40</pre>
+              </details>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const templates = {
+      always: {
+        title: "始终可用",
+        rules: "template: always-available\ntemplate_version: 1\nparams: {}\ngenerated_rules:\n  action: allow\n  when:\n    always: true\n  score:\n    use_provider_key_priority: true"
+      },
+      small: {
+        title: "小上下文优先",
+        rules: "template: small-context-prefer\ntemplate_version: 1\nparams:\n  start_time: 08:00\n  end_time: 11:00\n  max_context_tokens: 8000\ngenerated_rules:\n  action: prefer\n  when:\n    time_range: 08:00-11:00\n    max_context_tokens: 8000\n  score:\n    policy_priority: 40"
+      },
+      peak: {
+        title: "高峰期分流",
+        rules: "template: peak-overflow\ntemplate_version: 1\nparams:\n  start_time: 13:00\n  end_time: 18:00\n  traffic_split: 20\ngenerated_rules:\n  action: prefer\n  when:\n    time_range: 13:00-18:00\n    cost_multiplier_window: true\n  limits:\n    traffic_split: 20%"
+      },
+      standby: {
+        title: "按量计费 standby",
+        rules: "template: metered-standby\ntemplate_version: 1\nparams:\n  peak_window: 13:00-18:00\n  max_context_tokens: 16000\n  traffic_split: 20\ngenerated_rules:\n  action: standby\n  open_when:\n    - primary_disabled_or_unavailable\n    - primary_concurrency_exhausted\n    - cost_multiplier_window: 13:00-18:00\n  guard:\n    max_context_tokens: 16000\n    traffic_split: 20%"
+      }
+    };
+
+    function setTemplate(name) {
+      document.querySelectorAll(".template").forEach(el => {
+        el.classList.toggle("active", el.dataset.template === name);
+      });
+      document.getElementById("strategy-template").value = name;
+      document.getElementById("advanced-rules").textContent = templates[name].rules;
+      updatePreview();
+    }
+
+    function selectKey(name) {
+      document.querySelectorAll(".key-row").forEach(row => row.classList.remove("selected"));
+      const rows = Array.from(document.querySelectorAll(".key-row"));
+      const map = { zhipu: 0, jintou: 1, metered: 2 };
+      rows[map[name]].classList.add("selected");
+      const title = {
+        zhipu: "Zhipu package key",
+        jintou: "Jintou local key",
+        metered: "Metered overflow key"
+      }[name];
+      document.getElementById("drawer-title").textContent = title;
+      if (name === "metered") {
+        document.getElementById("cost-role").value = "按量备用";
+        setTemplate("standby");
+      } else if (name === "zhipu") {
+        document.getElementById("cost-role").value = "套餐主力";
+        setTemplate("always");
+      } else {
+        document.getElementById("cost-role").value = "小上下文分流";
+        setTemplate("small");
+      }
+    }
+
+    function updatePreview() {
+      const time = document.getElementById("preview-time").value || "14:30";
+      const context = Number(document.getElementById("preview-context").value || 0);
+      document.getElementById("summary-time").textContent = time;
+      document.getElementById("summary-context").textContent = context.toLocaleString();
+      const isAfternoon = time >= "13:00" && time <= "18:00";
+      const smallContext = context <= 8000;
+      const meteredOpen = isAfternoon;
+      const rows = [
+        {
+          title: "Zhipu package key",
+          reason: isAfternoon ? "套餐 Key 处于高倍率窗口，仍可用但大上下文会降权。" : "套餐主力，默认优先。",
+          off: false
+        },
+        {
+          title: "Jintou local key",
+          reason: smallContext ? "上下文小于 8k，作为小请求分流候选。" : "上下文超过 8k，小上下文策略未命中。",
+          off: !smallContext
+        },
+        {
+          title: "Metered overflow key",
+          reason: meteredOpen ? "当前处于 13:00-18:00，高峰 standby 已开放。" : "未处于高峰窗口，主 Key 正常，保持 standby。",
+          off: !meteredOpen
+        }
+      ];
+      document.getElementById("route-preview").innerHTML = rows.map((row, idx) => `
+        <div class="route-item ${row.off ? "off" : ""}">
+          <div class="rank">${idx + 1}</div>
+          <div>
+            <div class="route-title">${row.title}</div>
+            <div class="route-reason">${row.reason}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    updatePreview();
+  </script>
+</body>
+</html>

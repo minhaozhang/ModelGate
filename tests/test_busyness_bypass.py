@@ -92,8 +92,8 @@ class BusynessBypassProxyTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(7, None))),
             patch(
-                "app.services.proxy.get_provider_and_model",
-                new=AsyncMock(return_value=(None, None, "openai")),
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=[(None, None, "openai")]),
             ) as provider_mock,
             patch(
                 "app.services.proxy.get_disabled_provider_reason",

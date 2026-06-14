@@ -7,6 +7,7 @@ from sqlalchemy import select
 from app.core.config import logger, record_request_rate, update_stats
 from app.core.database import ApiKey, async_session_maker
 from app.core.log_sanitizer import sanitize_text_for_log
+from app.services.key_health import record_key_event
 from app.services.logging import create_request_log
 from app.services.deepseek_compat import is_deepseek_thinking_active, patch_reasoning_content
 from app.services.message import preprocess_messages
@@ -119,7 +120,7 @@ async def call_internal_model_via_proxy(
         chosen_api_key, chosen_key_id = pick_api_key(
             provider_config, api_key_id, provider_name
         )
-        if not chosen_api_key:
+        if chosen_api_key is None:
             return {
                 "ok": False,
                 "provider_name": provider_name,
@@ -320,6 +321,15 @@ async def call_internal_model_via_proxy(
         provider_error = _extract_provider_error(resp_json)
         request_status = _resolve_request_status(resp.status_code, provider_error)
         is_error = request_status == "error"
+        if chosen_key_id is not None:
+            if request_status == "success":
+                record_key_event(chosen_key_id, "success")
+            elif request_status in RATE_LIMITED_STATUSES:
+                record_key_event(chosen_key_id, "error_429", resp.status_code)
+            elif resp.status_code >= 500:
+                record_key_event(chosen_key_id, "error_5xx", resp.status_code)
+            elif resp.status_code >= 400:
+                record_key_event(chosen_key_id, "error_4xx", resp.status_code)
 
         update_stats(
             provider_name,

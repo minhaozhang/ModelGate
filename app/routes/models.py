@@ -263,14 +263,15 @@ async def resolve_model(name: str, _: bool = Depends(permission_required("page.m
     for provider_name, pm_dict, model_tags, priority in candidates:
         from app.services.provider import get_provider_config
         pc = await get_provider_config(provider_name)
-        if not pc:
+        if not pc or pc.get("disabled_reason"):
             continue
         keys = pc.get("api_keys") or []
-        best_health = 0
-        for k in keys:
-            h = compute_health_score(k["id"])
-            if h > best_health:
-                best_health = h
+        active_keys = [k for k in keys if k.get("id") is not None]
+        if not active_keys and not pc.get("api_key"):
+            continue
+        best_health = 100
+        if active_keys:
+            best_health = max(compute_health_score(k["id"]) for k in active_keys)
         results.append({
             "provider": provider_name,
             "actual_model": pm_dict.get("upstream_model_name") or pm_dict.get("actual_model_name") or name,
@@ -280,6 +281,6 @@ async def resolve_model(name: str, _: bool = Depends(permission_required("page.m
             "tags": model_tags,
         })
 
-    results.sort(key=lambda x: (x["health"], x["priority"]), reverse=True)
+    results.sort(key=lambda x: (x["priority"], x["health"]), reverse=True)
     selected = results[0]["provider"] if results else None
     return {"model": name, "providers": results, "selected": selected}

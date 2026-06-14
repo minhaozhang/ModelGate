@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import admin_logger
-from app.core.database import async_session_maker, Provider, ProviderKey, Model, ProviderModel
+from app.core.database import async_session_maker, Provider, ProviderKey, Model, ProviderModel, ProviderModelRoutingRule
 from app.core.permissions import permission_required
 from app.services.provider import load_providers
 
@@ -307,6 +307,30 @@ async def list_all_provider_models(_: bool = Depends(permission_required("page.p
         pms = result.scalars().all()
         models_data = []
         for pm in pms:
+            rules_result = await session.execute(
+                select(ProviderModelRoutingRule)
+                .where(ProviderModelRoutingRule.provider_model_id == pm.id)
+                .order_by(ProviderModelRoutingRule.id)
+            )
+            routing_rules = [
+                {
+                    "id": rule.id,
+                    "provider_model_id": rule.provider_model_id,
+                    "name": rule.name or "",
+                    "rule_type": rule.rule_type,
+                    "enabled": rule.enabled,
+                    "priority": rule.priority or 0,
+                    "start_time": rule.start_time.isoformat() if rule.start_time else None,
+                    "end_time": rule.end_time.isoformat() if rule.end_time else None,
+                    "start_date": rule.start_date.isoformat() if rule.start_date else None,
+                    "end_date": rule.end_date.isoformat() if rule.end_date else None,
+                    "weekdays": rule.weekdays,
+                    "min_context_tokens": rule.min_context_tokens,
+                    "max_context_tokens": rule.max_context_tokens,
+                    "action": rule.action,
+                }
+                for rule in rules_result.scalars().all()
+            ]
             provider_result = await session.execute(
                 select(Provider).where(Provider.id == pm.provider_id)
             )
@@ -323,7 +347,16 @@ async def list_all_provider_models(_: bool = Depends(permission_required("page.p
                         "provider_name": provider.name,
                         "model_id": model.id,
                         "model_name": model.name,
+                        "model_display_name": model.display_name or model.name,
                         "display_name": f"{provider.name} - {model.display_name or model.name}",
+                        "upstream_model_name": pm.upstream_model_name or pm.model_name_override or model.name,
+                        "priority": pm.priority or 0,
+                        "max_busyness_level": pm.max_busyness_level,
+                        "tags": model.tags or "",
+                        "provider_is_active": provider.is_active,
+                        "provider_disabled_reason": provider.disabled_reason,
+                        "routing_rules": routing_rules,
+                        "routing_rule_count": len(routing_rules),
                     }
                 )
         return {"provider_models": models_data}

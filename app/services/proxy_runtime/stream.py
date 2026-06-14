@@ -12,6 +12,7 @@ from app.core.config import (
     update_stats,
 )
 from app.core.log_sanitizer import sanitize_text_for_log
+from app.services.key_health import record_key_event
 from app.services.logging import create_request_log, update_request_log
 from app.services.minimax import MinimaxStreamProcessor
 from app.services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
@@ -57,6 +58,7 @@ async def handle_streaming(
     intent=None,
     requested_model=None,
     provider_key_label=None,
+    routing_decision=None,
 ):
     logger.debug(
         "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -106,6 +108,13 @@ async def handle_streaming(
                 )
             provider_error = _extract_provider_error(resp_json)
             request_status = _resolve_request_status(resp.status_code, provider_error)
+            if chosen_key_id is not None:
+                if request_status in RATE_LIMITED_STATUSES:
+                    record_key_event(chosen_key_id, "error_429", resp.status_code)
+                elif resp.status_code >= 500:
+                    record_key_event(chosen_key_id, "error_5xx", resp.status_code)
+                elif resp.status_code >= 400:
+                    record_key_event(chosen_key_id, "error_4xx", resp.status_code)
             update_stats(
                 provider,
                 model,
@@ -267,6 +276,7 @@ async def handle_streaming(
                                 provider, model, api_key_id, client_ip, user_agent,
                                 request_context_tokens, start_time, log_id, "cancelled",
                                 upstream_status_code=upstream_status_code,
+                                provider_key_id=chosen_key_id,
                             )
                             return
                     continue
@@ -393,6 +403,7 @@ async def handle_streaming(
                             log_id,
                             "cancelled",
                             upstream_status_code=upstream_status_code,
+                            provider_key_id=chosen_key_id,
                         )
                         return
 
@@ -413,6 +424,7 @@ async def handle_streaming(
                 log_id,
                 "success",
                 upstream_status_code=upstream_status_code,
+                provider_key_id=chosen_key_id,
             )
         except Exception as e:
             await _record_stream_result(
@@ -433,6 +445,7 @@ async def handle_streaming(
                 "error",
                 upstream_status_code=upstream_status_code,
                 error=e,
+                provider_key_id=chosen_key_id,
             )
             yield f"data: {json.dumps({'error': {'message': '请求处理失败，请稍后重试', 'type': 'api_error'}})}\n\n"
         finally:

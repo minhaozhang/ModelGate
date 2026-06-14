@@ -79,6 +79,7 @@ class ProviderKey(Base):
     max_concurrent = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
     priority = Column(Integer, default=0)
+    cost_role = Column(String(40), default="standard")
     disabled_reason = Column(String(255), nullable=True)
     disabled_at = Column(DateTime, nullable=True)
     reset_at = Column(DateTime, nullable=True)
@@ -88,6 +89,94 @@ class ProviderKey(Base):
     __table_args__ = (
         UniqueConstraint("provider_id", "api_key", name="uq_provider_key"),
         Index("idx_provider_keys_provider", "provider_id"),
+    )
+
+
+class ProviderKeyStrategyTemplate(Base):
+    __tablename__ = "provider_key_strategy_templates"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    template_key = Column(String(80), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    is_builtin = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    config_schema = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    rule_blueprint = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_provider_key_strategy_templates_key", "template_key", unique=True),
+    )
+
+
+class ProviderKeyStrategyAssignment(Base):
+    __tablename__ = "provider_key_strategy_assignments"
+
+    id = Column(Integer, primary_key=True)
+    provider_key_id = Column(Integer, ForeignKey("provider_keys.id", ondelete="CASCADE"), nullable=False)
+    template_id = Column(Integer, ForeignKey("provider_key_strategy_templates.id"), nullable=False)
+    enabled = Column(Boolean, default=True)
+    params = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_provider_key_strategy_assignments_key", "provider_key_id"),
+    )
+
+
+class ProviderKeyRoutingRule(Base):
+    __tablename__ = "provider_key_routing_rules"
+
+    id = Column(Integer, primary_key=True)
+    provider_key_id = Column(Integer, ForeignKey("provider_keys.id", ondelete="CASCADE"), nullable=False)
+    template_assignment_id = Column(
+        Integer,
+        ForeignKey("provider_key_strategy_assignments.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    name = Column(String(100), nullable=True)
+    rule_type = Column(String(30), nullable=False, default="custom")
+    enabled = Column(Boolean, default=True)
+    priority = Column(Integer, default=0)
+    start_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    weekdays = Column(String(20), nullable=True)
+    min_context_tokens = Column(Integer, nullable=True)
+    max_context_tokens = Column(Integer, nullable=True)
+    action = Column(String(20), nullable=False, default="prefer")
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_provider_key_routing_rules_key", "provider_key_id"),
+    )
+
+
+class ProviderModelRoutingRule(Base):
+    __tablename__ = "provider_model_routing_rules"
+
+    id = Column(Integer, primary_key=True)
+    provider_model_id = Column(Integer, ForeignKey("provider_models.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(100), nullable=True)
+    rule_type = Column(String(30), nullable=False, default="custom")
+    enabled = Column(Boolean, default=True)
+    priority = Column(Integer, default=0)
+    start_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    weekdays = Column(String(20), nullable=True)
+    min_context_tokens = Column(Integer, nullable=True)
+    max_context_tokens = Column(Integer, nullable=True)
+    action = Column(String(20), nullable=False, default="prefer")
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_provider_model_routing_rules_pm", "provider_model_id"),
     )
 
 
@@ -237,6 +326,7 @@ class RequestLog(Base):
     actual_model = Column(String(100), nullable=True)
     provider_key_id = Column(Integer, nullable=True)
     provider_key_label = Column(String(50), nullable=True)
+    routing_decision = Column(JSONB, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -271,6 +361,7 @@ class RequestLogHistory(Base):
     actual_model = Column(String(100), nullable=True)
     provider_key_id = Column(Integer, nullable=True)
     provider_key_label = Column(String(50), nullable=True)
+    routing_decision = Column(JSONB, nullable=True)
     created_at = Column(DateTime, nullable=False, index=True)
     updated_at = Column(DateTime, nullable=True)
     archive_month = Column(String(7), nullable=False)
@@ -313,6 +404,7 @@ if request_logs_all_table is None:
         Column("actual_model", String(100)),
         Column("provider_key_id", Integer),
         Column("provider_key_label", String(50)),
+        Column("routing_decision", JSONB),
         Column("created_at", DateTime),
         Column("updated_at", DateTime),
     )
@@ -754,6 +846,12 @@ async def init_db():
         await conn.execute(
             text(
                 "ALTER TABLE request_logs_history "
+                "ADD COLUMN IF NOT EXISTS upstream_status_code INTEGER"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE request_logs_history "
                 "ADD COLUMN IF NOT EXISTS downstream_status_code INTEGER"
             )
         )
@@ -787,6 +885,22 @@ async def init_db():
                 "ADD COLUMN IF NOT EXISTS inbound_protocol VARCHAR(20)"
             )
         )
+        await conn.execute(text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS intent VARCHAR(20)"))
+        await conn.execute(text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS intent VARCHAR(20)"))
+        await conn.execute(text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS requested_model VARCHAR(100)"))
+        await conn.execute(text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS actual_model VARCHAR(100)"))
+        await conn.execute(text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS provider_key_id INTEGER"))
+        await conn.execute(text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS provider_key_label VARCHAR(50)"))
+        await conn.execute(text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS routing_decision JSONB"))
+        await conn.execute(text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS requested_model VARCHAR(100)"))
+        await conn.execute(text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS actual_model VARCHAR(100)"))
+        await conn.execute(text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS provider_key_id INTEGER"))
+        await conn.execute(text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS provider_key_label VARCHAR(50)"))
+        await conn.execute(text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS routing_decision JSONB"))
+        await conn.execute(text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS archive_month VARCHAR(7)"))
+        await conn.execute(text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP DEFAULT now()"))
+        await conn.execute(text("UPDATE request_logs_history SET archive_month = to_char(created_at, 'YYYY-MM') WHERE archive_month IS NULL"))
+        await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_request_logs_history_id ON request_logs_history (id)"))
         await conn.execute(
             text(
                 "ALTER TABLE provider_daily_stats "
@@ -977,12 +1091,12 @@ async def init_db():
                 "CREATE VIEW request_logs_all AS "
                 "SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, "
                 "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
-                "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, created_at, updated_at "
+                "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, routing_decision, created_at, updated_at "
                 "FROM request_logs "
                 "UNION ALL "
                 "SELECT id, api_key_id, provider_id, model, response, tokens, latency_ms, "
                 "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
-                "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, created_at, updated_at "
+                "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, routing_decision, created_at, updated_at "
                 "FROM request_logs_history"
             )
         )
@@ -1193,6 +1307,11 @@ async def init_db():
         )
         await conn.execute(
             text(
+                "ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS cost_role VARCHAR(40) DEFAULT 'standard'"
+            )
+        )
+        await conn.execute(
+            text(
                 "CREATE INDEX IF NOT EXISTS idx_provider_keys_provider ON provider_keys (provider_id)"
             )
         )
@@ -1325,6 +1444,9 @@ async def init_db():
             text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS provider_key_label VARCHAR(50)")
         )
         await conn.execute(
+            text("ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS routing_decision JSONB")
+        )
+        await conn.execute(
             text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS requested_model VARCHAR(100)")
         )
         await conn.execute(
@@ -1337,7 +1459,152 @@ async def init_db():
             text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS provider_key_label VARCHAR(50)")
         )
         await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS routing_decision JSONB")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS archive_month VARCHAR(7)")
+        )
+        await conn.execute(
+            text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP DEFAULT now()")
+        )
+        await conn.execute(
+            text("UPDATE request_logs_history SET archive_month = to_char(created_at, 'YYYY-MM') WHERE archive_month IS NULL")
+        )
+        await conn.execute(
             text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0")
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS cost_role VARCHAR(40) DEFAULT 'standard'"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS provider_key_strategy_templates ("
+                "id SERIAL PRIMARY KEY, "
+                "name VARCHAR(100) NOT NULL, "
+                "template_key VARCHAR(80) NOT NULL UNIQUE, "
+                "description TEXT, "
+                "is_builtin BOOLEAN DEFAULT FALSE, "
+                "is_active BOOLEAN DEFAULT TRUE, "
+                "config_schema JSONB NOT NULL DEFAULT '{}'::jsonb, "
+                "rule_blueprint JSONB NOT NULL DEFAULT '{}'::jsonb, "
+                "created_at TIMESTAMP DEFAULT NOW(), "
+                "updated_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_key_strategy_templates_key "
+                "ON provider_key_strategy_templates (template_key)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS provider_key_strategy_assignments ("
+                "id SERIAL PRIMARY KEY, "
+                "provider_key_id INTEGER NOT NULL REFERENCES provider_keys(id) ON DELETE CASCADE, "
+                "template_id INTEGER NOT NULL REFERENCES provider_key_strategy_templates(id), "
+                "enabled BOOLEAN DEFAULT TRUE, "
+                "params JSONB NOT NULL DEFAULT '{}'::jsonb, "
+                "created_at TIMESTAMP DEFAULT NOW(), "
+                "updated_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_provider_key_strategy_assignments_key "
+                "ON provider_key_strategy_assignments (provider_key_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS provider_key_routing_rules ("
+                "id SERIAL PRIMARY KEY, "
+                "provider_key_id INTEGER NOT NULL REFERENCES provider_keys(id) ON DELETE CASCADE, "
+                "template_assignment_id INTEGER REFERENCES provider_key_strategy_assignments(id) ON DELETE CASCADE, "
+                "name VARCHAR(100), "
+                "rule_type VARCHAR(30) NOT NULL DEFAULT 'custom', "
+                "enabled BOOLEAN DEFAULT TRUE, "
+                "priority INTEGER DEFAULT 0, "
+                "start_time TIME, "
+                "end_time TIME, "
+                "start_date DATE, "
+                "end_date DATE, "
+                "weekdays VARCHAR(20), "
+                "min_context_tokens INTEGER, "
+                "max_context_tokens INTEGER, "
+                "action VARCHAR(20) NOT NULL DEFAULT 'prefer', "
+                "created_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_provider_key_routing_rules_key "
+                "ON provider_key_routing_rules (provider_key_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS provider_model_routing_rules ("
+                "id SERIAL PRIMARY KEY, "
+                "provider_model_id INTEGER NOT NULL REFERENCES provider_models(id) ON DELETE CASCADE, "
+                "name VARCHAR(100), "
+                "rule_type VARCHAR(30) NOT NULL DEFAULT 'custom', "
+                "enabled BOOLEAN DEFAULT TRUE, "
+                "priority INTEGER DEFAULT 0, "
+                "start_time TIME, "
+                "end_time TIME, "
+                "start_date DATE, "
+                "end_date DATE, "
+                "weekdays VARCHAR(20), "
+                "min_context_tokens INTEGER, "
+                "max_context_tokens INTEGER, "
+                "action VARCHAR(20) NOT NULL DEFAULT 'prefer', "
+                "created_at TIMESTAMP DEFAULT NOW()"
+                ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_provider_model_routing_rules_pm "
+                "ON provider_model_routing_rules (provider_model_id)"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO provider_key_strategy_templates "
+                "(name, template_key, description, is_builtin, config_schema, rule_blueprint) "
+                "VALUES "
+                "('始终可用', 'always_available', 'Key 总是进入候选池，按 priority 和 health 排序。', TRUE, "
+                "'{\"fields\": []}'::jsonb, "
+                "'{\"rules\": []}'::jsonb), "
+                "('指定时间段可用', 'time_window', '只在指定时间段内允许使用。', TRUE, "
+                "'{\"fields\": [{\"key\":\"start_time\",\"type\":\"time\",\"label\":\"开放开始\"},{\"key\":\"end_time\",\"type\":\"time\",\"label\":\"开放结束\"}]}'::jsonb, "
+                "'{\"rules\": [{\"action\":\"allow\",\"start_time\":\"${start_time}\",\"end_time\":\"${end_time}\"}]}'::jsonb), "
+                "('小上下文优先', 'small_context_prefer', '小上下文请求命中时提高排序。', TRUE, "
+                "'{\"fields\": [{\"key\":\"max_context_tokens\",\"type\":\"number\",\"label\":\"上下文上限\"},{\"key\":\"priority\",\"type\":\"number\",\"label\":\"命中加权\"}]}'::jsonb, "
+                "'{\"rules\": [{\"action\":\"prefer\",\"max_context_tokens\":\"${max_context_tokens}\",\"priority\":\"${priority}\"}]}'::jsonb), "
+                "('高峰期分流', 'peak_offload', '在高峰时间段和上下文限制内提高排序。', TRUE, "
+                "'{\"fields\": [{\"key\":\"start_time\",\"type\":\"time\",\"label\":\"开始\"},{\"key\":\"end_time\",\"type\":\"time\",\"label\":\"结束\"},{\"key\":\"max_context_tokens\",\"type\":\"number\",\"label\":\"上下文上限\"},{\"key\":\"priority\",\"type\":\"number\",\"label\":\"命中加权\"}]}'::jsonb, "
+                "'{\"rules\": [{\"action\":\"prefer\",\"start_time\":\"${start_time}\",\"end_time\":\"${end_time}\",\"max_context_tokens\":\"${max_context_tokens}\",\"priority\":\"${priority}\"}]}'::jsonb), "
+                "('主 Key 不可用时备用', 'primary_unavailable_fallback', '主 Key 停用、health 不可用或并发耗尽时作为备用候选。', TRUE, "
+                "'{\"fields\": [{\"key\":\"priority\",\"type\":\"number\",\"label\":\"备用加权\"}]}'::jsonb, "
+                "'{\"rules\": [{\"action\":\"standby\",\"priority\":\"${priority}\"}]}'::jsonb), "
+                "('按量计费 standby', 'metered_standby', '默认不开放，仅在高峰或主 Key 不可用时参与。', TRUE, "
+                "'{\"fields\": [{\"key\":\"start_time\",\"type\":\"time\",\"label\":\"开放开始\"},{\"key\":\"end_time\",\"type\":\"time\",\"label\":\"开放结束\"},{\"key\":\"max_context_tokens\",\"type\":\"number\",\"label\":\"上下文上限\"},{\"key\":\"priority\",\"type\":\"number\",\"label\":\"命中加权\"}]}'::jsonb, "
+                "'{\"rules\": [{\"action\":\"standby\",\"start_time\":\"${start_time}\",\"end_time\":\"${end_time}\",\"max_context_tokens\":\"${max_context_tokens}\",\"priority\":\"${priority}\"}]}'::jsonb) "
+                "ON CONFLICT (template_key) DO UPDATE SET "
+                "name = EXCLUDED.name, "
+                "description = EXCLUDED.description, "
+                "is_builtin = TRUE, "
+                "config_schema = EXCLUDED.config_schema, "
+                "rule_blueprint = EXCLUDED.rule_blueprint, "
+                "updated_at = NOW()"
+            )
         )
         await conn.execute(
             text(

@@ -15,6 +15,8 @@ from app.core.config import (
 from app.services import provider as provider_service
 from app.services import proxy as proxy_module
 from app.services.proxy_runtime import internal as internal_runtime
+from app.services.proxy_runtime import normal as normal_runtime
+from app.services.proxy_runtime import response_handler
 from app.services.proxy import (
     _get_or_create_user_provider_model_semaphore,
     _get_or_create_user_api_key_semaphore,
@@ -251,6 +253,93 @@ class ProxyRuntimeWrapperTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("api_key_model_semaphore", kwargs)
 
 
+class ProviderKeyHealthEventTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        from app.services import key_health
+
+        key_health.clear_all()
+
+    def tearDown(self):
+        from app.services import key_health
+
+        key_health.clear_all()
+
+    async def test_normal_response_records_health_against_provider_key(self):
+        from app.services import key_health
+
+        class FakeResponse:
+            status_code = 429
+            headers = {}
+            text = '{"error":{"message":"rate limited"}}'
+
+            def json(self):
+                return {"error": {"message": "rate limited"}}
+
+        fake_client = Mock()
+        fake_client.post = AsyncMock(return_value=FakeResponse())
+
+        with (
+            patch("app.services.proxy_runtime.normal.register_active_request", new=AsyncMock()),
+            patch("app.services.proxy_runtime.normal.finish_active_request", new=AsyncMock()),
+            patch("app.services.proxy_runtime.normal.create_request_log", new=AsyncMock(return_value=1)),
+            patch("app.services.proxy_runtime.normal.update_stats", new=Mock()),
+        ):
+            await normal_runtime.handle_normal(
+                fake_client,
+                "https://example.com/chat/completions",
+                {},
+                b"{}",
+                "openai",
+                "gpt-test",
+                [],
+                0,
+                {},
+                1,
+                "127.0.0.1",
+                "test",
+                0,
+                None,
+                None,
+                "req-1",
+                chosen_key_id=99,
+            )
+
+        self.assertEqual(key_health.get_events_5m(99)["rate_limited"], 1)
+        self.assertEqual(key_health.get_events_5m(1)["rate_limited"], 0)
+
+    async def test_stream_result_records_health_against_provider_key(self):
+        from app.services import key_health
+
+        with (
+            patch("app.services.proxy_runtime.response_handler.update_request_log", new=AsyncMock(return_value=True)),
+            patch("app.services.proxy_runtime.response_handler.update_request_content", new=AsyncMock()),
+            patch("app.services.proxy_runtime.response_handler.update_stats", new=Mock()),
+            patch("app.services.proxy_runtime.response_handler.record_request_rate", new=Mock()),
+        ):
+            await response_handler._record_stream_result(
+                "",
+                "",
+                [],
+                "",
+                None,
+                {},
+                "openai",
+                "gpt-test",
+                1,
+                "127.0.0.1",
+                "test",
+                0,
+                0,
+                1,
+                "success",
+                upstream_status_code=200,
+                provider_key_id=99,
+            )
+
+        self.assertEqual(key_health.get_events_5m(99)["success"], 1)
+        self.assertEqual(key_health.get_events_5m(1)["success"], 0)
+
+
 class InternalProxyConcurrencyTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         provider_key_semaphores.clear()
@@ -355,8 +444,8 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
             patch(
-                "app.services.proxy.get_provider_and_model",
-                new=AsyncMock(return_value=(provider_config, "gpt-other", "openai")),
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=[(provider_config, "gpt-other", "openai")]),
             ),
             patch(
                 "app.services.proxy.pick_api_keys",
@@ -418,8 +507,8 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
             patch(
-                "app.services.proxy.get_provider_and_model",
-                new=AsyncMock(return_value=(provider_config, "gpt-other", "openai")),
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=[(provider_config, "gpt-other", "openai")]),
             ),
             patch(
                 "app.services.proxy.pick_api_keys",
@@ -441,6 +530,164 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(tracking_semaphore.acquire_count, 1)
         self.assertEqual(tracking_semaphore.release_count, 1)
 
+    async def test_auto_route_falls_back_to_next_provider_when_provider_key_concurrency_full(self):
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [],
+                "query_string": b"",
+                "cookies": {},
+                "root_path": "",
+            }
+        )
+        request._body = b'{"model":"glm-5.1","messages":[]}'
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        primary_config = {
+            "id": 1,
+            "base_url": "https://primary.example/v1",
+            "protocol": "openai",
+            "api_keys": [{"id": 11, "api_key": "sk-primary", "max_concurrent": 1}],
+            "models": [{"id": 91, "model_id": 101, "model_name": "glm-5.1", "upstream_model_name": "glm-5.1"}],
+        }
+        fallback_config = {
+            "id": 2,
+            "base_url": "https://fallback.example/v1",
+            "protocol": "openai",
+            "api_keys": [{"id": 12, "api_key": "sk-fallback", "max_concurrent": 1}],
+            "models": [{"id": 92, "model_id": 101, "model_name": "glm-5.1", "upstream_model_name": "local_model"}],
+        }
+        routes = [
+            proxy_module.RouteResult(
+                provider_config=primary_config,
+                provider_name="primary",
+                provider_id=1,
+                provider_model_id=91,
+                model_id=101,
+                requested_model="glm-5.1",
+                model_name="glm-5.1",
+                upstream_model_name="glm-5.1",
+                is_forced_provider=False,
+            ),
+            proxy_module.RouteResult(
+                provider_config=fallback_config,
+                provider_name="fallback",
+                provider_id=2,
+                provider_model_id=92,
+                model_id=101,
+                requested_model="glm-5.1",
+                model_name="glm-5.1",
+                upstream_model_name="local_model",
+                is_forced_provider=False,
+            ),
+        ]
+        wait_results = [asyncio.TimeoutError(), True, True]
+
+        async def fake_wait_for(awaitable, timeout):
+            awaitable.close()
+            result = wait_results.pop(0)
+            if isinstance(result, BaseException):
+                raise result
+            return result
+
+        normal_handler = AsyncMock(return_value=Response(content=b"{}", status_code=200))
+
+        with (
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch(
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=routes),
+            ),
+            patch("app.services.proxy.asyncio.wait_for", new=fake_wait_for),
+            patch("app.services.proxy.handle_normal", new=normal_handler),
+            patch("app.services.proxy.create_request_log", new=AsyncMock()),
+            patch("app.services.proxy.update_stats", new=Mock()),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(normal_handler.await_count, 1)
+        self.assertEqual(normal_handler.await_args.args[4], "fallback")
+
+    async def test_forced_provider_does_not_fallback_to_next_provider_when_concurrency_full(self):
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [],
+                "query_string": b"",
+                "cookies": {},
+                "root_path": "",
+            }
+        )
+        request._body = b'{"model":"primary/glm-5.1","messages":[]}'
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        primary_config = {
+            "id": 1,
+            "base_url": "https://primary.example/v1",
+            "protocol": "openai",
+            "api_keys": [{"id": 11, "api_key": "sk-primary", "max_concurrent": 1}],
+            "models": [{"id": 91, "model_id": 101, "model_name": "glm-5.1", "upstream_model_name": "glm-5.1"}],
+        }
+        fallback_config = {
+            "id": 2,
+            "base_url": "https://fallback.example/v1",
+            "protocol": "openai",
+            "api_keys": [{"id": 12, "api_key": "sk-fallback", "max_concurrent": 1}],
+            "models": [{"id": 92, "model_id": 101, "model_name": "glm-5.1", "upstream_model_name": "local_model"}],
+        }
+        routes = [
+            proxy_module.RouteResult(
+                provider_config=primary_config,
+                provider_name="primary",
+                provider_id=1,
+                provider_model_id=91,
+                model_id=101,
+                requested_model="primary/glm-5.1",
+                model_name="glm-5.1",
+                upstream_model_name="glm-5.1",
+                is_forced_provider=True,
+            ),
+            proxy_module.RouteResult(
+                provider_config=fallback_config,
+                provider_name="fallback",
+                provider_id=2,
+                provider_model_id=92,
+                model_id=101,
+                requested_model="primary/glm-5.1",
+                model_name="glm-5.1",
+                upstream_model_name="local_model",
+                is_forced_provider=False,
+            ),
+        ]
+
+        async def fake_wait_for(awaitable, timeout):
+            awaitable.close()
+            raise asyncio.TimeoutError
+
+        normal_handler = AsyncMock(return_value=Response(content=b"{}", status_code=200))
+
+        with (
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch(
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=routes),
+            ),
+            patch("app.services.proxy.asyncio.wait_for", new=fake_wait_for),
+            patch("app.services.proxy.handle_normal", new=normal_handler),
+            patch("app.services.proxy.create_request_log", new=AsyncMock()),
+            patch("app.services.proxy.update_stats", new=Mock()),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(normal_handler.await_count, 0)
+        self.assertIn("provider_key_concurrency_reached", response.body.decode("utf-8"))
+
 
 class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
     async def test_no_provider_key_error_is_human_readable(self):
@@ -460,13 +707,13 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
             patch(
-                "app.services.proxy.get_provider_and_model",
+                "app.services.proxy.get_provider_model_candidates",
                 new=AsyncMock(
-                    return_value=(
+                    return_value=[(
                         {"base_url": "https://example.com", "api_keys": []},
                         "glm-4.5",
                         "zhipu",
-                    )
+                    )]
                 ),
             ),
             patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),

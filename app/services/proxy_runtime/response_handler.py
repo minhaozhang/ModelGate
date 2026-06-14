@@ -162,6 +162,7 @@ async def _record_stream_result(
     status,
     upstream_status_code=None,
     error=None,
+    provider_key_id=None,
 ):
     latency = (time.time() - start_time) * 1000
     response_meta = build_response_meta(
@@ -181,8 +182,8 @@ async def _record_stream_result(
     log_response_meta(provider, model, response_meta)
 
     if status == "success":
-        if api_key_id:
-            record_key_event(api_key_id, "success")
+        if provider_key_id is not None:
+            record_key_event(provider_key_id, "success")
         update_stats(provider, model, total_tokens, api_key_id=api_key_id)
         record_request_rate(tokens_record.get('completion_tokens', 0), latency)
         updated = await update_request_log(
@@ -241,13 +242,13 @@ async def _record_stream_result(
                 downstream_status_code=200,
             )
     elif status in {"error", RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}:
-        if api_key_id:
+        if provider_key_id is not None:
             if status in RATE_LIMITED_STATUSES:
-                record_key_event(api_key_id, "error_429", upstream_status_code or 429)
+                record_key_event(provider_key_id, "error_429", upstream_status_code or 429)
             elif upstream_status_code and upstream_status_code >= 500:
-                record_key_event(api_key_id, "error_5xx", upstream_status_code)
+                record_key_event(provider_key_id, "error_5xx", upstream_status_code)
             else:
-                record_key_event(api_key_id, "error_4xx", upstream_status_code or 400)
+                record_key_event(provider_key_id, "error_4xx", upstream_status_code or 400)
         update_stats(
             provider,
             model,

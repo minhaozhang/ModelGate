@@ -56,6 +56,7 @@ async def handle_normal(
     intent=None,
     requested_model=None,
     provider_key_label=None,
+    routing_decision=None,
 ):
     logger.debug(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -166,15 +167,15 @@ async def handle_normal(
         if not is_error and total_tokens > 0:
             record_request_rate(tokens_record.get('completion_tokens', 0), latency)
         log_response_meta(provider, model, response_meta)
-        if api_key_id:
+        if chosen_key_id is not None:
             if request_status == "success":
-                record_key_event(api_key_id, "success")
+                record_key_event(chosen_key_id, "success")
             elif request_status in RATE_LIMITED_STATUSES:
-                record_key_event(api_key_id, "error_429", resp.status_code)
+                record_key_event(chosen_key_id, "error_429", resp.status_code)
             elif resp.status_code >= 500:
-                record_key_event(api_key_id, "error_5xx", resp.status_code)
+                record_key_event(chosen_key_id, "error_5xx", resp.status_code)
             elif resp.status_code >= 400:
-                record_key_event(api_key_id, "error_4xx", resp.status_code)
+                record_key_event(chosen_key_id, "error_4xx", resp.status_code)
         normal_log_id = await create_request_log(
             provider,
             model,
@@ -201,6 +202,7 @@ async def handle_normal(
             actual_model=model if requested_model and requested_model != model else None,
             provider_key_id=chosen_key_id,
             provider_key_label=provider_key_label,
+            routing_decision=routing_decision,
         )
         if request_status == "success" and normal_log_id:
             try:

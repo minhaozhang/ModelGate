@@ -33,6 +33,7 @@ async def create_request_log(
     actual_model: Optional[str] = None,
     provider_key_id: Optional[int] = None,
     provider_key_label: Optional[str] = None,
+    routing_decision: Optional[dict] = None,
 ) -> int:
     async with async_session_maker() as session:
         provider_id = None
@@ -61,6 +62,7 @@ async def create_request_log(
             actual_model=actual_model,
             provider_key_id=provider_key_id,
             provider_key_label=provider_key_label,
+            routing_decision=routing_decision,
         )
         session.add(log)
         await session.commit()

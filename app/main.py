@@ -239,6 +239,7 @@ from app.routes import (
     providers,
     models,
     provider_models,
+    routing,
     keys,
     stats,
     logs,
@@ -262,6 +263,7 @@ app.include_router(auth.router)
 app.include_router(providers.router)
 app.include_router(models.router)
 app.include_router(provider_models.router)
+app.include_router(routing.router)
 app.include_router(keys.router)
 app.include_router(stats.router)
 app.include_router(stats.public_router)
