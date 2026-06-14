@@ -51,9 +51,20 @@ API checks:
 - System config/UA stats.
 - Scheduler tasks/logs.
 
+Model permission error regression:
+- Added coverage for the API-key-valid-but-model-not-authorized path.
+- Verified `model_access_denied` keeps the OpenAI-style error shape and returns an actionable message with the requested model name.
+- Verified the message points users to `https://leturx.cc/modelgate/user/login` to check model permissions and tells OpenCode users to refresh or update their ModelGate config.
+- Verified the response does not include the API key value or an `api_key=` setup URL.
+
+Automated checks after this regression:
+- `python -m compileall app tests -q`
+- `python -m unittest discover -s tests -v` (61 tests)
+
 Issues found and fixed:
 - API Key page showed `0 keys` while data was still loading. It now starts with `... keys`, loads independently from model selector initialization, and displays an explicit error if key loading fails.
 - Change password success path referenced undefined `sql_update`; it now uses SQLAlchemy `update`.
+- Model permission denial previously only said the API Key had no access. It now tells users where to check their model permissions and how to update OpenCode config without exposing key material.
 
 Persistent test records kept:
 - `codex_test_admin` remains in RBAC users.

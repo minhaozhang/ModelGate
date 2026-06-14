@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from app.core import config
 from app.core.i18n import render
@@ -8,7 +8,11 @@ from app.routes.models import resolve_model
 from app.routes.proxy import list_models
 from app.services import provider as provider_service
 from app.services.auth import validate_api_key
-from app.services.proxy import check_model_access
+from app.services.proxy import (
+    build_model_access_denied_message,
+    check_model_access,
+    proxy_request,
+)
 from tests.test_opencode_security import make_request
 
 
@@ -557,6 +561,63 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
                 model_id=101,
             )
         )
+
+    def test_model_access_denied_message_guides_user_to_permissions_and_opencode(self):
+        message = build_model_access_denied_message("glm-5.1")
+
+        self.assertIn("glm-5.1", message)
+        self.assertIn("没有模型权限", message)
+        self.assertIn("https://leturx.cc/modelgate/user/login", message)
+        self.assertIn("OpenCode", message)
+        self.assertIn("重新获取或更新", message)
+        self.assertNotIn("api_key=", message)
+
+    async def test_proxy_model_access_denied_returns_actionable_guidance(self):
+        config.api_keys_cache["mg_test"] = {
+            "id": 7,
+            "name": "limited",
+            "allowed_provider_model_ids": [22],
+            "allowed_model_ids": [],
+            "time_rules": [],
+        }
+        request = make_request("/v1/chat/completions")
+        request._body = b'{"model":"glm-5.1","messages":[]}'
+        route = provider_service.RouteResult(
+            provider_config={"id": 1, "models": []},
+            provider_name="zhipu",
+            provider_id=1,
+            provider_model_id=99,
+            model_id=101,
+            requested_model="glm-5.1",
+            model_name="glm-5.1",
+            upstream_model_name="glm-5.1",
+        )
+
+        with (
+            patch(
+                "app.services.proxy.validate_api_key",
+                new=AsyncMock(return_value=(7, None)),
+            ),
+            patch(
+                "app.services.proxy.explain_provider_model_candidates",
+                new=AsyncMock(return_value={"ordered": [], "filtered": []}),
+            ),
+            patch(
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=[route]),
+            ),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        body = response.body.decode("utf-8")
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("model_access_denied", body)
+        self.assertIn("没有模型权限", body)
+        self.assertIn("https://leturx.cc/modelgate/user/login", body)
+        self.assertIn("OpenCode", body)
+        self.assertNotIn("mg_test", body)
+        self.assertNotIn("api_key=", body)
 
     async def test_model_access_binding_allows_any_provider_model_for_same_model(self):
         key_info = {

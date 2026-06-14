@@ -119,6 +119,17 @@ def check_model_access(
     )
 
 
+def build_model_access_denied_message(model: str) -> str:
+    user_login_url = "https://leturx.cc/modelgate/user/login"
+    display_model = model or "unknown"
+    return (
+        f"当前 API Key 没有模型权限，无法使用模型 '{display_model}'。"
+        f"请登录 {user_login_url} 查看自己的模型权限；"
+        "如果你使用 OpenCode，请在 ModelGate 用户中心重新获取或更新 OpenCode 配置后重试。"
+        "若管理员刚调整过权限，请刷新配置后再发起请求。"
+    )
+
+
 def _coerce_route_result(route, requested_model: str) -> RouteResult:
     if isinstance(route, RouteResult):
         return route
@@ -840,7 +851,7 @@ async def proxy_request(request: Request, endpoint: str):
             return last_response
         if access_denied_seen:
             return _openai_error_response(
-                "您的 API Key 无权使用该模型",
+                build_model_access_denied_message(requested_model),
                 401,
                 "authentication_error",
                 "model_access_denied",
