@@ -303,8 +303,11 @@
     }
 
     document.getElementById('server-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'server-modal') closeServerModal();
-    });
+        if (e.target === e.currentTarget) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+    }, true);
 
     document.getElementById('server-form').addEventListener('submit', async (e) => {
         e.preventDefault();

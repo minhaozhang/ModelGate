@@ -20,12 +20,14 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.original_providers_cache = dict(config.providers_cache)
         self.original_api_keys_cache = dict(config.api_keys_cache)
+        self.original_system_settings = dict(config.system_settings)
         self.original_alias_index = dict(provider_service._alias_index)
         self.original_model_name_index = dict(
             getattr(provider_service, "_model_name_index", {})
         )
         config.providers_cache.clear()
         config.api_keys_cache.clear()
+        config.system_settings.clear()
         provider_service._alias_index.clear()
         if hasattr(provider_service, "_model_name_index"):
             provider_service._model_name_index.clear()
@@ -35,6 +37,8 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
         config.providers_cache.update(self.original_providers_cache)
         config.api_keys_cache.clear()
         config.api_keys_cache.update(self.original_api_keys_cache)
+        config.system_settings.clear()
+        config.system_settings.update(self.original_system_settings)
         provider_service._alias_index.clear()
         provider_service._alias_index.update(self.original_alias_index)
         if hasattr(provider_service, "_model_name_index"):
@@ -634,17 +638,97 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("mg_test", body)
         self.assertNotIn("api_key=", body)
 
-    async def test_model_access_binding_allows_any_provider_model_for_same_model(self):
+    async def test_proxy_rejects_forced_provider_route_with_model_only_access(self):
+        config.api_keys_cache["mg_test"] = {
+            "id": 7,
+            "name": "model-only",
+            "allowed_provider_model_ids": [],
+            "allowed_model_ids": [101],
+            "time_rules": [],
+        }
+        request = make_request("/v1/chat/completions")
+        request._body = b'{"model":"zhipu/glm-5.1","messages":[]}'
+        route = provider_service.RouteResult(
+            provider_config={"id": 1, "models": []},
+            provider_name="zhipu",
+            provider_id=1,
+            provider_model_id=99,
+            model_id=101,
+            requested_model="zhipu/glm-5.1",
+            model_name="glm-5.1",
+            upstream_model_name="glm-5.1",
+            is_forced_provider=True,
+        )
+
+        with (
+            patch(
+                "app.services.proxy.validate_api_key",
+                new=AsyncMock(return_value=(7, None)),
+            ),
+            patch(
+                "app.services.proxy.explain_provider_model_candidates",
+                new=AsyncMock(return_value={"ordered": [], "filtered": []}),
+            ),
+            patch(
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=[route]),
+            ),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        body = response.body.decode("utf-8")
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("model_access_denied", body)
+        self.assertIn("zhipu/glm-5.1", body)
+
+    async def test_model_access_binding_allows_auto_routed_provider_model_for_same_model(self):
         key_info = {
             "allowed_provider_model_ids": [],
             "allowed_model_ids": [101],
         }
 
         self.assertTrue(
-            check_model_access(key_info, provider_model_id=99, model_id=101)
+            check_model_access(
+                key_info,
+                provider_model_id=99,
+                model_id=101,
+                is_forced_provider=False,
+            )
         )
         self.assertFalse(
-            check_model_access(key_info, provider_model_id=99, model_id=202)
+            check_model_access(
+                key_info,
+                provider_model_id=99,
+                model_id=202,
+                is_forced_provider=False,
+            )
+        )
+
+    async def test_model_access_binding_does_not_allow_forced_provider_route(self):
+        key_info = {
+            "allowed_provider_model_ids": [],
+            "allowed_model_ids": [101],
+        }
+
+        self.assertFalse(
+            check_model_access(
+                key_info,
+                provider_model_id=99,
+                model_id=101,
+                is_forced_provider=True,
+            )
+        )
+        self.assertTrue(
+            check_model_access(
+                {
+                    "allowed_provider_model_ids": [99],
+                    "allowed_model_ids": [],
+                },
+                provider_model_id=99,
+                model_id=101,
+                is_forced_provider=True,
+            )
         )
 
     async def test_list_models_returns_deduped_model_names_without_providers(self):
@@ -686,6 +770,189 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
             },
         )
 
+    async def test_auto_model_routes_across_configured_standard_models_by_priority(self):
+        config.system_settings["routing.auto_model"] = (
+            '{"enabled": true, "model_ids": [101, 202], "provider_model_ids": []}'
+        )
+        config.providers_cache.update(
+            {
+                "cheap": {
+                    "id": 1,
+                    "base_url": "https://cheap.example/v1",
+                    "api_key": "cheap-key",
+                    "api_keys": [],
+                    "models": [
+                        {
+                            "id": 11,
+                            "model_id": 101,
+                            "model_name": "glm-5.1",
+                            "actual_model_name": "glm-5.1",
+                            "upstream_model_name": "glm-5.1",
+                            "is_multimodal": False,
+                            "model_tags": "",
+                            "priority": 5,
+                        }
+                    ],
+                },
+                "fast": {
+                    "id": 2,
+                    "base_url": "https://fast.example/v1",
+                    "api_key": "fast-key",
+                    "api_keys": [],
+                    "models": [
+                        {
+                            "id": 22,
+                            "model_id": 202,
+                            "model_name": "deepseek-v3",
+                            "actual_model_name": "deepseek-v3",
+                            "upstream_model_name": "deepseek-v3",
+                            "is_multimodal": False,
+                            "model_tags": "",
+                            "priority": 20,
+                        }
+                    ],
+                },
+            }
+        )
+        provider_service._model_name_index["glm-5.1"] = [
+            ("cheap", config.providers_cache["cheap"]["models"][0], "", 5)
+        ]
+        provider_service._model_name_index["deepseek-v3"] = [
+            ("fast", config.providers_cache["fast"]["models"][0], "", 20)
+        ]
+
+        route = await provider_service.get_provider_and_model("auto")
+
+        self.assertEqual(route.provider_name, "fast")
+        self.assertEqual(route.requested_model, "auto")
+        self.assertEqual(route.model_name, "deepseek-v3")
+        self.assertEqual(route.provider_model_id, 22)
+
+    async def test_auto_model_image_request_only_uses_multimodal_candidates(self):
+        config.system_settings["routing.auto_model"] = (
+            '{"enabled": true, "model_ids": [101, 202]}'
+        )
+        config.providers_cache.update(
+            {
+                "text-only": {
+                    "id": 1,
+                    "base_url": "https://text.example/v1",
+                    "api_key": "text-key",
+                    "api_keys": [],
+                    "models": [
+                        {
+                            "id": 11,
+                            "model_id": 101,
+                            "model_name": "fast-text",
+                            "actual_model_name": "fast-text",
+                            "upstream_model_name": "fast-text",
+                            "is_multimodal": False,
+                            "model_tags": "",
+                            "priority": 100,
+                        }
+                    ],
+                },
+                "vision": {
+                    "id": 2,
+                    "base_url": "https://vision.example/v1",
+                    "api_key": "vision-key",
+                    "api_keys": [],
+                    "models": [
+                        {
+                            "id": 22,
+                            "model_id": 202,
+                            "model_name": "vision-model",
+                            "actual_model_name": "vision-model",
+                            "upstream_model_name": "vision-model",
+                            "is_multimodal": True,
+                            "model_tags": "",
+                            "priority": 1,
+                        }
+                    ],
+                },
+            }
+        )
+        provider_service._model_name_index["fast-text"] = [
+            ("text-only", config.providers_cache["text-only"]["models"][0], "", 100)
+        ]
+        provider_service._model_name_index["vision-model"] = [
+            ("vision", config.providers_cache["vision"]["models"][0], "", 1)
+        ]
+
+        routes = await provider_service.get_provider_model_candidates(
+            "auto",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "describe this"},
+                        {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAA"}},
+                    ],
+                }
+            ],
+        )
+
+        self.assertEqual([route.provider_name for route in routes], ["vision"])
+        self.assertEqual(routes[0].model_name, "vision-model")
+
+    async def test_list_models_includes_auto_only_when_enabled(self):
+        config.providers_cache.update(
+            {
+                "zhipu": {
+                    "models": [
+                        {
+                            "model_name": "glm-5",
+                            "actual_model_name": "glm-5",
+                        }
+                    ]
+                }
+            }
+        )
+
+        self.assertEqual(
+            [item["id"] for item in (await list_models())["data"]],
+            ["glm-5"],
+        )
+
+        config.system_settings["routing.auto_model"] = '{"enabled": true, "model_ids": [101]}'
+
+        self.assertEqual(
+            [item["id"] for item in (await list_models())["data"]],
+            ["auto", "glm-5"],
+        )
+
+    async def test_auto_model_enabled_without_candidates_is_not_exposed_or_routed(self):
+        config.system_settings["routing.auto_model"] = '{"enabled": true}'
+        config.providers_cache.update(
+            {
+                "zhipu": {
+                    "api_key": "zhipu-key",
+                    "api_keys": [],
+                    "models": [
+                        {
+                            "id": 11,
+                            "model_id": 101,
+                            "model_name": "glm-5",
+                            "actual_model_name": "glm-5",
+                            "upstream_model_name": "glm-5",
+                            "priority": 1,
+                        }
+                    ],
+                }
+            }
+        )
+        provider_service._model_name_index["glm-5"] = [
+            ("zhipu", config.providers_cache["zhipu"]["models"][0], "", 1)
+        ]
+
+        self.assertEqual(
+            [item["id"] for item in (await list_models())["data"]],
+            ["glm-5"],
+        )
+        route = await provider_service.get_provider_and_model("auto")
+        self.assertIsNone(route.provider_config)
+        self.assertEqual(route.model_name, "auto")
+
 
 class ModelNameRoutingTemplateTests(unittest.TestCase):
     def test_admin_api_key_template_exposes_model_level_binding_mode(self):
@@ -701,6 +968,9 @@ class ModelNameRoutingTemplateTests(unittest.TestCase):
         self.assertIn("updatePMUpstreamModel", html)
         self.assertIn("upstream_model_name", html)
         self.assertNotIn("updatePMAlias", html)
+        self.assertIn("auto-model-enabled", html)
+        self.assertIn("saveAutoModelConfig", html)
+        self.assertIn("selectAllAutoModels", html)
 
     def test_user_catalog_template_uses_model_name_as_primary_identifier(self):
         html = render(

@@ -160,6 +160,30 @@
             </div>
 
             <div id="config-tab-models" class="config-tab-panel hidden">
+                <div class="bg-white rounded-lg shadow mb-4">
+                    <div class="p-4 border-b flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold">Auto 虚拟模型</h3>
+                            <p class="text-xs text-gray-500 mt-1">开启后 `/v1/models` 和 OpenCode 会暴露 `auto`；文本请求按候选模型优先级路由，图片请求只进入多模态候选。</p>
+                        </div>
+                        <label class="inline-flex items-center gap-2 text-sm">
+                            <input id="auto-model-enabled" type="checkbox" class="rounded">
+                            启用 auto
+                        </label>
+                    </div>
+                    <div class="p-4 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 items-end">
+                        <label class="block">
+                            <span class="block text-xs text-gray-500 mb-1">候选标准模型</span>
+                            <select id="auto-model-ids" multiple size="4" class="w-full border rounded px-3 py-2 text-sm"></select>
+                            <span class="block text-xs text-gray-400 mt-1">必须至少选择一个候选模型，auto 才会暴露和参与路由；具体供应商顺序继续使用模型路由里的优先级和规则。</span>
+                        </label>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="selectAllAutoModels()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">全选</button>
+                            <button onclick="clearAutoModels()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">清空</button>
+                            <button onclick="saveAutoModelConfig()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">保存 auto</button>
+                        </div>
+                    </div>
+                </div>
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b flex justify-between items-center">
                         <h3 class="text-lg font-semibold">标准模型 <span id="model-count-tab" class="text-sm font-normal text-gray-500"></span></h3>
@@ -577,6 +601,7 @@
         let allProviders = [];
         let allModels = [];
         let allProviderModels = [];
+        let autoModelConfig = {enabled: false, model_ids: [], provider_model_ids: []};
         let modelSearchTerm = '';
         let modelBindingFilter = 'all';
         let allApiKeys = [];
@@ -1623,9 +1648,72 @@
         async function loadModels() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models`);
             allModels = data.models || [];
+            renderAutoModelConfig();
             renderFilteredModels();
             renderRoutingBindSelectors();
             renderOverview();
+        }
+
+        async function loadAutoModelConfig() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/routing/auto-model`);
+                autoModelConfig = {
+                    enabled: data.enabled === true,
+                    model_ids: data.model_ids || [],
+                    provider_model_ids: data.provider_model_ids || []
+                };
+                renderAutoModelConfig();
+            } catch(e) {}
+        }
+
+        function renderAutoModelConfig() {
+            const enabled = document.getElementById('auto-model-enabled');
+            const select = document.getElementById('auto-model-ids');
+            if (!enabled || !select) return;
+            enabled.checked = autoModelConfig.enabled === true;
+            const selectedIds = new Set((autoModelConfig.model_ids || []).map(id => Number(id)));
+            select.innerHTML = allModels
+                .filter(m => m.is_active)
+                .map(m => {
+                    const label = `${m.display_name || m.name} (${m.name})${m.is_multimodal ? ' · 多模态' : ''}`;
+                    return `<option value="${m.id}" ${selectedIds.has(Number(m.id)) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                })
+                .join('');
+        }
+
+        function selectAllAutoModels() {
+            document.querySelectorAll('#auto-model-ids option').forEach(option => {
+                option.selected = true;
+            });
+        }
+
+        function clearAutoModels() {
+            document.querySelectorAll('#auto-model-ids option').forEach(option => {
+                option.selected = false;
+            });
+        }
+
+        async function saveAutoModelConfig() {
+            const enabled = document.getElementById('auto-model-enabled')?.checked === true;
+            const select = document.getElementById('auto-model-ids');
+            const modelIds = select ? Array.from(select.selectedOptions).map(opt => Number(opt.value)).filter(Boolean) : [];
+            if (enabled && modelIds.length === 0 && !(autoModelConfig.provider_model_ids || []).length) {
+                showToast('请至少选择一个候选模型，或者关闭 auto', 'error');
+                return;
+            }
+            try {
+                const resp = await mgFetch(`${APP_BASE_PATH}/admin/api/routing/auto-model`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        enabled,
+                        model_ids: modelIds,
+                        provider_model_ids: autoModelConfig.provider_model_ids || []
+                    })
+                }, {success: 'auto 配置已保存', error: 'auto 配置保存失败'});
+                autoModelConfig = await resp.json();
+                renderAutoModelConfig();
+            } catch(e) {}
         }
 
         function applyModelFilters() {
@@ -2422,6 +2510,7 @@
         switchConfigTab(initialConfigTab);
         loadProviders();
         loadModels();
+        loadAutoModelConfig();
         loadProviderModelRoutes();
         loadStrategyTemplates();
     </script>

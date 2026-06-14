@@ -1,6 +1,8 @@
+import json
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
@@ -34,6 +36,52 @@ class ModelUpdate(BaseModel):
     is_active: Optional[bool] = None
     estimated_price: Optional[float] = None
     tags: Optional[str] = None
+
+
+class AutoModelConfigUpdate(BaseModel):
+    enabled: bool = False
+    model_ids: list[int] = Field(default_factory=list)
+    provider_model_ids: list[int] = Field(default_factory=list)
+
+
+def _normalize_auto_model_config(data: dict | None) -> dict:
+    data = data or {}
+    return {
+        "enabled": bool(data.get("enabled")),
+        "model_ids": [int(v) for v in data.get("model_ids", []) if str(v).isdigit()],
+        "provider_model_ids": [
+            int(v) for v in data.get("provider_model_ids", []) if str(v).isdigit()
+        ],
+    }
+
+
+@router.get("/routing/auto-model")
+async def get_auto_model_config(_: bool = Depends(permission_required("page.models"))):
+    from app.services.system_config import get_setting
+
+    raw = await get_setting("routing", "auto_model", "{}")
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        data = {}
+    return _normalize_auto_model_config(data)
+
+
+@router.put("/routing/auto-model")
+async def update_auto_model_config(
+    data: AutoModelConfigUpdate,
+    _: bool = Depends(permission_required("model.update")),
+):
+    from app.services.system_config import save_setting
+
+    payload = _normalize_auto_model_config(data.model_dump())
+    await save_setting(
+        "routing",
+        "auto_model",
+        json.dumps(payload, ensure_ascii=False),
+        "Virtual auto model routing configuration",
+    )
+    return payload
 
 
 @router.get("/models")
@@ -252,35 +300,19 @@ async def update_model_api_keys(
 
 @router.get("/models/resolve")
 async def resolve_model(name: str, _: bool = Depends(permission_required("page.models"))):
-    from app.services.provider import _model_name_index
-    from app.services.key_health import compute_health_score
+    from app.services.provider import explain_provider_model_candidates
 
-    if name not in _model_name_index:
-        return {"model": name, "providers": [], "selected": None}
-
-    candidates = _model_name_index[name]
-    results = []
-    for provider_name, pm_dict, model_tags, priority in candidates:
-        from app.services.provider import get_provider_config
-        pc = await get_provider_config(provider_name)
-        if not pc or pc.get("disabled_reason"):
-            continue
-        keys = pc.get("api_keys") or []
-        active_keys = [k for k in keys if k.get("id") is not None]
-        if not active_keys and not pc.get("api_key"):
-            continue
-        best_health = 100
-        if active_keys:
-            best_health = max(compute_health_score(k["id"]) for k in active_keys)
-        results.append({
-            "provider": provider_name,
-            "actual_model": pm_dict.get("upstream_model_name") or pm_dict.get("actual_model_name") or name,
-            "model_name": pm_dict.get("model_name") or name,
-            "health": best_health,
-            "priority": priority,
-            "tags": model_tags,
-        })
-
-    results.sort(key=lambda x: (x["priority"], x["health"]), reverse=True)
+    explanation = await explain_provider_model_candidates(name)
+    results = [
+        {
+            "provider": item["provider"],
+            "actual_model": item["upstream_model_name"],
+            "model_name": item["model_name"],
+            "health": item["health"],
+            "priority": item["effective_priority"],
+            "tags": "",
+        }
+        for item in explanation.get("ordered", [])
+    ]
     selected = results[0]["provider"] if results else None
     return {"model": name, "providers": results, "selected": selected}

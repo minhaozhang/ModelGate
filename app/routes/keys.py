@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, time as dt_time, date as dt_date
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy import select, func, delete
 
@@ -30,23 +30,61 @@ class ApiKeyCreate(BaseModel):
     name: str
     email: Optional[str] = None
     expires_at: Optional[datetime] = None
-    allowed_provider_model_ids: list[int] = []
-    allowed_model_ids: list[int] = []
-    mcp_server_ids: list[int] = []
+    access_mode: Optional[str] = None
+    allowed_provider_model_ids: list[int] = Field(default_factory=list)
+    allowed_model_ids: list[int] = Field(default_factory=list)
+    mcp_server_ids: list[int] = Field(default_factory=list)
     bypass_busyness: bool = False
-    tags: list[str] = []
+    tags: list[str] = Field(default_factory=list)
 
 
 class ApiKeyUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     expires_at: Optional[datetime] = None
+    access_mode: Optional[str] = None
     allowed_provider_model_ids: Optional[list[int]] = None
     allowed_model_ids: Optional[list[int]] = None
     is_active: Optional[bool] = None
     mcp_server_ids: Optional[list[int]] = None
     bypass_busyness: Optional[bool] = None
     tags: Optional[list[str]] = None
+
+
+def _validate_access_payload(
+    access_mode: str | None,
+    allowed_provider_model_ids: list[int] | None,
+    allowed_model_ids: list[int] | None,
+    *,
+    required: bool,
+) -> JSONResponse | None:
+    provider_model_ids = allowed_provider_model_ids or []
+    model_ids = allowed_model_ids or []
+    if access_mode is None:
+        if not required and allowed_provider_model_ids is None and allowed_model_ids is None:
+            return None
+        if model_ids and not provider_model_ids:
+            access_mode = "model"
+        elif provider_model_ids and not model_ids:
+            access_mode = "provider_model"
+        else:
+            return JSONResponse(
+                {"error": "请选择全部模型，或至少选择一个允许的模型。"},
+                status_code=400,
+            )
+    if access_mode not in {"model", "provider_model"}:
+        return JSONResponse({"error": "Invalid access mode"}, status_code=400)
+    if access_mode == "model" and not model_ids:
+        return JSONResponse(
+            {"error": "标准模型模式下请至少选择一个模型。"},
+            status_code=400,
+        )
+    if access_mode == "provider_model" and not provider_model_ids:
+        return JSONResponse(
+            {"error": "Provider Model 模式下请至少选择一个绑定。"},
+            status_code=400,
+        )
+    return None
 
 
 @router.get("/keys")
@@ -127,6 +165,14 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
 
 @router.post("/keys")
 async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_required("api_key.create"))):
+    access_error = _validate_access_payload(
+        data.access_mode,
+        data.allowed_provider_model_ids,
+        data.allowed_model_ids,
+        required=True,
+    )
+    if access_error:
+        return access_error
     async with async_session_maker() as session:
         new_key = ApiKey(
             name=data.name,
@@ -160,6 +206,14 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_requir
 async def update_api_key(
     key_id: int, data: ApiKeyUpdate, _: bool = Depends(permission_required("api_key.update"))
 ):
+    access_error = _validate_access_payload(
+        data.access_mode,
+        data.allowed_provider_model_ids,
+        data.allowed_model_ids,
+        required=False,
+    )
+    if access_error:
+        return access_error
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
         key = result.scalar_one_or_none()

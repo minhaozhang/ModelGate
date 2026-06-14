@@ -1207,6 +1207,15 @@ POST /admin/api/routing/resolve
   - 在同一个抽屉中配置该标准模型的供应商优先级、上游模型名、繁忙等级上限和 Key。
   - 支持模型级路由规则模板：小上下文优先、高峰期分流、主路受限备用、按量高峰备用、时间段禁用。
   - 支持直接编辑已有模型级规则的动作、权重、时间段、日期、星期、上下文范围和启用状态。
+- 标准模型页已加入 `auto` 虚拟模型配置：
+  - 配置保存在 `system_settings` 的 `routing.auto_model`。
+  - 管理接口为 `GET/PUT /admin/api/routing/auto-model`。
+  - UI 提供启用开关和候选标准模型多选；必须显式选择候选模型，空候选不暴露、不路由。
+  - `/v1/models` 只在 `auto` 启用且存在候选模型时暴露 `auto`。
+  - OpenCode 配置只在当前用户 API Key 至少有一个可访问候选时暴露 `auto`，不会绕过模型权限。
+  - 文本请求使用候选池中真实供应商模型的 `tag_match, provider_model.priority, health` 排序。
+  - 图片/视觉请求会先识别 `messages.content` 中的 `image_url` / `input_image` / image source，只允许 `is_multimodal=true` 的候选参与。
+  - `auto` 只是入口模型名；日志、上游请求和最终路由仍记录真实标准模型名、供应商模型和上游模型名。
 - 模型级 `standby` 的当前落地语义：
   - `deny` / `allow` 仍是硬过滤。
   - `prefer` / `deprioritize` 调整供应商模型候选分数。

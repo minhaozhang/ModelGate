@@ -83,6 +83,28 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("email: Optional[str] = None", route)
         self.assertIn("expires_at: Optional[datetime] = None", route)
 
+    def test_api_key_modal_does_not_close_from_backdrop_click(self):
+        html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
+        mcp = (ROOT / "web" / "templates" / "admin" / "mcp_servers.html").read_text(encoding="utf-8")
+
+        self.assertIn("apikey-modal-card", html)
+        self.assertNotIn("if (e.target.id === 'apikey-modal') closeApiKeyModal();", html)
+        self.assertNotIn("if (e.target.id === 'timerule-modal') closeTimeRuleModal();", html)
+        self.assertNotIn("e.target.id === 'manual-copy-modal'", html)
+        self.assertNotIn("if (e.target.id === 'server-modal') closeServerModal();", mcp)
+
+    def test_api_key_model_access_requires_explicit_all_or_non_empty_selection(self):
+        html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
+        route = (ROOT / "app" / "routes" / "keys.py").read_text(encoding="utf-8")
+
+        self.assertIn("access_mode: selectedAccessMode", html)
+        self.assertIn("validateApiKeyAccessSelection()", html)
+        self.assertNotIn('id="access-mode-all"', html)
+        self.assertIn("selectAllStandardModels", html)
+        self.assertIn("selectAllProviderModels", html)
+        self.assertIn("access_mode: Optional[str] = None", route)
+        self.assertIn("_validate_access_payload", route)
+
     def test_user_opencode_tab_shows_target_path_and_macos_hidden_folder_shortcuts(self):
         html = (ROOT / "web" / "templates" / "user" / "tab_opencode.html").read_text(encoding="utf-8")
 

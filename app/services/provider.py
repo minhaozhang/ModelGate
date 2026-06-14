@@ -1,3 +1,4 @@
+import json
 import random
 import time
 from dataclasses import dataclass
@@ -38,6 +39,7 @@ _key_sticky_map: dict[tuple[int, str], tuple[int, float]] = {}
 
 _alias_index: dict[str, list[tuple[str, dict, str, int]]] = {}
 _model_name_index: dict[str, list[tuple[str, dict, str, int]]] = {}
+AUTO_MODEL_NAME = "auto"
 
 
 @dataclass
@@ -453,6 +455,100 @@ def get_model_config(provider_config: dict, model_name: str) -> Optional[dict]:
     return None
 
 
+def _parse_id_list(value) -> set[int]:
+    if not isinstance(value, list):
+        return set()
+    ids: set[int] = set()
+    for item in value:
+        try:
+            ids.add(int(item))
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
+def get_auto_model_config() -> dict:
+    raw = (
+        config.system_settings.get("routing.auto_model")
+        or config.system_config.get("auto_model")
+        or "{}"
+    )
+    if isinstance(raw, dict):
+        data = raw
+    else:
+        try:
+            data = json.loads(raw)
+        except (TypeError, ValueError):
+            data = {}
+    return {
+        "enabled": bool(data.get("enabled")),
+        "model_ids": sorted(_parse_id_list(data.get("model_ids"))),
+        "provider_model_ids": sorted(_parse_id_list(data.get("provider_model_ids"))),
+    }
+
+
+def is_auto_model_enabled() -> bool:
+    auto_config = get_auto_model_config()
+    return (
+        auto_config.get("enabled") is True
+        and bool(auto_config.get("model_ids") or auto_config.get("provider_model_ids"))
+    )
+
+
+def _message_part_has_image(value) -> bool:
+    if isinstance(value, list):
+        return any(_message_part_has_image(item) for item in value)
+    if not isinstance(value, dict):
+        return False
+    part_type = str(value.get("type") or "").lower()
+    if part_type in {"image", "image_url", "input_image"}:
+        return True
+    if any(key in value for key in ("image_url", "image", "input_image")):
+        return True
+    source = value.get("source")
+    if isinstance(source, dict):
+        source_type = str(source.get("type") or "").lower()
+        media_type = str(source.get("media_type") or "").lower()
+        if source_type in {"image", "base64"} and media_type.startswith("image/"):
+            return True
+    return any(_message_part_has_image(v) for v in value.values())
+
+
+def request_requires_multimodal(messages: list[dict] | None) -> bool:
+    if not messages:
+        return False
+    return any(_message_part_has_image(message.get("content")) for message in messages)
+
+
+def get_auto_model_provider_candidates(
+    require_multimodal: bool = False,
+) -> list[tuple[str, dict, str, int]]:
+    auto_config = get_auto_model_config()
+    if not is_auto_model_enabled():
+        return []
+    allowed_model_ids = set(auto_config.get("model_ids") or [])
+    allowed_provider_model_ids = set(auto_config.get("provider_model_ids") or [])
+    candidates: list[tuple[str, dict, str, int]] = []
+    seen: set[int] = set()
+    for model_candidates in _model_name_index.values():
+        for provider_name, pm_dict, model_tags, priority in model_candidates:
+            provider_model_id = pm_dict.get("id")
+            if provider_model_id in seen:
+                continue
+            seen.add(provider_model_id)
+            if allowed_model_ids and pm_dict.get("model_id") not in allowed_model_ids:
+                continue
+            if (
+                allowed_provider_model_ids
+                and provider_model_id not in allowed_provider_model_ids
+            ):
+                continue
+            if require_multimodal and not pm_dict.get("is_multimodal"):
+                continue
+            candidates.append((provider_name, pm_dict, model_tags, priority))
+    return candidates
+
+
 def _route_from_provider_model(
     provider_config: Optional[dict],
     provider_name: str,
@@ -573,7 +669,13 @@ async def explain_provider_model_candidates(
             "filtered": [],
         }
 
-    candidates = _model_name_index.get(model) or _alias_index.get(model) or []
+    is_auto_model = model == AUTO_MODEL_NAME
+    requires_multimodal = request_requires_multimodal(messages) if is_auto_model else False
+    candidates = (
+        get_auto_model_provider_candidates(require_multimodal=requires_multimodal)
+        if is_auto_model
+        else (_model_name_index.get(model) or _alias_index.get(model) or [])
+    )
     from app.services.key_health import compute_health_score
     from app.services.intent_classifier import classify_intent
 
@@ -595,6 +697,9 @@ async def explain_provider_model_candidates(
             "upstream_model_name": pm_dict.get("upstream_model_name")
             or pm_dict.get("model_name")
             or model,
+            "is_auto_model": is_auto_model,
+            "requires_multimodal": requires_multimodal,
+            "is_multimodal": bool(pm_dict.get("is_multimodal")),
             "tag_match": 0,
             "priority": int(pm_priority or 0),
             "policy_priority": 0,
@@ -655,6 +760,8 @@ async def explain_provider_model_candidates(
         "context_tokens": context_tokens,
         "intent": intent,
         "preferred_tags": sorted(user_tags),
+        "is_auto_model": is_auto_model,
+        "requires_multimodal": requires_multimodal,
         "ordered": ordered,
         "filtered": filtered,
     }
@@ -683,7 +790,14 @@ async def get_provider_model_candidates(
             )
         ]
 
-    candidates = _model_name_index.get(model) or _alias_index.get(model)
+    is_auto_model = model == AUTO_MODEL_NAME
+    candidates = (
+        get_auto_model_provider_candidates(
+            require_multimodal=request_requires_multimodal(messages)
+        )
+        if is_auto_model
+        else (_model_name_index.get(model) or _alias_index.get(model))
+    )
     if candidates:
         explanation = await explain_provider_model_candidates(
             model,

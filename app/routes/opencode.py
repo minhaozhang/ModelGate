@@ -78,6 +78,25 @@ async def build_opencode_config(
     provider_models = pm_result.scalars().all()
     models_config = {}
     model_priority: dict[str, int] = {}
+    accessible_auto_candidates = []
+
+    from app.services.system_config import get_setting
+
+    auto_raw = await get_setting("routing", "auto_model", "{}")
+    try:
+        auto_config = json.loads(auto_raw)
+    except (TypeError, ValueError):
+        auto_config = {}
+    auto_enabled = bool(auto_config.get("enabled"))
+    auto_model_ids = {
+        int(v) for v in (auto_config.get("model_ids") or []) if str(v).isdigit()
+    }
+    auto_provider_model_ids = {
+        int(v)
+        for v in (auto_config.get("provider_model_ids") or [])
+        if str(v).isdigit()
+    }
+    auto_enabled = auto_enabled and bool(auto_model_ids or auto_provider_model_ids)
 
     for pm in provider_models:
         provider_result = await session.execute(
@@ -96,6 +115,14 @@ async def build_opencode_config(
 
         if not provider.is_active or not pm.is_active:
             continue
+
+        if auto_enabled:
+            allowed_by_model_scope = not auto_model_ids or pm.model_id in auto_model_ids
+            allowed_by_pm_scope = (
+                not auto_provider_model_ids or pm.id in auto_provider_model_ids
+            )
+            if allowed_by_model_scope and allowed_by_pm_scope:
+                accessible_auto_candidates.append((pm, model))
 
         model_key = model.name
         priority = pm.priority if hasattr(pm, "priority") else 0
@@ -126,6 +153,22 @@ async def build_opencode_config(
 
         models_config[model_key] = model_entry
         model_priority[model_key] = priority
+
+    if auto_enabled and accessible_auto_candidates:
+        auto_context = max(
+            (model.context_length or 204800) for _pm, model in accessible_auto_candidates
+        )
+        auto_output = max(
+            (model.max_tokens or 131072) for _pm, model in accessible_auto_candidates
+        )
+        auto_input_modalities = ["text"]
+        if any(model.is_multimodal for _pm, model in accessible_auto_candidates):
+            auto_input_modalities.append("image")
+        models_config["auto"] = {
+            "name": "Auto",
+            "modalities": {"input": auto_input_modalities, "output": ["text"]},
+            "limit": {"context": auto_context, "output": auto_output},
+        }
 
     return {
         "$schema": "https://opencode.ai/config.json",

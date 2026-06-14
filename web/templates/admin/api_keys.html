@@ -107,7 +107,7 @@
     </div>
     
     <div id="apikey-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+        <div class="apikey-modal-card bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
             <div class="p-4 border-b flex justify-between items-center">
                 <h3 id="apikey-modal-title" class="font-semibold">{{ _('Add API Key') }}</h3>
                 <button onclick="closeApiKeyModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
@@ -132,11 +132,7 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         {{ _('Allowed Models') }} <span class="text-gray-400">(<span id="selected-count">0</span> {{ _('selected') }})</span>
                     </label>
-                    <div class="grid grid-cols-3 gap-2 mb-2 text-sm">
-                        <label class="access-mode-option flex items-center gap-2 rounded border px-3 py-2 cursor-pointer" id="access-mode-all">
-                            <input type="radio" name="access-mode" value="all" onchange="setAccessMode('all')">
-                            {{ _('All') }}
-                        </label>
+                    <div class="grid grid-cols-2 gap-2 mb-2 text-sm">
                         <label class="access-mode-option flex items-center gap-2 rounded border px-3 py-2 cursor-pointer" id="access-mode-model">
                             <input type="radio" name="access-mode" value="model" onchange="setAccessMode('model')">
                             {{ _('Model') }}
@@ -147,12 +143,21 @@
                         </label>
                     </div>
                     <div id="standard-models-panel" class="border rounded max-h-60 overflow-y-auto hidden">
+                        <div class="sticky top-0 z-10 flex justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700">
+                            <button type="button" onclick="selectAllStandardModels()" class="text-blue-500 hover:text-blue-700">全选</button>
+                            <button type="button" onclick="clearStandardModels()" class="text-gray-500 hover:text-gray-700">清空</button>
+                        </div>
                         <div id="standard-models-checkbox-container" class="divide-y"></div>
                     </div>
                     <div id="provider-models-panel" class="border rounded max-h-60 overflow-y-auto hidden">
+                        <div class="sticky top-0 z-10 flex justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700">
+                            <button type="button" onclick="selectAllProviderModels()" class="text-blue-500 hover:text-blue-700">全选</button>
+                            <button type="button" onclick="clearProviderModels()" class="text-gray-500 hover:text-gray-700">清空</button>
+                        </div>
                         <div id="models-checkbox-container" class="divide-y"></div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">{{ _('All allows every current model. Model allows any provider for that model. Provider Model pins access to one provider binding.') }}</p>
+                    <p class="text-xs text-gray-500 mt-1">标准模型表示允许该模型下任意供应商；Provider Model 表示只允许具体供应商绑定。需要全量时请在标准模型列表里点全选。</p>
+                    <p id="access-mode-error" class="text-xs text-red-500 mt-1 hidden"></p>
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('MCP Servers') }}</label>
@@ -499,13 +504,16 @@
     }
 
     document.getElementById('timerule-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'timerule-modal') closeTimeRuleModal();
-    });
+        if (e.target === e.currentTarget) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+    }, true);
     </script>
     <script>
         let selectedModelIds = [];
         let selectedStandardModelIds = [];
-        let selectedAccessMode = 'all';
+        let selectedAccessMode = 'model';
         let currentTags = [];
         const APP_BASE_PATH = {{ app_base_path | tojson }};
         let providerModels = [];
@@ -905,11 +913,16 @@
                 `;
                 document.body.appendChild(modal);
                 modal.addEventListener('click', (e) => {
-                    if (e.target.id === 'manual-copy-modal' || e.target.closest('.manual-copy-close')) {
+                    if (e.target.closest('.manual-copy-close')) {
                         modal.classList.add('hidden');
                         modal.classList.remove('flex');
+                        return;
                     }
-                });
+                    if (e.target === e.currentTarget) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                    }
+                }, true);
             }
             const textarea = modal.querySelector('#manual-copy-text');
             textarea.value = text;
@@ -967,7 +980,13 @@
         }
 
         function setAccessMode(mode) {
+            if (!['model', 'provider_model'].includes(mode)) mode = 'model';
             selectedAccessMode = mode;
+            const accessError = document.getElementById('access-mode-error');
+            if (accessError) {
+                accessError.classList.add('hidden');
+                accessError.textContent = '';
+            }
             document.querySelectorAll('input[name="access-mode"]').forEach(input => {
                 input.checked = input.value === mode;
             });
@@ -1005,6 +1024,30 @@
             const label = document.querySelector(`label[data-model-id="${id}"]`);
             if (label) label.classList.toggle('selected', selectedStandardModelIds.includes(id));
         }
+
+        function selectAllStandardModels() {
+            selectedStandardModelIds = standardModels.map(model => model.id);
+            renderStandardModelCheckboxes();
+            updateSelectedCount();
+        }
+
+        function clearStandardModels() {
+            selectedStandardModelIds = [];
+            renderStandardModelCheckboxes();
+            updateSelectedCount();
+        }
+
+        function selectAllProviderModels() {
+            selectedModelIds = providerModels.map(pm => pm.id);
+            renderModelCheckboxes();
+            updateSelectedCount();
+        }
+
+        function clearProviderModels() {
+            selectedModelIds = [];
+            renderModelCheckboxes();
+            updateSelectedCount();
+        }
         
         function updateSelectedCount() {
             const count = selectedAccessMode === 'model'
@@ -1013,6 +1056,29 @@
                     ? selectedModelIds.length
                     : 0;
             document.getElementById('selected-count').textContent = count;
+        }
+
+        function validateApiKeyAccessSelection() {
+            const errorEl = document.getElementById('access-mode-error');
+            const showError = (message) => {
+                if (errorEl) {
+                    errorEl.textContent = message;
+                    errorEl.classList.remove('hidden');
+                }
+                showToast(message, 'error');
+                return false;
+            };
+            if (selectedAccessMode === 'model' && selectedStandardModelIds.length === 0) {
+                return showError('请选择至少一个标准模型；如果要全部模型，请点击标准模型列表里的“全选”。');
+            }
+            if (selectedAccessMode === 'provider_model' && selectedModelIds.length === 0) {
+                return showError('请选择至少一个 Provider Model；如果要全部模型，请切到标准模型并点击“全选”。');
+            }
+            if (errorEl) {
+                errorEl.classList.add('hidden');
+                errorEl.textContent = '';
+            }
+            return true;
         }
         
         function copyKey(key) {
@@ -1076,7 +1142,7 @@ ${setupMdUrl}`;
             document.getElementById('apikey-expires-at').value = getDefaultApiKeyExpiry();
             selectedModelIds = [];
             selectedStandardModelIds = [];
-            setAccessMode('all');
+            setAccessMode('model');
             updateSelectedCount();
             renderModelCheckboxes();
             renderStandardModelCheckboxes();
@@ -1103,7 +1169,8 @@ ${setupMdUrl}`;
             } else if (selectedModelIds.length > 0) {
                 setAccessMode('provider_model');
             } else {
-                setAccessMode('all');
+                selectedStandardModelIds = standardModels.map(model => model.id);
+                setAccessMode('model');
             }
             updateSelectedCount();
             renderModelCheckboxes();
@@ -1123,11 +1190,13 @@ ${setupMdUrl}`;
         
         document.getElementById('apikey-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!validateApiKeyAccessSelection()) return;
             const id = document.getElementById('apikey-id').value;
             const data = {
                 name: document.getElementById('apikey-name').value,
                 email: document.getElementById('apikey-email').value.trim(),
                 expires_at: localDateTimeToIso(document.getElementById('apikey-expires-at').value),
+                access_mode: selectedAccessMode,
                 allowed_provider_model_ids: selectedAccessMode === 'provider_model' ? selectedModelIds : [],
                 allowed_model_ids: selectedAccessMode === 'model' ? selectedStandardModelIds : [],
                 bypass_busyness: document.getElementById('apikey-bypass-busyness').checked,
@@ -1161,10 +1230,6 @@ ${setupMdUrl}`;
             loadApiKeys();
         }
         
-        document.getElementById('apikey-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'apikey-modal') closeApiKeyModal();
-        });
-
         document.getElementById('apikeys-list').addEventListener('click', (e) => {
             const copyKeyButton = e.target.closest('.copy-key-btn');
             if (copyKeyButton) {
