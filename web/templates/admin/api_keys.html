@@ -93,7 +93,7 @@
                     </svg>
                 </div>
                 <div class="text-sm text-gray-500">
-                    <span id="total-count">0</span> {{ _('keys') }}
+                    <span id="total-count">...</span> {{ _('keys') }}
                 </div>
             </div>
             <div id="tag-filter-bar" class="mb-4 hidden"></div>
@@ -552,6 +552,13 @@
             selectedListTagFilter = new Set();
             renderTagFilterBar();
             handleSearch();
+        }
+
+        function renderApiKeyLoadError(error) {
+            const list = document.getElementById('apikeys-list');
+            if (list) {
+                list.innerHTML = `<div class="text-red-500 text-center py-8">Failed to load API keys: ${escapeAttr(error?.message || error || '')}</div>`;
+            }
         }
 
         function renderTagFilterBar() {
@@ -1118,7 +1125,8 @@ ${setupMdUrl}`;
             }
         });
         
-        Promise.all([loadProviderModels(), loadStandardModels()]).then(() => { loadMcpServers(); loadApiKeys(); });
+        Promise.allSettled([loadProviderModels(), loadStandardModels(), loadMcpServers()])
+            .then(() => loadApiKeys().catch(renderApiKeyLoadError));
         
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {

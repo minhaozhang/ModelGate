@@ -159,6 +159,7 @@ async def change_password(
         return JSONResponse({"error": "新密码长度不能少于6位"}, status_code=400)
 
     try:
+        from sqlalchemy import update
         from app.services.rbac import get_user_by_id
         from app.services.rbac_auth import (
             decode_access_token,
@@ -178,7 +179,7 @@ async def change_password(
 
         async with async_session_maker() as db:
             await db.execute(
-                sql_update(User)
+                update(User)
                 .where(User.id == user.id)
                 .values(password_hash=hash_password(new_password))
             )

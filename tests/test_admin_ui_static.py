@@ -21,6 +21,20 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("onclick=\"modelGateLogout()\"", html)
         self.assertIn("window.modelGateLogout = async function()", html)
 
+    def test_api_key_list_loads_independently_from_model_filters(self):
+        html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
+
+        self.assertIn("loadApiKeys().catch", html)
+        self.assertIn("Promise.allSettled([loadProviderModels(), loadStandardModels(), loadMcpServers()])", html)
+        self.assertIn("Failed to load API keys", html)
+        self.assertNotIn('<span id="total-count">0</span>', html)
+
+    def test_change_password_uses_defined_sqlalchemy_update(self):
+        source = (ROOT / "app" / "routes" / "auth.py").read_text(encoding="utf-8")
+
+        self.assertIn("from sqlalchemy import update", source)
+        self.assertNotIn("sql_update(User)", source)
+
 
 if __name__ == "__main__":
     unittest.main()
