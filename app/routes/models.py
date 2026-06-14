@@ -7,7 +7,15 @@ from typing import Optional
 from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
 
-from app.core.database import async_session_maker, Model, ApiKey, ApiKeyModel, ProviderModel, Provider
+from app.core.database import (
+    async_session_maker,
+    Model,
+    ApiKey,
+    ApiKeyModel,
+    ApiKeyModelAccess,
+    ProviderModel,
+    Provider,
+)
 from app.core.permissions import permission_required
 from app.services.auth import load_api_keys
 
@@ -97,19 +105,32 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
             )
         )
         model_pm_map: dict[int, list[int]] = {m.id: [] for m in models}
+        pm_model_map: dict[int, int] = {}
         for row in pm_result.fetchall():
             model_pm_map[row[0]].append(row[1])
+            pm_model_map[row[1]] = row[0]
 
         all_pm_ids = [pm_id for ids in model_pm_map.values() for pm_id in ids]
-        pm_key_counts: dict[int, int] = {}
+        model_key_ids: dict[int, set[int]] = {m.id: set() for m in models}
         if all_pm_ids:
             ak_count_result = await session.execute(
-                select(ApiKeyModel.provider_model_id).where(
+                select(ApiKeyModel.provider_model_id, ApiKeyModel.api_key_id).where(
                     ApiKeyModel.provider_model_id.in_(all_pm_ids)
                 )
             )
             for row in ak_count_result.fetchall():
-                pm_key_counts[row[0]] = pm_key_counts.get(row[0], 0) + 1
+                model_id = pm_model_map.get(row[0])
+                if model_id:
+                    model_key_ids.setdefault(model_id, set()).add(row[1])
+
+        if model_ids:
+            model_access_result = await session.execute(
+                select(ApiKeyModelAccess.model_id, ApiKeyModelAccess.api_key_id).where(
+                    ApiKeyModelAccess.model_id.in_(model_ids)
+                )
+            )
+            for row in model_access_result.fetchall():
+                model_key_ids.setdefault(row[0], set()).add(row[1])
 
         return {
             "models": [
@@ -124,7 +145,7 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
                     "is_multimodal": m.is_multimodal,
                     "is_active": m.is_active,
                     "tags": m.tags,
-                    "bound_key_count": sum(pm_key_counts.get(p, 0) for p in model_pm_map.get(m.id, [])),
+                    "bound_key_count": len(model_key_ids.get(m.id, set())),
                 }
                 for m in models
             ]

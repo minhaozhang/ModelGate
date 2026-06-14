@@ -116,6 +116,16 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("Cmd + Shift + .", html)
         self.assertIn("Cmd + Shift + G", html)
 
+    def test_auto_model_picker_uses_compact_modal_not_tall_multiselect(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="auto-model-summary"', html)
+        self.assertIn('id="auto-model-picker-modal"', html)
+        self.assertIn("openAutoModelPicker", html)
+        self.assertIn("confirmAutoModelPicker", html)
+        self.assertIn("autoModelDraftIds", html)
+        self.assertNotIn('id="auto-model-ids" multiple', html)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -70,6 +70,7 @@
         .template-card.active { border-color: #2563eb; background: #eff6ff; }
         body.theme-dark .template-card { border-color: #334155; }
         body.theme-dark .template-card.active { background: rgba(37, 99, 235, 0.18); }
+        .auto-model-picker-panel { height: min(560px, 86vh); }
         .config-table-wrap { overflow-x: auto; }
         .config-table { width: 100%; border-collapse: collapse; min-width: 760px; }
         .config-table th { background: #f8fafc; color: #64748b; font-size: 0.72rem; font-weight: 700; letter-spacing: 0; padding: 0.65rem 0.85rem; text-align: left; white-space: nowrap; }
@@ -171,16 +172,20 @@
                             启用 auto
                         </label>
                     </div>
-                    <div class="p-4 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 items-end">
-                        <label class="block">
-                            <span class="block text-xs text-gray-500 mb-1">候选标准模型</span>
-                            <select id="auto-model-ids" multiple size="4" class="w-full border rounded px-3 py-2 text-sm"></select>
-                            <span class="block text-xs text-gray-400 mt-1">必须至少选择一个候选模型，auto 才会暴露和参与路由；具体供应商顺序继续使用模型路由里的优先级和规则。</span>
-                        </label>
-                        <div class="flex flex-wrap gap-2">
-                            <button onclick="selectAllAutoModels()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">全选</button>
-                            <button onclick="clearAutoModels()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">清空</button>
-                            <button onclick="saveAutoModelConfig()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">保存 auto</button>
+                    <div class="p-4 space-y-3">
+                        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-gray-500">候选标准模型</span>
+                                    <span id="auto-model-count" class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">0 个</span>
+                                </div>
+                                <div id="auto-model-summary" class="mt-2 flex flex-wrap gap-1.5 text-xs text-gray-600"></div>
+                                <span class="block text-xs text-gray-400 mt-2">必须至少选择一个候选模型，auto 才会暴露和参与路由；具体供应商顺序继续使用模型路由里的优先级和规则。</span>
+                            </div>
+                            <div class="flex flex-wrap gap-2 lg:flex-nowrap">
+                                <button onclick="openAutoModelPicker()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">选择模型</button>
+                                <button onclick="saveAutoModelConfig()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">保存 auto</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -475,6 +480,28 @@
         </div>
     </div>
 
+    <div id="auto-model-picker-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="auto-model-picker-panel bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
+                <div>
+                    <h3 class="font-semibold">选择 auto 候选模型</h3>
+                    <p class="text-xs text-gray-500 mt-1">auto 会从这些标准模型下的可用供应商中，继续按路由优先级、健康度和规则选择。</p>
+                </div>
+                <button onclick="closeAutoModelPicker()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="px-4 py-3 border-b flex flex-wrap gap-2 items-center">
+                <button onclick="selectAllAutoModels()" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">全选</button>
+                <button onclick="clearAutoModels()" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">清空</button>
+                <span id="auto-model-picker-count" class="text-xs text-gray-500"></span>
+            </div>
+            <div id="auto-model-picker-list" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 min-h-0"></div>
+            <div class="p-4 border-t flex justify-end gap-2 flex-shrink-0">
+                <button onclick="closeAutoModelPicker()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">取消</button>
+                <button onclick="confirmAutoModelPicker()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">确认选择</button>
+            </div>
+        </div>
+    </div>
+
     <div id="model-keys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 h-[90vh] flex flex-col">
             <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
@@ -602,6 +629,7 @@
         let allModels = [];
         let allProviderModels = [];
         let autoModelConfig = {enabled: false, model_ids: [], provider_model_ids: []};
+        let autoModelDraftIds = new Set();
         let modelSearchTerm = '';
         let modelBindingFilter = 'all';
         let allApiKeys = [];
@@ -1668,35 +1696,95 @@
 
         function renderAutoModelConfig() {
             const enabled = document.getElementById('auto-model-enabled');
-            const select = document.getElementById('auto-model-ids');
-            if (!enabled || !select) return;
+            const summary = document.getElementById('auto-model-summary');
+            const count = document.getElementById('auto-model-count');
+            if (!enabled || !summary || !count) return;
             enabled.checked = autoModelConfig.enabled === true;
             const selectedIds = new Set((autoModelConfig.model_ids || []).map(id => Number(id)));
-            select.innerHTML = allModels
-                .filter(m => m.is_active)
-                .map(m => {
-                    const label = `${m.display_name || m.name} (${m.name})${m.is_multimodal ? ' · 多模态' : ''}`;
-                    return `<option value="${m.id}" ${selectedIds.has(Number(m.id)) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
-                })
-                .join('');
+            const selectedModels = allModels.filter(m => selectedIds.has(Number(m.id)));
+            count.textContent = `${selectedModels.length} 个`;
+            if (!selectedModels.length) {
+                summary.innerHTML = '<span class="text-gray-400">未选择，auto 不会暴露或参与路由</span>';
+                return;
+            }
+            const preview = selectedModels.slice(0, 5).map(m => {
+                const label = `${m.display_name || m.name}${m.is_multimodal ? ' · 多模态' : ''}`;
+                return `<span class="px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100">${escapeHtml(label)}</span>`;
+            }).join('');
+            const more = selectedModels.length > 5
+                ? `<span class="px-2 py-1 rounded bg-gray-100 text-gray-600">+${selectedModels.length - 5}</span>`
+                : '';
+            summary.innerHTML = preview + more;
+        }
+
+        function renderAutoModelPicker() {
+            const list = document.getElementById('auto-model-picker-list');
+            const count = document.getElementById('auto-model-picker-count');
+            if (!list) return;
+            const activeModels = allModels.filter(m => m.is_active);
+            if (count) count.textContent = `已选 ${autoModelDraftIds.size} / ${activeModels.length}`;
+            if (!activeModels.length) {
+                list.innerHTML = '<div class="text-sm text-gray-400 py-8 text-center sm:col-span-2">暂无可用标准模型</div>';
+                return;
+            }
+            list.innerHTML = activeModels.map(m => {
+                const id = Number(m.id);
+                const label = `${m.display_name || m.name}`;
+                const meta = `${m.name}${m.is_multimodal ? ' · 多模态' : ''}`;
+                return `
+                    <label class="flex items-start gap-2 rounded border px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" class="auto-model-option mt-1 rounded" value="${id}" ${autoModelDraftIds.has(id) ? 'checked' : ''} onchange="toggleAutoModelDraft(this)">
+                        <span class="min-w-0">
+                            <span class="block text-sm text-gray-800 truncate">${escapeHtml(label)}</span>
+                            <span class="block text-xs text-gray-400 truncate">${escapeHtml(meta)}</span>
+                        </span>
+                    </label>
+                `;
+            }).join('');
+        }
+
+        function openAutoModelPicker() {
+            autoModelDraftIds = new Set((autoModelConfig.model_ids || []).map(id => Number(id)).filter(Boolean));
+            renderAutoModelPicker();
+            document.getElementById('auto-model-picker-modal')?.classList.remove('hidden');
+            document.getElementById('auto-model-picker-modal')?.classList.add('flex');
+        }
+
+        function closeAutoModelPicker() {
+            document.getElementById('auto-model-picker-modal')?.classList.add('hidden');
+            document.getElementById('auto-model-picker-modal')?.classList.remove('flex');
+        }
+
+        function toggleAutoModelDraft(checkbox) {
+            const id = Number(checkbox.value);
+            if (!id) return;
+            if (checkbox.checked) {
+                autoModelDraftIds.add(id);
+            } else {
+                autoModelDraftIds.delete(id);
+            }
+            renderAutoModelPicker();
+        }
+
+        function confirmAutoModelPicker() {
+            autoModelConfig.model_ids = Array.from(autoModelDraftIds);
+            renderAutoModelConfig();
+            closeAutoModelPicker();
         }
 
         function selectAllAutoModels() {
-            document.querySelectorAll('#auto-model-ids option').forEach(option => {
-                option.selected = true;
-            });
+            autoModelDraftIds = new Set(allModels.filter(m => m.is_active).map(m => Number(m.id)).filter(Boolean));
+            renderAutoModelPicker();
         }
 
         function clearAutoModels() {
-            document.querySelectorAll('#auto-model-ids option').forEach(option => {
-                option.selected = false;
-            });
+            autoModelDraftIds = new Set();
+            renderAutoModelPicker();
         }
 
         async function saveAutoModelConfig() {
             const enabled = document.getElementById('auto-model-enabled')?.checked === true;
-            const select = document.getElementById('auto-model-ids');
-            const modelIds = select ? Array.from(select.selectedOptions).map(opt => Number(opt.value)).filter(Boolean) : [];
+            const modelIds = (autoModelConfig.model_ids || []).map(id => Number(id)).filter(Boolean);
             if (enabled && modelIds.length === 0 && !(autoModelConfig.provider_model_ids || []).length) {
                 showToast('请至少选择一个候选模型，或者关闭 auto', 'error');
                 return;
