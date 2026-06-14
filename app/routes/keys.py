@@ -170,7 +170,7 @@ async def update_api_key(
         if data.email is not None:
             key.email = data.email.strip() or None
         if data.expires_at is not None:
-            key.expires_at = data.expires_at
+            key.expires_at = data.expires_at.replace(tzinfo=None) if data.expires_at.tzinfo else data.expires_at
         if data.is_active is not None:
             key.is_active = data.is_active
         if data.bypass_busyness is not None:
