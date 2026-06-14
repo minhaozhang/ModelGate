@@ -79,6 +79,8 @@ async def load_api_keys():
             api_keys_cache[k.key] = {
                 "id": k.id,
                 "name": k.name,
+                "email": k.email if hasattr(k, "email") else None,
+                "expires_at": k.expires_at if hasattr(k, "expires_at") else None,
                 "bypass_busyness": k.bypass_busyness or False,
                 "preferred_tags": k.preferred_tags if hasattr(k, "preferred_tags") else None,
                 "allowed_provider_model_ids": key_models_map[k.id],
@@ -179,6 +181,19 @@ def _check_time_rules(time_rules: list[dict]) -> bool:
     return True
 
 
+def _is_api_key_expired(expires_at) -> bool:
+    if not expires_at:
+        return False
+    if isinstance(expires_at, str):
+        try:
+            expires_at = datetime.datetime.fromisoformat(expires_at)
+        except ValueError:
+            return False
+    if getattr(expires_at, "tzinfo", None) is not None:
+        expires_at = expires_at.astimezone().replace(tzinfo=None)
+    return datetime.datetime.now() > expires_at
+
+
 async def validate_api_key(
     auth_header: str, model: str
 ) -> tuple[Optional[int], Optional[str]]:
@@ -193,6 +208,9 @@ async def validate_api_key(
     key_info = api_keys_cache.get(key)
     if not key_info:
         return None, "API Key 无效"
+
+    if _is_api_key_expired(key_info.get("expires_at")):
+        return None, "API Key 已过期，请联系管理员续期或重新配置"
 
     if not _check_time_rules(key_info.get("time_rules", [])):
         return None, "当前时段不允许使用该 API Key"

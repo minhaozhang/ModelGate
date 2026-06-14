@@ -7,6 +7,7 @@ from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from sqlalchemy import select
 
 from app.core.config import api_keys_cache, logger
+from app.services.auth import _is_api_key_expired
 from app.core.database import McpServer, async_session_maker
 from app.services.mcp_proxy import (
     call_tool,
@@ -119,7 +120,8 @@ class _ApiKeyAuthMiddleware:
                 key = auth[7:]
             else:
                 key = auth
-            if not key or key not in api_keys_cache:
+            key_info = api_keys_cache.get(key) if key else None
+            if not key_info or _is_api_key_expired(key_info.get("expires_at")):
                 error_scope = {
                     "type": "http",
                     "method": scope.get("method", "GET"),
@@ -132,7 +134,7 @@ class _ApiKeyAuthMiddleware:
                 await response(error_scope, receive, send)
                 return
 
-            api_key_id = api_keys_cache[key]["id"]
+            api_key_id = key_info["id"]
             scope["api_key_id"] = api_key_id
 
         await self.app(scope, receive, send)

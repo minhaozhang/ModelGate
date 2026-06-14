@@ -1351,6 +1351,27 @@
             navigator.clipboard.writeText(config).then(() => alert(window.I18N.copied));
         }
 
+        function copyOpencodeConfigDir() {
+            const dir = document.getElementById('opencode-config-dir')?.textContent || '~/.config/opencode';
+            navigator.clipboard.writeText(dir).then(() => alert(window.I18N.copied));
+        }
+
+        function downloadConfig() {
+            const config = document.getElementById('config-output').textContent || '';
+            if (!config || config === (window.I18N.loading || 'Loading...')) return;
+            const jsonMatch = config.match(/```json\s*([\s\S]*?)```/);
+            const content = jsonMatch ? jsonMatch[1].trim() : config;
+            const filename = jsonMatch ? 'opencode.json' : 'opencode-setup.md';
+            const mime = jsonMatch ? 'application/json' : 'text/markdown;charset=utf-8';
+            const blob = new Blob([content], { type: mime });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
         async function mergeConfigFile(input) {
             const file = input.files[0];
             if (!file) return;

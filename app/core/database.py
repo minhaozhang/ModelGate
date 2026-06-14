@@ -251,6 +251,8 @@ class ApiKey(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
     key = Column(String(64), unique=True, nullable=False)
+    email = Column(String(255), nullable=True)
+    expires_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     bypass_busyness = Column(Boolean, default=False)
     preferred_tags = Column(Text, nullable=True)
@@ -1077,6 +1079,15 @@ async def init_db():
         )
         await conn.execute(
             text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP")
+        )
+        await conn.execute(
+            text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS email VARCHAR(255)")
+        )
+        await conn.execute(
+            text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP")
+        )
+        await conn.execute(
+            text("UPDATE api_keys SET expires_at = now() + interval '1 year' WHERE expires_at IS NULL")
         )
         await conn.execute(
             text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS bypass_busyness BOOLEAN DEFAULT FALSE")

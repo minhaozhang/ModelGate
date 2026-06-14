@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 from app.core import config
@@ -561,6 +561,21 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
                 model_id=101,
             )
         )
+
+    async def test_validate_api_key_rejects_expired_key(self):
+        config.api_keys_cache["mg_expired"] = {
+            "id": 8,
+            "name": "expired",
+            "allowed_provider_model_ids": [],
+            "allowed_model_ids": [],
+            "time_rules": [],
+            "expires_at": datetime.now() - timedelta(seconds=1),
+        }
+
+        api_key_id, error = await validate_api_key("Bearer mg_expired", "glm-5.1")
+
+        self.assertIsNone(api_key_id)
+        self.assertIn("API Key 已过期", error)
 
     def test_model_access_denied_message_guides_user_to_permissions_and_opencode(self):
         message = build_model_access_denied_message("glm-5.1")

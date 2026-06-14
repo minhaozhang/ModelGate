@@ -1,4 +1,4 @@
-from datetime import time as dt_time, date as dt_date
+from datetime import datetime, timedelta, time as dt_time, date as dt_date
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -28,6 +28,8 @@ router = APIRouter(prefix="/admin/api", tags=["api-keys"])
 
 class ApiKeyCreate(BaseModel):
     name: str
+    email: Optional[str] = None
+    expires_at: Optional[datetime] = None
     allowed_provider_model_ids: list[int] = []
     allowed_model_ids: list[int] = []
     mcp_server_ids: list[int] = []
@@ -37,6 +39,8 @@ class ApiKeyCreate(BaseModel):
 
 class ApiKeyUpdate(BaseModel):
     name: Optional[str] = None
+    email: Optional[str] = None
+    expires_at: Optional[datetime] = None
     allowed_provider_model_ids: Optional[list[int]] = None
     allowed_model_ids: Optional[list[int]] = None
     is_active: Optional[bool] = None
@@ -102,6 +106,10 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
                     "id": k.id,
                     "name": k.name,
                     "key": k.key,
+                    "email": k.email,
+                    "expires_at": k.expires_at.isoformat()
+                    if k.expires_at
+                    else None,
                     "allowed_provider_model_ids": model_ids,
                     "allowed_model_ids": allowed_model_ids,
                     "time_rules": time_rules,
@@ -120,7 +128,13 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
 @router.post("/keys")
 async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_required("api_key.create"))):
     async with async_session_maker() as session:
-        new_key = ApiKey(name=data.name, key=generate_api_key(), bypass_busyness=data.bypass_busyness)
+        new_key = ApiKey(
+            name=data.name,
+            key=generate_api_key(),
+            email=(data.email or "").strip() or None,
+            expires_at=data.expires_at or (datetime.now() + timedelta(days=365)),
+            bypass_busyness=data.bypass_busyness,
+        )
         session.add(new_key)
         await session.commit()
         await session.refresh(new_key)
@@ -153,6 +167,10 @@ async def update_api_key(
             return JSONResponse({"error": "API key not found"}, status_code=404)
         if data.name is not None:
             key.name = data.name
+        if data.email is not None:
+            key.email = data.email.strip() or None
+        if data.expires_at is not None:
+            key.expires_at = data.expires_at
         if data.is_active is not None:
             key.is_active = data.is_active
         if data.bypass_busyness is not None:

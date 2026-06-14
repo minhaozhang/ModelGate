@@ -12,6 +12,7 @@ from starlette.responses import JSONResponse
 from starlette.types import Receive, Scope, Send
 
 from app.core.config import api_keys_cache, logger
+from app.services.auth import _is_api_key_expired
 from app.core.database import WeixinAccount, WeixinMessage, async_session_maker
 from app.services.weixin import (
     ILinkClient,
@@ -230,11 +231,12 @@ class _ApiKeyAuthMiddleware:
                 key = auth[7:]
             else:
                 key = auth
-            if not key or key not in api_keys_cache:
+            key_info = api_keys_cache.get(key) if key else None
+            if not key_info or _is_api_key_expired(key_info.get("expires_at")):
                 response = JSONResponse({"error": "Unauthorized"}, status_code=401)
                 await response(scope, receive, send)
                 return
-            scope["api_key_id"] = api_keys_cache[key]["id"]
+            scope["api_key_id"] = key_info["id"]
         await self.app(scope, receive, send)
 
 

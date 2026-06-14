@@ -13,19 +13,34 @@
         pre { white-space: pre-wrap; word-break: break-all; }
         .copy-btn { transition: all 0.2s; }
         .copy-btn:hover { background: #3b82f6; color: white; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark .dark-surface { background: #0f172a !important; border: 1px solid #1f2937; box-shadow: 0 12px 30px rgba(2,6,23,0.45) !important; }
+        body.theme-dark .dark-row { background: #111827 !important; border-color: #1f2937 !important; }
+        body.theme-dark .dark-code { background: #020617 !important; color: #dbeafe !important; border-color: #1e293b !important; }
+        body.theme-dark .dark-heading { color: #f8fafc !important; }
+        body.theme-dark .dark-muted { color: #94a3b8 !important; }
+        body.theme-dark .dark-border { border-color: #1f2937 !important; }
+        body.theme-dark nav { background: #0f172a !important; border-color: #1f2937 !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96,165,250,0.15); color: #60a5fa !important; border-right: 3px solid #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148,163,184,0.12); }
+        body.theme-dark input { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark code { background: #111827 !important; color: #bfdbfe !important; }
+        body.theme-dark .copy-btn { background: rgba(59,130,246,0.1); color: #93c5fd; border-color: #2563eb; }
+        body.theme-dark #error-section { background: rgba(239,68,68,0.12) !important; border-color: rgba(239,68,68,0.35) !important; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="theme-dark bg-gray-100 min-h-screen">
     <div class="flex">
         {% set active_page = 'opencode' %}
         {% include "components/nav.html" %}
 
         <main class="ml-56 flex-1 p-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">{{ _('OpenCode Configuration') }}</h2>
-            <p class="text-gray-500 mb-6">{{ _('Generate opencode.json config for this proxy') }}</p>
+            <h2 class="text-2xl font-bold text-gray-800 dark-heading mb-2">{{ _('OpenCode Configuration') }}</h2>
+            <p class="text-gray-500 dark-muted mb-6">{{ _('Generate opencode.json config for this proxy') }}</p>
 
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">{{ _('Enter your API Key to generate config') }}</label>
+            <div class="bg-white dark-surface rounded-lg shadow p-6 mb-6">
+                <label class="block text-sm font-medium text-gray-700 dark-heading mb-2">{{ _('Enter your API Key to generate config') }}</label>
                 <div class="flex gap-2">
                     <input type="text" id="api-key-input" placeholder="sk-..."
                         class="flex-1 border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
@@ -36,18 +51,18 @@
             </div>
 
             <div id="config-section" class="hidden">
-                <div class="bg-white rounded-lg shadow mb-6">
-                    <div class="flex justify-between items-center p-4 border-b">
-                        <h3 class="text-lg font-semibold">opencode.json</h3>
+                <div class="bg-white dark-surface rounded-lg shadow mb-6">
+                    <div class="flex justify-between items-center p-4 border-b dark-border">
+                        <h3 class="text-lg font-semibold dark-heading">opencode.json</h3>
                         <button onclick="copyConfig()" class="copy-btn border border-blue-500 text-blue-500 px-3 py-1 rounded text-sm">
                             {{ _('Copy') }}
                         </button>
                     </div>
-                    <pre id="config-output" class="p-4 text-sm bg-gray-50 overflow-x-auto"></pre>
+                    <pre id="config-output" class="p-4 text-sm bg-gray-50 dark-code overflow-x-auto"></pre>
                 </div>
 
-                <div class="bg-white rounded-lg shadow p-4">
-                    <h3 class="text-lg font-semibold mb-3">{{ _('Available Models') }}</h3>
+                <div class="bg-white dark-surface rounded-lg shadow p-4">
+                    <h3 class="text-lg font-semibold dark-heading mb-3">{{ _('Available Models') }}</h3>
                     <div id="models-list" class="space-y-2"></div>
                 </div>
             </div>
@@ -56,9 +71,9 @@
                 <p id="error-msg" class="text-red-600"></p>
             </div>
 
-            <div class="bg-white rounded-lg shadow p-6 mt-6">
-                <h3 class="text-lg font-semibold mb-3">{{ _('How to use') }}</h3>
-                <ol class="list-decimal list-inside space-y-2 text-gray-600">
+            <div class="bg-white dark-surface rounded-lg shadow p-6 mt-6">
+                <h3 class="text-lg font-semibold dark-heading mb-3">{{ _('How to use') }}</h3>
+                <ol class="list-decimal list-inside space-y-2 text-gray-600 dark-muted">
                     <li>{{ _('Enter your API Key and click Generate') }}</li>
                     <li>{{ _('Copy the generated') }} <code class="bg-gray-100 px-1 rounded">opencode.json</code></li>
                     <li>{{ _('Create') }} <code class="bg-gray-100 px-1 rounded">opencode.json</code> {{ _('in your project root') }}</li>
@@ -122,9 +137,9 @@
                 document.getElementById('config-output').textContent = configJson;
 
                 const modelsHtml = data.models.map(m => `
-                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                        <span class="font-medium">${m.name}</span>
-                        <span class="text-sm text-gray-500">${window.I18N.contextLabel}: ${m.context.toLocaleString()} | ${window.I18N.outputLabel}: ${m.output.toLocaleString()}</span>
+                    <div class="flex justify-between items-center p-2 bg-gray-50 dark-row rounded">
+                        <span class="font-medium dark-heading">${m.name}</span>
+                        <span class="text-sm text-gray-500 dark-muted">${window.I18N.contextLabel}: ${m.context.toLocaleString()} | ${window.I18N.outputLabel}: ${m.output.toLocaleString()}</span>
                     </div>
                 `).join('');
                 document.getElementById('models-list').innerHTML = modelsHtml;

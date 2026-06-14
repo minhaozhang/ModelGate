@@ -118,6 +118,16 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Name') }}</label>
                     <input type="text" id="apikey-name" required class="w-full border rounded px-3 py-2" placeholder="{{ _('e.g., Project A') }}">
                 </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Email') }}</label>
+                        <input type="email" id="apikey-email" class="w-full border rounded px-3 py-2" placeholder="user@example.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Expires At') }}</label>
+                        <input type="datetime-local" id="apikey-expires-at" class="w-full border rounded px-3 py-2">
+                    </div>
+                </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         {{ _('Allowed Models') }} <span class="text-gray-400">(<span id="selected-count">0</span> {{ _('selected') }})</span>
@@ -206,6 +216,9 @@
         bypassBusyness: "{{ _('Bypass Busyness') }}",
         loginLabel: "{{ _('Login') }}",
         lastUsed: "{{ _('Last Used') }}",
+        email: "{{ _('Email') }}",
+        expiresAt: "{{ _('Expires At') }}",
+        expired: "{{ _('Expired') }}",
         never: "{{ _('Never') }}",
         accessInfo: "{{ _('ModelGate Access') }}",
         loginPage: "{{ _('Login Page:') }}",
@@ -662,6 +675,37 @@
             return date.toLocaleString();
         }
 
+        function toLocalDateTimeInput(date) {
+            const d = date instanceof Date ? date : new Date(date);
+            if (Number.isNaN(d.getTime())) return '';
+            const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+            return local.toISOString().slice(0, 16);
+        }
+
+        function getDefaultApiKeyExpiry() {
+            const date = new Date();
+            date.setFullYear(date.getFullYear() + 1);
+            return toLocalDateTimeInput(date);
+        }
+
+        function localDateTimeToIso(value) {
+            if (!value) return null;
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? null : date.toISOString();
+        }
+
+        function formatExpiry(value) {
+            if (!value) return window.I18N.never;
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+        }
+
+        function isApiKeyExpired(value) {
+            if (!value) return false;
+            const date = new Date(value);
+            return !Number.isNaN(date.getTime()) && Date.now() > date.getTime();
+        }
+
         function escapeAttr(value) {
             return String(value ?? '')
                 .replace(/&/g, '&amp;')
@@ -705,15 +749,21 @@
                     setupMdUrl,
                     modelNames,
                 };
+                const expired = isApiKeyExpired(k.expires_at);
                 return `
-                <div class="p-4">
+                <div class="p-4 ${expired ? 'bg-red-50/60' : ''}">
                     <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                         <div class="min-w-0 flex-1">
-                            <div class="font-medium">${k.name}</div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <div class="font-medium">${k.name}</div>
+                                ${expired ? `<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">${window.I18N.expired}</span>` : ''}
+                            </div>
                             <div class="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-2">
                                 <code class="bg-gray-100 px-2 py-0.5 rounded text-xs break-all">${maskedKey}</code>
                                 <button type="button" data-copy-key="${escapeAttr(k.key)}" class="copy-key-btn text-blue-500 hover:text-blue-700 text-xs">${window.I18N.copy}</button>
                             </div>
+                            <div class="mt-2 text-xs text-gray-500">${window.I18N.email}: ${k.email ? escapeAttr(k.email) : '-'}</div>
+                            <div class="mt-1 text-xs text-gray-500">${window.I18N.expiresAt}: ${formatExpiry(k.expires_at)}</div>
                             <div class="mt-2 text-xs text-gray-500">${window.I18N.lastUsed}: ${formatLastUsed(k.last_used_at)}</div>
                             ${modelsDisplay}
                             ${(k.mcp_server_ids && k.mcp_server_ids.length > 0) ? `
@@ -1022,6 +1072,8 @@ ${setupMdUrl}`;
             document.getElementById('apikey-modal-title').textContent = window.I18N.addApiKey;
             document.getElementById('apikey-id').value = '';
             document.getElementById('apikey-name').value = '';
+            document.getElementById('apikey-email').value = '';
+            document.getElementById('apikey-expires-at').value = getDefaultApiKeyExpiry();
             selectedModelIds = [];
             selectedStandardModelIds = [];
             setAccessMode('all');
@@ -1042,6 +1094,8 @@ ${setupMdUrl}`;
             document.getElementById('apikey-modal-title').textContent = window.I18N.editApiKey;
             document.getElementById('apikey-id').value = id;
             document.getElementById('apikey-name').value = key.name;
+            document.getElementById('apikey-email').value = key.email || '';
+            document.getElementById('apikey-expires-at').value = key.expires_at ? toLocalDateTimeInput(key.expires_at) : getDefaultApiKeyExpiry();
             selectedModelIds = key.allowed_provider_model_ids || [];
             selectedStandardModelIds = key.allowed_model_ids || [];
             if (selectedStandardModelIds.length > 0) {
@@ -1072,6 +1126,8 @@ ${setupMdUrl}`;
             const id = document.getElementById('apikey-id').value;
             const data = {
                 name: document.getElementById('apikey-name').value,
+                email: document.getElementById('apikey-email').value.trim(),
+                expires_at: localDateTimeToIso(document.getElementById('apikey-expires-at').value),
                 allowed_provider_model_ids: selectedAccessMode === 'provider_model' ? selectedModelIds : [],
                 allowed_model_ids: selectedAccessMode === 'model' ? selectedStandardModelIds : [],
                 bypass_busyness: document.getElementById('apikey-bypass-busyness').checked,
