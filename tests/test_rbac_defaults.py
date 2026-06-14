@@ -28,3 +28,6 @@ class RbacDefaultSeedTests(unittest.TestCase):
         roles = database.default_rbac_roles()
 
         self.assertIn("admin", {role["name"] for role in roles})
+
+    def test_user_model_exposes_last_login_for_user_list_api(self):
+        self.assertIn("last_login", database.User.__table__.columns)

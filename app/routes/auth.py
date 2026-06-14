@@ -83,6 +83,19 @@ async def login(data: LoginRequest, response: Response, request: Request):
         login_attempts.pop(client_ip, None)
         admin_logger.info(f"[LOGIN] Success - User: {username}, IP: {client_ip}")
         try:
+            from sqlalchemy import update
+            from app.core.database import User, async_session_maker
+
+            async with async_session_maker() as session:
+                await session.execute(
+                    update(User)
+                    .where(User.username == username)
+                    .values(last_login=datetime.now(), updated_at=datetime.now())
+                )
+                await session.commit()
+        except Exception:
+            pass
+        try:
             from app.services.audit import write_audit_log
             await write_audit_log(
                 request, "create", "session", None,
