@@ -810,9 +810,158 @@ def generate_api_key():
     return "sk-" + secrets.token_hex(24)
 
 
+def default_rbac_permissions() -> list[dict]:
+    page_codes = [
+        ("page.api_keys", "API Key 页面", "api_keys"),
+        ("page.documents", "文档页面", "documents"),
+        ("page.logs.requests", "请求日志页面", "logs"),
+        ("page.mcp_servers", "MCP 服务器页面", "mcp_servers"),
+        ("page.models", "标准模型页面", "models"),
+        ("page.provider_models", "供应商模型页面", "provider_models"),
+        ("page.providers", "供应商页面", "providers"),
+        ("page.roles", "角色权限页面", "roles"),
+        ("page.stats", "统计监控页面", "stats"),
+        ("page.system.config", "系统配置页面", "system_config"),
+        ("page.system.scheduler", "定时任务页面", "scheduler"),
+        ("page.users", "用户管理页面", "users"),
+    ]
+    action_codes = [
+        ("api_key.create", "创建 API Key", "api_key", "create"),
+        ("api_key.update", "更新 API Key", "api_key", "update"),
+        ("api_key.delete", "删除 API Key", "api_key", "delete"),
+        ("api_key.add_time_rule", "新增 API Key 时间规则", "api_key", "create"),
+        ("api_key.update_time_rule", "更新 API Key 时间规则", "api_key", "update"),
+        ("api_key.delete_time_rule", "删除 API Key 时间规则", "api_key", "delete"),
+        ("document.create", "创建文档", "document", "create"),
+        ("document.upload", "上传文档", "document", "upload"),
+        ("document.update", "更新文档", "document", "update"),
+        ("document.delete", "删除文档", "document", "delete"),
+        ("document.delete_file", "删除文档文件", "document", "delete"),
+        ("log.create_report", "生成日志报告", "log", "create"),
+        ("mcp_server.create", "创建 MCP 服务器", "mcp_server", "create"),
+        ("mcp_server.update", "更新 MCP 服务器", "mcp_server", "update"),
+        ("mcp_server.delete", "删除 MCP 服务器", "mcp_server", "delete"),
+        ("mcp_server.sync", "同步 MCP 服务器", "mcp_server", "sync"),
+        ("menu.create", "创建菜单", "menu", "create"),
+        ("menu.update", "更新菜单", "menu", "update"),
+        ("menu.delete", "删除菜单", "menu", "delete"),
+        ("model.create", "创建模型", "model", "create"),
+        ("model.update", "更新模型", "model", "update"),
+        ("model.delete", "删除模型", "model", "delete"),
+        ("notification.mark_read", "标记通知已读", "notification", "update"),
+        ("provider.create", "创建供应商", "provider", "create"),
+        ("provider.update", "更新供应商", "provider", "update"),
+        ("provider.delete", "删除供应商", "provider", "delete"),
+        ("provider.add_key", "新增供应商 Key", "provider", "create"),
+        ("provider.update_key", "更新供应商 Key", "provider", "update"),
+        ("provider.delete_key", "删除供应商 Key", "provider", "delete"),
+        ("provider_model.create", "创建供应商模型", "provider_model", "create"),
+        ("provider_model.update", "更新供应商模型", "provider_model", "update"),
+        ("provider_model.delete", "删除供应商模型", "provider_model", "delete"),
+        ("provider_model.sync", "同步供应商模型", "provider_model", "sync"),
+        ("role.create", "创建角色", "role", "create"),
+        ("role.update", "更新角色", "role", "update"),
+        ("role.delete", "删除角色", "role", "delete"),
+        ("role.assign_permission", "分配角色权限", "role", "update"),
+        ("scheduler.trigger", "触发定时任务", "scheduler", "execute"),
+        ("scheduler.update", "更新定时任务", "scheduler", "update"),
+        ("system_config.update", "更新系统配置", "system_config", "update"),
+        ("user.create", "创建用户", "user", "create"),
+        ("user.update", "更新用户", "user", "update"),
+        ("user.delete", "删除用户", "user", "delete"),
+        ("user.reset_password", "重置用户密码", "user", "update"),
+        ("user.assign_role", "分配用户角色", "user", "update"),
+    ]
+    permissions = [
+        {
+            "code": code,
+            "name": name,
+            "type": "page",
+            "resource": resource,
+            "action": "view",
+            "description": name,
+        }
+        for code, name, resource in page_codes
+    ]
+    permissions.extend(
+        {
+            "code": code,
+            "name": name,
+            "type": "element",
+            "resource": resource,
+            "action": action,
+            "description": name,
+        }
+        for code, name, resource, action in action_codes
+    )
+    return permissions
+
+
+def default_rbac_roles() -> list[dict]:
+    return [
+        {
+            "name": "admin",
+            "display_name": "系统管理员",
+            "description": "拥有全部管理权限",
+            "is_system": True,
+        }
+    ]
+
+
+async def seed_rbac_defaults(conn) -> None:
+    await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(100)"))
+    await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(100)"))
+    await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE"))
+    await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superuser BOOLEAN DEFAULT FALSE"))
+    await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT now()"))
+    await conn.execute(text("ALTER TABLE roles ADD COLUMN IF NOT EXISTS display_name VARCHAR(100)"))
+    await conn.execute(text("ALTER TABLE roles ADD COLUMN IF NOT EXISTS description TEXT"))
+    await conn.execute(text("ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_system BOOLEAN DEFAULT FALSE"))
+    await conn.execute(text("ALTER TABLE permissions ADD COLUMN IF NOT EXISTS name VARCHAR(100)"))
+    await conn.execute(text("ALTER TABLE permissions ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'element'"))
+    await conn.execute(text("ALTER TABLE permissions ADD COLUMN IF NOT EXISTS resource VARCHAR(50)"))
+    await conn.execute(text("ALTER TABLE permissions ADD COLUMN IF NOT EXISTS action VARCHAR(20)"))
+    await conn.execute(text("ALTER TABLE permissions ADD COLUMN IF NOT EXISTS description TEXT"))
+    await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_permissions_code ON permissions (code)"))
+    await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_user_role ON user_roles (user_id, role_id)"))
+    await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_role_permission ON role_permissions (role_id, permission_id)"))
+
+    for perm in default_rbac_permissions():
+        await conn.execute(
+            text(
+                "INSERT INTO permissions (code, name, type, resource, action, description) "
+                "VALUES (:code, :name, :type, :resource, :action, :description) "
+                "ON CONFLICT (code) DO UPDATE SET "
+                "name = EXCLUDED.name, type = EXCLUDED.type, resource = EXCLUDED.resource, "
+                "action = EXCLUDED.action, description = EXCLUDED.description"
+            ),
+            perm,
+        )
+    for role in default_rbac_roles():
+        await conn.execute(
+            text(
+                "INSERT INTO roles (name, display_name, description, is_system) "
+                "VALUES (:name, :display_name, :description, :is_system) "
+                "ON CONFLICT (name) DO UPDATE SET "
+                "display_name = EXCLUDED.display_name, description = EXCLUDED.description, "
+                "is_system = EXCLUDED.is_system"
+            ),
+            role,
+        )
+    await conn.execute(
+        text(
+            "INSERT INTO role_permissions (role_id, permission_id) "
+            "SELECT r.id, p.id FROM roles r CROSS JOIN permissions p "
+            "WHERE r.name = 'admin' "
+            "ON CONFLICT (role_id, permission_id) DO NOTHING"
+        )
+    )
+
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await seed_rbac_defaults(conn)
         await conn.execute(
             text(
                 "ALTER TABLE models "

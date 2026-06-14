@@ -1,8 +1,8 @@
-<nav class="w-56 bg-white shadow-lg min-h-screen fixed">
+<nav class="w-56 bg-white shadow-lg fixed" style="height: 100vh; display: flex; flex-direction: column;">
     <div class="p-4 border-b">
         <h1 class="text-xl font-bold text-gray-800">ModelGate</h1>
     </div>
-    <div class="py-2">
+    <div class="py-2" style="flex: 1 1 auto; min-height: 0; overflow-y: auto;">
         <a href="{{ app_base_path }}/admin/home" class="nav-link {{ 'active' if active_page == 'home' else '' }} flex items-center px-4 py-3 text-gray-700">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
             {{ '仪表盘' if current_locale == 'zh' else 'Dashboard' }}
@@ -61,7 +61,7 @@
         </a>
     </div>
     {% include 'components/lang_switch.html' %}
-    <div class="absolute bottom-0 w-full p-4 border-t">
+    <div class="w-full p-4 border-t" style="flex: 0 0 auto;">
         <div id="current-user-info" class="mb-3 text-sm text-gray-500 flex items-center" style="display:none">
             <svg class="w-5 h-5 mr-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
             <span id="current-username" class="truncate"></span>
@@ -88,7 +88,7 @@
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
             {{ '修改密码' if current_locale == 'zh' else 'Change Password' }}
         </button>
-        <button onclick="logout()" class="w-full text-left text-gray-600 hover:text-red-600 flex items-center">
+        <button onclick="modelGateLogout()" class="w-full text-left text-gray-600 hover:text-red-600 flex items-center">
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
             {{ _('Logout') }}
         </button>
@@ -119,6 +119,15 @@
     </div>
 </div>
 <script>
+window.modelGateLogout = async function() {
+    const appBase = {{ app_base_path | tojson }};
+    try {
+        await fetch(`${appBase}/admin/api/auth/logout`, {method: 'POST'});
+    } finally {
+        window.location.href = `${appBase}/admin/login`;
+    }
+};
+
 function changePassword() {
     document.getElementById('cp-old').value = '';
     document.getElementById('cp-new').value = '';

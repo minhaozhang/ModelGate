@@ -622,7 +622,7 @@
         }
 
         function switchConfigTab(tab) {
-            const knownTabs = new Set(['overview', 'providers', 'models', 'routing', 'preview']);
+            const knownTabs = new Set(['overview', 'providers', 'models', 'routing', 'templates', 'preview']);
             if (!knownTabs.has(tab)) tab = 'providers';
             document.querySelectorAll('.config-tab-panel').forEach(panel => panel.classList.add('hidden'));
             document.querySelectorAll('.config-tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -634,6 +634,7 @@
             url.searchParams.set('tab', tab);
             window.history.replaceState(null, '', url.toString());
             if (tab === 'routing') loadProviderModelRoutes();
+            if (tab === 'templates') loadStrategyTemplates();
         }
 
         async function logout() {
