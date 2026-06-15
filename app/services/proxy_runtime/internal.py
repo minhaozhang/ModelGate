@@ -121,13 +121,17 @@ async def call_internal_model_via_proxy(
             provider_config, api_key_id, provider_name
         )
         if chosen_api_key is None:
+            logger.warning("[NO KEY] provider=%s no usable api key", provider_name)
             return {
                 "ok": False,
                 "provider_name": provider_name,
                 "actual_model_name": actual_model,
-                "status_code": None,
+                "status_code": 429,
                 "payload": None,
-                "error": f"供应商 '{provider_name}' 无可用的 API Key",
+                "error": (
+                    f"供应商 '{provider_name}' 当前没有可用的 API Key"
+                    "（所有 Key 均因健康评分过低或限流被暂时屏蔽，请稍后重试）"
+                ),
             }
 
         if not bypass_busyness:

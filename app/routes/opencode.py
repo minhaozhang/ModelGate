@@ -201,14 +201,15 @@ Requirements:
 - If `~/.config/opencode/opencode.json` does not exist, create it first.
 - You can also place `opencode.json` in the root of the current project if you prefer a project-specific config.
 - Keep existing providers and other settings unchanged.
-- Only add or update the `modelgate` provider shown below.
-- If the `modelgate` provider already exists in the config, replace its entire content with the JSON below.
+- **Fully replace the `modelgate` provider**: find `provider.modelgate` in the config, and overwrite its entire value with the JSON object shown below. Do NOT merge, do NOT add fields to the existing one — the `modelgate` block must become exactly the JSON below.
+- If `provider.modelgate` does not exist yet, add it with the JSON below.
+- After replacement, the `modelgate.models` object must contain exactly the models listed below — no extra, no missing.
 - If OpenCode is not installed yet, download it from `https://opencode.ai/`.
 
-Models included in this provider:
+Models included in this provider (must match exactly after replacement):
 {model_list}
 
-Use this provider config:
+Use this provider config (replace `provider.modelgate` entirely with this JSON object):
 
 ```json
 {json.dumps(config, ensure_ascii=False)}
@@ -217,7 +218,7 @@ Use this provider config:
 After the config is updated:
 1. Save the file.
 2. **Restart OpenCode** for the changes to take effect.
-3. Verify that the models above are available in OpenCode."""
+3. Verify that the models above are available in OpenCode and that no stale models from a previous `modelgate` config remain."""
 
 
 @router.get("/opencode/setup.md")

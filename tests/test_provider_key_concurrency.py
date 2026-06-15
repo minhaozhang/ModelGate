@@ -720,6 +720,6 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
         ):
             response = await proxy_request(request, "/chat/completions")
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 429)
         body = response.body.decode("utf-8")
-        self.assertIn("供应商 'zhipu' 无可用的 API Key", body)
+        self.assertIn("没有可用的 API Key", body)

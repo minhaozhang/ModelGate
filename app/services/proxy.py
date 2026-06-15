@@ -510,15 +510,54 @@ async def proxy_request(request: Request, endpoint: str):
                 if not is_last_route and not route_result.is_forced_provider:
                     continue
                 reasons = provider_config.get("disabled_key_reasons") or []
-                msg = f"供应商 '{provider_name}' 无可用的 API Key"
+                msg = (
+                    f"供应商 '{provider_name}' 当前没有可用的 API Key"
+                    "（所有 Key 均因健康评分过低或限流被暂时屏蔽，请稍后重试）"
+                )
                 if reasons:
-                    msg = f"'{provider_name}' \u6682\u4e0d\u53ef\u7528\uff1a{reasons[0]}"
+                    msg = f"'{provider_name}' 暂不可用：{reasons[0]}（请稍后重试）"
+                logger.warning("[NO KEY] provider=%s reasons=%s", provider_name, reasons)
+                update_stats(
+                    provider_name,
+                    actual_model,
+                    0,
+                    api_key_id=api_key_id,
+                    is_rate_limited=True,
+                )
+                await create_request_log(
+                    provider_name,
+                    actual_model,
+                    status=LOCAL_RATE_LIMITED_STATUS,
+                    api_key_id=api_key_id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                    request_context_tokens=request_context_tokens,
+                    latency_ms=(time.time() - start_time) * 1000,
+                    upstream_status_code=429,
+                    downstream_status_code=429,
+                    error=msg,
+                    inbound_protocol=inbound_protocol,
+                    intent=request_intent,
+                    requested_model=requested_model,
+                    actual_model=actual_model,
+                    routing_decision=_build_routing_decision(
+                        routing_decision_base,
+                        route_result,
+                        key_explanation={
+                            "ordered": [],
+                            "filtered": key_explanation.get("filtered", []),
+                        },
+                    ),
+                )
+                retry_headers = {"Retry-After": "30"}
+                if busyness_headers:
+                    retry_headers.update(busyness_headers)
                 return _openai_error_response(
                     msg,
-                    400,
-                    "invalid_request_error",
-                    "no_api_key",
-                    headers=busyness_headers or None,
+                    429,
+                    "rate_limit_error",
+                    "no_available_api_key",
+                    headers=retry_headers,
                 )
 
             route_body_json = json.loads(json.dumps(body_json))

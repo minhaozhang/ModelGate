@@ -12,10 +12,11 @@ services:
       - ./reports:/app/reports
       - ./uploads/documents:/app/uploads/documents
       - ./backups:/app/backups
+      - /:/host_root:ro
     restart: unless-stopped
 
   nginx:
-    image: nginx:alpine
+    image: 10.100.2.148:5002/nginx:alpine
     ports:
       - "80:80"
     volumes:
