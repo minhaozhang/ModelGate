@@ -439,6 +439,8 @@ async def proxy_request(request: Request, endpoint: str):
         last_response = None
         no_provider_seen = False
         access_denied_seen = False
+        known_model_without_provider_seen = False
+        first_no_key_failure = None
         for route_idx, route_result in enumerate(route_candidates):
             provider_config = route_result.provider_config
             provider_name = route_result.provider_name
@@ -449,6 +451,8 @@ async def proxy_request(request: Request, endpoint: str):
 
             if not provider_config:
                 no_provider_seen = True
+                if route_result.model_id or route_result.requested_model_id:
+                    known_model_without_provider_seen = True
                 continue
 
             if not check_model_access(
@@ -512,8 +516,6 @@ async def proxy_request(request: Request, endpoint: str):
                     "filtered": [],
                 }
             if not all_keys:
-                if not is_last_route and not route_result.is_forced_provider:
-                    continue
                 reasons = provider_config.get("disabled_key_reasons") or []
                 msg = (
                     f"供应商 '{provider_name}' 当前没有可用的 API Key"
@@ -521,6 +523,24 @@ async def proxy_request(request: Request, endpoint: str):
                 )
                 if reasons:
                     msg = f"'{provider_name}' 暂不可用：{reasons[0]}（请稍后重试）"
+                if first_no_key_failure is None:
+                    first_no_key_failure = {
+                        "provider_name": provider_name,
+                        "actual_model": actual_model,
+                        "message": msg,
+                        "reasons": reasons,
+                        "route_result": route_result,
+                        "key_explanation": key_explanation,
+                    }
+                if not is_last_route and not route_result.is_forced_provider:
+                    continue
+                reported_failure = first_no_key_failure
+                provider_name = reported_failure["provider_name"]
+                actual_model = reported_failure["actual_model"]
+                msg = reported_failure["message"]
+                reasons = reported_failure["reasons"]
+                route_result = reported_failure["route_result"]
+                key_explanation = reported_failure["key_explanation"]
                 logger.warning("[NO KEY] provider=%s reasons=%s", provider_name, reasons)
                 update_stats(
                     provider_name,
@@ -903,6 +923,13 @@ async def proxy_request(request: Request, endpoint: str):
                 401,
                 "authentication_error",
                 "model_access_denied",
+            )
+        if known_model_without_provider_seen:
+            return _openai_error_response(
+                f"模型 '{model}' 当前暂无可用供应商或供应商 Key，请稍后重试或联系管理员检查供应商与 Key 状态",
+                503,
+                "server_error",
+                "model_unavailable",
             )
         if no_provider_seen:
             disabled_reason = (

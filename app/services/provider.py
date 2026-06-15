@@ -855,6 +855,8 @@ async def get_provider_model_candidates(
             provider_config=None,
             upstream_model_name=model,
             provider_name="",
+            model_id=get_cached_model_id(model),
+            requested_model_id=get_cached_model_id(model),
             requested_model=model,
             model_name=model,
         )

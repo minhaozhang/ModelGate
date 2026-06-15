@@ -17,6 +17,14 @@ RATE_LIMITED_STATUSES = {RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}
 SCOPED_SEMAPHORE_LIMIT_ATTR = "_modelgate_scoped_limit"
 
 
+class _ScopedSemaphore(asyncio.Semaphore):
+    def release(self) -> None:
+        super().release()
+        target_limit = getattr(self, SCOPED_SEMAPHORE_LIMIT_ATTR, None)
+        if target_limit is not None and getattr(self, "_value", 0) > target_limit:
+            self._value = target_limit
+
+
 def _get_or_create_scoped_semaphore(
     semaphore_store: dict[str, asyncio.Semaphore],
     sem_key: str,
@@ -26,7 +34,7 @@ def _get_or_create_scoped_semaphore(
         target_limit = 1
     semaphore = semaphore_store.get(sem_key)
     if semaphore is None:
-        semaphore = asyncio.Semaphore(target_limit)
+        semaphore = _ScopedSemaphore(target_limit)
         setattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, target_limit)
         semaphore_store[sem_key] = semaphore
         return sem_key, semaphore
@@ -38,10 +46,12 @@ def _get_or_create_scoped_semaphore(
     waiters = getattr(semaphore, "_waiters", None)
     has_waiters = bool(waiters)
     if in_flight == 0 and not has_waiters:
-        semaphore = asyncio.Semaphore(target_limit)
+        semaphore = _ScopedSemaphore(target_limit)
         setattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, target_limit)
         semaphore_store[sem_key] = semaphore
         return sem_key, semaphore
+    setattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, target_limit)
+    semaphore._value = max(target_limit - in_flight, 0)
     return sem_key, semaphore
 
 

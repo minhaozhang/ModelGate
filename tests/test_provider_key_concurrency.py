@@ -139,6 +139,26 @@ class ProviderKeyConcurrencyTests(unittest.TestCase):
         self.assertEqual(_get_provider_key_limit(provider_config, 12), 3)
         self.assertEqual(_get_provider_key_limit(provider_config, 99), 3)
 
+    def test_provider_key_limit_shrinks_existing_semaphore_with_in_flight_request(self):
+        _sem_key, semaphore = _get_or_create_provider_key_semaphore(
+            provider_key_id=11,
+            provider_name="openai",
+            target_limit=3,
+        )
+        self.assertTrue(asyncio.run(asyncio.wait_for(semaphore.acquire(), timeout=0.1)))
+
+        _sem_key, resized = _get_or_create_provider_key_semaphore(
+            provider_key_id=11,
+            provider_name="openai",
+            target_limit=1,
+        )
+
+        self.assertIs(resized, semaphore)
+        with self.assertRaises(asyncio.TimeoutError):
+            asyncio.run(asyncio.wait_for(resized.acquire(), timeout=0.01))
+
+        semaphore.release()
+
     def test_pick_api_keys_skips_disabled_keys_and_orders_by_priority(self):
         provider_config = {
             "api_keys": [
@@ -716,6 +736,8 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
                     )]
                 ),
             ),
+            patch("app.services.proxy.create_request_log", new=AsyncMock()),
+            patch("app.services.proxy.update_stats", new=Mock()),
             patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
         ):
             response = await proxy_request(request, "/chat/completions")
@@ -723,3 +745,112 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 429)
         body = response.body.decode("utf-8")
         self.assertIn("没有可用的 API Key", body)
+
+    async def test_all_candidate_provider_keys_unavailable_does_not_return_model_not_found(self):
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [],
+                "query_string": b"",
+                "cookies": {},
+                "root_path": "",
+            }
+        )
+        request._body = b'{"model":"GLM-5.2","messages":[]}'
+        routes = [
+            provider_service.RouteResult(
+                provider_config={
+                    "base_url": "https://zhipu.example",
+                    "api_keys": [],
+                    "models": [{"model_name": "GLM-5.2"}],
+                    "disabled_key_reasons": ["智谱 Key 已被禁用"],
+                },
+                provider_name="zhipu",
+                provider_id=1,
+                provider_model_id=11,
+                model_id=101,
+                model_name="GLM-5.2",
+                upstream_model_name="GLM-5.2",
+                requested_model="GLM-5.2",
+            ),
+            provider_service.RouteResult(
+                provider_config={
+                    "base_url": "https://jintou.example",
+                    "api_keys": [],
+                    "models": [{"model_name": "GLM-5.2"}],
+                    "disabled_key_reasons": ["金投 Key 已被禁用"],
+                },
+                provider_name="jintou",
+                provider_id=2,
+                provider_model_id=12,
+                model_id=101,
+                model_name="GLM-5.2",
+                upstream_model_name="GLM-5.2",
+                requested_model="GLM-5.2",
+            ),
+        ]
+
+        with (
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch(
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=routes),
+            ),
+            patch("app.services.proxy.create_request_log", new=AsyncMock()),
+            patch("app.services.proxy.update_stats", new=Mock()),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        body = response.body.decode("utf-8")
+        self.assertEqual(response.status_code, 429)
+        self.assertIn("no_available_api_key", body)
+        self.assertIn("智谱 Key 已被禁用", body)
+        self.assertNotIn("金投 Key 已被禁用", body)
+        self.assertNotIn("model_not_found", body)
+        self.assertNotIn("未找到模型", body)
+
+    async def test_known_model_without_active_provider_does_not_return_model_not_found(self):
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [],
+                "query_string": b"",
+                "cookies": {},
+                "root_path": "",
+            }
+        )
+        request._body = b'{"model":"GLM-5.2","messages":[]}'
+        routes = [
+            provider_service.RouteResult(
+                provider_config=None,
+                provider_name="",
+                model_id=101,
+                requested_model_id=101,
+                model_name="GLM-5.2",
+                upstream_model_name="GLM-5.2",
+                requested_model="GLM-5.2",
+            )
+        ]
+
+        with (
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch(
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=routes),
+            ),
+            patch("app.services.proxy.create_request_log", new=AsyncMock()),
+            patch("app.services.proxy.update_stats", new=Mock()),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        body = response.body.decode("utf-8")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("model_unavailable", body)
+        self.assertNotIn("model_not_found", body)
+        self.assertNotIn("未找到模型", body)
