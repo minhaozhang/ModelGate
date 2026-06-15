@@ -63,6 +63,41 @@ def _normalize_auto_model_config(data: dict | None) -> dict:
     }
 
 
+def _auto_model_is_active(payload: dict) -> bool:
+    return bool(
+        payload.get("enabled")
+        and (payload.get("model_ids") or payload.get("provider_model_ids"))
+    )
+
+
+async def _ensure_auto_virtual_model(session, payload: dict) -> None:
+    result = await session.execute(select(Model).where(Model.name == "auto"))
+    model = result.scalar_one_or_none()
+    active = _auto_model_is_active(payload)
+    if model is None:
+        session.add(
+            Model(
+                name="auto",
+                display_name="Auto",
+                max_tokens=131072,
+                context_length=204800,
+                thinking_enabled=True,
+                thinking_budget=8192,
+                is_multimodal=True,
+                is_active=active,
+                is_virtual=True,
+                tags="virtual,auto",
+            )
+        )
+    else:
+        model.display_name = model.display_name or "Auto"
+        model.is_active = active
+        model.is_virtual = True
+        if not model.tags:
+            model.tags = "virtual,auto"
+    await session.commit()
+
+
 @router.get("/routing/auto-model")
 async def get_auto_model_config(_: bool = Depends(permission_required("page.models"))):
     from app.services.system_config import get_setting
@@ -83,12 +118,17 @@ async def update_auto_model_config(
     from app.services.system_config import save_setting
 
     payload = _normalize_auto_model_config(data.model_dump())
+    async with async_session_maker() as session:
+        await _ensure_auto_virtual_model(session, payload)
     await save_setting(
         "routing",
         "auto_model",
         json.dumps(payload, ensure_ascii=False),
         "Virtual auto model routing configuration",
     )
+    from app.services.provider import load_providers
+
+    await load_providers()
     return payload
 
 
@@ -144,6 +184,7 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
                     "thinking_budget": m.thinking_budget,
                     "is_multimodal": m.is_multimodal,
                     "is_active": m.is_active,
+                    "is_virtual": bool(getattr(m, "is_virtual", False)),
                     "tags": m.tags,
                     "bound_key_count": len(model_key_ids.get(m.id, set())),
                 }

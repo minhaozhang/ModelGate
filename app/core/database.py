@@ -192,6 +192,7 @@ class Model(Base):
     thinking_budget = Column(Integer, default=8192)
     is_multimodal = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    is_virtual = Column(Boolean, default=False)
     estimated_price = Column(Float, nullable=True, server_default="0")
     tags = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -981,6 +982,12 @@ async def init_db():
             text(
                 "ALTER TABLE models "
                 "ADD COLUMN IF NOT EXISTS estimated_price FLOAT DEFAULT 0"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE models "
+                "ADD COLUMN IF NOT EXISTS is_virtual BOOLEAN DEFAULT FALSE"
             )
         )
         await conn.execute(

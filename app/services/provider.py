@@ -39,6 +39,7 @@ _key_sticky_map: dict[tuple[int, str], tuple[int, float]] = {}
 
 _alias_index: dict[str, list[tuple[str, dict, str, int]]] = {}
 _model_name_index: dict[str, list[tuple[str, dict, str, int]]] = {}
+_model_id_by_name: dict[str, int] = {}
 AUTO_MODEL_NAME = "auto"
 
 
@@ -50,6 +51,7 @@ class RouteResult:
     provider_id: int | None = None
     provider_model_id: int | None = None
     model_id: int | None = None
+    requested_model_id: int | None = None
     requested_model: str = ""
     model_name: str = ""
     is_forced_provider: bool = False
@@ -322,6 +324,10 @@ async def load_providers():
         providers_cache.clear()
         _alias_index.clear()
         _model_name_index.clear()
+        _model_id_by_name.clear()
+        model_id_result = await session.execute(select(Model.id, Model.name))
+        for model_id, model_name in model_id_result.fetchall():
+            _model_id_by_name[model_name] = model_id
         for p in providers:
             pm_result = await session.execute(
                 select(ProviderModel, Model)
@@ -549,6 +555,16 @@ def get_auto_model_provider_candidates(
     return candidates
 
 
+def get_cached_model_id(model_name: str) -> int | None:
+    if model_name in _model_id_by_name:
+        return _model_id_by_name.get(model_name)
+    for model_candidates in _model_name_index.values():
+        for _provider_name, pm_dict, _model_tags, _priority in model_candidates:
+            if pm_dict.get("model_name") == model_name:
+                return pm_dict.get("model_id")
+    return None
+
+
 def _route_from_provider_model(
     provider_config: Optional[dict],
     provider_name: str,
@@ -566,12 +582,18 @@ def _route_from_provider_model(
         )
     model_name = pm.get("model_name") or pm.get("actual_model_name") or requested_model
     upstream_model_name = pm.get("upstream_model_name") or model_name
+    requested_model_id = (
+        get_cached_model_id(requested_model)
+        if requested_model == AUTO_MODEL_NAME
+        else pm.get("model_id")
+    )
     return RouteResult(
         provider_config=provider_config,
         provider_name=provider_name,
         provider_id=provider_config.get("id"),
         provider_model_id=pm.get("id"),
         model_id=pm.get("model_id"),
+        requested_model_id=requested_model_id,
         requested_model=requested_model,
         model_name=model_name,
         upstream_model_name=upstream_model_name,

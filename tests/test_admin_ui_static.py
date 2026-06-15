@@ -126,6 +126,20 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("autoModelDraftIds", html)
         self.assertNotIn('id="auto-model-ids" multiple', html)
 
+    def test_api_key_standard_model_picker_marks_virtual_models(self):
+        html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
+
+        self.assertIn("model.is_virtual", html)
+        self.assertIn("虚拟", html)
+
+    def test_model_routing_matrix_uses_compact_responsive_layout(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+
+        self.assertIn("routing-table", html)
+        self.assertIn("routing-rule-editor", html)
+        self.assertNotIn("xl:grid-cols-[1.2fr_150px_1fr_120px_90px_110px_110px_110px_110px_120px_auto]", html)
+        self.assertNotIn("xl:grid-cols-[1fr_120px_90px_95px_95px_95px_95px_95px_95px_100px_auto]", html)
+
 
 if __name__ == "__main__":
     unittest.main()

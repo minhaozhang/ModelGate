@@ -73,6 +73,16 @@
         .auto-model-picker-panel { height: min(560px, 86vh); }
         .config-table-wrap { overflow-x: auto; }
         .config-table { width: 100%; border-collapse: collapse; min-width: 760px; }
+        .routing-table { min-width: 680px; table-layout: fixed; }
+        .routing-table th,
+        .routing-table td { padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
+        .routing-table input,
+        .routing-table select { min-width: 0 !important; }
+        .routing-upstream-input { width: 100%; max-width: 11rem; }
+        .routing-busyness-select { width: 7.5rem; max-width: 100%; }
+        .routing-rule-editor { display: grid; grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: 0.5rem; align-items: end; }
+        .routing-rule-editor .routing-rule-wide { grid-column: span 2; }
+        @media (max-width: 760px) { .routing-rule-editor .routing-rule-wide { grid-column: span 1; } }
         .config-table th { background: #f8fafc; color: #64748b; font-size: 0.72rem; font-weight: 700; letter-spacing: 0; padding: 0.65rem 0.85rem; text-align: left; white-space: nowrap; }
         .config-table td { border-top: 1px solid #e5e7eb; padding: 0.75rem 0.85rem; vertical-align: middle; }
         .config-table tbody tr { cursor: default; }
@@ -101,7 +111,7 @@
     <div class="flex">
         {% include "components/nav.html" %}
 
-        <main class="ml-56 flex-1 p-6">
+        <main class="ml-56 flex-1 min-w-0 p-6">
             {% call admin_page_header(_('Provider & Model Configuration')) %}{% endcall %}
 
             <div class="bg-white rounded-lg shadow px-4 mb-6">
@@ -2045,7 +2055,7 @@
                 return;
             }
             content.innerHTML = `<div class="config-table-wrap">
-                <table class="config-table">
+                <table class="config-table routing-table">
                     <thead>
                         <tr>
                             <th>供应商</th>
@@ -2085,12 +2095,12 @@
                     <div class="font-semibold text-sm">路由规则</div>
                     <div class="text-xs text-gray-500 mt-1">规则挂在这个标准模型的某个供应商绑定上，用来做时间段、上下文、备用和降权。</div>
                 </div>
-                <div class="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1.2fr_150px_1fr_120px_90px_110px_110px_110px_110px_120px_auto] gap-2 items-end">
-                    <label class="block">
+                <div class="routing-rule-editor p-3">
+                    <label class="block routing-rule-wide">
                         <span class="block text-[11px] text-gray-500 mb-1">目标供应商</span>
                         <select id="model-rule-pm" class="w-full border rounded px-2 py-1.5 text-sm" ${routes.length ? '' : 'disabled'}>${providerOptions}</select>
                     </label>
-                    <label class="block">
+                    <label class="block routing-rule-wide">
                         <span class="block text-[11px] text-gray-500 mb-1">策略模板</span>
                         <select id="model-rule-template" onchange="applyModelRuleTemplate()" class="w-full border rounded px-2 py-1.5 text-sm">
                             <option value="custom">自定义</option>
@@ -2101,7 +2111,7 @@
                             <option value="deny_window">时间段禁用</option>
                         </select>
                     </label>
-                    <label class="block">
+                    <label class="block routing-rule-wide">
                         <span class="block text-[11px] text-gray-500 mb-1">规则名</span>
                         <input id="model-rule-name" value="自定义规则" class="w-full border rounded px-2 py-1.5 text-sm">
                     </label>
@@ -2141,7 +2151,7 @@
                     </label>
                     <button onclick="addModelRoutingRule()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600" ${routes.length ? '' : 'disabled'}>添加规则</button>
                 </div>
-                <div class="px-3 pb-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[150px_150px_1fr] gap-2 items-end">
+                <div class="routing-rule-editor px-3 pb-3">
                     <label class="block">
                         <span class="block text-[11px] text-gray-500 mb-1">生效日期起</span>
                         <input id="model-rule-start-date" type="date" class="w-full border rounded px-2 py-1.5 text-sm">
@@ -2150,7 +2160,7 @@
                         <span class="block text-[11px] text-gray-500 mb-1">生效日期止</span>
                         <input id="model-rule-end-date" type="date" class="w-full border rounded px-2 py-1.5 text-sm">
                     </label>
-                    <div class="text-xs text-gray-500 pb-2">备用规则会排在正常路由之后，主供应商并发满、Key 被禁用或 health 不可用时才会被轮到。</div>
+                    <div class="routing-rule-wide text-xs text-gray-500 pb-2">备用规则会排在正常路由之后，主供应商并发满、Key 被禁用或 health 不可用时才会被轮到。</div>
                 </div>
                 <div class="border-t">
                     ${allRules.length ? allRules.map(item => renderModelRoutingRuleRow(item.rule, item.route)).join('') : '<div class="text-center text-gray-400 py-4 text-sm">暂无模型级路由规则。</div>'}
@@ -2248,8 +2258,8 @@
 
         function renderModelRoutingRuleRow(rule, route) {
             return `<div class="px-3 py-3 border-t first:border-t-0 text-sm">
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1fr_120px_90px_95px_95px_95px_95px_95px_95px_100px_auto] gap-2 items-end">
-                    <div>
+                <div class="routing-rule-editor">
+                    <div class="routing-rule-wide">
                         <div class="font-medium">${escapeHtml(route.provider_name)}</div>
                         <div class="text-xs text-gray-400">${escapeHtml(route.upstream_model_name || route.model_name)}</div>
                         <input id="model-rule-edit-name-${rule.id}" value="${escapeAttr(rule.name || '自定义规则')}" class="mt-1 w-full border rounded px-2 py-1.5 text-sm">
@@ -2317,13 +2327,13 @@
                 </td>
                 <td><span class="status-pill ${disabled ? 'off' : 'ok'}">${escapeHtml(statusText)}</span></td>
                 <td>
-                    <input value="${escapeAttr(route.upstream_model_name || route.model_name)}" onchange="updateRouteUpstream(${route.provider_id}, ${route.id}, this.value)" class="w-full min-w-44 border rounded px-2 py-1.5 text-sm">
+                    <input value="${escapeAttr(route.upstream_model_name || route.model_name)}" onchange="updateRouteUpstream(${route.provider_id}, ${route.id}, this.value)" class="routing-upstream-input border rounded px-2 py-1.5 text-sm">
                 </td>
                 <td>
                     <input type="number" min="0" value="${route.priority || 0}" onchange="updateRoutePriority(${route.provider_id}, ${route.id}, this.value)" class="w-20 border rounded px-2 py-1.5 text-sm text-center">
                 </td>
                 <td>
-                    <select onchange="updateRouteBusyness(${route.provider_id}, ${route.id}, this.value)" class="w-36 border rounded px-2 py-1.5 text-sm">
+                    <select onchange="updateRouteBusyness(${route.provider_id}, ${route.id}, this.value)" class="routing-busyness-select border rounded px-2 py-1.5 text-sm">
                         ${busynessOptions.map(o => `<option value="${o.v}" ${String(route.max_busyness_level || '') === String(o.v) ? 'selected' : ''}>${o.l}</option>`).join('')}
                     </select>
                 </td>
@@ -2411,7 +2421,7 @@
                 return;
             }
             container.innerHTML = `<div class="config-table-wrap">
-                <table class="config-table">
+                <table class="config-table routing-table">
                     <thead>
                         <tr>
                             <th>标准模型</th>
@@ -2476,13 +2486,13 @@
                 </td>
                 <td><span class="status-pill ${disabled ? 'off' : 'ok'}">${escapeHtml(statusText)}</span></td>
                 <td>
-                    <input value="${escapeAttr(route.upstream_model_name || route.model_name)}" onchange="updateRouteUpstream(${route.provider_id}, ${route.id}, this.value)" class="w-full min-w-44 border rounded px-2 py-1.5 text-sm">
+                    <input value="${escapeAttr(route.upstream_model_name || route.model_name)}" onchange="updateRouteUpstream(${route.provider_id}, ${route.id}, this.value)" class="routing-upstream-input border rounded px-2 py-1.5 text-sm">
                 </td>
                 <td>
                     <input type="number" min="0" value="${route.priority || 0}" onchange="updateRoutePriority(${route.provider_id}, ${route.id}, this.value)" class="w-20 border rounded px-2 py-1.5 text-sm text-center">
                 </td>
                 <td>
-                    <select onchange="updateRouteBusyness(${route.provider_id}, ${route.id}, this.value)" class="w-36 border rounded px-2 py-1.5 text-sm">
+                    <select onchange="updateRouteBusyness(${route.provider_id}, ${route.id}, this.value)" class="routing-busyness-select border rounded px-2 py-1.5 text-sm">
                         ${busynessOptions.map(o => `<option value="${o.v}" ${String(route.max_busyness_level || '') === String(o.v) ? 'selected' : ''}>${o.l}</option>`).join('')}
                     </select>
                 </td>

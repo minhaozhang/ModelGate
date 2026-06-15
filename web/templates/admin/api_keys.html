@@ -974,6 +974,7 @@
                 <label class="model-item flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedStandardModelIds.includes(model.id) ? 'selected' : ''}" data-model-id="${model.id}">
                     <input type="checkbox" class="mr-2" value="${model.id}" ${selectedStandardModelIds.includes(model.id) ? 'checked' : ''} onchange="toggleStandardModel(${model.id})">
                     <span class="text-sm">${model.display_name || model.name}</span>
+                    ${model.is_virtual ? '<span class="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-200">虚拟</span>' : ''}
                     <span class="ml-2 text-xs text-gray-400">${model.name}</span>
                 </label>
             `).join('');

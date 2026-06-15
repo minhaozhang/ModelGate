@@ -328,6 +328,7 @@ CREATE TABLE public.models (
     thinking_budget integer DEFAULT 8192,
     is_multimodal boolean,
     is_active boolean,
+    is_virtual boolean DEFAULT false,
     created_at timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now()
 );

@@ -705,6 +705,31 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
+    async def test_model_access_binding_allows_auto_request_without_underlying_model_access(self):
+        key_info = {
+            "allowed_provider_model_ids": [],
+            "allowed_model_ids": [999],
+        }
+
+        self.assertTrue(
+            check_model_access(
+                key_info,
+                provider_model_id=99,
+                model_id=101,
+                requested_model_id=999,
+                is_forced_provider=False,
+            )
+        )
+        self.assertFalse(
+            check_model_access(
+                key_info,
+                provider_model_id=99,
+                model_id=101,
+                requested_model_id=None,
+                is_forced_provider=False,
+            )
+        )
+
     async def test_model_access_binding_does_not_allow_forced_provider_route(self):
         key_info = {
             "allowed_provider_model_ids": [],

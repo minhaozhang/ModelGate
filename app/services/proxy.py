@@ -103,6 +103,7 @@ def check_model_access(
     key_info: dict | None,
     provider_model_id: int | None,
     model_id: int | None,
+    requested_model_id: int | None = None,
     is_forced_provider: bool = False,
 ) -> bool:
     if not key_info:
@@ -113,6 +114,8 @@ def check_model_access(
         return True
     if is_forced_provider:
         return provider_model_id is not None and provider_model_id in allowed_pm_ids
+    if requested_model_id is not None and requested_model_id in allowed_model_ids:
+        return True
     return (
         provider_model_id is not None
         and provider_model_id in allowed_pm_ids
@@ -154,6 +157,7 @@ def _coerce_route_result(route, requested_model: str) -> RouteResult:
         provider_id=provider_config.get("id") if provider_config else None,
         provider_model_id=model_config.get("id") if model_config else None,
         model_id=model_config.get("model_id") if model_config else None,
+        requested_model_id=model_config.get("model_id") if model_config else None,
         requested_model=requested_model,
         model_name=model_name or actual_model,
         upstream_model_name=upstream_model_name or actual_model,
@@ -451,6 +455,7 @@ async def proxy_request(request: Request, endpoint: str):
                 key_info,
                 route_result.provider_model_id,
                 route_result.model_id,
+                requested_model_id=route_result.requested_model_id,
                 is_forced_provider=route_result.is_forced_provider,
             ):
                 access_denied_seen = True
