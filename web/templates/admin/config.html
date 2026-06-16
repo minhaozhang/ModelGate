@@ -1710,7 +1710,7 @@
             const count = document.getElementById('auto-model-count');
             if (!enabled || !summary || !count) return;
             enabled.checked = autoModelConfig.enabled === true;
-            const selectedIds = new Set((autoModelConfig.model_ids || []).map(id => Number(id)));
+            const selectedIds = getAutoModelSelectedModelIds();
             const selectedModels = allModels.filter(m => selectedIds.has(Number(m.id)));
             count.textContent = `${selectedModels.length} 个`;
             if (!selectedModels.length) {
@@ -1753,8 +1753,21 @@
             }).join('');
         }
 
+        function getAutoModelSelectedModelIds() {
+            const ids = new Set((autoModelConfig.model_ids || []).map(id => Number(id)).filter(Boolean));
+            const providerModelIds = new Set((autoModelConfig.provider_model_ids || []).map(id => Number(id)).filter(Boolean));
+            if (providerModelIds.size && Array.isArray(allProviderModels)) {
+                allProviderModels.forEach(pm => {
+                    if (providerModelIds.has(Number(pm.id)) && pm.model_id) {
+                        ids.add(Number(pm.model_id));
+                    }
+                });
+            }
+            return ids;
+        }
+
         function openAutoModelPicker() {
-            autoModelDraftIds = new Set((autoModelConfig.model_ids || []).map(id => Number(id)).filter(Boolean));
+            autoModelDraftIds = getAutoModelSelectedModelIds();
             renderAutoModelPicker();
             document.getElementById('auto-model-picker-modal')?.classList.remove('hidden');
             document.getElementById('auto-model-picker-modal')?.classList.add('flex');
@@ -1794,7 +1807,7 @@
 
         async function saveAutoModelConfig() {
             const enabled = document.getElementById('auto-model-enabled')?.checked === true;
-            const modelIds = (autoModelConfig.model_ids || []).map(id => Number(id)).filter(Boolean);
+            const modelIds = Array.from(getAutoModelSelectedModelIds());
             if (enabled && modelIds.length === 0 && !(autoModelConfig.provider_model_ids || []).length) {
                 showToast('请至少选择一个候选模型，或者关闭 auto', 'error');
                 return;
@@ -1810,7 +1823,7 @@
                     })
                 }, {success: 'auto 配置已保存', error: 'auto 配置保存失败'});
                 autoModelConfig = await resp.json();
-                renderAutoModelConfig();
+                await loadModels();
             } catch(e) {}
         }
 
@@ -1887,6 +1900,7 @@
                         ${models.map(m => {
                             const tags = (m.tags || '').split(',').map(tag => tag.trim()).filter(Boolean);
                             const boundCount = Number(m.bound_key_count || 0);
+                            const canDeleteModel = !isProtectedAutoModel(m);
                             return `<tr>
                                 <td>
                                     <div class="font-semibold text-sm text-gray-800">${escapeHtml(m.display_name || m.name)}</div>
@@ -1921,9 +1935,9 @@
                                         <button onclick="editModel(${m.id})" class="icon-btn text-blue-500 hover:text-blue-700" title="${t('edit', 'Edit')}">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                         </button>
-                                        <button onclick="deleteModel(${m.id})" class="icon-btn text-red-500 hover:text-red-700" title="${t('delete', 'Delete')}">
+                                        ${canDeleteModel ? `<button onclick="deleteModel(${m.id})" class="icon-btn text-red-500 hover:text-red-700" title="${t('delete', 'Delete')}">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                                        </button>
+                                        </button>` : ''}
                                     </div>
                                 </td>
                             </tr>`;
@@ -1931,6 +1945,10 @@
                     </tbody>
                 </table>
             </div>`;
+        }
+
+        function isProtectedAutoModel(model) {
+            return Boolean(model?.is_virtual) && String(model?.name || '').toLowerCase() === 'auto';
         }
 
         async function loadProviderModelRoutes() {

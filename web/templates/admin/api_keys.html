@@ -106,81 +106,85 @@
         </main>
     </div>
     
-    <div id="apikey-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="apikey-modal-card bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
-            <div class="p-4 border-b flex justify-between items-center">
+    <div id="apikey-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="apikey-modal-card bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[92vh] mx-4 flex flex-col overflow-hidden">
+            <div class="shrink-0 p-4 border-b flex justify-between items-center">
                 <h3 id="apikey-modal-title" class="font-semibold">{{ _('Add API Key') }}</h3>
                 <button onclick="closeApiKeyModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
-            <form id="apikey-form" class="p-4">
-                <input type="hidden" id="apikey-id">
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Name') }}</label>
-                    <input type="text" id="apikey-name" required class="w-full border rounded px-3 py-2" placeholder="{{ _('e.g., Project A') }}">
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            <form id="apikey-form" class="flex min-h-0 flex-1 flex-col">
+                <div class="apikey-modal-body flex-1 overflow-y-auto p-4 space-y-4">
+                    <input type="hidden" id="apikey-id">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Email') }}</label>
-                        <input type="email" id="apikey-email" class="w-full border rounded px-3 py-2" placeholder="user@example.com">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Name') }}</label>
+                        <input type="text" id="apikey-name" required class="w-full border rounded px-3 py-2" placeholder="{{ _('e.g., Project A') }}">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Email') }}</label>
+                            <input type="email" id="apikey-email" class="w-full border rounded px-3 py-2" placeholder="user@example.com">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Expires At') }}</label>
+                            <input type="datetime-local" id="apikey-expires-at" class="w-full border rounded px-3 py-2">
+                        </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Expires At') }}</label>
-                        <input type="datetime-local" id="apikey-expires-at" class="w-full border rounded px-3 py-2">
-                    </div>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                        {{ _('Allowed Models') }} <span class="text-gray-400">(<span id="selected-count">0</span> {{ _('selected') }})</span>
-                    </label>
-                    <div class="grid grid-cols-2 gap-2 mb-2 text-sm">
-                        <label class="access-mode-option flex items-center gap-2 rounded border px-3 py-2 cursor-pointer" id="access-mode-model">
-                            <input type="radio" name="access-mode" value="model" onchange="setAccessMode('model')">
-                            {{ _('Model') }}
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            {{ _('Allowed Models') }} <span class="text-gray-400">(<span id="selected-count">0</span> {{ _('selected') }})</span>
                         </label>
-                        <label class="access-mode-option flex items-center gap-2 rounded border px-3 py-2 cursor-pointer" id="access-mode-provider-model">
-                            <input type="radio" name="access-mode" value="provider_model" onchange="setAccessMode('provider_model')">
-                            {{ _('Provider Model') }}
+                        <div class="grid grid-cols-2 gap-2 mb-2 text-sm">
+                            <label class="access-mode-option flex items-center gap-2 rounded border px-3 py-2 cursor-pointer" id="access-mode-model">
+                                <input type="radio" name="access-mode" value="model" onchange="setAccessMode('model')">
+                                {{ _('Model') }}
+                            </label>
+                            <label class="access-mode-option flex items-center gap-2 rounded border px-3 py-2 cursor-pointer" id="access-mode-provider-model">
+                                <input type="radio" name="access-mode" value="provider_model" onchange="setAccessMode('provider_model')">
+                                {{ _('Provider Model') }}
+                            </label>
+                        </div>
+                        <div id="standard-models-panel" class="border rounded max-h-48 overflow-y-auto hidden">
+                            <div class="sticky top-0 z-10 flex justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700">
+                                <button type="button" onclick="selectAllStandardModels()" class="text-blue-500 hover:text-blue-700">全选</button>
+                                <button type="button" onclick="clearStandardModels()" class="text-gray-500 hover:text-gray-700">清空</button>
+                            </div>
+                            <div id="standard-models-checkbox-container" class="grid grid-cols-1 sm:grid-cols-2"></div>
+                        </div>
+                        <div id="provider-models-panel" class="border rounded max-h-48 overflow-y-auto hidden">
+                            <div class="sticky top-0 z-10 flex justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700">
+                                <button type="button" onclick="selectAllProviderModels()" class="text-blue-500 hover:text-blue-700">全选</button>
+                                <button type="button" onclick="clearProviderModels()" class="text-gray-500 hover:text-gray-700">清空</button>
+                            </div>
+                            <div id="models-checkbox-container" class="divide-y"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">标准模型表示允许该模型下任意供应商；Provider Model 表示只允许具体供应商绑定。需要全量时请在标准模型列表里点全选。</p>
+                        <p id="access-mode-error" class="text-xs text-red-500 mt-1 hidden"></p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('MCP Servers') }}</label>
+                            <div id="apikey-mcp-servers" class="border rounded max-h-28 overflow-y-auto p-2 flex flex-wrap gap-1.5">
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{{ _('Select MCP servers this key can access') }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Tags' if current_locale != 'zh' else '标签') }}</label>
+                            <div id="apikey-tags-container" class="min-h-8 border rounded px-2 py-1.5 flex flex-wrap gap-1 mb-2"></div>
+                            <div class="flex gap-2">
+                                <input type="text" id="apikey-tag-input" class="flex-1 min-w-0 border rounded px-3 py-1 text-sm" placeholder="{{ _('Add tag...' if current_locale != 'zh' else '添加标签...') }}" onkeydown="if(event.key==='Enter'){event.preventDefault();addTag()}">
+                                <button type="button" onclick="addTag()" class="px-3 py-1 text-sm border rounded hover:bg-gray-50">{{ _('Add' if current_locale != 'zh' else '添加') }}</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" id="apikey-bypass-busyness" class="rounded">
+                            {{ _('Bypass busyness limit') }}
                         </label>
-                    </div>
-                    <div id="standard-models-panel" class="border rounded max-h-60 overflow-y-auto hidden">
-                        <div class="sticky top-0 z-10 flex justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700">
-                            <button type="button" onclick="selectAllStandardModels()" class="text-blue-500 hover:text-blue-700">全选</button>
-                            <button type="button" onclick="clearStandardModels()" class="text-gray-500 hover:text-gray-700">清空</button>
-                        </div>
-                        <div id="standard-models-checkbox-container" class="divide-y"></div>
-                    </div>
-                    <div id="provider-models-panel" class="border rounded max-h-60 overflow-y-auto hidden">
-                        <div class="sticky top-0 z-10 flex justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700">
-                            <button type="button" onclick="selectAllProviderModels()" class="text-blue-500 hover:text-blue-700">全选</button>
-                            <button type="button" onclick="clearProviderModels()" class="text-gray-500 hover:text-gray-700">清空</button>
-                        </div>
-                        <div id="models-checkbox-container" class="divide-y"></div>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1">标准模型表示允许该模型下任意供应商；Provider Model 表示只允许具体供应商绑定。需要全量时请在标准模型列表里点全选。</p>
-                    <p id="access-mode-error" class="text-xs text-red-500 mt-1 hidden"></p>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('MCP Servers') }}</label>
-                    <div id="apikey-mcp-servers" class="border rounded max-h-40 overflow-y-auto p-2 space-y-1">
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1">{{ _('Select MCP servers this key can access') }}</p>
-                </div>
-                <div class="mb-4">
-                    <label class="flex items-center gap-2 text-sm text-gray-700">
-                        <input type="checkbox" id="apikey-bypass-busyness" class="rounded">
-                        {{ _('Bypass busyness limit') }}
-                    </label>
-                    <p class="text-xs text-gray-500 mt-1">{{ _('Ignore model busyness availability restrictions') }}</p>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Tags' if current_locale != 'zh' else '标签') }}</label>
-                    <div id="apikey-tags-container" class="flex flex-wrap gap-1 mb-2"></div>
-                    <div class="flex gap-2">
-                        <input type="text" id="apikey-tag-input" class="flex-1 border rounded px-3 py-1 text-sm" placeholder="{{ _('Add tag...' if current_locale != 'zh' else '添加标签...') }}" onkeydown="if(event.key==='Enter'){event.preventDefault();addTag()}">
-                        <button type="button" onclick="addTag()" class="px-3 py-1 text-sm border rounded hover:bg-gray-50">{{ _('Add' if current_locale != 'zh' else '添加') }}</button>
+                        <p class="text-xs text-gray-500 mt-1">{{ _('Ignore model busyness availability restrictions') }}</p>
                     </div>
                 </div>
-                <div class="flex justify-end gap-2">
+                <div class="shrink-0 border-t bg-white px-4 py-3 flex justify-end gap-2">
                     <button type="button" onclick="closeApiKeyModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                     <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ _('Save') }}</button>
                 </div>
@@ -640,6 +644,10 @@
             standardModels = (data.models || []).filter(m => m.is_active !== false);
             renderStandardModelCheckboxes();
         }
+
+        function isAutoModel(model) {
+            return (model?.name || '').toLowerCase() === 'auto' || (model?.is_virtual && (model?.tags || '').includes('auto'));
+        }
         
         async function loadMcpServers() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`);
@@ -654,8 +662,8 @@
                 return;
             }
             container.innerHTML = mcpServers.map(s => `
-                <label class="mcp-server-item flex items-center text-sm py-1 px-2 rounded cursor-pointer">
-                    <input type="checkbox" class="mr-2 mcp-server-check" value="${s.id}" ${selectedIds.includes(s.id) ? 'checked' : ''}>
+                <label class="mcp-server-item inline-flex items-center gap-1.5 text-xs py-1 px-2 rounded border cursor-pointer">
+                    <input type="checkbox" class="mcp-server-check" value="${s.id}" ${selectedIds.includes(s.id) ? 'checked' : ''}>
                     ${(s.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
                 </label>
             `).join('');
@@ -969,13 +977,17 @@
                 container.innerHTML = `<div class="text-gray-400 text-center py-4">${window.I18N.noModels}</div>`;
                 return;
             }
-            const sorted = [...standardModels].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            const sorted = [...standardModels].sort((a, b) => {
+                if (isAutoModel(a) && !isAutoModel(b)) return -1;
+                if (!isAutoModel(a) && isAutoModel(b)) return 1;
+                return (a.name || '').localeCompare(b.name || '');
+            });
             container.innerHTML = sorted.map(model => `
-                <label class="model-item flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedStandardModelIds.includes(model.id) ? 'selected' : ''}" data-model-id="${model.id}">
-                    <input type="checkbox" class="mr-2" value="${model.id}" ${selectedStandardModelIds.includes(model.id) ? 'checked' : ''} onchange="toggleStandardModel(${model.id})">
-                    <span class="text-sm">${model.display_name || model.name}</span>
-                    ${model.is_virtual ? '<span class="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-200">虚拟</span>' : ''}
-                    <span class="ml-2 text-xs text-gray-400">${model.name}</span>
+                <label class="model-item ${isAutoModel(model) ? 'auto-model-option' : ''} flex items-center min-w-0 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedStandardModelIds.includes(model.id) ? 'selected' : ''}" data-model-id="${model.id}">
+                    <input type="checkbox" class="mr-2 shrink-0" value="${model.id}" ${selectedStandardModelIds.includes(model.id) ? 'checked' : ''} onchange="toggleStandardModel(${model.id})">
+                    <span class="text-sm truncate">${model.display_name || model.name}</span>
+                    ${isAutoModel(model) ? '<span class="ml-2 shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-200">Auto 路由</span>' : (model.is_virtual ? '<span class="ml-2 shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-200">虚拟</span>' : '')}
+                    <span class="ml-2 min-w-0 truncate text-xs text-gray-400">${model.name}</span>
                 </label>
             `).join('');
         }

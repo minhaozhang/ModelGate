@@ -179,7 +179,22 @@
             lightMode: '{{ _("Light Mode") }}',
             darkMode: '{{ _("Dark Mode") }}',
         };
+        let adminAuthRedirecting = false;
         async function logout() { await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'}); window.location.href = `${APP_BASE_PATH}/admin/login`; }
+        function handleAdminUnauthorized() {
+            if (adminAuthRedirecting) return;
+            adminAuthRedirecting = true;
+            if (liveStatsReconnectTimer) {
+                clearTimeout(liveStatsReconnectTimer);
+                liveStatsReconnectTimer = null;
+            }
+            if (liveStatsSocket) {
+                liveStatsSocket.onclose = null;
+                liveStatsSocket.close();
+                liveStatsSocket = null;
+            }
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
         function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
         function getChartTheme() {
             const isDark = document.body.classList.contains('theme-dark');
@@ -204,7 +219,7 @@
         async function fetchJsonOrRedirect(url, options) {
             const resp = await fetch(url, options);
             if (resp.status === 401) {
-                window.location.href = `${APP_BASE_PATH}/admin/login`;
+                handleAdminUnauthorized();
                 throw new Error('Unauthorized');
             }
             if (!resp.ok) throw new Error(await resp.text());
@@ -677,6 +692,7 @@
         }
 
         function scheduleLiveStatsReconnect() {
+            if (adminAuthRedirecting) return;
             if (liveStatsReconnectTimer) return;
             liveStatsReconnectTimer = setTimeout(() => {
                 liveStatsReconnectTimer = null;
@@ -685,6 +701,7 @@
         }
 
         function connectLiveStats() {
+            if (adminAuthRedirecting) return;
             if (liveStatsSocket) {
                 liveStatsSocket.close();
             }
@@ -695,8 +712,12 @@
                     renderLiveStats(JSON.parse(event.data));
                 } catch (e) {}
             };
-            liveStatsSocket.onclose = () => {
+            liveStatsSocket.onclose = (event) => {
                 liveStatsSocket = null;
+                if (event.code === 4401) {
+                    handleAdminUnauthorized();
+                    return;
+                }
                 scheduleLiveStatsReconnect();
             };
             liveStatsSocket.onerror = () => {

@@ -6,6 +6,7 @@ from app.core import config
 from app.core.i18n import render
 from app.routes.models import resolve_model
 from app.routes.proxy import list_models
+from app.services import auto_model_routes as auto_route_service
 from app.services import provider as provider_service
 from app.services.auth import validate_api_key
 from app.services.proxy import (
@@ -21,6 +22,7 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
         self.original_providers_cache = dict(config.providers_cache)
         self.original_api_keys_cache = dict(config.api_keys_cache)
         self.original_system_settings = dict(config.system_settings)
+        self.original_auto_routes = dict(auto_route_service._auto_model_routes_cache)
         self.original_alias_index = dict(provider_service._alias_index)
         self.original_model_name_index = dict(
             getattr(provider_service, "_model_name_index", {})
@@ -28,6 +30,7 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
         config.providers_cache.clear()
         config.api_keys_cache.clear()
         config.system_settings.clear()
+        auto_route_service._auto_model_routes_cache.clear()
         provider_service._alias_index.clear()
         if hasattr(provider_service, "_model_name_index"):
             provider_service._model_name_index.clear()
@@ -39,11 +42,23 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
         config.api_keys_cache.update(self.original_api_keys_cache)
         config.system_settings.clear()
         config.system_settings.update(self.original_system_settings)
+        auto_route_service._auto_model_routes_cache.clear()
+        auto_route_service._auto_model_routes_cache.update(self.original_auto_routes)
         provider_service._alias_index.clear()
         provider_service._alias_index.update(self.original_alias_index)
         if hasattr(provider_service, "_model_name_index"):
             provider_service._model_name_index.clear()
             provider_service._model_name_index.update(self.original_model_name_index)
+
+    def enable_auto_route(self, model_ids=None, provider_model_ids=None):
+        auto_route_service._auto_model_routes_cache["auto"] = {
+            "model_name": "auto",
+            "virtual_model_id": 999,
+            "enabled": True,
+            "model_ids": model_ids or [],
+            "provider_model_ids": provider_model_ids or [],
+            "route_policy": {},
+        }
 
     async def test_model_name_routes_to_best_provider_and_keeps_upstream_name(self):
         config.providers_cache.update(
@@ -796,9 +811,7 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_auto_model_routes_across_configured_standard_models_by_priority(self):
-        config.system_settings["routing.auto_model"] = (
-            '{"enabled": true, "model_ids": [101, 202], "provider_model_ids": []}'
-        )
+        self.enable_auto_route(model_ids=[101, 202])
         config.providers_cache.update(
             {
                 "cheap": {
@@ -854,9 +867,7 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(route.provider_model_id, 22)
 
     async def test_auto_model_image_request_only_uses_multimodal_candidates(self):
-        config.system_settings["routing.auto_model"] = (
-            '{"enabled": true, "model_ids": [101, 202]}'
-        )
+        self.enable_auto_route(model_ids=[101, 202])
         config.providers_cache.update(
             {
                 "text-only": {
@@ -939,7 +950,7 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
             ["glm-5"],
         )
 
-        config.system_settings["routing.auto_model"] = '{"enabled": true, "model_ids": [101]}'
+        self.enable_auto_route(model_ids=[101])
 
         self.assertEqual(
             [item["id"] for item in (await list_models())["data"]],
@@ -947,7 +958,14 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_auto_model_enabled_without_candidates_is_not_exposed_or_routed(self):
-        config.system_settings["routing.auto_model"] = '{"enabled": true}'
+        auto_route_service._auto_model_routes_cache["auto"] = {
+            "model_name": "auto",
+            "virtual_model_id": 999,
+            "enabled": True,
+            "model_ids": [],
+            "provider_model_ids": [],
+            "route_policy": {},
+        }
         config.providers_cache.update(
             {
                 "zhipu": {

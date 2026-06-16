@@ -39,6 +39,11 @@ class _FakeScalarResult:
     def fetchall(self):
         return self._rows
 
+    def first(self):
+        if self._rows:
+            return self._rows[0]
+        return None
+
 
 class _SequencedSession:
     def __init__(self, results):
@@ -177,12 +182,20 @@ class OpenCodeAutoModelTests(unittest.IsolatedAsyncioTestCase):
         vision_pm = SimpleNamespace(
             id=22, provider_id=1, model_id=202, priority=2, is_active=True
         )
+        auto_model = SimpleNamespace(id=16, name="auto")
+        auto_route = SimpleNamespace(
+            enabled=True,
+            model_ids=[101, 202],
+            provider_model_ids=[],
+            route_policy={},
+        )
         session = _SequencedSession(
             [
                 _FakeScalarResult(one=key),
                 _FakeScalarResult(values=[]),
                 _FakeScalarResult(rows=[]),
                 _FakeScalarResult(values=[text_pm, vision_pm]),
+                _FakeScalarResult(rows=[(auto_model, auto_route)]),
                 _FakeScalarResult(one=provider),
                 _FakeScalarResult(one=text_model),
                 _FakeScalarResult(one=provider),
@@ -190,13 +203,9 @@ class OpenCodeAutoModelTests(unittest.IsolatedAsyncioTestCase):
             ]
         )
 
-        with patch(
-            "app.services.system_config.get_setting",
-            new=AsyncMock(return_value='{"enabled": true, "model_ids": [101, 202], "provider_model_ids": []}'),
-        ):
-            config = await opencode.build_opencode_config(
-                session, "https://leturx.cc/modelgate/v1", api_key_id=7
-            )
+        config = await opencode.build_opencode_config(
+            session, "https://leturx.cc/modelgate/v1", api_key_id=7
+        )
 
         models = config["provider"]["modelgate"]["models"]
         self.assertIn("auto", models)
@@ -218,24 +227,28 @@ class OpenCodeAutoModelTests(unittest.IsolatedAsyncioTestCase):
         pm = SimpleNamespace(
             id=11, provider_id=1, model_id=101, priority=1, is_active=True
         )
+        auto_model = SimpleNamespace(id=16, name="auto")
+        auto_route = SimpleNamespace(
+            enabled=True,
+            model_ids=[],
+            provider_model_ids=[],
+            route_policy={},
+        )
         session = _SequencedSession(
             [
                 _FakeScalarResult(one=key),
                 _FakeScalarResult(values=[]),
                 _FakeScalarResult(rows=[]),
                 _FakeScalarResult(values=[pm]),
+                _FakeScalarResult(rows=[(auto_model, auto_route)]),
                 _FakeScalarResult(one=provider),
                 _FakeScalarResult(one=model),
             ]
         )
 
-        with patch(
-            "app.services.system_config.get_setting",
-            new=AsyncMock(return_value='{"enabled": true, "model_ids": [], "provider_model_ids": []}'),
-        ):
-            config = await opencode.build_opencode_config(
-                session, "https://leturx.cc/modelgate/v1", api_key_id=7
-            )
+        config = await opencode.build_opencode_config(
+            session, "https://leturx.cc/modelgate/v1", api_key_id=7
+        )
 
         models = config["provider"]["modelgate"]["models"]
         self.assertNotIn("auto", models)

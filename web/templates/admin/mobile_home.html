@@ -222,6 +222,7 @@
         let trendChart = null;
         let liveStatsSocket = null;
         let liveStatsReconnectTimer = null;
+        let adminAuthRedirecting = false;
         const MOBILE_HOME_OVERVIEW_REFRESH_MS = 8000;
         const MOBILE_HOME_SLOW_REFRESH_MS = 5000;
 
@@ -668,6 +669,7 @@
         }
 
         function scheduleLiveStatsReconnect() {
+            if (adminAuthRedirecting) return;
             if (liveStatsReconnectTimer) return;
             liveStatsReconnectTimer = setTimeout(() => {
                 liveStatsReconnectTimer = null;
@@ -676,6 +678,7 @@
         }
 
         function connectLiveStats() {
+            if (adminAuthRedirecting) return;
             if (liveStatsSocket) {
                 liveStatsSocket.close();
             }
@@ -686,8 +689,12 @@
                     renderLiveStats(JSON.parse(event.data));
                 } catch (e) {}
             };
-            liveStatsSocket.onclose = () => {
+            liveStatsSocket.onclose = (event) => {
                 liveStatsSocket = null;
+                if (event.code === 4401) {
+                    handleAdminUnauthorized();
+                    return;
+                }
                 scheduleLiveStatsReconnect();
             };
             liveStatsSocket.onerror = () => {
@@ -744,10 +751,25 @@
             window.location.href = `${APP_BASE_PATH}/admin/m/login`;
         }
 
+        function handleAdminUnauthorized() {
+            if (adminAuthRedirecting) return;
+            adminAuthRedirecting = true;
+            if (liveStatsReconnectTimer) {
+                clearTimeout(liveStatsReconnectTimer);
+                liveStatsReconnectTimer = null;
+            }
+            if (liveStatsSocket) {
+                liveStatsSocket.onclose = null;
+                liveStatsSocket.close();
+                liveStatsSocket = null;
+            }
+            window.location.href = `${APP_BASE_PATH}/admin/m/login`;
+        }
+
         async function fetchJsonOrRedirect(url, options) {
             const resp = await fetch(url, options);
             if (resp.status === 401) {
-                window.location.href = `${APP_BASE_PATH}/admin/m/login`;
+                handleAdminUnauthorized();
                 throw new Error('Unauthorized');
             }
             if (!resp.ok) throw new Error(await resp.text());

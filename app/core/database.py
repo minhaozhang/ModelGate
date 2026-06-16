@@ -218,6 +218,28 @@ class ProviderModel(Base):
     )
 
 
+class AutoModelRoute(Base):
+    __tablename__ = "auto_model_routes"
+
+    id = Column(Integer, primary_key=True)
+    virtual_model_id = Column(
+        Integer,
+        ForeignKey("models.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    enabled = Column(Boolean, default=False)
+    model_ids = Column(JSONB, nullable=False, server_default="[]")
+    provider_model_ids = Column(JSONB, nullable=False, server_default="[]")
+    route_policy = Column(JSONB, nullable=False, server_default="{}")
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_auto_model_routes_virtual_model", "virtual_model_id"),
+    )
+
+
 class ApiKeyModel(Base):
     __tablename__ = "api_key_models"
 

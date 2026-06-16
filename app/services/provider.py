@@ -1,4 +1,3 @@
-import json
 import random
 import time
 from dataclasses import dataclass
@@ -33,6 +32,12 @@ from app.services.provider_key_routing import (
     evaluate_provider_key_candidates,
     rule_matches,
 )
+from app.services.auto_model_routes import (
+    AUTO_MODEL_NAME,
+    get_cached_auto_model_route,
+    is_cached_auto_model_enabled,
+    load_auto_model_routes_cache,
+)
 
 KEY_STICKY_TTL_SECONDS = 1800
 _key_sticky_map: dict[tuple[int, str], tuple[int, float]] = {}
@@ -40,7 +45,6 @@ _key_sticky_map: dict[tuple[int, str], tuple[int, float]] = {}
 _alias_index: dict[str, list[tuple[str, dict, str, int]]] = {}
 _model_name_index: dict[str, list[tuple[str, dict, str, int]]] = {}
 _model_id_by_name: dict[str, int] = {}
-AUTO_MODEL_NAME = "auto"
 
 
 @dataclass
@@ -316,6 +320,7 @@ def _get_model_aliases(pm: dict) -> set[str]:
 
 async def load_providers():
     async with async_session_maker() as session:
+        await load_auto_model_routes_cache(session)
         result = await session.execute(
             select(Provider).where(Provider.is_active == True)  # noqa: E712
         )
@@ -473,32 +478,12 @@ def _parse_id_list(value) -> set[int]:
     return ids
 
 
-def get_auto_model_config() -> dict:
-    raw = (
-        config.system_settings.get("routing.auto_model")
-        or config.system_config.get("auto_model")
-        or "{}"
-    )
-    if isinstance(raw, dict):
-        data = raw
-    else:
-        try:
-            data = json.loads(raw)
-        except (TypeError, ValueError):
-            data = {}
-    return {
-        "enabled": bool(data.get("enabled")),
-        "model_ids": sorted(_parse_id_list(data.get("model_ids"))),
-        "provider_model_ids": sorted(_parse_id_list(data.get("provider_model_ids"))),
-    }
+def get_auto_model_config(model_name: str = AUTO_MODEL_NAME) -> dict:
+    return get_cached_auto_model_route(model_name)
 
 
-def is_auto_model_enabled() -> bool:
-    auto_config = get_auto_model_config()
-    return (
-        auto_config.get("enabled") is True
-        and bool(auto_config.get("model_ids") or auto_config.get("provider_model_ids"))
-    )
+def is_auto_model_enabled(model_name: str = AUTO_MODEL_NAME) -> bool:
+    return is_cached_auto_model_enabled(model_name)
 
 
 def _message_part_has_image(value) -> bool:
@@ -527,10 +512,11 @@ def request_requires_multimodal(messages: list[dict] | None) -> bool:
 
 
 def get_auto_model_provider_candidates(
+    model_name: str = AUTO_MODEL_NAME,
     require_multimodal: bool = False,
 ) -> list[tuple[str, dict, str, int]]:
-    auto_config = get_auto_model_config()
-    if not is_auto_model_enabled():
+    auto_config = get_auto_model_config(model_name)
+    if not is_auto_model_enabled(model_name):
         return []
     allowed_model_ids = set(auto_config.get("model_ids") or [])
     allowed_provider_model_ids = set(auto_config.get("provider_model_ids") or [])
@@ -691,10 +677,13 @@ async def explain_provider_model_candidates(
             "filtered": [],
         }
 
-    is_auto_model = model == AUTO_MODEL_NAME
+    is_auto_model = is_auto_model_enabled(model)
     requires_multimodal = request_requires_multimodal(messages) if is_auto_model else False
     candidates = (
-        get_auto_model_provider_candidates(require_multimodal=requires_multimodal)
+        get_auto_model_provider_candidates(
+            model_name=model,
+            require_multimodal=requires_multimodal,
+        )
         if is_auto_model
         else (_model_name_index.get(model) or _alias_index.get(model) or [])
     )
@@ -812,9 +801,10 @@ async def get_provider_model_candidates(
             )
         ]
 
-    is_auto_model = model == AUTO_MODEL_NAME
+    is_auto_model = is_auto_model_enabled(model)
     candidates = (
         get_auto_model_provider_candidates(
+            model_name=model,
             require_multimodal=request_requires_multimodal(messages)
         )
         if is_auto_model

@@ -24,9 +24,6 @@ ALL_DEFAULTS = {
     "proxy": {
         "ua_override": "",
     },
-    "routing": {
-        "auto_model": "{}",
-    },
 }
 
 _settings_cache: dict[str, tuple[str, float]] = {}

@@ -1,5 +1,3 @@
-import json
-
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -18,6 +16,12 @@ from app.core.database import (
 )
 from app.core.permissions import permission_required
 from app.services.auth import load_api_keys
+from app.services.auto_model_routes import (
+    AUTO_MODEL_NAME,
+    get_auto_model_route as get_auto_model_route_record,
+    normalize_auto_model_route,
+    update_auto_model_route as update_auto_model_route_record,
+)
 
 router = APIRouter(prefix="/admin/api", tags=["models"])
 
@@ -52,62 +56,10 @@ class AutoModelConfigUpdate(BaseModel):
     provider_model_ids: list[int] = Field(default_factory=list)
 
 
-def _normalize_auto_model_config(data: dict | None) -> dict:
-    data = data or {}
-    return {
-        "enabled": bool(data.get("enabled")),
-        "model_ids": [int(v) for v in data.get("model_ids", []) if str(v).isdigit()],
-        "provider_model_ids": [
-            int(v) for v in data.get("provider_model_ids", []) if str(v).isdigit()
-        ],
-    }
-
-
-def _auto_model_is_active(payload: dict) -> bool:
-    return bool(
-        payload.get("enabled")
-        and (payload.get("model_ids") or payload.get("provider_model_ids"))
-    )
-
-
-async def _ensure_auto_virtual_model(session, payload: dict) -> None:
-    result = await session.execute(select(Model).where(Model.name == "auto"))
-    model = result.scalar_one_or_none()
-    active = _auto_model_is_active(payload)
-    if model is None:
-        session.add(
-            Model(
-                name="auto",
-                display_name="Auto",
-                max_tokens=131072,
-                context_length=204800,
-                thinking_enabled=True,
-                thinking_budget=8192,
-                is_multimodal=True,
-                is_active=active,
-                is_virtual=True,
-                tags="virtual,auto",
-            )
-        )
-    else:
-        model.display_name = model.display_name or "Auto"
-        model.is_active = active
-        model.is_virtual = True
-        if not model.tags:
-            model.tags = "virtual,auto"
-    await session.commit()
-
-
 @router.get("/routing/auto-model")
 async def get_auto_model_config(_: bool = Depends(permission_required("page.models"))):
-    from app.services.system_config import get_setting
-
-    raw = await get_setting("routing", "auto_model", "{}")
-    try:
-        data = json.loads(raw)
-    except (TypeError, ValueError):
-        data = {}
-    return _normalize_auto_model_config(data)
+    async with async_session_maker() as session:
+        return await get_auto_model_route_record(session, AUTO_MODEL_NAME)
 
 
 @router.put("/routing/auto-model")
@@ -115,20 +67,14 @@ async def update_auto_model_config(
     data: AutoModelConfigUpdate,
     _: bool = Depends(permission_required("model.update")),
 ):
-    from app.services.system_config import save_setting
-
-    payload = _normalize_auto_model_config(data.model_dump())
+    payload = normalize_auto_model_route(data.model_dump())
     async with async_session_maker() as session:
-        await _ensure_auto_virtual_model(session, payload)
-    await save_setting(
-        "routing",
-        "auto_model",
-        json.dumps(payload, ensure_ascii=False),
-        "Virtual auto model routing configuration",
-    )
+        payload = await update_auto_model_route_record(session, payload, AUTO_MODEL_NAME)
     from app.services.provider import load_providers
 
     await load_providers()
+
+    await load_api_keys()
     return payload
 
 

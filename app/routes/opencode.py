@@ -80,13 +80,9 @@ async def build_opencode_config(
     model_priority: dict[str, int] = {}
     accessible_auto_candidates = []
 
-    from app.services.system_config import get_setting
+    from app.services.auto_model_routes import AUTO_MODEL_NAME, get_auto_model_route
 
-    auto_raw = await get_setting("routing", "auto_model", "{}")
-    try:
-        auto_config = json.loads(auto_raw)
-    except (TypeError, ValueError):
-        auto_config = {}
+    auto_config = await get_auto_model_route(session, AUTO_MODEL_NAME)
     auto_enabled = bool(auto_config.get("enabled"))
     auto_model_ids = {
         int(v) for v in (auto_config.get("model_ids") or []) if str(v).isdigit()

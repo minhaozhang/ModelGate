@@ -36,8 +36,6 @@ async def root(request: Request, session: Optional[str] = Cookie(None)):
 async def login_page(request: Request, session: Optional[str] = Cookie(None)):
     if _is_mobile(request):
         return RedirectResponse(url=build_app_url(request, "/admin/m/login"))
-    if _check_auth(session):
-        return RedirectResponse(url=build_app_url(request, "/admin/home"))
     return HTMLResponse(content=render(request, "admin/login.html"))
 
 
@@ -73,8 +71,6 @@ async def monitor_page(request: Request, session: Optional[str] = Cookie(None)):
 
 @router.get("/m/login", response_class=HTMLResponse)
 async def mobile_login_page(request: Request, session: Optional[str] = Cookie(None)):
-    if _check_auth(session):
-        return RedirectResponse(url=build_app_url(request, "/admin/m"))
     return HTMLResponse(
         content=render(
             request,

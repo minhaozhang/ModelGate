@@ -126,11 +126,57 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("autoModelDraftIds", html)
         self.assertNotIn('id="auto-model-ids" multiple', html)
 
+    def test_saving_auto_model_refreshes_model_list(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        save_start = html.index("async function saveAutoModelConfig()")
+        save_end = html.index("function applyModelFilters()", save_start)
+        save_body = html[save_start:save_end]
+
+        self.assertIn("await loadModels()", save_body)
+
+    def test_auto_virtual_model_delete_button_is_hidden(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        table_start = html.index("function renderModelTable(models)")
+        table_end = html.index("async function loadProviderModelRoutes()", table_start)
+        table_body = html[table_start:table_end]
+
+        self.assertIn("isProtectedAutoModel", html)
+        self.assertIn("const canDeleteModel = !isProtectedAutoModel(m)", table_body)
+        self.assertIn("${canDeleteModel ? `", table_body)
+        self.assertIn("deleteModel(${m.id})", table_body)
+
     def test_api_key_standard_model_picker_marks_virtual_models(self):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
 
         self.assertIn("model.is_virtual", html)
         self.assertIn("虚拟", html)
+
+    def test_api_key_standard_model_picker_prioritizes_auto_model(self):
+        html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
+
+        self.assertIn("isAutoModel", html)
+        self.assertIn("auto-model-option", html)
+        self.assertIn("Auto 路由", html)
+
+    def test_api_key_modal_is_scrollable_with_fixed_actions_and_horizontal_sections(self):
+        html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
+
+        self.assertIn("max-h-[92vh]", html)
+        self.assertIn("apikey-modal-body", html)
+        self.assertIn("shrink-0 border-t", html)
+        self.assertIn("md:grid-cols-2", html)
+        self.assertIn("apikey-mcp-servers", html)
+        self.assertIn("apikey-tags-container", html)
+
+    def test_admin_home_websocket_unauthorized_redirects_and_stops_reconnect(self):
+        home = (ROOT / "web" / "templates" / "admin" / "home.html").read_text(encoding="utf-8")
+        mobile = (ROOT / "web" / "templates" / "admin" / "mobile_home.html").read_text(encoding="utf-8")
+
+        for html, login_path in ((home, "/admin/login"), (mobile, "/admin/m/login")):
+            self.assertIn("handleAdminUnauthorized", html)
+            self.assertIn("event.code === 4401", html)
+            self.assertIn("adminAuthRedirecting", html)
+            self.assertIn(f"`${{APP_BASE_PATH}}{login_path}`", html)
 
     def test_model_routing_matrix_uses_compact_responsive_layout(self):
         html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")

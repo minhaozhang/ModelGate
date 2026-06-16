@@ -73,7 +73,7 @@ MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() in ("true", "1", "yes"
 
 login_attempts: dict[str, int] = {}
 login_lockout: dict[str, datetime] = {}
-LOGIN_MAX_ATTEMPTS = 3
+LOGIN_MAX_ATTEMPTS = 5
 LOGIN_LOCKOUT_MINUTES = 5
 
 providers_cache: dict[str, dict] = {}
@@ -85,7 +85,7 @@ provider_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 user_api_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 
 DEFAULT_OUTBOUND_USER_AGENT = (
-    "opencode/1.14.20 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.11"
+    "opencode/local ai-sdk/provider-utils/4.0.23 runtime/node.js/24"
 )
 OUTBOUND_USER_AGENT = DEFAULT_OUTBOUND_USER_AGENT
 system_config: dict[str, Any] = {}
