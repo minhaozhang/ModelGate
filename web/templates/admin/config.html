@@ -70,7 +70,14 @@
         .template-card.active { border-color: #2563eb; background: #eff6ff; }
         body.theme-dark .template-card { border-color: #334155; }
         body.theme-dark .template-card.active { background: rgba(37, 99, 235, 0.18); }
-        .auto-model-picker-panel { height: min(560px, 86vh); }
+        .admin-modal-card {
+            max-height: calc(100vh - 4rem);
+            max-height: calc(100dvh - 4rem);
+        }
+        .auto-model-picker-panel {
+            height: min(560px, calc(100vh - 4rem));
+            height: min(560px, calc(100dvh - 4rem));
+        }
         .config-table-wrap { overflow-x: auto; }
         .config-table { width: 100%; border-collapse: collapse; min-width: 760px; }
         .routing-table { min-width: 680px; table-layout: fixed; }
@@ -386,39 +393,41 @@
         </div>
     </div>
 
-    <div id="provider-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div class="p-4 border-b flex justify-between items-center">
+    <div id="provider-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-md w-full mx-4 flex min-h-0 flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
                 <h3 id="provider-modal-title" class="font-semibold">{{ _('Add Provider') }}</h3>
                 <button onclick="closeProviderModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
-            <form id="provider-form" class="p-4 space-y-4">
-                <input type="hidden" id="provider-id">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Name') }}</label>
-                    <input type="text" id="provider-name" required class="w-full border rounded px-3 py-2" placeholder="e.g., zhipu, deepseek">
+            <form id="provider-form" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div class="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+                    <input type="hidden" id="provider-id">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Name') }}</label>
+                        <input type="text" id="provider-name" required class="w-full border rounded px-3 py-2" placeholder="e.g., zhipu, deepseek">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Base URL') }}</label>
+                        <input type="text" id="provider-url" required class="w-full border rounded px-3 py-2" placeholder="https://api.example.com/v1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Protocol') }}</label>
+                        <select id="provider-protocol" class="w-full border rounded px-3 py-2">
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="provider-active" checked class="mr-2">
+                        <label class="text-sm text-gray-700">{{ _('Active') }}</label>
+                    </div>
+                    <div id="provider-disabled-reason" class="hidden text-xs text-orange-600 bg-orange-50 rounded p-2"></div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="provider-merge-msgs" class="mr-2">
+                        <label class="text-sm text-gray-700">{{ _('Merge consecutive same-role messages') }} <span class="text-xs text-gray-400">({{ _('For providers like MiniMax requiring role alternation') }})</span></label>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Base URL') }}</label>
-                    <input type="text" id="provider-url" required class="w-full border rounded px-3 py-2" placeholder="https://api.example.com/v1">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Protocol') }}</label>
-                    <select id="provider-protocol" class="w-full border rounded px-3 py-2">
-                        <option value="openai">OpenAI</option>
-                        <option value="anthropic">Anthropic</option>
-                    </select>
-                </div>
-                <div class="flex items-center">
-                    <input type="checkbox" id="provider-active" checked class="mr-2">
-                    <label class="text-sm text-gray-700">{{ _('Active') }}</label>
-                </div>
-                <div id="provider-disabled-reason" class="hidden text-xs text-orange-600 bg-orange-50 rounded p-2"></div>
-                <div class="flex items-center">
-                    <input type="checkbox" id="provider-merge-msgs" class="mr-2">
-                    <label class="text-sm text-gray-700">{{ _('Merge consecutive same-role messages') }} <span class="text-xs text-gray-400">({{ _('For providers like MiniMax requiring role alternation') }})</span></label>
-                </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 border-t p-4 shrink-0">
                     <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
                     <button type="button" onclick="closeProviderModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                 </div>
@@ -426,13 +435,14 @@
         </div>
     </div>
 
-    <div id="model-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
+    <div id="model-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 flex min-h-0 flex-col overflow-hidden">
             <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
                 <h3 id="model-modal-title" class="font-semibold">{{ _('Add Model') }}</h3>
                 <button onclick="closeModelModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
-            <form id="model-form" class="p-4 space-y-4 overflow-y-auto">
+            <form id="model-form" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div class="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
                 <input type="hidden" id="model-id">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Model Name (ID)') }}</label>
@@ -482,7 +492,8 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1" title="develop,document,test,flash,reasoning,vision">Tags <span class="text-xs text-gray-400">(develop,document,test,flash...)</span></label>
                     <input type="text" id="model-tags" class="w-full border rounded px-3 py-2 text-sm" placeholder="develop,reasoning">
                 </div>
-                <div class="flex gap-2">
+                </div>
+                <div class="flex gap-2 border-t p-4 shrink-0">
                     <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
                     <button type="button" onclick="closeModelModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                 </div>
@@ -490,8 +501,8 @@
         </div>
     </div>
 
-    <div id="auto-model-picker-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="auto-model-picker-panel bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 flex flex-col">
+    <div id="auto-model-picker-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="auto-model-picker-panel bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 flex min-h-0 flex-col overflow-hidden">
             <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
                 <div>
                     <h3 class="font-semibold">选择 auto 候选模型</h3>
@@ -512,30 +523,13 @@
         </div>
     </div>
 
-    <div id="model-keys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 h-[90vh] flex flex-col">
-            <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
-                <h3 id="model-keys-title" class="font-semibold">{{ _('API Key Access') }}</h3>
-                <button onclick="closeModelKeysModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-            </div>
-            <div class="p-4 overflow-y-auto flex-1 min-h-0">
-                <div id="model-keys-content" class="space-y-4">
-                    <div class="text-center text-gray-400 py-4">Loading...</div>
-                </div>
-            </div>
-            <div class="p-4 border-t flex-shrink-0">
-                <button onclick="saveModelKeysModal()" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="provider-keys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 h-[90vh] flex flex-col">
+    <div id="provider-keys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 flex min-h-0 flex-col overflow-hidden">
             <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
                 <h3 id="provider-keys-title" class="font-semibold">{{ _('Provider Keys') }}</h3>
                 <button onclick="closeProviderKeysModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
-            <div class="p-4 overflow-y-auto flex-1">
+            <div class="p-4 overflow-y-auto flex-1 min-h-0">
                 <div id="provider-keys-content" class="space-y-2">
                     <div class="text-center text-gray-400 py-4">Loading...</div>
                 </div>
@@ -642,13 +636,6 @@
         let autoModelDraftIds = new Set();
         let modelSearchTerm = '';
         let modelBindingFilter = 'all';
-        let allApiKeys = [];
-        let allApiKeyTags = [];
-        let selectedTagFilter = new Set();
-        let modelKeysTarget = null;
-        let modelKeysScopePmId = null;
-        let modelKeysData = {};
-        let modelKeysPmList = [];
 
         function parseTokenValue(v) {
             if (!v) return 0;
@@ -663,14 +650,11 @@
             if (v > 0) return Math.round(v / 1024) + 'k';
             return '';
         }
-        let modelKeysSelection = {};
-        let modelKeysPage = 1;
         let selectedProviderId = null;
         let selectedRoutingModelId = null;
         let strategyTemplates = [];
         let selectedStrategyTemplateId = null;
         let strategyDrawerState = {providerId: null, keyId: null, keyLabel: '', templateId: null, params: {}};
-        const MODEL_KEYS_PAGE_SIZE = 12;
 
         function t(key, fallback = '') {
             return CONFIG_I18N[key] || fallback;
@@ -790,177 +774,6 @@
             </div>`;
         }
 
-        async function openModelKeys(modelId, titleOverride = null) {
-            modelKeysTarget = modelId;
-            const m = allModels.find(x => x.id === modelId);
-            modelKeysPage = 1;
-            modelKeysSelection = {};
-            document.getElementById('model-keys-title').textContent = (titleOverride || (m ? (m.display_name || m.name) : t('modelFallback', 'Model'))) + t('apiKeyAccessSuffix', ' - API Key Access');
-            document.getElementById('model-keys-content').innerHTML = `<div class="text-center text-gray-400 py-4">${t('loading', 'Loading...')}</div>`;
-            document.getElementById('model-keys-modal').classList.remove('hidden');
-            document.getElementById('model-keys-modal').classList.add('flex');
-            try {
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models/${modelId}/api-keys`);
-                allApiKeys = data.api_keys || [];
-                allApiKeyTags = data.all_tags || [];
-                selectedTagFilter = new Set();
-                modelKeysPmList = data.provider_models || [];
-                modelKeysData = data.bound_keys || {};
-                modelKeysPmList.forEach(pm => {
-                    const bound = modelKeysData[pm.id] || [];
-                    modelKeysSelection[pm.id] = new Set(bound.map(k => k.id));
-                });
-                renderModelKeysContent();
-            } catch(e) {
-                document.getElementById('model-keys-content').innerHTML = `<div class="text-center text-red-500 py-4">${t('failedToLoad', 'Failed to load')}</div>`;
-            }
-        }
-
-        function renderModelKeysContent() {
-            const container = document.getElementById('model-keys-content');
-            const visiblePmList = modelKeysScopePmId
-                ? modelKeysPmList.filter(pm => pm.id === modelKeysScopePmId)
-                : modelKeysPmList;
-            if (visiblePmList.length === 0) {
-                container.innerHTML = `<div class="text-center text-gray-400 py-4">${t('noProviderBindings', 'No provider bindings. Bind this model to a provider first.')}</div>`;
-                return;
-            }
-
-            let filteredKeys = allApiKeys;
-            if (selectedTagFilter.size > 0) {
-                filteredKeys = allApiKeys.filter(k => (k.tags || []).some(tag => selectedTagFilter.has(tag)));
-            }
-
-            const totalPages = Math.max(1, Math.ceil(filteredKeys.length / MODEL_KEYS_PAGE_SIZE));
-            modelKeysPage = Math.min(modelKeysPage, totalPages);
-            const start = (modelKeysPage - 1) * MODEL_KEYS_PAGE_SIZE;
-            const pageApiKeys = filteredKeys.slice(start, start + MODEL_KEYS_PAGE_SIZE);
-
-            let tagFilterHtml = '';
-            if (allApiKeyTags.length > 0) {
-                tagFilterHtml = '<div class="flex flex-wrap gap-1.5 mb-3 pb-3 border-b">';
-                tagFilterHtml += `<button onclick="filterByTag(null)" class="text-xs px-2.5 py-1 rounded-full border ${selectedTagFilter.size === 0 ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${t('all', '全部')}</button>`;
-                allApiKeyTags.forEach(tag => {
-                    const active = selectedTagFilter.has(tag);
-                    tagFilterHtml += `<button onclick="filterByTag('${tag.replace(/'/g, "\\'")}')" class="text-xs px-2.5 py-1 rounded-full border ${active ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${tag}</button>`;
-                });
-                tagFilterHtml += '</div>';
-            }
-
-            let html = tagFilterHtml;
-            visiblePmList.forEach(pm => {
-                const selectedIds = modelKeysSelection[pm.id] || new Set();
-                html += `<div class="border rounded p-3">
-                    <div class="flex flex-col gap-2 mb-2 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <div class="font-medium text-sm text-gray-700">${pm.label}</div>
-                            <div class="text-xs text-gray-400 mt-1">${t('bindingScopeHint', 'Access is configured on the bound provider-model, not on the model itself.')}</div>
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            <button onclick="selectAllKeys(${pm.id})" class="text-xs text-blue-500 hover:text-blue-700">${t('selectAll', 'Select All')}</button>
-                            <button onclick="deselectAllKeys(${pm.id})" class="text-xs text-gray-500 hover:text-gray-700">${t('clear', 'Clear')}</button>
-                        </div>
-                    </div>
-                    <div class="space-y-1 max-h-[50vh] overflow-y-auto">
-                        ${pageApiKeys.map(k => `
-                            <label class="mk-item flex items-center text-sm py-2 px-2 rounded cursor-pointer ${selectedIds.has(k.id) ? 'selected' : ''}" data-pm-id="${pm.id}" data-ak-id="${k.id}">
-                                <input type="checkbox" class="mr-2 mk-check" data-pm-id="${pm.id}" data-ak-id="${k.id}" onchange="toggleModelKeySelection(${pm.id}, ${k.id}, this.checked)" ${selectedIds.has(k.id) ? 'checked' : ''}>
-                                ${k.name}
-                                ${(k.tags || []).map(tag => `<span class="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600">${tag}</span>`).join('')}
-                            </label>
-                        `).join('')}
-                    </div>
-                    <div class="mt-3 flex flex-col gap-2 text-xs text-gray-400 md:flex-row md:items-center md:justify-between">
-                        <span>${formatI18n('selectedCount', {count: selectedIds.size}, `${selectedIds.size} selected`)}</span>
-                        <div class="flex items-center gap-2">
-                            <button onclick="changeModelKeysPage(-1)" class="px-2 py-1 border rounded ${modelKeysPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${modelKeysPage <= 1 ? 'disabled' : ''}>${t('previous', 'Previous')}</button>
-                            <span>${formatI18n('pageLabel', {current: modelKeysPage, total: totalPages}, `Page ${modelKeysPage} / ${totalPages}`)}</span>
-                            <button onclick="changeModelKeysPage(1)" class="px-2 py-1 border rounded ${modelKeysPage >= totalPages ? 'opacity-50 cursor-not-allowed' : ''}" ${modelKeysPage >= totalPages ? 'disabled' : ''}>${t('next', 'Next')}</button>
-                        </div>
-                    </div>
-                </div>`;
-            });
-            container.innerHTML = html;
-        }
-
-        function toggleModelKeySelection(pmId, akId, checked) {
-            if (!modelKeysSelection[pmId]) {
-                modelKeysSelection[pmId] = new Set();
-            }
-            if (checked) {
-                modelKeysSelection[pmId].add(akId);
-            } else {
-                modelKeysSelection[pmId].delete(akId);
-            }
-            renderModelKeysContent();
-        }
-
-        function selectAllKeys(pmId) {
-            const keys = selectedTagFilter.size > 0 ? allApiKeys.filter(k => (k.tags || []).some(tag => selectedTagFilter.has(tag))) : allApiKeys;
-            modelKeysSelection[pmId] = new Set(keys.map(k => k.id));
-            renderModelKeysContent();
-        }
-
-        function deselectAllKeys(pmId) {
-            modelKeysSelection[pmId] = new Set();
-            renderModelKeysContent();
-        }
-
-        function changeModelKeysPage(delta) {
-            const filteredKeys = selectedTagFilter.size > 0 ? allApiKeys.filter(k => (k.tags || []).some(tag => selectedTagFilter.has(tag))) : allApiKeys;
-            const totalPages = Math.max(1, Math.ceil(filteredKeys.length / MODEL_KEYS_PAGE_SIZE));
-            const nextPage = modelKeysPage + delta;
-            if (nextPage < 1 || nextPage > totalPages) return;
-            modelKeysPage = nextPage;
-            renderModelKeysContent();
-        }
-
-        function filterByTag(tag) {
-            if (tag === null) {
-                selectedTagFilter.clear();
-            } else if (selectedTagFilter.has(tag)) {
-                selectedTagFilter.delete(tag);
-            } else {
-                selectedTagFilter.add(tag);
-            }
-            modelKeysPage = 1;
-            renderModelKeysContent();
-        }
-
-        function closeModelKeysModal() {
-            document.getElementById('model-keys-modal').classList.add('hidden');
-            document.getElementById('model-keys-modal').classList.remove('flex');
-            modelKeysTarget = null;
-            modelKeysScopePmId = null;
-            modelKeysSelection = {};
-            modelKeysPage = 1;
-            selectedTagFilter = new Set();
-        }
-
-        async function openProviderModelKeys(pmId, modelId, label) {
-            modelKeysScopePmId = pmId;
-            await openModelKeys(modelId, label);
-        }
-
-        async function saveModelKeysModal() {
-            if (!modelKeysTarget) return;
-            try {
-                const targetPmList = modelKeysScopePmId
-                    ? modelKeysPmList.filter(pm => pm.id === modelKeysScopePmId)
-                    : modelKeysPmList;
-                for (const pm of targetPmList) {
-                    const akIds = Array.from(modelKeysSelection[pm.id] || []);
-                    await mgFetch(`${APP_BASE_PATH}/admin/api/models/${modelKeysTarget}/api-keys`, {
-                        method: 'PUT',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({provider_model_id: pm.id, api_key_ids: akIds})
-                    }, {error: t('failedToSaveKeyAccess', 'Failed to save key access')});
-                }
-                showToast(t('keyAccessSaved', 'Key access saved'), 'success');
-                closeModelKeysModal();
-                loadModels();
-            } catch(e) {}
-        }
 
         async function selectProvider(id) {
             selectedProviderId = id;
@@ -2088,7 +1901,7 @@
                                 </span>
                             </th>
                             <th>繁忙等级上限</th>
-                            <th>Key</th>
+                            <th>路由规则</th>
                             <th class="text-right">操作</th>
                         </tr>
                     </thead>
@@ -2116,7 +1929,12 @@
                 <div class="routing-rule-editor p-3">
                     <label class="block routing-rule-wide">
                         <span class="block text-[11px] text-gray-500 mb-1">目标供应商</span>
-                        <select id="model-rule-pm" class="w-full border rounded px-2 py-1.5 text-sm" ${routes.length ? '' : 'disabled'}>${providerOptions}</select>
+                        <select id="model-rule-pm" onchange="renderModelRuleKeyOptions()" class="w-full border rounded px-2 py-1.5 text-sm" ${routes.length ? '' : 'disabled'}>${providerOptions}</select>
+                    </label>
+                    <label class="block routing-rule-wide">
+                        <span class="block text-[11px] text-gray-500 mb-1">限定 Key（不选=全部）</span>
+                        <select id="model-rule-provider-keys" multiple size="3" class="w-full border rounded px-2 py-1.5 text-sm"></select>
+                        <span class="block text-[11px] text-gray-400 mt-1">规则命中后，只让选中的 Key 参与本供应商内排序。</span>
                     </label>
                     <label class="block routing-rule-wide">
                         <span class="block text-[11px] text-gray-500 mb-1">策略模板</span>
@@ -2184,6 +2002,7 @@
                     ${allRules.length ? allRules.map(item => renderModelRoutingRuleRow(item.rule, item.route)).join('') : '<div class="text-center text-gray-400 py-4 text-sm">暂无模型级路由规则。</div>'}
                 </div>
             </div>`;
+            renderModelRuleKeyOptions();
         }
 
         function modelRuleActionLabel(action) {
@@ -2209,6 +2028,40 @@
             if (raw === undefined || raw === null || raw === '') return null;
             const parsed = parseInt(raw, 10);
             return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function getProviderModelRouteById(routeId) {
+            return allProviderModels.find(route => String(route.id) === String(routeId));
+        }
+
+        function renderModelRuleKeyOptionList(route, selectedIds = []) {
+            const selected = new Set((selectedIds || []).map(id => String(id)));
+            const keys = route?.provider_keys || [];
+            if (!keys.length) {
+                return '<option value="" disabled>该供应商暂无 Key</option>';
+            }
+            return keys.map(key => {
+                const keyId = String(key.id);
+                const status = key.is_active === false ? ' · 停用' : '';
+                const label = key.label || `Key #${key.id}`;
+                return `<option value="${key.id}" ${selected.has(keyId) ? 'selected' : ''}>${escapeHtml(label)} · P${Number(key.priority || 0)}${status}</option>`;
+            }).join('');
+        }
+
+        function renderModelRuleKeyOptions() {
+            const select = document.getElementById('model-rule-provider-keys');
+            if (!select) return;
+            const route = getProviderModelRouteById(document.getElementById('model-rule-pm')?.value);
+            select.innerHTML = renderModelRuleKeyOptionList(route);
+            select.disabled = !(route?.provider_keys || []).length;
+        }
+
+        function selectedModelRuleKeyIds(id) {
+            const select = document.getElementById(id);
+            if (!select) return [];
+            return Array.from(select.selectedOptions || [])
+                .map(option => parseInt(option.value, 10))
+                .filter(Number.isFinite);
         }
 
         function setModelRuleField(id, value) {
@@ -2253,6 +2106,7 @@
                 weekdays: document.getElementById('model-rule-weekdays')?.value?.trim() || null,
                 min_context_tokens: modelRuleIntValue('model-rule-min-context'),
                 max_context_tokens: modelRuleIntValue('model-rule-max-context'),
+                provider_key_ids: selectedModelRuleKeyIds('model-rule-provider-keys'),
                 enabled: true
             };
         }
@@ -2270,11 +2124,13 @@
                 weekdays: document.getElementById(`model-rule-edit-weekdays-${ruleId}`)?.value?.trim() || null,
                 min_context_tokens: modelRuleIntValue(`model-rule-edit-min-context-${ruleId}`),
                 max_context_tokens: modelRuleIntValue(`model-rule-edit-max-context-${ruleId}`),
+                provider_key_ids: selectedModelRuleKeyIds(`model-rule-edit-provider-keys-${ruleId}`),
                 enabled: document.getElementById(`model-rule-edit-enabled-${ruleId}`)?.checked !== false
             };
         }
 
         function renderModelRoutingRuleRow(rule, route) {
+            const selectedKeyIds = rule.provider_key_ids || [];
             return `<div class="px-3 py-3 border-t first:border-t-0 text-sm">
                 <div class="routing-rule-editor">
                     <div class="routing-rule-wide">
@@ -2321,6 +2177,12 @@
                         <span class="block text-[11px] text-gray-500 mb-1">星期</span>
                         <input id="model-rule-edit-weekdays-${rule.id}" value="${escapeAttr(rule.weekdays || '')}" class="w-full border rounded px-2 py-1.5 text-sm">
                     </label>
+                    <label class="block routing-rule-wide">
+                        <span class="block text-[11px] text-gray-500 mb-1">限定 Key（不选=全部）</span>
+                        <select id="model-rule-edit-provider-keys-${rule.id}" multiple size="3" class="w-full border rounded px-2 py-1.5 text-sm">
+                            ${renderModelRuleKeyOptionList(route, selectedKeyIds)}
+                        </select>
+                    </label>
                     <div class="flex justify-end items-center gap-2">
                         <label class="inline-flex items-center gap-1 text-xs text-gray-500">
                             <input id="model-rule-edit-enabled-${rule.id}" type="checkbox" ${rule.enabled === false ? '' : 'checked'}>
@@ -2330,6 +2192,53 @@
                         <button onclick="deleteModelRoutingRule(${rule.id})" class="text-xs text-red-500 hover:text-red-700">删除</button>
                     </div>
                 </div>
+            </div>`;
+        }
+
+        function routeKeyLabelMap(route) {
+            const pairs = (route?.provider_keys || []).map(key => [String(key.id), key.label || `Key #${key.id}`]);
+            return new Map(pairs);
+        }
+
+        function summarizeRuleKeyScope(route) {
+            const rules = (route?.routing_rules || []).filter(rule => rule.enabled !== false);
+            if (!rules.length) {
+                return {ruleCount: 0, labels: [], allKeys: false};
+            }
+            const keyMap = routeKeyLabelMap(route);
+            const scopedIds = [];
+            const seen = new Set();
+            rules.forEach(rule => {
+                (rule.provider_key_ids || []).forEach(id => {
+                    const key = String(id);
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    scopedIds.push(key);
+                });
+            });
+            if (!scopedIds.length) {
+                return {ruleCount: rules.length, labels: [], allKeys: true};
+            }
+            return {
+                ruleCount: rules.length,
+                labels: scopedIds.map(id => keyMap.get(id) || `Key #${id}`),
+                allKeys: false
+            };
+        }
+
+        function renderRouteRuleSummary(route) {
+            const summary = summarizeRuleKeyScope(route);
+            if (!summary.ruleCount) {
+                return '<div class="text-xs text-gray-400">无规则</div>';
+            }
+            const visibleLabels = summary.labels.slice(0, 2);
+            const moreCount = Math.max(summary.labels.length - visibleLabels.length, 0);
+            const scopeHtml = summary.allKeys
+                ? '<span class="text-gray-500">全部 Key</span>'
+                : `<span class="text-blue-600">限定 ${visibleLabels.map(escapeHtml).join('、')}${moreCount ? ` 等 ${summary.labels.length} 个` : ''}</span>`;
+            return `<div class="text-xs leading-relaxed">
+                <div class="font-medium text-gray-700">${summary.ruleCount} 条规则</div>
+                <div>${scopeHtml}</div>
             </div>`;
         }
 
@@ -2355,9 +2264,7 @@
                         ${busynessOptions.map(o => `<option value="${o.v}" ${String(route.max_busyness_level || '') === String(o.v) ? 'selected' : ''}>${o.l}</option>`).join('')}
                     </select>
                 </td>
-                <td>
-                    <button onclick="openProviderModelKeys(${route.id}, ${route.model_id}, '${escapeJs((group.model_display_name || group.model_name) + ' / ' + route.provider_name)}')" class="text-xs text-blue-500 hover:text-blue-700">配置 Key</button>
-                </td>
+                <td>${renderRouteRuleSummary(route)}</td>
                 <td>
                     <div class="flex justify-end gap-2">
                         <button onclick="deleteRouteBinding(${route.provider_id}, ${route.id})" class="text-xs text-red-500 hover:text-red-700">移除</button>
@@ -2455,7 +2362,7 @@
                                 </span>
                             </th>
                             <th>繁忙等级上限</th>
-                            <th>Key</th>
+                            <th>路由规则</th>
                             <th class="text-right">操作</th>
                         </tr>
                     </thead>
@@ -2514,9 +2421,7 @@
                         ${busynessOptions.map(o => `<option value="${o.v}" ${String(route.max_busyness_level || '') === String(o.v) ? 'selected' : ''}>${o.l}</option>`).join('')}
                     </select>
                 </td>
-                <td>
-                    <button onclick="openProviderModelKeys(${route.id}, ${route.model_id}, '${escapeJs((group.model_display_name || group.model_name) + ' / ' + route.provider_name)}')" class="text-xs text-blue-500 hover:text-blue-700">配置 Key</button>
-                </td>
+                <td>${renderRouteRuleSummary(route)}</td>
                 <td>
                     <div class="flex justify-end gap-2">
                         <button onclick="prefillRoutePreview('${escapeJs(group.model_name)}')" class="text-xs text-blue-500 hover:text-blue-700">预览</button>
@@ -2604,12 +2509,6 @@
             }
         }, true);
         document.getElementById('model-modal').addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-            }
-        }, true);
-        document.getElementById('model-keys-modal').addEventListener('click', (e) => {
             if (e.target === e.currentTarget) {
                 e.preventDefault();
                 e.stopImmediatePropagation();

@@ -191,6 +191,8 @@ def _build_routing_decision(
                 "selected_upstream_model": route_result.upstream_model_name,
             }
         )
+        if route_result.provider_key_ids:
+            decision["selected_provider_key_scope"] = route_result.provider_key_ids
     if key_explanation is not None:
         decision["key_candidates"] = _strip_key_secrets(
             key_explanation.get("ordered", [])
@@ -490,12 +492,14 @@ async def proxy_request(request: Request, endpoint: str):
                 api_key_id,
                 provider_name,
                 context_tokens=request_context_tokens,
+                allowed_key_ids=route_result.provider_key_ids,
             )
             key_explanation = explain_provider_key_candidates(
                 provider_config,
                 api_key_id,
                 provider_name,
                 context_tokens=request_context_tokens,
+                allowed_key_ids=route_result.provider_key_ids,
             )
             if not key_explanation.get("ordered") and all_keys:
                 key_explanation = {

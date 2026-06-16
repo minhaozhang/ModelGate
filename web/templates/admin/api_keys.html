@@ -70,6 +70,14 @@
             color: #cbd5e1;
             border-color: rgba(148, 163, 184, 0.2);
         }
+        .apikey-modal-card {
+            max-height: calc(100vh - 4rem);
+            max-height: calc(100dvh - 4rem);
+        }
+        .apikey-dialog-card {
+            max-height: calc(100vh - 4rem);
+            max-height: calc(100dvh - 4rem);
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -107,7 +115,7 @@
     </div>
     
     <div id="apikey-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
-        <div class="apikey-modal-card bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[calc(100vh-1.5rem)] mx-4 flex min-h-0 flex-col overflow-hidden">
+        <div class="apikey-modal-card bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 flex min-h-0 flex-col overflow-hidden">
             <div class="shrink-0 p-4 border-b flex justify-between items-center">
                 <h3 id="apikey-modal-title" class="font-semibold">{{ _('Add API Key') }}</h3>
                 <button onclick="closeApiKeyModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
@@ -272,13 +280,13 @@
     };
     </script>
 
-    <div id="timerule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
-            <div class="p-4 border-b flex justify-between items-center">
+    <div id="timerule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="apikey-dialog-card bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 flex min-h-0 flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
                 <h3 id="timerule-modal-title" class="font-semibold">{{ _('Time Rules') }}</h3>
                 <button onclick="closeTimeRuleModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
-            <div class="p-4">
+            <div class="min-h-0 flex-1 overflow-y-auto p-4">
                 <div id="timerule-list" class="space-y-2 mb-4"></div>
                 <button onclick="showAddTimeRuleForm()" class="text-blue-500 hover:text-blue-700 text-sm mb-4">+ {{ _('Add Time Rule') }}</button>
                 <form id="timerule-form" class="hidden space-y-3 border-t pt-4 mt-2">
@@ -918,16 +926,16 @@
             if (!modal) {
                 modal = document.createElement('div');
                 modal.id = 'manual-copy-modal';
-                modal.className = 'fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50';
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3';
                 modal.innerHTML = `
-                    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-4">
-                        <div class="flex items-center justify-between mb-3">
+                    <div class="apikey-dialog-card bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-4 flex min-h-0 flex-col overflow-hidden">
+                        <div class="flex items-center justify-between mb-3 shrink-0">
                             <div class="font-semibold">${window.I18N.copy}</div>
                             <button type="button" class="manual-copy-close text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
                         </div>
-                        <p class="text-sm text-gray-600 mb-3">${window.I18N.copyManually}</p>
-                        <textarea id="manual-copy-text" class="w-full h-36 border rounded px-3 py-2 text-sm font-mono"></textarea>
-                        <div class="flex justify-end mt-3">
+                        <p class="text-sm text-gray-600 mb-3 shrink-0">${window.I18N.copyManually}</p>
+                        <textarea id="manual-copy-text" class="min-h-32 w-full flex-1 border rounded px-3 py-2 text-sm font-mono" style="height:min(14rem, calc(100dvh - 14rem))"></textarea>
+                        <div class="flex justify-end mt-3 shrink-0">
                             <button type="button" class="manual-copy-close px-4 py-2 border rounded hover:bg-gray-50">${window.I18N.close}</button>
                         </div>
                     </div>

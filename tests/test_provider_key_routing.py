@@ -210,6 +210,48 @@ class ProviderKeyRoutingRuleTests(unittest.TestCase):
         self.assertEqual(keys, [("sk-small", 12)])
         provider_service._key_sticky_map.clear()
 
+    def test_model_route_key_scope_overrides_provider_key_priority(self):
+        provider_config = {
+            "api_keys": [
+                {
+                    "id": 11,
+                    "api_key": "sk-high-priority",
+                    "priority": 100,
+                    "is_active": True,
+                },
+                {
+                    "id": 12,
+                    "api_key": "sk-route-scoped",
+                    "priority": 1,
+                    "is_active": True,
+                },
+            ]
+        }
+
+        keys = provider_service.pick_api_keys(
+            provider_config,
+            api_key_id=123,
+            provider_name="zhipu",
+            allowed_key_ids=[12],
+        )
+        explanation = provider_service.explain_provider_key_candidates(
+            provider_config,
+            api_key_id=123,
+            provider_name="zhipu",
+            allowed_key_ids=[12],
+        )
+
+        self.assertEqual(keys, [("sk-route-scoped", 12)])
+        self.assertEqual([item["key_id"] for item in explanation["ordered"]], [12])
+        self.assertEqual(
+            [
+                item["key_id"]
+                for item in explanation["filtered"]
+                if "route_key_scope" in item["filtered_reasons"]
+            ],
+            [11],
+        )
+
     def test_materialize_template_rules_replaces_params_and_keeps_typed_values(self):
         blueprint = {
             "rules": [

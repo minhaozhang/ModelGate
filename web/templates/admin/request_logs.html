@@ -94,8 +94,8 @@
         body.theme-dark .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
         .resp-btn { color: #3b82f6; cursor: pointer; font-size: 0.75rem; }
         .resp-btn:hover { text-decoration: underline; }
-        .detail-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
-        .detail-modal { background: #fff; border-radius: 0.75rem; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 90%; max-width: 700px; max-height: 80vh; display: flex; flex-direction: column; }
+        .detail-modal-overlay { position: fixed; inset: 0; padding: 0.75rem; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .detail-modal { background: #fff; border-radius: 0.75rem; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 90%; max-width: 700px; max-height: calc(100vh - 4rem); max-height: calc(100dvh - 4rem); min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
         body.theme-dark .detail-modal { background: #0f172a; color: #e5e7eb; }
         .detail-modal-header { padding: 1rem 1.5rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
         body.theme-dark .detail-modal-header { border-color: #1f2937; }

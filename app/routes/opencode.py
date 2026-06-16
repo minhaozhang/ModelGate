@@ -36,6 +36,13 @@ def build_opencode_base_url(request: Request) -> str:
     return f"{base_url}{app_base_path}/v1"
 
 
+def sort_opencode_models(models: dict) -> dict:
+    return {
+        name: models[name]
+        for name in sorted(models.keys(), key=lambda value: value.casefold())
+    }
+
+
 async def build_opencode_config(
     session, base_url: str, api_key: str = None, api_key_id: int = None
 ):
@@ -218,7 +225,7 @@ async def build_opencode_config(
                     "baseURL": base_url,
                     "apiKey": key.key,
                 },
-                "models": models_config,
+                "models": sort_opencode_models(models_config),
             }
         },
     }
@@ -226,7 +233,7 @@ async def build_opencode_config(
 
 def build_setup_markdown(config: dict) -> str:
     provider_config = config["provider"]["modelgate"]
-    model_names = sorted(provider_config.get("models", {}).keys())
+    model_names = list(sort_opencode_models(provider_config.get("models", {})).keys())
     model_list = "\n".join(f"- `{model_name}`" for model_name in model_names)
     if not model_list:
         model_list = "- No models are currently available for this API key."

@@ -59,6 +59,7 @@ class RouteResult:
     requested_model: str = ""
     model_name: str = ""
     is_forced_provider: bool = False
+    provider_key_ids: list[int] | None = None
 
     def __iter__(self):
         yield self.provider_config
@@ -80,6 +81,7 @@ def _serialize_provider_model_rule(rule: ProviderModelRoutingRule) -> dict:
         "weekdays": rule.weekdays,
         "min_context_tokens": rule.min_context_tokens,
         "max_context_tokens": rule.max_context_tokens,
+        "provider_key_ids": rule.provider_key_ids or [],
         "action": rule.action,
     }
 
@@ -200,6 +202,7 @@ def pick_api_keys(
     context_tokens: int = 0,
     now: datetime | None = None,
     standby_open: bool = False,
+    allowed_key_ids: list[int] | set[int] | None = None,
 ) -> list[tuple[str, int | None]]:
     explanation = explain_provider_key_candidates(
         provider_config,
@@ -208,6 +211,7 @@ def pick_api_keys(
         context_tokens=context_tokens,
         now=now,
         standby_open=standby_open,
+        allowed_key_ids=allowed_key_ids,
     )
     return [
         (item["api_key"], item["key_id"])
@@ -223,15 +227,44 @@ def explain_provider_key_candidates(
     context_tokens: int = 0,
     now: datetime | None = None,
     standby_open: bool = False,
+    allowed_key_ids: list[int] | set[int] | None = None,
 ) -> dict:
+    allowed_key_id_set = {
+        int(key_id)
+        for key_id in (allowed_key_ids or [])
+        if key_id is not None
+    }
+    scope_filtered = []
     keys = [
         key
         for key in (provider_config.get("api_keys") or [])
         if key.get("is_active", True)
     ]
+    if allowed_key_id_set:
+        scoped_keys = []
+        for key in keys:
+            key_id = key.get("id")
+            if key_id in allowed_key_id_set:
+                scoped_keys.append(key)
+                continue
+            scope_filtered.append(
+                {
+                    "key_id": key_id,
+                    "label": key.get("label") or f"Key #{key_id}",
+                    "priority": int(key.get("priority") or 0),
+                    "health": compute_health_score(key_id) if key_id is not None else 100,
+                    "policy_priority": 0,
+                    "sticky": False,
+                    "standby": False,
+                    "matched_rules": [],
+                    "filtered_reasons": ["route_key_scope"],
+                    "api_key": None,
+                }
+            )
+        keys = scoped_keys
     if not keys:
         fallback = provider_config.get("api_key") or ""
-        if fallback:
+        if fallback and not allowed_key_id_set:
             return {
                 "ordered": [
                     {
@@ -247,9 +280,9 @@ def explain_provider_key_candidates(
                         "filtered_reasons": [],
                     }
                 ],
-                "filtered": [],
+                "filtered": scope_filtered,
             }
-        return {"ordered": [], "filtered": []}
+        return {"ordered": [], "filtered": scope_filtered}
     sticky_key_id = None
     if api_key_id is not None:
         sticky = _key_sticky_map.get((api_key_id, provider_name))
@@ -281,7 +314,7 @@ def explain_provider_key_candidates(
         item = candidate.to_dict()
         item["api_key"] = None
         filtered.append(item)
-    return {"ordered": ordered, "filtered": filtered}
+    return {"ordered": ordered, "filtered": scope_filtered + filtered}
 
 
 async def invalidate_provider_key_sticky_cache(
@@ -557,6 +590,7 @@ def _route_from_provider_model(
     pm: Optional[dict],
     requested_model: str,
     is_forced_provider: bool,
+    provider_key_ids: list[int] | None = None,
 ) -> RouteResult:
     if not provider_config or not pm:
         return RouteResult(
@@ -565,6 +599,7 @@ def _route_from_provider_model(
             provider_name=provider_name,
             requested_model=requested_model,
             is_forced_provider=is_forced_provider,
+            provider_key_ids=provider_key_ids,
         )
     model_name = pm.get("model_name") or pm.get("actual_model_name") or requested_model
     upstream_model_name = pm.get("upstream_model_name") or model_name
@@ -584,17 +619,19 @@ def _route_from_provider_model(
         model_name=model_name,
         upstream_model_name=upstream_model_name,
         is_forced_provider=is_forced_provider,
+        provider_key_ids=provider_key_ids,
     )
 
 
 def _apply_provider_model_rules(
     pm_dict: dict,
     ctx: RoutingContext,
-) -> tuple[int, list[str], bool, list[str]]:
+) -> tuple[int, list[str], bool, list[str], list[int]]:
     policy_priority = 0
     filtered_reasons: list[str] = []
     is_standby = False
     matched_rules: list[str] = []
+    provider_key_ids: set[int] = set()
     rules = [
         rule
         for rule in (pm_dict.get("routing_rules") or [])
@@ -617,6 +654,7 @@ def _apply_provider_model_rules(
         )
         action = rule.get("action")
         rule_priority = int(rule.get("priority") or 0)
+        provider_key_ids.update(_parse_id_list(rule.get("provider_key_ids")))
         if action == "deny":
             deny_matched = True
         elif action == "prefer":
@@ -632,7 +670,13 @@ def _apply_provider_model_rules(
         filtered_reasons.append("route_denied")
     if allow_rules and not any(rule_matches(rule, ctx) for rule in allow_rules):
         filtered_reasons.append("allow_not_matched")
-    return policy_priority, filtered_reasons, is_standby, matched_rules
+    return (
+        policy_priority,
+        filtered_reasons,
+        is_standby,
+        matched_rules,
+        sorted(provider_key_ids),
+    )
 
 
 async def explain_provider_model_candidates(
@@ -671,6 +715,7 @@ async def explain_provider_model_candidates(
                     "health": 100,
                     "standby": False,
                     "matched_rules": [],
+                    "provider_key_ids": [],
                     "filtered_reasons": [] if provider_config else ["provider_not_found"],
                 }
             ],
@@ -718,6 +763,7 @@ async def explain_provider_model_candidates(
             "health": 100,
             "standby": False,
             "matched_rules": [],
+            "provider_key_ids": [],
             "filtered_reasons": [],
         }
         if not pc:
@@ -744,12 +790,25 @@ async def explain_provider_model_candidates(
             rule_filtered_reasons,
             is_standby,
             matched_rules,
+            provider_key_ids,
         ) = _apply_provider_model_rules(pm_dict, routing_ctx)
         entry["policy_priority"] = policy_priority
         entry["effective_priority"] = int(pm_priority or 0) + policy_priority
         entry["standby"] = is_standby
         entry["matched_rules"] = matched_rules
+        entry["provider_key_ids"] = provider_key_ids
         entry["filtered_reasons"].extend(rule_filtered_reasons)
+        if provider_key_ids:
+            provider_key_id_set = set(provider_key_ids)
+            scoped_active_keys = [
+                key for key in active_keys if key.get("id") in provider_key_id_set
+            ]
+            if scoped_active_keys:
+                entry["health"] = max(
+                    compute_health_score(key["id"]) for key in scoped_active_keys
+                )
+            else:
+                entry["filtered_reasons"].append("route_key_scope_unavailable")
 
         if entry["filtered_reasons"]:
             filtered.append(entry)
@@ -831,7 +890,12 @@ async def get_provider_model_candidates(
                 )
                 pc = await get_provider_config(cand_provider_name)
                 route = _route_from_provider_model(
-                    pc, cand_provider_name, pm_dict, model, False
+                    pc,
+                    cand_provider_name,
+                    pm_dict,
+                    model,
+                    False,
+                    provider_key_ids=entry.get("provider_key_ids") or None,
                 )
                 logger.info(
                     "[ALIAS ROUTE CANDIDATE] model=%s → provider=%s, actual=%s, intent=%s, tag_match=%d, standby=%s, health=%d, priority=%d",

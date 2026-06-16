@@ -327,6 +327,7 @@ async def list_all_provider_models(_: bool = Depends(permission_required("page.p
                     "weekdays": rule.weekdays,
                     "min_context_tokens": rule.min_context_tokens,
                     "max_context_tokens": rule.max_context_tokens,
+                    "provider_key_ids": rule.provider_key_ids or [],
                     "action": rule.action,
                 }
                 for rule in rules_result.scalars().all()
@@ -340,6 +341,20 @@ async def list_all_provider_models(_: bool = Depends(permission_required("page.p
             )
             model = model_result.scalar_one_or_none()
             if provider and model:
+                key_result = await session.execute(
+                    select(ProviderKey)
+                    .where(ProviderKey.provider_id == provider.id)
+                    .order_by(ProviderKey.priority.desc(), ProviderKey.id)
+                )
+                provider_keys = [
+                    {
+                        "id": key.id,
+                        "label": key.label or f"Key #{key.id}",
+                        "priority": key.priority or 0,
+                        "is_active": key.is_active,
+                    }
+                    for key in key_result.scalars().all()
+                ]
                 models_data.append(
                     {
                         "id": pm.id,
@@ -355,6 +370,7 @@ async def list_all_provider_models(_: bool = Depends(permission_required("page.p
                         "tags": model.tags or "",
                         "provider_is_active": provider.is_active,
                         "provider_disabled_reason": provider.disabled_reason,
+                        "provider_keys": provider_keys,
                         "routing_rules": routing_rules,
                         "routing_rule_count": len(routing_rules),
                     }

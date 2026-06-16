@@ -2,17 +2,15 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional
-from sqlalchemy import select, delete
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import (
     async_session_maker,
     Model,
-    ApiKey,
     ApiKeyModel,
     ApiKeyModelAccess,
     ProviderModel,
-    Provider,
 )
 from app.core.permissions import permission_required
 from app.services.auth import load_api_keys
@@ -180,130 +178,6 @@ async def delete_model(model_id: int, _: bool = Depends(permission_required("mod
                 status_code=409,
             )
         return {"deleted": True}
-
-
-@router.get("/models/{model_id}/api-keys")
-async def get_model_api_keys(model_id: int, _: bool = Depends(permission_required("page.models"))):
-    async with async_session_maker() as session:
-        pm_result = await session.execute(
-            select(ProviderModel, Provider.name).join(
-                Provider, ProviderModel.provider_id == Provider.id
-            ).where(ProviderModel.model_id == model_id)
-        )
-        pm_rows = pm_result.fetchall()
-        pm_ids = []
-        pm_labels = {}
-        for row in pm_rows:
-            pm = row[0]
-            pm_ids.append(pm.id)
-            pm_labels[pm.id] = f"{row[1]}/{pm.model_name_override or ''}"
-
-        if not pm_ids:
-            return {"api_keys": [], "provider_models": [], "bound_keys": {}}
-
-        ak_result = await session.execute(
-            select(ApiKeyModel.provider_model_id, ApiKey.id, ApiKey.name).join(
-                ApiKey, ApiKeyModel.api_key_id == ApiKey.id
-            ).where(
-                ApiKeyModel.provider_model_id.in_(pm_ids)
-            )
-        )
-        bound_keys = {}
-        for row in ak_result.fetchall():
-            pm_id = row[0]
-            bound_keys.setdefault(pm_id, []).append({"id": row[1], "name": row[2]})
-
-        from app.core.database import ApiKeyTag
-
-        all_keys_result = await session.execute(
-            select(ApiKey).where(ApiKey.is_active == True)  # noqa: E712
-        )
-        all_keys_raw = all_keys_result.scalars().all()
-        all_key_ids = [k.id for k in all_keys_raw]
-
-        tags_result = await session.execute(
-            select(ApiKeyTag.api_key_id, ApiKeyTag.tag).where(
-                ApiKeyTag.api_key_id.in_(all_key_ids)
-            )
-        )
-        tags_map: dict[int, list[str]] = {}
-        all_tags_set: set[str] = set()
-        for row in tags_result.fetchall():
-            tags_map.setdefault(row[0], []).append(row[1])
-            all_tags_set.add(row[1])
-
-        all_keys = [
-            {"id": k.id, "name": k.name, "tags": tags_map.get(k.id, [])}
-            for k in all_keys_raw
-        ]
-
-        return {
-            "api_keys": all_keys,
-            "all_tags": sorted(all_tags_set),
-            "provider_models": [{"id": k, "label": v} for k, v in pm_labels.items()],
-            "bound_keys": bound_keys,
-        }
-
-
-class ModelApiKeysUpdate(BaseModel):
-    provider_model_id: int
-    api_key_ids: list[int]
-
-
-@router.put("/models/{model_id}/api-keys")
-async def update_model_api_keys(
-    model_id: int, data: ModelApiKeysUpdate, _: bool = Depends(permission_required("model.update"))
-):
-    async with async_session_maker() as session:
-        pm_result = await session.execute(
-            select(ProviderModel).where(
-                ProviderModel.id == data.provider_model_id,
-                ProviderModel.model_id == model_id,
-            )
-        )
-        if not pm_result.scalar_one_or_none():
-            return JSONResponse({"error": "Provider model not found"}, status_code=404)
-
-        old_result = await session.execute(
-            select(ApiKeyModel.api_key_id).where(
-                ApiKeyModel.provider_model_id == data.provider_model_id
-            )
-        )
-        old_key_ids = set(row[0] for row in old_result.fetchall())
-        new_key_ids = set(data.api_key_ids)
-
-        await session.execute(
-            delete(ApiKeyModel).where(
-                ApiKeyModel.provider_model_id == data.provider_model_id
-            )
-        )
-        for ak_id in data.api_key_ids:
-            session.add(ApiKeyModel(
-                api_key_id=ak_id,
-                provider_model_id=data.provider_model_id,
-            ))
-
-        model_result = await session.execute(select(Model).where(Model.id == model_id))
-        model = model_result.scalar_one_or_none()
-        model_display = model.display_name or model.name if model else str(model_id)
-
-        added_key_ids = new_key_ids - old_key_ids
-        removed_key_ids = old_key_ids - new_key_ids
-        if added_key_ids or removed_key_ids:
-            from app.services.notification import notify_model_changes_async
-            keys_result = await session.execute(
-                select(ApiKey.id, ApiKey.name).where(ApiKey.id.in_(added_key_ids | removed_key_ids))
-            )
-            key_map = {row[0]: row[1] for row in keys_result.fetchall()}
-            for ak_id in added_key_ids:
-                notify_model_changes_async(ak_id, key_map.get(ak_id, ""), [model_display], [])
-            for ak_id in removed_key_ids:
-                notify_model_changes_async(ak_id, key_map.get(ak_id, ""), [], [model_display])
-
-        await session.commit()
-
-    await load_api_keys()
-    return {"updated": True}
 
 
 @router.get("/models/resolve")

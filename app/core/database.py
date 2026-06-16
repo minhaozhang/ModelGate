@@ -172,6 +172,7 @@ class ProviderModelRoutingRule(Base):
     weekdays = Column(String(20), nullable=True)
     min_context_tokens = Column(Integer, nullable=True)
     max_context_tokens = Column(Integer, nullable=True)
+    provider_key_ids = Column(JSONB, nullable=True)
     action = Column(String(20), nullable=False, default="prefer")
     created_at = Column(DateTime, server_default=func.now())
 
@@ -1753,9 +1754,16 @@ async def init_db():
                 "weekdays VARCHAR(20), "
                 "min_context_tokens INTEGER, "
                 "max_context_tokens INTEGER, "
+                "provider_key_ids JSONB, "
                 "action VARCHAR(20) NOT NULL DEFAULT 'prefer', "
                 "created_at TIMESTAMP DEFAULT NOW()"
                 ")"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE provider_model_routing_rules "
+                "ADD COLUMN IF NOT EXISTS provider_key_ids JSONB"
             )
         )
         await conn.execute(
@@ -1791,6 +1799,7 @@ async def init_db():
                 "name = EXCLUDED.name, "
                 "description = EXCLUDED.description, "
                 "is_builtin = TRUE, "
+                "is_active = TRUE, "
                 "config_schema = EXCLUDED.config_schema, "
                 "rule_blueprint = EXCLUDED.rule_blueprint, "
                 "updated_at = NOW()"

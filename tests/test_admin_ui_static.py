@@ -206,7 +206,9 @@ class AdminUiStaticTests(unittest.TestCase):
     def test_api_key_modal_is_scrollable_with_fixed_actions_and_horizontal_sections(self):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
 
-        self.assertIn("max-h-[calc(100vh-1.5rem)]", html)
+        self.assertIn("max-height: calc(100vh - 4rem)", html)
+        self.assertIn("max-height: calc(100dvh - 4rem)", html)
+        self.assertNotIn("max-h-[calc(100vh-1.5rem)]", html)
         self.assertNotIn(" h-[calc(100vh-1.5rem)]", html)
         self.assertIn("flex min-h-0 flex-1 flex-col overflow-hidden", html)
         self.assertIn("apikey-modal-body", html)
@@ -214,6 +216,39 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("md:grid-cols-2", html)
         self.assertIn("apikey-mcp-servers", html)
         self.assertIn("apikey-tags-container", html)
+
+    def test_admin_modals_reserve_taskbar_safe_height(self):
+        files = [
+            "api_keys.html",
+            "config.html",
+            "mcp_servers.html",
+            "documents.html",
+            "reports.html",
+            "request_logs.html",
+            "users.html",
+            "roles.html",
+        ]
+
+        for name in files:
+            with self.subTest(template=name):
+                html = (ROOT / "web" / "templates" / "admin" / name).read_text(encoding="utf-8")
+                self.assertIn("calc(100dvh - 4rem)", html)
+                self.assertNotIn("h-[90vh]", html)
+                self.assertNotIn("max-h-[90vh]", html)
+
+    def test_admin_form_modals_keep_actions_outside_scroll_body(self):
+        config = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        mcp = (ROOT / "web" / "templates" / "admin" / "mcp_servers.html").read_text(encoding="utf-8")
+        users = (ROOT / "web" / "templates" / "admin" / "users.html").read_text(encoding="utf-8")
+        roles = (ROOT / "web" / "templates" / "admin" / "roles.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="provider-form" class="flex min-h-0 flex-1 flex-col overflow-hidden"', config)
+        self.assertIn('id="model-form" class="flex min-h-0 flex-1 flex-col overflow-hidden"', config)
+        self.assertIn('id="server-form" class="flex min-h-0 flex-1 flex-col overflow-hidden"', mcp)
+        self.assertIn("border-t p-4 shrink-0", config)
+        self.assertIn("border-t p-4 shrink-0", mcp)
+        self.assertIn(".modal-actions", users)
+        self.assertIn(".modal-actions", roles)
 
     def test_admin_home_websocket_unauthorized_redirects_and_stops_reconnect(self):
         home = (ROOT / "web" / "templates" / "admin" / "home.html").read_text(encoding="utf-8")
@@ -232,6 +267,40 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("routing-rule-editor", html)
         self.assertNotIn("xl:grid-cols-[1.2fr_150px_1fr_120px_90px_110px_110px_110px_110px_120px_auto]", html)
         self.assertNotIn("xl:grid-cols-[1fr_120px_90px_95px_95px_95px_95px_95px_95px_100px_auto]", html)
+
+    def test_model_routing_matrix_has_no_bulk_api_key_configuration(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        route = (ROOT / "app" / "routes" / "models.py").read_text(encoding="utf-8")
+
+        self.assertNotIn('id="model-keys-modal"', html)
+        self.assertNotIn("openModelKeys", html)
+        self.assertNotIn("openProviderModelKeys", html)
+        self.assertNotIn("配置 Key", html)
+        self.assertNotIn("/models/{model_id}/api-keys", route)
+        self.assertNotIn("ModelApiKeysUpdate", route)
+
+    def test_model_routing_rules_can_scope_provider_keys(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        routing_route = (ROOT / "app" / "routes" / "routing.py").read_text(encoding="utf-8")
+        provider_models_route = (ROOT / "app" / "routes" / "provider_models.py").read_text(encoding="utf-8")
+
+        self.assertIn('id="model-rule-provider-keys"', html)
+        self.assertIn("model-rule-edit-provider-keys", html)
+        self.assertIn("selectedModelRuleKeyIds", html)
+        self.assertIn("provider_key_ids", html)
+        self.assertIn("provider_key_ids: list[int] = []", routing_route)
+        self.assertIn("_valid_provider_key_ids", routing_route)
+        self.assertIn('"provider_key_ids": rule.provider_key_ids or []', provider_models_route)
+        self.assertIn('"provider_keys": provider_keys', provider_models_route)
+
+    def test_model_routing_matrix_shows_rule_key_scope_summary(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+
+        self.assertIn("function renderRouteRuleSummary", html)
+        self.assertIn("<th>路由规则</th>", html)
+        self.assertIn("renderRouteRuleSummary(route)", html)
+        self.assertIn("全部 Key", html)
+        self.assertIn("限定", html)
 
 
 if __name__ == "__main__":

@@ -153,6 +153,23 @@ class OpenCodeReviewFixTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         build_mock.assert_not_awaited()
 
+    def test_opencode_models_are_sorted_by_name_in_json_and_markdown(self):
+        unsorted_models = {
+            "zeta": {"name": "Zeta"},
+            "auto": {"name": "Auto"},
+            "Beta": {"name": "Beta"},
+        }
+
+        sorted_models = opencode.sort_opencode_models(unsorted_models)
+        config = {"provider": {"modelgate": {"models": sorted_models}}}
+        markdown = opencode.build_setup_markdown(config)
+
+        self.assertEqual(list(sorted_models.keys()), ["auto", "Beta", "zeta"])
+        self.assertLess(markdown.index("- `auto`"), markdown.index("- `Beta`"))
+        self.assertLess(markdown.index("- `Beta`"), markdown.index("- `zeta`"))
+        self.assertLess(markdown.index('"auto"'), markdown.index('"Beta"'))
+        self.assertLess(markdown.index('"Beta"'), markdown.index('"zeta"'))
+
 
 class OpenCodeAutoModelTests(unittest.IsolatedAsyncioTestCase):
     async def test_opencode_config_exposes_auto_when_key_only_allows_virtual_auto_model(self):
