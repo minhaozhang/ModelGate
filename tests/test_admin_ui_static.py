@@ -206,7 +206,9 @@ class AdminUiStaticTests(unittest.TestCase):
     def test_api_key_modal_is_scrollable_with_fixed_actions_and_horizontal_sections(self):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
 
-        self.assertIn("max-h-[92vh]", html)
+        self.assertIn("max-h-[calc(100vh-1.5rem)]", html)
+        self.assertNotIn(" h-[calc(100vh-1.5rem)]", html)
+        self.assertIn("flex min-h-0 flex-1 flex-col overflow-hidden", html)
         self.assertIn("apikey-modal-body", html)
         self.assertIn("shrink-0 border-t", html)
         self.assertIn("md:grid-cols-2", html)
