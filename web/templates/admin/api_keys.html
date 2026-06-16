@@ -524,6 +524,12 @@
         let standardModels = [];
         let apiKeysData = [];
         let mcpServers = [];
+        let providerModelsLoadPromise = null;
+        let standardModelsLoadPromise = null;
+        let mcpServersLoadPromise = null;
+        let providerModelPickerCacheKey = '';
+        let standardModelPickerCacheKey = '';
+        let mcpServerPickerCacheKey = '';
         let filteredData = [];
         let allListTags = [];
         let selectedListTagFilter = new Set();
@@ -636,13 +642,13 @@
         async function loadProviderModels() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models`);
             providerModels = data.provider_models || [];
-            renderModelCheckboxes();
+            providerModelPickerCacheKey = '';
         }
 
         async function loadStandardModels() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models`);
             standardModels = (data.models || []).filter(m => m.is_active !== false);
-            renderStandardModelCheckboxes();
+            standardModelPickerCacheKey = '';
         }
 
         function isAutoModel(model) {
@@ -652,11 +658,14 @@
         async function loadMcpServers() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`);
             mcpServers = data.servers || [];
-            renderMcpServerCheckboxes([]);
+            mcpServerPickerCacheKey = '';
         }
 
         function renderMcpServerCheckboxes(selectedIds) {
             const container = document.getElementById('apikey-mcp-servers');
+            const cacheKey = `${mcpServers.map(s => s.id).join(',')}|${[...selectedIds].sort((a, b) => a - b).join(',')}`;
+            if (cacheKey === mcpServerPickerCacheKey) return;
+            mcpServerPickerCacheKey = cacheKey;
             if (mcpServers.length === 0) {
                 container.innerHTML = '<div class="text-xs text-gray-400">No MCP servers</div>';
                 return;
@@ -946,6 +955,9 @@
         
         function renderModelCheckboxes() {
             const container = document.getElementById('models-checkbox-container');
+            const cacheKey = `${providerModels.map(pm => pm.id).join(',')}|${[...selectedModelIds].sort((a, b) => a - b).join(',')}`;
+            if (cacheKey === providerModelPickerCacheKey) return;
+            providerModelPickerCacheKey = cacheKey;
             if (providerModels.length === 0) {
                 container.innerHTML = `<div class="text-gray-400 text-center py-4">${window.I18N.noModels}</div>`;
                 return;
@@ -973,6 +985,9 @@
         function renderStandardModelCheckboxes() {
             const container = document.getElementById('standard-models-checkbox-container');
             if (!container) return;
+            const cacheKey = `${standardModels.map(model => model.id).join(',')}|${[...selectedStandardModelIds].sort((a, b) => a - b).join(',')}`;
+            if (cacheKey === standardModelPickerCacheKey) return;
+            standardModelPickerCacheKey = cacheKey;
             if (standardModels.length === 0) {
                 container.innerHTML = `<div class="text-gray-400 text-center py-4">${window.I18N.noModels}</div>`;
                 return;
@@ -1093,6 +1108,23 @@
             }
             return true;
         }
+
+        async function ensureApiKeyPickerData() {
+            providerModelsLoadPromise = providerModelsLoadPromise || loadProviderModels();
+            standardModelsLoadPromise = standardModelsLoadPromise || loadStandardModels();
+            mcpServersLoadPromise = mcpServersLoadPromise || loadMcpServers();
+            await Promise.allSettled([
+                providerModelsLoadPromise,
+                standardModelsLoadPromise,
+                mcpServersLoadPromise,
+            ]);
+        }
+
+        function prepareApiKeyPickers(selectedMcpServerIds) {
+            renderModelCheckboxes();
+            renderStandardModelCheckboxes();
+            renderMcpServerCheckboxes(selectedMcpServerIds || []);
+        }
         
         function copyKey(key) {
             copyText(key, window.I18N.copied);
@@ -1147,7 +1179,8 @@ ${setupMdUrl}`;
             renderTags();
         }
         
-        function showAddApiKey() {
+        async function showAddApiKey() {
+            await ensureApiKeyPickerData();
             document.getElementById('apikey-modal-title').textContent = window.I18N.addApiKey;
             document.getElementById('apikey-id').value = '';
             document.getElementById('apikey-name').value = '';
@@ -1157,9 +1190,7 @@ ${setupMdUrl}`;
             selectedStandardModelIds = [];
             setAccessMode('model');
             updateSelectedCount();
-            renderModelCheckboxes();
-            renderStandardModelCheckboxes();
-            renderMcpServerCheckboxes([]);
+            prepareApiKeyPickers([]);
             document.getElementById('apikey-bypass-busyness').checked = false;
             currentTags = [];
             renderTags();
@@ -1167,7 +1198,8 @@ ${setupMdUrl}`;
             document.getElementById('apikey-modal').classList.add('flex');
         }
         
-        function editApiKey(id) {
+        async function editApiKey(id) {
+            await ensureApiKeyPickerData();
             const key = apiKeysData.find(k => k.id === id);
             if (!key) return;
             document.getElementById('apikey-modal-title').textContent = window.I18N.editApiKey;
@@ -1186,9 +1218,7 @@ ${setupMdUrl}`;
                 setAccessMode('model');
             }
             updateSelectedCount();
-            renderModelCheckboxes();
-            renderStandardModelCheckboxes();
-            renderMcpServerCheckboxes(key.mcp_server_ids || []);
+            prepareApiKeyPickers(key.mcp_server_ids || []);
             document.getElementById('apikey-bypass-busyness').checked = key.bypass_busyness || false;
             currentTags = [...(key.tags || [])];
             renderTags();
@@ -1259,8 +1289,7 @@ ${setupMdUrl}`;
             }
         });
         
-        Promise.allSettled([loadProviderModels(), loadStandardModels(), loadMcpServers()])
-            .then(() => loadApiKeys().catch(renderApiKeyLoadError));
+        loadApiKeys().catch(renderApiKeyLoadError);
         
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {

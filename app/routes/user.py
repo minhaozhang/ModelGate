@@ -1233,7 +1233,14 @@ async def get_user_catalog(
     if not api_key_id:
         return translated_error(request, "Not authenticated", 401)
 
-    from app.core.database import ApiKeyModel, ApiKeyModelAccess, Model, Provider, ProviderModel
+    from app.core.database import (
+        ApiKeyModel,
+        ApiKeyModelAccess,
+        AutoModelRoute,
+        Model,
+        Provider,
+        ProviderModel,
+    )
 
     async with async_session_maker() as session:
         key_result = await session.execute(
@@ -1258,12 +1265,16 @@ async def get_user_catalog(
         key_model_access_result = await session.execute(
             select(ApiKeyModelAccess).where(ApiKeyModelAccess.api_key_id == api_key_id)
         )
+        auto_routes_result = await session.execute(
+            select(AutoModelRoute).where(AutoModelRoute.enabled == True)  # noqa: E712
+        )
 
         providers = providers_result.scalars().all()
         models = models_result.scalars().all()
         provider_models = provider_models_result.scalars().all()
         key_models = key_models_result.scalars().all()
         key_model_access = key_model_access_result.scalars().all()
+        auto_routes = auto_routes_result.scalars().all()
 
     provider_map = {provider.id: provider for provider in providers}
     model_map = {model.id: model for model in models}
@@ -1312,7 +1323,35 @@ async def get_user_catalog(
                 return True
         return False
 
-    def serialize_provider_models(items: list[ProviderModel]) -> list[dict]:
+    active_auto_virtual_model_ids = {
+        route.virtual_model_id
+        for route in auto_routes
+        if route.virtual_model_id in model_map
+        and model_map[route.virtual_model_id].is_active
+        and (route.model_ids or route.provider_model_ids)
+    }
+
+    def serialize_virtual_models(model_ids: set[int]) -> list[dict]:
+        items = []
+        for model_id in sorted(model_ids, key=lambda mid: model_map[mid].name):
+            model = model_map[model_id]
+            items.append(
+                {
+                    "id": model.id,
+                    "name": model.name,
+                    "model_name": model.name,
+                    "display_name": model.display_name or model.name,
+                    "context": model.context_length or 0,
+                    "output": model.max_tokens or 0,
+                    "is_multimodal": bool(model.is_multimodal),
+                    "has_override": False,
+                    "providers": ["virtual"],
+                    "is_virtual": True,
+                }
+            )
+        return items
+
+    def serialize_provider_models(items: list[ProviderModel], virtual_model_ids: set[int] | None = None) -> list[dict]:
         models_by_id: dict[int, dict] = {}
         for provider_model in items:
             model = model_map[provider_model.model_id]
@@ -1340,6 +1379,9 @@ async def get_user_catalog(
                 "providers": sorted(provider_names),
             }
 
+        for virtual_model in serialize_virtual_models(virtual_model_ids or set()):
+            models_by_id[virtual_model["id"]] = virtual_model
+
         models_data = sorted(models_by_id.values(), key=lambda item: item["model_name"])
         if not models_data:
             return []
@@ -1351,8 +1393,19 @@ async def get_user_catalog(
             }
         ]
 
-    platform_providers = serialize_provider_models(active_provider_models)
-    owned_providers = serialize_provider_models(owned_provider_models)
+    owned_virtual_model_ids = (
+        active_auto_virtual_model_ids
+        if full_access
+        else active_auto_virtual_model_ids & allowed_model_ids
+    )
+    platform_providers = serialize_provider_models(
+        active_provider_models,
+        active_auto_virtual_model_ids,
+    )
+    owned_providers = serialize_provider_models(
+        owned_provider_models,
+        owned_virtual_model_ids,
+    )
 
     return {
         "name": api_key.name,

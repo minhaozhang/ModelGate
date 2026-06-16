@@ -64,26 +64,11 @@ async def build_opencode_config(
     )
     allowed_model_ids = [row[0] for row in model_access_result.fetchall()]
 
-    if allowed_pm_ids:
-        pm_result = await session.execute(
-            select(ProviderModel).where(ProviderModel.id.in_(allowed_pm_ids))
-        )
-    elif allowed_model_ids:
-        pm_result = await session.execute(
-            select(ProviderModel).where(ProviderModel.model_id.in_(allowed_model_ids))
-        )
-    else:
-        pm_result = await session.execute(select(ProviderModel))
-
-    provider_models = pm_result.scalars().all()
-    models_config = {}
-    model_priority: dict[str, int] = {}
-    accessible_auto_candidates = []
-
     from app.services.auto_model_routes import AUTO_MODEL_NAME, get_auto_model_route
 
     auto_config = await get_auto_model_route(session, AUTO_MODEL_NAME)
     auto_enabled = bool(auto_config.get("enabled"))
+    auto_virtual_model_id = auto_config.get("virtual_model_id")
     auto_model_ids = {
         int(v) for v in (auto_config.get("model_ids") or []) if str(v).isdigit()
     }
@@ -93,6 +78,44 @@ async def build_opencode_config(
         if str(v).isdigit()
     }
     auto_enabled = auto_enabled and bool(auto_model_ids or auto_provider_model_ids)
+    full_access = not allowed_pm_ids and not allowed_model_ids
+    auto_requested_by_key = full_access or (
+        auto_virtual_model_id is not None and auto_virtual_model_id in allowed_model_ids
+    )
+    regular_allowed_model_ids = [
+        model_id for model_id in allowed_model_ids if model_id != auto_virtual_model_id
+    ]
+
+    if allowed_pm_ids:
+        pm_result = await session.execute(
+            select(ProviderModel).where(ProviderModel.id.in_(allowed_pm_ids))
+        )
+    elif regular_allowed_model_ids:
+        pm_result = await session.execute(
+            select(ProviderModel).where(ProviderModel.model_id.in_(regular_allowed_model_ids))
+        )
+    elif full_access:
+        pm_result = await session.execute(select(ProviderModel))
+    else:
+        pm_result = None
+
+    provider_models = pm_result.scalars().all() if pm_result is not None else []
+    models_config = {}
+    model_priority: dict[str, int] = {}
+    accessible_auto_candidates = []
+
+    if auto_enabled and auto_requested_by_key:
+        if auto_provider_model_ids:
+            auto_pm_result = await session.execute(
+                select(ProviderModel).where(ProviderModel.id.in_(auto_provider_model_ids))
+            )
+        else:
+            auto_pm_result = await session.execute(
+                select(ProviderModel).where(ProviderModel.model_id.in_(auto_model_ids))
+            )
+        auto_provider_models = auto_pm_result.scalars().all()
+    else:
+        auto_provider_models = []
 
     for pm in provider_models:
         provider_result = await session.execute(
@@ -112,7 +135,7 @@ async def build_opencode_config(
         if not provider.is_active or not pm.is_active:
             continue
 
-        if auto_enabled:
+        if auto_enabled and auto_requested_by_key:
             allowed_by_model_scope = not auto_model_ids or pm.model_id in auto_model_ids
             allowed_by_pm_scope = (
                 not auto_provider_model_ids or pm.id in auto_provider_model_ids
@@ -150,6 +173,24 @@ async def build_opencode_config(
         models_config[model_key] = model_entry
         model_priority[model_key] = priority
 
+    seen_auto_pm_ids = {pm.id for pm, _model in accessible_auto_candidates}
+    for pm in auto_provider_models:
+        if pm.id in seen_auto_pm_ids:
+            continue
+        provider_result = await session.execute(
+            select(Provider).where(Provider.id == pm.provider_id)
+        )
+        provider = provider_result.scalar_one_or_none()
+        if not provider or not provider.is_active or not pm.is_active:
+            continue
+        model_result = await session.execute(
+            select(Model).where(Model.id == pm.model_id)
+        )
+        model = model_result.scalar_one_or_none()
+        if model:
+            accessible_auto_candidates.append((pm, model))
+            seen_auto_pm_ids.add(pm.id)
+
     if auto_enabled and accessible_auto_candidates:
         auto_context = max(
             (model.context_length or 204800) for _pm, model in accessible_auto_candidates
@@ -158,7 +199,9 @@ async def build_opencode_config(
             (model.max_tokens or 131072) for _pm, model in accessible_auto_candidates
         )
         auto_input_modalities = ["text"]
-        if any(model.is_multimodal for _pm, model in accessible_auto_candidates):
+        if auto_config.get("is_multimodal") or any(
+            model.is_multimodal for _pm, model in accessible_auto_candidates
+        ):
             auto_input_modalities.append("image")
         models_config["auto"] = {
             "name": "Auto",

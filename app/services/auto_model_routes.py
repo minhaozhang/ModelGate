@@ -82,6 +82,10 @@ def _route_to_payload(model: Model, route: AutoModelRoute | None) -> dict:
     )
     payload["model_name"] = model.name
     payload["virtual_model_id"] = model.id
+    payload["display_name"] = getattr(model, "display_name", None) or model.name
+    payload["is_multimodal"] = bool(getattr(model, "is_multimodal", False))
+    payload["context_length"] = getattr(model, "context_length", None) or 0
+    payload["max_tokens"] = getattr(model, "max_tokens", None) or 0
     return payload
 
 

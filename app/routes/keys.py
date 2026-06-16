@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy import select, func, delete
+from collections import defaultdict
 
 from app.core.database import (
     async_session_maker,
@@ -92,27 +93,63 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey))
         keys = result.scalars().all()
+        key_ids = [k.id for k in keys]
+        if not key_ids:
+            return {"api_keys": []}
+
+        provider_model_map: dict[int, list[int]] = defaultdict(list)
+        model_access_map: dict[int, list[int]] = defaultdict(list)
+        time_rules_map: dict[int, list[ApiKeyTimeRule]] = defaultdict(list)
+        mcp_server_map: dict[int, list[int]] = defaultdict(list)
+        tags_map: dict[int, list[str]] = defaultdict(list)
+
+        models_result = await session.execute(
+            select(ApiKeyModel.api_key_id, ApiKeyModel.provider_model_id).where(
+                ApiKeyModel.api_key_id.in_(key_ids)
+            )
+        )
+        for api_key_id, provider_model_id in models_result.fetchall():
+            provider_model_map[api_key_id].append(provider_model_id)
+
+        model_access_result = await session.execute(
+            select(ApiKeyModelAccess.api_key_id, ApiKeyModelAccess.model_id).where(
+                ApiKeyModelAccess.api_key_id.in_(key_ids)
+            )
+        )
+        for api_key_id, model_id in model_access_result.fetchall():
+            model_access_map[api_key_id].append(model_id)
+
+        rules_result = await session.execute(
+            select(ApiKeyTimeRule)
+            .where(ApiKeyTimeRule.api_key_id.in_(key_ids))
+            .order_by(
+                ApiKeyTimeRule.api_key_id,
+                ApiKeyTimeRule.rule_type,
+                ApiKeyTimeRule.id,
+            )
+        )
+        for rule in rules_result.scalars().all():
+            time_rules_map[rule.api_key_id].append(rule)
+
+        mcp_result = await session.execute(
+            select(ApiKeyMcpServer.api_key_id, ApiKeyMcpServer.mcp_server_id).where(
+                ApiKeyMcpServer.api_key_id.in_(key_ids)
+            )
+        )
+        for api_key_id, mcp_server_id in mcp_result.fetchall():
+            mcp_server_map[api_key_id].append(mcp_server_id)
+
+        tags_result = await session.execute(
+            select(ApiKeyTag.api_key_id, ApiKeyTag.tag).where(
+                ApiKeyTag.api_key_id.in_(key_ids)
+            )
+        )
+        for api_key_id, tag in tags_result.fetchall():
+            tags_map[api_key_id].append(tag)
+
         api_keys = []
         for k in keys:
-            models_result = await session.execute(
-                select(ApiKeyModel.provider_model_id).where(
-                    ApiKeyModel.api_key_id == k.id
-                )
-            )
-            model_ids = [row[0] for row in models_result.fetchall()]
-            model_access_result = await session.execute(
-                select(ApiKeyModelAccess.model_id).where(
-                    ApiKeyModelAccess.api_key_id == k.id
-                )
-            )
-            allowed_model_ids = [row[0] for row in model_access_result.fetchall()]
-
-            rules_result = await session.execute(
-                select(ApiKeyTimeRule)
-                .where(ApiKeyTimeRule.api_key_id == k.id)
-                .order_by(ApiKeyTimeRule.rule_type, ApiKeyTimeRule.id)
-            )
-            rules = rules_result.scalars().all()
+            rules = time_rules_map[k.id]
             time_rules = [
                 {
                     "id": r.id,
@@ -127,18 +164,6 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
                 for r in rules
             ]
 
-            mcp_result = await session.execute(
-                select(ApiKeyMcpServer.mcp_server_id).where(
-                    ApiKeyMcpServer.api_key_id == k.id
-                )
-            )
-            mcp_server_ids = [row[0] for row in mcp_result.fetchall()]
-
-            tags_result = await session.execute(
-                select(ApiKeyTag.tag).where(ApiKeyTag.api_key_id == k.id)
-            )
-            tags = [row[0] for row in tags_result.fetchall()]
-
             api_keys.append(
                 {
                     "id": k.id,
@@ -148,13 +173,13 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
                     "expires_at": k.expires_at.isoformat()
                     if k.expires_at
                     else None,
-                    "allowed_provider_model_ids": model_ids,
-                    "allowed_model_ids": allowed_model_ids,
+                    "allowed_provider_model_ids": provider_model_map[k.id],
+                    "allowed_model_ids": model_access_map[k.id],
                     "time_rules": time_rules,
                     "is_active": k.is_active,
                     "bypass_busyness": k.bypass_busyness or False,
-                    "mcp_server_ids": mcp_server_ids,
-                    "tags": tags,
+                    "mcp_server_ids": mcp_server_map[k.id],
+                    "tags": tags_map[k.id],
                     "last_used_at": k.last_used_at.isoformat()
                     if k.last_used_at
                     else None,

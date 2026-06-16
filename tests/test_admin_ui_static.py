@@ -25,9 +25,37 @@ class AdminUiStaticTests(unittest.TestCase):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
 
         self.assertIn("loadApiKeys().catch", html)
-        self.assertIn("Promise.allSettled([loadProviderModels(), loadStandardModels(), loadMcpServers()])", html)
+        self.assertIn("providerModelsLoadPromise = providerModelsLoadPromise || loadProviderModels()", html)
+        self.assertIn("standardModelsLoadPromise = standardModelsLoadPromise || loadStandardModels()", html)
+        self.assertIn("mcpServersLoadPromise = mcpServersLoadPromise || loadMcpServers()", html)
+        self.assertIn("loadApiKeys().catch(renderApiKeyLoadError)", html)
+        self.assertNotIn(".then(() => loadApiKeys().catch(renderApiKeyLoadError))", html)
         self.assertIn("Failed to load API keys", html)
         self.assertNotIn('<span id="total-count">0</span>', html)
+
+    def test_api_key_page_defers_large_picker_rendering_until_modal_opens(self):
+        html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
+        provider_loader = html[html.index("async function loadProviderModels()"):html.index("async function loadStandardModels()")]
+        standard_loader = html[html.index("async function loadStandardModels()"):html.index("function isAutoModel")]
+        add_modal = html[html.index("function showAddApiKey()"):html.index("function editApiKey")]
+        edit_modal = html[html.index("function editApiKey(id)"):html.index("function closeApiKeyModal")]
+
+        self.assertNotIn("renderModelCheckboxes()", provider_loader)
+        self.assertNotIn("renderStandardModelCheckboxes()", standard_loader)
+        self.assertIn("prepareApiKeyPickers", html)
+        self.assertIn("prepareApiKeyPickers", add_modal)
+        self.assertIn("prepareApiKeyPickers", edit_modal)
+
+    def test_api_key_list_route_batches_related_access_queries(self):
+        source = (ROOT / "app" / "routes" / "keys.py").read_text(encoding="utf-8")
+        list_body = source[source.index("async def list_api_keys"):source.index("@router.post(\"/keys\")")]
+
+        self.assertIn("key_ids = [k.id for k in keys]", list_body)
+        self.assertIn("ApiKeyModel.api_key_id.in_(key_ids)", list_body)
+        self.assertIn("ApiKeyModelAccess.api_key_id.in_(key_ids)", list_body)
+        self.assertIn("ApiKeyTimeRule.api_key_id.in_(key_ids)", list_body)
+        self.assertIn("ApiKeyMcpServer.api_key_id.in_(key_ids)", list_body)
+        self.assertIn("ApiKeyTag.api_key_id.in_(key_ids)", list_body)
 
     def test_change_password_uses_defined_sqlalchemy_update(self):
         source = (ROOT / "app" / "routes" / "auth.py").read_text(encoding="utf-8")
