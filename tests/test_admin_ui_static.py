@@ -57,6 +57,16 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("ApiKeyMcpServer.api_key_id.in_(key_ids)", list_body)
         self.assertIn("ApiKeyTag.api_key_id.in_(key_ids)", list_body)
 
+    def test_api_key_list_uses_payload_model_names_not_lazy_picker_cache(self):
+        html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
+        route = (ROOT / "app" / "routes" / "keys.py").read_text(encoding="utf-8")
+        render_body = html[html.index("function renderApiKeys()"):html.index("function renderPagination()")]
+
+        self.assertIn("allowed_model_names", render_body)
+        self.assertIn("allowed_provider_model_names", render_body)
+        self.assertIn('"allowed_provider_model_names"', route)
+        self.assertIn('"allowed_model_names"', route)
+
     def test_change_password_uses_defined_sqlalchemy_update(self):
         source = (ROOT / "app" / "routes" / "auth.py").read_text(encoding="utf-8")
 
@@ -110,6 +120,13 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("isApiKeyExpired", html)
         self.assertIn("email: Optional[str] = None", route)
         self.assertIn("expires_at: Optional[datetime] = None", route)
+
+    def test_api_key_create_strips_timezone_from_expiry(self):
+        route = (ROOT / "app" / "routes" / "keys.py").read_text(encoding="utf-8")
+        create_body = route[route.index("async def create_api_key"):route.index("@router.put(\"/keys/{key_id}\")")]
+
+        self.assertIn("data.expires_at.replace(tzinfo=None)", create_body)
+        self.assertIn("data.expires_at.tzinfo", create_body)
 
     def test_api_key_modal_does_not_close_from_backdrop_click(self):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")

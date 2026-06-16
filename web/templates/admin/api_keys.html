@@ -747,8 +747,12 @@
             
             const html = pageData.map(k => {
                 const maskedKey = maskApiKey(k.key);
-                const standardModelNames = (k.allowed_model_ids || []).map(id => getStandardModelDisplayName(id));
-                const providerModelNames = (k.allowed_provider_model_ids || []).map(id => getModelDisplayName(id));
+                const standardModelNames = (k.allowed_model_names && k.allowed_model_names.length > 0)
+                    ? k.allowed_model_names
+                    : (k.allowed_model_ids || []).map(id => getStandardModelDisplayName(id));
+                const providerModelNames = (k.allowed_provider_model_names && k.allowed_provider_model_names.length > 0)
+                    ? k.allowed_provider_model_names
+                    : (k.allowed_provider_model_ids || []).map(id => getModelDisplayName(id));
                 const modelNames = standardModelNames.length > 0 ? standardModelNames : providerModelNames;
                 const accessLabel = standardModelNames.length > 0 ? 'Model' : (providerModelNames.length > 0 ? 'Provider Model' : '');
                 const modelsDisplay = modelNames.length > 0

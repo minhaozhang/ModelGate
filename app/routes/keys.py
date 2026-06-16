@@ -19,6 +19,7 @@ from app.core.database import (
     generate_api_key,
     Model,
     ProviderModel,
+    Provider,
 )
 from app.services.auth import load_api_keys
 from app.routes.user import get_user_session
@@ -102,6 +103,8 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
         time_rules_map: dict[int, list[ApiKeyTimeRule]] = defaultdict(list)
         mcp_server_map: dict[int, list[int]] = defaultdict(list)
         tags_map: dict[int, list[str]] = defaultdict(list)
+        provider_model_name_map: dict[int, str] = {}
+        model_name_map: dict[int, str] = {}
 
         models_result = await session.execute(
             select(ApiKeyModel.api_key_id, ApiKeyModel.provider_model_id).where(
@@ -111,6 +114,26 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
         for api_key_id, provider_model_id in models_result.fetchall():
             provider_model_map[api_key_id].append(provider_model_id)
 
+        provider_model_ids = sorted(
+            {pm_id for pm_ids in provider_model_map.values() for pm_id in pm_ids}
+        )
+        if provider_model_ids:
+            provider_model_names_result = await session.execute(
+                select(
+                    ProviderModel.id,
+                    Provider.name,
+                    Model.display_name,
+                    Model.name,
+                )
+                .join(Provider, ProviderModel.provider_id == Provider.id)
+                .join(Model, ProviderModel.model_id == Model.id)
+                .where(ProviderModel.id.in_(provider_model_ids))
+            )
+            provider_model_name_map = {
+                row[0]: f"{row[1]} - {row[2] or row[3]}"
+                for row in provider_model_names_result.fetchall()
+            }
+
         model_access_result = await session.execute(
             select(ApiKeyModelAccess.api_key_id, ApiKeyModelAccess.model_id).where(
                 ApiKeyModelAccess.api_key_id.in_(key_ids)
@@ -118,6 +141,19 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
         )
         for api_key_id, model_id in model_access_result.fetchall():
             model_access_map[api_key_id].append(model_id)
+
+        model_ids = sorted(
+            {model_id for ids in model_access_map.values() for model_id in ids}
+        )
+        if model_ids:
+            model_names_result = await session.execute(
+                select(Model.id, Model.display_name, Model.name).where(
+                    Model.id.in_(model_ids)
+                )
+            )
+            model_name_map = {
+                row[0]: row[1] or row[2] for row in model_names_result.fetchall()
+            }
 
         rules_result = await session.execute(
             select(ApiKeyTimeRule)
@@ -175,6 +211,14 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
                     else None,
                     "allowed_provider_model_ids": provider_model_map[k.id],
                     "allowed_model_ids": model_access_map[k.id],
+                    "allowed_provider_model_names": [
+                        provider_model_name_map.get(pm_id, f"ID:{pm_id}")
+                        for pm_id in provider_model_map[k.id]
+                    ],
+                    "allowed_model_names": [
+                        model_name_map.get(model_id, f"ID:{model_id}")
+                        for model_id in model_access_map[k.id]
+                    ],
                     "time_rules": time_rules,
                     "is_active": k.is_active,
                     "bypass_busyness": k.bypass_busyness or False,
@@ -203,7 +247,9 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_requir
             name=data.name,
             key=generate_api_key(),
             email=(data.email or "").strip() or None,
-            expires_at=data.expires_at or (datetime.now() + timedelta(days=365)),
+            expires_at=data.expires_at.replace(tzinfo=None)
+            if data.expires_at and data.expires_at.tzinfo
+            else (data.expires_at or (datetime.now() + timedelta(days=365))),
             bypass_busyness=data.bypass_busyness,
         )
         session.add(new_key)
