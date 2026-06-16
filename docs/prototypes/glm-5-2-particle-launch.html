@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GLM-5.2 Particle Launch Prototype</title>
+  <style>
+    :root {
+      --bg: oklch(10% 0.012 252);
+      --bg-deep: oklch(7% 0.014 252);
+      --ink: oklch(91% 0.025 252);
+      --muted: oklch(62% 0.038 258);
+      --dim: oklch(38% 0.04 255);
+      --line: oklch(47% 0.044 250);
+      --aqua: oklch(76% 0.17 178);
+      --aqua-soft: oklch(68% 0.12 184);
+      --warn: oklch(77% 0.11 88);
+      --shadow: rgba(4, 9, 17, 0.74);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "DIN Condensed", "Saira Condensed", "Roboto Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+      letter-spacing: 0;
+    }
+
+    body {
+      display: grid;
+      place-items: stretch;
+      background:
+        radial-gradient(circle at 62% 52%, rgba(69, 255, 215, 0.11), transparent 10rem),
+        radial-gradient(circle at 8% 45%, rgba(99, 122, 157, 0.13), transparent 18rem),
+        linear-gradient(180deg, var(--bg), var(--bg-deep));
+    }
+
+    .stage {
+      position: relative;
+      min-height: 100vh;
+      isolation: isolate;
+      overflow: hidden;
+    }
+
+    #particle-field {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .scanlines,
+    .grain,
+    .vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .scanlines {
+      z-index: 4;
+      opacity: 0.14;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(216, 232, 255, 0.11) 0,
+        rgba(216, 232, 255, 0.11) 1px,
+        transparent 1px,
+        transparent 5px
+      );
+      animation: scan 7s linear infinite;
+    }
+
+    .grain {
+      z-index: 5;
+      opacity: 0.2;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(255,255,255,0.05) 0 1px, transparent 1px),
+        radial-gradient(circle at 70% 64%, rgba(255,255,255,0.04) 0 1px, transparent 1px);
+      background-size: 23px 19px, 31px 29px;
+      mix-blend-mode: screen;
+      animation: grain-shift 1.8s steps(2, end) infinite;
+    }
+
+    .vignette {
+      z-index: 6;
+      box-shadow: inset 0 0 8rem 4rem var(--shadow);
+    }
+
+    .hud {
+      position: relative;
+      z-index: 7;
+      width: 100%;
+      height: 100vh;
+      min-height: 580px;
+      padding: clamp(1.2rem, 4vw, 3rem);
+    }
+
+    .token-readout {
+      position: absolute;
+      top: clamp(2rem, 5vw, 3.6rem);
+      left: clamp(2rem, 10vw, 6.6rem);
+      color: var(--muted);
+      font-size: clamp(0.72rem, 1.4vw, 1rem);
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      animation: drift-in 1100ms cubic-bezier(.16, 1, .3, 1) both 180ms;
+    }
+
+    .token-readout::before,
+    .token-readout::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      border: 1px solid color-mix(in oklch, var(--muted), transparent 22%);
+      border-bottom: 0;
+      height: 0.54rem;
+      transform: translateY(1.2rem);
+    }
+
+    .token-readout::after {
+      top: 1.02rem;
+      left: 16%;
+      right: 12%;
+      opacity: 0.45;
+      transform: translateY(1.52rem) scaleX(1.08);
+    }
+
+    .title-panel {
+      position: absolute;
+      top: clamp(4.2rem, 13vh, 7.6rem);
+      right: clamp(1.6rem, 6vw, 4.6rem);
+      width: min(34rem, 43vw);
+      text-align: right;
+      animation: title-enter 1000ms cubic-bezier(.16, 1, .3, 1) both 260ms;
+    }
+
+    .title-panel h1 {
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(3rem, 7.2vw, 6.2rem);
+      font-weight: 300;
+      line-height: 0.95;
+      letter-spacing: 0.28em;
+      text-shadow: 0 0 1.1rem rgba(204, 223, 255, 0.13);
+    }
+
+    .title-rule {
+      width: 55%;
+      height: 1px;
+      margin: 1rem 0 0 auto;
+      background: linear-gradient(90deg, transparent, var(--line), var(--ink));
+      transform-origin: right;
+      animation: rule-grow 900ms cubic-bezier(.16, 1, .3, 1) both 700ms;
+    }
+
+    .subtitle {
+      margin-top: 0.95rem;
+      color: var(--muted);
+      font-size: clamp(0.78rem, 1.45vw, 1.05rem);
+      letter-spacing: 0.72em;
+      text-transform: uppercase;
+    }
+
+    .status-box {
+      position: absolute;
+      top: clamp(10.4rem, 37vh, 17.6rem);
+      right: clamp(2.4rem, 7.5vw, 6.2rem);
+      width: 6.7rem;
+      height: 3.2rem;
+      color: var(--aqua);
+      display: grid;
+      place-items: center;
+      font-size: clamp(1rem, 2.2vw, 1.4rem);
+      letter-spacing: 0.35em;
+      text-shadow: 0 0 1.2rem rgba(66, 255, 219, 0.52);
+      animation: flicker 4.8s steps(1, end) infinite, drift-in 900ms cubic-bezier(.16, 1, .3, 1) both 520ms;
+    }
+
+    .status-box::before,
+    .status-box::after,
+    .corner-a,
+    .corner-b {
+      content: "";
+      position: absolute;
+      width: 0.72rem;
+      height: 0.72rem;
+      border-color: var(--aqua);
+      opacity: 0.9;
+    }
+
+    .status-box::before {
+      top: 0;
+      left: 0;
+      border-top: 1px solid;
+      border-left: 1px solid;
+    }
+
+    .status-box::after {
+      top: 0;
+      right: 0;
+      border-top: 1px solid;
+      border-right: 1px solid;
+    }
+
+    .corner-a {
+      bottom: 0;
+      left: 0;
+      border-bottom: 1px solid;
+      border-left: 1px solid;
+    }
+
+    .corner-b {
+      bottom: 0;
+      right: 0;
+      border-bottom: 1px solid;
+      border-right: 1px solid;
+    }
+
+    .bench {
+      position: absolute;
+      right: clamp(1.8rem, 5vw, 3rem);
+      bottom: clamp(2.3rem, 8vh, 5rem);
+      width: min(27rem, 45vw);
+      color: var(--muted);
+      font-size: clamp(0.74rem, 1.3vw, 0.9rem);
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      animation: drift-in 1000ms cubic-bezier(.16, 1, .3, 1) both 900ms;
+    }
+
+    .bench-line {
+      position: relative;
+      height: 1.8rem;
+      margin-top: 0.35rem;
+      border-top: 1px solid color-mix(in oklch, var(--line), transparent 20%);
+      border-left: 1px solid color-mix(in oklch, var(--line), transparent 20%);
+      border-right: 1px solid color-mix(in oklch, var(--line), transparent 20%);
+    }
+
+    .bench-line::before,
+    .bench-line::after {
+      content: "0";
+      position: absolute;
+      top: 0.85rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0;
+    }
+
+    .bench-line::after {
+      content: "100";
+      right: -0.15rem;
+    }
+
+    .bench-pulse {
+      position: absolute;
+      top: -1px;
+      left: 47%;
+      width: 3.4rem;
+      height: 1px;
+      background: var(--aqua);
+      box-shadow: 0 0 1rem rgba(52, 255, 219, 0.65);
+      animation: bench-scan 3.8s cubic-bezier(.16, 1, .3, 1) infinite;
+    }
+
+    .question {
+      position: absolute;
+      right: clamp(4.2rem, 10vw, 7.2rem);
+      bottom: clamp(5.2rem, 15vh, 8.8rem);
+      color: var(--aqua);
+      font-size: clamp(1.1rem, 2.1vw, 1.55rem);
+      animation: question-pulse 2.7s ease-out infinite;
+    }
+
+    .question::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 2.3rem;
+      height: 5.2rem;
+      border-left: 1px dashed var(--aqua);
+      opacity: 0.7;
+    }
+
+    .tagline {
+      position: absolute;
+      left: clamp(1.8rem, 5vw, 3rem);
+      bottom: clamp(2rem, 6vh, 3.4rem);
+      color: color-mix(in oklch, var(--ink), transparent 28%);
+      font-family: "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+      font-size: clamp(1rem, 2vw, 1.35rem);
+      letter-spacing: 0.38em;
+      animation: drift-in 1000ms cubic-bezier(.16, 1, .3, 1) both 780ms;
+    }
+
+    .beam-label {
+      position: absolute;
+      left: 44%;
+      top: 50%;
+      color: color-mix(in oklch, var(--aqua), transparent 38%);
+      font-size: clamp(0.58rem, 1vw, 0.72rem);
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      transform: translate(-50%, -5rem);
+      opacity: 0.75;
+      animation: label-float 4s ease-in-out infinite;
+    }
+
+    .mobile-note {
+      display: none;
+    }
+
+    @keyframes scan {
+      from { transform: translateY(-10px); }
+      to { transform: translateY(10px); }
+    }
+
+    @keyframes grain-shift {
+      0% { transform: translate(0, 0); }
+      50% { transform: translate(-1.1rem, 0.8rem); }
+      100% { transform: translate(0.7rem, -0.4rem); }
+    }
+
+    @keyframes title-enter {
+      from {
+        opacity: 0;
+        transform: translateX(2rem);
+        filter: blur(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+        filter: blur(0);
+      }
+    }
+
+    @keyframes drift-in {
+      from {
+        opacity: 0;
+        transform: translateY(0.9rem);
+        filter: blur(5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+      }
+    }
+
+    @keyframes rule-grow {
+      from { transform: scaleX(0); opacity: 0; }
+      to { transform: scaleX(1); opacity: 1; }
+    }
+
+    @keyframes flicker {
+      0%, 88%, 100% { opacity: 1; }
+      89% { opacity: 0.25; transform: translateX(1px); }
+      90% { opacity: 0.85; transform: translateX(-1px); }
+      91% { opacity: 0.38; }
+      92% { opacity: 1; transform: none; }
+    }
+
+    @keyframes bench-scan {
+      0% { left: 5%; opacity: 0; }
+      18% { opacity: 1; }
+      82% { opacity: 1; }
+      100% { left: 88%; opacity: 0; }
+    }
+
+    @keyframes question-pulse {
+      0%, 100% { opacity: 0.54; transform: translateY(0); }
+      48% { opacity: 1; transform: translateY(-0.3rem); }
+    }
+
+    @keyframes label-float {
+      0%, 100% { opacity: 0.45; transform: translate(-50%, -5rem); }
+      50% { opacity: 0.9; transform: translate(-50%, -5.4rem); }
+    }
+
+    @media (max-width: 780px) {
+      .hud {
+        min-height: 100svh;
+        padding: 1.25rem;
+      }
+
+      .title-panel {
+        top: 5.4rem;
+        right: 1.2rem;
+        width: min(23rem, 88vw);
+      }
+
+      .title-panel h1 {
+        font-size: clamp(2.35rem, 13vw, 4.2rem);
+        letter-spacing: 0.18em;
+      }
+
+      .subtitle {
+        letter-spacing: 0.42em;
+      }
+
+      .token-readout {
+        top: 1.4rem;
+        left: 1.4rem;
+        letter-spacing: 0.24em;
+      }
+
+      .status-box {
+        top: auto;
+        bottom: 12rem;
+        right: 1.5rem;
+      }
+
+      .bench {
+        width: calc(100vw - 2.4rem);
+        right: 1.2rem;
+        bottom: 4.8rem;
+      }
+
+      .tagline {
+        left: 1.2rem;
+        bottom: 1.35rem;
+        letter-spacing: 0.22em;
+      }
+
+      .question {
+        right: 5rem;
+        bottom: 8rem;
+      }
+
+      .beam-label {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage" aria-label="GLM-5.2 animated launch page">
+    <canvas id="particle-field" aria-hidden="true"></canvas>
+    <div class="hud">
+      <div class="token-readout">1M TOKENS IN</div>
+      <section class="title-panel" aria-label="GLM-5.2">
+        <h1>GLM-5.2</h1>
+        <div class="title-rule"></div>
+        <div class="subtitle">MIT WEIGHTS · SOON</div>
+      </section>
+
+      <div class="status-box" aria-label="status not available">
+        <span class="corner-a"></span>
+        <span class="corner-b"></span>
+        N/A
+      </div>
+
+      <div class="beam-label">latent stream compression</div>
+      <div class="question">?</div>
+
+      <section class="bench" aria-label="SWE bench verified">
+        <div>SWE-BENCH VERIFIED</div>
+        <div class="bench-line"><span class="bench-pulse"></span></div>
+      </section>
+
+      <div class="tagline">先交付，后跑分</div>
+    </div>
+    <div class="scanlines"></div>
+    <div class="grain"></div>
+    <div class="vignette"></div>
+  </main>
+
+  <script>
+    const canvas = document.getElementById("particle-field");
+    const ctx = canvas.getContext("2d", { alpha: true });
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const pointer = { x: 0, y: 0, active: false };
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let particles = [];
+    let spokes = [];
+    let startTime = performance.now();
+
+    function rand(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      buildParticles();
+    }
+
+    function buildParticles() {
+      const area = width * height;
+      const count = prefersReduced ? 260 : clamp(Math.floor(area / 1050), 520, 1120);
+      const leftX = width * 0.05;
+      const sourceW = width * 0.58;
+      const sourceH = height * 0.62;
+      const sourceY = height * 0.18;
+      const focusX = width * 0.64;
+      const focusY = height * 0.51;
+
+      particles = Array.from({ length: count }, (_, i) => {
+        const t = Math.random();
+        const curve = Math.pow(t, 1.8);
+        const originX = leftX + sourceW * curve * rand(0.2, 1);
+        const verticalRange = sourceH * (1 - curve * 0.88);
+        const originY = sourceY + sourceH * 0.48 + rand(-verticalRange, verticalRange) * 0.55;
+        const stream = Math.random();
+        const targetX = focusX + rand(-width * 0.035, width * 0.025);
+        const targetY = focusY + rand(-height * 0.055, height * 0.045) * (1 - stream * 0.3);
+        const teal = curve > 0.66 || Math.random() > 0.78;
+        return {
+          originX,
+          originY,
+          targetX,
+          targetY,
+          phase: rand(0, Math.PI * 2),
+          speed: rand(0.42, 1.15),
+          length: rand(4, 18) * (teal ? 1.25 : 1),
+          thickness: rand(0.8, 1.8),
+          opacity: rand(0.16, teal ? 0.78 : 0.42),
+          teal,
+          drift: rand(0.6, 2.5),
+          seed: i,
+        };
+      });
+
+      spokes = Array.from({ length: 24 }, () => ({
+        x: focusX + rand(-width * 0.03, width * 0.04),
+        y: focusY + rand(-height * 0.04, height * 0.04),
+        angle: rand(-0.75, 0.75),
+        len: rand(width * 0.12, width * 0.26),
+        alpha: rand(0.03, 0.13),
+      }));
+    }
+
+    function drawParticle(p, time) {
+      const cycle = (time * 0.00008 * p.speed + p.phase) % 1;
+      const pulse = 0.5 + 0.5 * Math.sin(time * 0.0014 * p.speed + p.phase);
+      const convergence = 0.35 + 0.65 * cycle;
+      const eased = 1 - Math.pow(1 - convergence, 4);
+      const parallaxX = pointer.active ? (pointer.x - 0.5) * 12 : 0;
+      const parallaxY = pointer.active ? (pointer.y - 0.5) * 10 : 0;
+      const x = p.originX + (p.targetX - p.originX) * eased + Math.sin(time * 0.0011 + p.phase) * p.drift + parallaxX * eased;
+      const y = p.originY + (p.targetY - p.originY) * eased + Math.cos(time * 0.0012 + p.phase) * p.drift + parallaxY * eased;
+      const angle = Math.atan2(p.targetY - p.originY, p.targetX - p.originX) + rand(-0.015, 0.015);
+      const len = p.length * (0.55 + pulse * 0.8) * (0.6 + eased * 0.8);
+      const tailX = Math.cos(angle) * len;
+      const tailY = Math.sin(angle) * len;
+      const alpha = p.opacity * (0.35 + eased * 0.85) * (0.72 + pulse * 0.28);
+
+      ctx.beginPath();
+      ctx.moveTo(x - tailX * 0.45, y - tailY * 0.45);
+      ctx.lineTo(x + tailX * 0.55, y + tailY * 0.55);
+      ctx.lineWidth = p.thickness;
+      ctx.strokeStyle = p.teal
+        ? `rgba(76, 255, 220, ${alpha})`
+        : `rgba(119, 139, 165, ${alpha})`;
+      ctx.stroke();
+    }
+
+    function drawBeam(time) {
+      const focusX = width * 0.64;
+      const focusY = height * 0.51;
+      const endX = width * 0.86;
+      const glow = 0.55 + 0.45 * Math.sin(time * 0.002);
+
+      const gradient = ctx.createLinearGradient(focusX, focusY, endX, focusY);
+      gradient.addColorStop(0, `rgba(91, 255, 219, ${0.9 * glow})`);
+      gradient.addColorStop(0.28, "rgba(91, 255, 219, 0.6)");
+      gradient.addColorStop(1, "rgba(91, 255, 219, 0)");
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "rgba(91, 255, 219, 0.65)";
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.moveTo(focusX - width * 0.03, focusY);
+      ctx.lineTo(endX, focusY);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      spokes.forEach((s) => {
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(s.x + Math.cos(s.angle) * s.len, s.y + Math.sin(s.angle) * s.len);
+        ctx.strokeStyle = `rgba(92, 255, 219, ${s.alpha})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      });
+    }
+
+    function drawSourceWall(time) {
+      const x = width * 0.045;
+      const y = height * 0.17;
+      const h = height * 0.64;
+      const ticks = 70;
+      ctx.save();
+      ctx.globalAlpha = 0.38;
+      ctx.strokeStyle = "rgba(104, 126, 153, 0.42)";
+      for (let i = 0; i < ticks; i += 1) {
+        const yy = y + (h / ticks) * i + Math.sin(time * 0.001 + i) * 2;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.sin(i) * 3, yy);
+        ctx.lineTo(x + rand(6, 18), yy + rand(-4, 4));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function render(time) {
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(6, 10, 18, 0.18)";
+      ctx.fillRect(0, 0, width, height);
+      drawSourceWall(time);
+      particles.forEach((p) => drawParticle(p, time));
+      drawBeam(time);
+
+      if (!prefersReduced) {
+        requestAnimationFrame(render);
+      }
+    }
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", (event) => {
+      pointer.x = event.clientX / Math.max(width, 1);
+      pointer.y = event.clientY / Math.max(height, 1);
+      pointer.active = true;
+    }, { passive: true });
+    window.addEventListener("pointerleave", () => {
+      pointer.active = false;
+    });
+
+    resize();
+    render(startTime);
+  </script>
+</body>
+</html>
