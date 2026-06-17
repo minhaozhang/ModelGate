@@ -340,7 +340,7 @@
             </div>
             <div class="p-4 space-y-4">
                 <div class="rounded border bg-gray-50 p-3 text-xs text-gray-500">
-                    这里配置这个标准模型会走哪些供应商，以及供应商之间的顺序。时间段、上下文、小流量分流、按量备用等细规则在对应供应商 Key 的策略里配置。
+                    这里配置这个标准模型会走哪些供应商，以及供应商之间的顺序。时间段、上下文、小流量分流、按量备用等细规则在下方路由规则里配置。
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <select id="model-routing-provider-select" class="border rounded px-3 py-2 text-sm min-w-48"></select>
@@ -349,46 +349,6 @@
                 </div>
                 <div id="model-routing-content"></div>
                 <div id="model-routing-rules"></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="provider-key-strategy-drawer" class="strategy-drawer">
-        <div class="strategy-backdrop" onclick="closeProviderKeyStrategyDrawer()"></div>
-        <div class="strategy-panel">
-            <div class="p-4 border-b flex justify-between items-center">
-                <div>
-                    <h3 class="font-semibold">Provider Key 策略</h3>
-                    <div id="strategy-drawer-subtitle" class="text-xs text-gray-500 mt-1"></div>
-                </div>
-                <button onclick="closeProviderKeyStrategyDrawer()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-            </div>
-            <div class="p-4 space-y-4">
-                <div>
-                    <label class="block text-xs text-gray-500 mb-1">成本角色</label>
-                    <select id="strategy-cost-role" class="w-full border rounded px-3 py-2 text-sm">
-                        <option value="standard">标准</option>
-                        <option value="package_primary">套餐主力</option>
-                        <option value="package_peak_limited">高峰受限套餐</option>
-                        <option value="metered_standby">按量备用</option>
-                    </select>
-                </div>
-                <div>
-                    <div class="flex justify-between items-center mb-2">
-                        <label class="block text-xs text-gray-500">策略模板</label>
-                        <button onclick="loadStrategyTemplates()" class="text-xs text-blue-500">刷新</button>
-                    </div>
-                    <div id="strategy-drawer-templates" class="space-y-2"></div>
-                </div>
-                <div>
-                    <label class="block text-xs text-gray-500 mb-2">模板参数</label>
-                    <div id="strategy-template-fields" class="space-y-2"></div>
-                </div>
-                <div>
-                    <label class="block text-xs text-gray-500 mb-2">生成规则预览</label>
-                    <pre id="strategy-rule-preview" class="bg-gray-50 border rounded p-3 text-xs overflow-x-auto min-h-24"></pre>
-                </div>
-                <button onclick="saveProviderKeyStrategy()" class="w-full bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">保存策略</button>
             </div>
         </div>
     </div>
@@ -654,7 +614,6 @@
         let selectedRoutingModelId = null;
         let strategyTemplates = [];
         let selectedStrategyTemplateId = null;
-        let strategyDrawerState = {providerId: null, keyId: null, keyLabel: '', templateId: null, params: {}};
 
         function t(key, fallback = '') {
             return CONFIG_I18N[key] || fallback;
@@ -1064,9 +1023,6 @@
                             ${k.disabled_reason ? '<span class="warn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">' + k.disabled_reason.replace(/</g, '&lt;') + '</span></span>' : ''}
                         </div>
                         <div class="flex items-center gap-1 text-xs text-gray-400 mt-1">
-                            <span class="strategy-chip">${costRoleLabel(k.cost_role || 'standard')}</span>
-                            ${k.strategy_assignment ? `<span class="strategy-chip">${k.strategy_assignment.template_name}</span>` : ''}
-                            ${k.routing_rule_count ? `<span class="strategy-chip">${k.routing_rule_count} rules</span>` : ''}
                             <span>${t('concurrency', 'Concurrency')}:</span>
                             <input type="number" min="1" value="${k.max_concurrent || ''}" placeholder="${t('default', 'Default')}"
                                    id="provider-key-mc-${k.id}"
@@ -1081,9 +1037,6 @@
                         </div>
                     </div>
                     <div class="pk-actions">
-                        <button onclick="openProviderKeyStrategy(${k.id}, '${(k.label || k.api_key || '').replace(/'/g, "\\'")}')" class="icon-btn text-blue-500 hover:text-blue-700" title="策略">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg>
-                        </button>
                         <button onclick="toggleProviderKey(${k.id}, ${!k.is_active})" class="icon-btn ${k.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}" title="${k.is_active ? t('disable', 'Disable') : t('enable', 'Enable')}">
                             ${k.is_active ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'}
                         </button>
@@ -1095,22 +1048,11 @@
             `).join('');
         }
 
-        function costRoleLabel(role) {
-            const labels = {
-                standard: '标准',
-                package_primary: '套餐主力',
-                package_peak_limited: '高峰受限套餐',
-                metered_standby: '按量备用'
-            };
-            return labels[role] || role || '标准';
-        }
-
         async function loadStrategyTemplates() {
             try {
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/routing/strategy-templates`);
                 strategyTemplates = data.templates || [];
                 renderStrategyTemplateLibrary();
-                renderStrategyDrawerTemplates();
                 if (document.getElementById('strategy-template-name') && selectedStrategyTemplateId === null) {
                     startNewStrategyTemplate();
                 }
@@ -1194,115 +1136,6 @@
             } catch(e) {
                 showToast('JSON 格式不正确或模板保存失败', 'error');
             }
-        }
-
-        function renderStrategyDrawerTemplates() {
-            const box = document.getElementById('strategy-drawer-templates');
-            if (!box) return;
-            box.innerHTML = strategyTemplates.map(tpl => `
-                <div onclick="selectStrategyTemplate(${tpl.id})" class="template-card ${strategyDrawerState.templateId === tpl.id ? 'active' : ''}">
-                    <div class="font-medium text-sm">${tpl.name}</div>
-                    <div class="text-xs text-gray-500 mt-1">${tpl.description || ''}</div>
-                </div>
-            `).join('') || '<div class="text-xs text-gray-400">暂无模板</div>';
-        }
-
-        function selectStrategyTemplate(templateId) {
-            strategyDrawerState.templateId = templateId;
-            strategyDrawerState.params = {};
-            renderStrategyDrawerTemplates();
-            renderStrategyTemplateFields();
-            updateStrategyRulePreview();
-        }
-
-        function renderStrategyTemplateFields() {
-            const fieldsBox = document.getElementById('strategy-template-fields');
-            const tpl = strategyTemplates.find(x => x.id === strategyDrawerState.templateId);
-            const fields = tpl?.config_schema?.fields || [];
-            if (!fields.length) {
-                fieldsBox.innerHTML = '<div class="text-xs text-gray-400">这个模板不需要额外参数。</div>';
-                return;
-            }
-            fieldsBox.innerHTML = fields.map(field => {
-                const type = field.type === 'number' ? 'number' : field.type === 'time' ? 'time' : 'text';
-                const value = strategyDrawerState.params[field.key] ?? '';
-                return `<label class="block">
-                    <span class="block text-xs text-gray-500 mb-1">${field.label || field.key}</span>
-                    <input data-strategy-param="${field.key}" type="${type}" value="${value}" oninput="updateStrategyParam('${field.key}', this.value, '${field.type || 'text'}')" class="w-full border rounded px-3 py-2 text-sm">
-                </label>`;
-            }).join('');
-        }
-
-        function updateStrategyParam(key, value, type) {
-            strategyDrawerState.params[key] = type === 'number' ? (parseInt(value, 10) || 0) : value;
-            updateStrategyRulePreview();
-        }
-
-        function materializeRulesForPreview(tpl, params) {
-            const rules = tpl?.rule_blueprint?.rules || [];
-            return rules.map(rule => {
-                const next = {};
-                Object.entries(rule).forEach(([key, value]) => {
-                    if (typeof value === 'string' && value.startsWith('${') && value.endsWith('}')) {
-                        const paramKey = value.slice(2, -1);
-                        if (params[paramKey] !== undefined && params[paramKey] !== '') next[key] = params[paramKey];
-                    } else {
-                        next[key] = value;
-                    }
-                });
-                return next;
-            });
-        }
-
-        function updateStrategyRulePreview() {
-            const preview = document.getElementById('strategy-rule-preview');
-            const tpl = strategyTemplates.find(x => x.id === strategyDrawerState.templateId);
-            preview.textContent = tpl ? JSON.stringify(materializeRulesForPreview(tpl, strategyDrawerState.params), null, 2) : '请选择策略模板';
-        }
-
-        async function openProviderKeyStrategy(keyId, keyLabel) {
-            if (!providerKeysTargetId) return;
-            strategyDrawerState = {providerId: providerKeysTargetId, keyId, keyLabel, templateId: null, params: {}};
-            document.getElementById('strategy-drawer-subtitle').textContent = keyLabel || `Key #${keyId}`;
-            document.getElementById('provider-key-strategy-drawer').classList.add('open');
-            await loadStrategyTemplates();
-            try {
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/routing/providers/${providerKeysTargetId}/keys/${keyId}/strategy`);
-                document.getElementById('strategy-cost-role').value = data.key?.cost_role || 'standard';
-                if (data.assignment) {
-                    strategyDrawerState.templateId = data.assignment.template.id;
-                    strategyDrawerState.params = data.assignment.params || {};
-                }
-                renderStrategyDrawerTemplates();
-                renderStrategyTemplateFields();
-                updateStrategyRulePreview();
-            } catch(e) {
-                showToast('策略加载失败', 'error');
-            }
-        }
-
-        function closeProviderKeyStrategyDrawer() {
-            document.getElementById('provider-key-strategy-drawer').classList.remove('open');
-            strategyDrawerState = {providerId: null, keyId: null, keyLabel: '', templateId: null, params: {}};
-        }
-
-        async function saveProviderKeyStrategy() {
-            if (!strategyDrawerState.providerId || !strategyDrawerState.keyId) return;
-            try {
-                await mgFetch(`${APP_BASE_PATH}/admin/api/routing/providers/${strategyDrawerState.providerId}/keys/${strategyDrawerState.keyId}/strategy`, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        cost_role: document.getElementById('strategy-cost-role').value,
-                        template_id: strategyDrawerState.templateId,
-                        enabled: true,
-                        params: strategyDrawerState.params || {}
-                    })
-                }, {success: '策略已保存', error: '策略保存失败'});
-                closeProviderKeyStrategyDrawer();
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
-                renderProviderKeys(data.keys || []);
-            } catch(e) {}
         }
 
         async function runRoutePreview() {
@@ -1881,35 +1714,47 @@
             const content = document.getElementById('model-routing-content');
             if (!content) return;
             if (!group.routes.length) {
-                content.innerHTML = '<div class="text-center text-gray-400 py-8 border rounded">这个标准模型还没有绑定供应商。先在上方添加供应商。</div>';
+                content.innerHTML = `<section class="border rounded">
+                    <div class="px-3 py-2 border-b bg-gray-50">
+                        <div class="font-semibold text-sm">1. 供应商顺序</div>
+                        <div class="text-xs text-gray-500 mt-1">先把这个标准模型会使用的供应商模型绑定进来，再到下方配置策略。</div>
+                    </div>
+                    <div class="text-center text-gray-400 py-8">这个标准模型还没有绑定供应商。先在上方添加供应商。</div>
+                </section>`;
                 renderModelRoutingRules(group);
                 return;
             }
-            content.innerHTML = `<div class="config-table-wrap">
-                <table class="config-table routing-table">
-                    <thead>
-                        <tr>
-                            <th>供应商</th>
-                            <th>状态</th>
-                            <th>上游模型名</th>
-                            <th>
-                                <span class="inline-flex items-center gap-1">
-                                    优先级
-                                    <span class="help-tip">?
-                                        <span class="help-tip-body">数值越大越优先。先过滤停用供应商、Key 策略、health=0、并发已满等不可用候选，再按优先级和 health 排序。</span>
+            content.innerHTML = `<section class="border rounded">
+                <div class="px-3 py-2 border-b bg-gray-50">
+                    <div class="font-semibold text-sm">1. 供应商顺序</div>
+                    <div class="text-xs text-gray-500 mt-1">这里只排这个标准模型可用的供应商模型顺序；具体时间段、上下文和 Key 范围在下方策略里配置。</div>
+                </div>
+                <div class="config-table-wrap">
+                    <table class="config-table routing-table">
+                        <thead>
+                            <tr>
+                                <th>供应商</th>
+                                <th>状态</th>
+                                <th>上游模型名</th>
+                                <th>
+                                    <span class="inline-flex items-center gap-1">
+                                        优先级
+                                        <span class="help-tip">?
+                                            <span class="help-tip-body">数值越大越优先。先过滤停用供应商、模型路由规则、health=0、并发已满等不可用候选，再按优先级和 health 排序。</span>
+                                        </span>
                                     </span>
-                                </span>
-                            </th>
-                            <th>繁忙等级上限</th>
-                            <th>路由规则</th>
-                            <th class="text-right">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${group.routes.map(route => renderModelRoutingDrawerRow(route, group)).join('')}
-                    </tbody>
-                </table>
-            </div>`;
+                                </th>
+                                <th>繁忙等级上限</th>
+                                <th>路由规则</th>
+                                <th class="text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${group.routes.map(route => renderModelRoutingDrawerRow(route, group)).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </section>`;
             renderModelRoutingRules(group);
         }
 
@@ -1921,10 +1766,14 @@
             const providerOptions = routes.length
                 ? routes.map(route => `<option value="${route.id}">${escapeHtml(route.provider_name)} / ${escapeHtml(route.upstream_model_name || route.model_name)}</option>`).join('')
                 : '<option value="">请先添加供应商</option>';
-            box.innerHTML = `<div class="border rounded">
+            box.innerHTML = `<section class="border rounded">
                 <div class="px-3 py-2 border-b bg-gray-50">
-                    <div class="font-semibold text-sm">路由规则</div>
-                    <div class="text-xs text-gray-500 mt-1">规则挂在这个标准模型的某个供应商绑定上，用来做时间段、上下文、备用和降权。</div>
+                    <div class="font-semibold text-sm">2. 路由策略</div>
+                    <div class="text-xs text-gray-500 mt-1">每条策略等于一组“命中条件 + 目标供应商/Key + 动作”。没有命中策略时，按上面的供应商顺序走。</div>
+                </div>
+                <div class="px-3 py-2 border-b bg-white">
+                    <div class="font-medium text-sm">新增策略</div>
+                    <div class="text-xs text-gray-400 mt-1">先选目标供应商，再选模板和限定 Key；Key 不选表示这个供应商的全部可用 Key。</div>
                 </div>
                 <div class="routing-rule-editor p-3">
                     <label class="block routing-rule-wide">
@@ -1998,10 +1847,14 @@
                     </label>
                     <div class="routing-rule-wide text-xs text-gray-500 pb-2">备用规则会排在正常路由之后，主供应商并发满、Key 被禁用或 health 不可用时才会被轮到。</div>
                 </div>
-                <div class="border-t">
+                <div class="border-t bg-gray-50 px-3 py-2">
+                    <div class="font-medium text-sm">已配置策略</div>
+                    <div class="text-xs text-gray-500 mt-1">策略按命中条件决定是否参与排序，优先级越大越靠前。</div>
+                </div>
+                <div class="divide-y">
                     ${allRules.length ? allRules.map(item => renderModelRoutingRuleRow(item.rule, item.route)).join('') : '<div class="text-center text-gray-400 py-4 text-sm">暂无模型级路由规则。</div>'}
                 </div>
-            </div>`;
+            </section>`;
             renderModelRuleKeyOptions();
         }
 
@@ -2129,10 +1982,52 @@
             };
         }
 
+        function modelRuleConditionSummary(rule) {
+            const parts = [];
+            const start = modelRuleTimeValue(rule.start_time);
+            const end = modelRuleTimeValue(rule.end_time);
+            if (start || end) parts.push(`时间 ${start || '00:00'}-${end || '23:59'}`);
+            if (rule.min_context_tokens !== null && rule.min_context_tokens !== undefined) parts.push(`ctx >= ${rule.min_context_tokens}`);
+            if (rule.max_context_tokens !== null && rule.max_context_tokens !== undefined) parts.push(`ctx <= ${rule.max_context_tokens}`);
+            const startDate = modelRuleDateValue(rule.start_date);
+            const endDate = modelRuleDateValue(rule.end_date);
+            if (startDate || endDate) parts.push(`日期 ${startDate || '开始'} 至 ${endDate || '结束'}`);
+            if (rule.weekdays) parts.push(`星期 ${rule.weekdays}`);
+            return parts.length ? parts : ['始终生效'];
+        }
+
+        function modelRuleKeyScopeSummary(rule, route) {
+            const keyIds = rule.provider_key_ids || [];
+            if (!keyIds.length) return '全部 Key';
+            const keyMap = routeKeyLabelMap(route);
+            const labels = keyIds.map(id => keyMap.get(String(id)) || `Key #${id}`);
+            return `限定 ${labels.join('、')}`;
+        }
+
         function renderModelRoutingRuleRow(rule, route) {
             const selectedKeyIds = rule.provider_key_ids || [];
-            return `<div class="px-3 py-3 border-t first:border-t-0 text-sm">
-                <div class="routing-rule-editor">
+            const conditions = modelRuleConditionSummary(rule);
+            const keyScope = modelRuleKeyScopeSummary(rule, route);
+            return `<div class="bg-white text-sm">
+                <div class="px-3 py-3">
+                    <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-semibold text-gray-800">${escapeHtml(rule.name || '自定义规则')}</span>
+                                <span class="status-pill neutral">${modelRuleActionLabel(rule.action)}</span>
+                                ${rule.enabled === false ? '<span class="status-pill off">停用</span>' : '<span class="status-pill ok">启用</span>'}
+                            </div>
+                            <div class="text-xs text-gray-400 mt-1">${escapeHtml(route.provider_name)} / ${escapeHtml(route.upstream_model_name || route.model_name)}</div>
+                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                ${conditions.map(item => `<span class="status-pill neutral">${escapeHtml(item)}</span>`).join('')}
+                                <span class="status-pill neutral">${escapeHtml(keyScope)}</span>
+                                <span class="status-pill neutral">加权 ${Number(rule.priority || 0)}</span>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-500">编辑策略</div>
+                    </div>
+                </div>
+                <div class="routing-rule-editor border-t bg-gray-50 p-3">
                     <div class="routing-rule-wide">
                         <div class="font-medium">${escapeHtml(route.provider_name)}</div>
                         <div class="text-xs text-gray-400">${escapeHtml(route.upstream_model_name || route.model_name)}</div>
@@ -2228,8 +2123,12 @@
 
         function renderRouteRuleSummary(route) {
             const summary = summarizeRuleKeyScope(route);
+            const action = `<button onclick="openModelRoutingConfig(${route.model_id})" class="mt-1 text-xs text-blue-500 hover:text-blue-700">配置规则</button>`;
             if (!summary.ruleCount) {
-                return '<div class="text-xs text-gray-400">无规则</div>';
+                return `<div class="text-xs leading-relaxed">
+                    <div class="text-gray-400">无规则</div>
+                    ${action}
+                </div>`;
             }
             const visibleLabels = summary.labels.slice(0, 2);
             const moreCount = Math.max(summary.labels.length - visibleLabels.length, 0);
@@ -2239,6 +2138,7 @@
             return `<div class="text-xs leading-relaxed">
                 <div class="font-medium text-gray-700">${summary.ruleCount} 条规则</div>
                 <div>${scopeHtml}</div>
+                ${action}
             </div>`;
         }
 
@@ -2357,7 +2257,7 @@
                                 <span class="inline-flex items-center gap-1">
                                     优先级
                                     <span class="help-tip">?
-                                        <span class="help-tip-body">数值越大越优先。路由会先过滤停用供应商、Key 策略、health=0、并发已满等不可用候选，再按优先级和 health 排序。</span>
+                                        <span class="help-tip-body">数值越大越优先。路由会先过滤停用供应商、模型路由规则、health=0、并发已满等不可用候选，再按优先级和 health 排序。</span>
                                     </span>
                                 </span>
                             </th>

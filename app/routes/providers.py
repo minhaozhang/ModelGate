@@ -138,8 +138,6 @@ class ProviderKeyUpdate(BaseModel):
 
 @router.get("/providers/{provider_id}/keys")
 async def list_provider_keys(provider_id: int, _: bool = Depends(permission_required("page.providers"))):
-    from app.core.database import ProviderKeyRoutingRule, ProviderKeyStrategyAssignment, ProviderKeyStrategyTemplate
-
     async with async_session_maker() as session:
         result = await session.execute(
             select(ProviderKey)
@@ -147,34 +145,6 @@ async def list_provider_keys(provider_id: int, _: bool = Depends(permission_requ
             .order_by(ProviderKey.id)
         )
         keys = result.scalars().all()
-        key_ids = [k.id for k in keys]
-        strategy_map = {}
-        rule_count_map = {}
-        if key_ids:
-            assignment_result = await session.execute(
-                select(ProviderKeyStrategyAssignment, ProviderKeyStrategyTemplate)
-                .join(
-                    ProviderKeyStrategyTemplate,
-                    ProviderKeyStrategyAssignment.template_id == ProviderKeyStrategyTemplate.id,
-                )
-                .where(ProviderKeyStrategyAssignment.provider_key_id.in_(key_ids))
-            )
-            for assignment, template in assignment_result.all():
-                strategy_map[assignment.provider_key_id] = {
-                    "assignment_id": assignment.id,
-                    "template_id": template.id,
-                    "template_key": template.template_key,
-                    "template_name": template.name,
-                    "params": assignment.params or {},
-                    "enabled": assignment.enabled,
-                }
-            rules_result = await session.execute(
-                select(ProviderKeyRoutingRule.provider_key_id).where(
-                    ProviderKeyRoutingRule.provider_key_id.in_(key_ids)
-                )
-            )
-            for (key_id,) in rules_result.all():
-                rule_count_map[key_id] = rule_count_map.get(key_id, 0) + 1
         return {
             "keys": [
                 {
@@ -186,8 +156,6 @@ async def list_provider_keys(provider_id: int, _: bool = Depends(permission_requ
                     "disabled_reason": k.disabled_reason,
                     "priority": k.priority if hasattr(k, "priority") else 0,
                     "cost_role": getattr(k, "cost_role", None) or "standard",
-                    "strategy_assignment": strategy_map.get(k.id),
-                    "routing_rule_count": rule_count_map.get(k.id, 0),
                     "health_score": compute_health_score(k.id, is_active=k.is_active),
                 }
                 for k in keys

@@ -19,9 +19,6 @@ from app.core.database import (
     async_session_maker,
     Provider,
     ProviderKey,
-    ProviderKeyRoutingRule,
-    ProviderKeyStrategyAssignment,
-    ProviderKeyStrategyTemplate,
     ProviderModelRoutingRule,
     ProviderModel,
     Model,
@@ -94,55 +91,6 @@ async def _load_provider_keys(session, provider_id: int) -> tuple[list[dict], li
         )
     )
     active_key_rows = active_result.scalars().all()
-    active_key_ids = [pk.id for pk in active_key_rows]
-    rules_by_key: dict[int, list[dict]] = {pk.id: [] for pk in active_key_rows}
-    assignments_by_key: dict[int, dict] = {}
-    if active_key_ids:
-        rules_result = await session.execute(
-            select(ProviderKeyRoutingRule).where(
-                ProviderKeyRoutingRule.provider_key_id.in_(active_key_ids),
-                ProviderKeyRoutingRule.enabled == True,  # noqa: E712
-            )
-        )
-        for rule in rules_result.scalars().all():
-            rules_by_key.setdefault(rule.provider_key_id, []).append(
-                {
-                    "id": rule.id,
-                    "name": rule.name or "",
-                    "rule_type": rule.rule_type,
-                    "enabled": rule.enabled,
-                    "priority": rule.priority or 0,
-                    "start_time": rule.start_time,
-                    "end_time": rule.end_time,
-                    "start_date": rule.start_date,
-                    "end_date": rule.end_date,
-                    "weekdays": rule.weekdays,
-                    "min_context_tokens": rule.min_context_tokens,
-                    "max_context_tokens": rule.max_context_tokens,
-                    "action": rule.action,
-                }
-            )
-        assignment_result = await session.execute(
-            select(ProviderKeyStrategyAssignment, ProviderKeyStrategyTemplate)
-            .join(
-                ProviderKeyStrategyTemplate,
-                ProviderKeyStrategyAssignment.template_id == ProviderKeyStrategyTemplate.id,
-            )
-            .where(
-                ProviderKeyStrategyAssignment.provider_key_id.in_(active_key_ids),
-                ProviderKeyStrategyAssignment.enabled == True,  # noqa: E712
-            )
-        )
-        for assignment, template in assignment_result.all():
-            assignments_by_key[assignment.provider_key_id] = {
-                "id": assignment.id,
-                "template_id": template.id,
-                "template_key": template.template_key,
-                "template_name": template.name,
-                "params": assignment.params or {},
-                "enabled": assignment.enabled,
-            }
-
     active_keys = [
         {
             "id": pk.id,
@@ -151,8 +99,6 @@ async def _load_provider_keys(session, provider_id: int) -> tuple[list[dict], li
             "max_concurrent": pk.max_concurrent,
             "priority": pk.priority if hasattr(pk, "priority") else 0,
             "cost_role": getattr(pk, "cost_role", None) or "standard",
-            "routing_rules": rules_by_key.get(pk.id, []),
-            "strategy_assignment": assignments_by_key.get(pk.id),
         }
         for pk in active_key_rows
     ]

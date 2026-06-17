@@ -293,14 +293,41 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn('"provider_key_ids": rule.provider_key_ids or []', provider_models_route)
         self.assertIn('"provider_keys": provider_keys', provider_models_route)
 
+    def test_provider_key_modal_has_no_rule_strategy_configuration(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        routing_route = (ROOT / "app" / "routes" / "routing.py").read_text(encoding="utf-8")
+        provider_service = (ROOT / "app" / "services" / "provider.py").read_text(encoding="utf-8")
+
+        self.assertNotIn('id="provider-key-strategy-drawer"', html)
+        self.assertNotIn("openProviderKeyStrategy", html)
+        self.assertNotIn("saveProviderKeyStrategy", html)
+        self.assertNotIn("strategy_assignment", html)
+        self.assertNotIn("routing_rule_count", html)
+        self.assertNotIn('/keys/{key_id}/strategy', routing_route)
+        self.assertNotIn("ProviderKeyStrategyAssignment", provider_service)
+        self.assertNotIn("ProviderKeyRoutingRule", provider_service)
+
     def test_model_routing_matrix_shows_rule_key_scope_summary(self):
         html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
 
         self.assertIn("function renderRouteRuleSummary", html)
         self.assertIn("<th>路由规则</th>", html)
         self.assertIn("renderRouteRuleSummary(route)", html)
+        self.assertIn("配置规则", html)
+        self.assertIn("openModelRoutingConfig(${route.model_id})", html)
         self.assertIn("全部 Key", html)
         self.assertIn("限定", html)
+
+    def test_model_routing_drawer_has_clear_sections_and_strategy_cards(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+
+        self.assertIn("1. 供应商顺序", html)
+        self.assertIn("2. 路由策略", html)
+        self.assertIn("新增策略", html)
+        self.assertIn("已配置策略", html)
+        self.assertIn("function modelRuleConditionSummary", html)
+        self.assertIn("function modelRuleKeyScopeSummary", html)
+        self.assertIn("编辑策略", html)
 
 
 if __name__ == "__main__":

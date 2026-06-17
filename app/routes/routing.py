@@ -4,14 +4,12 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from app.core.database import (
     ProviderModel,
     ProviderModelRoutingRule,
     ProviderKey,
-    ProviderKeyRoutingRule,
-    ProviderKeyStrategyAssignment,
     ProviderKeyStrategyTemplate,
     async_session_maker,
 )
@@ -22,7 +20,6 @@ from app.services.provider import (
     get_provider_and_model,
     load_providers,
 )
-from app.services.provider_key_routing import materialize_template_rules
 from app.services.tokens import estimate_request_context_tokens
 
 router = APIRouter(prefix="/admin/api/routing", tags=["routing"])
@@ -35,13 +32,6 @@ class StrategyTemplatePayload(BaseModel):
     is_active: bool = True
     config_schema: dict[str, Any] = {}
     rule_blueprint: dict[str, Any] = {}
-
-
-class ProviderKeyStrategyPayload(BaseModel):
-    cost_role: Optional[str] = None
-    template_id: Optional[int] = None
-    enabled: bool = True
-    params: dict[str, Any] = {}
 
 
 class RoutingResolvePayload(BaseModel):
@@ -145,30 +135,6 @@ async def _valid_provider_key_ids(
     )
     valid_ids = {key_id for (key_id,) in key_result.all()}
     return [key_id for key_id in normalized_ids if key_id in valid_ids]
-
-
-def _rule_from_payload(
-    provider_key_id: int,
-    assignment_id: int | None,
-    index: int,
-    rule: dict[str, Any],
-) -> ProviderKeyRoutingRule:
-    return ProviderKeyRoutingRule(
-        provider_key_id=provider_key_id,
-        template_assignment_id=assignment_id,
-        name=rule.get("name") or f"rule-{index + 1}",
-        rule_type=rule.get("rule_type") or "template",
-        enabled=bool(rule.get("enabled", True)),
-        priority=int(rule.get("priority") or 0),
-        start_time=_coerce_time(rule.get("start_time")),
-        end_time=_coerce_time(rule.get("end_time")),
-        start_date=_coerce_date(rule.get("start_date")),
-        end_date=_coerce_date(rule.get("end_date")),
-        weekdays=rule.get("weekdays"),
-        min_context_tokens=rule.get("min_context_tokens"),
-        max_context_tokens=rule.get("max_context_tokens"),
-        action=rule.get("action") or "prefer",
-    )
 
 
 def _provider_model_rule_from_payload(
@@ -283,139 +249,6 @@ async def update_strategy_template(
             template.rule_blueprint = data.rule_blueprint
         await session.commit()
         return {"id": template.id}
-
-
-@router.get("/providers/{provider_id}/keys/{key_id}/strategy")
-async def get_provider_key_strategy(
-    provider_id: int,
-    key_id: int,
-    _: bool = Depends(permission_required("page.providers")),
-):
-    async with async_session_maker() as session:
-        key_result = await session.execute(
-            select(ProviderKey).where(
-                ProviderKey.id == key_id,
-                ProviderKey.provider_id == provider_id,
-            )
-        )
-        key = key_result.scalar_one_or_none()
-        if not key:
-            return JSONResponse({"error": "Key not found"}, status_code=404)
-
-        assignment_result = await session.execute(
-            select(ProviderKeyStrategyAssignment, ProviderKeyStrategyTemplate)
-            .join(
-                ProviderKeyStrategyTemplate,
-                ProviderKeyStrategyAssignment.template_id
-                == ProviderKeyStrategyTemplate.id,
-            )
-            .where(ProviderKeyStrategyAssignment.provider_key_id == key_id)
-            .order_by(ProviderKeyStrategyAssignment.id.desc())
-        )
-        assignment_row = assignment_result.first()
-        assignment = None
-        if assignment_row:
-            assignment_obj, template = assignment_row
-            assignment = {
-                "id": assignment_obj.id,
-                "template": _serialize_template(template),
-                "enabled": assignment_obj.enabled,
-                "params": assignment_obj.params or {},
-            }
-
-        rules_result = await session.execute(
-            select(ProviderKeyRoutingRule)
-            .where(ProviderKeyRoutingRule.provider_key_id == key_id)
-            .order_by(ProviderKeyRoutingRule.id)
-        )
-        rules = [
-            {
-                "id": r.id,
-                "name": r.name,
-                "rule_type": r.rule_type,
-                "enabled": r.enabled,
-                "priority": r.priority,
-                "start_time": r.start_time.isoformat() if r.start_time else None,
-                "end_time": r.end_time.isoformat() if r.end_time else None,
-                "start_date": r.start_date.isoformat() if r.start_date else None,
-                "end_date": r.end_date.isoformat() if r.end_date else None,
-                "weekdays": r.weekdays,
-                "min_context_tokens": r.min_context_tokens,
-                "max_context_tokens": r.max_context_tokens,
-                "action": r.action,
-            }
-            for r in rules_result.scalars().all()
-        ]
-        return {
-            "key": {
-                "id": key.id,
-                "label": key.label or "",
-                "cost_role": key.cost_role or "standard",
-            },
-            "assignment": assignment,
-            "rules": rules,
-        }
-
-
-@router.put("/providers/{provider_id}/keys/{key_id}/strategy")
-async def update_provider_key_strategy(
-    provider_id: int,
-    key_id: int,
-    data: ProviderKeyStrategyPayload,
-    _: bool = Depends(permission_required("provider.update_key")),
-):
-    async with async_session_maker() as session:
-        key_result = await session.execute(
-            select(ProviderKey).where(
-                ProviderKey.id == key_id,
-                ProviderKey.provider_id == provider_id,
-            )
-        )
-        key = key_result.scalar_one_or_none()
-        if not key:
-            return JSONResponse({"error": "Key not found"}, status_code=404)
-        if data.cost_role is not None:
-            key.cost_role = data.cost_role
-
-        await session.execute(
-            delete(ProviderKeyRoutingRule).where(
-                ProviderKeyRoutingRule.provider_key_id == key_id
-            )
-        )
-        await session.execute(
-            delete(ProviderKeyStrategyAssignment).where(
-                ProviderKeyStrategyAssignment.provider_key_id == key_id
-            )
-        )
-
-        assignment_id = None
-        if data.template_id:
-            template_result = await session.execute(
-                select(ProviderKeyStrategyTemplate).where(
-                    ProviderKeyStrategyTemplate.id == data.template_id,
-                    ProviderKeyStrategyTemplate.is_active == True,  # noqa: E712
-                )
-            )
-            template = template_result.scalar_one_or_none()
-            if not template:
-                return JSONResponse({"error": "Template not found"}, status_code=404)
-            assignment = ProviderKeyStrategyAssignment(
-                provider_key_id=key_id,
-                template_id=template.id,
-                enabled=data.enabled,
-                params=data.params,
-            )
-            session.add(assignment)
-            await session.flush()
-            assignment_id = assignment.id
-            for index, rule in enumerate(
-                materialize_template_rules(template.rule_blueprint or {}, data.params)
-            ):
-                session.add(_rule_from_payload(key_id, assignment_id, index, rule))
-
-        await session.commit()
-        await load_providers()
-        return {"id": key_id, "assignment_id": assignment_id}
 
 
 @router.get("/provider-models/{provider_model_id}/rules")
