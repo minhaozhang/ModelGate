@@ -965,10 +965,10 @@
             copyText(cmd, window.I18N.copied);
         }
         
-        function renderModelCheckboxes() {
+        function renderModelCheckboxes(force = false) {
             const container = document.getElementById('models-checkbox-container');
             const cacheKey = `${providerModels.map(pm => pm.id).join(',')}|${[...selectedModelIds].sort((a, b) => a - b).join(',')}`;
-            if (cacheKey === providerModelPickerCacheKey) return;
+            if (!force && cacheKey === providerModelPickerCacheKey) return;
             providerModelPickerCacheKey = cacheKey;
             if (providerModels.length === 0) {
                 container.innerHTML = `<div class="text-gray-400 text-center py-4">${window.I18N.noModels}</div>`;
@@ -994,11 +994,11 @@
             `).join('');
         }
 
-        function renderStandardModelCheckboxes() {
+        function renderStandardModelCheckboxes(force = false) {
             const container = document.getElementById('standard-models-checkbox-container');
             if (!container) return;
             const cacheKey = `${standardModels.map(model => model.id).join(',')}|${[...selectedStandardModelIds].sort((a, b) => a - b).join(',')}`;
-            if (cacheKey === standardModelPickerCacheKey) return;
+            if (!force && cacheKey === standardModelPickerCacheKey) return;
             standardModelPickerCacheKey = cacheKey;
             if (standardModels.length === 0) {
                 container.innerHTML = `<div class="text-gray-400 text-center py-4">${window.I18N.noModels}</div>`;
@@ -1048,6 +1048,7 @@
             } else {
                 selectedModelIds.push(id);
             }
+            providerModelPickerCacheKey = '';
             updateSelectedCount();
             const label = document.querySelector(`label[data-pm-id="${id}"]`);
             if (label) label.classList.toggle('selected', selectedModelIds.includes(id));
@@ -1060,6 +1061,7 @@
             } else {
                 selectedStandardModelIds.push(id);
             }
+            standardModelPickerCacheKey = '';
             updateSelectedCount();
             const label = document.querySelector(`label[data-model-id="${id}"]`);
             if (label) label.classList.toggle('selected', selectedStandardModelIds.includes(id));
@@ -1067,25 +1069,25 @@
 
         function selectAllStandardModels() {
             selectedStandardModelIds = standardModels.map(model => model.id);
-            renderStandardModelCheckboxes();
+            renderStandardModelCheckboxes(true);
             updateSelectedCount();
         }
 
         function clearStandardModels() {
             selectedStandardModelIds = [];
-            renderStandardModelCheckboxes();
+            renderStandardModelCheckboxes(true);
             updateSelectedCount();
         }
 
         function selectAllProviderModels() {
             selectedModelIds = providerModels.map(pm => pm.id);
-            renderModelCheckboxes();
+            renderModelCheckboxes(true);
             updateSelectedCount();
         }
 
         function clearProviderModels() {
             selectedModelIds = [];
-            renderModelCheckboxes();
+            renderModelCheckboxes(true);
             updateSelectedCount();
         }
         
@@ -1133,8 +1135,8 @@
         }
 
         function prepareApiKeyPickers(selectedMcpServerIds) {
-            renderModelCheckboxes();
-            renderStandardModelCheckboxes();
+            renderModelCheckboxes(true);
+            renderStandardModelCheckboxes(true);
             renderMcpServerCheckboxes(selectedMcpServerIds || []);
         }
         

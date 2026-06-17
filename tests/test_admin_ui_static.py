@@ -160,6 +160,21 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("selectedModelIds = [...(key.allowed_provider_model_ids || [])]", edit_body)
         self.assertIn("selectedStandardModelIds = [...(key.allowed_model_ids || [])]", edit_body)
 
+    def test_api_key_model_picker_invalidates_cache_after_selection_changes(self):
+        html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
+
+        standard_toggle = html[html.index("function toggleStandardModel"):html.index("function selectAllStandardModels")]
+        provider_toggle = html[html.index("function toggleModel"):html.index("function toggleStandardModel")]
+        bulk_controls = html[html.index("function selectAllStandardModels"):html.index("function updateSelectedCount")]
+        prepare = html[html.index("function prepareApiKeyPickers"):html.index("function copyKey")]
+
+        self.assertIn("standardModelPickerCacheKey = ''", standard_toggle)
+        self.assertIn("providerModelPickerCacheKey = ''", provider_toggle)
+        self.assertIn("renderStandardModelCheckboxes(true)", bulk_controls)
+        self.assertIn("renderModelCheckboxes(true)", bulk_controls)
+        self.assertIn("renderStandardModelCheckboxes(true)", prepare)
+        self.assertIn("renderModelCheckboxes(true)", prepare)
+
     def test_user_opencode_tab_shows_target_path_and_macos_hidden_folder_shortcuts(self):
         html = (ROOT / "web" / "templates" / "user" / "tab_opencode.html").read_text(encoding="utf-8")
 
