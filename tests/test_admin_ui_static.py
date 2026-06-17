@@ -150,6 +150,16 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("access_mode: Optional[str] = None", route)
         self.assertIn("_validate_access_payload", route)
 
+    def test_edit_api_key_does_not_auto_select_all_models_when_no_bindings(self):
+        html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
+        edit_start = html.index("async function editApiKey(id)")
+        edit_end = html.index("function closeApiKeyModal()", edit_start)
+        edit_body = html[edit_start:edit_end]
+
+        self.assertNotIn("selectedStandardModelIds = standardModels.map(model => model.id)", edit_body)
+        self.assertIn("selectedModelIds = [...(key.allowed_provider_model_ids || [])]", edit_body)
+        self.assertIn("selectedStandardModelIds = [...(key.allowed_model_ids || [])]", edit_body)
+
     def test_user_opencode_tab_shows_target_path_and_macos_hidden_folder_shortcuts(self):
         html = (ROOT / "web" / "templates" / "user" / "tab_opencode.html").read_text(encoding="utf-8")
 

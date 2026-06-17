@@ -1219,14 +1219,13 @@ ${setupMdUrl}`;
             document.getElementById('apikey-name').value = key.name;
             document.getElementById('apikey-email').value = key.email || '';
             document.getElementById('apikey-expires-at').value = key.expires_at ? toLocalDateTimeInput(key.expires_at) : getDefaultApiKeyExpiry();
-            selectedModelIds = key.allowed_provider_model_ids || [];
-            selectedStandardModelIds = key.allowed_model_ids || [];
+            selectedModelIds = [...(key.allowed_provider_model_ids || [])];
+            selectedStandardModelIds = [...(key.allowed_model_ids || [])];
             if (selectedStandardModelIds.length > 0) {
                 setAccessMode('model');
             } else if (selectedModelIds.length > 0) {
                 setAccessMode('provider_model');
             } else {
-                selectedStandardModelIds = standardModels.map(model => model.id);
                 setAccessMode('model');
             }
             updateSelectedCount();
