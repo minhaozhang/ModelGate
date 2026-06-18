@@ -645,8 +645,9 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
             response = await proxy_request(request, "/chat/completions")
 
         body = response.body.decode("utf-8")
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 403)
         self.assertIn("model_access_denied", body)
+        self.assertIn("permission_error", body)
         self.assertIn("没有模型权限", body)
         self.assertIn("https://leturx.cc/modelgate/user/login", body)
         self.assertIn("OpenCode", body)
@@ -693,8 +694,9 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
             response = await proxy_request(request, "/chat/completions")
 
         body = response.body.decode("utf-8")
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 403)
         self.assertIn("model_access_denied", body)
+        self.assertIn("permission_error", body)
         self.assertIn("zhipu/glm-5.1", body)
 
     async def test_model_access_binding_allows_auto_routed_provider_model_for_same_model(self):

@@ -1014,8 +1014,8 @@ async def proxy_request(request: Request, endpoint: str):
         if access_denied_seen:
             return _openai_error_response(
                 build_model_access_denied_message(requested_model),
-                401,
-                "authentication_error",
+                403,
+                "permission_error",
                 "model_access_denied",
             )
         if known_model_without_provider_seen:
