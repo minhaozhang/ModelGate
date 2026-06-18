@@ -85,8 +85,9 @@
         .routing-table td { padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
         .routing-table input,
         .routing-table select { min-width: 0 !important; }
-        .routing-upstream-input { width: 100%; max-width: 11rem; }
-        .routing-busyness-select { width: 7.5rem; max-width: 100%; }
+        .routing-upstream-input { width: 100%; min-width: 12rem; }
+        .routing-priority-input { width: 4rem; max-width: 100%; }
+        .routing-busyness-select { width: 5.25rem; max-width: 100%; }
         .routing-rule-editor { display: grid; grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: 0.5rem; align-items: end; }
         .routing-rule-editor .routing-rule-wide { grid-column: span 2; }
         @media (max-width: 760px) { .routing-rule-editor .routing-rule-wide { grid-column: span 1; } }
@@ -127,6 +128,7 @@
                     <button class="config-tab-btn" data-config-tab="providers" onclick="switchConfigTab('providers')">供应商</button>
                     <button class="config-tab-btn" data-config-tab="models" onclick="switchConfigTab('models')">标准模型</button>
                     <button class="config-tab-btn" data-config-tab="routing" onclick="switchConfigTab('routing')">模型路由</button>
+                    <button class="config-tab-btn" data-config-tab="billing" onclick="switchConfigTab('billing')">模型计费</button>
                     <button class="config-tab-btn" data-config-tab="templates" onclick="switchConfigTab('templates')">策略模板</button>
                     <button class="config-tab-btn" data-config-tab="preview" onclick="switchConfigTab('preview')">路由预览</button>
                 </div>
@@ -249,6 +251,19 @@
                     <div id="model-routing-container" class="p-4">
                         <div class="text-gray-400 text-center py-4">Loading...</div>
                     </div>
+                </div>
+            </div>
+
+            <div id="config-tab-billing" class="config-tab-panel hidden">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold">模型计费配置</h3>
+                            <p class="text-xs text-gray-500 mt-1">价格按供应商模型绑定配置，单位均为人民币 / 百万 tokens；历史请求会保存当次计费快照。</p>
+                        </div>
+                        <button onclick="loadModelPricing()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">刷新</button>
+                    </div>
+                    <div id="model-pricing-list" class="p-4"></div>
                 </div>
             </div>
 
@@ -628,7 +643,7 @@
         }
 
         function switchConfigTab(tab) {
-            const knownTabs = new Set(['overview', 'providers', 'models', 'routing', 'templates', 'preview']);
+            const knownTabs = new Set(['overview', 'providers', 'models', 'routing', 'billing', 'templates', 'preview']);
             if (!knownTabs.has(tab)) tab = 'providers';
             document.querySelectorAll('.config-tab-panel').forEach(panel => panel.classList.add('hidden'));
             document.querySelectorAll('.config-tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -640,6 +655,7 @@
             url.searchParams.set('tab', tab);
             window.history.replaceState(null, '', url.toString());
             if (tab === 'routing') loadProviderModelRoutes();
+            if (tab === 'billing') loadModelPricing();
             if (tab === 'templates') loadStrategyTemplates();
         }
 
@@ -707,9 +723,8 @@
                             <tr class="${selectedProviderId === p.id ? 'selected' : ''}" onclick="selectProvider(${p.id})">
                                 <td>
                                     <div class="font-semibold text-sm text-gray-800">${escapeHtml(p.name)}</div>
-                                    ${p.disabled_reason ? `<div class="text-xs text-orange-500 mt-1">${escapeHtml(p.disabled_reason)}</div>` : ''}
                                 </td>
-                                <td><span class="status-pill ${p.is_active ? 'ok' : 'off'}">${p.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span></td>
+                                <td>${renderProviderAvailability(p)}</td>
                                 <td><span class="status-pill neutral">${escapeHtml((p.protocol || 'openai').toUpperCase())}</span></td>
                                 <td><div class="max-w-[360px] truncate text-xs text-gray-500" title="${escapeAttr(p.base_url)}">${escapeHtml(p.base_url)}</div></td>
                                 <td><span class="text-xs text-gray-500">${p.merge_consecutive_messages ? '合并连续同角色' : '保持原始消息'}</span></td>
@@ -1169,6 +1184,23 @@
             return `<span class="${cls}">${escapeHtml(text)}</span>`;
         }
 
+        function renderAvailabilityPill(isAvailable, title = '') {
+            const label = isAvailable ? '可用' : '不可用';
+            return `<span class="status-pill ${isAvailable ? 'ok' : 'off'}" title="${escapeAttr(title || label)}">${escapeHtml(label)}</span>`;
+        }
+
+        function renderProviderAvailability(provider) {
+            const isAvailable = Boolean(provider.is_active) && !provider.disabled_reason;
+            const title = isAvailable ? '供应商可用' : (provider.disabled_reason || '供应商停用');
+            return renderAvailabilityPill(isAvailable, title);
+        }
+
+        function renderRouteAvailability(route) {
+            const isAvailable = route.provider_is_active !== false && !route.provider_disabled_reason;
+            const title = isAvailable ? '供应商可用' : (route.provider_disabled_reason || '供应商停用');
+            return renderAvailabilityPill(isAvailable, title);
+        }
+
         function renderRoutePreviewCandidate(item, type) {
             const reasons = item.filtered_reasons || [];
             const matched = item.matched_rules || [];
@@ -1552,7 +1584,7 @@
                                     <div class="font-semibold text-sm text-gray-800">${escapeHtml(m.display_name || m.name)}</div>
                                     <div class="text-xs text-gray-500 mt-1">${escapeHtml(m.name)}</div>
                                 </td>
-                                <td><span class="status-pill ${m.is_active ? 'ok' : 'off'}">${m.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span></td>
+                                <td>${renderAvailabilityPill(m.is_active, m.is_active ? '模型可用' : '模型停用')}</td>
                                 <td>
                                     <div class="text-xs text-gray-600">context ${formatTokenValue(m.context_length) || '0'}</div>
                                     <div class="text-xs text-gray-400 mt-1">output ${formatTokenValue(m.max_tokens) || '0'}</div>
@@ -1607,6 +1639,129 @@
                 const container = document.getElementById('model-routing-container');
                 if (container) container.innerHTML = '<div class="text-red-500 text-center py-4">模型路由加载失败</div>';
             }
+        }
+
+        async function loadModelPricing() {
+            const container = document.getElementById('model-pricing-list');
+            if (!container) return;
+            if (!allProviderModels.length) {
+                try {
+                    const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models`);
+                    allProviderModels = data.provider_models || [];
+                } catch(e) {
+                    container.innerHTML = '<div class="text-red-500 text-center py-4">计费配置加载失败</div>';
+                    return;
+                }
+            }
+            renderModelPricing();
+        }
+
+        function pricingValue(value) {
+            return value === null || value === undefined ? '' : value;
+        }
+
+        function pricingTiersValue(route) {
+            const tiers = route.pricing_tiers || [];
+            return tiers.length ? JSON.stringify(tiers, null, 2) : '';
+        }
+
+        function renderModelPricing() {
+            const container = document.getElementById('model-pricing-list');
+            if (!container) return;
+            const rows = [...allProviderModels].sort((a, b) => {
+                const left = `${a.model_name || ''}/${a.provider_name || ''}`;
+                const right = `${b.model_name || ''}/${b.provider_name || ''}`;
+                return left.localeCompare(right);
+            });
+            if (!rows.length) {
+                container.innerHTML = '<div class="text-gray-400 text-center py-4">暂无供应商模型绑定，先在模型路由里添加绑定。</div>';
+                return;
+            }
+            container.innerHTML = `<div class="config-table-wrap">
+                <table class="config-table">
+                    <thead>
+                        <tr>
+                            <th>标准模型</th>
+                            <th>供应商 / 上游模型</th>
+                            <th>输入价</th>
+                            <th>输出价</th>
+                            <th>缓存输入价</th>
+                            <th>默认缓存命中率</th>
+                            <th>分档 JSON</th>
+                            <th class="text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(route => `<tr>
+                            <td>
+                                <div class="font-medium text-sm text-gray-800">${escapeHtml(route.model_display_name || route.model_name)}</div>
+                                <div class="text-xs text-gray-500 mt-1">${escapeHtml(route.model_name || '')}</div>
+                            </td>
+                            <td>
+                                <div class="font-medium text-sm">${escapeHtml(route.provider_name || '')}</div>
+                                <div class="text-xs text-gray-500 mt-1">${escapeHtml(route.upstream_model_name || route.model_name || '')}</div>
+                            </td>
+                            <td><input id="pricing-input-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.input_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-output-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.output_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-cached-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.cached_input_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-cache-ratio-${route.id}" type="number" min="0" max="100" step="0.1" value="${escapeAttr(pricingValue(route.default_cache_hit_ratio))}" class="w-20 border rounded px-2 py-1.5 text-sm text-right"> <span class="text-xs text-gray-400">%</span></td>
+                            <td>
+                                <textarea id="pricing-tiers-${route.id}" rows="2" class="w-56 border rounded px-2 py-1.5 text-xs font-mono" placeholder='[{"max_context_tokens":524288,...}]'>${escapeHtml(pricingTiersValue(route))}</textarea>
+                            </td>
+                            <td>
+                                <div class="flex justify-end">
+                                    <button onclick="saveModelPricing(${route.id})" class="text-xs text-blue-500 hover:text-blue-700">保存</button>
+                                </div>
+                            </td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-xs text-gray-500 mt-3 leading-relaxed">
+                命中缓存 token 优先使用上游返回的 cached_tokens；没有返回时，按默认缓存命中率估算。
+                MiniMax M3 这种上下文分档价格可以填分档 JSON，普通模型留空即可。
+            </div>`;
+        }
+
+        function modelPricingNumber(id) {
+            const value = document.getElementById(id)?.value;
+            if (value === null || value === undefined || value === '') return null;
+            const parsed = parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function modelPricingTiers(id) {
+            const value = document.getElementById(id)?.value.trim();
+            if (!value) return [];
+            const parsed = JSON.parse(value);
+            if (!Array.isArray(parsed)) throw new Error('分档 JSON 必须是数组');
+            return parsed;
+        }
+
+        async function saveModelPricing(pmId) {
+            let pricing_tiers = [];
+            try {
+                pricing_tiers = modelPricingTiers(`pricing-tiers-${pmId}`);
+            } catch(e) {
+                showToast(e.message || '分档 JSON 格式不正确', 'error');
+                return;
+            }
+            const body = {
+                input_price_cny_per_million: modelPricingNumber(`pricing-input-${pmId}`),
+                output_price_cny_per_million: modelPricingNumber(`pricing-output-${pmId}`),
+                cached_input_price_cny_per_million: modelPricingNumber(`pricing-cached-${pmId}`),
+                default_cache_hit_ratio: modelPricingNumber(`pricing-cache-ratio-${pmId}`) || 0,
+                pricing_tiers,
+            };
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/provider-models/${pmId}/pricing`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                }, {success: '计费配置已保存', error: '保存计费配置失败'});
+                allProviderModels = allProviderModels.map(route => route.id === pmId ? {...route, ...body} : route);
+                renderModelPricing();
+            } catch(e) {}
         }
 
         function renderRoutingBindSelectors() {
@@ -1823,12 +1978,12 @@
                         <input id="model-rule-end" type="time" class="w-full border rounded px-2 py-1.5 text-sm">
                     </label>
                     <label class="block">
-                        <span class="block text-[11px] text-gray-500 mb-1">上下文下限</span>
+                        <span class="block text-[11px] text-gray-500 mb-1">上下文下限(k tokens)</span>
                         <input id="model-rule-min-context" type="number" placeholder="0" class="w-full border rounded px-2 py-1.5 text-sm">
                     </label>
                     <label class="block">
-                        <span class="block text-[11px] text-gray-500 mb-1">上下文上限</span>
-                        <input id="model-rule-max-context" type="number" placeholder="8000" class="w-full border rounded px-2 py-1.5 text-sm">
+                        <span class="block text-[11px] text-gray-500 mb-1">上下文上限(k tokens)</span>
+                        <input id="model-rule-max-context" type="number" placeholder="8" class="w-full border rounded px-2 py-1.5 text-sm">
                     </label>
                     <label class="block">
                         <span class="block text-[11px] text-gray-500 mb-1">星期</span>
@@ -1883,6 +2038,20 @@
             return Number.isFinite(parsed) ? parsed : null;
         }
 
+        function modelRuleKTokensValue(id) {
+            const value = modelRuleIntValue(id);
+            return value === null ? null : value * 1000;
+        }
+
+        function formatRuleContextK(tokens, withUnit = true) {
+            if (tokens === null || tokens === undefined || tokens === '') return '';
+            const value = Number(tokens);
+            if (!Number.isFinite(value)) return '';
+            const kValue = value / 1000;
+            const text = Number.isInteger(kValue) ? String(kValue) : kValue.toFixed(1).replace(/\.0$/, '');
+            return withUnit ? `${text}k` : text;
+        }
+
         function getProviderModelRouteById(routeId) {
             return allProviderModels.find(route => String(route.id) === String(routeId));
         }
@@ -1927,8 +2096,8 @@
             const template = document.getElementById('model-rule-template')?.value || 'custom';
             const presets = {
                 custom: {name: '自定义规则', action: 'prefer', priority: 50, start: '', end: '', minCtx: '', maxCtx: '', weekdays: '', startDate: '', endDate: ''},
-                small_context: {name: '小上下文优先', action: 'prefer', priority: 80, start: '', end: '', minCtx: '', maxCtx: 8000, weekdays: '', startDate: '', endDate: ''},
-                peak_offload: {name: '高峰期分流', action: 'prefer', priority: 80, start: '13:00', end: '18:00', minCtx: '', maxCtx: 8000, weekdays: '1,2,3,4,5', startDate: '', endDate: ''},
+                small_context: {name: '小上下文优先', action: 'prefer', priority: 80, start: '', end: '', minCtx: '', maxCtx: 8, weekdays: '', startDate: '', endDate: ''},
+                peak_offload: {name: '高峰期分流', action: 'prefer', priority: 80, start: '13:00', end: '18:00', minCtx: '', maxCtx: 8, weekdays: '1,2,3,4,5', startDate: '', endDate: ''},
                 primary_limited_standby: {name: '主路受限备用', action: 'standby', priority: 0, start: '', end: '', minCtx: '', maxCtx: '', weekdays: '', startDate: '', endDate: ''},
                 metered_peak_standby: {name: '按量高峰备用', action: 'standby', priority: 0, start: '13:00', end: '18:00', minCtx: '', maxCtx: '', weekdays: '1,2,3,4,5', startDate: '', endDate: ''},
                 deny_window: {name: '时间段禁用', action: 'deny', priority: 0, start: '00:00', end: '08:00', minCtx: '', maxCtx: '', weekdays: '', startDate: '', endDate: ''}
@@ -1957,8 +2126,8 @@
                 start_date: document.getElementById('model-rule-start-date')?.value || null,
                 end_date: document.getElementById('model-rule-end-date')?.value || null,
                 weekdays: document.getElementById('model-rule-weekdays')?.value?.trim() || null,
-                min_context_tokens: modelRuleIntValue('model-rule-min-context'),
-                max_context_tokens: modelRuleIntValue('model-rule-max-context'),
+                min_context_tokens: modelRuleKTokensValue('model-rule-min-context'),
+                max_context_tokens: modelRuleKTokensValue('model-rule-max-context'),
                 provider_key_ids: selectedModelRuleKeyIds('model-rule-provider-keys'),
                 enabled: true
             };
@@ -1975,8 +2144,8 @@
                 start_date: document.getElementById(`model-rule-edit-start-date-${ruleId}`)?.value || null,
                 end_date: document.getElementById(`model-rule-edit-end-date-${ruleId}`)?.value || null,
                 weekdays: document.getElementById(`model-rule-edit-weekdays-${ruleId}`)?.value?.trim() || null,
-                min_context_tokens: modelRuleIntValue(`model-rule-edit-min-context-${ruleId}`),
-                max_context_tokens: modelRuleIntValue(`model-rule-edit-max-context-${ruleId}`),
+                min_context_tokens: modelRuleKTokensValue(`model-rule-edit-min-context-${ruleId}`),
+                max_context_tokens: modelRuleKTokensValue(`model-rule-edit-max-context-${ruleId}`),
                 provider_key_ids: selectedModelRuleKeyIds(`model-rule-edit-provider-keys-${ruleId}`),
                 enabled: document.getElementById(`model-rule-edit-enabled-${ruleId}`)?.checked !== false
             };
@@ -1987,8 +2156,8 @@
             const start = modelRuleTimeValue(rule.start_time);
             const end = modelRuleTimeValue(rule.end_time);
             if (start || end) parts.push(`时间 ${start || '00:00'}-${end || '23:59'}`);
-            if (rule.min_context_tokens !== null && rule.min_context_tokens !== undefined) parts.push(`ctx >= ${rule.min_context_tokens}`);
-            if (rule.max_context_tokens !== null && rule.max_context_tokens !== undefined) parts.push(`ctx <= ${rule.max_context_tokens}`);
+            if (rule.min_context_tokens !== null && rule.min_context_tokens !== undefined) parts.push(`ctx >= ${formatRuleContextK(rule.min_context_tokens)}`);
+            if (rule.max_context_tokens !== null && rule.max_context_tokens !== undefined) parts.push(`ctx <= ${formatRuleContextK(rule.max_context_tokens)}`);
             const startDate = modelRuleDateValue(rule.start_date);
             const endDate = modelRuleDateValue(rule.end_date);
             if (startDate || endDate) parts.push(`日期 ${startDate || '开始'} 至 ${endDate || '结束'}`);
@@ -2053,12 +2222,12 @@
                         <input id="model-rule-edit-end-${rule.id}" type="time" value="${escapeAttr(modelRuleTimeValue(rule.end_time))}" class="w-full border rounded px-2 py-1.5 text-sm">
                     </label>
                     <label class="block">
-                        <span class="block text-[11px] text-gray-500 mb-1">ctx 起</span>
-                        <input id="model-rule-edit-min-context-${rule.id}" type="number" value="${rule.min_context_tokens ?? ''}" class="w-full border rounded px-2 py-1.5 text-sm">
+                        <span class="block text-[11px] text-gray-500 mb-1">上下文下限(k tokens)</span>
+                        <input id="model-rule-edit-min-context-${rule.id}" type="number" value="${formatRuleContextK(rule.min_context_tokens, false)}" class="w-full border rounded px-2 py-1.5 text-sm">
                     </label>
                     <label class="block">
-                        <span class="block text-[11px] text-gray-500 mb-1">ctx 止</span>
-                        <input id="model-rule-edit-max-context-${rule.id}" type="number" value="${rule.max_context_tokens ?? ''}" class="w-full border rounded px-2 py-1.5 text-sm">
+                        <span class="block text-[11px] text-gray-500 mb-1">上下文上限(k tokens)</span>
+                        <input id="model-rule-edit-max-context-${rule.id}" type="number" value="${formatRuleContextK(rule.max_context_tokens, false)}" class="w-full border rounded px-2 py-1.5 text-sm">
                     </label>
                     <label class="block">
                         <span class="block text-[11px] text-gray-500 mb-1">日期起</span>
@@ -2143,21 +2312,18 @@
         }
 
         function renderModelRoutingDrawerRow(route, group) {
-            const providerDisabled = route.provider_is_active === false;
-            const disabled = providerDisabled || Boolean(route.provider_disabled_reason && providerDisabled);
-            const statusText = disabled ? (route.provider_disabled_reason || '供应商停用') : '供应商可用';
             const busynessOptions = [{v:'',l:'不限'},{v:'1',l:'1 过载'},{v:'2',l:'2 拥挤'},{v:'3',l:'3 活跃'},{v:'4',l:'4 流畅'},{v:'5',l:'5 平静'},{v:'6',l:'6 寂静'}];
             return `<tr>
                 <td>
                     <div class="font-medium text-sm">${escapeHtml(route.provider_name)}</div>
                     <div class="text-xs text-gray-400 mt-1">Provider Model #${route.id}</div>
                 </td>
-                <td><span class="status-pill ${disabled ? 'off' : 'ok'}">${escapeHtml(statusText)}</span></td>
+                <td>${renderRouteAvailability(route)}</td>
                 <td>
                     <input value="${escapeAttr(route.upstream_model_name || route.model_name)}" onchange="updateRouteUpstream(${route.provider_id}, ${route.id}, this.value)" class="routing-upstream-input border rounded px-2 py-1.5 text-sm">
                 </td>
                 <td>
-                    <input type="number" min="0" value="${route.priority || 0}" onchange="updateRoutePriority(${route.provider_id}, ${route.id}, this.value)" class="w-20 border rounded px-2 py-1.5 text-sm text-center">
+                    <input type="number" min="0" value="${route.priority || 0}" onchange="updateRoutePriority(${route.provider_id}, ${route.id}, this.value)" class="routing-priority-input border rounded px-2 py-1.5 text-sm text-center">
                 </td>
                 <td>
                     <select onchange="updateRouteBusyness(${route.provider_id}, ${route.id}, this.value)" class="routing-busyness-select border rounded px-2 py-1.5 text-sm">
@@ -2296,9 +2462,6 @@
         }
 
         function renderRoutingTableRow(route, group) {
-            const providerDisabled = route.provider_is_active === false;
-            const disabled = providerDisabled || Boolean(route.provider_disabled_reason && providerDisabled);
-            const statusText = disabled ? (route.provider_disabled_reason || '供应商停用') : '供应商可用';
             const busynessOptions = [{v:'',l:'不限'},{v:'1',l:'1 过载'},{v:'2',l:'2 拥挤'},{v:'3',l:'3 活跃'},{v:'4',l:'4 流畅'},{v:'5',l:'5 平静'},{v:'6',l:'6 寂静'}];
             return `<tr>
                 <td>
@@ -2309,12 +2472,12 @@
                     <div class="font-medium text-sm">${escapeHtml(route.provider_name)}</div>
                     <div class="text-xs text-gray-400 mt-1">Provider Model #${route.id}</div>
                 </td>
-                <td><span class="status-pill ${disabled ? 'off' : 'ok'}">${escapeHtml(statusText)}</span></td>
+                <td>${renderRouteAvailability(route)}</td>
                 <td>
                     <input value="${escapeAttr(route.upstream_model_name || route.model_name)}" onchange="updateRouteUpstream(${route.provider_id}, ${route.id}, this.value)" class="routing-upstream-input border rounded px-2 py-1.5 text-sm">
                 </td>
                 <td>
-                    <input type="number" min="0" value="${route.priority || 0}" onchange="updateRoutePriority(${route.provider_id}, ${route.id}, this.value)" class="w-20 border rounded px-2 py-1.5 text-sm text-center">
+                    <input type="number" min="0" value="${route.priority || 0}" onchange="updateRoutePriority(${route.provider_id}, ${route.id}, this.value)" class="routing-priority-input border rounded px-2 py-1.5 text-sm text-center">
                 </td>
                 <td>
                     <select onchange="updateRouteBusyness(${route.provider_id}, ${route.id}, this.value)" class="routing-busyness-select border rounded px-2 py-1.5 text-sm">

@@ -113,16 +113,10 @@ def check_model_access(
     if not allowed_pm_ids and not allowed_model_ids:
         return True
     if is_forced_provider:
-        return provider_model_id is not None and provider_model_id in allowed_pm_ids
+        return False
     if requested_model_id is not None and requested_model_id in allowed_model_ids:
         return True
-    return (
-        provider_model_id is not None
-        and provider_model_id in allowed_pm_ids
-    ) or (
-        model_id is not None
-        and model_id in allowed_model_ids
-    )
+    return model_id is not None and model_id in allowed_model_ids
 
 
 def build_model_access_denied_message(model: str) -> str:
@@ -214,6 +208,59 @@ def _get_key_label(provider_config: dict, key_id: int | None) -> str | None:
         if k.get("id") == key_id:
             return k.get("label") or None
     return None
+
+
+def _response_error_code(response: Response) -> str | None:
+    body = getattr(response, "body", b"")
+    if not body:
+        return None
+    try:
+        if isinstance(body, str):
+            payload = json.loads(body)
+        else:
+            payload = json.loads(bytes(body).decode("utf-8"))
+    except Exception:
+        return None
+    error = payload.get("error") if isinstance(payload, dict) else None
+    if not isinstance(error, dict):
+        return None
+    code = error.get("code")
+    return str(code) if code not in (None, "") else None
+
+
+def _should_prefer_local_rate_limit_response(response: Response) -> bool:
+    return _response_error_code(response) in {
+        "provider_disabled",
+        "invalid_api_key",
+        "no_available_api_key",
+    }
+
+
+def _best_disabled_key_failure(provider_config: dict, provider_name: str) -> tuple[str | None, int]:
+    disabled_keys = provider_config.get("disabled_keys") or []
+    best_reason = None
+    best_priority = None
+    for key in disabled_keys:
+        reason = key.get("disabled_reason") or key.get("reason")
+        if not reason:
+            continue
+        try:
+            priority = int(key.get("priority") or 0)
+        except (TypeError, ValueError):
+            priority = 0
+        if best_priority is None or priority > best_priority:
+            label = key.get("label") or (
+                f"Key#{key.get('id')}" if key.get("id") else "Key"
+            )
+            best_reason = f"{provider_name} {label}：{reason}"
+            best_priority = priority
+    if best_reason is not None:
+        return best_reason, int(best_priority or 0)
+
+    reasons = provider_config.get("disabled_key_reasons") or []
+    if reasons:
+        return str(reasons[0]), 0
+    return None, -1
 
 
 def _check_busyness_rules(model: str) -> str | None:
@@ -443,6 +490,23 @@ async def proxy_request(request: Request, endpoint: str):
         access_denied_seen = False
         known_model_without_provider_seen = False
         first_no_key_failure = None
+        preferred_local_rate_limit_response = None
+
+        def remember_local_rate_limit_response(message: str, code: str) -> None:
+            nonlocal preferred_local_rate_limit_response
+            if preferred_local_rate_limit_response is not None:
+                return
+            preferred_local_rate_limit_response = _openai_error_response(
+                message,
+                429,
+                "rate_limit_error",
+                code,
+                headers={
+                    **busyness_headers,
+                    "retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS),
+                },
+            )
+
         for route_idx, route_result in enumerate(route_candidates):
             provider_config = route_result.provider_config
             provider_name = route_result.provider_name
@@ -521,18 +585,26 @@ async def proxy_request(request: Request, endpoint: str):
                 }
             if not all_keys:
                 reasons = provider_config.get("disabled_key_reasons") or []
+                best_disabled_reason, best_disabled_priority = _best_disabled_key_failure(
+                    provider_config,
+                    provider_name,
+                )
                 msg = (
                     f"供应商 '{provider_name}' 当前没有可用的 API Key"
                     "（所有 Key 均因健康评分过低或限流被暂时屏蔽，请稍后重试）"
                 )
-                if reasons:
-                    msg = f"'{provider_name}' 暂不可用：{reasons[0]}（请稍后重试）"
-                if first_no_key_failure is None:
+                if best_disabled_reason:
+                    msg = f"'{provider_name}' 暂不可用：{best_disabled_reason}（请稍后重试）"
+                if (
+                    first_no_key_failure is None
+                    or best_disabled_priority > first_no_key_failure.get("disabled_priority", -1)
+                ):
                     first_no_key_failure = {
                         "provider_name": provider_name,
                         "actual_model": actual_model,
                         "message": msg,
                         "reasons": reasons,
+                        "disabled_priority": best_disabled_priority,
                         "route_result": route_result,
                         "key_explanation": key_explanation,
                     }
@@ -665,6 +737,13 @@ async def proxy_request(request: Request, endpoint: str):
                         )
                         acquired = True
                     except asyncio.TimeoutError:
+                        message = (
+                            f"当前模型 '{requested_model}' 的可用供应商 Key 并发已达上限，请稍后重试"
+                        )
+                        remember_local_rate_limit_response(
+                            message,
+                            "provider_key_concurrency_reached",
+                        )
                         if attempt_idx < len(all_keys) - 1:
                             logger.warning("[KEY FALLBACK] Key %s concurrency reached, trying next key", chosen_key_id)
                             continue
@@ -672,9 +751,6 @@ async def proxy_request(request: Request, endpoint: str):
                             logger.warning("[ROUTE FALLBACK] Provider %s key concurrency exhausted, trying next provider", provider_name)
                             route_exhausted = True
                             break
-                        message = (
-                            f"当前模型 '{provider_name}' 的请求并发数已达上限，请稍后重试"
-                        )
                         logger.warning("[RATE LIMIT] %s at max concurrency", provider_key_sem_key)
                         update_stats(
                             provider_name,
@@ -739,6 +815,13 @@ async def proxy_request(request: Request, endpoint: str):
                         if acquired and provider_key_semaphore is not None:
                             provider_key_semaphore.release()
                             acquired = False
+                        message = (
+                            f"当前模型 '{requested_model}' 的用户并发已达上限，请等待当前请求完成后再试"
+                        )
+                        remember_local_rate_limit_response(
+                            message,
+                            "user_provider_model_concurrency_reached",
+                        )
                         if attempt_idx < len(all_keys) - 1:
                             logger.warning("[KEY FALLBACK] Key %s user concurrency reached, trying next key", chosen_key_id)
                             continue
@@ -746,9 +829,6 @@ async def proxy_request(request: Request, endpoint: str):
                             logger.warning("[ROUTE FALLBACK] Provider %s user/provider-model concurrency exhausted, trying next provider", provider_name)
                             route_exhausted = True
                             break
-                        message = (
-                            f"您的并发请求已达上限，请等待当前请求完成后再试"
-                        )
                         logger.warning(
                             "[RATE LIMIT] %s at max concurrency", user_provider_model_sem_key
                         )
@@ -914,12 +994,22 @@ async def proxy_request(request: Request, endpoint: str):
                             )
                             route_exhausted = True
                             break
+                        if (
+                            preferred_local_rate_limit_response is not None
+                            and _should_prefer_local_rate_limit_response(response)
+                        ):
+                            return preferred_local_rate_limit_response
                 return response
 
             if route_exhausted:
                 continue
 
         if last_response is not None:
+            if (
+                preferred_local_rate_limit_response is not None
+                and _should_prefer_local_rate_limit_response(last_response)
+            ):
+                return preferred_local_rate_limit_response
             return last_response
         if access_denied_seen:
             return _openai_error_response(

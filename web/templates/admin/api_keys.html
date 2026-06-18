@@ -141,31 +141,15 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">
                             {{ _('Allowed Models') }} <span class="text-gray-400">(<span id="selected-count">0</span> {{ _('selected') }})</span>
                         </label>
-                        <div class="grid grid-cols-2 gap-2 mb-2 text-sm">
-                            <label class="access-mode-option flex items-center gap-2 rounded border px-3 py-2 cursor-pointer" id="access-mode-model">
-                                <input type="radio" name="access-mode" value="model" onchange="setAccessMode('model')">
-                                {{ _('Model') }}
-                            </label>
-                            <label class="access-mode-option flex items-center gap-2 rounded border px-3 py-2 cursor-pointer" id="access-mode-provider-model">
-                                <input type="radio" name="access-mode" value="provider_model" onchange="setAccessMode('provider_model')">
-                                {{ _('Provider Model') }}
-                            </label>
-                        </div>
-                        <div id="standard-models-panel" class="border rounded max-h-48 overflow-y-auto hidden">
+                        <input type="hidden" id="access-mode-model" value="model">
+                        <div id="standard-models-panel" class="border rounded max-h-48 overflow-y-auto">
                             <div class="sticky top-0 z-10 flex justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700">
                                 <button type="button" onclick="selectAllStandardModels()" class="text-blue-500 hover:text-blue-700">全选</button>
                                 <button type="button" onclick="clearStandardModels()" class="text-gray-500 hover:text-gray-700">清空</button>
                             </div>
                             <div id="standard-models-checkbox-container" class="grid grid-cols-1 sm:grid-cols-2"></div>
                         </div>
-                        <div id="provider-models-panel" class="border rounded max-h-48 overflow-y-auto hidden">
-                            <div class="sticky top-0 z-10 flex justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700">
-                                <button type="button" onclick="selectAllProviderModels()" class="text-blue-500 hover:text-blue-700">全选</button>
-                                <button type="button" onclick="clearProviderModels()" class="text-gray-500 hover:text-gray-700">清空</button>
-                            </div>
-                            <div id="models-checkbox-container" class="divide-y"></div>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">标准模型表示允许该模型下任意供应商；Provider Model 表示只允许具体供应商绑定。需要全量时请在标准模型列表里点全选。</p>
+                        <p class="text-xs text-gray-500 mt-1">标准模型表示允许该模型下任意供应商。需要全量时请点击“全选”。</p>
                         <p id="access-mode-error" class="text-xs text-red-500 mt-1 hidden"></p>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -523,19 +507,15 @@
     }, true);
     </script>
     <script>
-        let selectedModelIds = [];
         let selectedStandardModelIds = [];
         let selectedAccessMode = 'model';
         let currentTags = [];
         const APP_BASE_PATH = {{ app_base_path | tojson }};
-        let providerModels = [];
         let standardModels = [];
         let apiKeysData = [];
         let mcpServers = [];
-        let providerModelsLoadPromise = null;
         let standardModelsLoadPromise = null;
         let mcpServersLoadPromise = null;
-        let providerModelPickerCacheKey = '';
         let standardModelPickerCacheKey = '';
         let mcpServerPickerCacheKey = '';
         let filteredData = [];
@@ -647,12 +627,6 @@
             renderPagination();
         }
         
-        async function loadProviderModels() {
-            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models`);
-            providerModels = data.provider_models || [];
-            providerModelPickerCacheKey = '';
-        }
-
         async function loadStandardModels() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models`);
             standardModels = (data.models || []).filter(m => m.is_active !== false);
@@ -686,11 +660,6 @@
             `).join('');
         }
         
-        function getModelDisplayName(pmId) {
-            const pm = providerModels.find(p => p.id === pmId);
-            return pm ? pm.display_name : `ID:${pmId}`;
-        }
-
         function getStandardModelDisplayName(modelId) {
             const model = standardModels.find(m => m.id === modelId);
             return model ? (model.display_name || model.name) : `ID:${modelId}`;
@@ -758,15 +727,11 @@
                 const standardModelNames = (k.allowed_model_names && k.allowed_model_names.length > 0)
                     ? k.allowed_model_names
                     : (k.allowed_model_ids || []).map(id => getStandardModelDisplayName(id));
-                const providerModelNames = (k.allowed_provider_model_names && k.allowed_provider_model_names.length > 0)
-                    ? k.allowed_provider_model_names
-                    : (k.allowed_provider_model_ids || []).map(id => getModelDisplayName(id));
-                const modelNames = standardModelNames.length > 0 ? standardModelNames : providerModelNames;
-                const accessLabel = standardModelNames.length > 0 ? 'Model' : (providerModelNames.length > 0 ? 'Provider Model' : '');
+                const modelNames = standardModelNames;
                 const modelsDisplay = modelNames.length > 0
                     ? `
                         <div class="mt-3 flex flex-wrap gap-2">
-                            ${accessLabel ? `<span class="model-chip model-chip-neutral">${accessLabel}</span>` : ''}
+                            <span class="model-chip model-chip-neutral">Model</span>
                             ${modelNames.map(name => `
                                 <span class="model-chip" title="${name}">${name}</span>
                             `).join('')}
@@ -965,35 +930,6 @@
             copyText(cmd, window.I18N.copied);
         }
         
-        function renderModelCheckboxes(force = false) {
-            const container = document.getElementById('models-checkbox-container');
-            const cacheKey = `${providerModels.map(pm => pm.id).join(',')}|${[...selectedModelIds].sort((a, b) => a - b).join(',')}`;
-            if (!force && cacheKey === providerModelPickerCacheKey) return;
-            providerModelPickerCacheKey = cacheKey;
-            if (providerModels.length === 0) {
-                container.innerHTML = `<div class="text-gray-400 text-center py-4">${window.I18N.noModels}</div>`;
-                return;
-            }
-            const sorted = [...providerModels].sort((a, b) => (a.provider_name || '').localeCompare(b.provider_name || '') || (a.display_name || '').localeCompare(b.display_name || ''));
-            const groups = {};
-            sorted.forEach(pm => {
-                const key = pm.provider_name || 'Unknown';
-                if (!groups[key]) groups[key] = [];
-                groups[key].push(pm);
-            });
-            container.innerHTML = Object.entries(groups).map(([name, pms]) => `
-                <div class="mb-1">
-                    <div class="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100 dark:bg-gray-700 dark:text-gray-400">${name}</div>
-                    ${pms.map(pm => `
-                        <label class="flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedModelIds.includes(pm.id) ? 'selected' : ''}" data-pm-id="${pm.id}">
-                            <input type="checkbox" class="mr-2" value="${pm.id}" ${selectedModelIds.includes(pm.id) ? 'checked' : ''} onchange="toggleModel(${pm.id})">
-                            <span class="text-sm">${pm.display_name}</span>
-                        </label>
-                    `).join('')}
-                </div>
-            `).join('');
-        }
-
         function renderStandardModelCheckboxes(force = false) {
             const container = document.getElementById('standard-models-checkbox-container');
             if (!container) return;
@@ -1020,38 +956,13 @@
         }
 
         function setAccessMode(mode) {
-            if (!['model', 'provider_model'].includes(mode)) mode = 'model';
-            selectedAccessMode = mode;
+            selectedAccessMode = 'model';
             const accessError = document.getElementById('access-mode-error');
             if (accessError) {
                 accessError.classList.add('hidden');
                 accessError.textContent = '';
             }
-            document.querySelectorAll('input[name="access-mode"]').forEach(input => {
-                input.checked = input.value === mode;
-            });
-            document.querySelectorAll('.access-mode-option').forEach(label => {
-                const input = label.querySelector('input');
-                label.classList.toggle('selected', input && input.value === mode);
-                label.classList.toggle('bg-blue-50', input && input.value === mode);
-                label.classList.toggle('border-blue-300', input && input.value === mode);
-            });
-            document.getElementById('standard-models-panel').classList.toggle('hidden', mode !== 'model');
-            document.getElementById('provider-models-panel').classList.toggle('hidden', mode !== 'provider_model');
             updateSelectedCount();
-        }
-        
-        function toggleModel(id) {
-            const idx = selectedModelIds.indexOf(id);
-            if (idx > -1) {
-                selectedModelIds.splice(idx, 1);
-            } else {
-                selectedModelIds.push(id);
-            }
-            providerModelPickerCacheKey = '';
-            updateSelectedCount();
-            const label = document.querySelector(`label[data-pm-id="${id}"]`);
-            if (label) label.classList.toggle('selected', selectedModelIds.includes(id));
         }
 
         function toggleStandardModel(id) {
@@ -1079,24 +990,8 @@
             updateSelectedCount();
         }
 
-        function selectAllProviderModels() {
-            selectedModelIds = providerModels.map(pm => pm.id);
-            renderModelCheckboxes(true);
-            updateSelectedCount();
-        }
-
-        function clearProviderModels() {
-            selectedModelIds = [];
-            renderModelCheckboxes(true);
-            updateSelectedCount();
-        }
-        
         function updateSelectedCount() {
-            const count = selectedAccessMode === 'model'
-                ? selectedStandardModelIds.length
-                : selectedAccessMode === 'provider_model'
-                    ? selectedModelIds.length
-                    : 0;
+            const count = selectedStandardModelIds.length;
             document.getElementById('selected-count').textContent = count;
         }
 
@@ -1110,11 +1005,8 @@
                 showToast(message, 'error');
                 return false;
             };
-            if (selectedAccessMode === 'model' && selectedStandardModelIds.length === 0) {
+            if (selectedStandardModelIds.length === 0) {
                 return showError('请选择至少一个标准模型；如果要全部模型，请点击标准模型列表里的“全选”。');
-            }
-            if (selectedAccessMode === 'provider_model' && selectedModelIds.length === 0) {
-                return showError('请选择至少一个 Provider Model；如果要全部模型，请切到标准模型并点击“全选”。');
             }
             if (errorEl) {
                 errorEl.classList.add('hidden');
@@ -1124,18 +1016,15 @@
         }
 
         async function ensureApiKeyPickerData() {
-            providerModelsLoadPromise = providerModelsLoadPromise || loadProviderModels();
             standardModelsLoadPromise = standardModelsLoadPromise || loadStandardModels();
             mcpServersLoadPromise = mcpServersLoadPromise || loadMcpServers();
             await Promise.allSettled([
-                providerModelsLoadPromise,
                 standardModelsLoadPromise,
                 mcpServersLoadPromise,
             ]);
         }
 
         function prepareApiKeyPickers(selectedMcpServerIds) {
-            renderModelCheckboxes(true);
             renderStandardModelCheckboxes(true);
             renderMcpServerCheckboxes(selectedMcpServerIds || []);
         }
@@ -1200,7 +1089,6 @@ ${setupMdUrl}`;
             document.getElementById('apikey-name').value = '';
             document.getElementById('apikey-email').value = '';
             document.getElementById('apikey-expires-at').value = getDefaultApiKeyExpiry();
-            selectedModelIds = [];
             selectedStandardModelIds = [];
             setAccessMode('model');
             updateSelectedCount();
@@ -1221,15 +1109,8 @@ ${setupMdUrl}`;
             document.getElementById('apikey-name').value = key.name;
             document.getElementById('apikey-email').value = key.email || '';
             document.getElementById('apikey-expires-at').value = key.expires_at ? toLocalDateTimeInput(key.expires_at) : getDefaultApiKeyExpiry();
-            selectedModelIds = [...(key.allowed_provider_model_ids || [])];
             selectedStandardModelIds = [...(key.allowed_model_ids || [])];
-            if (selectedStandardModelIds.length > 0) {
-                setAccessMode('model');
-            } else if (selectedModelIds.length > 0) {
-                setAccessMode('provider_model');
-            } else {
-                setAccessMode('model');
-            }
+            setAccessMode('model');
             updateSelectedCount();
             prepareApiKeyPickers(key.mcp_server_ids || []);
             document.getElementById('apikey-bypass-busyness').checked = key.bypass_busyness || false;
@@ -1252,9 +1133,8 @@ ${setupMdUrl}`;
                 name: document.getElementById('apikey-name').value,
                 email: document.getElementById('apikey-email').value.trim(),
                 expires_at: localDateTimeToIso(document.getElementById('apikey-expires-at').value),
-                access_mode: selectedAccessMode,
-                allowed_provider_model_ids: selectedAccessMode === 'provider_model' ? selectedModelIds : [],
-                allowed_model_ids: selectedAccessMode === 'model' ? selectedStandardModelIds : [],
+                access_mode: 'model',
+                allowed_model_ids: selectedStandardModelIds,
                 bypass_busyness: document.getElementById('apikey-bypass-busyness').checked,
                 tags: currentTags,
             };

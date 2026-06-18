@@ -631,6 +631,115 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(normal_handler.await_count, 1)
         self.assertEqual(normal_handler.await_args.args[4], "fallback")
 
+    async def test_concurrency_exhaustion_takes_precedence_over_later_provider_quota_error(self):
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [],
+                "query_string": b"",
+                "cookies": {},
+                "root_path": "",
+            }
+        )
+        request._body = b'{"model":"glm-5.1","messages":[]}'
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        routes = [
+            proxy_module.RouteResult(
+                provider_config={
+                    "id": 1,
+                    "base_url": "https://busy-a.example/v1",
+                    "protocol": "openai",
+                    "api_keys": [{"id": 11, "api_key": "sk-busy-a", "max_concurrent": 1}],
+                    "models": [{"id": 91, "model_id": 101, "model_name": "glm-5.1"}],
+                },
+                provider_name="busy-a",
+                provider_id=1,
+                provider_model_id=91,
+                model_id=101,
+                requested_model="glm-5.1",
+                model_name="glm-5.1",
+                upstream_model_name="glm-5.1",
+                is_forced_provider=False,
+            ),
+            proxy_module.RouteResult(
+                provider_config={
+                    "id": 2,
+                    "base_url": "https://busy-b.example/v1",
+                    "protocol": "openai",
+                    "api_keys": [{"id": 12, "api_key": "sk-busy-b", "max_concurrent": 1}],
+                    "models": [{"id": 92, "model_id": 101, "model_name": "glm-5.1"}],
+                },
+                provider_name="busy-b",
+                provider_id=2,
+                provider_model_id=92,
+                model_id=101,
+                requested_model="glm-5.1",
+                model_name="glm-5.1",
+                upstream_model_name="glm-5.1",
+                is_forced_provider=False,
+            ),
+            proxy_module.RouteResult(
+                provider_config={
+                    "id": 3,
+                    "base_url": "https://quota.example/v1",
+                    "protocol": "openai",
+                    "api_keys": [{"id": 13, "api_key": "sk-quota", "max_concurrent": 1}],
+                    "models": [{"id": 93, "model_id": 101, "model_name": "glm-5.1"}],
+                },
+                provider_name="quota",
+                provider_id=3,
+                provider_model_id=93,
+                model_id=101,
+                requested_model="glm-5.1",
+                model_name="glm-5.1",
+                upstream_model_name="glm-5.1",
+                is_forced_provider=False,
+            ),
+        ]
+        wait_results = [asyncio.TimeoutError(), asyncio.TimeoutError(), True, True]
+
+        async def fake_wait_for(awaitable, timeout):
+            awaitable.close()
+            result = wait_results.pop(0)
+            if isinstance(result, BaseException):
+                raise result
+            return result
+
+        async def fake_handle_normal(*args, **_kwargs):
+            provider_key_semaphore = args[13]
+            user_provider_model_semaphore = args[14]
+            if user_provider_model_semaphore is not None:
+                user_provider_model_semaphore.release()
+            if provider_key_semaphore is not None:
+                provider_key_semaphore.release()
+            return response_handler._openai_error_response(
+                "供应商 'quota' 因额度限制已暂停使用，请尝试其他供应商",
+                429,
+                "rate_limit_error",
+                "provider_disabled",
+            )
+
+        with (
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch(
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=routes),
+            ),
+            patch("app.services.proxy.asyncio.wait_for", new=fake_wait_for),
+            patch("app.services.proxy.handle_normal", new=AsyncMock(side_effect=fake_handle_normal)),
+            patch("app.services.proxy.create_request_log", new=AsyncMock()),
+            patch("app.services.proxy.update_stats", new=Mock()),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        body = response.body.decode("utf-8")
+        self.assertEqual(response.status_code, 429)
+        self.assertIn("provider_key_concurrency_reached", body)
+        self.assertNotIn("provider_disabled", body)
+
     async def test_forced_provider_does_not_fallback_to_next_provider_when_concurrency_full(self):
         request = Request(
             {
@@ -811,6 +920,85 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("金投 Key 已被禁用", body)
         self.assertNotIn("model_not_found", body)
         self.assertNotIn("未找到模型", body)
+
+    async def test_all_disabled_provider_keys_reports_highest_priority_key_reason(self):
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [],
+                "query_string": b"",
+                "cookies": {},
+                "root_path": "",
+            }
+        )
+        request._body = b'{"model":"GLM-5.2","messages":[]}'
+        routes = [
+            provider_service.RouteResult(
+                provider_config={
+                    "base_url": "https://zhipu.example",
+                    "api_keys": [],
+                    "models": [{"model_name": "GLM-5.2"}],
+                    "disabled_key_reasons": ["低优先级 Key 欠费"],
+                    "disabled_keys": [
+                        {
+                            "id": 21,
+                            "label": "low",
+                            "priority": 10,
+                            "disabled_reason": "低优先级 Key 欠费",
+                        }
+                    ],
+                },
+                provider_name="zhipu",
+                provider_id=1,
+                provider_model_id=11,
+                model_id=101,
+                model_name="GLM-5.2",
+                upstream_model_name="GLM-5.2",
+                requested_model="GLM-5.2",
+            ),
+            provider_service.RouteResult(
+                provider_config={
+                    "base_url": "https://jintou.example",
+                    "api_keys": [],
+                    "models": [{"model_name": "GLM-5.2"}],
+                    "disabled_key_reasons": ["高优先级 Key 已禁用：余额不足"],
+                    "disabled_keys": [
+                        {
+                            "id": 24,
+                            "label": "high",
+                            "priority": 99,
+                            "disabled_reason": "高优先级 Key 已禁用：余额不足",
+                        }
+                    ],
+                },
+                provider_name="jintou",
+                provider_id=2,
+                provider_model_id=12,
+                model_id=101,
+                model_name="GLM-5.2",
+                upstream_model_name="GLM-5.2",
+                requested_model="GLM-5.2",
+            ),
+        ]
+
+        with (
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch(
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=routes),
+            ),
+            patch("app.services.proxy.create_request_log", new=AsyncMock()),
+            patch("app.services.proxy.update_stats", new=Mock()),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        body = response.body.decode("utf-8")
+        self.assertEqual(response.status_code, 429)
+        self.assertIn("高优先级 Key 已禁用：余额不足", body)
+        self.assertNotIn("低优先级 Key 欠费", body)
 
     async def test_known_model_without_active_provider_does_not_return_model_not_found(self):
         request = Request(

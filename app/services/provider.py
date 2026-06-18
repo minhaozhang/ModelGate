@@ -83,7 +83,7 @@ def _serialize_provider_model_rule(rule: ProviderModelRoutingRule) -> dict:
     }
 
 
-async def _load_provider_keys(session, provider_id: int) -> tuple[list[dict], list[str]]:
+async def _load_provider_keys(session, provider_id: int) -> tuple[list[dict], list[str], list[dict]]:
     active_result = await session.execute(
         select(ProviderKey).where(
             ProviderKey.provider_id == provider_id,
@@ -103,15 +103,27 @@ async def _load_provider_keys(session, provider_id: int) -> tuple[list[dict], li
         for pk in active_key_rows
     ]
     disabled_result = await session.execute(
-        select(ProviderKey.disabled_reason).where(
+        select(ProviderKey).where(
             ProviderKey.provider_id == provider_id,
             ProviderKey.is_active == False,  # noqa: E712
             ProviderKey.disabled_reason.isnot(None),
             ProviderKey.disabled_reason != "",
         )
     )
-    reasons = [r for (r,) in disabled_result.all() if r]
-    return active_keys, reasons
+    disabled_key_rows = disabled_result.scalars().all()
+    disabled_keys = [
+        {
+            "id": pk.id,
+            "label": pk.label or "",
+            "priority": pk.priority if hasattr(pk, "priority") else 0,
+            "disabled_reason": pk.disabled_reason or "",
+        }
+        for pk in disabled_key_rows
+        if pk.disabled_reason
+    ]
+    disabled_keys.sort(key=lambda item: int(item.get("priority") or 0), reverse=True)
+    reasons = [item["disabled_reason"] for item in disabled_keys]
+    return active_keys, reasons, disabled_keys
 
 
 def pick_api_key(
@@ -377,7 +389,7 @@ async def load_providers():
                         (p.name, provider_models_data[-1], model_tags or "", pm_priority or 0)
                     )
 
-            active_keys, disabled_reasons = await _load_provider_keys(session, p.id)
+            active_keys, disabled_reasons, disabled_keys = await _load_provider_keys(session, p.id)
             providers_cache[p.name] = {
                 "id": p.id,
                 "base_url": p.base_url,
@@ -388,6 +400,7 @@ async def load_providers():
                 "disabled_reason": p.disabled_reason,
                 "api_keys": active_keys,
                 "disabled_key_reasons": disabled_reasons,
+                "disabled_keys": disabled_keys,
             }
 
         config.providers_cache_time = datetime.now()

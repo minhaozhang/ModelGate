@@ -25,7 +25,6 @@ class AdminUiStaticTests(unittest.TestCase):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
 
         self.assertIn("loadApiKeys().catch", html)
-        self.assertIn("providerModelsLoadPromise = providerModelsLoadPromise || loadProviderModels()", html)
         self.assertIn("standardModelsLoadPromise = standardModelsLoadPromise || loadStandardModels()", html)
         self.assertIn("mcpServersLoadPromise = mcpServersLoadPromise || loadMcpServers()", html)
         self.assertIn("loadApiKeys().catch(renderApiKeyLoadError)", html)
@@ -35,12 +34,10 @@ class AdminUiStaticTests(unittest.TestCase):
 
     def test_api_key_page_defers_large_picker_rendering_until_modal_opens(self):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
-        provider_loader = html[html.index("async function loadProviderModels()"):html.index("async function loadStandardModels()")]
         standard_loader = html[html.index("async function loadStandardModels()"):html.index("function isAutoModel")]
         add_modal = html[html.index("function showAddApiKey()"):html.index("function editApiKey")]
         edit_modal = html[html.index("function editApiKey(id)"):html.index("function closeApiKeyModal")]
 
-        self.assertNotIn("renderModelCheckboxes()", provider_loader)
         self.assertNotIn("renderStandardModelCheckboxes()", standard_loader)
         self.assertIn("prepareApiKeyPickers", html)
         self.assertIn("prepareApiKeyPickers", add_modal)
@@ -51,7 +48,6 @@ class AdminUiStaticTests(unittest.TestCase):
         list_body = source[source.index("async def list_api_keys"):source.index("@router.post(\"/keys\")")]
 
         self.assertIn("key_ids = [k.id for k in keys]", list_body)
-        self.assertIn("ApiKeyModel.api_key_id.in_(key_ids)", list_body)
         self.assertIn("ApiKeyModelAccess.api_key_id.in_(key_ids)", list_body)
         self.assertIn("ApiKeyTimeRule.api_key_id.in_(key_ids)", list_body)
         self.assertIn("ApiKeyMcpServer.api_key_id.in_(key_ids)", list_body)
@@ -63,8 +59,8 @@ class AdminUiStaticTests(unittest.TestCase):
         render_body = html[html.index("function renderApiKeys()"):html.index("function renderPagination()")]
 
         self.assertIn("allowed_model_names", render_body)
-        self.assertIn("allowed_provider_model_names", render_body)
-        self.assertIn('"allowed_provider_model_names"', route)
+        self.assertNotIn("allowed_provider_model_names", render_body)
+        self.assertNotIn('"allowed_provider_model_names"', route)
         self.assertIn('"allowed_model_names"', route)
 
     def test_change_password_uses_defined_sqlalchemy_update(self):
@@ -142,11 +138,13 @@ class AdminUiStaticTests(unittest.TestCase):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
         route = (ROOT / "app" / "routes" / "keys.py").read_text(encoding="utf-8")
 
-        self.assertIn("access_mode: selectedAccessMode", html)
+        self.assertIn("access_mode: 'model'", html)
         self.assertIn("validateApiKeyAccessSelection()", html)
         self.assertNotIn('id="access-mode-all"', html)
         self.assertIn("selectAllStandardModels", html)
-        self.assertIn("selectAllProviderModels", html)
+        self.assertNotIn("selectAllProviderModels", html)
+        self.assertNotIn("access-mode-provider-model", html)
+        self.assertNotIn("provider-models-panel", html)
         self.assertIn("access_mode: Optional[str] = None", route)
         self.assertIn("_validate_access_payload", route)
 
@@ -157,23 +155,20 @@ class AdminUiStaticTests(unittest.TestCase):
         edit_body = html[edit_start:edit_end]
 
         self.assertNotIn("selectedStandardModelIds = standardModels.map(model => model.id)", edit_body)
-        self.assertIn("selectedModelIds = [...(key.allowed_provider_model_ids || [])]", edit_body)
+        self.assertNotIn("selectedModelIds", edit_body)
         self.assertIn("selectedStandardModelIds = [...(key.allowed_model_ids || [])]", edit_body)
 
     def test_api_key_model_picker_invalidates_cache_after_selection_changes(self):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
 
         standard_toggle = html[html.index("function toggleStandardModel"):html.index("function selectAllStandardModels")]
-        provider_toggle = html[html.index("function toggleModel"):html.index("function toggleStandardModel")]
         bulk_controls = html[html.index("function selectAllStandardModels"):html.index("function updateSelectedCount")]
         prepare = html[html.index("function prepareApiKeyPickers"):html.index("function copyKey")]
 
         self.assertIn("standardModelPickerCacheKey = ''", standard_toggle)
-        self.assertIn("providerModelPickerCacheKey = ''", provider_toggle)
         self.assertIn("renderStandardModelCheckboxes(true)", bulk_controls)
-        self.assertIn("renderModelCheckboxes(true)", bulk_controls)
         self.assertIn("renderStandardModelCheckboxes(true)", prepare)
-        self.assertIn("renderModelCheckboxes(true)", prepare)
+        self.assertNotIn("renderModelCheckboxes", prepare)
 
     def test_user_opencode_tab_shows_target_path_and_macos_hidden_folder_shortcuts(self):
         html = (ROOT / "web" / "templates" / "user" / "tab_opencode.html").read_text(encoding="utf-8")
@@ -185,6 +180,17 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("Shift", html)
         self.assertIn("Cmd + Shift + .", html)
         self.assertIn("Cmd + Shift + G", html)
+
+    def test_user_cost_card_downloads_billing_details_for_current_period(self):
+        tab = (ROOT / "web" / "templates" / "user" / "tab_stats.html").read_text(encoding="utf-8")
+        dashboard = (ROOT / "web" / "templates" / "user" / "dashboard.html").read_text(encoding="utf-8")
+        route = (ROOT / "app" / "routes" / "user.py").read_text(encoding="utf-8")
+
+        self.assertIn("downloadBillingDetails()", tab)
+        self.assertIn("function downloadBillingDetails", dashboard)
+        self.assertIn("/user/api/billing-details.csv?period=", dashboard)
+        self.assertIn("modelgate_billing_", route)
+        self.assertIn("def _build_billing_detail_rows", route)
 
     def test_auto_model_picker_uses_compact_modal_not_tall_multiselect(self):
         html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
@@ -290,6 +296,11 @@ class AdminUiStaticTests(unittest.TestCase):
 
         self.assertIn("routing-table", html)
         self.assertIn("routing-rule-editor", html)
+        self.assertIn(".routing-upstream-input { width: 100%; min-width: 12rem; }", html)
+        self.assertIn(".routing-priority-input { width: 4rem; max-width: 100%; }", html)
+        self.assertIn(".routing-busyness-select { width: 5.25rem; max-width: 100%; }", html)
+        self.assertIn("class=\"routing-priority-input border rounded px-2 py-1.5 text-sm text-center\"", html)
+        self.assertNotIn("class=\"w-20 border rounded px-2 py-1.5 text-sm text-center\"", html)
         self.assertNotIn("xl:grid-cols-[1.2fr_150px_1fr_120px_90px_110px_110px_110px_110px_120px_auto]", html)
         self.assertNotIn("xl:grid-cols-[1fr_120px_90px_95px_95px_95px_95px_95px_95px_100px_auto]", html)
 
@@ -353,6 +364,44 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("function modelRuleConditionSummary", html)
         self.assertIn("function modelRuleKeyScopeSummary", html)
         self.assertIn("编辑策略", html)
+
+    def test_model_routing_rule_context_fields_are_entered_in_k_tokens(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+
+        self.assertIn("上下文下限(k tokens)", html)
+        self.assertIn("上下文上限(k tokens)", html)
+        self.assertIn("function modelRuleKTokensValue", html)
+        self.assertIn("function formatRuleContextK", html)
+        self.assertIn("min_context_tokens: modelRuleKTokensValue('model-rule-min-context')", html)
+        self.assertIn("max_context_tokens: modelRuleKTokensValue('model-rule-max-context')", html)
+        self.assertIn("value=\"${formatRuleContextK(rule.min_context_tokens, false)}\"", html)
+        self.assertIn("value=\"${formatRuleContextK(rule.max_context_tokens, false)}\"", html)
+        self.assertIn("ctx <= ${formatRuleContextK(rule.max_context_tokens)}", html)
+
+    def test_config_availability_status_uses_compact_label_with_tooltip(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+
+        self.assertIn("function renderAvailabilityPill", html)
+        self.assertIn("title=\"${escapeAttr(title || label)}\"", html)
+        self.assertIn("renderRouteAvailability(route)", html)
+        self.assertNotIn("const statusText = disabled ? (route.provider_disabled_reason || '供应商停用') : '供应商可用';", html)
+        self.assertNotIn("${escapeHtml(statusText)}</span>", html)
+
+    def test_model_billing_has_separate_config_tab(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        route = (ROOT / "app" / "routes" / "provider_models.py").read_text(encoding="utf-8")
+        database = (ROOT / "app" / "core" / "database.py").read_text(encoding="utf-8")
+
+        self.assertIn('data-config-tab="billing"', html)
+        self.assertIn('id="config-tab-billing"', html)
+        self.assertIn("loadModelPricing", html)
+        self.assertIn("saveModelPricing", html)
+        self.assertIn("input_price_cny_per_million", html)
+        self.assertIn("default_cache_hit_ratio", html)
+        self.assertIn("/provider-models/{pm_id}/pricing", route)
+        self.assertIn("class ProviderModelPricingUpdate", route)
+        self.assertIn("input_price_cny_per_million = Column", database)
+        self.assertIn("pricing_tiers = Column(JSONB", database)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,6 @@
 import secrets
+import csv
+import io
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Optional
@@ -174,6 +176,78 @@ def get_token_count(tokens_payload) -> int:
         or (tokens_payload or {}).get("estimated")
         or 0
     )
+
+
+def _billing_number(value) -> float:
+    try:
+        if value is None or value == "":
+            return 0.0
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _billing_int(value) -> int:
+    return int(round(_billing_number(value)))
+
+
+def _build_billing_detail_rows(logs) -> list[dict]:
+    buckets: dict[tuple[str, str], dict[str, dict[str, float]]] = {}
+    for log in logs:
+        tokens = log.tokens if isinstance(getattr(log, "tokens", None), dict) else {}
+        billing = tokens.get("billing") if isinstance(tokens.get("billing"), dict) else {}
+        if not billing:
+            continue
+        provider = (
+            billing.get("provider_name")
+            or _get_provider_name_by_id(getattr(log, "provider_id", None))
+            or "-"
+        )
+        model = billing.get("model_name") or getattr(log, "model", None) or "-"
+        bucket = buckets.setdefault(
+            (provider, model),
+            {
+                "输入": {"tokens": 0, "cost_cny": 0.0},
+                "输出": {"tokens": 0, "cost_cny": 0.0},
+                "缓存输入": {"tokens": 0, "cost_cny": 0.0},
+            },
+        )
+        bucket["输入"]["tokens"] += _billing_int(billing.get("uncached_input_tokens"))
+        bucket["输入"]["cost_cny"] += _billing_number(billing.get("input_cost_cny"))
+        bucket["输出"]["tokens"] += _billing_int(billing.get("completion_tokens"))
+        bucket["输出"]["cost_cny"] += _billing_number(billing.get("output_cost_cny"))
+        bucket["缓存输入"]["tokens"] += _billing_int(billing.get("cached_input_tokens"))
+        bucket["缓存输入"]["cost_cny"] += _billing_number(
+            billing.get("cached_input_cost_cny")
+        )
+
+    rows = []
+    for (provider, model), type_map in sorted(buckets.items()):
+        for token_type in ("输入", "输出", "缓存输入"):
+            item = type_map[token_type]
+            rows.append(
+                {
+                    "provider": provider,
+                    "model": model,
+                    "token_type": token_type,
+                    "tokens": int(item["tokens"]),
+                    "cost_cny": round(item["cost_cny"], 10),
+                }
+            )
+    return rows
+
+
+def _billing_rows_to_csv(rows: list[dict]) -> str:
+    output = io.StringIO()
+    writer = csv.DictWriter(
+        output,
+        fieldnames=["provider", "model", "token_type", "tokens", "cost_cny"],
+        lineterminator="\n",
+    )
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(row)
+    return output.getvalue()
 
 
 def get_cache_bucket(now: datetime) -> str:
@@ -750,22 +824,12 @@ async def get_user_stats(
             for row in disabled_providers_result.fetchall()
         }
 
-        model_names = list(model_stats.keys())
-        price_map = {}
-        if model_names:
-            price_result = await session.execute(
-                select(Model.name, Model.estimated_price).where(
-                    Model.name.in_(model_names),
-                    Model.estimated_price.isnot(None),
-                )
+        cost_result = await session.execute(
+            select(func.sum(RequestLog.tokens["billing"]["total_cost_cny"].as_float())).where(
+                RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
             )
-            price_map = {row.name: row.estimated_price for row in price_result.fetchall()}
-
-        estimated_cost = 0.0
-        for name, stats in model_stats.items():
-            price = price_map.get(name)
-            if price and stats.get("tokens"):
-                estimated_cost += (stats["tokens"] / 1_000_000) * price
+        )
+        estimated_cost = cost_result.scalar() or 0.0
 
         prompt_tokens_result = await session.execute(
             select(func.sum(RequestLog.tokens["prompt_tokens"].as_integer())).where(
@@ -797,6 +861,36 @@ async def get_user_stats(
         }
         set_cached_payload(USER_STATS_CACHE, cache_key, payload, now)
         return payload
+
+
+@router.get("/user/api/billing-details.csv")
+async def download_user_billing_details(
+    request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+    now = get_local_now()
+    start, _, _ = get_user_period_range(now, period)
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(RequestLog).where(
+                RequestLog.api_key_id == api_key_id,
+                RequestLog.created_at >= start,
+                RequestLog.status != "pending",
+            )
+        )
+        logs = result.scalars().all()
+
+    rows = _build_billing_detail_rows(logs)
+    csv_text = _billing_rows_to_csv(rows)
+    safe_period = period if period in {"day", "week", "month"} else "month"
+    filename = f"modelgate_billing_{safe_period}_{now.strftime('%Y%m%d_%H%M%S')}.csv"
+    return Response(
+        content="\ufeff" + csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/user/api/notifications")

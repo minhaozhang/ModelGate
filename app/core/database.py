@@ -212,6 +212,11 @@ class ProviderModel(Base):
     max_busyness_level = Column(Integer, nullable=True)
     alias = Column(String(100), nullable=True)
     priority = Column(Integer, default=0)
+    input_price_cny_per_million = Column(Float, nullable=True)
+    output_price_cny_per_million = Column(Float, nullable=True)
+    cached_input_price_cny_per_million = Column(Float, nullable=True)
+    default_cache_hit_ratio = Column(Float, nullable=True, server_default="0")
+    pricing_tiers = Column(JSONB, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
@@ -1516,6 +1521,16 @@ async def init_db():
                 "ALTER TABLE provider_models DROP COLUMN IF EXISTS max_concurrent"
             )
         )
+        for column_sql in (
+            "input_price_cny_per_million FLOAT",
+            "output_price_cny_per_million FLOAT",
+            "cached_input_price_cny_per_million FLOAT",
+            "default_cache_hit_ratio FLOAT DEFAULT 0",
+            "pricing_tiers JSONB",
+        ):
+            await conn.execute(
+                text(f"ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS {column_sql}")
+            )
         await conn.execute(
             text(
                 "INSERT INTO provider_keys (provider_id, api_key, label, is_active) "
@@ -1591,6 +1606,16 @@ async def init_db():
         await conn.execute(
             text("ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0")
         )
+        for column_sql in (
+            "input_price_cny_per_million FLOAT",
+            "output_price_cny_per_million FLOAT",
+            "cached_input_price_cny_per_million FLOAT",
+            "default_cache_hit_ratio FLOAT DEFAULT 0",
+            "pricing_tiers JSONB",
+        ):
+            await conn.execute(
+                text(f"ALTER TABLE provider_models ADD COLUMN IF NOT EXISTS {column_sql}")
+            )
         await conn.execute(
             text(
                 "CREATE TABLE IF NOT EXISTS api_key_model_access ("

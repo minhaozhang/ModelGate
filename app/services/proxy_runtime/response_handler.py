@@ -7,6 +7,7 @@ from app.core.config import error_logger, logger, record_request_rate, update_st
 from app.core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
 from app.services.logging import create_request_log, update_request_log, update_request_content
 from app.services.minimax import process_minimax_response
+from app.services.pricing import enrich_tokens_with_billing
 from app.services.tokens import (
     build_response_meta,
     build_tokens_record,
@@ -177,6 +178,12 @@ async def _record_stream_result(
         response_text=total_content,
         reasoning_text=total_reasoning,
         response_meta=response_meta,
+    )
+    tokens_record = await enrich_tokens_with_billing(
+        tokens_record,
+        provider_name=provider,
+        model=model,
+        request_context_tokens=request_context_tokens,
     )
     total_tokens = tokens_record["total_tokens"]
     log_response_meta(provider, model, response_meta)

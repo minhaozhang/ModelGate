@@ -33,6 +33,14 @@ class ProviderModelUpdate(BaseModel):
     clear_busyness_level: Optional[bool] = None
 
 
+class ProviderModelPricingUpdate(BaseModel):
+    input_price_cny_per_million: Optional[float] = None
+    output_price_cny_per_million: Optional[float] = None
+    cached_input_price_cny_per_million: Optional[float] = None
+    default_cache_hit_ratio: Optional[float] = None
+    pricing_tiers: Optional[list[dict]] = None
+
+
 @router.get("/providers/{provider_id}/models")
 async def list_provider_models(
     provider_id: int,
@@ -64,6 +72,11 @@ async def list_provider_models(
                         "max_busyness_level": pm.max_busyness_level,
                         "alias": pm.alias if hasattr(pm, "alias") else None,
                         "priority": pm.priority if hasattr(pm, "priority") else 0,
+                        "input_price_cny_per_million": pm.input_price_cny_per_million,
+                        "output_price_cny_per_million": pm.output_price_cny_per_million,
+                        "cached_input_price_cny_per_million": pm.cached_input_price_cny_per_million,
+                        "default_cache_hit_ratio": pm.default_cache_hit_ratio or 0,
+                        "pricing_tiers": pm.pricing_tiers or [],
                         "tags": model.tags,
                     }
                 )
@@ -89,6 +102,30 @@ async def add_provider_model(
         session.add(pm)
         await session.commit()
         await load_providers()
+        return {"id": pm.id}
+
+
+@router.put("/provider-models/{pm_id}/pricing")
+async def update_provider_model_pricing(
+    pm_id: int,
+    data: ProviderModelPricingUpdate,
+    _: bool = Depends(permission_required("provider_model.update")),
+):
+    async with async_session_maker() as session:
+        result = await session.execute(select(ProviderModel).where(ProviderModel.id == pm_id))
+        pm = result.scalar_one_or_none()
+        if not pm:
+            return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
+        for field in (
+            "input_price_cny_per_million",
+            "output_price_cny_per_million",
+            "cached_input_price_cny_per_million",
+            "default_cache_hit_ratio",
+            "pricing_tiers",
+        ):
+            if field in data.model_fields_set:
+                setattr(pm, field, getattr(data, field))
+        await session.commit()
         return {"id": pm.id}
 
 
@@ -373,6 +410,11 @@ async def list_all_provider_models(_: bool = Depends(permission_required("page.p
                         "provider_keys": provider_keys,
                         "routing_rules": routing_rules,
                         "routing_rule_count": len(routing_rules),
+                        "input_price_cny_per_million": pm.input_price_cny_per_million,
+                        "output_price_cny_per_million": pm.output_price_cny_per_million,
+                        "cached_input_price_cny_per_million": pm.cached_input_price_cny_per_million,
+                        "default_cache_hit_ratio": pm.default_cache_hit_ratio or 0,
+                        "pricing_tiers": pm.pricing_tiers or [],
                     }
                 )
         return {"provider_models": models_data}

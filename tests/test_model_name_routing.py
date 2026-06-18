@@ -573,7 +573,7 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
                 model_id=101,
             )
         )
-        self.assertTrue(
+        self.assertFalse(
             check_model_access(
                 config.api_keys_cache["mg_test"],
                 provider_model_id=22,
@@ -759,7 +759,7 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
                 is_forced_provider=True,
             )
         )
-        self.assertTrue(
+        self.assertFalse(
             check_model_access(
                 {
                     "allowed_provider_model_ids": [99],
@@ -1003,7 +1003,8 @@ class ModelNameRoutingTemplateTests(unittest.TestCase):
 
         self.assertIn("allowed_model_ids", html)
         self.assertIn("access-mode-model", html)
-        self.assertIn("access-mode-provider-model", html)
+        self.assertNotIn("access-mode-provider-model", html)
+        self.assertNotIn("allowed_provider_model_ids", html)
 
     def test_provider_config_template_exposes_upstream_model_name(self):
         html = render(make_request("/admin/config"), "admin/config.html")

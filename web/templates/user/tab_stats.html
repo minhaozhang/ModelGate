@@ -19,8 +19,14 @@
                     <div id="personal-errors" class="text-2xl font-bold text-red-600">0</div>
                 </div>
                 <div class="rounded-lg bg-white/70 p-3">
-                    <div class="text-gray-500 text-sm">{{ _('Est. Cost') }}</div>
-                    <div id="personal-cost" class="text-2xl font-bold text-amber-600">$0</div>
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="text-gray-500 text-sm">{{ _('Est. Cost') }}</div>
+                        <button onclick="downloadBillingDetails()" class="inline-flex items-center gap-1 rounded border border-amber-200 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50" title="下载费用明细">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                            下载
+                        </button>
+                    </div>
+                    <div id="personal-cost" class="text-2xl font-bold text-amber-600">¥0</div>
                     <div id="personal-cost-note" class="text-[10px] text-gray-400 mt-0.5"></div>
                 </div>
             </div>

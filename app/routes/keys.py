@@ -18,8 +18,6 @@ from app.core.database import (
     RequestLogRead as RequestLog,
     generate_api_key,
     Model,
-    ProviderModel,
-    Provider,
 )
 from app.services.auth import load_api_keys
 from app.routes.user import get_user_session
@@ -33,7 +31,6 @@ class ApiKeyCreate(BaseModel):
     email: Optional[str] = None
     expires_at: Optional[datetime] = None
     access_mode: Optional[str] = None
-    allowed_provider_model_ids: list[int] = Field(default_factory=list)
     allowed_model_ids: list[int] = Field(default_factory=list)
     mcp_server_ids: list[int] = Field(default_factory=list)
     bypass_busyness: bool = False
@@ -45,7 +42,6 @@ class ApiKeyUpdate(BaseModel):
     email: Optional[str] = None
     expires_at: Optional[datetime] = None
     access_mode: Optional[str] = None
-    allowed_provider_model_ids: Optional[list[int]] = None
     allowed_model_ids: Optional[list[int]] = None
     is_active: Optional[bool] = None
     mcp_server_ids: Optional[list[int]] = None
@@ -55,35 +51,26 @@ class ApiKeyUpdate(BaseModel):
 
 def _validate_access_payload(
     access_mode: str | None,
-    allowed_provider_model_ids: list[int] | None,
     allowed_model_ids: list[int] | None,
     *,
     required: bool,
 ) -> JSONResponse | None:
-    provider_model_ids = allowed_provider_model_ids or []
     model_ids = allowed_model_ids or []
     if access_mode is None:
-        if not required and allowed_provider_model_ids is None and allowed_model_ids is None:
+        if not required and allowed_model_ids is None:
             return None
-        if model_ids and not provider_model_ids:
+        if model_ids:
             access_mode = "model"
-        elif provider_model_ids and not model_ids:
-            access_mode = "provider_model"
         else:
             return JSONResponse(
                 {"error": "请选择全部模型，或至少选择一个允许的模型。"},
                 status_code=400,
             )
-    if access_mode not in {"model", "provider_model"}:
+    if access_mode != "model":
         return JSONResponse({"error": "Invalid access mode"}, status_code=400)
-    if access_mode == "model" and not model_ids:
+    if not model_ids:
         return JSONResponse(
             {"error": "标准模型模式下请至少选择一个模型。"},
-            status_code=400,
-        )
-    if access_mode == "provider_model" and not provider_model_ids:
-        return JSONResponse(
-            {"error": "Provider Model 模式下请至少选择一个绑定。"},
             status_code=400,
         )
     return None
@@ -98,41 +85,11 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
         if not key_ids:
             return {"api_keys": []}
 
-        provider_model_map: dict[int, list[int]] = defaultdict(list)
         model_access_map: dict[int, list[int]] = defaultdict(list)
         time_rules_map: dict[int, list[ApiKeyTimeRule]] = defaultdict(list)
         mcp_server_map: dict[int, list[int]] = defaultdict(list)
         tags_map: dict[int, list[str]] = defaultdict(list)
-        provider_model_name_map: dict[int, str] = {}
         model_name_map: dict[int, str] = {}
-
-        models_result = await session.execute(
-            select(ApiKeyModel.api_key_id, ApiKeyModel.provider_model_id).where(
-                ApiKeyModel.api_key_id.in_(key_ids)
-            )
-        )
-        for api_key_id, provider_model_id in models_result.fetchall():
-            provider_model_map[api_key_id].append(provider_model_id)
-
-        provider_model_ids = sorted(
-            {pm_id for pm_ids in provider_model_map.values() for pm_id in pm_ids}
-        )
-        if provider_model_ids:
-            provider_model_names_result = await session.execute(
-                select(
-                    ProviderModel.id,
-                    Provider.name,
-                    Model.display_name,
-                    Model.name,
-                )
-                .join(Provider, ProviderModel.provider_id == Provider.id)
-                .join(Model, ProviderModel.model_id == Model.id)
-                .where(ProviderModel.id.in_(provider_model_ids))
-            )
-            provider_model_name_map = {
-                row[0]: f"{row[1]} - {row[2] or row[3]}"
-                for row in provider_model_names_result.fetchall()
-            }
 
         model_access_result = await session.execute(
             select(ApiKeyModelAccess.api_key_id, ApiKeyModelAccess.model_id).where(
@@ -209,12 +166,7 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
                     "expires_at": k.expires_at.isoformat()
                     if k.expires_at
                     else None,
-                    "allowed_provider_model_ids": provider_model_map[k.id],
                     "allowed_model_ids": model_access_map[k.id],
-                    "allowed_provider_model_names": [
-                        provider_model_name_map.get(pm_id, f"ID:{pm_id}")
-                        for pm_id in provider_model_map[k.id]
-                    ],
                     "allowed_model_names": [
                         model_name_map.get(model_id, f"ID:{model_id}")
                         for model_id in model_access_map[k.id]
@@ -236,7 +188,6 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
 async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_required("api_key.create"))):
     access_error = _validate_access_payload(
         data.access_mode,
-        data.allowed_provider_model_ids,
         data.allowed_model_ids,
         required=True,
     )
@@ -256,9 +207,6 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_requir
         await session.commit()
         await session.refresh(new_key)
 
-        for pm_id in data.allowed_provider_model_ids:
-            assoc = ApiKeyModel(api_key_id=new_key.id, provider_model_id=pm_id)
-            session.add(assoc)
         for model_id in data.allowed_model_ids:
             assoc = ApiKeyModelAccess(api_key_id=new_key.id, model_id=model_id)
             session.add(assoc)
@@ -279,7 +227,6 @@ async def update_api_key(
 ):
     access_error = _validate_access_payload(
         data.access_mode,
-        data.allowed_provider_model_ids,
         data.allowed_model_ids,
         required=False,
     )
@@ -307,36 +254,10 @@ async def update_api_key(
             for sid in data.mcp_server_ids:
                 assoc = ApiKeyMcpServer(api_key_id=key_id, mcp_server_id=sid)
                 session.add(assoc)
-        if data.allowed_provider_model_ids is not None:
-            old_result = await session.execute(
-                select(ApiKeyModel.provider_model_id).where(
-                    ApiKeyModel.api_key_id == key_id
-                )
-            )
-            old_pm_ids = set(row[0] for row in old_result.fetchall())
-            new_pm_ids = set(data.allowed_provider_model_ids)
+        if data.allowed_model_ids is not None:
             await session.execute(
                 delete(ApiKeyModel).where(ApiKeyModel.api_key_id == key_id)
             )
-            for pm_id in data.allowed_provider_model_ids:
-                assoc = ApiKeyModel(api_key_id=key_id, provider_model_id=pm_id)
-                session.add(assoc)
-            added_pm_ids = new_pm_ids - old_pm_ids
-            removed_pm_ids = old_pm_ids - new_pm_ids
-            if added_pm_ids or removed_pm_ids:
-                from app.services.notification import notify_model_changes_async
-                model_names_result = await session.execute(
-                    select(ProviderModel.id, Model.display_name, Model.name)
-                    .join(Model, ProviderModel.model_id == Model.id)
-                    .where(ProviderModel.id.in_(added_pm_ids | removed_pm_ids))
-                )
-                pm_name_map = {row[0]: row[1] or row[2] for row in model_names_result.fetchall()}
-                notify_model_changes_async(
-                    key_id, key.name,
-                    [pm_name_map.get(pid, str(pid)) for pid in added_pm_ids],
-                    [pm_name_map.get(pid, str(pid)) for pid in removed_pm_ids],
-                )
-        if data.allowed_model_ids is not None:
             await session.execute(
                 delete(ApiKeyModelAccess).where(ApiKeyModelAccess.api_key_id == key_id)
             )

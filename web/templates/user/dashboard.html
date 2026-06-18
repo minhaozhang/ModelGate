@@ -1117,8 +1117,8 @@
             const pCostEl = document.getElementById('personal-cost');
             const pCostNote = document.getElementById('personal-cost-note');
             if (pCost > 0) {
-                pCostEl.textContent = pCost >= 1 ? '$' + pCost.toFixed(2) : '$' + pCost.toFixed(4);
-                pCostNote.textContent = window.I18N.estCostNote || '';
+                pCostEl.textContent = pCost >= 1 ? '¥' + pCost.toFixed(2) : '¥' + pCost.toFixed(4);
+                pCostNote.textContent = '按请求计费快照汇总';
             } else {
                 pCostEl.textContent = '-';
                 pCostNote.textContent = '';
@@ -1370,6 +1370,11 @@
             a.download = filename;
             a.click();
             URL.revokeObjectURL(url);
+        }
+
+        function downloadBillingDetails() {
+            const period = document.getElementById('period-select')?.value || 'day';
+            window.location.href = APP_BASE_PATH + '/user/api/billing-details.csv?period=' + encodeURIComponent(period);
         }
 
         async function mergeConfigFile(input) {

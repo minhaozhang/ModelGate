@@ -7,7 +7,6 @@ from app.core.config import api_keys_cache
 from app.core.database import (
     async_session_maker,
     ApiKey,
-    ApiKeyModel,
     ApiKeyModelAccess,
     ApiKeyMcpServer,
     ApiKeyTimeRule,
@@ -22,15 +21,6 @@ async def load_api_keys():
         if not key_ids:
             api_keys_cache.clear()
             return
-
-        all_models_result = await session.execute(
-            select(ApiKeyModel.api_key_id, ApiKeyModel.provider_model_id).where(
-                ApiKeyModel.api_key_id.in_(key_ids)
-            )
-        )
-        key_models_map: dict[int, list[int]] = {k.id: [] for k in keys}
-        for row in all_models_result.fetchall():
-            key_models_map[row[0]].append(row[1])
 
         all_model_access_result = await session.execute(
             select(ApiKeyModelAccess.api_key_id, ApiKeyModelAccess.model_id).where(
@@ -83,7 +73,7 @@ async def load_api_keys():
                 "expires_at": k.expires_at if hasattr(k, "expires_at") else None,
                 "bypass_busyness": k.bypass_busyness or False,
                 "preferred_tags": k.preferred_tags if hasattr(k, "preferred_tags") else None,
-                "allowed_provider_model_ids": key_models_map[k.id],
+                "allowed_provider_model_ids": [],
                 "allowed_model_ids": key_model_access_map[k.id],
                 "time_rules": key_rules_map[k.id],
                 "mcp_server_ids": key_mcp_map[k.id],

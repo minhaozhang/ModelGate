@@ -12,6 +12,7 @@ from app.services.logging import create_request_log
 from app.services.deepseek_compat import is_deepseek_thinking_active, patch_reasoning_content
 from app.services.message import preprocess_messages
 from app.services.minimax import process_minimax_response
+from app.services.pricing import enrich_tokens_with_billing
 from app.services.provider import (
     RouteResult,
     get_model_config,
@@ -320,6 +321,18 @@ async def call_internal_model_via_proxy(
             response_text=response_text,
             reasoning_text=reasoning_text,
             response_meta=response_meta,
+        )
+        route_provider_model_id = (
+            route_result.provider_model_id
+            if isinstance(route_result, RouteResult)
+            else None
+        )
+        tokens_record = await enrich_tokens_with_billing(
+            tokens_record,
+            provider_name=provider_name,
+            model=actual_model,
+            provider_model_id=route_provider_model_id,
+            request_context_tokens=request_context_tokens,
         )
         total_tokens = tokens_record["total_tokens"]
         provider_error = _extract_provider_error(resp_json)

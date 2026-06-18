@@ -16,6 +16,7 @@ from app.core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_l
 from app.services.key_health import record_key_event
 from app.services.logging import create_request_log, update_request_content
 from app.services.minimax import process_minimax_response
+from app.services.pricing import enrich_tokens_with_billing
 from app.services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
 from app.services.proxy_runtime.adapters import get_adapter
 from app.services.proxy_runtime.concurrency import (
@@ -136,6 +137,18 @@ async def handle_normal(
             response_text=response_text,
             reasoning_text=reasoning_text,
             response_meta=response_meta,
+        )
+        route_provider_model_id = (
+            routing_decision.get("selected_provider_model_id")
+            if isinstance(routing_decision, dict)
+            else None
+        )
+        tokens_record = await enrich_tokens_with_billing(
+            tokens_record,
+            provider_name=provider,
+            model=model,
+            provider_model_id=route_provider_model_id,
+            request_context_tokens=request_context_tokens,
         )
         total_tokens = tokens_record["total_tokens"]
 
