@@ -1,10 +1,20 @@
-from typing import Optional
+from typing import Any, Optional
 from sqlalchemy import update, func
 
 import app.core.config as config_module
 from app.core.config import providers_cache
 from app.core.database import async_session_maker, ApiKey, RequestLog, RequestContent
 from sqlalchemy import delete as sa_delete
+
+
+def _clean_null_bytes(value: Any) -> Any:
+    if isinstance(value, str):
+        return value.replace("\x00", "").replace("\u0000", "")
+    if isinstance(value, dict):
+        return {k: _clean_null_bytes(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_clean_null_bytes(v) for v in value]
+    return value
 
 
 def invalidate_today_stats_cache() -> None:
@@ -46,8 +56,8 @@ async def create_request_log(
             api_key_id=api_key_id,
             provider_id=provider_id,
             model=model,
-            response=response,
-            tokens=tokens or {},
+            response=_clean_null_bytes(response),
+            tokens=_clean_null_bytes(tokens) or {},
             latency_ms=latency_ms,
             status=status,
             upstream_status_code=upstream_status_code,
@@ -55,14 +65,14 @@ async def create_request_log(
             client_ip=client_ip,
             user_agent=user_agent,
             request_context_tokens=request_context_tokens,
-            error=error,
+            error=_clean_null_bytes(error),
             inbound_protocol=inbound_protocol,
             intent=intent,
             requested_model=requested_model,
             actual_model=actual_model,
             provider_key_id=provider_key_id,
             provider_key_label=provider_key_label,
-            routing_decision=routing_decision,
+            routing_decision=_clean_null_bytes(routing_decision),
         )
         session.add(log)
         await session.commit()
@@ -70,7 +80,7 @@ async def create_request_log(
         if request_messages is not None:
             content = RequestContent(
                 log_id=log.id,
-                request_messages=request_messages,
+                request_messages=_clean_null_bytes(request_messages),
             )
             session.add(content)
             await session.commit()
@@ -94,13 +104,13 @@ async def update_request_log(
             update(RequestLog)
             .where(RequestLog.id == log_id)
             .values(
-                response=response,
-                tokens=tokens or {},
+                response=_clean_null_bytes(response),
+                tokens=_clean_null_bytes(tokens) or {},
                 latency_ms=latency_ms,
                 status=status,
                 upstream_status_code=upstream_status_code,
                 downstream_status_code=downstream_status_code,
-                error=error,
+                error=_clean_null_bytes(error),
                 updated_at=func.now(),
             )
         )
@@ -125,13 +135,13 @@ async def update_request_content(
     async with async_session_maker() as session:
         values = {}
         if response_content is not None:
-            values["response_content"] = response_content
+            values["response_content"] = _clean_null_bytes(response_content)
         if response_tool_calls is not None:
-            values["response_tool_calls"] = response_tool_calls
+            values["response_tool_calls"] = _clean_null_bytes(response_tool_calls)
         if response_thinking is not None:
-            values["response_thinking"] = response_thinking
+            values["response_thinking"] = _clean_null_bytes(response_thinking)
         if response_raw is not None:
-            values["response_raw"] = response_raw
+            values["response_raw"] = _clean_null_bytes(response_raw)
         if not values:
             return False
         result = await session.execute(
