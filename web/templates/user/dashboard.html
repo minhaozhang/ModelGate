@@ -341,7 +341,7 @@
         noRequests: {{ _('No requests yet') | tojson }},
         noModels: {{ _('No models') | tojson }},
         copied: {{ _('Copied!') | tojson }},
-        uploadConfig: {{ _('Upload opencode.json') | tojson }},
+        uploadConfig: {{ _('Upload opencode.jsonc') | tojson }},
         downloadMerged: {{ _('Download Merged Config') | tojson }},
         mergeSuccess: {{ _('Merged config downloaded!') | tojson }},
         mergeFailed: {{ _('Merge failed') | tojson }},
@@ -387,7 +387,7 @@
         aiGenerated: {{ _('AI Generated') | tojson }},
         aiUnavailable: {{ _('AI analysis unavailable') | tojson }},
         samplesLabel: {{ _('samples') | tojson }},
-        opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the modelgate provider.') | tojson }},
+        opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and other settings, only add or update the modelgate provider.') | tojson }},
         loading: {{ _('Loading...') | tojson }},
         loadFailed: {{ _('Failed to load') | tojson }},
         topShare: {{ _('top share') | tojson }},
@@ -1361,7 +1361,7 @@
             if (!config || config === (window.I18N.loading || 'Loading...')) return;
             const jsonMatch = config.match(/```json\s*([\s\S]*?)```/);
             const content = jsonMatch ? jsonMatch[1].trim() : config;
-            const filename = jsonMatch ? 'opencode.json' : 'opencode-setup.md';
+            const filename = jsonMatch ? 'opencode.jsonc' : 'opencode-setup.md';
             const mime = jsonMatch ? 'application/json' : 'text/markdown;charset=utf-8';
             const blob = new Blob([content], { type: mime });
             const url = URL.createObjectURL(blob);
@@ -1410,7 +1410,7 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'opencode.json';
+                a.download = 'opencode.jsonc';
                 a.click();
                 URL.revokeObjectURL(url);
                 statusEl.textContent = window.I18N.mergeSuccess;
@@ -1421,7 +1421,7 @@
                 statusEl.className = 'mt-2 text-sm text-red-500';
                 statusEl.classList.remove('hidden');
             } finally {
-                label.textContent = window.I18N.uploadConfig || 'Upload opencode.json';
+                label.textContent = window.I18N.uploadConfig || 'Upload opencode.jsonc';
                 input.value = '';
             }
         }

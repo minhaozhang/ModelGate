@@ -633,11 +633,11 @@ msgstr "可用模型"
 msgid "How to use"
 msgstr "如何使用"
 
-msgid "Copy the generated <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code>"
-msgstr "复制生成的 opencode.json"
+msgid "Copy the generated <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code>"
+msgstr "复制生成的 opencode.jsonc"
 
-msgid "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code> in your project root"
-msgstr "在项目根目录创建 opencode.json"
+msgid "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code> in your project root"
+msgstr "在项目根目录创建 opencode.jsonc"
 
 msgid "Paste the configuration and save"
 msgstr "粘贴配置并保存"
@@ -745,8 +745,8 @@ msgstr "别名"
 msgid "Clear saved API Key?"
 msgstr "清除已保存的 API Key？"
 
-msgid "Please help me add the following provider configuration to ~/.opencode/opencode.json. Keep existing providers and other settings, only add or update the model-token-plan provider."
-msgstr "请帮我把下面的 provider 配置加入 ~/.opencode/opencode.json。保留现有 providers 和其他设置，只添加或更新 model-token-plan provider。"
+msgid "Please help me add the following provider configuration to ~/.opencode/opencode.jsonc. Keep existing providers and other settings, only add or update the model-token-plan provider."
+msgstr "请帮我把下面的 provider 配置加入 ~/.opencode/opencode.jsonc。保留现有 providers 和其他设置，只添加或更新 model-token-plan provider。"
 
 msgid "Yourself"
 msgstr "你自己"
@@ -958,8 +958,8 @@ msgstr "按这个文档执行。"
 msgid "Copy Setup"
 msgstr "复制设置"
 
-msgid "Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider."
-msgstr "请帮我把下面的 provider 配置加入 ~/.config/opencode/opencode.json。 如果这个文件不存在，请先创建它。你也可以在当前项目根目录放置 opencode.json。保留现有 providers 和其他设置，只添加或更新 model-token-plan provider。"
+msgid "Please help me add the following provider configuration to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and other settings, only add or update the modelgate provider."
+msgstr "请帮我把下面的 provider 配置加入 ~/.config/opencode/opencode.jsonc。 如果这个文件不存在，请先创建它。你也可以在当前项目根目录放置 opencode.jsonc。保留现有 providers 和其他设置，只添加或更新 modelgate provider。"
 
 msgid "Time Rules"
 msgstr "时间规则"
@@ -1315,11 +1315,11 @@ msgstr "活跃(1h)"
 msgid "disabled"
 msgstr "已禁用"
 
-msgid "Config path: %USERPROFILE%\\.config\\opencode\\opencode.json"
-msgstr "配置路径：%USERPROFILE%\\\\.config\\\\opencode\\\\opencode.json"
+msgid "Config path: %USERPROFILE%\\.config\\opencode\\opencode.jsonc"
+msgstr "配置路径：%USERPROFILE%\\\\.config\\\\opencode\\\\opencode.jsonc"
 
-msgid "Config path: ~/.config/opencode/opencode.json"
-msgstr "配置路径：~/.config/opencode/opencode.json"
+msgid "Config path: ~/.config/opencode/opencode.jsonc"
+msgstr "配置路径：~/.config/opencode/opencode.jsonc"
 
 msgid "Est. Cost"
 msgstr "估算费用"

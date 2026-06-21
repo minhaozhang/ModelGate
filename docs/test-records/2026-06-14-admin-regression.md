@@ -77,7 +77,7 @@ API Key expiry/contact and OpenCode path regression:
 - Verified expired API keys are rejected by `validate_api_key()` with an explicit expired-key message.
 - Verified direct API-key middleware paths for MCP and WeChat also reject expired keys instead of only checking cache membership.
 - Verified the admin API Key form exposes email and expiry fields, defaults new keys to one year, submits both fields, and marks expired keys in the list.
-- Verified the user OpenCode tab shows the target config folder, offers a copy-folder action, downloads `opencode.json` when the setup document contains a JSON block, and shows macOS hidden-folder shortcuts (`Cmd + Shift + .`, `Cmd + Shift + G`) with command-key icons.
+- Verified the user OpenCode tab shows the target config folder, offers a copy-folder action, downloads `opencode.jsonc` when the setup document contains a JSON block, and shows macOS hidden-folder shortcuts (`Cmd + Shift + .`, `Cmd + Shift + G`) with command-key icons.
 - Restarted the local service on port 8766 with the remote database and verified `api_keys.email` / `api_keys.expires_at` exist in `public`; existing keys have no null `expires_at` values after migration.
 
 Automated checks after API Key/OpenCode regression:

@@ -630,11 +630,11 @@ msgstr "Available Models"
 msgid "How to use"
 msgstr "How to use"
 
-msgid "Copy the generated <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code>"
-msgstr "Copy the generated <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code>"
+msgid "Copy the generated <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code>"
+msgstr "Copy the generated <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code>"
 
-msgid "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code> in your project root"
-msgstr "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.json</code> in your project root"
+msgid "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code> in your project root"
+msgstr "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code> in your project root"
 
 msgid "Paste the configuration and save"
 msgstr "Paste the configuration and save"
@@ -741,8 +741,8 @@ msgstr "alias"
 msgid "Clear saved API Key?"
 msgstr "Clear saved API Key?"
 
-msgid "Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider."
-msgstr "Please help me add the following provider configuration to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and other settings, only add or update the model-token-plan provider."
+msgid "Please help me add the following provider configuration to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and other settings, only add or update the modelgate provider."
+msgstr "Please help me add the following provider configuration to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and other settings, only add or update the modelgate provider."
 
 msgid "Yourself"
 msgstr "Yourself"
@@ -1089,11 +1089,11 @@ msgstr "Active 1h"
 msgid "disabled"
 msgstr "disabled"
 
-msgid "Config path: %USERPROFILE%\\.config\\opencode\\opencode.json"
-msgstr "Config path: %USERPROFILE%\\.config\\opencode\\opencode.json"
+msgid "Config path: %USERPROFILE%\\.config\\opencode\\opencode.jsonc"
+msgstr "Config path: %USERPROFILE%\\.config\\opencode\\opencode.jsonc"
 
-msgid "Config path: ~/.config/opencode/opencode.json"
-msgstr "Config path: ~/.config/opencode/opencode.json"
+msgid "Config path: ~/.config/opencode/opencode.jsonc"
+msgstr "Config path: ~/.config/opencode/opencode.jsonc"
 
 msgid "Est. Cost"
 msgstr "Est. Cost"

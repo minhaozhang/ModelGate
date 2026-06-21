@@ -37,7 +37,7 @@
 
         <main class="ml-56 flex-1 p-6">
             <h2 class="text-2xl font-bold text-gray-800 dark-heading mb-2">{{ _('OpenCode Configuration') }}</h2>
-            <p class="text-gray-500 dark-muted mb-6">{{ _('Generate opencode.json config for this proxy') }}</p>
+            <p class="text-gray-500 dark-muted mb-6">{{ _('Generate opencode.jsonc config for this proxy') }}</p>
 
             <div class="bg-white dark-surface rounded-lg shadow p-6 mb-6">
                 <label class="block text-sm font-medium text-gray-700 dark-heading mb-2">{{ _('Enter your API Key to generate config') }}</label>
@@ -53,7 +53,7 @@
             <div id="config-section" class="hidden">
                 <div class="bg-white dark-surface rounded-lg shadow mb-6">
                     <div class="flex justify-between items-center p-4 border-b dark-border">
-                        <h3 class="text-lg font-semibold dark-heading">opencode.json</h3>
+                        <h3 class="text-lg font-semibold dark-heading">opencode.jsonc</h3>
                         <button onclick="copyConfig()" class="copy-btn border border-blue-500 text-blue-500 px-3 py-1 rounded text-sm">
                             {{ _('Copy') }}
                         </button>
@@ -75,8 +75,8 @@
                 <h3 class="text-lg font-semibold dark-heading mb-3">{{ _('How to use') }}</h3>
                 <ol class="list-decimal list-inside space-y-2 text-gray-600 dark-muted">
                     <li>{{ _('Enter your API Key and click Generate') }}</li>
-                    <li>{{ _('Copy the generated') }} <code class="bg-gray-100 px-1 rounded">opencode.json</code></li>
-                    <li>{{ _('Create') }} <code class="bg-gray-100 px-1 rounded">opencode.json</code> {{ _('in your project root') }}</li>
+                    <li>{{ _('Copy the generated') }} <code class="bg-gray-100 px-1 rounded">opencode.jsonc</code></li>
+                    <li>{{ _('Create') }} <code class="bg-gray-100 px-1 rounded">opencode.jsonc</code> {{ _('in your project root') }}</li>
                     <li>{{ _('Paste the configuration and save') }}</li>
                     <li>{{ _('OpenCode will now use this proxy for API requests') }}</li>
                 </ol>
@@ -90,7 +90,7 @@
             copied: {{ _('Copied!') | tojson }},
             copy: {{ _('Copy') | tojson }},
             failedToGenerateConfig: {{ _('Failed to generate config') | tojson }},
-            promptText: {{ _('# Please add the following provider config to ~/.config/opencode/opencode.json. If that file does not exist, create it first. You can also place opencode.json in the current project root. Keep existing providers and settings, only add or update the modelgate provider.') | tojson }},
+            promptText: {{ _('# Please add the following provider config to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and settings, only add or update the modelgate provider.') | tojson }},
             contextLabel: {{ _('context') | tojson }},
             outputLabel: {{ _('output') | tojson }}
         };

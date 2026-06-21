@@ -556,7 +556,7 @@ flowchart TD
 
     B -->|OpenCode| C["访问 /opencode/setup.md?api_key=xxx"]
     C --> D["配置中的 model name = 模型名<br/>如 glm-5 / glm-5-turbo / glm-5.1"]
-    D --> E["粘贴到 opencode.json"]
+    D --> E["粘贴到 opencode.jsonc"]
 
     B -->|直接 API 调用| F["baseURL = leturx.cc/modelgate/v1"]
 

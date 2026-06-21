@@ -243,9 +243,9 @@ def build_setup_markdown(config: dict) -> str:
 Please update the OpenCode configuration for this machine.
 
 Requirements:
-- Preferred global config file: `~/.config/opencode/opencode.json`
-- If `~/.config/opencode/opencode.json` does not exist, create it first.
-- You can also place `opencode.json` in the root of the current project if you prefer a project-specific config.
+- Preferred global config file: `~/.config/opencode/opencode.jsonc`
+- If `~/.config/opencode/opencode.jsonc` does not exist, create it first.
+- You can also place `opencode.jsonc` in the root of the current project if you prefer a project-specific config.
 - Keep existing providers and other settings unchanged.
 - **Fully replace the `modelgate` provider**: find `provider.modelgate` in the config, and overwrite its entire value with the JSON object shown below. Do NOT merge, do NOT add fields to the existing one — the `modelgate` block must become exactly the JSON below.
 - If `provider.modelgate` does not exist yet, add it with the JSON below.
