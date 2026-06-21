@@ -99,8 +99,17 @@
         body.theme-dark .detail-modal { background: #0f172a; color: #e5e7eb; }
         .detail-modal-header { padding: 1rem 1.5rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
         body.theme-dark .detail-modal-header { border-color: #1f2937; }
-        .detail-modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
+        .detail-modal-body { padding: 0; overflow-y: auto; flex: 1; }
         .detail-modal-body pre { white-space: pre-wrap; word-break: break-all; font-size: 0.8125rem; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+        .detail-tabs { display: flex; border-bottom: 1px solid #e5e7eb; padding: 0 1rem; gap: 0; }
+        body.theme-dark .detail-tabs { border-color: #1f2937; }
+        .detail-tab { padding: 0.625rem 1rem; font-size: 0.8125rem; font-weight: 500; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
+        .detail-tab:hover { color: #374151; }
+        body.theme-dark .detail-tab { color: #94a3b8; }
+        body.theme-dark .detail-tab:hover { color: #e5e7eb; }
+        .detail-tab.active { color: #3b82f6; border-color: #3b82f6; }
+        .detail-tab-panel { display: none; padding: 1.5rem; }
+        .detail-tab-panel.active { display: block; }
         body.theme-dark #agg-table-wrap thead tr { color: #94a3b8; border-color: #1f2937; }
         body.theme-dark #agg-table-wrap tbody tr { border-color: #1f2937; }
         body.theme-dark #agg-table-wrap tbody tr:hover { background: #1e293b !important; }
@@ -412,6 +421,81 @@
             if (!p && !c && tokens.estimated) return { prompt: tokens.estimated, completion: '-' };
             return { prompt: p || 0, completion: c || 0 };
         }
+        function getCachedTokens(tokens) {
+            if (!tokens || typeof tokens !== 'object') return 0;
+            if (tokens.cache_read_input_tokens) return tokens.cache_read_input_tokens;
+            if (tokens.cached_input_tokens) return tokens.cached_input_tokens;
+            const details = tokens.prompt_tokens_details;
+            if (details && details.cached_tokens) return details.cached_tokens;
+            return 0;
+        }
+        function getCacheCreationTokens(tokens) {
+            if (!tokens || typeof tokens !== 'object') return 0;
+            return tokens.cache_creation_input_tokens || 0;
+        }
+        function getBillingField(tokens, field) {
+            return tokens?.billing?.[field];
+        }
+        function buildTokenBreakdownHTML(tokens) {
+            if (!tokens || typeof tokens !== 'object') return '';
+            const parts = getTokenParts(tokens);
+            const cached = getCachedTokens(tokens);
+            const cacheCreate = getCacheCreationTokens(tokens);
+            const billing = tokens.billing || {};
+            const rows = [];
+            rows.push(['Prompt (输入)', formatK(parts.prompt), billing.uncached_input_tokens ? `${formatK(billing.uncached_input_tokens)} 未缓存` : null]);
+            if (cached > 0) {
+                rows.push(['Cache Read (缓存命中)', formatK(cached), billing.cached_input_tokens ? formatK(billing.cached_input_tokens) : null]);
+            }
+            if (cacheCreate > 0) {
+                rows.push(['Cache Write (缓存写入)', formatK(cacheCreate), null]);
+            }
+            rows.push(['Completion (输出)', formatK(parts.completion), null]);
+            if (parts.prompt && parts.completion) {
+                rows.push(['Total (总计)', formatK((parts.prompt || 0) + (parts.completion || 0)), null]);
+            }
+            const billingRows = [];
+            if (billing.input_cost_cny != null) billingRows.push(['输入成本', formatCost(billing.input_cost_cny)]);
+            if (billing.cached_input_cost_cny != null && cached > 0) billingRows.push(['缓存成本', formatCost(billing.cached_input_cost_cny)]);
+            if (billing.output_cost_cny != null) billingRows.push(['输出成本', formatCost(billing.output_cost_cny)]);
+            if (billing.total_cost_cny != null) billingRows.push(['总成本', formatCost(billing.total_cost_cny)]);
+            const meta = tokens.response_meta || {};
+            const metaRows = [];
+            if (meta.finish_reason) metaRows.push(['Finish', meta.finish_reason]);
+            if (meta.tool_call_count > 0) {
+                const names = (meta.tool_names || []).join(', ');
+                metaRows.push(['Tool Calls', `${meta.tool_call_count} (${names})`]);
+            }
+            if (meta.has_reasoning) metaRows.push(['Reasoning', 'Yes']);
+            if (meta.response_types && meta.response_types.length === 1 && meta.response_types[0] === 'empty') metaRows.push(['Response', 'Empty']);
+            let html = '<div class="space-y-3">';
+            html += '<div><div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Token Breakdown</div>';
+            html += '<table class="w-full text-xs"><tbody>';
+            for (const [label, val, sub] of rows) {
+                html += `<tr><td class="py-0.5 text-gray-400">${label}</td><td class="py-0.5 text-right font-medium text-gray-200">${val}</td>`;
+                html += sub ? `<td class="py-0.5 text-right text-gray-500 text-[10px]">${sub}</td>` : '<td></td>';
+                html += '</tr>';
+            }
+            html += '</tbody></table></div>';
+            if (billingRows.length) {
+                html += '<div><div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Billing (CNY)</div>';
+                html += '<table class="w-full text-xs"><tbody>';
+                for (const [label, val] of billingRows) {
+                    html += `<tr><td class="py-0.5 text-gray-400">${label}</td><td class="py-0.5 text-right font-medium text-gray-200">${val}</td></tr>`;
+                }
+                html += '</tbody></table></div>';
+            }
+            if (metaRows.length) {
+                html += '<div><div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Meta</div>';
+                html += '<table class="w-full text-xs"><tbody>';
+                for (const [label, val] of metaRows) {
+                    html += `<tr><td class="py-0.5 text-gray-400">${label}</td><td class="py-0.5 text-right text-gray-300">${escapeHtml(String(val))}</td></tr>`;
+                }
+                html += '</tbody></table></div>';
+            }
+            html += '</div>';
+            return html;
+        }
         function getBillingCost(tokens) {
             const cost = tokens?.billing?.total_cost_cny;
             if (cost === null || cost === undefined || cost === '') return null;
@@ -525,6 +609,16 @@
                             <div>
                                 <div class="text-gray-500 mb-1">${window.I18N.tokens}</div>
                                 <div class="font-medium text-gray-800">${tokenParts ? `↑${formatK(tokenParts.prompt)} / ↓${formatK(tokenParts.completion)}` : '-'}</div>
+                                ${(() => {
+                                    if (!tokenParts) return '';
+                                    const cached = getCachedTokens(log.tokens);
+                                    let extra = '';
+                                    if (cached > 0) {
+                                        const pct = tokenParts.prompt > 0 ? Math.round(cached / tokenParts.prompt * 100) : 0;
+                                        extra += `<span class="inline-block text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700">缓存 ${formatK(cached)} (${pct}%)</span> `;
+                                    }
+                                    return extra ? `<div class="flex gap-1 mt-1 flex-wrap">${extra}</div>` : '';
+                                })()}
                                 <div class="text-xs text-gray-500 mt-1">${billingCost !== null ? `成本 ${formatCost(billingCost)}` : '成本 -'}</div>
                                 <div class="text-xs text-gray-500 mt-1 mono break-all">${escapeHtml(log.client_ip || '-')}</div>
                             </div>
@@ -606,36 +700,72 @@
             const model = article.dataset.model;
             const error = article.dataset.error;
             const tokens = article.dataset.tokens;
-            let body = '';
-            if (error) {
-                body += `<div class="text-red-500 mb-3"><strong>${window.I18N.errorDetail}:</strong></div><pre class="text-red-400 mb-4">${escapeHtml(error)}</pre>`;
-            }
-            if (response) {
-                body += `<div class="mb-2"><strong>${window.I18N.response}:</strong></div><pre>${escapeHtml(response)}</pre>`;
-            }
-            if (ua) {
-                body += `<div class="mt-4 text-xs text-gray-500"><strong>User Agent:</strong> ${escapeHtml(ua)}</div>`;
-            }
+
+            const tabs = [];
+            const panels = [];
+
+            tabs.push({ id: 'response', label: window.I18N.response });
+            panels.push({ id: 'response', html: (() => {
+                let h = '';
+                if (error) {
+                    h += `<div class="text-red-500 mb-3"><strong>${window.I18N.errorDetail}:</strong></div><pre class="text-red-400 mb-4">${escapeHtml(error)}</pre>`;
+                }
+                if (response) {
+                    h += `<pre>${escapeHtml(response)}</pre>`;
+                }
+                if (!h) h = '<span class="text-gray-400">-</span>';
+                return h;
+            })() });
+
+            let tokenHTML = '';
+            let tokenObj = null;
             if (tokens) {
                 try {
-                    const t = JSON.parse(tokens);
-                    if (t && typeof t === 'object') {
-                        const parts = getTokenParts(t);
-                        body += `<div class="mt-2 text-xs text-gray-500"><strong>Tokens:</strong> ↑${formatK(parts.prompt)} / ↓${formatK(parts.completion)}</div>`;
+                    tokenObj = JSON.parse(tokens);
+                    if (tokenObj && typeof tokenObj === 'object') {
+                        tokenHTML = buildTokenBreakdownHTML(tokenObj);
                     }
                 } catch(e) {}
             }
+            if (tokenHTML) {
+                tabs.push({ id: 'tokens', label: 'Tokens' });
+                panels.push({ id: 'tokens', html: tokenHTML });
+            }
+
+            if (ua) {
+                tabs.push({ id: 'meta', label: 'Meta' });
+                panels.push({ id: 'meta', html: `<div class="text-xs space-y-2"><div><strong class="text-gray-500">User Agent:</strong> <span class="text-gray-300">${escapeHtml(ua)}</span></div></div>` });
+            }
+
+            const firstTab = tabs[0].id;
             const overlay = document.createElement('div');
             overlay.className = 'detail-modal-overlay';
             overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+            const tabButtons = tabs.map(t =>
+                `<div class="detail-tab ${t.id === firstTab ? 'active' : ''}" data-tab="${t.id}">${t.label}</div>`
+            ).join('');
+            const tabPanels = panels.map(p =>
+                `<div class="detail-tab-panel ${p.id === firstTab ? 'active' : ''}" data-panel="${p.id}">${p.html}</div>`
+            ).join('');
+
             overlay.innerHTML = `<div class="detail-modal">
                 <div class="detail-modal-header">
-                    <span class="font-semibold">${window.I18N.response} - ${escapeHtml(model)}</span>
+                    <span class="font-semibold">${escapeHtml(model || '-')}</span>
                     <button onclick="this.closest('.detail-modal-overlay').remove()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
                 </div>
-                <div class="detail-modal-body">${body || '<span class="text-gray-400">-</span>'}</div>
+                <div class="detail-tabs">${tabButtons}</div>
+                <div class="detail-modal-body">${tabPanels}</div>
             </div>`;
             document.body.appendChild(overlay);
+
+            overlay.querySelectorAll('.detail-tab').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    overlay.querySelectorAll('.detail-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+                    overlay.querySelectorAll('.detail-tab-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === tabId));
+                });
+            });
         }
 
         const ROLE_STYLES = {
