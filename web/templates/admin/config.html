@@ -219,6 +219,13 @@
                         <div>
                             <h3 class="text-lg font-semibold">Auto 路由配置</h3>
                             <p class="text-xs text-gray-500 mt-1">开启后 <code class="bg-gray-100 px-1 rounded text-xs">/v1/models</code> 和 OpenCode 会暴露 <code class="bg-gray-100 px-1 rounded text-xs">auto</code>。拖拽队列决定供应商模型的优先级，排最前面的最先被选中。</p>
+                            <div class="mt-2 text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded px-2.5 py-1.5">
+                                <span class="font-semibold text-blue-700">Token 范围规则（可选）：</span>
+                                每个模型可设置两个阈值，单位 K（1K = 1024 tokens）：
+                                <span class="font-semibold text-red-600">限制 ≤</span> = 硬上限，请求 token 超过此值时<span class="text-red-600">直接排除</span>该模型；
+                                <span class="font-semibold text-blue-600">偏好 ≥</span> = 软偏好，请求 token 低于此值时<span class="text-blue-600">降级排到队列末尾</span>（不排除）。
+                                留空 = 不限制。
+                            </div>
                         </div>
                         <div class="flex items-center gap-3">
                             <label class="inline-flex items-center gap-2 text-sm">
