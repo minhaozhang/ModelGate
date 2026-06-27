@@ -819,6 +819,63 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
+    async def test_scoped_provider_key_error_is_model_route_specific(self):
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [],
+                "query_string": b"",
+                "cookies": {},
+                "root_path": "",
+            }
+        )
+        request._body = b'{"model":"zhipu/glm-5.1","messages":[]}'
+        routes = [
+            provider_service.RouteResult(
+                provider_config={
+                    "base_url": "https://zhipu.example",
+                    "api_keys": [
+                        {"id": 11, "api_key": "sk-scoped"},
+                        {"id": 12, "api_key": "sk-other"},
+                    ],
+                    "models": [{"model_name": "glm-5.1"}],
+                },
+                provider_name="zhipu",
+                provider_id=1,
+                provider_model_id=11,
+                model_id=101,
+                model_name="glm-5.1",
+                upstream_model_name="glm-5.1",
+                requested_model="zhipu/glm-5.1",
+                is_forced_provider=True,
+                provider_key_ids=[11],
+            )
+        ]
+
+        def fake_health_score(key_id):
+            return 0 if key_id == 11 else 100
+
+        with (
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch(
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=routes),
+            ),
+            patch("app.services.provider.compute_health_score", side_effect=fake_health_score),
+            patch("app.services.provider_key_routing.compute_health_score", side_effect=fake_health_score),
+            patch("app.services.proxy.create_request_log", new=AsyncMock()),
+            patch("app.services.proxy.update_stats", new=Mock()),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        body = response.body.decode("utf-8")
+        self.assertEqual(response.status_code, 429)
+        self.assertIn("路由限定的 API Key", body)
+        self.assertNotIn("供应商 'zhipu' 当前没有可用的 API Key", body)
+
     async def test_no_provider_key_error_is_human_readable(self):
         request = Request(
             {

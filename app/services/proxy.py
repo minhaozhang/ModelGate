@@ -263,6 +263,25 @@ def _best_disabled_key_failure(provider_config: dict, provider_name: str) -> tup
     return None, -1
 
 
+def _no_available_key_message(
+    provider_name: str,
+    route_result: RouteResult,
+    best_disabled_reason: str | None = None,
+) -> str:
+    if route_result.provider_key_ids:
+        return (
+            f"模型 '{provider_name}/{route_result.model_name or route_result.upstream_model_name}' "
+            "当前路由限定的 API Key 暂不可用"
+            "（健康评分过低或限流被暂时屏蔽，请稍后重试）"
+        )
+    if best_disabled_reason:
+        return f"'{provider_name}' 暂不可用：{best_disabled_reason}（请稍后重试）"
+    return (
+        f"供应商 '{provider_name}' 当前没有可用的 API Key"
+        "（所有 Key 均因健康评分过低或限流被暂时屏蔽，请稍后重试）"
+    )
+
+
 def _check_busyness_rules(model: str) -> str | None:
     from app.core.config import busyness_state, system_config
 
@@ -589,12 +608,11 @@ async def proxy_request(request: Request, endpoint: str):
                     provider_config,
                     provider_name,
                 )
-                msg = (
-                    f"供应商 '{provider_name}' 当前没有可用的 API Key"
-                    "（所有 Key 均因健康评分过低或限流被暂时屏蔽，请稍后重试）"
+                msg = _no_available_key_message(
+                    provider_name,
+                    route_result,
+                    best_disabled_reason,
                 )
-                if best_disabled_reason:
-                    msg = f"'{provider_name}' 暂不可用：{best_disabled_reason}（请稍后重试）"
                 if (
                     first_no_key_failure is None
                     or best_disabled_priority > first_no_key_failure.get("disabled_priority", -1)

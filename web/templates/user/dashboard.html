@@ -1356,6 +1356,11 @@
             navigator.clipboard.writeText(dir).then(() => alert(window.I18N.copied));
         }
 
+        function copyOpencodeOpenCmd() {
+            const cmd = document.getElementById('opencode-open-cmd')?.textContent || 'open ~/.config/opencode';
+            navigator.clipboard.writeText(cmd).then(() => alert(window.I18N.copied));
+        }
+
         function downloadConfig() {
             const config = document.getElementById('config-output').textContent || '';
             if (!config || config === (window.I18N.loading || 'Loading...')) return;
