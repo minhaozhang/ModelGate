@@ -16,22 +16,51 @@ def _parse_id_list(value) -> list[int]:
     seen: set[int] = set()
     for item in value:
         try:
-            item_id = int(item)
+            pm_id = int(item.get("id")) if isinstance(item, dict) else int(item)
         except (TypeError, ValueError):
             continue
-        if item_id <= 0 or item_id in seen:
+        if pm_id <= 0 or pm_id in seen:
             continue
-        ids.append(item_id)
-        seen.add(item_id)
+        ids.append(pm_id)
+        seen.add(pm_id)
     return ids
+
+
+def _parse_pool_config(value) -> list[dict]:
+    if not isinstance(value, list):
+        return []
+    pool: list[dict] = []
+    seen: set[int] = set()
+    for item in value:
+        try:
+            if isinstance(item, dict):
+                pm_id = int(item.get("id", 0) or 0)
+            else:
+                pm_id = int(item)
+        except (TypeError, ValueError):
+            continue
+        if pm_id <= 0 or pm_id in seen:
+            continue
+        seen.add(pm_id)
+        min_ctx = item.get("min_ctx") if isinstance(item, dict) else None
+        max_ctx = item.get("max_ctx") if isinstance(item, dict) else None
+        pool.append({
+            "id": pm_id,
+            "min_ctx": int(min_ctx) if min_ctx and int(min_ctx) > 0 else None,
+            "max_ctx": int(max_ctx) if max_ctx and int(max_ctx) > 0 else None,
+        })
+    return pool
 
 
 def normalize_auto_model_route(data: dict | None) -> dict:
     data = data or {}
+    raw_pool_source = data.get("pool_config") if isinstance(data.get("pool_config"), list) else data.get("provider_model_ids")
+    pool_config = _parse_pool_config(raw_pool_source)
     return {
         "enabled": bool(data.get("enabled")),
         "model_ids": _parse_id_list(data.get("model_ids")),
-        "provider_model_ids": _parse_id_list(data.get("provider_model_ids")),
+        "provider_model_ids": [item["id"] for item in pool_config],
+        "pool_config": pool_config,
         "route_policy": data.get("route_policy") if isinstance(data.get("route_policy"), dict) else {},
     }
 
@@ -41,6 +70,14 @@ def auto_model_route_is_active(payload: dict) -> bool:
         payload.get("enabled")
         and (payload.get("model_ids") or payload.get("provider_model_ids"))
     )
+
+
+def get_pool_config(model_name: str = AUTO_MODEL_NAME) -> list[dict]:
+    route = get_cached_auto_model_route(model_name)
+    pool = route.get("pool_config")
+    if pool:
+        return pool
+    return [{"id": pid, "min_ctx": None, "max_ctx": None} for pid in (route.get("provider_model_ids") or [])]
 
 
 async def ensure_auto_virtual_model(session, model_name: str, payload: dict) -> Model:
@@ -72,6 +109,7 @@ async def ensure_auto_virtual_model(session, model_name: str, payload: dict) -> 
 
 
 def _route_to_payload(model: Model, route: AutoModelRoute | None) -> dict:
+    pool_config = _parse_pool_config(route.provider_model_ids) if route else []
     payload = normalize_auto_model_route(
         {
             "enabled": route.enabled if route else False,
@@ -86,6 +124,7 @@ def _route_to_payload(model: Model, route: AutoModelRoute | None) -> dict:
     payload["is_multimodal"] = bool(getattr(model, "is_multimodal", False))
     payload["context_length"] = getattr(model, "context_length", None) or 0
     payload["max_tokens"] = getattr(model, "max_tokens", None) or 0
+    payload["pool_config"] = pool_config
     return payload
 
 
@@ -138,7 +177,7 @@ async def update_auto_model_route(
         session.add(route)
     route.enabled = bool(normalized["enabled"])
     route.model_ids = normalized["model_ids"]
-    route.provider_model_ids = normalized["provider_model_ids"]
+    route.provider_model_ids = normalized["pool_config"]
     route.route_policy = normalized["route_policy"]
     payload = _route_to_payload(model, route)
     if payload["provider_model_ids"]:

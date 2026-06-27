@@ -78,6 +78,14 @@
             height: min(560px, calc(100vh - 4rem));
             height: min(560px, calc(100dvh - 4rem));
         }
+        .auto-drag-item {
+            cursor: grab;
+            transition: box-shadow 0.15s, opacity 0.15s, border-color 0.15s;
+        }
+        .auto-drag-item:active { cursor: grabbing; }
+        .auto-drag-item.dragging { opacity: 0.4; box-shadow: 0 0 0 2px #3b82f6; }
+        .auto-drag-item.drag-over-top { border-top: 3px solid #3b82f6 !important; margin-top: -1px; }
+        .auto-drag-item.drag-over-bottom { border-bottom: 3px solid #3b82f6 !important; margin-bottom: -1px; }
         .config-table-wrap { overflow-x: auto; }
         .config-table { width: 100%; border-collapse: collapse; min-width: 760px; }
         .routing-table { min-width: 680px; table-layout: fixed; }
@@ -127,6 +135,7 @@
                     <button class="config-tab-btn active" data-config-tab="overview" onclick="switchConfigTab('overview')">概览</button>
                     <button class="config-tab-btn" data-config-tab="providers" onclick="switchConfigTab('providers')">供应商</button>
                     <button class="config-tab-btn" data-config-tab="models" onclick="switchConfigTab('models')">标准模型</button>
+                    <button class="config-tab-btn" data-config-tab="auto" onclick="switchConfigTab('auto')">Auto 路由</button>
                     <button class="config-tab-btn" data-config-tab="routing" onclick="switchConfigTab('routing')">模型路由</button>
                     <button class="config-tab-btn" data-config-tab="billing" onclick="switchConfigTab('billing')">模型计费</button>
                     <button class="config-tab-btn" data-config-tab="templates" onclick="switchConfigTab('templates')">策略模板</button>
@@ -180,34 +189,6 @@
             </div>
 
             <div id="config-tab-models" class="config-tab-panel hidden">
-                <div class="bg-white rounded-lg shadow mb-4">
-                    <div class="p-4 border-b flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                            <h3 class="text-lg font-semibold">Auto 虚拟模型</h3>
-                            <p class="text-xs text-gray-500 mt-1">开启后 `/v1/models` 和 OpenCode 会暴露 `auto`；文本请求按候选模型优先级路由，图片请求只进入多模态候选。</p>
-                        </div>
-                        <label class="inline-flex items-center gap-2 text-sm">
-                            <input id="auto-model-enabled" type="checkbox" class="rounded">
-                            启用 auto
-                        </label>
-                    </div>
-                    <div class="p-4 space-y-3">
-                        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                            <div class="min-w-0">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs text-gray-500">候选标准模型</span>
-                                    <span id="auto-model-count" class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">0 个</span>
-                                </div>
-                                <div id="auto-model-summary" class="mt-2 flex flex-wrap gap-1.5 text-xs text-gray-600"></div>
-                                <span class="block text-xs text-gray-400 mt-2">必须至少选择一个候选模型，auto 才会暴露和参与路由；具体供应商顺序继续使用模型路由里的优先级和规则。</span>
-                            </div>
-                            <div class="flex flex-wrap gap-2 lg:flex-nowrap">
-                                <button onclick="openAutoModelPicker()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">选择模型</button>
-                                <button onclick="saveAutoModelConfig()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">保存 auto</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b flex justify-between items-center">
                         <h3 class="text-lg font-semibold">标准模型 <span id="model-count-tab" class="text-sm font-normal text-gray-500"></span></h3>
@@ -229,6 +210,48 @@
                         <button onclick="resetModelFilters()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50 shrink-0">重置</button>
                     </div>
                     <div id="models-list-tab" class="p-4 space-y-2"></div>
+                </div>
+            </div>
+
+            <div id="config-tab-auto" class="config-tab-panel hidden">
+                <div class="bg-white rounded-lg shadow mb-4">
+                    <div class="p-4 border-b flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold">Auto 路由配置</h3>
+                            <p class="text-xs text-gray-500 mt-1">开启后 <code class="bg-gray-100 px-1 rounded text-xs">/v1/models</code> 和 OpenCode 会暴露 <code class="bg-gray-100 px-1 rounded text-xs">auto</code>。拖拽队列决定供应商模型的优先级，排最前面的最先被选中。</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <label class="inline-flex items-center gap-2 text-sm">
+                                <input id="auto-model-enabled" type="checkbox" class="rounded">
+                                启用 auto
+                            </label>
+                            <button onclick="saveAutoModelConfig()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">保存配置</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="bg-white rounded-lg shadow flex flex-col" style="max-height: 70vh;">
+                        <div class="p-3 border-b flex-shrink-0">
+                            <div class="flex items-center justify-between mb-2">
+                                <h4 class="text-sm font-semibold text-gray-700">可用供应商模型</h4>
+                                <span id="auto-available-count" class="text-xs text-gray-400"></span>
+                            </div>
+                            <input id="auto-available-search" type="search" oninput="renderAutoAvailable()" class="w-full border rounded px-3 py-1.5 text-xs" placeholder="搜索供应商或模型...">
+                        </div>
+                        <div id="auto-available-list" class="p-3 overflow-y-auto flex-1 min-h-0 space-y-1.5"></div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow flex flex-col" style="max-height: 70vh;">
+                        <div class="p-3 border-b flex-shrink-0 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <h4 class="text-sm font-semibold text-gray-700">Auto 优先级队列</h4>
+                                <span id="auto-pool-count" class="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700"></span>
+                            </div>
+                            <span class="text-xs text-gray-400">拖拽排序 · 最上 = 最高优先级</span>
+                        </div>
+                        <div id="auto-pool-list" class="p-3 overflow-y-auto flex-1 min-h-0 space-y-1.5"></div>
+                    </div>
                 </div>
             </div>
 
@@ -476,28 +499,6 @@
         </div>
     </div>
 
-    <div id="auto-model-picker-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
-        <div class="auto-model-picker-panel bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 flex min-h-0 flex-col overflow-hidden">
-            <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
-                <div>
-                    <h3 class="font-semibold">选择 auto 候选模型</h3>
-                    <p class="text-xs text-gray-500 mt-1">auto 会从这些标准模型下的可用供应商中，继续按路由优先级、健康度和规则选择。</p>
-                </div>
-                <button onclick="closeAutoModelPicker()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-            </div>
-            <div class="px-4 py-3 border-b flex flex-wrap gap-2 items-center">
-                <button onclick="selectAllAutoModels()" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">全选</button>
-                <button onclick="clearAutoModels()" class="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">清空</button>
-                <span id="auto-model-picker-count" class="text-xs text-gray-500"></span>
-            </div>
-            <div id="auto-model-picker-list" class="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 min-h-0"></div>
-            <div class="p-4 border-t flex justify-end gap-2 flex-shrink-0">
-                <button onclick="closeAutoModelPicker()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">取消</button>
-                <button onclick="confirmAutoModelPicker()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">确认选择</button>
-            </div>
-        </div>
-    </div>
-
     <div id="provider-keys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
         <div class="admin-modal-card bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 flex min-h-0 flex-col overflow-hidden">
             <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
@@ -608,7 +609,6 @@
         let allModels = [];
         let allProviderModels = [];
         let autoModelConfig = {enabled: false, model_ids: [], provider_model_ids: []};
-        let autoModelDraftIds = new Set();
         let modelSearchTerm = '';
         let modelBindingFilter = 'all';
 
@@ -643,7 +643,7 @@
         }
 
         function switchConfigTab(tab) {
-            const knownTabs = new Set(['overview', 'providers', 'models', 'routing', 'billing', 'templates', 'preview']);
+            const knownTabs = new Set(['overview', 'providers', 'models', 'auto', 'routing', 'billing', 'templates', 'preview']);
             if (!knownTabs.has(tab)) tab = 'providers';
             document.querySelectorAll('.config-tab-panel').forEach(panel => panel.classList.add('hidden'));
             document.querySelectorAll('.config-tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -654,6 +654,7 @@
             const url = new URL(window.location.href);
             url.searchParams.set('tab', tab);
             window.history.replaceState(null, '', url.toString());
+            if (tab === 'auto') { loadAutoModelConfig(); if (!allProviderModels.length) loadProviderModelRoutes(); }
             if (tab === 'routing') loadProviderModelRoutes();
             if (tab === 'billing') loadModelPricing();
             if (tab === 'templates') loadStrategyTemplates();
@@ -1364,7 +1365,6 @@
         async function loadModels() {
             const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models`);
             allModels = data.models || [];
-            renderAutoModelConfig();
             renderFilteredModels();
             renderRoutingBindSelectors();
             renderOverview();
@@ -1372,122 +1372,251 @@
 
         async function loadAutoModelConfig() {
             try {
+                if (!allProviderModels.length) {
+                    const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models`);
+                    allProviderModels = data.provider_models || [];
+                }
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/routing/auto-model`);
                 autoModelConfig = {
                     enabled: data.enabled === true,
                     model_ids: data.model_ids || [],
                     provider_model_ids: data.provider_model_ids || []
                 };
-                renderAutoModelConfig();
+                autoPoolDraft = buildAutoPoolFromConfig();
+                renderAutoTab();
             } catch(e) {}
         }
 
-        function renderAutoModelConfig() {
-            const enabled = document.getElementById('auto-model-enabled');
-            const summary = document.getElementById('auto-model-summary');
-            const count = document.getElementById('auto-model-count');
-            if (!enabled || !summary || !count) return;
-            enabled.checked = autoModelConfig.enabled === true;
-            const selectedIds = getAutoModelSelectedModelIds();
-            const selectedModels = allModels.filter(m => selectedIds.has(Number(m.id)));
-            count.textContent = `${selectedModels.length} 个`;
-            if (!selectedModels.length) {
-                summary.innerHTML = '<span class="text-gray-400">未选择，auto 不会暴露或参与路由</span>';
-                return;
-            }
-            const preview = selectedModels.slice(0, 5).map(m => {
-                const label = `${m.display_name || m.name}${m.is_multimodal ? ' · 多模态' : ''}`;
-                return `<span class="px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100">${escapeHtml(label)}</span>`;
-            }).join('');
-            const more = selectedModels.length > 5
-                ? `<span class="px-2 py-1 rounded bg-gray-100 text-gray-600">+${selectedModels.length - 5}</span>`
-                : '';
-            summary.innerHTML = preview + more;
+        let autoPoolDraft = [];
+        let autoDraggedIndex = null;
+
+        function getActiveProviderModels() {
+            return (allProviderModels || []).filter(pm => pm.provider_is_active !== false);
         }
 
-        function renderAutoModelPicker() {
-            const list = document.getElementById('auto-model-picker-list');
-            const count = document.getElementById('auto-model-picker-count');
+        function getModelInfoForPm(pm) {
+            const model = (allModels || []).find(m => Number(m.id) === Number(pm.model_id));
+            return model || null;
+        }
+
+        function buildAutoPoolFromConfig() {
+            const poolConfig = autoModelConfig.pool_config || [];
+            const poolMap = {};
+            poolConfig.forEach(item => {
+                if (item && item.id) poolMap[Number(item.id)] = item;
+            });
+            const pmIds = Object.keys(poolMap).map(Number);
+            const modelIds = new Set((autoModelConfig.model_ids || []).map(Number).filter(Boolean));
+            const allPmIds = new Set((autoModelConfig.provider_model_ids || []).map(Number).filter(Boolean));
+            const pool = [];
+            const seen = new Set();
+            for (const pmId of pmIds) {
+                const pm = getActiveProviderModels().find(p => Number(p.id) === pmId);
+                if (pm && !seen.has(pmId)) {
+                    pool.push({...pm, _min_ctx: poolMap[pmId].min_ctx || null, _max_ctx: poolMap[pmId].max_ctx || null});
+                    seen.add(pmId);
+                }
+            }
+            for (const pmId of allPmIds) {
+                if (seen.has(pmId)) continue;
+                const pm = getActiveProviderModels().find(p => Number(p.id) === pmId);
+                if (pm) { pool.push({...pm, _min_ctx: null, _max_ctx: null}); seen.add(pmId); }
+            }
+            if (modelIds.size) {
+                for (const pm of getActiveProviderModels()) {
+                    if (modelIds.has(Number(pm.model_id)) && !seen.has(Number(pm.id))) {
+                        pool.push({...pm, _min_ctx: null, _max_ctx: null}); seen.add(Number(pm.id));
+                    }
+                }
+            }
+            return pool;
+        }
+
+        function renderAutoTab() {
+            const enabled = document.getElementById('auto-model-enabled');
+            if (enabled) enabled.checked = autoModelConfig.enabled === true;
+            renderAutoAvailable();
+            renderAutoPool();
+        }
+
+        function renderAutoAvailable() {
+            const list = document.getElementById('auto-available-list');
+            const countEl = document.getElementById('auto-available-count');
             if (!list) return;
-            const activeModels = allModels.filter(m => m.is_active);
-            if (count) count.textContent = `已选 ${autoModelDraftIds.size} / ${activeModels.length}`;
-            if (!activeModels.length) {
-                list.innerHTML = '<div class="text-sm text-gray-400 py-8 text-center sm:col-span-2">暂无可用标准模型</div>';
+            const search = (document.getElementById('auto-available-search')?.value || '').trim().toLowerCase();
+            const poolIds = new Set(autoPoolDraft.map(pm => Number(pm.id)));
+            let available = getActiveProviderModels().filter(pm => !poolIds.has(Number(pm.id)));
+            if (search) {
+                available = available.filter(pm => {
+                    const name = (pm.display_name || '').toLowerCase();
+                    const provider = (pm.provider_name || '').toLowerCase();
+                    return name.includes(search) || provider.includes(search);
+                });
+            }
+            if (countEl) countEl.textContent = `${available.length} 个`;
+            if (!available.length) {
+                list.innerHTML = '<div class="text-xs text-gray-400 text-center py-8">没有可添加的供应商模型</div>';
                 return;
             }
-            list.innerHTML = activeModels.map(m => {
-                const id = Number(m.id);
-                const label = `${m.display_name || m.name}`;
-                const meta = `${m.name}${m.is_multimodal ? ' · 多模态' : ''}`;
+            list.innerHTML = available.map(pm => {
+                const model = getModelInfoForPm(pm);
+                const badges = buildPmBadges(pm, model);
                 return `
-                    <label class="flex items-start gap-2 rounded border px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                        <input type="checkbox" class="auto-model-option mt-1 rounded" value="${id}" ${autoModelDraftIds.has(id) ? 'checked' : ''} onchange="toggleAutoModelDraft(this)">
-                        <span class="min-w-0">
-                            <span class="block text-sm text-gray-800 truncate">${escapeHtml(label)}</span>
-                            <span class="block text-xs text-gray-400 truncate">${escapeHtml(meta)}</span>
-                        </span>
-                    </label>
+                    <div class="flex items-center gap-2 rounded border px-3 py-2 hover:bg-gray-50">
+                        <div class="min-w-0 flex-1">
+                            <div class="text-sm text-gray-800 truncate">${escapeHtml(pm.provider_name)} · ${escapeHtml(pm.model_display_name || pm.model_name)}</div>
+                            <div class="text-xs text-gray-400 truncate">${badges}</div>
+                        </div>
+                        <button onclick="addToAutoPool(${pm.id})" class="shrink-0 w-7 h-7 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center text-lg leading-none">+</button>
+                    </div>
                 `;
             }).join('');
         }
 
-        function getAutoModelSelectedModelIds() {
-            const ids = new Set((autoModelConfig.model_ids || []).map(id => Number(id)).filter(Boolean));
-            const providerModelIds = new Set((autoModelConfig.provider_model_ids || []).map(id => Number(id)).filter(Boolean));
-            if (providerModelIds.size && Array.isArray(allProviderModels)) {
-                allProviderModels.forEach(pm => {
-                    if (providerModelIds.has(Number(pm.id)) && pm.model_id) {
-                        ids.add(Number(pm.model_id));
-                    }
-                });
+        function renderAutoPool() {
+            const list = document.getElementById('auto-pool-list');
+            const countEl = document.getElementById('auto-pool-count');
+            if (!list) return;
+            if (countEl) countEl.textContent = `${autoPoolDraft.length} 个`;
+            if (!autoPoolDraft.length) {
+                list.innerHTML = '<div class="text-xs text-gray-400 text-center py-8">队列为空，从左侧添加供应商模型<br>排在上面的优先级最高</div>';
+                return;
             }
-            return ids;
+            list.innerHTML = autoPoolDraft.map((pm, idx) => {
+                const model = getModelInfoForPm(pm);
+                const badges = buildPmBadges(pm, model);
+                const minCtx = pm._min_ctx || '';
+                const maxCtx = pm._max_ctx || '';
+                const ctxHint = [];
+                if (maxCtx) ctxHint.push(`<span class="text-red-400" title="硬限制：超过则不使用">≤${(maxCtx/1024).toFixed(0)}K</span>`);
+                if (minCtx) ctxHint.push(`<span class="text-blue-400" title="软偏好：低于则降级">≥${(minCtx/1024).toFixed(0)}K</span>`);
+                const ctxRow = ctxHint.length ? `<span class="text-xs ml-1">${ctxHint.join(' ')}</span>` : '';
+                return `
+                    <div class="auto-drag-item rounded border px-3 py-2 bg-white"
+                         draggable="true"
+                         ondragstart="autoDragStart(event, ${idx})"
+                         ondragend="autoDragEnd(event)"
+                         ondragover="autoDragOver(event, ${idx})"
+                         ondragleave="autoDragLeave(event)"
+                         ondrop="autoDrop(event, ${idx})">
+                        <div class="flex items-center gap-2">
+                            <span class="shrink-0 text-gray-300 select-none cursor-grab text-sm" title="拖拽排序">≡</span>
+                            <span class="shrink-0 w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center font-semibold">${idx + 1}</span>
+                            <div class="min-w-0 flex-1">
+                                <div class="text-sm text-gray-800 truncate">${escapeHtml(pm.provider_name)} · ${escapeHtml(pm.model_display_name || pm.model_name)}</div>
+                                <div class="text-xs text-gray-400 truncate">${badges}${ctxRow}</div>
+                            </div>
+                            <button onclick="removeFromAutoPool(${idx})" class="shrink-0 w-7 h-7 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center text-lg leading-none">&times;</button>
+                        </div>
+                        <div class="flex items-center gap-2 mt-1.5 ml-8 text-xs">
+                            <label class="flex items-center gap-1 text-gray-500" title="软偏好：请求 token 低于此值时降级优先">
+                                <span>偏好≥</span>
+                                <input type="number" value="${minCtx ? (minCtx/1024).toFixed(0) : ''}" placeholder="K"
+                                       oninput="updateAutoPoolCtx(${idx}, 'min', this.value)"
+                                       class="w-14 border rounded px-1 py-0.5 text-xs">
+                                <span class="text-gray-400">K</span>
+                            </label>
+                            <label class="flex items-center gap-1 text-gray-500" title="硬限制：请求 token 超过此值时排除">
+                                <span class="text-red-400">限制≤</span>
+                                <input type="number" value="${maxCtx ? (maxCtx/1024).toFixed(0) : ''}" placeholder="K"
+                                       oninput="updateAutoPoolCtx(${idx}, 'max', this.value)"
+                                       class="w-14 border rounded px-1 py-0.5 text-xs">
+                                <span class="text-gray-400">K</span>
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
-        function openAutoModelPicker() {
-            autoModelDraftIds = getAutoModelSelectedModelIds();
-            renderAutoModelPicker();
-            document.getElementById('auto-model-picker-modal')?.classList.remove('hidden');
-            document.getElementById('auto-model-picker-modal')?.classList.add('flex');
-        }
-
-        function closeAutoModelPicker() {
-            document.getElementById('auto-model-picker-modal')?.classList.add('hidden');
-            document.getElementById('auto-model-picker-modal')?.classList.remove('flex');
-        }
-
-        function toggleAutoModelDraft(checkbox) {
-            const id = Number(checkbox.value);
-            if (!id) return;
-            if (checkbox.checked) {
-                autoModelDraftIds.add(id);
+        function updateAutoPoolCtx(idx, type, valueK) {
+            const pm = autoPoolDraft[idx];
+            if (!pm) return;
+            const tokens = valueK ? Math.round(parseFloat(valueK) * 1024) : null;
+            if (type === 'min') {
+                pm._min_ctx = (tokens && tokens > 0) ? tokens : null;
             } else {
-                autoModelDraftIds.delete(id);
+                pm._max_ctx = (tokens && tokens > 0) ? tokens : null;
             }
-            renderAutoModelPicker();
         }
 
-        function confirmAutoModelPicker() {
-            autoModelConfig.model_ids = Array.from(autoModelDraftIds);
-            renderAutoModelConfig();
-            closeAutoModelPicker();
+        function buildPmBadges(pm, model) {
+            const parts = [];
+            if (model?.is_multimodal) parts.push('<span class="text-purple-500">多模态</span>');
+            if (model?.context_length) parts.push(`${(model.context_length / 1024).toFixed(0)}K ctx`);
+            parts.push(`<span class="text-gray-400">优先级 ${pm.priority || 0}</span>`);
+            return parts.join(' · ');
         }
 
-        function selectAllAutoModels() {
-            autoModelDraftIds = new Set(allModels.filter(m => m.is_active).map(m => Number(m.id)).filter(Boolean));
-            renderAutoModelPicker();
+        function addToAutoPool(pmId) {
+            const pm = getActiveProviderModels().find(p => Number(p.id) === Number(pmId));
+            if (!pm) return;
+            if (autoPoolDraft.some(p => Number(p.id) === Number(pmId))) return;
+            autoPoolDraft.push({...pm, _min_ctx: null, _max_ctx: null});
+            renderAutoAvailable();
+            renderAutoPool();
         }
 
-        function clearAutoModels() {
-            autoModelDraftIds = new Set();
-            renderAutoModelPicker();
+        function removeFromAutoPool(idx) {
+            autoPoolDraft.splice(idx, 1);
+            renderAutoAvailable();
+            renderAutoPool();
+        }
+
+        function autoDragStart(event, idx) {
+            autoDraggedIndex = idx;
+            event.currentTarget.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+        }
+
+        function autoDragEnd(event) {
+            event.currentTarget.classList.remove('dragging');
+            document.querySelectorAll('.auto-drag-item').forEach(el => {
+                el.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+            autoDraggedIndex = null;
+        }
+
+        function autoDragOver(event, idx) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            const el = event.currentTarget;
+            document.querySelectorAll('.auto-drag-item').forEach(e => e.classList.remove('drag-over-top', 'drag-over-bottom'));
+            if (autoDraggedIndex === null || autoDraggedIndex === idx) return;
+            const rect = el.getBoundingClientRect();
+            const isUpper = event.clientY < rect.top + rect.height / 2;
+            el.classList.add(isUpper ? 'drag-over-top' : 'drag-over-bottom');
+        }
+
+        function autoDragLeave(event) {
+            event.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+        }
+
+        function autoDrop(event, idx) {
+            event.preventDefault();
+            if (autoDraggedIndex === null || autoDraggedIndex === idx) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            let target = idx;
+            if (event.clientY >= rect.top + rect.height / 2 && autoDraggedIndex < idx) target = idx;
+            else if (event.clientY < rect.top + rect.height / 2 && autoDraggedIndex > idx) target = idx;
+            else target = event.clientY >= rect.top + rect.height / 2 ? idx + 1 : idx;
+            const [moved] = autoPoolDraft.splice(autoDraggedIndex, 1);
+            const insertAt = target > autoDraggedIndex ? target - 1 : target;
+            autoPoolDraft.splice(insertAt, 0, moved);
+            autoDragEnd({currentTarget: document.querySelector('.auto-drag-item.dragging')});
+            renderAutoPool();
         }
 
         async function saveAutoModelConfig() {
             const enabled = document.getElementById('auto-model-enabled')?.checked === true;
-            const modelIds = Array.from(getAutoModelSelectedModelIds());
-            if (enabled && modelIds.length === 0 && !(autoModelConfig.provider_model_ids || []).length) {
-                showToast('请至少选择一个候选模型，或者关闭 auto', 'error');
+            const poolItems = autoPoolDraft.map(pm => ({
+                id: Number(pm.id),
+                min_ctx: pm._min_ctx || null,
+                max_ctx: pm._max_ctx || null
+            })).filter(item => item.id);
+            const modelIds = [...new Set(autoPoolDraft.map(pm => Number(pm.model_id)).filter(Boolean))];
+            if (enabled && poolItems.length === 0) {
+                showToast('请至少添加一个供应商模型，或者关闭 auto', 'error');
                 return;
             }
             try {
@@ -1497,10 +1626,12 @@
                     body: JSON.stringify({
                         enabled,
                         model_ids: modelIds,
-                        provider_model_ids: autoModelConfig.provider_model_ids || []
+                        provider_model_ids: poolItems
                     })
                 }, {success: 'auto 配置已保存', error: 'auto 配置保存失败'});
                 autoModelConfig = await resp.json();
+                autoPoolDraft = buildAutoPoolFromConfig();
+                renderAutoTab();
                 await loadModels();
             } catch(e) {}
         }
@@ -1771,7 +1902,7 @@
                 providerSelect.innerHTML = allProviders.map(p => `<option value="${p.id}" ${selectedProviderId === p.id ? 'selected' : ''}>${p.name}</option>`).join('');
             }
             if (modelSelect) {
-                modelSelect.innerHTML = allModels.filter(m => m.is_active).map(m => `<option value="${m.id}">${m.display_name || m.name}</option>`).join('');
+                modelSelect.innerHTML = allModels.filter(m => m.is_active && !m.is_virtual).map(m => `<option value="${m.id}">${m.display_name || m.name}</option>`).join('');
             }
         }
 
@@ -1781,7 +1912,7 @@
             const inactiveProviders = allProviders.filter(p => !p.is_active || p.disabled_reason);
             const inactiveModels = allModels.filter(m => !m.is_active);
             const modelIdsWithRoutes = new Set(allProviderModels.map(pm => pm.model_id));
-            const modelsWithoutRoutes = allModels.filter(m => m.is_active && !modelIdsWithRoutes.has(m.id));
+            const modelsWithoutRoutes = allModels.filter(m => m.is_active && !m.is_virtual && !modelIdsWithRoutes.has(m.id));
             providerCount.textContent = allProviders.length;
             document.getElementById('overview-model-count').textContent = allModels.length;
             document.getElementById('overview-binding-count').textContent = allProviderModels.length;

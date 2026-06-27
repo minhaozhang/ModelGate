@@ -31,7 +31,9 @@ from app.services.provider_key_routing import (
 )
 from app.services.auto_model_routes import (
     AUTO_MODEL_NAME,
+    get_auto_model_route as get_auto_model_route_record,
     get_cached_auto_model_route,
+    get_pool_config,
     is_cached_auto_model_enabled,
     load_auto_model_routes_cache,
 )
@@ -506,12 +508,15 @@ def request_requires_multimodal(messages: list[dict] | None) -> bool:
 def get_auto_model_provider_candidates(
     model_name: str = AUTO_MODEL_NAME,
     require_multimodal: bool = False,
+    context_tokens: int = 0,
 ) -> list[tuple[str, dict, str, int]]:
     auto_config = get_auto_model_config(model_name)
     if not is_auto_model_enabled(model_name):
         return []
     allowed_model_ids = set(auto_config.get("model_ids") or [])
     allowed_provider_model_ids = set(auto_config.get("provider_model_ids") or [])
+    pool_config = get_pool_config(model_name)
+    pool_map: dict[int, dict] = {item["id"]: item for item in pool_config}
     candidates: list[tuple[str, dict, str, int]] = []
     seen: set[int] = set()
     for model_candidates in _model_name_index.values():
@@ -529,6 +534,13 @@ def get_auto_model_provider_candidates(
                 continue
             if require_multimodal and not pm_dict.get("is_multimodal"):
                 continue
+            item_cfg = pool_map.get(provider_model_id)
+            max_ctx = item_cfg.get("max_ctx") if item_cfg else None
+            min_ctx = item_cfg.get("min_ctx") if item_cfg else None
+            if max_ctx and context_tokens > max_ctx:
+                continue
+            pm_dict["_auto_min_ctx"] = min_ctx
+            pm_dict["_auto_max_ctx"] = max_ctx
             candidates.append((provider_name, pm_dict, model_tags, priority))
     return candidates
 
@@ -687,6 +699,7 @@ async def explain_provider_model_candidates(
         get_auto_model_provider_candidates(
             model_name=model,
             require_multimodal=requires_multimodal,
+            context_tokens=context_tokens,
         )
         if is_auto_model
         else (_model_name_index.get(model) or _alias_index.get(model) or [])
@@ -757,6 +770,10 @@ async def explain_provider_model_candidates(
         entry["matched_rules"] = matched_rules
         entry["provider_key_ids"] = provider_key_ids
         entry["filtered_reasons"].extend(rule_filtered_reasons)
+        auto_min_ctx = pm_dict.get("_auto_min_ctx")
+        entry["auto_min_ctx_ok"] = (
+            not auto_min_ctx or context_tokens >= auto_min_ctx
+        )
         if provider_key_ids:
             provider_key_id_set = set(provider_key_ids)
             scoped_active_keys = [
@@ -776,6 +793,7 @@ async def explain_provider_model_candidates(
 
     ordered.sort(
         key=lambda x: (
+            x["auto_min_ctx_ok"],
             x["tag_match"],
             0 if x["standby"] else 1,
             x["effective_priority"],
@@ -823,7 +841,8 @@ async def get_provider_model_candidates(
     candidates = (
         get_auto_model_provider_candidates(
             model_name=model,
-            require_multimodal=request_requires_multimodal(messages)
+            require_multimodal=request_requires_multimodal(messages),
+            context_tokens=context_tokens,
         )
         if is_auto_model
         else (_model_name_index.get(model) or _alias_index.get(model))

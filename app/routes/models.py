@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+from typing import Optional, Union
 from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy import select
@@ -48,10 +49,16 @@ class ModelUpdate(BaseModel):
     tags: Optional[str] = None
 
 
+class AutoPoolItem(BaseModel):
+    id: int
+    min_ctx: Optional[int] = None
+    max_ctx: Optional[int] = None
+
+
 class AutoModelConfigUpdate(BaseModel):
     enabled: bool = False
     model_ids: list[int] = Field(default_factory=list)
-    provider_model_ids: list[int] = Field(default_factory=list)
+    provider_model_ids: list[Union[AutoPoolItem, int]] = Field(default_factory=list)
 
 
 @router.get("/routing/auto-model")
