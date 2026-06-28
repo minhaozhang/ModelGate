@@ -1220,7 +1220,7 @@
         }
 
         function renderRoutePreviewCandidate(item, type) {
-            const reasons = item.filtered_reasons || [];
+            const reasons = (item.filtered_reasons || []).map(humanizeFilterReason);
             const matched = item.matched_rules || [];
             const title = type === 'key'
                 ? `${item.label || 'default'} / Key #${item.provider_key_id || item.key_id || '-'}`
@@ -1244,6 +1244,24 @@
                 ${matched.length ? `<div class="text-xs text-blue-600 mt-2">命中规则：${escapeHtml(matched.join('、'))}</div>` : ''}
                 ${reasons.length ? `<div class="text-xs text-red-500 mt-2">原因：${escapeHtml(reasons.join('、'))}</div>` : ''}
             </div>`;
+        }
+
+        function humanizeFilterReason(reason) {
+            if (!reason) return '';
+            if (reason === 'provider_not_found') return '供应商不存在';
+            if (reason === 'provider_disabled') return '供应商已停用';
+            if (reason === 'missing_api_key') return '缺少 API Key';
+            if (reason === 'health_unavailable') return '健康度为 0';
+            if (reason === 'time_denied') return '时间窗口不允许';
+            if (reason === 'allow_not_matched') return '不在允许范围';
+            if (reason === 'standby_closed') return '备用通道关闭';
+            if (reason === 'disabled') return '已停用';
+            if (reason === 'route_denied') return '路由规则拒绝';
+            if (reason === 'route_key_scope') return '路由 Key 范围限制';
+            if (reason === 'route_key_scope_unavailable') return '路由 Key 范围内无可用 Key';
+            const m = reason.match(/^auto_max_ctx_exceeded:(\d+)$/);
+            if (m) return `auto 上限超出（max_ctx=${Math.round(parseInt(m[1])/1024)}K，请求已超过）`;
+            return reason;
         }
 
         function renderRoutePreviewSection(title, items, type) {

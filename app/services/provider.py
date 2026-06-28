@@ -509,15 +509,17 @@ def get_auto_model_provider_candidates(
     model_name: str = AUTO_MODEL_NAME,
     require_multimodal: bool = False,
     context_tokens: int = 0,
-) -> list[tuple[str, dict, str, int]]:
+    return_excluded: bool = False,
+):
     auto_config = get_auto_model_config(model_name)
     if not is_auto_model_enabled(model_name):
-        return []
+        return ([], []) if return_excluded else []
     allowed_model_ids = set(auto_config.get("model_ids") or [])
     allowed_provider_model_ids = set(auto_config.get("provider_model_ids") or [])
     pool_config = get_pool_config(model_name)
     pool_map: dict[int, dict] = {item["id"]: item for item in pool_config}
     candidates: list[tuple[str, dict, str, int]] = []
+    excluded: list[tuple[str, dict, str, int]] = []
     seen: set[int] = set()
     for model_candidates in _model_name_index.values():
         for provider_name, pm_dict, model_tags, priority in model_candidates:
@@ -538,10 +540,15 @@ def get_auto_model_provider_candidates(
             max_ctx = item_cfg.get("max_ctx") if item_cfg else None
             min_ctx = item_cfg.get("min_ctx") if item_cfg else None
             if max_ctx and context_tokens > max_ctx:
+                if return_excluded:
+                    pm_dict["_auto_max_ctx"] = max_ctx
+                    excluded.append((provider_name, pm_dict, model_tags, priority))
                 continue
             pm_dict["_auto_min_ctx"] = min_ctx
             pm_dict["_auto_max_ctx"] = max_ctx
             candidates.append((provider_name, pm_dict, model_tags, priority))
+    if return_excluded:
+        return candidates, excluded
     return candidates
 
 
@@ -695,15 +702,16 @@ async def explain_provider_model_candidates(
 
     is_auto_model = is_auto_model_enabled(model)
     requires_multimodal = request_requires_multimodal(messages) if is_auto_model else False
-    candidates = (
-        get_auto_model_provider_candidates(
+    excluded_by_ctx: list[tuple[str, dict, str, int]] = []
+    if is_auto_model:
+        candidates, excluded_by_ctx = get_auto_model_provider_candidates(
             model_name=model,
             require_multimodal=requires_multimodal,
             context_tokens=context_tokens,
+            return_excluded=True,
         )
-        if is_auto_model
-        else (_model_name_index.get(model) or _alias_index.get(model) or [])
-    )
+    else:
+        candidates = _model_name_index.get(model) or _alias_index.get(model) or []
     from app.services.key_health import compute_health_score
     from app.services.intent_classifier import classify_intent
 
@@ -714,6 +722,33 @@ async def explain_provider_model_candidates(
 
     ordered: list[dict] = []
     filtered: list[dict] = []
+
+    for cand_provider_name, pm_dict, model_tags_str, pm_priority in excluded_by_ctx:
+        filtered.append({
+            "provider": cand_provider_name,
+            "provider_id": None,
+            "provider_model_id": pm_dict.get("id"),
+            "model_id": pm_dict.get("model_id"),
+            "model_name": pm_dict.get("model_name") or model,
+            "upstream_model_name": pm_dict.get("upstream_model_name")
+            or pm_dict.get("model_name")
+            or model,
+            "is_auto_model": True,
+            "requires_multimodal": requires_multimodal,
+            "is_multimodal": bool(pm_dict.get("is_multimodal")),
+            "tag_match": 0,
+            "priority": int(pm_priority or 0),
+            "policy_priority": 0,
+            "effective_priority": int(pm_priority or 0),
+            "health": 100,
+            "standby": False,
+            "matched_rules": [],
+            "provider_key_ids": [],
+            "filtered_reasons": [
+                f"auto_max_ctx_exceeded:{pm_dict.get('_auto_max_ctx')}"
+            ],
+        })
+
     for cand_provider_name, pm_dict, model_tags_str, pm_priority in candidates:
         pc = await get_provider_config(cand_provider_name)
         entry = {
