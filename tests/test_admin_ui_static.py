@@ -392,8 +392,8 @@ class AdminUiStaticTests(unittest.TestCase):
         route = (ROOT / "app" / "routes" / "provider_models.py").read_text(encoding="utf-8")
         database = (ROOT / "app" / "core" / "database.py").read_text(encoding="utf-8")
 
-        self.assertIn('data-config-tab="billing"', html)
-        self.assertIn('id="config-tab-billing"', html)
+        self.assertIn('data-config-tab="pricing"', html)
+        self.assertIn('id="config-tab-pricing"', html)
         self.assertIn("loadModelPricing", html)
         self.assertIn("saveModelPricing", html)
         self.assertIn("input_price_cny_per_million", html)
