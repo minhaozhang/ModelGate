@@ -424,6 +424,16 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn('if (tab === \'provider-models\') loadProviderModelRoutes();', html)
         self.assertIn('if (tab === \'pricing\') loadModelPricing();', html)
 
+    def test_pricing_overview_has_filters_and_actions(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        self.assertIn('id="pricing-filter-provider"', html)
+        self.assertIn('id="pricing-filter-model"', html)
+        self.assertIn('openBatchPricingModal', html)
+        self.assertIn('openCopyPricingModal', html)
+        self.assertIn('syncPricingToSiblings', html)
+        self.assertIn('exportPricingCsv', html)
+        self.assertIn('toggleAllPricing', html)
+
 
 if __name__ == "__main__":
     unittest.main()

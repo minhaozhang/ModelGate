@@ -296,12 +296,27 @@
 
             <div id="config-tab-pricing" class="config-tab-panel hidden">
                 <div class="bg-white rounded-lg shadow">
-                    <div class="p-4 border-b flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                            <h3 class="text-lg font-semibold">模型计费配置</h3>
-                            <p class="text-xs text-gray-500 mt-1">价格按供应商模型绑定配置，单位均为人民币 / 百万 tokens；历史请求会保存当次计费快照。</p>
+                    <div class="p-4 border-b space-y-3">
+                        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                                <h3 class="text-lg font-semibold">价目总览</h3>
+                                <p class="text-xs text-gray-500 mt-1">按供应商模型绑定配置价格；支持筛选、对比、批量改价、复制与同步。单位均为人民币 / 百万 tokens。</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="exportPricingCsv()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">导出 CSV</button>
+                                <button onclick="openBatchPricingModal()" class="px-4 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">批量改价</button>
+                                <button onclick="loadModelPricing()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">刷新</button>
+                            </div>
                         </div>
-                        <button onclick="loadModelPricing()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">刷新</button>
+                        <div class="flex flex-wrap gap-2 text-sm">
+                            <select id="pricing-filter-provider" class="border rounded px-3 py-2" onchange="renderModelPricing()"></select>
+                            <select id="pricing-filter-model" class="border rounded px-3 py-2 min-w-48" onchange="renderModelPricing()"></select>
+                            <select id="pricing-filter-status" class="border rounded px-3 py-2" onchange="renderModelPricing()">
+                                <option value="">全部</option>
+                                <option value="priced">已配价</option>
+                                <option value="unpriced">未配价</option>
+                            </select>
+                        </div>
                     </div>
                     <div id="model-pricing-list" class="p-4"></div>
                 </div>
@@ -1834,19 +1849,36 @@
         function renderModelPricing() {
             const container = document.getElementById('model-pricing-list');
             if (!container) return;
-            const rows = [...allProviderModels].sort((a, b) => {
+            const providerFilter = document.getElementById('pricing-filter-provider')?.value || '';
+            const modelFilter = document.getElementById('pricing-filter-model')?.value || '';
+            const statusFilter = document.getElementById('pricing-filter-status')?.value || '';
+
+            const providerOptions = [...new Set(allProviderModels.map(r => r.provider_name || '').filter(Boolean))].sort();
+            const modelOptions = [...new Set(allProviderModels.map(r => r.model_name || '').filter(Boolean))].sort();
+            const provSel = document.getElementById('pricing-filter-provider');
+            const modSel = document.getElementById('pricing-filter-model');
+            if (provSel) provSel.innerHTML = `<option value="">全部供应商</option>` + providerOptions.map(p => `<option value="${escapeAttr(p)}" ${p===providerFilter?'selected':''}>${escapeHtml(p)}</option>`).join('');
+            if (modSel) modSel.innerHTML = `<option value="">全部模型</option>` + modelOptions.map(m => `<option value="${escapeAttr(m)}" ${m===modelFilter?'selected':''}>${escapeHtml(m)}</option>`).join('');
+
+            let rows = [...allProviderModels];
+            if (providerFilter) rows = rows.filter(r => r.provider_name === providerFilter);
+            if (modelFilter) rows = rows.filter(r => r.model_name === modelFilter);
+            if (statusFilter === 'priced') rows = rows.filter(r => r.input_price_cny_per_million != null || r.output_price_cny_per_million != null);
+            if (statusFilter === 'unpriced') rows = rows.filter(r => r.input_price_cny_per_million == null && r.output_price_cny_per_million == null);
+            rows.sort((a, b) => {
                 const left = `${a.model_name || ''}/${a.provider_name || ''}`;
                 const right = `${b.model_name || ''}/${b.provider_name || ''}`;
                 return left.localeCompare(right);
             });
             if (!rows.length) {
-                container.innerHTML = '<div class="text-gray-400 text-center py-4">暂无供应商模型绑定，先在模型路由里添加绑定。</div>';
+                container.innerHTML = '<div class="text-gray-400 text-center py-4">暂无数据，先在「供应商模型」里添加绑定。</div>';
                 return;
             }
             container.innerHTML = `<div class="config-table-wrap">
                 <table class="config-table">
                     <thead>
                         <tr>
+                            <th class="w-8"><input type="checkbox" id="pricing-select-all" onchange="toggleAllPricing(this)"></th>
                             <th>标准模型</th>
                             <th>供应商 / 上游模型</th>
                             <th>输入价</th>
@@ -1859,6 +1891,7 @@
                     </thead>
                     <tbody>
                         ${rows.map(route => `<tr>
+                            <td><input type="checkbox" class="pricing-row-check" data-pm-id="${route.id}"></td>
                             <td>
                                 <div class="font-medium text-sm text-gray-800">${escapeHtml(route.model_display_name || route.model_name)}</div>
                                 <div class="text-xs text-gray-500 mt-1">${escapeHtml(route.model_name || '')}</div>
@@ -1875,8 +1908,12 @@
                                 <textarea id="pricing-tiers-${route.id}" rows="2" class="w-56 border rounded px-2 py-1.5 text-xs font-mono" placeholder='[{"max_context_tokens":524288,...}]'>${escapeHtml(pricingTiersValue(route))}</textarea>
                             </td>
                             <td>
-                                <div class="flex justify-end">
+                                <div class="flex flex-col items-end gap-1">
                                     <button onclick="saveModelPricing(${route.id})" class="text-xs text-blue-500 hover:text-blue-700">保存</button>
+                                    <div class="flex gap-2">
+                                        <button onclick="openCopyPricingModal(${route.id})" class="text-xs text-blue-600 hover:underline">复制</button>
+                                        <button onclick="syncPricingToSiblings(${route.id})" class="text-xs text-purple-600 hover:underline">同步</button>
+                                    </div>
                                 </div>
                             </td>
                         </tr>`).join('')}
@@ -1885,8 +1922,62 @@
             </div>
             <div class="text-xs text-gray-500 mt-3 leading-relaxed">
                 命中缓存 token 优先使用上游返回的 cached_tokens；没有返回时，按默认缓存命中率估算。
-                MiniMax M3 这种上下文分档价格可以填分档 JSON，普通模型留空即可。
+                MiniMax M3 这种上下文分档价格可以填分档 JSON，普通模型留空即可。「复制」把当前行价格复制到同模型其他供应商；「同步」把当前行价格覆盖到同模型所有其他供应商。
             </div>`;
+        }
+
+        function toggleAllPricing(el) {
+            document.querySelectorAll('.pricing-row-check').forEach(c => c.checked = el.checked);
+        }
+        function selectedPricingIds() {
+            return [...document.querySelectorAll('.pricing-row-check:checked')].map(c => parseInt(c.dataset.pmId, 10));
+        }
+        async function openBatchPricingModal() {
+            const ids = selectedPricingIds();
+            if (!ids.length) { showToast('请先勾选要改价的行', 'error'); return; }
+            const input = prompt('输入价（元/百万 tokens，留空跳过）:');
+            if (input === null) return;
+            const output = prompt('输出价（留空跳过）:');
+            if (output === null) return;
+            const cached = prompt('缓存价（留空跳过）:');
+            if (cached === null) return;
+            const body = { ids };
+            if (input !== '') body.input_price_cny_per_million = parseFloat(input);
+            if (output !== '') body.output_price_cny_per_million = parseFloat(output);
+            if (cached !== '') body.cached_input_price_cny_per_million = parseFloat(cached);
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/provider-models/batch-pricing`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+                });
+                showToast('批量改价成功');
+                await loadModelPricing();
+            } catch(e) { showToast('批量改价失败', 'error'); }
+        }
+        async function openCopyPricingModal(pmId) {
+            const base = allProviderModels.find(x => x.id === pmId);
+            const sameModel = allProviderModels.filter(r => r.model_name === base?.model_name && r.id !== pmId);
+            if (!sameModel.length) { showToast('同模型下没有其他供应商可复制', 'error'); return; }
+            const opts = sameModel.map(r => `${r.id}:${r.provider_name}`).join('\n');
+            const targetId = prompt(`选择目标（同模型其他供应商）:\n${opts}\n输入目标 id:`);
+            if (!targetId) return;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/provider-models/${pmId}/copy-pricing`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({target_pm_id: parseInt(targetId,10)})
+                });
+                showToast('复制价格成功');
+                await loadModelPricing();
+            } catch(e) { showToast('复制价格失败', 'error'); }
+        }
+        async function syncPricingToSiblings(pmId) {
+            if (!confirm('将该模型下其他供应商的价格同步为当前行的值？此操作不可逆。')) return;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/provider-models/${pmId}/sync-to-siblings`, {method:'POST'});
+                showToast('同步价格成功');
+                await loadModelPricing();
+            } catch(e) { showToast('同步价格失败', 'error'); }
+        }
+        function exportPricingCsv() {
+            window.location.href = `${APP_BASE_PATH}/admin/api/provider-models/pricing-export.csv`;
         }
 
         function modelPricingNumber(id) {
