@@ -1,6 +1,6 @@
 # OpenCode 配置指南
 
-## 完整 opencode.json 示例
+## 完整 opencode.jsonc 示例
 
 ```json
 {
@@ -68,7 +68,7 @@
 
 1. 访问 ModelGate 用户面板 → OpenCode 配置页
 2. 复制生成的配置文本
-3. 粘贴到 `~/.config/opencode/opencode.json` 中，替换 `YOUR_API_KEY` 为你的 API Key
+3. 粘贴到 `~/.config/opencode/opencode.jsonc` 中，替换 `YOUR_API_KEY` 为你的 API Key
 4. 添加 `compaction` 配置段（可选）
 5. 重启 OpenCode 使配置生效
 

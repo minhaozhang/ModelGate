@@ -9,7 +9,7 @@
 
 ## 1. 配置 MCP
 
-编辑 opencode 配置文件 `~/.config/opencode/opencode.json`，在 `mcp` 字段中添加：
+编辑 opencode 配置文件 `~/.config/opencode/opencode.jsonc`，在 `mcp` 字段中添加：
 
 ```json
 "weixin-bot": {
@@ -125,4 +125,4 @@ opencode 进入持续轮询模式，每 15 秒检查一次微信消息，将收�
 
 ## 5. 多用户隔离
 
-每个 ModelGate API Key 绑定独立的微信账号。不同 API Key 登录不同微信号，消息和会话完全隔离。在 `opencode.json` 中配置不同的 `Authorization` header 即可切换账号。
+每个 ModelGate API Key 绑定独立的微信账号。不同 API Key 登录不同微信号，消息和会话完全隔离。在 `opencode.jsonc` 中配置不同的 `Authorization` header 即可切换账号。

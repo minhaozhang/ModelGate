@@ -1,7 +1,7 @@
 # ModelGate
 
 <p align="center">
-  <img src="assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
+  <img src="web/assets/favicon.svg" alt="ModelGate logo" width="96" height="96">
 </p>
 
 ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key management, request logging, and dashboard monitoring. Designed for teams and organizations to centrally manage and distribute AI model access across departments.
@@ -15,7 +15,7 @@ ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key man
 - Intent classification: auto-classify requests as coding/writing/testing/design/chat based on message content, used for smart routing and log analytics
 - Provider key health scoring: sliding-window (5 min) health score (0–100), prioritize healthy keys in routing
 - Provider key priority: manual priority per key for ordered fallback, sorted by (priority DESC, health DESC)
-- Layered concurrency control: API key model limit -> provider key limit with per-key semaphore
+- Layered concurrency control: non-bypass API key global limit (2) -> API key provider-model limit -> provider key limit
 - Provider multi-key support with sticky routing and key-level disable/reenable
 - Provider key fallback: automatically tries the next API key on 401/403/429 errors
 - Auto-disable provider/key on usage limit errors, auto-reenable on scheduled task
@@ -68,7 +68,7 @@ ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key man
 
 ```bash
 pip install -r requirements.txt
-python main.py
+python -m app.main
 ```
 
 Default local addresses:
@@ -133,7 +133,7 @@ CREATE USER "modelgate" WITH PASSWORD 'your_password';
 CREATE DATABASE "modelgate" OWNER "modelgate";
 ```
 
-Schema: [`schema.sql`](schema.sql)
+Schema: [`db/schema.sql`](db/schema.sql)
 
 The app performs runtime compatibility migrations on startup (e.g., adding new columns to `request_logs`).
 
@@ -228,11 +228,12 @@ Request messages, response text, thinking/reasoning, and tool calls are stored i
 
 ## Concurrency Control
 
-Three-layer semaphore-based rate control:
+Four-layer semaphore-based rate control:
 
-1. **API key model limit** — per (api_key, model) concurrency cap, adjustable by busyness level; `bypass_busyness` API keys bypass both busyness rules and user concurrency limits
-2. **Provider key limit** — per provider key with configurable max_concurrent
-3. **System-level limit** — global concurrency with `local_rate_limited` rejection when exceeded
+1. **API key global limit** — non-`bypass_busyness` API keys are capped at 2 concurrent requests total across all providers and models
+2. **API key provider-model limit** — per (api_key, provider_key, model) concurrency cap, adjustable by busyness level; `bypass_busyness` API keys skip user-side busyness concurrency limits
+3. **Provider key limit** — per provider key with configurable max_concurrent
+4. **System-level limit** — global concurrency with `local_rate_limited` rejection when exceeded
 
 Provider keys support sticky routing (requests from the same API key route to the same provider key).
 
@@ -328,57 +329,21 @@ When a provider has multiple API keys configured, ModelGate automatically falls 
 
 ```text
 modelgate/
-├── main.py                  # App init, middleware, routers, exception handlers
-├── core/
-│   ├── config.py            # Logging, caches, stats, session management
-│   ├── database.py          # SQLAlchemy async engine, all ORM models
-│   ├── deps.py              # Auth dependencies
-│   ├── i18n.py              # Internationalization
-│   ├── app_paths.py         # Base path for reverse proxy
-│   ├── client_ip.py         # Multi-header client IP extraction
-│   └── log_sanitizer.py     # Sensitive data redaction for logs
-├── routes/
-│   ├── proxy.py             # /v1/chat/completions, /v1/embeddings, /v1/models
-│   ├── anthropic_proxy.py   # /anthropic/v1/messages — Anthropic protocol proxy
-│   ├── auth.py              # Admin login/logout
-│   ├── providers.py         # Provider CRUD
-│   ├── models.py            # Model CRUD
-│   ├── provider_models.py   # Provider-model bindings + auto-sync
-│   ├── keys.py              # API key CRUD + per-key stats/logs + time rules
-│   ├── stats.py             # Statistics, aggregation, live WebSocket
-│   ├── logs.py              # Log viewer + AI error analysis
-│   ├── pages.py             # Admin HTML pages
-│   ├── user.py              # User portal API + pages
-│   ├── opencode.py          # OpenCode config generation
-│   ├── reports.py           # Usage report generation + DOCX export
-│   ├── system_config.py     # System config (outbound UA management)
-│   ├── mcp.py               # MCP server CRUD endpoints
-│   └── weixin.py            # WeChat MCP server endpoints
-├── services/
-│   ├── proxy.py             # Main proxy logic, streaming, provider dispatch, key fallback
-│   ├── proxy_runtime/       # Runtime helpers: SSE, MiniMax, message preprocessing
-│   ├── anthropic_inbound.py # Anthropic↔OpenAI protocol translation (request & response)
-│   ├── auth.py              # API key validation + time-based access rules
-│   ├── provider.py          # Provider/model resolution, alias routing, sticky routing
-│   ├── provider_limiter.py  # Provider/key disable, reenable, usage limit detection
-│   ├── key_health.py        # Sliding-window key health scoring (0-100)
-│   ├── intent_classifier.py # Keyword-based intent classification (coding/writing/testing/design/chat)
-│   ├── scheduler.py         # APScheduler tasks
-│   ├── stats_aggregator.py  # Daily stats aggregation, archiving
-│   ├── logging.py           # Request log CRUD + request content (separate storage)
-│   ├── tokens.py            # Token estimation and response parsing
-│   ├── message.py           # Message preprocessing (merge, truncate)
-│   ├── minimax.py           # MiniMax-specific response/tool_call parsing
-│   ├── sse.py               # SSE stream normalization
-│   ├── analysis_store.py    # AI analysis task persistence
-│   ├── usage_report.py      # DOCX usage report generation
-│   ├── system_config.py     # Outbound UA auto-detection
-│   ├── mcp.py               # MCP server pool, tool sync, proxy
-│   └── weixin.py            # WeChat iLink Bot client
-├── templates/               # Jinja2 HTML (admin/, user/, public/, components/)
-├── nginx/                   # nginx.conf for Docker reverse proxy
-├── locales/                 # i18n: en, zh
-├── schema.sql
+├── app/                     # Python application package
+│   ├── main.py              # FastAPI app entrypoint
+│   ├── core/                # Config, database models, i18n, path helpers
+│   ├── routes/              # FastAPI routers
+│   └── services/            # Business logic and proxy runtime
+├── web/                     # Runtime web assets
+│   ├── templates/           # Jinja2 HTML (admin/, user/, public/, components/)
+│   ├── static/              # CSS, JS, favicon and static frontend assets
+│   ├── assets/              # App image/icon assets
+│   └── locales/             # i18n: en, zh
+├── deploy/
+│   └── nginx/               # nginx.conf for Docker reverse proxy
+├── db/
+│   ├── schema.sql
+│   └── migrations/          # Database maintenance scripts
 ├── Dockerfile
 └── DEPLOY.md
 ```
@@ -387,8 +352,8 @@ modelgate/
 
 - Python 3.10+ | FastAPI | SQLAlchemy async | PostgreSQL
 - Lint & format: `ruff check . && ruff format .`
-- Type check: `mypy main.py core/*.py --ignore-missing-imports`
-- i18n compile: `pybabel compile -d locales`
+- Type check: `mypy app --ignore-missing-imports`
+- i18n compile: `pybabel compile -d web/locales`
 - Logs: `logs/proxy.log`, `logs/admin.log`, `logs/error.log`
 
 ## Commercial Support

@@ -1,0 +1,35 @@
+{% macro admin_page_header(title, subtitle='') -%}
+<div id="toast-container" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;display:flex;flex-direction:column;align-items:center;gap:0.5rem;pointer-events:none;"></div>
+<style>
+.mg-toast{padding:0.625rem 1.125rem;border-radius:0.5rem;font-size:0.8125rem;font-weight:500;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,0.18);opacity:0;transform:translateY(-20px);transition:opacity .25s,transform .25s;pointer-events:auto;max-width:400px;}
+.mg-toast.show{opacity:1;transform:translateY(0);}
+.mg-toast-success{background:#10b981;}
+.mg-toast-error{background:#ef4444;}
+.mg-toast-info{background:#3b82f6;}
+</style>
+<script>
+if(!window._mgToastInit){window._mgToastInit=true;
+window.showToast=function(m,t){t=t||'success';var c=document.getElementById('toast-container');if(!c)return;var d=document.createElement('div');d.className='mg-toast mg-toast-'+t;d.textContent=m;c.appendChild(d);requestAnimationFrame(function(){requestAnimationFrame(function(){d.classList.add('show');})});setTimeout(function(){d.classList.remove('show');setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},300);},2200);};
+window.mgFetch=async function(url,opts,toast){var resp=await fetch(url,opts);if(resp.status===401){var lp=(typeof APP_BASE_PATH!=='undefined')?APP_BASE_PATH+'/admin/login':'/admin/login';window.location.href=lp;throw new Error('Unauthorized');}if(!resp.ok){var msg;try{var j=await resp.json();msg=j.error||j.message||resp.statusText;}catch(e){msg=resp.statusText;}if(toast&&toast.error)showToast(toast.error,'error');else if(msg)showToast(msg,'error');throw new Error(msg);}if(toast&&toast.success)showToast(toast.success,'success');return resp;};
+window.mgFetchJson=async function(url,opts,toast){var resp=await mgFetch(url,opts,toast);return resp.json();};
+}
+</script>
+<div class="flex justify-between items-center mb-6 gap-4">
+    <div class="min-w-0">
+        <h2 class="text-2xl font-bold text-gray-800">{{ title }}</h2>
+        {% if subtitle %}
+        <p class="text-sm text-gray-500 mt-1">{{ subtitle }}</p>
+        {% endif %}
+    </div>
+    <div class="flex items-center gap-3">
+        <a id="header-bell" href="{{ app_base_path }}/admin/notifications" class="relative p-2 rounded-lg hover:bg-gray-100 transition-colors" title="{{ _('Notifications') }}">
+            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+        </a>
+        <select id="theme-toggle" onchange="applyTheme(this.value)" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm cursor-pointer">
+            <option value="dark">{{ _('Dark Mode') }}</option>
+            <option value="light">{{ _('Light Mode') }}</option>
+        </select>
+        {{ caller() }}
+    </div>
+</div>
+{%- endmacro %}

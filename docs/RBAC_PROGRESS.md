@@ -20,9 +20,9 @@
 
 ### 2. 数据库层 ✅
 - **文件**: 
-  - `core/database.py` - 添加了 6 个 ORM 模型
-  - `migrations/add_rbac_tables.py` - 创建表结构脚本
-  - `migrations/init_rbac_data.py` - 初始化数据脚本
+  - `app/core/database.py` - 添加了 6 个 ORM 模型
+  - `db/migrations/add_rbac_tables.py` - 创建表结构脚本
+  - `db/migrations/init_rbac_data.py` - 初始化数据脚本
 
 - **模型**:
   - `User` - 用户表
@@ -40,9 +40,9 @@
 
 ### 3. 服务层 ✅
 - **文件**: 
-  - `services/auth.py` - 认证服务
-  - `services/rbac.py` - 权限查询服务
-  - `core/permissions.py` - 权限检查装饰器
+  - `app/services/auth.py` - 认证服务
+  - `app/services/rbac.py` - 权限查询服务
+  - `app/core/permissions.py` - 权限检查装饰器
 
 - **功能**:
   - 密码加密/验证（bcrypt）
@@ -54,11 +54,11 @@
 
 ### 4. 后端接口层 ✅
 - **文件**:
-  - `routes/auth.py` - 认证接口
-  - `routes/users.py` - 用户管理接口
-  - `routes/roles.py` - 角色管理接口
-  - `routes/permissions.py` - 权限管理接口
-  - `routes/menus.py` - 菜单管理接口
+  - `app/routes/auth.py` - 认证接口
+  - `app/routes/users.py` - 用户管理接口
+  - `app/routes/roles.py` - 角色管理接口
+  - `app/routes/permissions.py` - 权限管理接口
+  - `app/routes/menus.py` - 菜单管理接口
 
 - **接口清单**:
 
@@ -102,7 +102,7 @@
 
 ### 5. 配置和依赖 ✅
 - **文件**:
-  - `main.py` - 注册了所有新路由
+  - `app/main.py` - 注册了所有新路由
   - `requirements.txt` - 添加了 bcrypt 和 PyJWT
   - `.env` - 添加了 JWT_SECRET_KEY
 
@@ -122,26 +122,26 @@
 ```bash
 # 1. 启动数据库（192.168.58.128:5432）
 # 2. 运行迁移脚本
-python migrations/add_rbac_tables.py
-python migrations/init_rbac_data.py
+python db/migrations/add_rbac_tables.py
+python db/migrations/init_rbac_data.py
 ```
 
 ### 2. 前端页面 ❌
 **状态**: 未开始
 
 **需要创建的页面**:
-- [ ] 用户管理页面 (`templates/admin/users.html`)
+- [ ] 用户管理页面 (`web/templates/admin/users.html`)
   - 用户列表（表格）
   - 创建/编辑用户对话框
   - 分配角色对话框
   - 重置密码对话框
   
-- [ ] 角色管理页面 (`templates/admin/roles.html`)
+- [ ] 角色管理页面 (`web/templates/admin/roles.html`)
   - 角色列表（表格）
   - 创建/编辑角色对话框
   - 分配权限对话框（树形选择器）
   
-- [ ] 菜单管理页面 (`templates/admin/menus.html`)
+- [ ] 菜单管理页面 (`web/templates/admin/menus.html`)
   - 菜单树（可拖拽排序）
   - 创建/编辑菜单对话框
 
@@ -170,7 +170,7 @@ python migrations/init_rbac_data.py
 **任务**: 将现有的 `admin_users` 配置迁移到数据库
 
 **步骤**:
-1. 创建迁移脚本 `migrations/migrate_admin_users.py`
+1. 创建迁移脚本 `db/migrations/migrate_admin_users.py`
 2. 读取 `.env` 中的 `ADMIN_PASSWORD`
 3. 创建 admin 用户，分配 superadmin 角色
 
@@ -219,7 +219,7 @@ Host: 192.168.58.128:5432
 3. 等数据库启动后联调
 
 ### 选项 3: 先做用户迁移脚本
-1. 创建 `migrations/migrate_admin_users.py`
+1. 创建 `db/migrations/migrate_admin_users.py`
 2. 等数据库启动后一次性完成初始化
 
 ---
@@ -237,16 +237,16 @@ Host: 192.168.58.128:5432
 
 ### 新增文件（15个）
 ```
-core/permissions.py                    # 权限检查装饰器
-services/auth.py                       # 认证服务
-services/rbac.py                       # 权限查询服务
-routes/auth.py                         # 认证接口
-routes/users.py                        # 用户管理接口
-routes/roles.py                        # 角色管理接口
-routes/permissions.py                  # 权限管理接口
-routes/menus.py                        # 菜单管理接口
-migrations/add_rbac_tables.py          # 创建表结构
-migrations/init_rbac_data.py           # 初始化数据
+app/core/permissions.py                # 权限检查装饰器
+app/services/auth.py                   # 认证服务
+app/services/rbac.py                   # 权限查询服务
+app/routes/auth.py                     # 认证接口
+app/routes/users.py                    # 用户管理接口
+app/routes/roles.py                    # 角色管理接口
+app/routes/permissions.py              # 权限管理接口
+app/routes/menus.py                    # 菜单管理接口
+db/migrations/add_rbac_tables.py       # 创建表结构
+db/migrations/init_rbac_data.py        # 初始化数据
 docs/RBAC_DESIGN_V2.md                 # 设计文档
 docs/RBAC_USAGE.md                     # 使用指南
 docs/RBAC_PROGRESS.md                  # 本文件
@@ -254,8 +254,8 @@ docs/RBAC_PROGRESS.md                  # 本文件
 
 ### 修改文件（4个）
 ```
-core/database.py                       # 添加 6 个 RBAC 模型
-main.py                                # 注册新路由
+app/core/database.py                   # 添加 6 个 RBAC 模型
+app/main.py                            # 注册新路由
 requirements.txt                       # 添加 bcrypt, PyJWT
 .env                                   # 添加 JWT_SECRET_KEY
 ```

@@ -1,0 +1,319 @@
+import json
+import re
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Request, Body
+from fastapi.responses import JSONResponse, PlainTextResponse
+from sqlalchemy import select
+
+from app.core.app_paths import get_app_base_path
+from app.core.database import (
+    ApiKey,
+    ApiKeyModel,
+    ApiKeyModelAccess,
+    Model,
+    Provider,
+    ProviderModel,
+    async_session_maker,
+)
+from app.routes.user import get_user_session
+
+router = APIRouter(tags=["docs"])
+
+
+def strip_json_trailing_commas(json_str: str) -> str:
+    """Remove trailing commas from JSON string to make it valid JSON."""
+    # Remove trailing commas before } or ]
+    json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
+    return json_str
+
+
+def build_opencode_base_url(request: Request) -> str:
+    base_url = str(request.base_url).rstrip("/")
+    app_base_path = get_app_base_path(request)
+    if app_base_path and base_url.endswith(app_base_path):
+        return f"{base_url}/v1"
+    return f"{base_url}{app_base_path}/v1"
+
+
+def sort_opencode_models(models: dict) -> dict:
+    return {
+        name: models[name]
+        for name in sorted(models.keys(), key=lambda value: value.casefold())
+    }
+
+
+async def build_opencode_config(
+    session, base_url: str, api_key: str = None, api_key_id: int = None
+):
+    if api_key:
+        result = await session.execute(
+            select(ApiKey).where(ApiKey.key == api_key, ApiKey.is_active == True)
+        )
+    elif api_key_id:
+        result = await session.execute(
+            select(ApiKey).where(ApiKey.id == api_key_id, ApiKey.is_active == True)
+        )
+    else:
+        return None
+    key = result.scalar_one_or_none()
+    if not key:
+        return None
+
+    models_result = await session.execute(
+        select(ApiKeyModel).where(ApiKeyModel.api_key_id == key.id)
+    )
+    key_models = models_result.scalars().all()
+    allowed_pm_ids = [km.provider_model_id for km in key_models]
+
+    model_access_result = await session.execute(
+        select(ApiKeyModelAccess.model_id).where(ApiKeyModelAccess.api_key_id == key.id)
+    )
+    allowed_model_ids = [row[0] for row in model_access_result.fetchall()]
+
+    from app.services.auto_model_routes import AUTO_MODEL_NAME, get_auto_model_route
+
+    auto_config = await get_auto_model_route(session, AUTO_MODEL_NAME)
+    auto_enabled = bool(auto_config.get("enabled"))
+    auto_virtual_model_id = auto_config.get("virtual_model_id")
+    auto_model_ids = {
+        int(v) for v in (auto_config.get("model_ids") or []) if str(v).isdigit()
+    }
+    auto_provider_model_ids = {
+        int(v)
+        for v in (auto_config.get("provider_model_ids") or [])
+        if str(v).isdigit()
+    }
+    auto_enabled = auto_enabled and bool(auto_model_ids or auto_provider_model_ids)
+    full_access = not allowed_pm_ids and not allowed_model_ids
+    auto_requested_by_key = full_access or (
+        auto_virtual_model_id is not None and auto_virtual_model_id in allowed_model_ids
+    )
+    regular_allowed_model_ids = [
+        model_id for model_id in allowed_model_ids if model_id != auto_virtual_model_id
+    ]
+
+    if allowed_pm_ids:
+        pm_result = await session.execute(
+            select(ProviderModel).where(ProviderModel.id.in_(allowed_pm_ids))
+        )
+    elif regular_allowed_model_ids:
+        pm_result = await session.execute(
+            select(ProviderModel).where(ProviderModel.model_id.in_(regular_allowed_model_ids))
+        )
+    elif full_access:
+        pm_result = await session.execute(select(ProviderModel))
+    else:
+        pm_result = None
+
+    provider_models = pm_result.scalars().all() if pm_result is not None else []
+    models_config = {}
+    model_priority: dict[str, int] = {}
+    accessible_auto_candidates = []
+
+    if auto_enabled and auto_requested_by_key:
+        if auto_provider_model_ids:
+            auto_pm_result = await session.execute(
+                select(ProviderModel).where(ProviderModel.id.in_(auto_provider_model_ids))
+            )
+        else:
+            auto_pm_result = await session.execute(
+                select(ProviderModel).where(ProviderModel.model_id.in_(auto_model_ids))
+            )
+        auto_provider_models = auto_pm_result.scalars().all()
+    else:
+        auto_provider_models = []
+
+    for pm in provider_models:
+        provider_result = await session.execute(
+            select(Provider).where(Provider.id == pm.provider_id)
+        )
+        provider = provider_result.scalar_one_or_none()
+        if not provider:
+            continue
+
+        model_result = await session.execute(
+            select(Model).where(Model.id == pm.model_id)
+        )
+        model = model_result.scalar_one_or_none()
+        if not model:
+            continue
+
+        if not provider.is_active or not pm.is_active:
+            continue
+
+        if auto_enabled and auto_requested_by_key:
+            allowed_by_model_scope = not auto_model_ids or pm.model_id in auto_model_ids
+            allowed_by_pm_scope = (
+                not auto_provider_model_ids or pm.id in auto_provider_model_ids
+            )
+            if allowed_by_model_scope and allowed_by_pm_scope:
+                accessible_auto_candidates.append((pm, model))
+
+        model_key = model.name
+        priority = pm.priority if hasattr(pm, "priority") else 0
+        if model_key in models_config and priority < model_priority.get(model_key, 0):
+            continue
+
+        display_name = model.display_name or model.name
+        max_output = model.max_tokens or 131072
+        context_window = model.context_length or 204800
+
+        input_modalities = ["text"]
+        if model.is_multimodal:
+            input_modalities.append("image")
+
+        thinking_config = None
+        if model.thinking_enabled:
+            thinking_config = {
+                "type": "enabled",
+            }
+
+        model_entry = {
+            "name": display_name,
+            "modalities": {"input": input_modalities, "output": ["text"]},
+            "limit": {"context": context_window, "output": max_output},
+        }
+        if thinking_config:
+            model_entry["options"] = {"thinking": thinking_config}
+
+        models_config[model_key] = model_entry
+        model_priority[model_key] = priority
+
+    seen_auto_pm_ids = {pm.id for pm, _model in accessible_auto_candidates}
+    for pm in auto_provider_models:
+        if pm.id in seen_auto_pm_ids:
+            continue
+        provider_result = await session.execute(
+            select(Provider).where(Provider.id == pm.provider_id)
+        )
+        provider = provider_result.scalar_one_or_none()
+        if not provider or not provider.is_active or not pm.is_active:
+            continue
+        model_result = await session.execute(
+            select(Model).where(Model.id == pm.model_id)
+        )
+        model = model_result.scalar_one_or_none()
+        if model:
+            accessible_auto_candidates.append((pm, model))
+            seen_auto_pm_ids.add(pm.id)
+
+    if auto_enabled and accessible_auto_candidates:
+        auto_context = max(
+            (model.context_length or 204800) for _pm, model in accessible_auto_candidates
+        )
+        auto_output = max(
+            (model.max_tokens or 131072) for _pm, model in accessible_auto_candidates
+        )
+        auto_input_modalities = ["text"]
+        if auto_config.get("is_multimodal") or any(
+            model.is_multimodal for _pm, model in accessible_auto_candidates
+        ):
+            auto_input_modalities.append("image")
+        models_config["auto"] = {
+            "name": "Auto",
+            "modalities": {"input": auto_input_modalities, "output": ["text"]},
+            "limit": {"context": auto_context, "output": auto_output},
+        }
+
+    return {
+        "$schema": "https://opencode.ai/config.json",
+        "provider": {
+            "modelgate": {
+                "name": "ModelGate",
+                "options": {
+                    "baseURL": base_url,
+                    "apiKey": key.key,
+                },
+                "models": sort_opencode_models(models_config),
+            }
+        },
+    }
+
+
+def build_setup_markdown(config: dict) -> str:
+    provider_config = config["provider"]["modelgate"]
+    model_names = list(sort_opencode_models(provider_config.get("models", {})).keys())
+    model_list = "\n".join(f"- `{model_name}`" for model_name in model_names)
+    if not model_list:
+        model_list = "- No models are currently available for this API key."
+
+    return f"""# OpenCode Setup Instructions
+
+Please update the OpenCode configuration for this machine.
+
+Requirements:
+- Preferred global config file: `~/.config/opencode/opencode.jsonc`
+- If `~/.config/opencode/opencode.jsonc` does not exist, create it first.
+- You can also place `opencode.jsonc` in the root of the current project if you prefer a project-specific config.
+- Keep existing providers and other settings unchanged.
+- **Fully replace the `modelgate` provider**: find `provider.modelgate` in the config, and overwrite its entire value with the JSON object shown below. Do NOT merge, do NOT add fields to the existing one — the `modelgate` block must become exactly the JSON below.
+- If `provider.modelgate` does not exist yet, add it with the JSON below.
+- After replacement, the `modelgate.models` object must contain exactly the models listed below — no extra, no missing.
+- If OpenCode is not installed yet, download it from `https://opencode.ai/`.
+
+Models included in this provider (must match exactly after replacement):
+{model_list}
+
+Use this provider config (replace `provider.modelgate` entirely with this JSON object):
+
+```json
+{json.dumps(config, ensure_ascii=False)}
+```
+
+After the config is updated:
+1. Save the file.
+2. **Restart OpenCode** for the changes to take effect.
+3. Verify that the models above are available in OpenCode and that no stale models from a previous `modelgate` config remain."""
+
+
+@router.get("/opencode/setup.md")
+async def get_opencode_setup_markdown(
+    request: Request,
+    api_key: Optional[str] = None,
+    api_key_id: Optional[int] = Depends(get_user_session),
+):
+    if not api_key and not api_key_id:
+        return PlainTextResponse("# Error\n\nAPI Key is required", status_code=400)
+
+    async with async_session_maker() as session:
+        base_url = build_opencode_base_url(request)
+        config = await build_opencode_config(
+            session, base_url, api_key=api_key, api_key_id=api_key_id
+        )
+        if not config:
+            return PlainTextResponse("# Error\n\nInvalid API Key", status_code=401)
+
+        md = build_setup_markdown(config)
+        return PlainTextResponse(content=md, media_type="text/markdown; charset=utf-8")
+
+
+@router.post("/opencode/merge")
+async def merge_opencode_config(
+    request: Request,
+    body_data: dict = Body(..., media_type="application/json"),
+    api_key: Optional[str] = None,
+    api_key_id: Optional[int] = Depends(get_user_session),
+):
+    if not api_key and not api_key_id:
+        return JSONResponse({"error": "API Key is required"}, status_code=400)
+
+    user_config = body_data.get("config", {})
+    if not isinstance(user_config, dict):
+        return JSONResponse({"error": "config must be an object"}, status_code=400)
+
+    async with async_session_maker() as session:
+        base_url = build_opencode_base_url(request)
+        modelgate_config = await build_opencode_config(
+            session, base_url, api_key=api_key, api_key_id=api_key_id
+        )
+        if not modelgate_config:
+            return JSONResponse({"error": "Invalid API Key"}, status_code=401)
+
+        providers = user_config.get("provider", {})
+        if not isinstance(providers, dict):
+            providers = {}
+        providers["modelgate"] = modelgate_config["provider"]["modelgate"]
+        user_config["provider"] = providers
+
+        return JSONResponse(user_config)

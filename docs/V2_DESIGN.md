@@ -2,6 +2,8 @@
 
 日期：2026-05-26
 
+> 注：供应商 Key health、供应商模型优先级、厂商 Key 优先级和后续 Key 路由规则的最新设计，以 [docs/specs/2026-06-13-provider-key-health-routing-design.md](specs/2026-06-13-provider-key-health-routing-design.md) 为准。本文中的部分早期排序描述（例如 health 高于 priority）已不再代表当前代码目标。
+
 ---
 
 ## 1. 供应商 Key 健康度

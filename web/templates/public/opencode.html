@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('OpenCode Configuration') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        pre { white-space: pre-wrap; word-break: break-all; }
+        .copy-btn { transition: all 0.2s; }
+        .copy-btn:hover { background: #3b82f6; color: white; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark .dark-surface { background: #0f172a !important; border: 1px solid #1f2937; box-shadow: 0 12px 30px rgba(2,6,23,0.45) !important; }
+        body.theme-dark .dark-row { background: #111827 !important; border-color: #1f2937 !important; }
+        body.theme-dark .dark-code { background: #020617 !important; color: #dbeafe !important; border-color: #1e293b !important; }
+        body.theme-dark .dark-heading { color: #f8fafc !important; }
+        body.theme-dark .dark-muted { color: #94a3b8 !important; }
+        body.theme-dark .dark-border { border-color: #1f2937 !important; }
+        body.theme-dark nav { background: #0f172a !important; border-color: #1f2937 !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96,165,250,0.15); color: #60a5fa !important; border-right: 3px solid #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148,163,184,0.12); }
+        body.theme-dark input { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark code { background: #111827 !important; color: #bfdbfe !important; }
+        body.theme-dark .copy-btn { background: rgba(59,130,246,0.1); color: #93c5fd; border-color: #2563eb; }
+        body.theme-dark #error-section { background: rgba(239,68,68,0.12) !important; border-color: rgba(239,68,68,0.35) !important; }
+    </style>
+</head>
+<body class="theme-dark bg-gray-100 min-h-screen">
+    <div class="flex">
+        {% set active_page = 'opencode' %}
+        {% include "components/nav.html" %}
+
+        <main class="ml-56 flex-1 p-6">
+            <h2 class="text-2xl font-bold text-gray-800 dark-heading mb-2">{{ _('OpenCode Configuration') }}</h2>
+            <p class="text-gray-500 dark-muted mb-6">{{ _('Generate opencode.jsonc config for this proxy') }}</p>
+
+            <div class="bg-white dark-surface rounded-lg shadow p-6 mb-6">
+                <label class="block text-sm font-medium text-gray-700 dark-heading mb-2">{{ _('Enter your API Key to generate config') }}</label>
+                <div class="flex gap-2">
+                    <input type="text" id="api-key-input" placeholder="sk-..."
+                        class="flex-1 border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <button onclick="generateConfig()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        {{ _('Generate') }}
+                    </button>
+                </div>
+            </div>
+
+            <div id="config-section" class="hidden">
+                <div class="bg-white dark-surface rounded-lg shadow mb-6">
+                    <div class="flex justify-between items-center p-4 border-b dark-border">
+                        <h3 class="text-lg font-semibold dark-heading">opencode.jsonc</h3>
+                        <button onclick="copyConfig()" class="copy-btn border border-blue-500 text-blue-500 px-3 py-1 rounded text-sm">
+                            {{ _('Copy') }}
+                        </button>
+                    </div>
+                    <pre id="config-output" class="p-4 text-sm bg-gray-50 dark-code overflow-x-auto"></pre>
+                </div>
+
+                <div class="bg-white dark-surface rounded-lg shadow p-4">
+                    <h3 class="text-lg font-semibold dark-heading mb-3">{{ _('Available Models') }}</h3>
+                    <div id="models-list" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <div id="error-section" class="hidden bg-red-50 border border-red-200 rounded-lg p-4">
+                <p id="error-msg" class="text-red-600"></p>
+            </div>
+
+            <div class="bg-white dark-surface rounded-lg shadow p-6 mt-6">
+                <h3 class="text-lg font-semibold dark-heading mb-3">{{ _('How to use') }}</h3>
+                <ol class="list-decimal list-inside space-y-2 text-gray-600 dark-muted">
+                    <li>{{ _('Enter your API Key and click Generate') }}</li>
+                    <li>{{ _('Copy the generated') }} <code class="bg-gray-100 px-1 rounded">opencode.jsonc</code></li>
+                    <li>{{ _('Create') }} <code class="bg-gray-100 px-1 rounded">opencode.jsonc</code> {{ _('in your project root') }}</li>
+                    <li>{{ _('Paste the configuration and save') }}</li>
+                    <li>{{ _('OpenCode will now use this proxy for API requests') }}</li>
+                </ol>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        window.I18N = {
+            pleaseEnterApiKey: {{ _('Please enter an API Key') | tojson }},
+            copied: {{ _('Copied!') | tojson }},
+            copy: {{ _('Copy') | tojson }},
+            failedToGenerateConfig: {{ _('Failed to generate config') | tojson }},
+            promptText: {{ _('# Please add the following provider config to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and settings, only add or update the modelgate provider.') | tojson }},
+            contextLabel: {{ _('context') | tojson }},
+            outputLabel: {{ _('output') | tojson }}
+        };
+    </script>
+    <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const apiKeyFromUrl = urlParams.get('api_key');
+        if (apiKeyFromUrl) {
+            document.getElementById('api-key-input').value = apiKeyFromUrl;
+            generateConfig();
+        }
+
+        async function generateConfig() {
+            const apiKey = document.getElementById('api-key-input').value.trim();
+            if (!apiKey) {
+                showError(window.I18N.pleaseEnterApiKey);
+                return;
+            }
+
+            try {
+                const resp = await fetch(`${APP_BASE_PATH}/opencode/config?api_key=` + encodeURIComponent(apiKey));
+                const data = await resp.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                document.getElementById('config-section').classList.remove('hidden');
+                document.getElementById('error-section').classList.add('hidden');
+
+                const config = data.config;
+                config.provider['modelgate'].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
+
+                const prompt = window.I18N.promptText + "\n\n";
+                const configJson = prompt + JSON.stringify(config, null, 2);
+                document.getElementById('config-output').textContent = configJson;
+
+                const modelsHtml = data.models.map(m => `
+                    <div class="flex justify-between items-center p-2 bg-gray-50 dark-row rounded">
+                        <span class="font-medium dark-heading">${m.name}</span>
+                        <span class="text-sm text-gray-500 dark-muted">${window.I18N.contextLabel}: ${m.context.toLocaleString()} | ${window.I18N.outputLabel}: ${m.output.toLocaleString()}</span>
+                    </div>
+                `).join('');
+                document.getElementById('models-list').innerHTML = modelsHtml;
+            } catch (e) {
+                showError(window.I18N.failedToGenerateConfig + ': ' + e.message);
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('config-section').classList.add('hidden');
+            document.getElementById('error-section').classList.remove('hidden');
+            document.getElementById('error-msg').textContent = msg;
+        }
+
+        function copyConfig() {
+            const config = document.getElementById('config-output').textContent;
+            navigator.clipboard.writeText(config).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = window.I18N.copied;
+                setTimeout(() => btn.textContent = window.I18N.copy, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

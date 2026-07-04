@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('API Keys') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <script src="/static/js/date-picker.js"></script>
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        .model-item.selected { background: #dbeafe; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .divide-y > :not([hidden]) ~ :not([hidden]) { border-color: #1f2937 !important; }
+        body.theme-dark input,
+        body.theme-dark select,
+        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg,
+        body.theme-dark .shadow-xl { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark code { background: #111827 !important; color: #e2e8f0 !important; }
+        body.theme-dark .model-item.selected,
+        body.theme-dark label.selected { background: rgba(37, 99, 235, 0.18) !important; }
+        .mcp-server-item:hover { background: #f8fafc; }
+        body.theme-dark .mcp-server-item:hover { background: rgba(148, 163, 184, 0.12) !important; }
+        .model-chip {
+            display: inline-flex;
+            align-items: center;
+            max-width: 100%;
+            padding: 0.3rem 0.7rem;
+            border-radius: 9999px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+            font-size: 0.75rem;
+            line-height: 1rem;
+            font-weight: 500;
+            overflow-wrap: anywhere;
+        }
+        .model-chip-neutral {
+            background: #f8fafc;
+            color: #475569;
+            border-color: #e2e8f0;
+        }
+        body.theme-dark .model-chip {
+            background: rgba(37, 99, 235, 0.16);
+            color: #bfdbfe;
+            border-color: rgba(96, 165, 250, 0.28);
+        }
+        body.theme-dark .model-chip-neutral {
+            background: rgba(148, 163, 184, 0.08);
+            color: #cbd5e1;
+            border-color: rgba(148, 163, 184, 0.2);
+        }
+        .apikey-modal-card {
+            max-height: calc(100vh - 4rem);
+            max-height: calc(100dvh - 4rem);
+        }
+        .apikey-dialog-card {
+            max-height: calc(100vh - 4rem);
+            max-height: calc(100dvh - 4rem);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% set active_page = 'api-keys' %}
+        {% include 'components/nav.html' %}
+        
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header(_('API Keys')) %}
+            <button onclick="showAddApiKey()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Add API Key') }}</button>
+            {% endcall %}
+            
+            <div class="mb-4 flex items-center gap-4">
+                <div class="relative flex-1 max-w-md">
+                    <input type="text" id="search-input" placeholder="{{ _('Search by name or key...') }}"
+                        class="w-full border rounded-lg px-4 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        oninput="handleSearch()">
+                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <div class="text-sm text-gray-500">
+                    <span id="total-count">...</span> {{ _('keys') }}
+                </div>
+            </div>
+            <div id="tag-filter-bar" class="mb-4 hidden"></div>
+            
+            <div class="bg-white rounded-lg shadow">
+                <div id="apikeys-list" class="divide-y"></div>
+            </div>
+            
+            <div id="pagination" class="flex justify-center items-center gap-2 mt-4"></div>
+        </main>
+    </div>
+    
+    <div id="apikey-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="apikey-modal-card bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 flex min-h-0 flex-col overflow-hidden">
+            <div class="shrink-0 p-4 border-b flex justify-between items-center">
+                <h3 id="apikey-modal-title" class="font-semibold">{{ _('Add API Key') }}</h3>
+                <button onclick="closeApiKeyModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <form id="apikey-form" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div class="apikey-modal-body flex-1 overflow-y-auto p-4 space-y-4">
+                    <input type="hidden" id="apikey-id">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Name') }}</label>
+                        <input type="text" id="apikey-name" required class="w-full border rounded px-3 py-2" placeholder="{{ _('e.g., Project A') }}">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Email') }}</label>
+                            <input type="email" id="apikey-email" class="w-full border rounded px-3 py-2" placeholder="user@example.com">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Expires At') }}</label>
+                            <input type="datetime-local" id="apikey-expires-at" class="w-full border rounded px-3 py-2">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            {{ _('Allowed Models') }} <span class="text-gray-400">(<span id="selected-count">0</span> {{ _('selected') }})</span>
+                        </label>
+                        <input type="hidden" id="access-mode-model" value="model">
+                        <div id="standard-models-panel" class="border rounded max-h-48 overflow-y-auto">
+                            <div class="sticky top-0 z-10 flex justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700">
+                                <button type="button" onclick="selectAllStandardModels()" class="text-blue-500 hover:text-blue-700">全选</button>
+                                <button type="button" onclick="clearStandardModels()" class="text-gray-500 hover:text-gray-700">清空</button>
+                            </div>
+                            <div id="standard-models-checkbox-container" class="grid grid-cols-1 sm:grid-cols-2"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">标准模型表示允许该模型下任意供应商。需要全量时请点击“全选”。</p>
+                        <p id="access-mode-error" class="text-xs text-red-500 mt-1 hidden"></p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('MCP Servers') }}</label>
+                            <div id="apikey-mcp-servers" class="border rounded max-h-28 overflow-y-auto p-2 flex flex-wrap gap-1.5">
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">{{ _('Select MCP servers this key can access') }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Tags' if current_locale != 'zh' else '标签') }}</label>
+                            <div id="apikey-tags-container" class="min-h-8 border rounded px-2 py-1.5 flex flex-wrap gap-1 mb-2"></div>
+                            <div class="flex gap-2">
+                                <input type="text" id="apikey-tag-input" class="flex-1 min-w-0 border rounded px-3 py-1 text-sm" placeholder="{{ _('Add tag...' if current_locale != 'zh' else '添加标签...') }}" onkeydown="if(event.key==='Enter'){event.preventDefault();addTag()}">
+                                <button type="button" onclick="addTag()" class="px-3 py-1 text-sm border rounded hover:bg-gray-50">{{ _('Add' if current_locale != 'zh' else '添加') }}</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" id="apikey-bypass-busyness" class="rounded">
+                            {{ _('Bypass busyness limit') }}
+                        </label>
+                        <p class="text-xs text-gray-500 mt-1">{{ _('Ignore model busyness availability restrictions') }}</p>
+                    </div>
+                </div>
+                <div class="shrink-0 border-t bg-white px-4 py-3 flex justify-end gap-2">
+                    <button type="button" onclick="closeApiKeyModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+    window.I18N = {
+        copied: "{{ _('Copied!') }}",
+        apiKeyAndUsageCopied: "{{ _('API Key and usage instructions copied!') }}",
+        usageInstructions: "{{ _('Usage Instructions:') }}",
+        pasteApiKey: "{{ _('Paste the API Key above to log in on the page') }}",
+        configureOpenCode: "{{ _('Configure OpenCode:') }}",
+        letAgentReadConfig: "{{ _('Let the agent read the configuration document:') }}",
+        lightMode: "{{ _('Light Mode') }}",
+        darkMode: "{{ _('Dark Mode') }}",
+        addApiKey: "{{ _('Add API Key') }}",
+        editApiKey: "{{ _('Edit API Key') }}",
+        allModels: "{{ _('All models') }}",
+        noApiKeys: "{{ _('No API keys found') }}",
+        previous: "{{ _('Previous') }}",
+        next: "{{ _('Next') }}",
+        noModels: "{{ _('No models available. Add providers and models in Config first.') }}",
+        apiKeyCreated: "{{ _('API Key created:') }}",
+        pleaseSaveKey: "{{ _('Please save this key!') }}",
+        failedToSave: "{{ _('Failed to save API key') }}",
+        deleteConfirm: "{{ _('Delete this API key?') }}",
+        copy: "{{ _('Copy') }}",
+        edit: "{{ _('Edit') }}",
+        delete: "{{ _('Delete') }}",
+        query: "{{ _('Query') }}",
+        userPage: "{{ _('User Page:') }}",
+        setupDoc: "{{ _('Setup Doc:') }}",
+        copySetup: "{{ _('Copy Setup') }}",
+        copyManually: "{{ '浏览器拒绝自动复制，请按 Ctrl+C 手动复制。' if current_locale == 'zh' else 'Browser blocked automatic copy. Press Ctrl+C to copy manually.' }}",
+        close: "{{ _('Close') }}",
+        bypassBusyness: "{{ _('Bypass Busyness') }}",
+        loginLabel: "{{ _('Login') }}",
+        lastUsed: "{{ _('Last Used') }}",
+        email: "{{ _('Email') }}",
+        expiresAt: "{{ _('Expires At') }}",
+        expired: "{{ _('Expired') }}",
+        never: "{{ _('Never') }}",
+        accessInfo: "{{ _('ModelGate Access') }}",
+        loginPage: "{{ _('Login Page:') }}",
+        apiKeyLabel: "{{ _('API Key:') }}",
+        quickStart: "{{ _('Quick Start:') }}",
+        openLoginPageAndPasteKey: "{{ _('Open the login page above and paste the API key to sign in.') }}",
+        useSetupDocForOpenCode: "{{ _('For OpenCode setup, open the setup document below or send it directly to your agent.') }}",
+        keepApiKeyPrivate: "{{ _('Keep this API key private and do not share it in public chats or repositories.') }}",
+        opencodeSendHint: "{{ _('Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter:') }}",
+        followThisDoc: "{{ _('Follow this document.') }}",
+        enabledModels: "{{ _('Enabled Models:') }}",
+        noModelsAssigned: "{{ _('No specific model restrictions. This API key can use all currently allowed models.') }}",
+        openCodeWebsiteHint: "{{ _('If OpenCode is not installed yet, please download it from the official website below.') }}",
+        timeRules: "{{ _('Time Rules') }}",
+        addTimeRule: "{{ _('Add Time Rule') }}",
+        editTimeRule: "{{ _('Edit Time Rule') }}",
+        ruleType: "{{ _('Rule Type') }}",
+        timeRange: "{{ _('Time Range') }}",
+        dateRange: "{{ _('Date Range') }}",
+        weekday: "{{ _('Weekday') }}",
+        startTime: "{{ _('Start Time') }}",
+        endTime: "{{ _('End Time') }}",
+        startDate: "{{ _('Start Date') }}",
+        endDate: "{{ _('End Date') }}",
+        weekdays: "{{ _('Weekdays') }}",
+        allowed: "{{ _('Allowed') }}",
+        blocked: "{{ _('Blocked') }}",
+        noTimeRules: "{{ _('No time rules') }}",
+        deleteTimeRuleConfirm: "{{ _('Delete this time rule?') }}",
+        failedToSaveTimeRule: "{{ _('Failed to save time rule') }}",
+        timeRuleCreated: "{{ _('Time rule created') }}",
+        timeRuleHHMM: "{{ _('HH:MM') }}",
+        timeRuleYYYYMMDD: "{{ _('YYYY-MM-DD') }}",
+        weekdayMon: "{{ _('Mon') }}",
+        weekdayTue: "{{ _('Tue') }}",
+        weekdayWed: "{{ _('Wed') }}",
+        weekdayThu: "{{ _('Thu') }}",
+        weekdayFri: "{{ _('Fri') }}",
+        weekdaySat: "{{ _('Sat') }}",
+        weekdaySun: "{{ _('Sun') }}",
+        timeRulesHint: "{{ _('Control when this API key can be used') }}",
+    };
+    </script>
+
+    <div id="timerule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="apikey-dialog-card bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 flex min-h-0 flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h3 id="timerule-modal-title" class="font-semibold">{{ _('Time Rules') }}</h3>
+                <button onclick="closeTimeRuleModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="min-h-0 flex-1 overflow-y-auto p-4">
+                <div id="timerule-list" class="space-y-2 mb-4"></div>
+                <button onclick="showAddTimeRuleForm()" class="text-blue-500 hover:text-blue-700 text-sm mb-4">+ {{ _('Add Time Rule') }}</button>
+                <form id="timerule-form" class="hidden space-y-3 border-t pt-4 mt-2">
+                    <input type="hidden" id="timerule-id">
+                    <input type="hidden" id="timerule-key-id">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Rule Type') }}</label>
+                        <select id="timerule-type" class="w-full border rounded px-3 py-2" onchange="onRuleTypeChange()">
+                            <option value="time_range">{{ _('Time Range') }}</option>
+                            <option value="date_range">{{ _('Date Range') }}</option>
+                            <option value="weekday">{{ _('Weekday') }}</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm font-medium text-gray-700">{{ _('Allowed') }}</label>
+                        <input type="checkbox" id="timerule-allowed" checked>
+                    </div>
+                    <div id="timerule-time-fields" class="flex gap-2">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Start Time') }}</label>
+                            <input type="text" id="timerule-start-time" class="w-full border rounded px-3 py-2" placeholder="{{ _('HH:MM') }}">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('End Time') }}</label>
+                            <input type="text" id="timerule-end-time" class="w-full border rounded px-3 py-2" placeholder="{{ _('HH:MM') }}">
+                        </div>
+                    </div>
+                    <div id="timerule-date-fields" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Date Range') }}</label>
+                        <div id="timerule-date-picker"></div>
+                    </div>
+                    <div id="timerule-weekday-fields" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Weekdays') }}</label>
+                        <div id="weekday-checkboxes" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" onclick="cancelTimeRuleForm()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const WEEKDAY_LABELS = [
+        window.I18N.weekdayMon, window.I18N.weekdayTue, window.I18N.weekdayWed,
+        window.I18N.weekdayThu, window.I18N.weekdayFri, window.I18N.weekdaySat,
+        window.I18N.weekdaySun
+    ];
+    let currentTimeruleKeyId = null;
+    let currentTimerules = [];
+    let timeruleDatePicker = null;
+
+    function renderTimeRulesBadges(rules) {
+        if (!rules || rules.length === 0) return '';
+        const badges = rules.map(r => {
+            const color = r.allowed ? 'background:#ecfdf5;color:#065f46;border-color:#a7f3d0' : 'background:#fef2f2;color:#991b1b;border-color:#fecaca';
+            let label = '';
+            if (r.rule_type === 'time_range') {
+                label = (r.start_time || '').substring(0, 5) + ' - ' + (r.end_time || '').substring(0, 5);
+            } else if (r.rule_type === 'date_range') {
+                label = (r.start_date || '') + ' ~ ' + (r.end_date || '');
+            } else if (r.rule_type === 'weekday') {
+                if (r.weekdays) {
+                    label = r.weekdays.split(',').map(d => WEEKDAY_LABELS[parseInt(d)] || d).join(', ');
+                }
+            }
+            const prefix = r.allowed ? '✓' : '✗';
+            return `<span class="model-chip" style="${color}" title="${r.rule_type}: ${label}">${prefix} ${label}</span>`;
+        }).join('');
+        return `<div class="mt-2 flex flex-wrap gap-1">${badges}</div>`;
+    }
+
+    async function showTimeRulesModal(keyId) {
+        currentTimeruleKeyId = keyId;
+        const resp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${keyId}/time-rules`);
+        currentTimerules = resp.rules || [];
+        renderTimeRulesList();
+        document.getElementById('timerule-form').classList.add('hidden');
+        document.getElementById('timerule-modal').classList.remove('hidden');
+        document.getElementById('timerule-modal').classList.add('flex');
+    }
+
+    function closeTimeRuleModal() {
+        document.getElementById('timerule-modal').classList.add('hidden');
+        document.getElementById('timerule-modal').classList.remove('flex');
+        currentTimeruleKeyId = null;
+        loadApiKeys();
+    }
+
+    function renderTimeRulesList() {
+        const container = document.getElementById('timerule-list');
+        if (currentTimerules.length === 0) {
+            container.innerHTML = `<div class="text-gray-400 text-center py-2">${window.I18N.noTimeRules}</div>`;
+            return;
+        }
+        container.innerHTML = currentTimerules.map(r => {
+            let desc = '';
+            if (r.rule_type === 'time_range') desc = (r.start_time || '').substring(0, 5) + ' - ' + (r.end_time || '').substring(0, 5);
+            else if (r.rule_type === 'date_range') desc = (r.start_date || '') + ' ~ ' + (r.end_date || '');
+            else if (r.rule_type === 'weekday') {
+                desc = r.weekdays ? r.weekdays.split(',').map(d => WEEKDAY_LABELS[parseInt(d)] || d).join(', ') : '';
+            }
+            const statusLabel = r.allowed ? window.I18N.allowed : window.I18N.blocked;
+            const typeLabel = r.rule_type === 'time_range' ? window.I18N.timeRange : r.rule_type === 'date_range' ? window.I18N.dateRange : window.I18N.weekday;
+            return `<div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                <div>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded bg-blue-100 text-blue-700">${typeLabel}</span>
+                    <span class="ml-2 text-sm">${desc}</span>
+                    <span class="ml-2 text-xs ${r.allowed ? 'text-green-600' : 'text-red-600'}">${statusLabel}</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="editTimeRuleForm(${r.id})" class="text-blue-500 hover:text-blue-700 text-xs">${window.I18N.edit}</button>
+                    <button onclick="deleteTimeRule(${r.id})" class="text-red-500 hover:text-red-700 text-xs">${window.I18N.delete}</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function onRuleTypeChange() {
+        const type = document.getElementById('timerule-type').value;
+        document.getElementById('timerule-time-fields').classList.toggle('hidden', type !== 'time_range');
+        document.getElementById('timerule-date-fields').classList.toggle('hidden', type !== 'date_range');
+        document.getElementById('timerule-weekday-fields').classList.toggle('hidden', type !== 'weekday');
+        if (type === 'weekday') renderWeekdayCheckboxes();
+        if (type === 'date_range' && !timeruleDatePicker) {
+            timeruleDatePicker = MgDateRangePicker.create({
+                el: '#timerule-date-picker',
+                type: 'date',
+                placeholder: '{{ _("Select date range") }}'
+            });
+        }
+    }
+
+    function renderWeekdayCheckboxes(selected) {
+        const sel = selected || '';
+        const container = document.getElementById('weekday-checkboxes');
+        container.innerHTML = WEEKDAY_LABELS.map((label, i) => {
+            const checked = sel.split(',').includes(String(i));
+            return `<label class="flex items-center gap-1 text-sm"><input type="checkbox" class="weekday-cb" value="${i}" ${checked ? 'checked' : ''}>${label}</label>`;
+        }).join('');
+    }
+
+    function showAddTimeRuleForm() {
+        document.getElementById('timerule-id').value = '';
+        document.getElementById('timerule-type').value = 'time_range';
+        document.getElementById('timerule-allowed').checked = true;
+        document.getElementById('timerule-start-time').value = '';
+        document.getElementById('timerule-end-time').value = '';
+        if (timeruleDatePicker) timeruleDatePicker.clear();
+        onRuleTypeChange();
+        document.getElementById('timerule-form').classList.remove('hidden');
+    }
+
+    function editTimeRuleForm(ruleId) {
+        const rule = currentTimerules.find(r => r.id === ruleId);
+        if (!rule) return;
+        document.getElementById('timerule-id').value = rule.id;
+        document.getElementById('timerule-type').value = rule.rule_type;
+        document.getElementById('timerule-allowed').checked = rule.allowed;
+        document.getElementById('timerule-start-time').value = (rule.start_time || '').substring(0, 5);
+        document.getElementById('timerule-end-time').value = (rule.end_time || '').substring(0, 5);
+        onRuleTypeChange();
+        if (rule.rule_type === 'date_range' && timeruleDatePicker && rule.start_date && rule.end_date) {
+            timeruleDatePicker.setRange(new Date(rule.start_date), new Date(rule.end_date));
+        } else if (timeruleDatePicker) {
+            timeruleDatePicker.clear();
+        }
+        if (rule.rule_type === 'weekday') renderWeekdayCheckboxes(rule.weekdays || '');
+        document.getElementById('timerule-form').classList.remove('hidden');
+    }
+
+    function cancelTimeRuleForm() {
+        document.getElementById('timerule-form').classList.add('hidden');
+    }
+
+    document.getElementById('timerule-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const ruleId = document.getElementById('timerule-id').value;
+        const ruleType = document.getElementById('timerule-type').value;
+        function pad(n) { return String(n).padStart(2, '0'); }
+        let startDate = null, endDate = null;
+        if (ruleType === 'date_range' && timeruleDatePicker) {
+            const s = timeruleDatePicker.getStartDate();
+            const ed = timeruleDatePicker.getEndDate();
+            if (s) startDate = `${s.getFullYear()}-${pad(s.getMonth()+1)}-${pad(s.getDate())}`;
+            if (ed) endDate = `${ed.getFullYear()}-${pad(ed.getMonth()+1)}-${pad(ed.getDate())}`;
+        }
+        const data = {
+            rule_type: ruleType,
+            allowed: document.getElementById('timerule-allowed').checked,
+            start_time: document.getElementById('timerule-start-time').value || null,
+            end_time: document.getElementById('timerule-end-time').value || null,
+            start_date: startDate,
+            end_date: endDate,
+            weekdays: null,
+        };
+        if (ruleType === 'weekday') {
+            const checked = Array.from(document.querySelectorAll('.weekday-cb:checked')).map(cb => cb.value);
+            data.weekdays = checked.join(',') || null;
+        }
+        try {
+            if (ruleId) {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules/${ruleId}`, {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+                }, {success: 'Time rule updated', error: window.I18N.failedToSaveTimeRule});
+            } else {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+                }, {success: 'Time rule created', error: window.I18N.failedToSaveTimeRule});
+            }
+            const resp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`);
+            currentTimerules = resp.rules || [];
+            renderTimeRulesList();
+            cancelTimeRuleForm();
+        } catch (err) {
+        }
+    });
+
+    async function deleteTimeRule(ruleId) {
+        if (!confirm(window.I18N.deleteTimeRuleConfirm)) return;
+        await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules/${ruleId}`, {method: 'DELETE'});
+        const resp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys/${currentTimeruleKeyId}/time-rules`);
+        currentTimerules = resp.rules || [];
+        renderTimeRulesList();
+    }
+
+    document.getElementById('timerule-modal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+    }, true);
+    </script>
+    <script>
+        let selectedStandardModelIds = [];
+        let selectedAccessMode = 'model';
+        let currentTags = [];
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+        let standardModels = [];
+        let apiKeysData = [];
+        let mcpServers = [];
+        let standardModelsLoadPromise = null;
+        let mcpServersLoadPromise = null;
+        let standardModelPickerCacheKey = '';
+        let mcpServerPickerCacheKey = '';
+        let filteredData = [];
+        let allListTags = [];
+        let selectedListTagFilter = new Set();
+        let currentPage = 1;
+        const pageSize = 10;
+        
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'dark';
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').value = mode;
+        }
+
+        applyTheme(getThemeMode());
+
+        async function fetchOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = `${APP_BASE_PATH}/admin/login`;
+                throw new Error('Unauthorized');
+            }
+            if (!resp.ok) throw new Error(await resp.text());
+            return resp;
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetchOrRedirect(url, options);
+            return await resp.json();
+        }
+        
+        async function loadApiKeys() {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys`);
+            apiKeysData = (data.api_keys || []).sort((a, b) => {
+                if (a.last_used_at && !b.last_used_at) return -1;
+                if (!a.last_used_at && b.last_used_at) return 1;
+                if (!a.last_used_at && !b.last_used_at) return 0;
+                return new Date(b.last_used_at) - new Date(a.last_used_at);
+            });
+            const tagsSet = new Set();
+            apiKeysData.forEach(k => (k.tags || []).forEach(t => tagsSet.add(t)));
+            allListTags = Array.from(tagsSet).sort();
+            selectedListTagFilter = new Set();
+            renderTagFilterBar();
+            handleSearch();
+        }
+
+        function renderApiKeyLoadError(error) {
+            const list = document.getElementById('apikeys-list');
+            if (list) {
+                list.innerHTML = `<div class="text-red-500 text-center py-8">Failed to load API keys: ${escapeAttr(error?.message || error || '')}</div>`;
+            }
+        }
+
+        function renderTagFilterBar() {
+            const bar = document.getElementById('tag-filter-bar');
+            if (allListTags.length === 0) {
+                bar.classList.add('hidden');
+                return;
+            }
+            bar.classList.remove('hidden');
+            let html = '<div class="flex flex-wrap gap-1.5">';
+            html += `<button onclick="filterListByTag(null)" class="text-xs px-2.5 py-1 rounded-full border ${selectedListTagFilter.size === 0 ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">{{ _("All") }}</button>`;
+            allListTags.forEach(tag => {
+                const active = selectedListTagFilter.has(tag);
+                html += `<button onclick="filterListByTag('${tag.replace(/'/g, "\\'")}')" class="text-xs px-2.5 py-1 rounded-full border ${active ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${tag}</button>`;
+            });
+            html += '</div>';
+            bar.innerHTML = html;
+        }
+
+        function filterListByTag(tag) {
+            if (tag === null) {
+                selectedListTagFilter.clear();
+            } else if (selectedListTagFilter.has(tag)) {
+                selectedListTagFilter.delete(tag);
+            } else {
+                selectedListTagFilter.add(tag);
+            }
+            renderTagFilterBar();
+            handleSearch();
+        }
+        
+        function handleSearch() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            filteredData = apiKeysData;
+            if (selectedListTagFilter.size > 0) {
+                filteredData = filteredData.filter(k => (k.tags || []).some(t => selectedListTagFilter.has(t)));
+            }
+            if (query) {
+                filteredData = filteredData.filter(k =>
+                    k.name.toLowerCase().includes(query) ||
+                    k.key.toLowerCase().includes(query)
+                );
+            }
+            document.getElementById('total-count').textContent = filteredData.length;
+            currentPage = 1;
+            renderApiKeys();
+            renderPagination();
+        }
+        
+        async function loadStandardModels() {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models`);
+            standardModels = (data.models || []).filter(m => m.is_active !== false);
+            standardModelPickerCacheKey = '';
+        }
+
+        function isAutoModel(model) {
+            return (model?.name || '').toLowerCase() === 'auto' || (model?.is_virtual && (model?.tags || '').includes('auto'));
+        }
+        
+        async function loadMcpServers() {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`);
+            mcpServers = data.servers || [];
+            mcpServerPickerCacheKey = '';
+        }
+
+        function renderMcpServerCheckboxes(selectedIds) {
+            const container = document.getElementById('apikey-mcp-servers');
+            const cacheKey = `${mcpServers.map(s => s.id).join(',')}|${[...selectedIds].sort((a, b) => a - b).join(',')}`;
+            if (cacheKey === mcpServerPickerCacheKey) return;
+            mcpServerPickerCacheKey = cacheKey;
+            if (mcpServers.length === 0) {
+                container.innerHTML = '<div class="text-xs text-gray-400">No MCP servers</div>';
+                return;
+            }
+            container.innerHTML = mcpServers.map(s => `
+                <label class="mcp-server-item inline-flex items-center gap-1.5 text-xs py-1 px-2 rounded border cursor-pointer">
+                    <input type="checkbox" class="mcp-server-check" value="${s.id}" ${selectedIds.includes(s.id) ? 'checked' : ''}>
+                    ${(s.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+                </label>
+            `).join('');
+        }
+        
+        function getStandardModelDisplayName(modelId) {
+            const model = standardModels.find(m => m.id === modelId);
+            return model ? (model.display_name || model.name) : `ID:${modelId}`;
+        }
+
+        function maskApiKey(key) {
+            if (!key || key.length <= 10) return key;
+            return key.slice(0, 4) + '****' + key.slice(-4);
+        }
+
+        function formatLastUsed(value) {
+            if (!value) return window.I18N.never;
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value;
+            return date.toLocaleString();
+        }
+
+        function toLocalDateTimeInput(date) {
+            const d = date instanceof Date ? date : new Date(date);
+            if (Number.isNaN(d.getTime())) return '';
+            const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+            return local.toISOString().slice(0, 16);
+        }
+
+        function getDefaultApiKeyExpiry() {
+            const date = new Date();
+            date.setFullYear(date.getFullYear() + 1);
+            return toLocalDateTimeInput(date);
+        }
+
+        function localDateTimeToIso(value) {
+            if (!value) return null;
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? null : date.toISOString();
+        }
+
+        function formatExpiry(value) {
+            if (!value) return window.I18N.never;
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+        }
+
+        function isApiKeyExpired(value) {
+            if (!value) return false;
+            const date = new Date(value);
+            return !Number.isNaN(date.getTime()) && Date.now() > date.getTime();
+        }
+
+        function escapeAttr(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+        
+        function renderApiKeys() {
+            const baseUrl = window.location.origin;
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            const pageData = filteredData.slice(start, end);
+            
+            const html = pageData.map(k => {
+                const maskedKey = maskApiKey(k.key);
+                const standardModelNames = (k.allowed_model_names && k.allowed_model_names.length > 0)
+                    ? k.allowed_model_names
+                    : (k.allowed_model_ids || []).map(id => getStandardModelDisplayName(id));
+                const modelNames = standardModelNames;
+                const modelsDisplay = modelNames.length > 0
+                    ? `
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <span class="model-chip model-chip-neutral">Model</span>
+                            ${modelNames.map(name => `
+                                <span class="model-chip" title="${name}">${name}</span>
+                            `).join('')}
+                        </div>
+                    `
+                    : `
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <span class="model-chip model-chip-neutral">${window.I18N.allModels}</span>
+                        </div>
+                    `;
+                const timeRulesDisplay = renderTimeRulesBadges(k.time_rules || []);
+                const userPageUrl = `${baseUrl}${APP_BASE_PATH}/user/login`;
+                const setupMdUrl = `${baseUrl}${APP_BASE_PATH}/opencode/setup.md?api_key=${k.key}`;
+                const setupPayload = {
+                    key: k.key,
+                    userPageUrl,
+                    setupMdUrl,
+                    modelNames,
+                };
+                const expired = isApiKeyExpired(k.expires_at);
+                return `
+                <div class="p-4 ${expired ? 'bg-red-50/60' : ''}">
+                    <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <div class="font-medium">${k.name}</div>
+                                ${expired ? `<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">${window.I18N.expired}</span>` : ''}
+                            </div>
+                            <div class="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-2">
+                                <code class="bg-gray-100 px-2 py-0.5 rounded text-xs break-all">${maskedKey}</code>
+                                <button type="button" data-copy-key="${escapeAttr(k.key)}" class="copy-key-btn text-blue-500 hover:text-blue-700 text-xs">${window.I18N.copy}</button>
+                            </div>
+                            <div class="mt-2 text-xs text-gray-500">${window.I18N.email}: ${k.email ? escapeAttr(k.email) : '-'}</div>
+                            <div class="mt-1 text-xs text-gray-500">${window.I18N.expiresAt}: ${formatExpiry(k.expires_at)}</div>
+                            <div class="mt-2 text-xs text-gray-500">${window.I18N.lastUsed}: ${formatLastUsed(k.last_used_at)}</div>
+                            ${modelsDisplay}
+                            ${(k.mcp_server_ids && k.mcp_server_ids.length > 0) ? `
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    ${k.mcp_server_ids.map(sid => {
+                                        const srv = mcpServers.find(s => s.id === sid);
+                                        return srv ? `<span class="inline-block text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">MCP: ${(srv.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>` : '';
+                                    }).join('')}
+                                </div>
+                            ` : ''}
+                            ${timeRulesDisplay}
+                            ${k.bypass_busyness ? '<span class="inline-block text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded mt-1">' + (window.I18N.bypassBusyness || 'Bypass busyness') + '</span>' : ''}
+                            ${(k.tags && k.tags.length > 0) ? '<div class="flex flex-wrap gap-1 mt-1">' + k.tags.map(t => '<span class="inline-block text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">' + t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>').join('') + '</div>' : ''}
+                        </div>
+                        <div class="flex flex-wrap gap-2 shrink-0">
+                            <button onclick="showTimeRulesModal(${k.id})" class="text-purple-500 hover:text-purple-700 text-sm">${window.I18N.timeRules}</button>
+                            <button onclick="editApiKey(${k.id})" class="text-blue-500 hover:text-blue-700 text-sm">${window.I18N.edit}</button>
+                            <button onclick="deleteApiKey(${k.id})" class="text-red-500 hover:text-red-700 text-sm">${window.I18N.delete}</button>
+                        </div>
+                    </div>
+                    <div class="mt-2 bg-gray-50 rounded p-2 text-xs space-y-1">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="text-gray-500">${window.I18N.userPage} </span>
+                                <a href="${userPageUrl}" target="_blank" class="text-blue-500 hover:underline">${userPageUrl}</a>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-500">${window.I18N.setupDoc}</span>
+                            <button type="button" data-copy-setup="${escapeAttr(JSON.stringify(setupPayload))}" class="copy-setup-btn text-orange-500 hover:text-orange-700">${window.I18N.copySetup}</button>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+            document.getElementById('apikeys-list').innerHTML = html || `<div class="text-gray-400 text-center py-8">${window.I18N.noApiKeys}</div>`;
+        }
+        
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredData.length / pageSize);
+            if (totalPages <= 1) {
+                document.getElementById('pagination').innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            
+            if (currentPage > 1) {
+                html += `<button onclick="goToPage(${currentPage - 1})" class="px-3 py-1 border rounded hover:bg-gray-50">${window.I18N.previous}</button>`;
+            }
+            
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            
+            if (endPage - startPage + 1 < maxVisible) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+            
+            if (startPage > 1) {
+                html += `<button onclick="goToPage(1)" class="px-3 py-1 border rounded hover:bg-gray-50">1</button>`;
+                if (startPage > 2) html += `<span class="px-2">...</span>`;
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                if (i === currentPage) {
+                    html += `<button class="px-3 py-1 border rounded bg-blue-500 text-white">${i}</button>`;
+                } else {
+                    html += `<button onclick="goToPage(${i})" class="px-3 py-1 border rounded hover:bg-gray-50">${i}</button>`;
+                }
+            }
+            
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<span class="px-2">...</span>`;
+                html += `<button onclick="goToPage(${totalPages})" class="px-3 py-1 border rounded hover:bg-gray-50">${totalPages}</button>`;
+            }
+            
+            if (currentPage < totalPages) {
+                html += `<button onclick="goToPage(${currentPage + 1})" class="px-3 py-1 border rounded hover:bg-gray-50">${window.I18N.next}</button>`;
+            }
+            
+            document.getElementById('pagination').innerHTML = html;
+        }
+        
+        function goToPage(page) {
+            currentPage = page;
+            renderApiKeys();
+            renderPagination();
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+        
+        async function copyText(text, successMessage) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    showToast(successMessage, 'info');
+                    return;
+                }
+            } catch (err) {
+            }
+
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '0';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            try {
+                const ok = document.execCommand('copy');
+                if (!ok) throw new Error('copy command failed');
+                showToast(successMessage, 'info');
+            } catch (err) {
+                showManualCopy(text);
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        function showManualCopy(text) {
+            let modal = document.getElementById('manual-copy-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'manual-copy-modal';
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3';
+                modal.innerHTML = `
+                    <div class="apikey-dialog-card bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 p-4 flex min-h-0 flex-col overflow-hidden">
+                        <div class="flex items-center justify-between mb-3 shrink-0">
+                            <div class="font-semibold">${window.I18N.copy}</div>
+                            <button type="button" class="manual-copy-close text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3 shrink-0">${window.I18N.copyManually}</p>
+                        <textarea id="manual-copy-text" class="min-h-32 w-full flex-1 border rounded px-3 py-2 text-sm font-mono" style="height:min(14rem, calc(100dvh - 14rem))"></textarea>
+                        <div class="flex justify-end mt-3 shrink-0">
+                            <button type="button" class="manual-copy-close px-4 py-2 border rounded hover:bg-gray-50">${window.I18N.close}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modal.addEventListener('click', (e) => {
+                    if (e.target.closest('.manual-copy-close')) {
+                        modal.classList.add('hidden');
+                        modal.classList.remove('flex');
+                        return;
+                    }
+                    if (e.target === e.currentTarget) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                    }
+                }, true);
+            }
+            const textarea = modal.querySelector('#manual-copy-text');
+            textarea.value = text;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            textarea.focus();
+            textarea.select();
+        }
+
+        function copyExample(cmd) {
+            copyText(cmd, window.I18N.copied);
+        }
+        
+        function renderStandardModelCheckboxes(force = false) {
+            const container = document.getElementById('standard-models-checkbox-container');
+            if (!container) return;
+            const cacheKey = `${standardModels.map(model => model.id).join(',')}|${[...selectedStandardModelIds].sort((a, b) => a - b).join(',')}`;
+            if (!force && cacheKey === standardModelPickerCacheKey) return;
+            standardModelPickerCacheKey = cacheKey;
+            if (standardModels.length === 0) {
+                container.innerHTML = `<div class="text-gray-400 text-center py-4">${window.I18N.noModels}</div>`;
+                return;
+            }
+            const sorted = [...standardModels].sort((a, b) => {
+                if (isAutoModel(a) && !isAutoModel(b)) return -1;
+                if (!isAutoModel(a) && isAutoModel(b)) return 1;
+                return (a.name || '').localeCompare(b.name || '');
+            });
+            container.innerHTML = sorted.map(model => `
+                <label class="model-item ${isAutoModel(model) ? 'auto-model-option' : ''} flex items-center min-w-0 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedStandardModelIds.includes(model.id) ? 'selected' : ''}" data-model-id="${model.id}">
+                    <input type="checkbox" class="mr-2 shrink-0" value="${model.id}" ${selectedStandardModelIds.includes(model.id) ? 'checked' : ''} onchange="toggleStandardModel(${model.id})">
+                    <span class="text-sm truncate">${model.display_name || model.name}</span>
+                    ${isAutoModel(model) ? '<span class="ml-2 shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-200">Auto 路由</span>' : (model.is_virtual ? '<span class="ml-2 shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-200">虚拟</span>' : '')}
+                    <span class="ml-2 min-w-0 truncate text-xs text-gray-400">${model.name}</span>
+                </label>
+            `).join('');
+        }
+
+        function setAccessMode(mode) {
+            selectedAccessMode = 'model';
+            const accessError = document.getElementById('access-mode-error');
+            if (accessError) {
+                accessError.classList.add('hidden');
+                accessError.textContent = '';
+            }
+            updateSelectedCount();
+        }
+
+        function toggleStandardModel(id) {
+            const idx = selectedStandardModelIds.indexOf(id);
+            if (idx > -1) {
+                selectedStandardModelIds.splice(idx, 1);
+            } else {
+                selectedStandardModelIds.push(id);
+            }
+            standardModelPickerCacheKey = '';
+            updateSelectedCount();
+            const label = document.querySelector(`label[data-model-id="${id}"]`);
+            if (label) label.classList.toggle('selected', selectedStandardModelIds.includes(id));
+        }
+
+        function selectAllStandardModels() {
+            selectedStandardModelIds = standardModels.map(model => model.id);
+            renderStandardModelCheckboxes(true);
+            updateSelectedCount();
+        }
+
+        function clearStandardModels() {
+            selectedStandardModelIds = [];
+            renderStandardModelCheckboxes(true);
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const count = selectedStandardModelIds.length;
+            document.getElementById('selected-count').textContent = count;
+        }
+
+        function validateApiKeyAccessSelection() {
+            const errorEl = document.getElementById('access-mode-error');
+            const showError = (message) => {
+                if (errorEl) {
+                    errorEl.textContent = message;
+                    errorEl.classList.remove('hidden');
+                }
+                showToast(message, 'error');
+                return false;
+            };
+            if (selectedStandardModelIds.length === 0) {
+                return showError('请选择至少一个标准模型；如果要全部模型，请点击标准模型列表里的“全选”。');
+            }
+            if (errorEl) {
+                errorEl.classList.add('hidden');
+                errorEl.textContent = '';
+            }
+            return true;
+        }
+
+        async function ensureApiKeyPickerData() {
+            standardModelsLoadPromise = standardModelsLoadPromise || loadStandardModels();
+            mcpServersLoadPromise = mcpServersLoadPromise || loadMcpServers();
+            await Promise.allSettled([
+                standardModelsLoadPromise,
+                mcpServersLoadPromise,
+            ]);
+        }
+
+        function prepareApiKeyPickers(selectedMcpServerIds) {
+            renderStandardModelCheckboxes(true);
+            renderMcpServerCheckboxes(selectedMcpServerIds || []);
+        }
+        
+        function copyKey(key) {
+            copyText(key, window.I18N.copied);
+        }
+        
+        function copyKeyWithInstructions(payload) {
+            const { key, userPageUrl, setupMdUrl, modelNames } = payload;
+            const enabledModelsText = Array.isArray(modelNames) && modelNames.length > 0
+                ? modelNames.map(name => `- ${name}`).join('\n')
+                : `- ${window.I18N.noModelsAssigned}`;
+            const text = `${window.I18N.accessInfo}
+
+${window.I18N.loginPage}
+${userPageUrl}
+
+${window.I18N.apiKeyLabel}
+${key}
+
+${window.I18N.quickStart}
+1. ${window.I18N.openLoginPageAndPasteKey}
+2. ${window.I18N.keepApiKeyPrivate}
+
+${window.I18N.enabledModels}
+${enabledModelsText}
+
+${window.I18N.openCodeWebsiteHint}
+https://opencode.ai/
+
+${window.I18N.opencodeSendHint}
+${window.I18N.followThisDoc}
+${setupMdUrl}`;
+            copyText(text, window.I18N.apiKeyAndUsageCopied);
+        }
+        
+        function renderTags() {
+            const container = document.getElementById('apikey-tags-container');
+            container.innerHTML = currentTags.map((tag, i) => 
+                `<span class="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">${tag}<button type="button" onclick="removeTag(${i})" class="text-blue-400 hover:text-blue-600">&times;</button></span>`
+            ).join('');
+        }
+        function addTag() {
+            const input = document.getElementById('apikey-tag-input');
+            const tag = input.value.trim();
+            if (tag && !currentTags.includes(tag)) {
+                currentTags.push(tag);
+                renderTags();
+            }
+            input.value = '';
+        }
+        function removeTag(index) {
+            currentTags.splice(index, 1);
+            renderTags();
+        }
+        
+        async function showAddApiKey() {
+            await ensureApiKeyPickerData();
+            document.getElementById('apikey-modal-title').textContent = window.I18N.addApiKey;
+            document.getElementById('apikey-id').value = '';
+            document.getElementById('apikey-name').value = '';
+            document.getElementById('apikey-email').value = '';
+            document.getElementById('apikey-expires-at').value = getDefaultApiKeyExpiry();
+            selectedStandardModelIds = [];
+            setAccessMode('model');
+            updateSelectedCount();
+            prepareApiKeyPickers([]);
+            document.getElementById('apikey-bypass-busyness').checked = false;
+            currentTags = [];
+            renderTags();
+            document.getElementById('apikey-modal').classList.remove('hidden');
+            document.getElementById('apikey-modal').classList.add('flex');
+        }
+        
+        async function editApiKey(id) {
+            await ensureApiKeyPickerData();
+            const key = apiKeysData.find(k => k.id === id);
+            if (!key) return;
+            document.getElementById('apikey-modal-title').textContent = window.I18N.editApiKey;
+            document.getElementById('apikey-id').value = id;
+            document.getElementById('apikey-name').value = key.name;
+            document.getElementById('apikey-email').value = key.email || '';
+            document.getElementById('apikey-expires-at').value = key.expires_at ? toLocalDateTimeInput(key.expires_at) : getDefaultApiKeyExpiry();
+            selectedStandardModelIds = [...(key.allowed_model_ids || [])];
+            setAccessMode('model');
+            updateSelectedCount();
+            prepareApiKeyPickers(key.mcp_server_ids || []);
+            document.getElementById('apikey-bypass-busyness').checked = key.bypass_busyness || false;
+            currentTags = [...(key.tags || [])];
+            renderTags();
+            document.getElementById('apikey-modal').classList.remove('hidden');
+            document.getElementById('apikey-modal').classList.add('flex');
+        }
+        
+        function closeApiKeyModal() {
+            document.getElementById('apikey-modal').classList.add('hidden');
+            document.getElementById('apikey-modal').classList.remove('flex');
+        }
+        
+        document.getElementById('apikey-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!validateApiKeyAccessSelection()) return;
+            const id = document.getElementById('apikey-id').value;
+            const data = {
+                name: document.getElementById('apikey-name').value,
+                email: document.getElementById('apikey-email').value.trim(),
+                expires_at: localDateTimeToIso(document.getElementById('apikey-expires-at').value),
+                access_mode: 'model',
+                allowed_model_ids: selectedStandardModelIds,
+                bypass_busyness: document.getElementById('apikey-bypass-busyness').checked,
+                tags: currentTags,
+            };
+            data.mcp_server_ids = Array.from(document.querySelectorAll('.mcp-server-check:checked')).map(c => parseInt(c.value));
+            
+            try {
+                if (id) {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/keys/` + id, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(data)
+                    }, {success: 'API key updated', error: window.I18N.failedToSave});
+                } else {
+                    const result = await mgFetchJson(`${APP_BASE_PATH}/admin/api/keys`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(data)
+                    }, {error: window.I18N.failedToSave});
+                    showToast(window.I18N.apiKeyCreated + ' ' + result.key, 'success');
+                }
+                closeApiKeyModal();
+                loadApiKeys();
+            } catch(err) {}
+        });
+        
+        async function deleteApiKey(id) {
+            if (!confirm(window.I18N.deleteConfirm)) return;
+            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/` + id, {method: 'DELETE'});
+            loadApiKeys();
+        }
+        
+        document.getElementById('apikeys-list').addEventListener('click', (e) => {
+            const copyKeyButton = e.target.closest('.copy-key-btn');
+            if (copyKeyButton) {
+                copyKey(copyKeyButton.dataset.copyKey || '');
+                return;
+            }
+            const copySetupButton = e.target.closest('.copy-setup-btn');
+            if (copySetupButton) {
+                try {
+                    copyKeyWithInstructions(JSON.parse(copySetupButton.dataset.copySetup || '{}'));
+                } catch (err) {
+                    showToast('Copy failed', 'error');
+                }
+            }
+        });
+        
+        loadApiKeys().catch(renderApiKeyLoadError);
+        
+        document.getElementById('search-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.target.value = '';
+                handleSearch();
+            }
+        });
+    </script>
+</body>
+</html>

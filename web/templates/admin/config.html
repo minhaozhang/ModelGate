@@ -1,0 +1,2754 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('Config') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t { border-color: #1f2937 !important; }
+        body.theme-dark input,
+        body.theme-dark select,
+        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500):not(.pk-action) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        .pk-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f9fafb; border-radius: 0.5rem; gap: 0.75rem; }
+        body.theme-dark .pk-row { background: #1e293b; }
+        .pk-info { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+        .pk-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .pk-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+        .pk-action { background: none !important; border: none !important; cursor: pointer; padding: 0; font-size: 0.75rem; }
+        .icon-btn { background: none !important; border: none !important; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; transition: background 0.15s; }
+        .icon-btn:hover { background: rgba(0,0,0,0.06); }
+        body.theme-dark .icon-btn:hover { background: rgba(255,255,255,0.08); }
+        .warn-icon { position: relative; display: inline-flex; align-items: center; cursor: pointer; color: #f59e0b; }
+        .warn-icon .warn-tip { display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); background: #1f2937; color: #f9fafb; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; max-width: 260px; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.4; }
+        .warn-icon:hover .warn-tip { display: block; }
+        .help-tip { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 999px; background: #e2e8f0; color: #475569; font-size: 11px; font-weight: 700; cursor: help; }
+        .help-tip .help-tip-body { display: none; position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); width: 260px; background: #1f2937; color: #f9fafb; padding: 8px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; line-height: 1.45; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .help-tip:hover .help-tip-body { display: block; }
+        .mk-item:hover { background: #f8fafc; }
+        .mk-item.selected { background: #eff6ff; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg,
+        body.theme-dark .shadow-xl { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark .mk-item:hover { background: rgba(148, 163, 184, 0.12) !important; }
+        body.theme-dark .mk-item.selected { background: rgba(37, 99, 235, 0.18) !important; }
+        .config-tab-btn { border: 1px solid transparent; border-radius: 7px; color: #64748b; margin: 0.5rem 0; padding: 0.45rem 0.75rem; font-size: 0.875rem; font-weight: 600; transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+        .config-tab-btn:hover { background: #f1f5f9; color: #334155; }
+        .config-tab-btn.active { background: #dbeafe !important; border-color: #93c5fd !important; color: #1d4ed8 !important; box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12); }
+        body.theme-dark .config-tab-btn { color: #94a3b8; }
+        body.theme-dark .config-tab-btn:hover { background: rgba(51, 65, 85, 0.72); color: #e2e8f0; }
+        body.theme-dark .config-tab-btn.active { background: rgba(37, 99, 235, 0.28) !important; border-color: rgba(96, 165, 250, 0.55) !important; color: #bfdbfe !important; }
+        .config-tab-panel.hidden { display: none; }
+        .strategy-chip { display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 999px; padding: 0.125rem 0.5rem; font-size: 0.6875rem; background: #e0f2fe; color: #0369a1; }
+        .strategy-drawer { position: fixed; inset: 0; z-index: 60; display: none; }
+        .strategy-drawer.open { display: flex; justify-content: flex-end; }
+        .strategy-backdrop { flex: 1; background: rgba(15, 23, 42, 0.55); }
+        .strategy-panel { width: min(520px, 100vw); height: 100vh; overflow-y: auto; background: #fff; box-shadow: -18px 0 40px rgba(15, 23, 42, 0.2); }
+        .model-routing-panel { width: min(920px, 100vw); }
+        body.theme-dark .strategy-panel { background: #0f172a; }
+        .template-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.75rem; cursor: pointer; }
+        .template-card.active { border-color: #2563eb; background: #eff6ff; }
+        body.theme-dark .template-card { border-color: #334155; }
+        body.theme-dark .template-card.active { background: rgba(37, 99, 235, 0.18); }
+        .admin-modal-card {
+            max-height: calc(100vh - 4rem);
+            max-height: calc(100dvh - 4rem);
+        }
+        .auto-model-picker-panel {
+            height: min(560px, calc(100vh - 4rem));
+            height: min(560px, calc(100dvh - 4rem));
+        }
+        .auto-drag-item {
+            cursor: grab;
+            transition: box-shadow 0.15s, opacity 0.15s, border-color 0.15s;
+        }
+        .auto-drag-item:active { cursor: grabbing; }
+        .auto-drag-item.dragging { opacity: 0.4; box-shadow: 0 0 0 2px #3b82f6; }
+        .auto-drag-item.drag-over-top { border-top: 3px solid #3b82f6 !important; margin-top: -1px; }
+        .auto-drag-item.drag-over-bottom { border-bottom: 3px solid #3b82f6 !important; margin-bottom: -1px; }
+        .config-table-wrap { overflow-x: auto; }
+        .config-table { width: 100%; border-collapse: collapse; min-width: 760px; }
+        .routing-table { min-width: 720px; table-layout: fixed; }
+        .routing-table th,
+        .routing-table td { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+        .routing-table input,
+        .routing-table select { min-width: 0 !important; }
+        .routing-upstream-input { width: 100%; min-width: 12rem; }
+        .routing-priority-input { width: 4.5rem; max-width: 100%; }
+        .routing-busyness-select { width: 6rem; max-width: 100%; }
+        .routing-rule-editor { display: grid; grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: 0.5rem; align-items: end; }
+        .routing-rule-editor .routing-rule-wide { grid-column: span 2; }
+        @media (max-width: 760px) { .routing-rule-editor .routing-rule-wide { grid-column: span 1; } }
+        .config-table th { background: #f1f5f9; color: #475569; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.02em; padding: 0.8rem 0.85rem; text-align: left; white-space: nowrap; border-bottom: 2px solid #e2e8f0; }
+        .config-table td { border-top: 1px solid #e5e7eb; padding: 0.85rem 0.85rem; vertical-align: middle; font-size: 0.875rem; }
+        .config-table tbody tr { cursor: default; }
+        .config-table tbody tr:hover { background: #f8fafc; }
+        .config-table tbody tr.selected { background: #eff6ff; }
+        .route-group-row td { background: #e0e7ff !important; color: #1e1b4b; font-weight: 700; padding-top: 1rem !important; padding-bottom: 1rem !important; border-top: 3px solid #818cf8 !important; box-shadow: inset 5px 0 0 #6366f1; }
+        .route-group-row .route-group-meta { color: #4f46e5; font-weight: 600; }
+        .route-group-row + tr td { border-top: none; }
+        .routing-action-btn { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.3rem 0.6rem; border-radius: 0.375rem; font-size: 0.78rem; font-weight: 500; transition: all 0.12s; border: 1px solid transparent; }
+        .routing-action-btn.preview { color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
+        .routing-action-btn.preview:hover { background: #dbeafe; border-color: #93c5fd; }
+        .routing-action-btn.danger { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
+        .routing-action-btn.danger:hover { background: #fee2e2; border-color: #fca5a5; }
+        .status-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+        .status-pill.ok { background: #dcfce7; color: #15803d; }
+        .status-pill.off { background: #fee2e2; color: #b91c1c; }
+        .status-pill.neutral { background: #e2e8f0; color: #475569; }
+        body.theme-dark .config-table th { background: #0f172a; color: #cbd5e1; border-bottom-color: #1e293b; }
+        body.theme-dark .config-table td { border-top-color: #1f2937; }
+        body.theme-dark .config-table tbody tr:hover { background: rgba(148, 163, 184, 0.08); }
+        body.theme-dark .config-table tbody tr.selected { background: rgba(37, 99, 235, 0.18); }
+        body.theme-dark .route-group-row td { background: #312e81 !important; color: #e0e7ff !important; border-top: 3px solid #818cf8 !important; box-shadow: inset 5px 0 0 #a5b4fc !important; }
+        body.theme-dark .route-group-row .route-group-meta { color: #c7d2fe !important; }
+        body.theme-dark .routing-action-btn.preview { background: rgba(37, 99, 235, 0.15); border-color: rgba(96, 165, 250, 0.3); color: #93c5fd; }
+        body.theme-dark .routing-action-btn.preview:hover { background: rgba(37, 99, 235, 0.25); }
+        body.theme-dark .routing-action-btn.danger { background: rgba(239, 68, 68, 0.12); border-color: rgba(248, 113, 113, 0.3); color: #fca5a5; }
+        body.theme-dark .routing-action-btn.danger:hover { background: rgba(239, 68, 68, 0.2); }
+        body.theme-dark .help-tip { background: rgba(100, 116, 139, 0.28); color: #cbd5e1; }
+        body.theme-dark .status-pill.ok { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+        body.theme-dark .status-pill.off { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+        body.theme-dark .status-pill.neutral { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+
+        <main class="ml-56 flex-1 min-w-0 p-6">
+            {% call admin_page_header(_('Provider & Model Configuration')) %}{% endcall %}
+
+            <div class="bg-white rounded-lg shadow px-4 mb-6">
+                <div class="flex gap-6 overflow-x-auto">
+                    <button class="config-tab-btn active" data-config-tab="overview" onclick="switchConfigTab('overview')">概览</button>
+                    <button class="config-tab-btn" data-config-tab="providers" onclick="switchConfigTab('providers')">供应商</button>
+                    <button class="config-tab-btn" data-config-tab="models" onclick="switchConfigTab('models')">标准模型</button>
+                    <button class="config-tab-btn" data-config-tab="auto" onclick="switchConfigTab('auto')">Auto 路由</button>
+                    <button class="config-tab-btn" data-config-tab="routing" onclick="switchConfigTab('routing')">模型路由</button>
+                    <button class="config-tab-btn" data-config-tab="billing" onclick="switchConfigTab('billing')">模型计费</button>
+                    <button class="config-tab-btn" data-config-tab="templates" onclick="switchConfigTab('templates')">策略模板</button>
+                    <button class="config-tab-btn" data-config-tab="preview" onclick="switchConfigTab('preview')">路由预览</button>
+                </div>
+            </div>
+
+            <div id="config-tab-overview" class="config-tab-panel">
+                <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-xs text-gray-500">供应商</div>
+                        <div id="overview-provider-count" class="text-2xl font-semibold mt-1">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-xs text-gray-500">标准模型</div>
+                        <div id="overview-model-count" class="text-2xl font-semibold mt-1">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-xs text-gray-500">模型绑定</div>
+                        <div id="overview-binding-count" class="text-2xl font-semibold mt-1">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-xs text-gray-500">低健康 Key</div>
+                        <div id="overview-low-health-count" class="text-2xl font-semibold mt-1">0</div>
+                    </div>
+                </div>
+                <div class="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-4 border-b">
+                            <h3 class="text-lg font-semibold">需要关注</h3>
+                        </div>
+                        <div id="overview-alerts" class="p-4 space-y-2 text-sm"></div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-4 border-b">
+                            <h3 class="text-lg font-semibold">最近路由结构</h3>
+                        </div>
+                        <div id="overview-routing-summary" class="p-4 space-y-2 text-sm"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="config-tab-providers" class="config-tab-panel hidden">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b flex justify-between items-center">
+                        <h3 class="text-lg font-semibold">供应商与 Provider Keys <span id="provider-count-tab" class="text-sm font-normal text-gray-500"></span></h3>
+                        <button onclick="showAddProvider()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ _('+ Add') }}</button>
+                    </div>
+                    <div id="providers-list-tab" class="p-4 space-y-2"></div>
+                </div>
+            </div>
+
+            <div id="config-tab-models" class="config-tab-panel hidden">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b flex justify-between items-center">
+                        <h3 class="text-lg font-semibold">标准模型 <span id="model-count-tab" class="text-sm font-normal text-gray-500"></span></h3>
+                        <button onclick="showAddModel()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ _('+ Add') }}</button>
+                    </div>
+                    <div class="px-4 py-3 border-b flex flex-wrap items-center gap-2">
+                        <div class="flex-1 min-w-64 max-w-xl">
+                            <input id="model-search-input" type="search" onkeydown="handleModelSearchKey(event)" class="w-full border rounded px-3 py-2 text-sm" placeholder="搜索标准模型、显示名或标签">
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="text-xs text-gray-500">绑定状态</span>
+                            <select id="model-binding-filter" class="border rounded px-3 py-2 text-sm">
+                                <option value="all">全部</option>
+                                <option value="bound">已绑定 Key</option>
+                                <option value="unbound">未绑定 Key</option>
+                            </select>
+                        </div>
+                        <button onclick="applyModelFilters()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600 shrink-0">搜索</button>
+                        <button onclick="resetModelFilters()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50 shrink-0">重置</button>
+                    </div>
+                    <div id="models-list-tab" class="p-4 space-y-2"></div>
+                </div>
+            </div>
+
+            <div id="config-tab-auto" class="config-tab-panel hidden">
+                <div class="bg-white rounded-lg shadow mb-4">
+                    <div class="p-4 border-b flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold">Auto 路由配置</h3>
+                            <p class="text-xs text-gray-500 mt-1">开启后 <code class="bg-gray-100 px-1 rounded text-xs">/v1/models</code> 和 OpenCode 会暴露 <code class="bg-gray-100 px-1 rounded text-xs">auto</code>。拖拽队列决定供应商模型的优先级，排最前面的最先被选中。</p>
+                            <div class="mt-2 text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded px-2.5 py-1.5">
+                                <span class="font-semibold text-blue-700">Token 范围规则（可选）：</span>
+                                每个模型可设置两个阈值，单位 K（1K = 1024 tokens）：
+                                <span class="font-semibold text-red-600">限制 ≤</span> = 硬上限，请求 token 超过此值时<span class="text-red-600">直接排除</span>该模型；
+                                <span class="font-semibold text-blue-600">偏好 ≥</span> = 软偏好，请求 token 低于此值时<span class="text-blue-600">降级排到队列末尾</span>（不排除）。
+                                留空 = 不限制。
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <label class="inline-flex items-center gap-2 text-sm">
+                                <input id="auto-model-enabled" type="checkbox" class="rounded">
+                                启用 auto
+                            </label>
+                            <button onclick="saveAutoModelConfig()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">保存配置</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="bg-white rounded-lg shadow flex flex-col" style="max-height: 70vh;">
+                        <div class="p-3 border-b flex-shrink-0">
+                            <div class="flex items-center justify-between mb-2">
+                                <h4 class="text-sm font-semibold text-gray-700">可用供应商模型</h4>
+                                <span id="auto-available-count" class="text-xs text-gray-400"></span>
+                            </div>
+                            <input id="auto-available-search" type="search" oninput="renderAutoAvailable()" class="w-full border rounded px-3 py-1.5 text-xs" placeholder="搜索供应商或模型...">
+                        </div>
+                        <div id="auto-available-list" class="p-3 overflow-y-auto flex-1 min-h-0 space-y-1.5"></div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow flex flex-col" style="max-height: 70vh;">
+                        <div class="p-3 border-b flex-shrink-0 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <h4 class="text-sm font-semibold text-gray-700">Auto 优先级队列</h4>
+                                <span id="auto-pool-count" class="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700"></span>
+                            </div>
+                            <span class="text-xs text-gray-400">拖拽排序 · 最上 = 最高优先级</span>
+                        </div>
+                        <div id="auto-pool-list" class="p-3 overflow-y-auto flex-1 min-h-0 space-y-1.5"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="config-tab-routing" class="config-tab-panel hidden">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b">
+                        <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                            <div>
+                                <h3 class="text-lg font-semibold">模型路由矩阵</h3>
+                                <p class="text-xs text-gray-500 mt-1">一行就是一个“标准模型 -> 供应商模型”绑定；优先级越大越靠前。</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <select id="routing-bind-provider" class="border rounded px-3 py-2 text-sm min-w-40"></select>
+                                <select id="routing-bind-model" class="border rounded px-3 py-2 text-sm min-w-48"></select>
+                                <button onclick="bindModelFromRouting()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">添加绑定</button>
+                                <button onclick="syncRoutingProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600" id="sync-btn">{{ _('Sync from API') }}</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="model-routing-container" class="p-4">
+                        <div class="text-gray-400 text-center py-4">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="config-tab-billing" class="config-tab-panel hidden">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold">模型计费配置</h3>
+                            <p class="text-xs text-gray-500 mt-1">价格按供应商模型绑定配置，单位均为人民币 / 百万 tokens；历史请求会保存当次计费快照。</p>
+                        </div>
+                        <button onclick="loadModelPricing()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">刷新</button>
+                    </div>
+                    <div id="model-pricing-list" class="p-4"></div>
+                </div>
+            </div>
+
+            <div id="config-tab-preview" class="config-tab-panel hidden">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b">
+                        <h3 class="text-lg font-semibold">路由预览</h3>
+                    </div>
+                    <div class="p-4 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">模型</label>
+                                <input id="route-preview-model" class="w-full border rounded px-3 py-2 text-sm" placeholder="glm-5.1">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">上下文 tokens</label>
+                                <input id="route-preview-context" type="number" class="w-full border rounded px-3 py-2 text-sm" value="6000">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">模拟时间</label>
+                                <input id="route-preview-now" type="datetime-local" class="w-full border rounded px-3 py-2 text-sm">
+                            </div>
+                            <button onclick="runRoutePreview()" class="w-full bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">预览</button>
+                        </div>
+                        <div id="route-preview-result" class="border rounded p-4 min-h-48 text-sm text-gray-500">输入模型后预览路由结果。</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="config-tab-templates" class="config-tab-panel hidden">
+                <div class="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6">
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-4 border-b flex items-center justify-between">
+                            <h3 class="text-lg font-semibold">策略模板</h3>
+                            <button onclick="startNewStrategyTemplate()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">新建模板</button>
+                        </div>
+                        <div id="strategy-template-list" class="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3"></div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-4 border-b">
+                            <h3 id="strategy-template-editor-title" class="text-lg font-semibold">模板编辑</h3>
+                        </div>
+                        <div class="p-4 space-y-3">
+                            <label class="block">
+                                <span class="block text-xs text-gray-500 mb-1">名称</span>
+                                <input id="strategy-template-name" class="w-full border rounded px-3 py-2 text-sm">
+                            </label>
+                            <label class="block">
+                                <span class="block text-xs text-gray-500 mb-1">唯一 key</span>
+                                <input id="strategy-template-key" class="w-full border rounded px-3 py-2 text-sm">
+                            </label>
+                            <label class="block">
+                                <span class="block text-xs text-gray-500 mb-1">描述</span>
+                                <textarea id="strategy-template-description" rows="2" class="w-full border rounded px-3 py-2 text-sm"></textarea>
+                            </label>
+                            <label class="inline-flex items-center gap-2 text-sm">
+                                <input id="strategy-template-active" type="checkbox" checked>
+                                启用
+                            </label>
+                            <label class="block">
+                                <span class="block text-xs text-gray-500 mb-1">参数 schema JSON</span>
+                                <textarea id="strategy-template-schema" rows="7" class="w-full border rounded px-3 py-2 text-xs font-mono"></textarea>
+                            </label>
+                            <label class="block">
+                                <span class="block text-xs text-gray-500 mb-1">规则 blueprint JSON</span>
+                                <textarea id="strategy-template-blueprint" rows="9" class="w-full border rounded px-3 py-2 text-xs font-mono"></textarea>
+                            </label>
+                            <div class="flex gap-2">
+                                <button onclick="saveStrategyTemplate()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">保存模板</button>
+                                <button onclick="startNewStrategyTemplate()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">清空</button>
+                            </div>
+                            <div class="text-xs text-gray-500">内置模板保存时只更新描述和启用状态；自定义模板可完整编辑。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="model-routing-drawer" class="strategy-drawer">
+        <div class="strategy-backdrop" onclick="closeModelRoutingDrawer()"></div>
+        <div class="strategy-panel model-routing-panel">
+            <div class="p-4 border-b flex justify-between items-center">
+                <div>
+                    <h3 id="model-routing-title" class="font-semibold">标准模型路由</h3>
+                    <div id="model-routing-subtitle" class="text-xs text-gray-500 mt-1"></div>
+                </div>
+                <button onclick="closeModelRoutingDrawer()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="p-4 space-y-4">
+                <div class="rounded border bg-gray-50 p-3 text-xs text-gray-500">
+                    这里配置这个标准模型会走哪些供应商，以及供应商之间的顺序。时间段、上下文、小流量分流、按量备用等细规则在下方路由规则里配置。
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <select id="model-routing-provider-select" class="border rounded px-3 py-2 text-sm min-w-48"></select>
+                    <button onclick="addModelRoutingProvider()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">添加供应商</button>
+                    <button onclick="prefillSelectedModelRoutePreview()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">预览路由</button>
+                </div>
+                <div id="model-routing-content"></div>
+                <div id="model-routing-rules"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="provider-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-md w-full mx-4 flex min-h-0 flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h3 id="provider-modal-title" class="font-semibold">{{ _('Add Provider') }}</h3>
+                <button onclick="closeProviderModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <form id="provider-form" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div class="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+                    <input type="hidden" id="provider-id">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Name') }}</label>
+                        <input type="text" id="provider-name" required class="w-full border rounded px-3 py-2" placeholder="e.g., zhipu, deepseek">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Base URL') }}</label>
+                        <input type="text" id="provider-url" required class="w-full border rounded px-3 py-2" placeholder="https://api.example.com/v1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Protocol') }}</label>
+                        <select id="provider-protocol" class="w-full border rounded px-3 py-2">
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="provider-active" checked class="mr-2">
+                        <label class="text-sm text-gray-700">{{ _('Active') }}</label>
+                    </div>
+                    <div id="provider-disabled-reason" class="hidden text-xs text-orange-600 bg-orange-50 rounded p-2"></div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="provider-merge-msgs" class="mr-2">
+                        <label class="text-sm text-gray-700">{{ _('Merge consecutive same-role messages') }} <span class="text-xs text-gray-400">({{ _('For providers like MiniMax requiring role alternation') }})</span></label>
+                    </div>
+                </div>
+                <div class="flex gap-2 border-t p-4 shrink-0">
+                    <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                    <button type="button" onclick="closeProviderModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="model-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 flex min-h-0 flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
+                <h3 id="model-modal-title" class="font-semibold">{{ _('Add Model') }}</h3>
+                <button onclick="closeModelModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <form id="model-form" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div class="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+                <input type="hidden" id="model-id">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Model Name (ID)') }}</label>
+                    <input type="text" id="model-name" required class="w-full border rounded px-3 py-2" placeholder="e.g., glm-4.7">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Display Name') }}</label>
+                    <input type="text" id="model-display-name" class="w-full border rounded px-3 py-2" placeholder="e.g., GLM-4.7">
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens the model can generate in a single response') }}">{{ _('Max Output') }}</label>
+                        <input type="text" id="model-max-tokens" value="131072" placeholder="e.g. 131072 or 128k" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Total input + output tokens the model can process at once') }}">{{ _('Context Window') }}</label>
+                        <input type="text" id="model-context-length" value="204800" placeholder="e.g. 204800 or 200k" class="w-full border rounded px-3 py-2">
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled') }}">{{ _('Reasoning Budget') }}</label>
+                        <input type="text" id="model-thinking-budget" value="8k" placeholder="e.g. 8192 or 8k" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div class="flex-1 flex flex-col justify-end">
+                        <label class="flex items-center" title="{{ _('Enable extended reasoning / chain-of-thought for this model') }}">
+                            <input type="checkbox" id="model-thinking-enabled" checked class="mr-2">
+                            <span class="text-sm text-gray-700">{{ _('Reasoning') }}</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Estimated blended price per 1M tokens (USD). Used for cost estimation on user dashboard.') }}">{{ _('Est. Price $/1M tokens') }}</label>
+                    <input type="number" step="0.01" id="model-estimated-price" value="" placeholder="0.00" class="w-full border rounded px-3 py-2">
+                </div>
+                <div class="flex items-center gap-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="model-multimodal" class="mr-2">
+                        <span class="text-sm text-gray-700">{{ _('Multimodal') }}</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="model-active" checked class="mr-2">
+                        <span class="text-sm text-gray-700">{{ _('Active') }}</span>
+                    </label>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1" title="develop,document,test,flash,reasoning,vision">Tags <span class="text-xs text-gray-400">(develop,document,test,flash...)</span></label>
+                    <input type="text" id="model-tags" class="w-full border rounded px-3 py-2 text-sm" placeholder="develop,reasoning">
+                </div>
+                </div>
+                <div class="flex gap-2 border-t p-4 shrink-0">
+                    <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                    <button type="button" onclick="closeModelModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="provider-keys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 flex min-h-0 flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
+                <h3 id="provider-keys-title" class="font-semibold">{{ _('Provider Keys') }}</h3>
+                <button onclick="closeProviderKeysModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 min-h-0">
+                <div id="provider-keys-content" class="space-y-2">
+                    <div class="text-center text-gray-400 py-4">Loading...</div>
+                </div>
+            </div>
+            <div class="p-4 border-t flex-shrink-0">
+                <div class="flex flex-col gap-2">
+                    <div class="flex gap-2">
+                        <input type="text" id="new-provider-key-value" class="flex-1 border rounded px-3 py-2 text-sm" placeholder="API Key (sk-...)">
+                    </div>
+                    <div class="flex gap-2 items-center">
+                        <input type="text" id="new-provider-key-label" class="w-28 border rounded px-3 py-2 text-sm" placeholder="Label">
+                        <span class="text-xs text-gray-500">{{ _('Concurrency') }}:</span>
+                        <input type="number" id="new-provider-key-max-concurrent" min="1" class="w-24 border rounded px-3 py-2 text-sm" placeholder="{{ _('Default') }}">
+                        <span class="text-xs text-gray-500">Priority:</span>
+                        <input type="number" id="new-provider-key-priority" min="0" value="0" class="w-20 border rounded px-3 py-2 text-sm" placeholder="0">
+                        <div class="flex-1"></div>
+                        <button onclick="addProviderKey()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">{{ _('Add') }}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+        const CONFIG_I18N = {
+            lightMode: '{{ _("Light Mode") }}',
+            darkMode: '{{ _("Dark Mode") }}',
+            providerKeys: '{{ _("Provider Keys") }}',
+            noKeys: '{{ _("No keys configured") }}',
+            loading: '{{ _("Loading...") }}',
+            failedToLoad: '{{ _("Failed to load") }}',
+            noProviders: '{{ _("No providers") }}',
+            noModels: '{{ _("No models") }}',
+            active: '{{ _("Active") }}',
+            inactive: '{{ _("Inactive") }}',
+            keys: '{{ _("Keys") }}',
+            edit: '{{ _("Edit") }}',
+            delete: '{{ _("Delete") }}',
+            remove: '{{ _("Remove") }}',
+            bind: '{{ _("Bind") }}',
+            boundModels: '{{ _("Bound Models") }}',
+            noModelsBound: '{{ _("No models bound") }}',
+            selectProviderFirst: '{{ _("Please select a provider first") }}',
+            syncing: '{{ _("Syncing...") }}',
+            sync: '{{ _("Sync") }}',
+            syncFailed: '{{ _("Sync failed") }}',
+            syncButtonNotFound: '{{ _("Sync button not found") }}',
+            syncedModels: '{{ _("Synced {count} models: {names}") }}',
+            providerSaved: '{{ _("Provider saved") }}',
+            failedToSaveProvider: '{{ _("Failed to save provider") }}',
+            deleteProviderConfirm: '{{ _("Delete this provider?") }}',
+            providerDeleted: '{{ _("Provider deleted") }}',
+            deleteFailed: '{{ _("Delete failed") }}',
+            modelSaved: '{{ _("Model saved") }}',
+            failedToSaveModel: '{{ _("Failed to save model") }}',
+            deleteModelConfirm: '{{ _("Delete this model?") }}',
+            modelDeleted: '{{ _("Model deleted") }}',
+            modelUnbound: '{{ _("Model unbound") }}',
+            unbindFailed: '{{ _("Unbind failed") }}',
+            keyAccessSaved: '{{ _("Key access saved") }}',
+            failedToSaveKeyAccess: '{{ _("Failed to save key access") }}',
+            noProviderBindings: '{{ _("No provider bindings. Bind this model to a provider first.") }}',
+            selectAll: '{{ _("Select All") }}',
+            clear: '{{ _("Clear") }}',
+            selectedCount: '{{ _("{count} selected") }}',
+            pageLabel: '{{ _("Page {current} / {total}") }}',
+            previous: '{{ _("Previous") }}',
+            next: '{{ _("Next") }}',
+            apiKeyAccessSuffix: '{{ _(" - API Key Access") }}',
+            modelFallback: '{{ _("Model") }}',
+            all: '{{ _("All") }}',
+            addProvider: '{{ _("Add Provider") }}',
+            editProvider: '{{ _("Edit Provider") }}',
+            disabledReasonPrefix: '{{ _("Disabled:") }}',
+            addModel: '{{ _("Add Model") }}',
+            editModel: '{{ _("Edit Model") }}',
+            thinkingOff: '{{ _("off") }}',
+            multimodal: '{{ _("multimodal") }}',
+            keyCount: '{{ _("{count} key(s)") }}',
+            bindingScopeHint: '{{ _("Access is configured on the bound provider-model, not on the model itself.") }}',
+            concurrency: '{{ _("Concurrency") }}',
+            default: '{{ _("Default") }}',
+            save: '{{ _("Save") }}',
+            disable: '{{ _("Disable") }}',
+            enable: '{{ _("Enable") }}',
+            disableReasonPrompt: '{{ _("Disable reason (optional, shown to users)") }}',
+            keyEnabled: '{{ _("Key enabled") }}',
+            keyDisabled: '{{ _("Key disabled") }}',
+            failedToUpdateKey: '{{ _("Failed to update key") }}',
+            concurrencySaved: '{{ _("Concurrency saved") }}',
+            failedToSave: '{{ _("Failed to save") }}',
+            deleteKeyConfirm: '{{ _("Delete this key?") }}',
+            keyDeleted: '{{ _("Key deleted") }}',
+            failedToDeleteKey: '{{ _("Failed to delete key") }}',
+            apiKeyRequired: '{{ _("API Key is required") }}',
+            keyAdded: '{{ _("Key added") }}',
+            failedToAddKey: '{{ _("Failed to add key") }}',
+        };
+        let allProviders = [];
+        let allModels = [];
+        let allProviderModels = [];
+        let autoModelConfig = {enabled: false, model_ids: [], provider_model_ids: []};
+        let modelSearchTerm = '';
+        let modelBindingFilter = 'all';
+
+        function parseTokenValue(v) {
+            if (!v) return 0;
+            const s = String(v).trim().toLowerCase();
+            const m = s.match(/^(\d+(?:\.\d+)?)\s*k$/);
+            if (m) return Math.round(parseFloat(m[1]) * 1024);
+            return parseInt(s) || 0;
+        }
+        function formatTokenValue(v) {
+            if (!v) return '';
+            v = parseInt(v);
+            if (v > 0) return Math.round(v / 1024) + 'k';
+            return '';
+        }
+        let selectedProviderId = null;
+        let selectedRoutingModelId = null;
+        let strategyTemplates = [];
+        let selectedStrategyTemplateId = null;
+
+        function t(key, fallback = '') {
+            return CONFIG_I18N[key] || fallback;
+        }
+
+        function formatI18n(key, params = {}, fallback = '') {
+            let value = t(key, fallback);
+            Object.entries(params).forEach(([name, param]) => {
+                value = value.replace(new RegExp(`\\{${name}\\}`, 'g'), param);
+            });
+            return value;
+        }
+
+        function switchConfigTab(tab) {
+            const knownTabs = new Set(['overview', 'providers', 'models', 'auto', 'routing', 'billing', 'templates', 'preview']);
+            if (!knownTabs.has(tab)) tab = 'providers';
+            document.querySelectorAll('.config-tab-panel').forEach(panel => panel.classList.add('hidden'));
+            document.querySelectorAll('.config-tab-btn').forEach(btn => btn.classList.remove('active'));
+            const panel = document.getElementById(`config-tab-${tab}`);
+            if (panel) panel.classList.remove('hidden');
+            const btn = document.querySelector(`[data-config-tab="${tab}"]`);
+            if (btn) btn.classList.add('active');
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', tab);
+            window.history.replaceState(null, '', url.toString());
+            if (tab === 'auto') { loadAutoModelConfig(); if (!allProviderModels.length) loadProviderModelRoutes(); }
+            if (tab === 'routing') loadProviderModelRoutes();
+            if (tab === 'billing') loadModelPricing();
+            if (tab === 'templates') loadStrategyTemplates();
+        }
+
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'dark';
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').value = mode;
+        }
+
+        applyTheme(getThemeMode());
+
+        async function fetchOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = `${APP_BASE_PATH}/admin/login`;
+                throw new Error('Unauthorized');
+            }
+            if (!resp.ok) throw new Error(await resp.text());
+            return resp;
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetchOrRedirect(url, options);
+            return await resp.json();
+        }
+
+        async function loadProviders() {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers`);
+            allProviders = data.providers || [];
+            const html = renderProviderTable(allProviders);
+            const tabList = document.getElementById('providers-list-tab');
+            if (tabList) tabList.innerHTML = html || `<div class="text-gray-400 text-center py-4">${t('noProviders', 'No providers')}</div>`;
+            const tabCount = document.getElementById('provider-count-tab');
+            if (tabCount) tabCount.textContent = `(${allProviders.length})`;
+            renderRoutingBindSelectors();
+            renderOverview();
+        }
+
+        function renderProviderTable(providers) {
+            if (!providers.length) return '';
+            return `<div class="config-table-wrap">
+                <table class="config-table">
+                    <thead>
+                        <tr>
+                            <th>供应商</th>
+                            <th>状态</th>
+                            <th>协议</th>
+                            <th>Base URL</th>
+                            <th>消息处理</th>
+                            <th class="text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${providers.map(p => `
+                            <tr class="${selectedProviderId === p.id ? 'selected' : ''}" onclick="selectProvider(${p.id})">
+                                <td>
+                                    <div class="font-semibold text-sm text-gray-800">${escapeHtml(p.name)}</div>
+                                </td>
+                                <td>${renderProviderAvailability(p)}</td>
+                                <td><span class="status-pill neutral">${escapeHtml((p.protocol || 'openai').toUpperCase())}</span></td>
+                                <td><div class="max-w-[360px] truncate text-xs text-gray-500" title="${escapeAttr(p.base_url)}">${escapeHtml(p.base_url)}</div></td>
+                                <td><span class="text-xs text-gray-500">${p.merge_consecutive_messages ? '合并连续同角色' : '保持原始消息'}</span></td>
+                                <td>
+                                    <div class="flex justify-end gap-1" onclick="event.stopPropagation()">
+                                        <button onclick="openProviderKeys(${p.id}, '${escapeJs(p.name)}')" class="icon-btn text-green-500 hover:text-green-700" title="${t('keys', 'Keys')}">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                                        </button>
+                                        <button onclick="editProvider(${p.id})" class="icon-btn text-blue-500 hover:text-blue-700" title="${t('edit', 'Edit')}">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                        </button>
+                                        <button onclick="deleteProvider(${p.id})" class="icon-btn text-red-500 hover:text-red-700" title="${t('delete', 'Delete')}">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        }
+
+
+        async function selectProvider(id) {
+            selectedProviderId = id;
+            const syncBtn = document.getElementById('sync-btn');
+            if (syncBtn) {
+                syncBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+            loadProviders();
+        }
+
+        async function bindModel() {
+            const modelId = document.getElementById('bind-model-select').value;
+            if (!modelId || !selectedProviderId) return;
+            await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({model_id: parseInt(modelId), is_active: true})
+            });
+            loadProviderModelRoutes();
+        }
+
+        async function unbindModel(pmId) {
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {method: 'DELETE'}, {success: t('modelUnbound', 'Model unbound'), error: t('unbindFailed', 'Unbind failed')});
+                loadProviderModelRoutes();
+            } catch(e) {}
+        }
+
+        async function updateBusynessLevel(pmId, value) {
+            const body = value ? {max_busyness_level: parseInt(value)} : {clear_busyness_level: true};
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+                });
+            } catch(e) {}
+        }
+
+        async function updatePMUpstreamModel(pmId, value) {
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({upstream_model_name: value || null})
+                });
+            } catch(e) {}
+        }
+
+        async function updatePMPriority(pmId, value) {
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/models/' + pmId, {
+                    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({priority: parseInt(value) || 0})
+                });
+            } catch(e) {}
+        }
+
+        async function syncSelectedProvider() {
+            if (!selectedProviderId) {
+                showToast(t('selectProviderFirst', 'Please select a provider first'), 'info');
+                return;
+            }
+            const btn = document.getElementById('sync-btn') || (window.event ? window.event.target : null);
+            if (!btn) {
+                showToast(t('syncButtonNotFound', 'Sync button not found'), 'error');
+                return;
+            }
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = t('syncing', 'Syncing...');
+            try {
+                const data = await mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/sync-models', {method: 'POST'}, {error: t('syncFailed', 'Sync failed')});
+                if (data.synced) {
+                    showToast(formatI18n('syncedModels', {count: data.total, names: data.synced.join(', ')}, `Synced ${data.total} models: ${data.synced.join(', ')}`), 'success');
+                    loadModels();
+                    loadProviderModelRoutes();
+                } else if (data.error) {
+                    showToast(`${t('syncFailed', 'Sync failed')}: ${data.error}`, 'error');
+                }
+            } catch(e) {}
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+
+        function showAddProvider() {
+            document.getElementById('provider-modal-title').textContent = t('addProvider', 'Add Provider');
+            document.getElementById('provider-id').value = '';
+            document.getElementById('provider-name').value = '';
+            document.getElementById('provider-name').disabled = false;
+            document.getElementById('provider-url').value = '';
+            document.getElementById('provider-protocol').value = 'openai';
+            document.getElementById('provider-active').checked = true;
+            document.getElementById('provider-merge-msgs').checked = false;
+            document.getElementById('provider-modal').classList.remove('hidden');
+            document.getElementById('provider-modal').classList.add('flex');
+        }
+
+        function editProvider(id) {
+            const p = allProviders.find(x => x.id === id);
+            if (!p) return;
+            document.getElementById('provider-modal-title').textContent = t('editProvider', 'Edit Provider');
+            document.getElementById('provider-id').value = p.id;
+            document.getElementById('provider-name').value = p.name;
+            document.getElementById('provider-name').disabled = true;
+            document.getElementById('provider-url').value = p.base_url;
+            document.getElementById('provider-protocol').value = p.protocol || 'openai';
+            document.getElementById('provider-active').checked = p.is_active;
+            document.getElementById('provider-merge-msgs').checked = p.merge_consecutive_messages || false;
+            const reasonEl = document.getElementById('provider-disabled-reason');
+            if (p.disabled_reason) {
+                reasonEl.textContent = `${t('disabledReasonPrefix', 'Disabled:')} ${p.disabled_reason}`;
+                reasonEl.classList.remove('hidden');
+            } else {
+                reasonEl.textContent = '';
+                reasonEl.classList.add('hidden');
+            }
+            document.getElementById('provider-modal').classList.remove('hidden');
+            document.getElementById('provider-modal').classList.add('flex');
+        }
+
+        function closeProviderModal() {
+            document.getElementById('provider-modal').classList.add('hidden');
+            document.getElementById('provider-modal').classList.remove('flex');
+        }
+
+        document.getElementById('provider-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('provider-id').value;
+            const data = {
+                name: document.getElementById('provider-name').value,
+                base_url: document.getElementById('provider-url').value,
+                protocol: document.getElementById('provider-protocol').value,
+                is_active: document.getElementById('provider-active').checked,
+                merge_consecutive_messages: document.getElementById('provider-merge-msgs').checked
+            };
+            try {
+                if (id) {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + id, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({base_url: data.base_url, protocol: data.protocol, is_active: data.is_active, merge_consecutive_messages: data.merge_consecutive_messages})
+                    }, {success: t('providerSaved', 'Provider saved'), error: t('failedToSaveProvider', 'Failed to save provider')});
+                } else {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/providers`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(data)
+                    }, {success: t('providerSaved', 'Provider saved'), error: t('failedToSaveProvider', 'Failed to save provider')});
+                }
+                closeProviderModal();
+                loadProviders();
+            } catch(e) {}
+        });
+
+        async function deleteProvider(id) {
+            if (!confirm(t('deleteProviderConfirm', 'Delete this provider?'))) return;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + id, {method: 'DELETE'}, {success: t('providerDeleted', 'Provider deleted'), error: t('deleteFailed', 'Delete failed')});
+                if (selectedProviderId === id) {
+                    selectedProviderId = null;
+                    document.getElementById('bindings-container').innerHTML = '<div class="text-gray-400 text-center py-4">{{ _("Select a provider to view bindings") }}</div>';
+                }
+                loadProviders();
+            } catch(e) {}
+        }
+
+        function showAddModel() {
+            document.getElementById('model-modal-title').textContent = t('addModel', 'Add Model');
+            document.getElementById('model-id').value = '';
+            document.getElementById('model-name').value = '';
+            document.getElementById('model-name').disabled = false;
+            document.getElementById('model-display-name').value = '';
+            document.getElementById('model-max-tokens').value = '128k';
+            document.getElementById('model-context-length').value = '200k';
+            document.getElementById('model-thinking-enabled').checked = true;
+            document.getElementById('model-thinking-budget').value = '8k';
+            document.getElementById('model-multimodal').checked = false;
+            document.getElementById('model-active').checked = true;
+            document.getElementById('model-tags').value = '';
+            document.getElementById('model-modal').classList.remove('hidden');
+            document.getElementById('model-modal').classList.add('flex');
+        }
+
+        async function editModel(id) {
+            const m = allModels.find(x => x.id === id);
+            if (!m) return;
+            document.getElementById('model-modal-title').textContent = t('editModel', 'Edit Model');
+            document.getElementById('model-id').value = m.id;
+            document.getElementById('model-name').value = m.name;
+            document.getElementById('model-name').disabled = true;
+            document.getElementById('model-display-name').value = m.display_name || '';
+            document.getElementById('model-max-tokens').value = formatTokenValue(m.max_tokens);
+            document.getElementById('model-context-length').value = formatTokenValue(m.context_length);
+            document.getElementById('model-thinking-enabled').checked = m.thinking_enabled;
+            document.getElementById('model-thinking-budget').value = formatTokenValue(m.thinking_budget);
+            document.getElementById('model-estimated-price').value = m.estimated_price || '';
+            document.getElementById('model-multimodal').checked = m.is_multimodal;
+            document.getElementById('model-active').checked = m.is_active;
+            document.getElementById('model-tags').value = m.tags || '';
+
+            document.getElementById('model-modal').classList.remove('hidden');
+            document.getElementById('model-modal').classList.add('flex');
+        }
+
+        function closeModelModal() {
+            document.getElementById('model-modal').classList.add('hidden');
+            document.getElementById('model-modal').classList.remove('flex');
+        }
+
+        document.getElementById('model-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('model-id').value;
+            const data = {
+                name: document.getElementById('model-name').value,
+                display_name: document.getElementById('model-display-name').value || null,
+                max_tokens: parseTokenValue(document.getElementById('model-max-tokens').value) || 131072,
+                context_length: parseTokenValue(document.getElementById('model-context-length').value) || 204800,
+                thinking_enabled: document.getElementById('model-thinking-enabled').checked,
+                thinking_budget: parseTokenValue(document.getElementById('model-thinking-budget').value) || 8192,
+                estimated_price: parseFloat(document.getElementById('model-estimated-price').value) || null,
+                is_multimodal: document.getElementById('model-multimodal').checked,
+                is_active: document.getElementById('model-active').checked
+            };
+            try {
+                if (id) {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/models/` + id, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            display_name: data.display_name,
+                            max_tokens: data.max_tokens,
+                            context_length: data.context_length,
+                            thinking_enabled: data.thinking_enabled,
+                            thinking_budget: data.thinking_budget,
+                            is_multimodal: data.is_multimodal,
+                            is_active: data.is_active,
+                            tags: document.getElementById('model-tags').value.trim() || null
+                        })
+                    }, {success: t('modelSaved', 'Model saved'), error: t('failedToSaveModel', 'Failed to save model')});
+                } else {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/models`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(data)
+                    }, {success: t('modelSaved', 'Model saved'), error: t('failedToSaveModel', 'Failed to save model')});
+                }
+                closeModelModal();
+                loadModels();
+            } catch(e) {}
+        });
+
+        async function deleteModel(id) {
+            if (!confirm(t('deleteModelConfirm', 'Delete this model?'))) return;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'}, {success: t('modelDeleted', 'Model deleted'), error: t('deleteFailed', 'Delete failed')});
+                loadModels();
+            } catch(e) {}
+        }
+
+        let providerKeysTargetId = null;
+
+        async function openProviderKeys(providerId, providerName) {
+            providerKeysTargetId = providerId;
+            document.getElementById('provider-keys-title').textContent = providerName + ' - ' + (CONFIG_I18N.providerKeys || 'Provider Keys');
+            document.getElementById('provider-keys-content').innerHTML = `<div class="text-center text-gray-400 py-4">${t('loading', 'Loading...')}</div>`;
+            document.getElementById('new-provider-key-value').value = '';
+            document.getElementById('new-provider-key-label').value = '';
+            document.getElementById('new-provider-key-max-concurrent').value = '';
+            document.getElementById('provider-keys-modal').classList.remove('hidden');
+            document.getElementById('provider-keys-modal').classList.add('flex');
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(e) {
+                document.getElementById('provider-keys-content').innerHTML = `<div class="text-center text-red-500 py-4">${t('failedToLoad', 'Failed to load')}</div>`;
+            }
+        }
+
+        function renderProviderKeys(keys) {
+            const container = document.getElementById('provider-keys-content');
+            if (keys.length === 0) {
+                container.innerHTML = '<div class="text-gray-400 text-center py-4">' + (CONFIG_I18N.noKeys || 'No keys') + '</div>';
+                return;
+            }
+            container.innerHTML = keys.map(k => `
+                <div class="pk-row">
+                    <div class="pk-info">
+                        <div class="pk-meta">
+                            <span class="text-sm font-mono font-medium">${k.api_key}</span>
+                            ${k.label ? '<span class="text-xs text-gray-400">' + k.label + '</span>' : ''}
+                            <span class="text-xs ${k.is_active ? 'text-green-600' : 'text-red-500'}">${k.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
+                            ${k.disabled_reason ? '<span class="warn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">' + k.disabled_reason.replace(/</g, '&lt;') + '</span></span>' : ''}
+                        </div>
+                        <div class="flex items-center gap-1 text-xs text-gray-400 mt-1">
+                            <span>${t('concurrency', 'Concurrency')}:</span>
+                            <input type="number" min="1" value="${k.max_concurrent || ''}" placeholder="${t('default', 'Default')}"
+                                   id="provider-key-mc-${k.id}"
+                                   class="w-16 border rounded px-1.5 py-0.5 text-xs text-center">
+                            <button onclick="updateProviderKeyConcurrency(${k.id})" class="pk-action text-blue-500 hover:text-blue-700">${t('save', 'Save')}</button>
+                            <span class="ml-2">Priority:</span>
+                            <input type="number" min="0" value="${k.priority || 0}" placeholder="0"
+                                   id="provider-key-pri-${k.id}"
+                                   class="w-14 border rounded px-1.5 py-0.5 text-xs text-center">
+                            <button onclick="updateProviderKeyPriority(${k.id})" class="pk-action text-blue-500 hover:text-blue-700">${t('save', 'Save')}</button>
+                            ${k.health_score !== undefined ? '<span class="ml-2 px-1.5 py-0.5 rounded text-[10px] ' + (k.health_score >= 90 ? 'bg-green-100 text-green-700' : k.health_score >= 60 ? 'bg-blue-100 text-blue-700' : k.health_score >= 30 ? 'bg-yellow-100 text-yellow-700' : k.health_score > 0 ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700') + '">HP ' + k.health_score + '</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="pk-actions">
+                        <button onclick="toggleProviderKey(${k.id}, ${!k.is_active})" class="icon-btn ${k.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}" title="${k.is_active ? t('disable', 'Disable') : t('enable', 'Enable')}">
+                            ${k.is_active ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'}
+                        </button>
+                        <button onclick="deleteProviderKey(${k.id})" class="icon-btn text-red-500 hover:text-red-700" title="${t('delete', 'Delete')}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadStrategyTemplates() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/routing/strategy-templates`);
+                strategyTemplates = data.templates || [];
+                renderStrategyTemplateLibrary();
+                if (document.getElementById('strategy-template-name') && selectedStrategyTemplateId === null) {
+                    startNewStrategyTemplate();
+                }
+            } catch(e) {
+                const list = document.getElementById('strategy-template-list');
+                if (list) list.innerHTML = '<div class="text-red-500 text-sm">策略模板加载失败</div>';
+            }
+        }
+
+        function renderStrategyTemplateLibrary() {
+            const list = document.getElementById('strategy-template-list');
+            if (!list) return;
+            list.innerHTML = strategyTemplates.map(tpl => `
+                <div class="template-card ${selectedStrategyTemplateId === tpl.id ? 'active' : ''}" onclick="editStrategyTemplate(${tpl.id})">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="font-medium text-sm">${tpl.name}</div>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded ${tpl.is_builtin ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}">${tpl.is_builtin ? '内置' : '自定义'}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-2">${tpl.description || ''}</div>
+                    <pre class="mt-3 text-[11px] bg-gray-50 border rounded p-2 overflow-x-auto">${escapeHtml(JSON.stringify(tpl.rule_blueprint || {}, null, 2))}</pre>
+                </div>
+            `).join('') || '<div class="text-gray-400 text-sm">暂无模板</div>';
+        }
+
+        function startNewStrategyTemplate() {
+            selectedStrategyTemplateId = null;
+            document.getElementById('strategy-template-editor-title').textContent = '新建模板';
+            document.getElementById('strategy-template-name').value = '';
+            document.getElementById('strategy-template-key').value = '';
+            document.getElementById('strategy-template-description').value = '';
+            document.getElementById('strategy-template-active').checked = true;
+            document.getElementById('strategy-template-schema').value = JSON.stringify({fields: []}, null, 2);
+            document.getElementById('strategy-template-blueprint').value = JSON.stringify({rules: []}, null, 2);
+            renderStrategyTemplateLibrary();
+        }
+
+        function editStrategyTemplate(templateId) {
+            const tpl = strategyTemplates.find(x => x.id === templateId);
+            if (!tpl) return;
+            selectedStrategyTemplateId = templateId;
+            document.getElementById('strategy-template-editor-title').textContent = tpl.is_builtin ? '编辑内置模板' : '编辑模板';
+            document.getElementById('strategy-template-name').value = tpl.name || '';
+            document.getElementById('strategy-template-key').value = tpl.template_key || '';
+            document.getElementById('strategy-template-description').value = tpl.description || '';
+            document.getElementById('strategy-template-active').checked = tpl.is_active !== false;
+            document.getElementById('strategy-template-schema').value = JSON.stringify(tpl.config_schema || {fields: []}, null, 2);
+            document.getElementById('strategy-template-blueprint').value = JSON.stringify(tpl.rule_blueprint || {rules: []}, null, 2);
+            renderStrategyTemplateLibrary();
+        }
+
+        function parseStrategyTemplateJson(id, fallback) {
+            const raw = document.getElementById(id).value.trim();
+            if (!raw) return fallback;
+            return JSON.parse(raw);
+        }
+
+        async function saveStrategyTemplate() {
+            try {
+                const body = {
+                    name: document.getElementById('strategy-template-name').value.trim(),
+                    template_key: document.getElementById('strategy-template-key').value.trim(),
+                    description: document.getElementById('strategy-template-description').value.trim() || null,
+                    is_active: document.getElementById('strategy-template-active').checked,
+                    config_schema: parseStrategyTemplateJson('strategy-template-schema', {fields: []}),
+                    rule_blueprint: parseStrategyTemplateJson('strategy-template-blueprint', {rules: []})
+                };
+                if (!body.name || !body.template_key) {
+                    showToast('请填写名称和唯一 key', 'error');
+                    return;
+                }
+                const url = selectedStrategyTemplateId
+                    ? `${APP_BASE_PATH}/admin/api/routing/strategy-templates/${selectedStrategyTemplateId}`
+                    : `${APP_BASE_PATH}/admin/api/routing/strategy-templates`;
+                await mgFetch(url, {
+                    method: selectedStrategyTemplateId ? 'PUT' : 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                }, {success: '模板已保存', error: '模板保存失败'});
+                await loadStrategyTemplates();
+                if (!selectedStrategyTemplateId) startNewStrategyTemplate();
+            } catch(e) {
+                showToast('JSON 格式不正确或模板保存失败', 'error');
+            }
+        }
+
+        async function runRoutePreview() {
+            const result = document.getElementById('route-preview-result');
+            const model = document.getElementById('route-preview-model').value.trim();
+            if (!model) {
+                result.textContent = '请先输入模型名。';
+                return;
+            }
+            result.textContent = '预览中...';
+            try {
+                const nowValue = document.getElementById('route-preview-now').value;
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/routing/resolve`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        model,
+                        context_tokens: parseInt(document.getElementById('route-preview-context').value, 10) || 0,
+                        now: nowValue ? new Date(nowValue).toISOString() : null,
+                        messages: [{role: 'user', content: 'preview'}]
+                    })
+                });
+                result.innerHTML = renderRoutePreviewResult(data);
+            } catch(e) {
+                result.innerHTML = '<div class="text-red-500">预览失败</div>';
+            }
+        }
+
+        function routePreviewPill(text, tone = 'neutral') {
+            const cls = tone === 'ok' ? 'status-pill ok' : tone === 'off' ? 'status-pill off' : 'status-pill neutral';
+            return `<span class="${cls}">${escapeHtml(text)}</span>`;
+        }
+
+        function renderAvailabilityPill(isAvailable, title = '') {
+            const label = isAvailable ? '可用' : '不可用';
+            return `<span class="status-pill ${isAvailable ? 'ok' : 'off'}" title="${escapeAttr(title || label)}">${escapeHtml(label)}</span>`;
+        }
+
+        function renderProviderAvailability(provider) {
+            const isAvailable = Boolean(provider.is_active) && !provider.disabled_reason;
+            const title = isAvailable ? '供应商可用' : (provider.disabled_reason || '供应商停用');
+            return renderAvailabilityPill(isAvailable, title);
+        }
+
+        function renderRouteAvailability(route) {
+            const isAvailable = route.provider_is_active !== false && !route.provider_disabled_reason;
+            const title = isAvailable ? '供应商可用' : (route.provider_disabled_reason || '供应商停用');
+            return renderAvailabilityPill(isAvailable, title);
+        }
+
+        function renderRoutePreviewCandidate(item, type) {
+            const reasons = (item.filtered_reasons || []).map(humanizeFilterReason);
+            const matched = item.matched_rules || [];
+            const title = type === 'key'
+                ? `${item.label || 'default'} / Key #${item.provider_key_id || item.key_id || '-'}`
+                : `${item.provider || '-'} / ${item.upstream_model_name || item.model_name || '-'}`;
+            return `<div class="border rounded px-3 py-2 bg-gray-50">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <div class="font-medium text-gray-700">${escapeHtml(title)}</div>
+                        <div class="text-xs text-gray-400 mt-1">
+                            priority ${Number(item.effective_priority ?? item.priority ?? 0)}
+                            · health ${Number(item.health ?? 100)}
+                            ${item.standby ? '· standby' : ''}
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-1">
+                        ${item.selected ? routePreviewPill('选中', 'ok') : ''}
+                        ${item.standby ? routePreviewPill('备用') : ''}
+                        ${reasons.length ? routePreviewPill('过滤', 'off') : routePreviewPill('可用', 'ok')}
+                    </div>
+                </div>
+                ${matched.length ? `<div class="text-xs text-blue-600 mt-2">命中规则：${escapeHtml(matched.join('、'))}</div>` : ''}
+                ${reasons.length ? `<div class="text-xs text-red-500 mt-2">原因：${escapeHtml(reasons.join('、'))}</div>` : ''}
+            </div>`;
+        }
+
+        function humanizeFilterReason(reason) {
+            if (!reason) return '';
+            if (reason === 'provider_not_found') return '供应商不存在';
+            if (reason === 'provider_disabled') return '供应商已停用';
+            if (reason === 'missing_api_key') return '缺少 API Key';
+            if (reason === 'health_unavailable') return '健康度为 0';
+            if (reason === 'time_denied') return '时间窗口不允许';
+            if (reason === 'allow_not_matched') return '不在允许范围';
+            if (reason === 'standby_closed') return '备用通道关闭';
+            if (reason === 'disabled') return '已停用';
+            if (reason === 'route_denied') return '路由规则拒绝';
+            if (reason === 'route_key_scope') return '路由 Key 范围限制';
+            if (reason === 'route_key_scope_unavailable') return '路由 Key 范围内无可用 Key';
+            const m = reason.match(/^auto_max_ctx_exceeded:(\d+)$/);
+            if (m) return `auto 上限超出（max_ctx=${Math.round(parseInt(m[1])/1024)}K，请求已超过）`;
+            return reason;
+        }
+
+        function renderRoutePreviewSection(title, items, type) {
+            return `<div class="mt-3">
+                <div class="font-semibold text-gray-700 mb-2">${escapeHtml(title)}</div>
+                <div class="space-y-2">
+                    ${(items || []).length ? items.map(item => renderRoutePreviewCandidate(item, type)).join('') : '<div class="text-xs text-gray-400 border rounded px-3 py-2">暂无</div>'}
+                </div>
+            </div>`;
+        }
+
+        function renderRoutePreviewResult(data) {
+            return `<div class="space-y-3">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-semibold text-gray-800">选中</span>
+                    ${routePreviewPill(data.selected_provider || '无供应商', data.selected_provider ? 'ok' : 'off')}
+                    ${routePreviewPill(`Key ${data.selected_provider_key_id || '-'}`)}
+                    <span class="text-xs text-gray-500">上下文 ${Number(data.context_tokens || 0)} tokens</span>
+                </div>
+                ${renderRoutePreviewSection('模型候选', data.model_candidates || data.candidates || [], 'model')}
+                ${renderRoutePreviewSection('模型过滤', data.model_filtered || data.filtered || [], 'model')}
+                ${renderRoutePreviewSection('Key 候选', data.key_candidates || [], 'key')}
+                ${renderRoutePreviewSection('Key 过滤', data.key_filtered || [], 'key')}
+                <details class="mt-3">
+                    <summary class="cursor-pointer text-xs text-gray-500">原始 JSON</summary>
+                    <pre class="text-xs bg-gray-50 border rounded p-3 overflow-x-auto mt-2">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+                </details>
+            </div>`;
+        }
+
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        }
+
+        function escapeAttr(value) {
+            return escapeHtml(value).replace(/`/g, '&#96;');
+        }
+
+        function escapeJs(value) {
+            return String(value || '')
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r');
+        }
+
+        function closeProviderKeysModal() {
+            document.getElementById('provider-keys-modal').classList.add('hidden');
+            document.getElementById('provider-keys-modal').classList.remove('flex');
+            providerKeysTargetId = null;
+        }
+
+        async function addProviderKey() {
+            if (!providerKeysTargetId) return;
+            const apiKey = document.getElementById('new-provider-key-value').value.trim();
+            const label = document.getElementById('new-provider-key-label').value.trim();
+            const maxConcurrentRaw = document.getElementById('new-provider-key-max-concurrent').value.trim();
+            const maxConcurrent = maxConcurrentRaw ? parseInt(maxConcurrentRaw, 10) : null;
+            const priority = parseInt(document.getElementById('new-provider-key-priority').value, 10) || 0;
+            if (!apiKey) { showToast(t('apiKeyRequired', 'API Key is required'), 'error'); return; }
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({api_key: apiKey, label: label || null, max_concurrent: maxConcurrent, priority: priority})
+                }, {success: t('keyAdded', 'Key added'), error: t('failedToAddKey', 'Failed to add key')});
+                document.getElementById('new-provider-key-value').value = '';
+                document.getElementById('new-provider-key-label').value = '';
+                document.getElementById('new-provider-key-max-concurrent').value = '';
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {}
+        }
+
+        async function toggleProviderKey(keyId, activate) {
+            if (!providerKeysTargetId) return;
+            let body = {is_active: activate};
+            if (!activate) {
+                const reason = prompt(t('disableReasonPrompt', 'Disable reason (optional, shown to users)'));
+                if (reason === null) return;
+                if (reason.trim()) body.disabled_reason = reason.trim();
+            }
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                }, {success: activate ? t('keyEnabled', 'Key enabled') : t('keyDisabled', 'Key disabled'), error: t('failedToUpdateKey', 'Failed to update key')});
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {}
+        }
+
+        async function updateProviderKeyConcurrency(keyId) {
+            if (!providerKeysTargetId) return;
+            const input = document.getElementById('provider-key-mc-' + keyId);
+            const maxConcurrent = input && input.value ? parseInt(input.value, 10) : null;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({max_concurrent: maxConcurrent})
+                }, {success: t('concurrencySaved', 'Concurrency saved'), error: t('failedToSave', 'Failed to save')});
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {}
+        }
+
+        async function updateProviderKeyPriority(keyId) {
+            if (!providerKeysTargetId) return;
+            const input = document.getElementById('provider-key-pri-' + keyId);
+            const priority = input ? parseInt(input.value, 10) || 0 : 0;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({priority: priority})
+                }, {success: 'Priority saved', error: t('failedToSave', 'Failed to save')});
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {}
+        }
+
+        async function deleteProviderKey(keyId) {
+            if (!providerKeysTargetId) return;
+            if (!confirm(t('deleteKeyConfirm', 'Delete this key?'))) return;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                    method: 'DELETE'
+                }, {success: t('keyDeleted', 'Key deleted'), error: t('failedToDeleteKey', 'Failed to delete key')});
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {}
+        }
+
+        async function loadModels() {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models`);
+            allModels = data.models || [];
+            renderFilteredModels();
+            renderRoutingBindSelectors();
+            renderOverview();
+        }
+
+        async function loadAutoModelConfig() {
+            try {
+                if (!allProviderModels.length) {
+                    const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models`);
+                    allProviderModels = data.provider_models || [];
+                }
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/routing/auto-model`);
+                autoModelConfig = {
+                    enabled: data.enabled === true,
+                    model_ids: data.model_ids || [],
+                    provider_model_ids: data.provider_model_ids || []
+                };
+                autoPoolDraft = buildAutoPoolFromConfig();
+                renderAutoTab();
+            } catch(e) {}
+        }
+
+        let autoPoolDraft = [];
+        let autoDraggedIndex = null;
+
+        function getActiveProviderModels() {
+            return (allProviderModels || []).filter(pm => pm.provider_is_active !== false);
+        }
+
+        function getModelInfoForPm(pm) {
+            const model = (allModels || []).find(m => Number(m.id) === Number(pm.model_id));
+            return model || null;
+        }
+
+        function buildAutoPoolFromConfig() {
+            const poolConfig = autoModelConfig.pool_config || [];
+            const poolMap = {};
+            poolConfig.forEach(item => {
+                if (item && item.id) poolMap[Number(item.id)] = item;
+            });
+            const pmIds = Object.keys(poolMap).map(Number);
+            const modelIds = new Set((autoModelConfig.model_ids || []).map(Number).filter(Boolean));
+            const allPmIds = new Set((autoModelConfig.provider_model_ids || []).map(Number).filter(Boolean));
+            const pool = [];
+            const seen = new Set();
+            for (const pmId of pmIds) {
+                const pm = getActiveProviderModels().find(p => Number(p.id) === pmId);
+                if (pm && !seen.has(pmId)) {
+                    pool.push({...pm, _min_ctx: poolMap[pmId].min_ctx || null, _max_ctx: poolMap[pmId].max_ctx || null});
+                    seen.add(pmId);
+                }
+            }
+            for (const pmId of allPmIds) {
+                if (seen.has(pmId)) continue;
+                const pm = getActiveProviderModels().find(p => Number(p.id) === pmId);
+                if (pm) { pool.push({...pm, _min_ctx: null, _max_ctx: null}); seen.add(pmId); }
+            }
+            if (modelIds.size) {
+                for (const pm of getActiveProviderModels()) {
+                    if (modelIds.has(Number(pm.model_id)) && !seen.has(Number(pm.id))) {
+                        pool.push({...pm, _min_ctx: null, _max_ctx: null}); seen.add(Number(pm.id));
+                    }
+                }
+            }
+            return pool;
+        }
+
+        function renderAutoTab() {
+            const enabled = document.getElementById('auto-model-enabled');
+            if (enabled) enabled.checked = autoModelConfig.enabled === true;
+            renderAutoAvailable();
+            renderAutoPool();
+        }
+
+        function renderAutoAvailable() {
+            const list = document.getElementById('auto-available-list');
+            const countEl = document.getElementById('auto-available-count');
+            if (!list) return;
+            const search = (document.getElementById('auto-available-search')?.value || '').trim().toLowerCase();
+            const poolIds = new Set(autoPoolDraft.map(pm => Number(pm.id)));
+            let available = getActiveProviderModels().filter(pm => !poolIds.has(Number(pm.id)));
+            if (search) {
+                available = available.filter(pm => {
+                    const name = (pm.display_name || '').toLowerCase();
+                    const provider = (pm.provider_name || '').toLowerCase();
+                    return name.includes(search) || provider.includes(search);
+                });
+            }
+            if (countEl) countEl.textContent = `${available.length} 个`;
+            if (!available.length) {
+                list.innerHTML = '<div class="text-xs text-gray-400 text-center py-8">没有可添加的供应商模型</div>';
+                return;
+            }
+            list.innerHTML = available.map(pm => {
+                const model = getModelInfoForPm(pm);
+                const badges = buildPmBadges(pm, model);
+                return `
+                    <div class="flex items-center gap-2 rounded border px-3 py-2 hover:bg-gray-50">
+                        <div class="min-w-0 flex-1">
+                            <div class="text-sm text-gray-800 truncate">${escapeHtml(pm.provider_name)} · ${escapeHtml(pm.model_display_name || pm.model_name)}</div>
+                            <div class="text-xs text-gray-400 truncate">${badges}</div>
+                        </div>
+                        <button onclick="addToAutoPool(${pm.id})" class="shrink-0 w-7 h-7 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center text-lg leading-none">+</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAutoPool() {
+            const list = document.getElementById('auto-pool-list');
+            const countEl = document.getElementById('auto-pool-count');
+            if (!list) return;
+            if (countEl) countEl.textContent = `${autoPoolDraft.length} 个`;
+            if (!autoPoolDraft.length) {
+                list.innerHTML = '<div class="text-xs text-gray-400 text-center py-8">队列为空，从左侧添加供应商模型<br>排在上面的优先级最高</div>';
+                return;
+            }
+            list.innerHTML = autoPoolDraft.map((pm, idx) => {
+                const model = getModelInfoForPm(pm);
+                const badges = buildPmBadges(pm, model);
+                const minCtx = pm._min_ctx || '';
+                const maxCtx = pm._max_ctx || '';
+                const ctxHint = [];
+                if (maxCtx) ctxHint.push(`<span class="text-red-400" title="硬限制：超过则不使用">≤${(maxCtx/1024).toFixed(0)}K</span>`);
+                if (minCtx) ctxHint.push(`<span class="text-blue-400" title="软偏好：低于则降级">≥${(minCtx/1024).toFixed(0)}K</span>`);
+                const ctxRow = ctxHint.length ? `<span class="text-xs ml-1">${ctxHint.join(' ')}</span>` : '';
+                return `
+                    <div class="auto-drag-item rounded border px-3 py-2 bg-white"
+                         draggable="true"
+                         ondragstart="autoDragStart(event, ${idx})"
+                         ondragend="autoDragEnd(event)"
+                         ondragover="autoDragOver(event, ${idx})"
+                         ondragleave="autoDragLeave(event)"
+                         ondrop="autoDrop(event, ${idx})">
+                        <div class="flex items-center gap-2">
+                            <span class="shrink-0 text-gray-300 select-none cursor-grab text-sm" title="拖拽排序">≡</span>
+                            <span class="shrink-0 w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center font-semibold">${idx + 1}</span>
+                            <div class="min-w-0 flex-1">
+                                <div class="text-sm text-gray-800 truncate">${escapeHtml(pm.provider_name)} · ${escapeHtml(pm.model_display_name || pm.model_name)}</div>
+                                <div class="text-xs text-gray-400 truncate">${badges}${ctxRow}</div>
+                            </div>
+                            <button onclick="removeFromAutoPool(${idx})" class="shrink-0 w-7 h-7 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center text-lg leading-none">&times;</button>
+                        </div>
+                        <div class="flex items-center gap-2 mt-1.5 ml-8 text-xs">
+                            <label class="flex items-center gap-1 text-gray-500" title="软偏好：请求 token 低于此值时降级优先">
+                                <span>偏好≥</span>
+                                <input type="number" value="${minCtx ? (minCtx/1024).toFixed(0) : ''}" placeholder="K"
+                                       oninput="updateAutoPoolCtx(${idx}, 'min', this.value)"
+                                       class="w-14 border rounded px-1 py-0.5 text-xs">
+                                <span class="text-gray-400">K</span>
+                            </label>
+                            <label class="flex items-center gap-1 text-gray-500" title="硬限制：请求 token 超过此值时排除">
+                                <span class="text-red-400">限制≤</span>
+                                <input type="number" value="${maxCtx ? (maxCtx/1024).toFixed(0) : ''}" placeholder="K"
+                                       oninput="updateAutoPoolCtx(${idx}, 'max', this.value)"
+                                       class="w-14 border rounded px-1 py-0.5 text-xs">
+                                <span class="text-gray-400">K</span>
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateAutoPoolCtx(idx, type, valueK) {
+            const pm = autoPoolDraft[idx];
+            if (!pm) return;
+            const tokens = valueK ? Math.round(parseFloat(valueK) * 1024) : null;
+            if (type === 'min') {
+                pm._min_ctx = (tokens && tokens > 0) ? tokens : null;
+            } else {
+                pm._max_ctx = (tokens && tokens > 0) ? tokens : null;
+            }
+        }
+
+        function buildPmBadges(pm, model) {
+            const parts = [];
+            if (model?.is_multimodal) parts.push('<span class="text-purple-500">多模态</span>');
+            if (model?.context_length) parts.push(`${(model.context_length / 1024).toFixed(0)}K ctx`);
+            parts.push(`<span class="text-gray-400">优先级 ${pm.priority || 0}</span>`);
+            return parts.join(' · ');
+        }
+
+        function addToAutoPool(pmId) {
+            const pm = getActiveProviderModels().find(p => Number(p.id) === Number(pmId));
+            if (!pm) return;
+            if (autoPoolDraft.some(p => Number(p.id) === Number(pmId))) return;
+            autoPoolDraft.push({...pm, _min_ctx: null, _max_ctx: null});
+            renderAutoAvailable();
+            renderAutoPool();
+        }
+
+        function removeFromAutoPool(idx) {
+            autoPoolDraft.splice(idx, 1);
+            renderAutoAvailable();
+            renderAutoPool();
+        }
+
+        function autoDragStart(event, idx) {
+            autoDraggedIndex = idx;
+            event.currentTarget.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+        }
+
+        function autoDragEnd(event) {
+            event.currentTarget.classList.remove('dragging');
+            document.querySelectorAll('.auto-drag-item').forEach(el => {
+                el.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+            autoDraggedIndex = null;
+        }
+
+        function autoDragOver(event, idx) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            const el = event.currentTarget;
+            document.querySelectorAll('.auto-drag-item').forEach(e => e.classList.remove('drag-over-top', 'drag-over-bottom'));
+            if (autoDraggedIndex === null || autoDraggedIndex === idx) return;
+            const rect = el.getBoundingClientRect();
+            const isUpper = event.clientY < rect.top + rect.height / 2;
+            el.classList.add(isUpper ? 'drag-over-top' : 'drag-over-bottom');
+        }
+
+        function autoDragLeave(event) {
+            event.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+        }
+
+        function autoDrop(event, idx) {
+            event.preventDefault();
+            if (autoDraggedIndex === null || autoDraggedIndex === idx) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            let target = idx;
+            if (event.clientY >= rect.top + rect.height / 2 && autoDraggedIndex < idx) target = idx;
+            else if (event.clientY < rect.top + rect.height / 2 && autoDraggedIndex > idx) target = idx;
+            else target = event.clientY >= rect.top + rect.height / 2 ? idx + 1 : idx;
+            const [moved] = autoPoolDraft.splice(autoDraggedIndex, 1);
+            const insertAt = target > autoDraggedIndex ? target - 1 : target;
+            autoPoolDraft.splice(insertAt, 0, moved);
+            autoDragEnd({currentTarget: document.querySelector('.auto-drag-item.dragging')});
+            renderAutoPool();
+        }
+
+        async function saveAutoModelConfig() {
+            const enabled = document.getElementById('auto-model-enabled')?.checked === true;
+            const poolItems = autoPoolDraft.map(pm => ({
+                id: Number(pm.id),
+                min_ctx: pm._min_ctx || null,
+                max_ctx: pm._max_ctx || null
+            })).filter(item => item.id);
+            const modelIds = [...new Set(autoPoolDraft.map(pm => Number(pm.model_id)).filter(Boolean))];
+            if (enabled && poolItems.length === 0) {
+                showToast('请至少添加一个供应商模型，或者关闭 auto', 'error');
+                return;
+            }
+            try {
+                const resp = await mgFetch(`${APP_BASE_PATH}/admin/api/routing/auto-model`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        enabled,
+                        model_ids: modelIds,
+                        provider_model_ids: poolItems
+                    })
+                }, {success: 'auto 配置已保存', error: 'auto 配置保存失败'});
+                autoModelConfig = await resp.json();
+                autoPoolDraft = buildAutoPoolFromConfig();
+                renderAutoTab();
+                await loadModels();
+            } catch(e) {}
+        }
+
+        function applyModelFilters() {
+            modelSearchTerm = (document.getElementById('model-search-input')?.value || '').trim().toLowerCase();
+            modelBindingFilter = document.getElementById('model-binding-filter')?.value || 'all';
+            renderFilteredModels();
+        }
+
+        function handleModelSearchKey(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                applyModelFilters();
+            }
+        }
+
+        function resetModelFilters() {
+            const input = document.getElementById('model-search-input');
+            const select = document.getElementById('model-binding-filter');
+            if (input) input.value = '';
+            if (select) select.value = 'all';
+            modelSearchTerm = '';
+            modelBindingFilter = 'all';
+            renderFilteredModels();
+        }
+
+        function getFilteredModels() {
+            return allModels.filter(m => {
+                const boundCount = Number(m.bound_key_count || 0);
+                if (modelBindingFilter === 'bound' && boundCount <= 0) return false;
+                if (modelBindingFilter === 'unbound' && boundCount > 0) return false;
+                if (!modelSearchTerm) return true;
+                const haystack = [
+                    m.name,
+                    m.display_name,
+                    m.tags,
+                    m.description
+                ].filter(Boolean).join(' ').toLowerCase();
+                return haystack.includes(modelSearchTerm);
+            });
+        }
+
+        function renderFilteredModels() {
+            const filteredModels = getFilteredModels();
+            const html = renderModelTable(filteredModels);
+            const tabList = document.getElementById('models-list-tab');
+            if (tabList) {
+                tabList.innerHTML = html || `<div class="text-gray-400 text-center py-4">${allModels.length ? '没有匹配的标准模型' : t('noModels', 'No models')}</div>`;
+            }
+            const tabCount = document.getElementById('model-count-tab');
+            if (tabCount) {
+                tabCount.textContent = filteredModels.length === allModels.length
+                    ? `(${allModels.length})`
+                    : `(${filteredModels.length}/${allModels.length})`;
+            }
+        }
+
+        function renderModelTable(models) {
+            if (!models.length) return '';
+            return `<div class="config-table-wrap">
+                <table class="config-table">
+                    <thead>
+                        <tr>
+                            <th>标准模型</th>
+                            <th>状态</th>
+                            <th>Token 限制</th>
+                            <th>能力</th>
+                            <th>标签</th>
+                            <th>绑定 Key</th>
+                            <th class="text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${models.map(m => {
+                            const tags = (m.tags || '').split(',').map(tag => tag.trim()).filter(Boolean);
+                            const boundCount = Number(m.bound_key_count || 0);
+                            const canDeleteModel = !isProtectedAutoModel(m);
+                            return `<tr>
+                                <td>
+                                    <div class="font-semibold text-sm text-gray-800">${escapeHtml(m.display_name || m.name)}</div>
+                                    <div class="text-xs text-gray-500 mt-1">${escapeHtml(m.name)}</div>
+                                </td>
+                                <td>${renderAvailabilityPill(m.is_active, m.is_active ? '模型可用' : '模型停用')}</td>
+                                <td>
+                                    <div class="text-xs text-gray-600">context ${formatTokenValue(m.context_length) || '0'}</div>
+                                    <div class="text-xs text-gray-400 mt-1">output ${formatTokenValue(m.max_tokens) || '0'}</div>
+                                </td>
+                                <td>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <span class="status-pill neutral">${m.thinking_enabled ? `推理 ${formatTokenValue(m.thinking_budget) || '0'}` : t('thinkingOff', 'off')}</span>
+                                        ${m.is_multimodal ? `<span class="status-pill neutral">${t('multimodal', 'multimodal')}</span>` : ''}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="flex flex-wrap gap-1">
+                                        ${tags.length ? tags.map(tag => `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">${escapeHtml(tag)}</span>`).join('') : '<span class="text-xs text-gray-400">-</span>'}
+                                    </div>
+                                </td>
+                                <td>
+                                    ${boundCount > 0
+                                        ? `<span class="status-pill ok">${formatI18n('keyCount', {count: boundCount.toLocaleString()}, `${boundCount.toLocaleString()} key(s)`)}</span>`
+                                        : '<span class="status-pill off">未绑定</span>'}
+                                </td>
+                                <td>
+                                    <div class="flex justify-end gap-1">
+                                        <button onclick="openModelRoutingConfig(${m.id})" class="icon-btn text-purple-500 hover:text-purple-700" title="路由配置">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51 15.42 17.49"/><path d="M15.41 6.51 8.59 10.49"/></svg>
+                                        </button>
+                                        <button onclick="editModel(${m.id})" class="icon-btn text-blue-500 hover:text-blue-700" title="${t('edit', 'Edit')}">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                        </button>
+                                        ${canDeleteModel ? `<button onclick="deleteModel(${m.id})" class="icon-btn text-red-500 hover:text-red-700" title="${t('delete', 'Delete')}">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                        </button>` : ''}
+                                    </div>
+                                </td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        }
+
+        function isProtectedAutoModel(model) {
+            return Boolean(model?.is_virtual) && String(model?.name || '').toLowerCase() === 'auto';
+        }
+
+        async function loadProviderModelRoutes() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models`);
+                allProviderModels = data.provider_models || [];
+                renderModelRouting();
+                renderOverview();
+            } catch(e) {
+                const container = document.getElementById('model-routing-container');
+                if (container) container.innerHTML = '<div class="text-red-500 text-center py-4">模型路由加载失败</div>';
+            }
+        }
+
+        async function loadModelPricing() {
+            const container = document.getElementById('model-pricing-list');
+            if (!container) return;
+            if (!allProviderModels.length) {
+                try {
+                    const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models`);
+                    allProviderModels = data.provider_models || [];
+                } catch(e) {
+                    container.innerHTML = '<div class="text-red-500 text-center py-4">计费配置加载失败</div>';
+                    return;
+                }
+            }
+            renderModelPricing();
+        }
+
+        function pricingValue(value) {
+            return value === null || value === undefined ? '' : value;
+        }
+
+        function pricingTiersValue(route) {
+            const tiers = route.pricing_tiers || [];
+            return tiers.length ? JSON.stringify(tiers, null, 2) : '';
+        }
+
+        function renderModelPricing() {
+            const container = document.getElementById('model-pricing-list');
+            if (!container) return;
+            const rows = [...allProviderModels].sort((a, b) => {
+                const left = `${a.model_name || ''}/${a.provider_name || ''}`;
+                const right = `${b.model_name || ''}/${b.provider_name || ''}`;
+                return left.localeCompare(right);
+            });
+            if (!rows.length) {
+                container.innerHTML = '<div class="text-gray-400 text-center py-4">暂无供应商模型绑定，先在模型路由里添加绑定。</div>';
+                return;
+            }
+            container.innerHTML = `<div class="config-table-wrap">
+                <table class="config-table">
+                    <thead>
+                        <tr>
+                            <th>标准模型</th>
+                            <th>供应商 / 上游模型</th>
+                            <th>输入价</th>
+                            <th>输出价</th>
+                            <th>缓存输入价</th>
+                            <th>默认缓存命中率</th>
+                            <th>分档 JSON</th>
+                            <th class="text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(route => `<tr>
+                            <td>
+                                <div class="font-medium text-sm text-gray-800">${escapeHtml(route.model_display_name || route.model_name)}</div>
+                                <div class="text-xs text-gray-500 mt-1">${escapeHtml(route.model_name || '')}</div>
+                            </td>
+                            <td>
+                                <div class="font-medium text-sm">${escapeHtml(route.provider_name || '')}</div>
+                                <div class="text-xs text-gray-500 mt-1">${escapeHtml(route.upstream_model_name || route.model_name || '')}</div>
+                            </td>
+                            <td><input id="pricing-input-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.input_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-output-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.output_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-cached-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.cached_input_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-cache-ratio-${route.id}" type="number" min="0" max="100" step="0.1" value="${escapeAttr(pricingValue(route.default_cache_hit_ratio))}" class="w-20 border rounded px-2 py-1.5 text-sm text-right"> <span class="text-xs text-gray-400">%</span></td>
+                            <td>
+                                <textarea id="pricing-tiers-${route.id}" rows="2" class="w-56 border rounded px-2 py-1.5 text-xs font-mono" placeholder='[{"max_context_tokens":524288,...}]'>${escapeHtml(pricingTiersValue(route))}</textarea>
+                            </td>
+                            <td>
+                                <div class="flex justify-end">
+                                    <button onclick="saveModelPricing(${route.id})" class="text-xs text-blue-500 hover:text-blue-700">保存</button>
+                                </div>
+                            </td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-xs text-gray-500 mt-3 leading-relaxed">
+                命中缓存 token 优先使用上游返回的 cached_tokens；没有返回时，按默认缓存命中率估算。
+                MiniMax M3 这种上下文分档价格可以填分档 JSON，普通模型留空即可。
+            </div>`;
+        }
+
+        function modelPricingNumber(id) {
+            const value = document.getElementById(id)?.value;
+            if (value === null || value === undefined || value === '') return null;
+            const parsed = parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function modelPricingTiers(id) {
+            const value = document.getElementById(id)?.value.trim();
+            if (!value) return [];
+            const parsed = JSON.parse(value);
+            if (!Array.isArray(parsed)) throw new Error('分档 JSON 必须是数组');
+            return parsed;
+        }
+
+        async function saveModelPricing(pmId) {
+            let pricing_tiers = [];
+            try {
+                pricing_tiers = modelPricingTiers(`pricing-tiers-${pmId}`);
+            } catch(e) {
+                showToast(e.message || '分档 JSON 格式不正确', 'error');
+                return;
+            }
+            const body = {
+                input_price_cny_per_million: modelPricingNumber(`pricing-input-${pmId}`),
+                output_price_cny_per_million: modelPricingNumber(`pricing-output-${pmId}`),
+                cached_input_price_cny_per_million: modelPricingNumber(`pricing-cached-${pmId}`),
+                default_cache_hit_ratio: modelPricingNumber(`pricing-cache-ratio-${pmId}`) || 0,
+                pricing_tiers,
+            };
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/provider-models/${pmId}/pricing`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                }, {success: '计费配置已保存', error: '保存计费配置失败'});
+                allProviderModels = allProviderModels.map(route => route.id === pmId ? {...route, ...body} : route);
+                renderModelPricing();
+            } catch(e) {}
+        }
+
+        function renderRoutingBindSelectors() {
+            const providerSelect = document.getElementById('routing-bind-provider');
+            const modelSelect = document.getElementById('routing-bind-model');
+            if (providerSelect) {
+                providerSelect.innerHTML = allProviders.map(p => `<option value="${p.id}" ${selectedProviderId === p.id ? 'selected' : ''}>${p.name}</option>`).join('');
+            }
+            if (modelSelect) {
+                modelSelect.innerHTML = allModels.filter(m => m.is_active && !m.is_virtual).map(m => `<option value="${m.id}">${m.display_name || m.name}</option>`).join('');
+            }
+        }
+
+        function renderOverview() {
+            const providerCount = document.getElementById('overview-provider-count');
+            if (!providerCount) return;
+            const inactiveProviders = allProviders.filter(p => !p.is_active || p.disabled_reason);
+            const inactiveModels = allModels.filter(m => !m.is_active);
+            const modelIdsWithRoutes = new Set(allProviderModels.map(pm => pm.model_id));
+            const modelsWithoutRoutes = allModels.filter(m => m.is_active && !m.is_virtual && !modelIdsWithRoutes.has(m.id));
+            providerCount.textContent = allProviders.length;
+            document.getElementById('overview-model-count').textContent = allModels.length;
+            document.getElementById('overview-binding-count').textContent = allProviderModels.length;
+            document.getElementById('overview-low-health-count').textContent = '-';
+            const alerts = [
+                ...inactiveProviders.map(p => `供应商 ${p.name} 当前不可用${p.disabled_reason ? '：' + p.disabled_reason : ''}`),
+                ...inactiveModels.map(m => `标准模型 ${m.name} 已停用`),
+                ...modelsWithoutRoutes.map(m => `标准模型 ${m.name} 还没有供应商模型绑定`)
+            ];
+            document.getElementById('overview-alerts').innerHTML = alerts.length
+                ? alerts.slice(0, 8).map(item => `<div class="flex items-start gap-2"><span class="mt-1 h-1.5 w-1.5 rounded-full bg-orange-500"></span><span>${escapeHtml(item)}</span></div>`).join('')
+                : '<div class="text-gray-400">当前没有明显配置风险。</div>';
+            const grouped = groupProviderModelsByModel();
+            const summary = Object.values(grouped).slice(0, 6).map(group => {
+                const providers = group.routes.map(r => `${r.provider_name}:${r.priority || 0}`).join(' / ');
+                return `<div class="flex justify-between gap-4"><span class="font-medium">${escapeHtml(group.model_display_name || group.model_name)}</span><span class="text-gray-500 text-right">${escapeHtml(providers)}</span></div>`;
+            });
+            document.getElementById('overview-routing-summary').innerHTML = summary.length
+                ? summary.join('')
+                : '<div class="text-gray-400">暂无供应商模型绑定。</div>';
+        }
+
+        function groupProviderModelsByModel() {
+            const grouped = {};
+            allProviderModels.forEach(pm => {
+                if (!grouped[pm.model_id]) {
+                    grouped[pm.model_id] = {
+                        model_id: pm.model_id,
+                        model_name: pm.model_name,
+                        model_display_name: pm.model_display_name || pm.model_name,
+                        tags: pm.tags || '',
+                        routes: []
+                    };
+                }
+                grouped[pm.model_id].routes.push(pm);
+            });
+            Object.values(grouped).forEach(group => {
+                group.routes.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+            });
+            return grouped;
+        }
+
+        function getModelRoutingGroup(modelId) {
+            const grouped = groupProviderModelsByModel();
+            const model = allModels.find(m => m.id === modelId);
+            return grouped[modelId] || {
+                model_id: modelId,
+                model_name: model ? model.name : `model-${modelId}`,
+                model_display_name: model ? (model.display_name || model.name) : `Model #${modelId}`,
+                tags: model ? (model.tags || '') : '',
+                routes: []
+            };
+        }
+
+        async function openModelRoutingConfig(modelId) {
+            selectedRoutingModelId = modelId;
+            if (!allProviderModels.length) {
+                await loadProviderModelRoutes();
+            }
+            renderModelRoutingDrawer();
+            document.getElementById('model-routing-drawer').classList.add('open');
+        }
+
+        function closeModelRoutingDrawer() {
+            document.getElementById('model-routing-drawer').classList.remove('open');
+            selectedRoutingModelId = null;
+        }
+
+        function renderModelRoutingDrawer() {
+            if (!selectedRoutingModelId) return;
+            const group = getModelRoutingGroup(selectedRoutingModelId);
+            document.getElementById('model-routing-title').textContent = group.model_display_name || group.model_name;
+            document.getElementById('model-routing-subtitle').textContent = `标准模型：${group.model_name}`;
+
+            const boundProviderIds = new Set(group.routes.map(route => route.provider_id));
+            const availableProviders = allProviders.filter(provider => provider.is_active && !boundProviderIds.has(provider.id));
+            const providerSelect = document.getElementById('model-routing-provider-select');
+            if (providerSelect) {
+                providerSelect.innerHTML = availableProviders.length
+                    ? availableProviders.map(provider => `<option value="${provider.id}">${escapeHtml(provider.name)}</option>`).join('')
+                    : '<option value="">没有可添加的供应商</option>';
+                providerSelect.disabled = availableProviders.length === 0;
+            }
+
+            const content = document.getElementById('model-routing-content');
+            if (!content) return;
+            if (!group.routes.length) {
+                content.innerHTML = `<section class="border rounded">
+                    <div class="px-3 py-2 border-b bg-gray-50">
+                        <div class="font-semibold text-sm">1. 供应商顺序</div>
+                        <div class="text-xs text-gray-500 mt-1">先把这个标准模型会使用的供应商模型绑定进来，再到下方配置策略。</div>
+                    </div>
+                    <div class="text-center text-gray-400 py-8">这个标准模型还没有绑定供应商。先在上方添加供应商。</div>
+                </section>`;
+                renderModelRoutingRules(group);
+                return;
+            }
+            content.innerHTML = `<section class="border rounded">
+                <div class="px-3 py-2 border-b bg-gray-50">
+                    <div class="font-semibold text-sm">1. 供应商顺序</div>
+                    <div class="text-xs text-gray-500 mt-1">这里只排这个标准模型可用的供应商模型顺序；具体时间段、上下文和 Key 范围在下方策略里配置。</div>
+                </div>
+                <div class="config-table-wrap">
+                    <table class="config-table routing-table">
+                        <thead>
+                            <tr>
+                                <th>供应商</th>
+                                <th>状态</th>
+                                <th>上游模型名</th>
+                                <th>
+                                    <span class="inline-flex items-center gap-1">
+                                        优先级
+                                        <span class="help-tip">?
+                                            <span class="help-tip-body">数值越大越优先。先过滤停用供应商、模型路由规则、health=0、并发已满等不可用候选，再按优先级和 health 排序。</span>
+                                        </span>
+                                    </span>
+                                </th>
+                                <th>繁忙等级上限</th>
+                                <th>路由规则</th>
+                                <th class="text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${group.routes.map(route => renderModelRoutingDrawerRow(route, group)).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </section>`;
+            renderModelRoutingRules(group);
+        }
+
+        function renderModelRoutingRules(group) {
+            const box = document.getElementById('model-routing-rules');
+            if (!box) return;
+            const routes = group.routes || [];
+            const allRules = routes.flatMap(route => (route.routing_rules || []).map(rule => ({...rule, route})));
+            const providerOptions = routes.length
+                ? routes.map(route => `<option value="${route.id}">${escapeHtml(route.provider_name)} / ${escapeHtml(route.upstream_model_name || route.model_name)}</option>`).join('')
+                : '<option value="">请先添加供应商</option>';
+            box.innerHTML = `<section class="border rounded">
+                <div class="px-3 py-2 border-b bg-gray-50">
+                    <div class="font-semibold text-sm">2. 路由策略</div>
+                    <div class="text-xs text-gray-500 mt-1">每条策略等于一组“命中条件 + 目标供应商/Key + 动作”。没有命中策略时，按上面的供应商顺序走。</div>
+                </div>
+                <div class="px-3 py-2 border-b bg-white">
+                    <div class="font-medium text-sm">新增策略</div>
+                    <div class="text-xs text-gray-400 mt-1">先选目标供应商，再选模板和限定 Key；Key 不选表示这个供应商的全部可用 Key。</div>
+                </div>
+                <div class="routing-rule-editor p-3">
+                    <label class="block routing-rule-wide">
+                        <span class="block text-[11px] text-gray-500 mb-1">目标供应商</span>
+                        <select id="model-rule-pm" onchange="renderModelRuleKeyOptions()" class="w-full border rounded px-2 py-1.5 text-sm" ${routes.length ? '' : 'disabled'}>${providerOptions}</select>
+                    </label>
+                    <label class="block routing-rule-wide">
+                        <span class="block text-[11px] text-gray-500 mb-1">限定 Key（不选=全部）</span>
+                        <select id="model-rule-provider-keys" multiple size="3" class="w-full border rounded px-2 py-1.5 text-sm"></select>
+                        <span class="block text-[11px] text-gray-400 mt-1">规则命中后，只让选中的 Key 参与本供应商内排序。</span>
+                    </label>
+                    <label class="block routing-rule-wide">
+                        <span class="block text-[11px] text-gray-500 mb-1">策略模板</span>
+                        <select id="model-rule-template" onchange="applyModelRuleTemplate()" class="w-full border rounded px-2 py-1.5 text-sm">
+                            <option value="custom">自定义</option>
+                            <option value="small_context">小上下文优先</option>
+                            <option value="peak_offload">高峰期分流</option>
+                            <option value="primary_limited_standby">主路受限备用</option>
+                            <option value="metered_peak_standby">按量高峰备用</option>
+                            <option value="deny_window">时间段禁用</option>
+                        </select>
+                    </label>
+                    <label class="block routing-rule-wide">
+                        <span class="block text-[11px] text-gray-500 mb-1">规则名</span>
+                        <input id="model-rule-name" value="自定义规则" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">动作</span>
+                        <select id="model-rule-action" class="w-full border rounded px-2 py-1.5 text-sm">
+                            <option value="prefer">优先</option>
+                            <option value="deprioritize">降权</option>
+                            <option value="allow">只允许</option>
+                            <option value="deny">禁用</option>
+                            <option value="standby">备用</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">加权</span>
+                        <input id="model-rule-priority" type="number" value="50" class="w-full border rounded px-2 py-1.5 text-sm text-center">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">开始</span>
+                        <input id="model-rule-start" type="time" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">结束</span>
+                        <input id="model-rule-end" type="time" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">上下文下限(k tokens)</span>
+                        <input id="model-rule-min-context" type="number" placeholder="0" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">上下文上限(k tokens)</span>
+                        <input id="model-rule-max-context" type="number" placeholder="8" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">星期</span>
+                        <input id="model-rule-weekdays" placeholder="1,2,3,4,5" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <button onclick="addModelRoutingRule()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600" ${routes.length ? '' : 'disabled'}>添加规则</button>
+                </div>
+                <div class="routing-rule-editor px-3 pb-3">
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">生效日期起</span>
+                        <input id="model-rule-start-date" type="date" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">生效日期止</span>
+                        <input id="model-rule-end-date" type="date" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <div class="routing-rule-wide text-xs text-gray-500 pb-2">备用规则会排在正常路由之后，主供应商并发满、Key 被禁用或 health 不可用时才会被轮到。</div>
+                </div>
+                <div class="border-t bg-gray-50 px-3 py-2">
+                    <div class="font-medium text-sm">已配置策略</div>
+                    <div class="text-xs text-gray-500 mt-1">策略按命中条件决定是否参与排序，优先级越大越靠前。</div>
+                </div>
+                <div class="divide-y">
+                    ${allRules.length ? allRules.map(item => renderModelRoutingRuleRow(item.rule, item.route)).join('') : '<div class="text-center text-gray-400 py-4 text-sm">暂无模型级路由规则。</div>'}
+                </div>
+            </section>`;
+            renderModelRuleKeyOptions();
+        }
+
+        function modelRuleActionLabel(action) {
+            return {
+                prefer: '优先',
+                deprioritize: '降权',
+                allow: '只允许',
+                deny: '禁用',
+                standby: '备用'
+            }[action] || action || '-';
+        }
+
+        function modelRuleTimeValue(value) {
+            return value ? String(value).slice(0, 5) : '';
+        }
+
+        function modelRuleDateValue(value) {
+            return value ? String(value).slice(0, 10) : '';
+        }
+
+        function modelRuleIntValue(id) {
+            const raw = document.getElementById(id)?.value;
+            if (raw === undefined || raw === null || raw === '') return null;
+            const parsed = parseInt(raw, 10);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function modelRuleKTokensValue(id) {
+            const value = modelRuleIntValue(id);
+            return value === null ? null : value * 1000;
+        }
+
+        function formatRuleContextK(tokens, withUnit = true) {
+            if (tokens === null || tokens === undefined || tokens === '') return '';
+            const value = Number(tokens);
+            if (!Number.isFinite(value)) return '';
+            const kValue = value / 1000;
+            const text = Number.isInteger(kValue) ? String(kValue) : kValue.toFixed(1).replace(/\.0$/, '');
+            return withUnit ? `${text}k` : text;
+        }
+
+        function getProviderModelRouteById(routeId) {
+            return allProviderModels.find(route => String(route.id) === String(routeId));
+        }
+
+        function renderModelRuleKeyOptionList(route, selectedIds = []) {
+            const selected = new Set((selectedIds || []).map(id => String(id)));
+            const keys = route?.provider_keys || [];
+            if (!keys.length) {
+                return '<option value="" disabled>该供应商暂无 Key</option>';
+            }
+            return keys.map(key => {
+                const keyId = String(key.id);
+                const status = key.is_active === false ? ' · 停用' : '';
+                const label = key.label || `Key #${key.id}`;
+                return `<option value="${key.id}" ${selected.has(keyId) ? 'selected' : ''}>${escapeHtml(label)} · P${Number(key.priority || 0)}${status}</option>`;
+            }).join('');
+        }
+
+        function renderModelRuleKeyOptions() {
+            const select = document.getElementById('model-rule-provider-keys');
+            if (!select) return;
+            const route = getProviderModelRouteById(document.getElementById('model-rule-pm')?.value);
+            select.innerHTML = renderModelRuleKeyOptionList(route);
+            select.disabled = !(route?.provider_keys || []).length;
+        }
+
+        function selectedModelRuleKeyIds(id) {
+            const select = document.getElementById(id);
+            if (!select) return [];
+            return Array.from(select.selectedOptions || [])
+                .map(option => parseInt(option.value, 10))
+                .filter(Number.isFinite);
+        }
+
+        function setModelRuleField(id, value) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.value = value ?? '';
+        }
+
+        function applyModelRuleTemplate() {
+            const template = document.getElementById('model-rule-template')?.value || 'custom';
+            const presets = {
+                custom: {name: '自定义规则', action: 'prefer', priority: 50, start: '', end: '', minCtx: '', maxCtx: '', weekdays: '', startDate: '', endDate: ''},
+                small_context: {name: '小上下文优先', action: 'prefer', priority: 80, start: '', end: '', minCtx: '', maxCtx: 8, weekdays: '', startDate: '', endDate: ''},
+                peak_offload: {name: '高峰期分流', action: 'prefer', priority: 80, start: '13:00', end: '18:00', minCtx: '', maxCtx: 8, weekdays: '1,2,3,4,5', startDate: '', endDate: ''},
+                primary_limited_standby: {name: '主路受限备用', action: 'standby', priority: 0, start: '', end: '', minCtx: '', maxCtx: '', weekdays: '', startDate: '', endDate: ''},
+                metered_peak_standby: {name: '按量高峰备用', action: 'standby', priority: 0, start: '13:00', end: '18:00', minCtx: '', maxCtx: '', weekdays: '1,2,3,4,5', startDate: '', endDate: ''},
+                deny_window: {name: '时间段禁用', action: 'deny', priority: 0, start: '00:00', end: '08:00', minCtx: '', maxCtx: '', weekdays: '', startDate: '', endDate: ''}
+            };
+            const p = presets[template] || presets.custom;
+            setModelRuleField('model-rule-name', p.name);
+            setModelRuleField('model-rule-action', p.action);
+            setModelRuleField('model-rule-priority', p.priority);
+            setModelRuleField('model-rule-start', p.start);
+            setModelRuleField('model-rule-end', p.end);
+            setModelRuleField('model-rule-min-context', p.minCtx);
+            setModelRuleField('model-rule-max-context', p.maxCtx);
+            setModelRuleField('model-rule-weekdays', p.weekdays);
+            setModelRuleField('model-rule-start-date', p.startDate);
+            setModelRuleField('model-rule-end-date', p.endDate);
+        }
+
+        function collectNewModelRulePayload() {
+            return {
+                name: document.getElementById('model-rule-name')?.value?.trim() || '自定义规则',
+                rule_type: document.getElementById('model-rule-template')?.value || 'custom',
+                action: document.getElementById('model-rule-action')?.value || 'prefer',
+                priority: modelRuleIntValue('model-rule-priority') || 0,
+                start_time: document.getElementById('model-rule-start')?.value || null,
+                end_time: document.getElementById('model-rule-end')?.value || null,
+                start_date: document.getElementById('model-rule-start-date')?.value || null,
+                end_date: document.getElementById('model-rule-end-date')?.value || null,
+                weekdays: document.getElementById('model-rule-weekdays')?.value?.trim() || null,
+                min_context_tokens: modelRuleKTokensValue('model-rule-min-context'),
+                max_context_tokens: modelRuleKTokensValue('model-rule-max-context'),
+                provider_key_ids: selectedModelRuleKeyIds('model-rule-provider-keys'),
+                enabled: true
+            };
+        }
+
+        function collectExistingModelRulePayload(ruleId) {
+            return {
+                name: document.getElementById(`model-rule-edit-name-${ruleId}`)?.value?.trim() || '自定义规则',
+                rule_type: document.getElementById(`model-rule-edit-type-${ruleId}`)?.value || 'custom',
+                action: document.getElementById(`model-rule-edit-action-${ruleId}`)?.value || 'prefer',
+                priority: modelRuleIntValue(`model-rule-edit-priority-${ruleId}`) || 0,
+                start_time: document.getElementById(`model-rule-edit-start-${ruleId}`)?.value || null,
+                end_time: document.getElementById(`model-rule-edit-end-${ruleId}`)?.value || null,
+                start_date: document.getElementById(`model-rule-edit-start-date-${ruleId}`)?.value || null,
+                end_date: document.getElementById(`model-rule-edit-end-date-${ruleId}`)?.value || null,
+                weekdays: document.getElementById(`model-rule-edit-weekdays-${ruleId}`)?.value?.trim() || null,
+                min_context_tokens: modelRuleKTokensValue(`model-rule-edit-min-context-${ruleId}`),
+                max_context_tokens: modelRuleKTokensValue(`model-rule-edit-max-context-${ruleId}`),
+                provider_key_ids: selectedModelRuleKeyIds(`model-rule-edit-provider-keys-${ruleId}`),
+                enabled: document.getElementById(`model-rule-edit-enabled-${ruleId}`)?.checked !== false
+            };
+        }
+
+        function modelRuleConditionSummary(rule) {
+            const parts = [];
+            const start = modelRuleTimeValue(rule.start_time);
+            const end = modelRuleTimeValue(rule.end_time);
+            if (start || end) parts.push(`时间 ${start || '00:00'}-${end || '23:59'}`);
+            if (rule.min_context_tokens !== null && rule.min_context_tokens !== undefined) parts.push(`ctx >= ${formatRuleContextK(rule.min_context_tokens)}`);
+            if (rule.max_context_tokens !== null && rule.max_context_tokens !== undefined) parts.push(`ctx <= ${formatRuleContextK(rule.max_context_tokens)}`);
+            const startDate = modelRuleDateValue(rule.start_date);
+            const endDate = modelRuleDateValue(rule.end_date);
+            if (startDate || endDate) parts.push(`日期 ${startDate || '开始'} 至 ${endDate || '结束'}`);
+            if (rule.weekdays) parts.push(`星期 ${rule.weekdays}`);
+            return parts.length ? parts : ['始终生效'];
+        }
+
+        function modelRuleKeyScopeSummary(rule, route) {
+            const keyIds = rule.provider_key_ids || [];
+            if (!keyIds.length) return '全部 Key';
+            const keyMap = routeKeyLabelMap(route);
+            const labels = keyIds.map(id => keyMap.get(String(id)) || `Key #${id}`);
+            return `限定 ${labels.join('、')}`;
+        }
+
+        function renderModelRoutingRuleRow(rule, route) {
+            const selectedKeyIds = rule.provider_key_ids || [];
+            const conditions = modelRuleConditionSummary(rule);
+            const keyScope = modelRuleKeyScopeSummary(rule, route);
+            return `<div class="bg-white text-sm">
+                <div class="px-3 py-3">
+                    <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-semibold text-gray-800">${escapeHtml(rule.name || '自定义规则')}</span>
+                                <span class="status-pill neutral">${modelRuleActionLabel(rule.action)}</span>
+                                ${rule.enabled === false ? '<span class="status-pill off">停用</span>' : '<span class="status-pill ok">启用</span>'}
+                            </div>
+                            <div class="text-xs text-gray-400 mt-1">${escapeHtml(route.provider_name)} / ${escapeHtml(route.upstream_model_name || route.model_name)}</div>
+                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                ${conditions.map(item => `<span class="status-pill neutral">${escapeHtml(item)}</span>`).join('')}
+                                <span class="status-pill neutral">${escapeHtml(keyScope)}</span>
+                                <span class="status-pill neutral">加权 ${Number(rule.priority || 0)}</span>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-500">编辑策略</div>
+                    </div>
+                </div>
+                <div class="routing-rule-editor border-t bg-gray-50 p-3">
+                    <div class="routing-rule-wide">
+                        <div class="font-medium">${escapeHtml(route.provider_name)}</div>
+                        <div class="text-xs text-gray-400">${escapeHtml(route.upstream_model_name || route.model_name)}</div>
+                        <input id="model-rule-edit-name-${rule.id}" value="${escapeAttr(rule.name || '自定义规则')}" class="mt-1 w-full border rounded px-2 py-1.5 text-sm">
+                        <input id="model-rule-edit-type-${rule.id}" type="hidden" value="${escapeAttr(rule.rule_type || 'custom')}">
+                    </div>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">动作</span>
+                        <select id="model-rule-edit-action-${rule.id}" class="w-full border rounded px-2 py-1.5 text-sm">
+                            ${['prefer','deprioritize','allow','deny','standby'].map(action => `<option value="${action}" ${rule.action === action ? 'selected' : ''}>${modelRuleActionLabel(action)}</option>`).join('')}
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">加权</span>
+                        <input id="model-rule-edit-priority-${rule.id}" type="number" value="${Number(rule.priority || 0)}" class="w-full border rounded px-2 py-1.5 text-sm text-center">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">开始</span>
+                        <input id="model-rule-edit-start-${rule.id}" type="time" value="${escapeAttr(modelRuleTimeValue(rule.start_time))}" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">结束</span>
+                        <input id="model-rule-edit-end-${rule.id}" type="time" value="${escapeAttr(modelRuleTimeValue(rule.end_time))}" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">上下文下限(k tokens)</span>
+                        <input id="model-rule-edit-min-context-${rule.id}" type="number" value="${formatRuleContextK(rule.min_context_tokens, false)}" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">上下文上限(k tokens)</span>
+                        <input id="model-rule-edit-max-context-${rule.id}" type="number" value="${formatRuleContextK(rule.max_context_tokens, false)}" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">日期起</span>
+                        <input id="model-rule-edit-start-date-${rule.id}" type="date" value="${escapeAttr(modelRuleDateValue(rule.start_date))}" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">日期止</span>
+                        <input id="model-rule-edit-end-date-${rule.id}" type="date" value="${escapeAttr(modelRuleDateValue(rule.end_date))}" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] text-gray-500 mb-1">星期</span>
+                        <input id="model-rule-edit-weekdays-${rule.id}" value="${escapeAttr(rule.weekdays || '')}" class="w-full border rounded px-2 py-1.5 text-sm">
+                    </label>
+                    <label class="block routing-rule-wide">
+                        <span class="block text-[11px] text-gray-500 mb-1">限定 Key（不选=全部）</span>
+                        <select id="model-rule-edit-provider-keys-${rule.id}" multiple size="3" class="w-full border rounded px-2 py-1.5 text-sm">
+                            ${renderModelRuleKeyOptionList(route, selectedKeyIds)}
+                        </select>
+                    </label>
+                    <div class="flex justify-end items-center gap-2">
+                        <label class="inline-flex items-center gap-1 text-xs text-gray-500">
+                            <input id="model-rule-edit-enabled-${rule.id}" type="checkbox" ${rule.enabled === false ? '' : 'checked'}>
+                            启用
+                        </label>
+                        <button onclick="updateModelRoutingRule(${rule.id})" class="text-xs text-blue-500 hover:text-blue-700">保存</button>
+                        <button onclick="deleteModelRoutingRule(${rule.id})" class="text-xs text-red-500 hover:text-red-700">删除</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function routeKeyLabelMap(route) {
+            const pairs = (route?.provider_keys || []).map(key => [String(key.id), key.label || `Key #${key.id}`]);
+            return new Map(pairs);
+        }
+
+        function summarizeRuleKeyScope(route) {
+            const rules = (route?.routing_rules || []).filter(rule => rule.enabled !== false);
+            if (!rules.length) {
+                return {ruleCount: 0, labels: [], allKeys: false};
+            }
+            const keyMap = routeKeyLabelMap(route);
+            const scopedIds = [];
+            const seen = new Set();
+            rules.forEach(rule => {
+                (rule.provider_key_ids || []).forEach(id => {
+                    const key = String(id);
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    scopedIds.push(key);
+                });
+            });
+            if (!scopedIds.length) {
+                return {ruleCount: rules.length, labels: [], allKeys: true};
+            }
+            return {
+                ruleCount: rules.length,
+                labels: scopedIds.map(id => keyMap.get(id) || `Key #${id}`),
+                allKeys: false
+            };
+        }
+
+        function renderRouteRuleSummary(route) {
+            const summary = summarizeRuleKeyScope(route);
+            const action = `<button onclick="openModelRoutingConfig(${route.model_id})" class="mt-1 text-xs text-blue-500 hover:text-blue-700">配置规则</button>`;
+            if (!summary.ruleCount) {
+                return `<div class="text-xs leading-relaxed">
+                    <div class="text-gray-400">无规则</div>
+                    ${action}
+                </div>`;
+            }
+            const visibleLabels = summary.labels.slice(0, 2);
+            const moreCount = Math.max(summary.labels.length - visibleLabels.length, 0);
+            const scopeHtml = summary.allKeys
+                ? '<span class="text-gray-500">全部 Key</span>'
+                : `<span class="text-blue-600">限定 ${visibleLabels.map(escapeHtml).join('、')}${moreCount ? ` 等 ${summary.labels.length} 个` : ''}</span>`;
+            return `<div class="text-xs leading-relaxed">
+                <div class="font-medium text-gray-700">${summary.ruleCount} 条规则</div>
+                <div>${scopeHtml}</div>
+                ${action}
+            </div>`;
+        }
+
+        function renderModelRoutingDrawerRow(route, group) {
+            const busynessOptions = [{v:'',l:'不限'},{v:'1',l:'1 过载'},{v:'2',l:'2 拥挤'},{v:'3',l:'3 活跃'},{v:'4',l:'4 流畅'},{v:'5',l:'5 平静'},{v:'6',l:'6 寂静'}];
+            return `<tr>
+                <td>
+                    <div class="font-medium text-sm">${escapeHtml(route.provider_name)}</div>
+                    <div class="text-xs text-gray-400 mt-1">Provider Model #${route.id}</div>
+                </td>
+                <td>${renderRouteAvailability(route)}</td>
+                <td>
+                    <input value="${escapeAttr(route.upstream_model_name || route.model_name)}" onchange="updateRouteUpstream(${route.provider_id}, ${route.id}, this.value)" class="routing-upstream-input border rounded px-2 py-1.5 text-sm">
+                </td>
+                <td>
+                    <input type="number" min="0" value="${route.priority || 0}" onchange="updateRoutePriority(${route.provider_id}, ${route.id}, this.value)" class="routing-priority-input border rounded px-2 py-1.5 text-sm text-center">
+                </td>
+                <td>
+                    <select onchange="updateRouteBusyness(${route.provider_id}, ${route.id}, this.value)" class="routing-busyness-select border rounded px-2 py-1.5 text-sm">
+                        ${busynessOptions.map(o => `<option value="${o.v}" ${String(route.max_busyness_level || '') === String(o.v) ? 'selected' : ''}>${o.l}</option>`).join('')}
+                    </select>
+                </td>
+                <td>${renderRouteRuleSummary(route)}</td>
+                <td>
+                    <div class="flex justify-end gap-2">
+                        <button onclick="deleteRouteBinding(${route.provider_id}, ${route.id})" class="text-xs text-red-500 hover:text-red-700">移除</button>
+                    </div>
+                </td>
+            </tr>`;
+        }
+
+        async function addModelRoutingProvider() {
+            if (!selectedRoutingModelId) return;
+            const providerId = parseInt(document.getElementById('model-routing-provider-select').value, 10);
+            if (!providerId) return;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/${providerId}/models`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({model_id: selectedRoutingModelId, is_active: true})
+                }, {success: '供应商已添加', error: '添加供应商失败'});
+                await loadProviderModelRoutes();
+                await loadModels();
+                renderModelRoutingDrawer();
+            } catch(e) {}
+        }
+
+        async function addModelRoutingRule() {
+            const pmId = parseInt(document.getElementById('model-rule-pm')?.value, 10);
+            if (!pmId) return;
+            const body = collectNewModelRulePayload();
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/routing/provider-models/${pmId}/rules`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                }, {success: '路由规则已添加', error: '添加路由规则失败'});
+                await loadProviderModelRoutes();
+                renderModelRoutingDrawer();
+            } catch(e) {}
+        }
+
+        async function updateModelRoutingRule(ruleId) {
+            const body = collectExistingModelRulePayload(ruleId);
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/routing/provider-model-rules/${ruleId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                }, {success: '路由规则已保存', error: '保存路由规则失败'});
+                await loadProviderModelRoutes();
+                renderModelRoutingDrawer();
+            } catch(e) {}
+        }
+
+        async function deleteModelRoutingRule(ruleId) {
+            if (!confirm('删除这条路由规则？')) return;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/routing/provider-model-rules/${ruleId}`, {
+                    method: 'DELETE'
+                }, {success: '路由规则已删除', error: '删除路由规则失败'});
+                await loadProviderModelRoutes();
+                renderModelRoutingDrawer();
+            } catch(e) {}
+        }
+
+        function prefillSelectedModelRoutePreview() {
+            if (!selectedRoutingModelId) return;
+            const model = allModels.find(m => m.id === selectedRoutingModelId);
+            if (!model) return;
+            closeModelRoutingDrawer();
+            prefillRoutePreview(model.name);
+        }
+
+        function renderModelRouting() {
+            const container = document.getElementById('model-routing-container');
+            if (!container) return;
+            const grouped = groupProviderModelsByModel();
+            const groups = Object.values(grouped).sort((a, b) => (a.model_name || '').localeCompare(b.model_name || ''));
+            if (!groups.length) {
+                container.innerHTML = '<div class="text-gray-400 text-center py-4">暂无供应商模型绑定。</div>';
+                return;
+            }
+            container.innerHTML = `<div class="config-table-wrap">
+                <table class="config-table routing-table">
+                    <thead>
+                        <tr>
+                            <th>供应商</th>
+                            <th>状态</th>
+                            <th>上游模型名</th>
+                            <th>
+                                <span class="inline-flex items-center gap-1">
+                                    优先级
+                                    <span class="help-tip">?
+                                        <span class="help-tip-body">数值越大越优先。路由会先过滤停用供应商、模型路由规则、health=0、并发已满等不可用候选，再按优先级和 health 排序。</span>
+                                    </span>
+                                </span>
+                            </th>
+                            <th>繁忙等级上限</th>
+                            <th>路由规则</th>
+                            <th class="text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${groups.map(group => renderRoutingGroupRows(group)).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        }
+
+        function renderRoutingGroupRows(group) {
+            const tags = (group.tags || '').split(',').map(tag => tag.trim()).filter(Boolean);
+            const groupTitle = escapeHtml(group.model_display_name || group.model_name);
+            const groupMeta = `${escapeHtml(group.model_name)} · ${group.routes.length} 个供应商绑定`;
+            return `<tr class="route-group-row">
+                    <td colspan="7">
+                        <div class="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-base font-bold tracking-tight">${groupTitle}</span>
+                                <span class="route-group-meta text-xs">${groupMeta}</span>
+                                ${tags.map(tag => `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-semibold">${escapeHtml(tag)}</span>`).join('')}
+                            </div>
+                            <button onclick="prefillRoutePreview('${escapeJs(group.model_name)}')" class="routing-action-btn preview">预览这个模型</button>
+                        </div>
+                    </td>
+                </tr>
+                ${group.routes.map(route => renderRoutingTableRow(route, group)).join('')}`;
+        }
+
+        function renderRoutingTableRow(route, group) {
+            const busynessOptions = [{v:'',l:'不限'},{v:'1',l:'1 过载'},{v:'2',l:'2 拥挤'},{v:'3',l:'3 活跃'},{v:'4',l:'4 流畅'},{v:'5',l:'5 平静'},{v:'6',l:'6 寂静'}];
+            return `<tr>
+                <td>
+                    <div class="font-semibold text-gray-800">${escapeHtml(route.provider_name)}</div>
+                    <div class="text-xs text-gray-400 mt-0.5">PM #${route.id}</div>
+                </td>
+                <td>${renderRouteAvailability(route)}</td>
+                <td>
+                    <input value="${escapeAttr(route.upstream_model_name || route.model_name)}" onchange="updateRouteUpstream(${route.provider_id}, ${route.id}, this.value)" class="routing-upstream-input border rounded px-2 py-1.5 text-sm">
+                </td>
+                <td>
+                    <input type="number" min="0" value="${route.priority || 0}" onchange="updateRoutePriority(${route.provider_id}, ${route.id}, this.value)" class="routing-priority-input border rounded px-2 py-1.5 text-sm text-center">
+                </td>
+                <td>
+                    <select onchange="updateRouteBusyness(${route.provider_id}, ${route.id}, this.value)" class="routing-busyness-select border rounded px-2 py-1.5 text-sm">
+                        ${busynessOptions.map(o => `<option value="${o.v}" ${String(route.max_busyness_level || '') === String(o.v) ? 'selected' : ''}>${o.l}</option>`).join('')}
+                    </select>
+                </td>
+                <td>${renderRouteRuleSummary(route)}</td>
+                <td>
+                    <div class="flex justify-end gap-1.5">
+                        <button onclick="prefillRoutePreview('${escapeJs(group.model_name)}')" class="routing-action-btn preview">预览</button>
+                        <button onclick="deleteRouteBinding(${route.provider_id}, ${route.id})" class="routing-action-btn danger">移除</button>
+                    </div>
+                </td>
+            </tr>`;
+        }
+
+        async function bindModelFromRouting() {
+            const providerId = parseInt(document.getElementById('routing-bind-provider').value, 10);
+            const modelId = parseInt(document.getElementById('routing-bind-model').value, 10);
+            if (!providerId || !modelId) return;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/${providerId}/models`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({model_id: modelId, is_active: true})
+                }, {success: '绑定已添加', error: '添加绑定失败'});
+                selectedProviderId = providerId;
+                await loadProviderModelRoutes();
+            } catch(e) {}
+        }
+
+        async function syncRoutingProvider() {
+            const providerId = parseInt(document.getElementById('routing-bind-provider').value, 10) || selectedProviderId;
+            if (!providerId) {
+                showToast(t('selectProviderFirst', 'Please select a provider first'), 'info');
+                return;
+            }
+            selectedProviderId = providerId;
+            await syncSelectedProvider();
+            await loadProviderModelRoutes();
+        }
+
+        async function updateRouteUpstream(providerId, pmId, value) {
+            await updateProviderModelRoute(providerId, pmId, {upstream_model_name: value || null});
+        }
+
+        async function updateRoutePriority(providerId, pmId, value) {
+            await updateProviderModelRoute(providerId, pmId, {priority: parseInt(value, 10) || 0});
+        }
+
+        async function updateRouteBusyness(providerId, pmId, value) {
+            await updateProviderModelRoute(providerId, pmId, value ? {max_busyness_level: parseInt(value, 10)} : {clear_busyness_level: true});
+        }
+
+        async function updateProviderModelRoute(providerId, pmId, body) {
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/${providerId}/models/${pmId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                }, {success: '路由配置已保存', error: t('failedToSave', 'Failed to save')});
+                await loadProviderModelRoutes();
+                renderModelRoutingDrawer();
+            } catch(e) {}
+        }
+
+        async function deleteRouteBinding(providerId, pmId) {
+            if (!confirm(t('deleteModelConfirm', 'Delete this model?'))) return;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/${providerId}/models/${pmId}`, {method: 'DELETE'}, {success: t('modelUnbound', 'Model unbound'), error: t('unbindFailed', 'Unbind failed')});
+                await loadProviderModelRoutes();
+                await loadModels();
+                renderModelRoutingDrawer();
+            } catch(e) {}
+        }
+
+        function prefillRoutePreview(modelName) {
+            switchConfigTab('preview');
+            document.getElementById('route-preview-model').value = modelName;
+            runRoutePreview();
+        }
+
+        async function loadProviderBindings(providerId) {
+            selectedProviderId = providerId || selectedProviderId;
+            await loadProviderModelRoutes();
+        }
+
+        document.getElementById('provider-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+        }, true);
+        document.getElementById('model-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+        }, true);
+        document.getElementById('provider-keys-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+        }, true);
+
+        const initialConfigTab = new URL(window.location.href).searchParams.get('tab') || 'overview';
+        switchConfigTab(initialConfigTab);
+        loadProviders();
+        loadModels();
+        loadAutoModelConfig();
+        loadProviderModelRoutes();
+        loadStrategyTemplates();
+    </script>
+</body>
+</html>

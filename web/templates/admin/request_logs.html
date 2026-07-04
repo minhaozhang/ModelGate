@@ -1,0 +1,1128 @@
+{% set active_page = 'request-logs' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('Request Logs') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <script src="/static/js/date-picker.js"></script>
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.55rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-success { background: #dcfce7; color: #15803d; }
+        .badge-error { background: #fee2e2; color: #b91c1c; }
+        .badge-timeout { background: #ffedd5; color: #c2410c; }
+        .badge-pending { background: #fef9c3; color: #a16207; }
+        .badge-cancelled { background: #f1f5f9; color: #475569; }
+
+        .log-grid {
+            display: grid;
+            grid-template-columns: minmax(122px, 135px) minmax(108px, 144px) minmax(72px, 90px) minmax(150px, 1fr) minmax(90px, 110px) minmax(90px, 120px) minmax(90px, 110px) minmax(200px, 2fr);
+            gap: 0.75rem;
+            align-items: start;
+        }
+        .log-row + .log-row {
+            border-top: 1px solid #e5e7eb;
+        }
+        .mono {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        }
+        .time-btn {
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            border: 1px solid #e5e7eb;
+            background: #ffffff;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .time-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+        .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 9999px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #ffffff;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .log-row + .log-row { border-color: #1f2937 !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark input,
+        body.theme-dark select { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-600):not(.bg-slate-700):not(.time-btn.active) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .badge-success { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+        body.theme-dark .badge-error { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+        body.theme-dark .badge-timeout { background: rgba(249, 115, 22, 0.16); color: #fdba74; }
+        body.theme-dark .badge-pending { background: rgba(234, 179, 8, 0.16); color: #fde047; }
+        body.theme-dark .badge-cancelled { background: rgba(100, 116, 139, 0.16); color: #94a3b8; }
+
+        body.theme-dark .time-btn { background: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .time-btn:hover { background: #1e293b; }
+        body.theme-dark .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
+        .resp-btn { color: #3b82f6; cursor: pointer; font-size: 0.75rem; }
+        .resp-btn:hover { text-decoration: underline; }
+        .detail-modal-overlay { position: fixed; inset: 0; padding: 0.75rem; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .detail-modal { background: #fff; border-radius: 0.75rem; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 90%; max-width: 700px; max-height: calc(100vh - 4rem); max-height: calc(100dvh - 4rem); min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+        body.theme-dark .detail-modal { background: #0f172a; color: #e5e7eb; }
+        .detail-modal-header { padding: 1rem 1.5rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+        body.theme-dark .detail-modal-header { border-color: #1f2937; }
+        .detail-modal-body { padding: 0; overflow-y: auto; flex: 1; }
+        .detail-modal-body pre { white-space: pre-wrap; word-break: break-all; font-size: 0.8125rem; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+        .detail-tabs { display: flex; border-bottom: 1px solid #e5e7eb; padding: 0 1rem; gap: 0; }
+        body.theme-dark .detail-tabs { border-color: #1f2937; }
+        .detail-tab { padding: 0.625rem 1rem; font-size: 0.8125rem; font-weight: 500; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
+        .detail-tab:hover { color: #374151; }
+        body.theme-dark .detail-tab { color: #94a3b8; }
+        body.theme-dark .detail-tab:hover { color: #e5e7eb; }
+        .detail-tab.active { color: #3b82f6; border-color: #3b82f6; }
+        .detail-tab-panel { display: none; padding: 1.5rem; }
+        .detail-tab-panel.active { display: block; }
+        body.theme-dark #agg-table-wrap thead tr { color: #94a3b8; border-color: #1f2937; }
+        body.theme-dark #agg-table-wrap tbody tr { border-color: #1f2937; }
+        body.theme-dark #agg-table-wrap tbody tr:hover { background: #1e293b !important; }
+        body.theme-dark details { background: #0f172a !important; border-color: #1f2937 !important; }
+        body.theme-dark details.bg-violet-50 { background: rgba(139,92,246,0.1) !important; border-color: rgba(139,92,246,0.25) !important; }
+        body.theme-dark details.bg-blue-50 { background: rgba(59,130,246,0.1) !important; border-color: rgba(59,130,246,0.25) !important; }
+        body.theme-dark details.bg-emerald-50 { background: rgba(16,185,129,0.1) !important; border-color: rgba(16,185,129,0.25) !important; }
+        body.theme-dark details.bg-amber-50 { background: rgba(245,158,11,0.1) !important; border-color: rgba(245,158,11,0.25) !important; }
+        body.theme-dark details summary { color: #e2e8f0 !important; }
+        details summary::-webkit-details-marker { display: none; }
+        details summary::before { content: '\25B6'; display: inline-block; font-size: 0.55rem; margin-right: 0.4rem; transition: transform 0.15s; }
+        details[open] summary::before { transform: rotate(90deg); }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header(_('Request Logs'), _("Query and filter proxy request logs by API key, model, status, and time range")) %}
+                <button id="refresh-btn" onclick="loadLogs()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50">
+                    {{ _('Refresh') }}
+                </button>
+            {% endcall %}
+
+            <div class="flex gap-2 mb-4">
+                <button id="view-tab-logs" onclick="switchView('logs')" class="px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-blue-600 text-white border-blue-600">{{ _('Request Logs') }}</button>
+                <button id="view-tab-aggregate" onclick="switchView('aggregate')" class="px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50">{{ _('Aggregate Stats') }}</button>
+            </div>
+
+            <div id="tab-logs">
+                <section class="bg-white rounded-xl shadow p-6 mb-6">
+                    <div class="flex flex-wrap items-end gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('API Key') }}</label>
+                            <input id="filter-key" type="text" placeholder="{{ _('Key name') }}" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Model') }}</label>
+                            <input id="filter-model" type="text" placeholder="e.g. glm-5" class="border border-gray-200 rounded px-3 py-2 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Provider') }}</label>
+                            <select id="filter-provider" class="border border-gray-200 rounded px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                <option value="">{{ _('All') }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Status') }}</label>
+                            <select id="filter-status" class="border border-gray-200 rounded px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                <option value="">{{ _('All') }}</option>
+                                <option value="success">success</option>
+                                <option value="error">error</option>
+                                <option value="rate_limited">rate_limited</option>
+                                <option value="local_rate_limited">local_rate_limited</option>
+                                <option value="timeout">timeout</option>
+                                <option value="cancelled">cancelled</option>
+                                <option value="pending">pending</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Time Range') }}</label>
+                            <div class="flex gap-2">
+                                <button class="time-btn active" data-range="1h" onclick="setTimeRange(this)">1h</button>
+                                <button class="time-btn" data-range="6h" onclick="setTimeRange(this)">6h</button>
+                                <button class="time-btn" data-range="24h" onclick="setTimeRange(this)">24h</button>
+                                <button class="time-btn" data-range="7d" onclick="setTimeRange(this)">7d</button>
+                                <button class="time-btn" data-range="custom" onclick="setTimeRange(this)">{{ _('Custom') }}</button>
+                            </div>
+                        </div>
+                        <div id="logs-custom-range" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Custom Range') }}</label>
+                            <div id="logs-datetime-picker"></div>
+                        </div>
+                        <button onclick="loadLogs()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+                            {{ _('Query') }}
+                        </button>
+                    </div>
+                </section>
+
+                <section id="logs-section" class="bg-white rounded-xl shadow">
+                    <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-800">{{ _('Query Results') }}</h3>
+                        <div id="result-meta" class="text-sm text-gray-500"></div>
+                    </div>
+                    <div id="logs-empty" class="hidden p-6 text-sm text-gray-500">{{ _('No logs found matching the current filters.') }}</div>
+                    <div id="logs-loading" class="hidden p-6 flex items-center justify-center gap-3 text-sm text-gray-500">
+                        <div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25)"></div>
+                        {{ _('Loading...') }}
+                    </div>
+                    <div id="logs-list" class="divide-y divide-gray-200"></div>
+                    <div id="pagination" class="p-4 border-t border-gray-200 flex items-center justify-between hidden">
+                        <div id="page-info" class="text-sm text-gray-500"></div>
+                        <div class="flex gap-2">
+                            <button id="prev-btn" onclick="prevPage()" class="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">{{ _('Previous') }}</button>
+                            <button id="next-btn" onclick="nextPage()" class="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">{{ _('Next') }}</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div id="tab-aggregate" class="hidden">
+                <section class="bg-white rounded-xl shadow p-6 mb-4">
+                    <div class="flex flex-wrap items-end gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Provider') }}</label>
+                            <select id="agg-provider" class="border border-gray-200 rounded px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                <option value="">{{ _('All') }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('API Key') }}</label>
+                            <input id="agg-key" type="text" placeholder="{{ _('Key name') }}" class="border border-gray-200 rounded px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Client IP') }}</label>
+                            <input id="agg-ip" type="text" placeholder="e.g. 192.168.1.1" class="border border-gray-200 rounded px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Status') }}</label>
+                            <select id="agg-status" class="border border-gray-200 rounded px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                <option value="">{{ _('All') }}</option>
+                                <option value="success">success</option>
+                                <option value="error">error</option>
+                                <option value="rate_limited">rate_limited</option>
+                                <option value="local_rate_limited">local_rate_limited</option>
+                                <option value="timeout">timeout</option>
+                                <option value="cancelled">cancelled</option>
+                                <option value="pending">pending</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Time Range') }}</label>
+                            <div class="flex gap-2">
+                                <button class="time-btn active" data-agg-range="24h" onclick="setAggRange(this)">24h</button>
+                                <button class="time-btn" data-agg-range="7d" onclick="setAggRange(this)">7d</button>
+                                <button class="time-btn" data-agg-range="30d" onclick="setAggRange(this)">30d</button>
+                                <button class="time-btn" data-agg-range="custom" onclick="setAggRange(this)">{{ _('Custom') }}</button>
+                            </div>
+                        </div>
+                        <div id="agg-custom-range" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Custom Range') }}</label>
+                            <div id="agg-date-picker"></div>
+                        </div>
+                        <button onclick="loadAggregate()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
+                            {{ _('Query') }}
+                        </button>
+                        <button onclick="exportAggregateCSV()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">
+                            {{ _('Export CSV') }}
+                        </button>
+                    </div>
+                </section>
+
+                <div class="flex gap-2 mb-4">
+                    <button id="dim-btn-provider_model" onclick="switchDimension('provider_model')" class="px-3 py-1.5 rounded text-xs font-medium border transition-colors bg-blue-600 text-white border-blue-600">{{ _('Provider/Model') }}</button>
+                    <button id="dim-btn-user" onclick="switchDimension('user')" class="px-3 py-1.5 rounded text-xs font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50">{{ _('User') }}</button>
+                    <button id="dim-btn-ip" onclick="switchDimension('ip')" class="px-3 py-1.5 rounded text-xs font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50">{{ _('Client IP') }}</button>
+                    <button id="dim-btn-user_ip" onclick="switchDimension('user_ip')" class="px-3 py-1.5 rounded text-xs font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50">{{ _('User + IP') }}</button>
+                </div>
+
+                <section id="aggregate-section" class="bg-white rounded-xl shadow">
+                    <div id="agg-loading" class="hidden p-6 flex items-center justify-center gap-3 text-sm text-gray-500">
+                        <div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25)"></div>
+                        {{ _('Loading...') }}
+                    </div>
+                    <div id="agg-empty" class="hidden p-6 text-sm text-gray-500">{{ _('No data found for the selected time range.') }}</div>
+                    <div id="agg-table-wrap" class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead id="agg-thead"></thead>
+                            <tbody id="agg-tbody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+        window.I18N = {
+            lightMode: "{{ _('Light Mode') }}",
+            darkMode: "{{ _('Dark Mode') }}",
+            provider: "{{ _('Provider') }}",
+            model: "{{ _('Model') }}",
+            status: "{{ _('Status') }}",
+            apiKey: "{{ _('API Key') }}",
+            upstream: "{{ _('Upstream') }}",
+            downstream: "{{ _('Downstream') }}",
+            latency: "{{ _('Latency') }}",
+            tokens: "{{ _('Tokens') }}",
+            clientIp: "{{ _('Client IP') }}",
+            userAgent: "{{ _('User Agent') }}",
+            errorDetail: "{{ _('Error Detail') }}",
+            response: "{{ _('Response') }}",
+            requestAt: "{{ _('Created At') }}",
+            queryResults: "{{ _('Query Results') }}",
+            noLogs: "{{ _('No logs found matching the current filters.') }}",
+            loadingFailed: "{{ _('Failed to load data') }}",
+            pageOf: "{{ _('Page {page} of {total}') }}",
+            totalRecords: "{{ _('Total: {count} records') }}"
+        };
+
+        let currentPage = 1;
+        let totalRecords = 0;
+        let currentRange = '1h';
+        let currentPageSize = 50;
+        let currentView = 'logs';
+        let currentAggRange = '24h';
+        let currentAggDimension = 'provider_model';
+        let currentAggData = null;
+
+        let logsDatePicker = null;
+        let aggDatePicker = null;
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'dark';
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').value = mode;
+        }
+
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, { method: 'POST' });
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
+
+        function formatNumber(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            return Number(value).toLocaleString();
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        async function fetchJsonOrRedirect(url, options = {}) {
+            const response = await fetch(url, options);
+            if (response.status === 401) {
+                window.location.href = `${APP_BASE_PATH}/admin/login`;
+                return null;
+            }
+            if (!response.ok) throw new Error(await response.text());
+            return response.json();
+        }
+
+        function setTimeRange(btn) {
+            document.querySelectorAll('#tab-logs .time-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentRange = btn.dataset.range;
+            const customEl = document.getElementById('logs-custom-range');
+            if (currentRange === 'custom') {
+                customEl.classList.remove('hidden');
+                if (!logsDatePicker) {
+                    logsDatePicker = MgDateRangePicker.create({
+                        el: '#logs-datetime-picker',
+                        type: 'date',
+                        placeholder: '{{ _("Select date range") }}'
+                    });
+                }
+            } else {
+                customEl.classList.add('hidden');
+                loadLogs();
+            }
+        }
+
+        function setAggRange(btn) {
+            document.querySelectorAll('#tab-aggregate .time-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentAggRange = btn.dataset.aggRange;
+            const customEl = document.getElementById('agg-custom-range');
+            if (currentAggRange === 'custom') {
+                customEl.classList.remove('hidden');
+                if (!aggDatePicker) {
+                    aggDatePicker = MgDateRangePicker.create({
+                        el: '#agg-date-picker',
+                        type: 'date',
+                        placeholder: '{{ _("Select date range") }}'
+                    });
+                }
+            } else {
+                customEl.classList.add('hidden');
+            }
+        }
+
+        function formatK(value) {
+            if (value === null || value === undefined || value === '-') return '-';
+            const v = Number(value);
+            if (isNaN(v) || v === 0) return '-';
+            if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+            return String(v);
+        }
+        function getTokenCount(tokens) {
+            if (!tokens) return '-';
+            return tokens.total_tokens || tokens.estimated || '-';
+        }
+        function getTokenParts(tokens) {
+            if (!tokens || typeof tokens !== 'object') return { prompt: '-', completion: '-' };
+            const p = tokens.prompt_tokens || 0;
+            const c = tokens.completion_tokens || 0;
+            if (!p && !c && tokens.estimated) return { prompt: tokens.estimated, completion: '-' };
+            return { prompt: p || 0, completion: c || 0 };
+        }
+        function getCachedTokens(tokens) {
+            if (!tokens || typeof tokens !== 'object') return 0;
+            if (tokens.cache_read_input_tokens) return tokens.cache_read_input_tokens;
+            if (tokens.cached_input_tokens) return tokens.cached_input_tokens;
+            const details = tokens.prompt_tokens_details;
+            if (details && details.cached_tokens) return details.cached_tokens;
+            return 0;
+        }
+        function getCacheCreationTokens(tokens) {
+            if (!tokens || typeof tokens !== 'object') return 0;
+            return tokens.cache_creation_input_tokens || 0;
+        }
+        function getBillingField(tokens, field) {
+            return tokens?.billing?.[field];
+        }
+        function buildTokenBreakdownHTML(tokens) {
+            if (!tokens || typeof tokens !== 'object') return '';
+            const parts = getTokenParts(tokens);
+            const cached = getCachedTokens(tokens);
+            const cacheCreate = getCacheCreationTokens(tokens);
+            const billing = tokens.billing || {};
+            const rows = [];
+            rows.push(['Prompt (输入)', formatK(parts.prompt), billing.uncached_input_tokens ? `${formatK(billing.uncached_input_tokens)} 未缓存` : null]);
+            if (cached > 0) {
+                rows.push(['Cache Read (缓存命中)', formatK(cached), billing.cached_input_tokens ? formatK(billing.cached_input_tokens) : null]);
+            }
+            if (cacheCreate > 0) {
+                rows.push(['Cache Write (缓存写入)', formatK(cacheCreate), null]);
+            }
+            rows.push(['Completion (输出)', formatK(parts.completion), null]);
+            if (parts.prompt && parts.completion) {
+                rows.push(['Total (总计)', formatK((parts.prompt || 0) + (parts.completion || 0)), null]);
+            }
+            const billingRows = [];
+            if (billing.input_cost_cny != null) billingRows.push(['输入成本', formatCost(billing.input_cost_cny)]);
+            if (billing.cached_input_cost_cny != null && cached > 0) billingRows.push(['缓存成本', formatCost(billing.cached_input_cost_cny)]);
+            if (billing.output_cost_cny != null) billingRows.push(['输出成本', formatCost(billing.output_cost_cny)]);
+            if (billing.total_cost_cny != null) billingRows.push(['总成本', formatCost(billing.total_cost_cny)]);
+            const meta = tokens.response_meta || {};
+            const metaRows = [];
+            if (meta.finish_reason) metaRows.push(['Finish', meta.finish_reason]);
+            if (meta.tool_call_count > 0) {
+                const names = (meta.tool_names || []).join(', ');
+                metaRows.push(['Tool Calls', `${meta.tool_call_count} (${names})`]);
+            }
+            if (meta.has_reasoning) metaRows.push(['Reasoning', 'Yes']);
+            if (meta.response_types && meta.response_types.length === 1 && meta.response_types[0] === 'empty') metaRows.push(['Response', 'Empty']);
+            let html = '<div class="space-y-3">';
+            html += '<div><div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Token Breakdown</div>';
+            html += '<table class="w-full text-xs"><tbody>';
+            for (const [label, val, sub] of rows) {
+                html += `<tr><td class="py-0.5 text-gray-400">${label}</td><td class="py-0.5 text-right font-medium text-gray-200">${val}</td>`;
+                html += sub ? `<td class="py-0.5 text-right text-gray-500 text-[10px]">${sub}</td>` : '<td></td>';
+                html += '</tr>';
+            }
+            html += '</tbody></table></div>';
+            if (billingRows.length) {
+                html += '<div><div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Billing (CNY)</div>';
+                html += '<table class="w-full text-xs"><tbody>';
+                for (const [label, val] of billingRows) {
+                    html += `<tr><td class="py-0.5 text-gray-400">${label}</td><td class="py-0.5 text-right font-medium text-gray-200">${val}</td></tr>`;
+                }
+                html += '</tbody></table></div>';
+            }
+            if (metaRows.length) {
+                html += '<div><div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Meta</div>';
+                html += '<table class="w-full text-xs"><tbody>';
+                for (const [label, val] of metaRows) {
+                    html += `<tr><td class="py-0.5 text-gray-400">${label}</td><td class="py-0.5 text-right text-gray-300">${escapeHtml(String(val))}</td></tr>`;
+                }
+                html += '</tbody></table></div>';
+            }
+            html += '</div>';
+            return html;
+        }
+        function getBillingCost(tokens) {
+            const cost = tokens?.billing?.total_cost_cny;
+            if (cost === null || cost === undefined || cost === '') return null;
+            const value = Number(cost);
+            return Number.isFinite(value) ? value : null;
+        }
+        function formatCost(value) {
+            if (value === null || value === undefined) return '-';
+            if (value < 0.0001) return '¥' + value.toFixed(6);
+            if (value < 0.01) return '¥' + value.toFixed(4);
+            return '¥' + value.toFixed(2);
+        }
+
+        function getStatusBadgeClass(status) {
+            const map = {
+                success: 'badge-success',
+                error: 'badge-error',
+                timeout: 'badge-timeout',
+                pending: 'badge-pending',
+                cancelled: 'badge-cancelled'
+            };
+            return map[status] || 'badge-cancelled';
+        }
+
+        function getIntentBadgeClass(intent) {
+            const map = {
+                coding: 'bg-blue-100 text-blue-700',
+                writing: 'bg-amber-100 text-amber-700',
+                testing: 'bg-rose-100 text-rose-700',
+                design: 'bg-purple-100 text-purple-700',
+                chat: 'bg-gray-100 text-gray-600',
+            };
+            return map[intent] || 'bg-gray-100 text-gray-600';
+        }
+
+        function buildQueryUrl(page) {
+            const params = new URLSearchParams();
+            const keyName = document.getElementById('filter-key').value.trim();
+            const model = document.getElementById('filter-model').value.trim();
+            const status = document.getElementById('filter-status').value;
+
+            if (keyName) params.set('key_name', keyName);
+            if (model) params.set('model', model);
+            if (status) params.set('status', status);
+            const providerVal = document.getElementById('filter-provider').value;
+            if (providerVal) params.set('provider', providerVal);
+
+            if (currentRange === 'custom' && logsDatePicker) {
+                const s = logsDatePicker.getStartISO();
+                const e = logsDatePicker.getEndISO();
+                if (s) params.set('start_time', s);
+                if (e) params.set('end_time', e);
+            } else {
+                params.set('time_range', currentRange);
+            }
+
+            params.set('page', page);
+            params.set('page_size', '50');
+            return `${APP_BASE_PATH}/admin/api/logs/query?${params.toString()}`;
+        }
+
+        function renderLogs(logs) {
+            const emptyEl = document.getElementById('logs-empty');
+            const listEl = document.getElementById('logs-list');
+            if (!Array.isArray(logs) || logs.length === 0) {
+                emptyEl.classList.remove('hidden');
+                listEl.innerHTML = '';
+                return;
+            }
+            emptyEl.classList.add('hidden');
+            listEl.innerHTML = logs.map(log => {
+                const badgeClass = getStatusBadgeClass(log.status);
+                const tokenParts = typeof log.tokens === 'object' ? getTokenParts(log.tokens) : null;
+                const billingCost = typeof log.tokens === 'object' ? getBillingCost(log.tokens) : null;
+                const hasResponse = log.response && log.response.trim();
+                const hasError = log.error && log.error.trim();
+                return `
+                    <article class="log-row p-6" data-response="${escapeHtml(hasResponse ? log.response : '')}" data-user-agent="${escapeHtml(log.user_agent || '')}" data-error="${escapeHtml(hasError ? log.error : '')}" data-model="${escapeHtml(log.model || '')}" data-tokens="${escapeHtml(typeof log.tokens === 'object' ? JSON.stringify(log.tokens) : (log.tokens || ''))}">
+                        <div class="log-grid text-sm">
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.requestAt}</div>
+                                <div class="font-medium text-gray-800">${escapeHtml(new Date(log.created_at).toLocaleString())}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.status}</div>
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="badge ${badgeClass}">${escapeHtml(log.status)}</span>
+                                    ${log.intent ? `<span class="inline-block text-[10px] px-1.5 py-0.5 rounded-full font-medium ${getIntentBadgeClass(log.intent)}">${escapeHtml(log.intent)}</span>` : ''}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.provider}</div>
+                                <div class="font-medium text-gray-800">${escapeHtml(log.provider || '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.model}</div>
+                                <div class="font-medium text-gray-800 break-all">${escapeHtml(log.model || '-')}${log.inbound_protocol && log.inbound_protocol !== 'openai' ? ` <span class="inline-block text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">${escapeHtml(log.inbound_protocol)}</span>` : ''}</div>
+                                ${log.requested_model && log.requested_model !== log.model ? `<div class="text-xs text-blue-500 mt-0.5">→ ${escapeHtml(log.requested_model)}</div>` : ''}
+                                ${log.provider_key_label ? `<div class="text-xs text-gray-400 mt-0.5">Key: ${escapeHtml(log.provider_key_label)}</div>` : ''}
+                                <div class="text-xs text-gray-500 mt-1">${window.I18N.apiKey}: ${escapeHtml(log.api_key || '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.upstream}</div>
+                                <div class="font-medium text-gray-800">${escapeHtml(log.upstream_status_code ?? '-')}</div>
+                                <div class="text-xs text-gray-400 mt-1">${window.I18N.downstream || 'Downstream'}: ${escapeHtml(log.downstream_status_code ?? '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.latency}</div>
+                                <div class="font-medium text-gray-800">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + ' s' : '-'}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.tokens}</div>
+                                <div class="font-medium text-gray-800">${tokenParts ? `↑${formatK(tokenParts.prompt)} / ↓${formatK(tokenParts.completion)}` : '-'}</div>
+                                ${(() => {
+                                    if (!tokenParts) return '';
+                                    const cached = getCachedTokens(log.tokens);
+                                    let extra = '';
+                                    if (cached > 0) {
+                                        const pct = tokenParts.prompt > 0 ? Math.round(cached / tokenParts.prompt * 100) : 0;
+                                        extra += `<span class="inline-block text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700">缓存 ${formatK(cached)} (${pct}%)</span> `;
+                                    }
+                                    return extra ? `<div class="flex gap-1 mt-1 flex-wrap">${extra}</div>` : '';
+                                })()}
+                                <div class="text-xs text-gray-500 mt-1">${billingCost !== null ? `成本 ${formatCost(billingCost)}` : '成本 -'}</div>
+                                <div class="text-xs text-gray-500 mt-1 mono break-all">${escapeHtml(log.client_ip || '-')}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-500 mb-1">${window.I18N.errorDetail}</div>
+                                ${hasError ? `<div class="text-gray-700 whitespace-pre-wrap break-words text-xs">${escapeHtml(log.error.substring(0, 200))}${log.error.length > 200 ? '...' : ''}</div>` : '<div class="text-gray-400 text-xs">-</div>'}
+                                ${hasResponse ? `<div class="resp-btn mt-2" onclick="showResponseDetail(this)">${window.I18N.response}</div>` : ''}
+                                <div class="resp-btn mt-2" onclick="showContentDetail(${log.id})">Content</div>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function renderPagination(data) {
+            totalRecords = data.total;
+            const paginationEl = document.getElementById('pagination');
+            const metaEl = document.getElementById('result-meta');
+            const pageInfo = document.getElementById('page-info');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+
+            const totalPages = Math.ceil(totalRecords / (data.page_size || currentPageSize));
+            currentPage = data.page;
+            currentPageSize = data.page_size || currentPageSize;
+
+            metaEl.textContent = window.I18N.totalRecords.replace('{count}', formatNumber(totalRecords));
+
+            if (totalPages <= 1) {
+                paginationEl.classList.add('hidden');
+                return;
+            }
+
+            paginationEl.classList.remove('hidden');
+            pageInfo.textContent = window.I18N.pageOf.replace('{page}', currentPage).replace('{total}', totalPages);
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
+        }
+
+        async function loadLogs(page) {
+            page = page || 1;
+            const loadingEl = document.getElementById('logs-loading');
+            const emptyEl = document.getElementById('logs-empty');
+            const listEl = document.getElementById('logs-list');
+
+            loadingEl.classList.remove('hidden');
+            emptyEl.classList.add('hidden');
+            listEl.innerHTML = '';
+
+            try {
+                const url = buildQueryUrl(page);
+                const data = await fetchJsonOrRedirect(url);
+                if (!data) return;
+                renderLogs(data.logs || []);
+                renderPagination(data);
+            } catch (error) {
+                console.error(error);
+                emptyEl.textContent = window.I18N.loadingFailed;
+                emptyEl.classList.remove('hidden');
+            } finally {
+                loadingEl.classList.add('hidden');
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) loadLogs(currentPage - 1);
+        }
+
+        function nextPage() {
+            const totalPages = Math.ceil(totalRecords / currentPageSize);
+            if (currentPage < totalPages) loadLogs(currentPage + 1);
+        }
+
+        function showResponseDetail(el) {
+            const article = el.closest('article');
+            const response = article.dataset.response;
+            const ua = article.dataset.userAgent;
+            const model = article.dataset.model;
+            const error = article.dataset.error;
+            const tokens = article.dataset.tokens;
+
+            const tabs = [];
+            const panels = [];
+
+            tabs.push({ id: 'response', label: window.I18N.response });
+            panels.push({ id: 'response', html: (() => {
+                let h = '';
+                if (error) {
+                    h += `<div class="text-red-500 mb-3"><strong>${window.I18N.errorDetail}:</strong></div><pre class="text-red-400 mb-4">${escapeHtml(error)}</pre>`;
+                }
+                if (response) {
+                    h += `<pre>${escapeHtml(response)}</pre>`;
+                }
+                if (!h) h = '<span class="text-gray-400">-</span>';
+                return h;
+            })() });
+
+            let tokenHTML = '';
+            let tokenObj = null;
+            if (tokens) {
+                try {
+                    tokenObj = JSON.parse(tokens);
+                    if (tokenObj && typeof tokenObj === 'object') {
+                        tokenHTML = buildTokenBreakdownHTML(tokenObj);
+                    }
+                } catch(e) {}
+            }
+            if (tokenHTML) {
+                tabs.push({ id: 'tokens', label: 'Tokens' });
+                panels.push({ id: 'tokens', html: tokenHTML });
+            }
+
+            if (ua) {
+                tabs.push({ id: 'meta', label: 'Meta' });
+                panels.push({ id: 'meta', html: `<div class="text-xs space-y-2"><div><strong class="text-gray-500">User Agent:</strong> <span class="text-gray-300">${escapeHtml(ua)}</span></div></div>` });
+            }
+
+            const firstTab = tabs[0].id;
+            const overlay = document.createElement('div');
+            overlay.className = 'detail-modal-overlay';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+            const tabButtons = tabs.map(t =>
+                `<div class="detail-tab ${t.id === firstTab ? 'active' : ''}" data-tab="${t.id}">${t.label}</div>`
+            ).join('');
+            const tabPanels = panels.map(p =>
+                `<div class="detail-tab-panel ${p.id === firstTab ? 'active' : ''}" data-panel="${p.id}">${p.html}</div>`
+            ).join('');
+
+            overlay.innerHTML = `<div class="detail-modal">
+                <div class="detail-modal-header">
+                    <span class="font-semibold">${escapeHtml(model || '-')}</span>
+                    <button onclick="this.closest('.detail-modal-overlay').remove()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
+                </div>
+                <div class="detail-tabs">${tabButtons}</div>
+                <div class="detail-modal-body">${tabPanels}</div>
+            </div>`;
+            document.body.appendChild(overlay);
+
+            overlay.querySelectorAll('.detail-tab').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    overlay.querySelectorAll('.detail-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+                    overlay.querySelectorAll('.detail-tab-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === tabId));
+                });
+            });
+        }
+
+        const ROLE_STYLES = {
+            system: 'bg-violet-50 border-violet-200 text-violet-700',
+            user: 'bg-blue-50 border-blue-200 text-blue-700',
+            assistant: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+            tool: 'bg-amber-50 border-amber-200 text-amber-700',
+        };
+        const ROLE_ICONS = { system: '&#9881;', user: '&#128100;', assistant: '&#129302;', tool: '&#128295;' };
+
+        function toggleMsgView(el) {
+            const structured = document.getElementById('rm-structured');
+            const raw = document.getElementById('rm-raw');
+            if (structured.classList.contains('hidden')) {
+                structured.classList.remove('hidden');
+                raw.classList.add('hidden');
+                el.textContent = '[structured]';
+            } else {
+                structured.classList.add('hidden');
+                raw.classList.remove('hidden');
+                el.textContent = '[raw]';
+            }
+        }
+
+        function renderMessages(messages) {
+            if (typeof messages === 'string') {
+                try { messages = JSON.parse(messages); } catch(e) { return `<pre class="text-xs">${escapeHtml(messages)}</pre>`; }
+            }
+            if (!Array.isArray(messages)) return `<pre class="text-xs">${escapeHtml(JSON.stringify(messages, null, 2))}</pre>`;
+            return messages.map((msg, i) => {
+                const role = msg.role || 'unknown';
+                const style = ROLE_STYLES[role] || 'bg-gray-50 border-gray-200 text-gray-700';
+                const icon = ROLE_ICONS[role] || '&#9679;';
+                const content = extractContentText(msg.content);
+                const toolName = msg.name || '';
+                const truncated = content.length > 500;
+                const id = `msg-${i}`;
+                let header = `<span class="font-medium">${icon} ${role}</span>`;
+                if (toolName) header += ` <span class="text-xs opacity-70 ml-1">${escapeHtml(toolName)}</span>`;
+                if (msg.tool_call_id) header += ` <span class="text-xs opacity-50 ml-1">#${escapeHtml(msg.tool_call_id)}</span>`;
+
+                let contentHtml;
+                if (truncated) {
+                    contentHtml = `<div id="${id}-short" class="text-xs whitespace-pre-wrap break-words">${escapeHtml(content.substring(0, 500))}<span class="text-blue-500 cursor-pointer" onclick="document.getElementById('${id}-short').classList.add('hidden');document.getElementById('${id}-full').classList.remove('hidden');"> ...show all (${(content.length / 1024).toFixed(1)}KB)</span></div>`;
+                    contentHtml += `<div id="${id}-full" class="hidden text-xs whitespace-pre-wrap break-words">${escapeHtml(content)}</div>`;
+                } else {
+                    contentHtml = `<div class="text-xs whitespace-pre-wrap break-words">${escapeHtml(content) || '<span class="opacity-40">(empty)</span>'}</div>`;
+                }
+
+                if (msg.tool_calls) {
+                    contentHtml += `<div class="mt-1 text-xs opacity-80">${escapeHtml(JSON.stringify(msg.tool_calls, null, 2))}</div>`;
+                }
+
+                return `<details class="border rounded-lg ${style} mb-1.5" open><summary class="px-3 py-1.5 cursor-pointer text-xs select-none flex items-center gap-1">${header}</summary><div class="px-3 pb-2">${contentHtml}</div></details>`;
+            }).join('');
+        }
+
+        function extractContentText(content) {
+            if (content === null || content === undefined) return '';
+            if (typeof content === 'string') return content;
+            if (Array.isArray(content)) {
+                return content.map(item => {
+                    if (typeof item === 'string') return item;
+                    if (item.type === 'text') return item.text || '';
+                    if (item.type === 'image_url') return '[image]';
+                    if (item.type === 'input_image') return '[image]';
+                    if (item.type === 'tool_use') return escapeHtml(JSON.stringify(item.input, null, 2));
+                    if (item.type === 'tool_result') {
+                        const tc = item.content;
+                        if (typeof tc === 'string') return tc;
+                        if (Array.isArray(tc)) return tc.map(sub => sub.text || (sub.type === 'image_url' ? '[image]' : '')).join('\n');
+                    }
+                    return JSON.stringify(item);
+                }).join('\n');
+            }
+            return JSON.stringify(content);
+        }
+
+        async function showContentDetail(logId) {
+            const overlay = document.createElement('div');
+            overlay.className = 'detail-modal-overlay';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            overlay.innerHTML = `<div class="detail-modal">
+                <div class="detail-modal-header">
+                    <span class="font-semibold">Content - Log #${logId}</span>
+                    <button onclick="this.closest('.detail-modal-overlay').remove()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
+                </div>
+                <div class="detail-modal-body"><div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25);margin:2rem auto"></div></div>
+            </div>`;
+            document.body.appendChild(overlay);
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/${logId}/content`);
+                if (!data) { overlay.remove(); return; }
+                let body = '';
+                if (data.request_messages) {
+                    body += `<div class="mb-3"><strong>Request Messages:</strong> <span id="rm-toggle" class="text-xs text-blue-500 cursor-pointer ml-2" onclick="toggleMsgView(this)">[structured]</span></div>`;
+                    body += `<div id="rm-structured">${renderMessages(data.request_messages)}</div>`;
+                    body += `<div id="rm-raw" class="hidden"><pre class="text-xs">${escapeHtml(typeof data.request_messages === 'string' ? data.request_messages : JSON.stringify(data.request_messages, null, 2))}</pre></div>`;
+                }
+                if (data.response_content) {
+                    body += `<div class="mb-3 mt-4"><strong>Response:</strong></div><pre class="text-xs">${escapeHtml(data.response_content)}</pre>`;
+                }
+                if (data.response_thinking) {
+                    body += `<div class="mb-3 mt-4"><strong>Thinking:</strong></div><pre class="text-xs text-blue-600">${escapeHtml(data.response_thinking)}</pre>`;
+                }
+                if (data.response_tool_calls && data.response_tool_calls.length) {
+                    body += `<div class="mb-3 mt-4"><strong>Tool Calls:</strong></div><pre class="text-xs">${escapeHtml(JSON.stringify(data.response_tool_calls, null, 2))}</pre>`;
+                }
+                if (!body) body = '<span class="text-gray-400">No content recorded</span>';
+                overlay.querySelector('.detail-modal-body').innerHTML = body;
+            } catch (e) {
+                overlay.querySelector('.detail-modal-body').innerHTML = '<span class="text-red-500 text-sm">Failed to load content</span>';
+            }
+        }
+
+        function switchView(view) {
+            currentView = view;
+            const tabLogs = document.getElementById('tab-logs');
+            const tabAgg = document.getElementById('tab-aggregate');
+            const btnLogs = document.getElementById('view-tab-logs');
+            const btnAgg = document.getElementById('view-tab-aggregate');
+
+            if (view === 'logs') {
+                tabLogs.classList.remove('hidden');
+                tabAgg.classList.add('hidden');
+                btnLogs.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-blue-600 text-white border-blue-600';
+                btnAgg.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50';
+            } else {
+                tabLogs.classList.add('hidden');
+                tabAgg.classList.remove('hidden');
+                btnAgg.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-blue-600 text-white border-blue-600';
+                btnLogs.className = 'px-4 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50';
+                loadAggregate();
+            }
+        }
+
+        function switchDimension(dim) {
+            currentAggDimension = dim;
+            ['provider_model', 'user', 'ip', 'user_ip'].forEach(d => {
+                const btn = document.getElementById('dim-btn-' + d);
+                if (d === dim) {
+                    btn.className = 'px-3 py-1.5 rounded text-xs font-medium border transition-colors bg-blue-600 text-white border-blue-600';
+                } else {
+                    btn.className = 'px-3 py-1.5 rounded text-xs font-medium border transition-colors bg-white text-gray-700 border-gray-200 hover:bg-gray-50';
+                }
+            });
+            loadAggregate();
+        }
+
+        function renderAggTable(data) {
+            const thead = document.getElementById('agg-thead');
+            const tbody = document.getElementById('agg-tbody');
+            const dim = data.group_by || 'provider_model';
+            const rows = data.rows || [];
+            const thClass = 'px-6 py-3 font-medium';
+            const thRightClass = 'px-6 py-3 font-medium text-right';
+
+            if (dim === 'provider_model') {
+                thead.innerHTML = `<tr class="border-b border-gray-200 text-left text-gray-500">
+                    <th class="${thClass}">${window.I18N.provider}</th>
+                    <th class="${thClass}">${window.I18N.model}</th>
+                    <th class="${thRightClass}">${window.I18N.requests || 'Requests'}</th>
+                    <th class="${thRightClass}">Avg Latency</th>
+                    <th class="${thRightClass}">Max Latency</th>
+                    <th class="${thRightClass}">Min Latency</th>
+                    <th class="${thRightClass}">Avg Tokens</th>
+                    <th class="${thRightClass}">Total Tokens</th>
+                </tr>`;
+                tbody.innerHTML = rows.map(r => `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-6 py-3 text-gray-800">${escapeHtml(r.provider_name)}</td>
+                        <td class="px-6 py-3 font-mono text-xs text-gray-700">${escapeHtml(r.model)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${formatNumber(r.request_count)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.avg_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.max_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.min_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${r.avg_tokens > 0 ? (r.avg_tokens / 1000).toFixed(1) + 'k' : '-'}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${r.total_tokens > 0 ? (r.total_tokens / 1000000).toFixed(2) + 'm' : '-'}</td>
+                    </tr>
+                `).join('');
+            } else if (dim === 'user') {
+                thead.innerHTML = `<tr class="border-b border-gray-200 text-left text-gray-500">
+                    <th class="${thClass}">${window.I18N.apiKey}</th>
+                    <th class="${thRightClass}">${window.I18N.requests || 'Requests'}</th>
+                    <th class="${thRightClass}">Avg Latency</th>
+                    <th class="${thRightClass}">Total Tokens</th>
+                </tr>`;
+                tbody.innerHTML = rows.map(r => `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-6 py-3 text-gray-800">${escapeHtml(r.api_key_name)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${formatNumber(r.request_count)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.avg_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${r.total_tokens > 0 ? (r.total_tokens / 1000000).toFixed(2) + 'm' : '-'}</td>
+                    </tr>
+                `).join('');
+            } else if (dim === 'ip') {
+                thead.innerHTML = `<tr class="border-b border-gray-200 text-left text-gray-500">
+                    <th class="${thClass}">${window.I18N.clientIp}</th>
+                    <th class="${thRightClass}">${window.I18N.requests || 'Requests'}</th>
+                    <th class="${thRightClass}">Avg Latency</th>
+                    <th class="${thRightClass}">Total Tokens</th>
+                </tr>`;
+                tbody.innerHTML = rows.map(r => `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-6 py-3 font-mono text-xs text-gray-800">${escapeHtml(r.client_ip)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${formatNumber(r.request_count)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.avg_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${r.total_tokens > 0 ? (r.total_tokens / 1000000).toFixed(2) + 'm' : '-'}</td>
+                    </tr>
+                `).join('');
+            } else if (dim === 'user_ip') {
+                thead.innerHTML = `<tr class="border-b border-gray-200 text-left text-gray-500">
+                    <th class="${thClass}">${window.I18N.apiKey}</th>
+                    <th class="${thClass}">${window.I18N.clientIp}</th>
+                    <th class="${thRightClass}">${window.I18N.requests || 'Requests'}</th>
+                    <th class="${thRightClass}">Avg Latency</th>
+                    <th class="${thRightClass}">Total Tokens</th>
+                </tr>`;
+                tbody.innerHTML = rows.map(r => `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-6 py-3 text-gray-800">${escapeHtml(r.api_key_name)}</td>
+                        <td class="px-6 py-3 font-mono text-xs text-gray-800">${escapeHtml(r.client_ip)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${formatNumber(r.request_count)}</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${(r.avg_latency_ms / 1000).toFixed(2)} s</td>
+                        <td class="px-6 py-3 text-right text-gray-800">${r.total_tokens > 0 ? (r.total_tokens / 1000000).toFixed(2) + 'm' : '-'}</td>
+                    </tr>
+                `).join('');
+            }
+            currentAggData = data;
+        }
+
+        function exportAggregateCSV() {
+            if (!currentAggData || !currentAggData.rows || !currentAggData.rows.length) {
+                alert('{{ _("No data to export") }}');
+                return;
+            }
+            const dim = currentAggData.group_by;
+            const rows = currentAggData.rows;
+            let headers = [];
+            let csvRows = [];
+
+            if (dim === 'provider_model') {
+                headers = ['Provider', 'Model', 'Requests', 'Avg Latency (s)', 'Max Latency (s)', 'Min Latency (s)', 'Avg Tokens', 'Total Tokens'];
+                csvRows = rows.map(r => [
+                    r.provider_name, r.model, r.request_count,
+                    (r.avg_latency_ms / 1000).toFixed(2),
+                    (r.max_latency_ms / 1000).toFixed(2),
+                    (r.min_latency_ms / 1000).toFixed(2),
+                    r.avg_tokens, r.total_tokens
+                ]);
+            } else if (dim === 'user') {
+                headers = ['User', 'Requests', 'Avg Latency (s)', 'Total Tokens'];
+                csvRows = rows.map(r => [
+                    r.api_key_name, r.request_count,
+                    (r.avg_latency_ms / 1000).toFixed(2),
+                    r.total_tokens
+                ]);
+            } else if (dim === 'ip') {
+                headers = ['Client IP', 'Requests', 'Avg Latency (s)', 'Total Tokens'];
+                csvRows = rows.map(r => [
+                    r.client_ip, r.request_count,
+                    (r.avg_latency_ms / 1000).toFixed(2),
+                    r.total_tokens
+                ]);
+            } else if (dim === 'user_ip') {
+                headers = ['User', 'Client IP', 'Requests', 'Avg Latency (s)', 'Total Tokens'];
+                csvRows = rows.map(r => [
+                    r.api_key_name, r.client_ip, r.request_count,
+                    (r.avg_latency_ms / 1000).toFixed(2),
+                    r.total_tokens
+                ]);
+            }
+
+            const csvContent = '\uFEFF' + [headers.join(','), ...csvRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `aggregate_${dim}_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        async function loadAggregate() {
+            const loading = document.getElementById('agg-loading');
+            const empty = document.getElementById('agg-empty');
+            const tbody = document.getElementById('agg-tbody');
+            const wrap = document.getElementById('agg-table-wrap');
+
+            loading.classList.remove('hidden');
+            empty.classList.add('hidden');
+            wrap.classList.add('hidden');
+            tbody.innerHTML = '';
+
+            try {
+                const provider = document.getElementById('agg-provider').value;
+                const status = document.getElementById('agg-status').value;
+                const keyName = document.getElementById('agg-key').value.trim();
+                const clientIp = document.getElementById('agg-ip').value.trim();
+                const params = new URLSearchParams();
+
+                if (currentAggRange === 'custom' && aggDatePicker) {
+                    const s = aggDatePicker.getStartISO();
+                    const e = aggDatePicker.getEndISO();
+                    if (s) params.set('start_time', s);
+                    if (e) params.set('end_time', e);
+                    else params.set('time_range', '24h');
+                } else {
+                    params.set('time_range', currentAggRange);
+                }
+
+                if (provider) params.set('provider', provider);
+                if (status) params.set('status', status);
+                if (keyName) params.set('key_name', keyName);
+                if (clientIp) params.set('client_ip', clientIp);
+                params.set('group_by', currentAggDimension);
+
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/aggregate?${params}`);
+                if (!data) return;
+
+                const rows = data.rows || [];
+                if (!rows.length) {
+                    empty.classList.remove('hidden');
+                    return;
+                }
+
+                wrap.classList.remove('hidden');
+                renderAggTable(data);
+            } catch (e) {
+                console.error('Failed to load aggregate', e);
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        async function loadProviders() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers`);
+                if (!data || !data.providers) return;
+                const logsSelect = document.getElementById('filter-provider');
+                const aggSelect = document.getElementById('agg-provider');
+                data.providers.forEach(p => {
+                    const opt1 = document.createElement('option');
+                    opt1.value = p.id;
+                    opt1.textContent = p.name;
+                    logsSelect.appendChild(opt1);
+
+                    const opt2 = document.createElement('option');
+                    opt2.value = p.id;
+                    opt2.textContent = p.name;
+                    aggSelect.appendChild(opt2);
+                });
+            } catch (e) { console.error('Failed to load providers', e); }
+        }
+
+        applyTheme(getThemeMode());
+        loadProviders();
+        loadLogs();
+    </script>
+</body>
+</html>

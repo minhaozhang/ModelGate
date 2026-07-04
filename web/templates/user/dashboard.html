@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="{{ current_locale }}">
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <script src="/static/js/chart.min.js"></script>
+    <script src="/static/js/marked.min.js"></script>
+    <style>
+        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .stats-sub-tab { border-bottom: 2px solid transparent; color: #6b7280; cursor: pointer; transition: all 0.15s; }
+        .stats-sub-tab:hover { color: #374151; }
+        .stats-sub-tab.active { border-bottom-color: #3b82f6; color: #3b82f6; }
+        .stats-sub-content { display: block; }
+        .stats-sub-content.hidden { display: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+        code { font-family: 'Monaco', 'Menlo', monospace; font-size: 0.875rem; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-200 { background: #243244 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .bg-blue-50 { background: rgba(37, 99, 235, 0.12) !important; }
+        body.theme-dark .bg-blue-100 { background: rgba(59, 130, 246, 0.18) !important; }
+        body.theme-dark .bg-emerald-50 { background: rgba(16, 185, 129, 0.12) !important; }
+        body.theme-dark .bg-emerald-100 { background: rgba(16, 185, 129, 0.18) !important; }
+        body.theme-dark .bg-yellow-100 { background: rgba(234, 179, 8, 0.18) !important; }
+        body.theme-dark .bg-red-100 { background: rgba(239, 68, 68, 0.18) !important; }
+        body.theme-dark .bg-slate-100 { background: #1e293b !important; }
+        body.theme-dark .from-blue-50,
+        body.theme-dark .to-cyan-50,
+        body.theme-dark .from-emerald-50,
+        body.theme-dark .to-teal-50 { background-image: none !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .text-blue-900 { color: #dbeafe !important; }
+        body.theme-dark .text-blue-700 { color: #bfdbfe !important; }
+        body.theme-dark .text-slate-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-emerald-700 { color: #a7f3d0 !important; }
+        body.theme-dark .text-yellow-700 { color: #fde68a !important; }
+        body.theme-dark .text-red-700 { color: #fecaca !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-blue-200,
+        body.theme-dark .border-gray-200,
+        body.theme-dark .border-slate-200,
+        body.theme-dark .border-emerald-200 { border-color: #243244 !important; }
+        body.theme-dark select,
+        body.theme-dark button:not(.bg-red-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-sm { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .tab-btn.active { border-bottom-color: #60a5fa; color: #60a5fa !important; }
+        body.theme-dark .stats-sub-tab { color: #94a3b8; }
+        body.theme-dark .stats-sub-tab.active { border-bottom-color: #60a5fa; color: #60a5fa !important; }
+        .stats-summary-tab { color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+        .stats-summary-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+        .stats-summary-tab:hover { color: #3b82f6; }
+        body.theme-dark .stats-summary-tab { color: #94a3b8; }
+        body.theme-dark .stats-summary-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+        body.theme-dark .bg-white.rounded,
+        body.theme-dark .bg-white.rounded-lg,
+        body.theme-dark .bg-white.rounded-xl,
+        body.theme-dark .bg-white.rounded-2xl,
+        body.theme-dark .bg-gray-50.rounded,
+        body.theme-dark .bg-gray-50.rounded-lg,
+        body.theme-dark .bg-gray-50.rounded-xl,
+        body.theme-dark .bg-gray-50.rounded-2xl,
+        body.theme-dark .bg-blue-50.rounded-lg,
+        body.theme-dark .bg-blue-50.rounded-2xl {
+            border: 1px solid rgba(71, 85, 105, 0.55) !important;
+            box-shadow:
+                0 18px 36px rgba(2, 6, 23, 0.34),
+                inset 0 1px 0 rgba(148, 163, 184, 0.08) !important;
+        }
+        body.theme-dark .tab-content > .bg-gray-50.rounded-lg,
+        body.theme-dark .tab-content > .bg-white.rounded-lg,
+        body.theme-dark .tab-content > .grid .bg-gray-50.rounded-lg,
+        body.theme-dark .tab-content > .grid .bg-white.rounded-lg {
+            background-image: linear-gradient(180deg, rgba(148, 163, 184, 0.04), transparent 28%) !important;
+        }
+        body.theme-dark .bg-white.p-3.rounded,
+        body.theme-dark .bg-white.p-3.rounded-lg,
+        body.theme-dark .bg-white.p-4.rounded,
+        body.theme-dark .bg-white.p-4.rounded-lg,
+        body.theme-dark .bg-gray-50.p-3.rounded,
+        body.theme-dark .bg-gray-50.p-3.rounded-lg {
+            border-color: rgba(71, 85, 105, 0.5) !important;
+        }
+        body.theme-dark code.bg-white,
+        body.theme-dark .bg-white.px-2,
+        body.theme-dark .bg-white.p-3:not(.rounded-2xl) {
+            background: #111827 !important;
+        }
+        body.theme-dark .bg-white.text-gray-600,
+        body.theme-dark .bg-white.text-gray-700,
+        body.theme-dark .bg-gray-200.text-gray-700,
+        body.theme-dark .bg-gray-100.text-gray-500,
+        body.theme-dark .bg-slate-100.text-slate-600,
+        body.theme-dark .bg-emerald-100.text-emerald-700 {
+            color: #cbd5e1 !important;
+        }
+        body.theme-dark .bg-black\/5,
+        body.theme-dark .bg-white\/70 {
+            background: rgba(148, 163, 184, 0.12) !important;
+            color: #dbeafe !important;
+            border: 1px solid rgba(71, 85, 105, 0.45);
+        }
+        body.theme-dark #recommendation-meta {
+            color: #cbd5e1 !important;
+        }
+        body.theme-dark #recommendation-analysis-meta {
+            color: #93c5fd !important;
+        }
+        body.theme-dark #recommendation-list > div {
+            color: #e2e8f0;
+        }
+        body.theme-dark #recommendation-list .text-gray-400 {
+            color: #cbd5e1 !important;
+        }
+        body.theme-dark #recommendation-list .text-slate-700 {
+            color: #f8fafc !important;
+        }
+        body.theme-dark #recommendation-timing-advice {
+            color: #cbd5e1 !important;
+            background: rgba(148, 163, 184, 0.08) !important;
+            border-color: rgba(71, 85, 105, 0.45) !important;
+        }
+        body.theme-dark pre {
+            border: 1px solid rgba(71, 85, 105, 0.6);
+            box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
+        }
+        body.theme-dark .bg-amber-50 {
+            background: rgba(245, 158, 11, 0.10) !important;
+        }
+        body.theme-dark .border-amber-200 {
+            border-color: rgba(245, 158, 11, 0.25) !important;
+        }
+        body.theme-dark .text-amber-800 {
+            color: #fde68a !important;
+        }
+
+        body.theme-blackgold { background: #09090b !important; color: #fafaf9; }
+        body.theme-blackgold .bg-white { background: #1a1814 !important; }
+        body.theme-blackgold .bg-gray-50 { background: #1c1917 !important; }
+        body.theme-blackgold .bg-gray-200 { background: #292524 !important; }
+        body.theme-blackgold .bg-gray-100 { background: #09090b !important; }
+        body.theme-blackgold .bg-blue-50 { background: rgba(212, 168, 83, 0.10) !important; }
+        body.theme-blackgold .bg-blue-100 { background: rgba(212, 168, 83, 0.18) !important; }
+        body.theme-blackgold .bg-emerald-50 { background: rgba(16, 185, 129, 0.10) !important; }
+        body.theme-blackgold .bg-emerald-100 { background: rgba(16, 185, 129, 0.16) !important; }
+        body.theme-blackgold .bg-yellow-100 { background: rgba(234, 179, 8, 0.15) !important; }
+        body.theme-blackgold .bg-red-100 { background: rgba(239, 68, 68, 0.15) !important; }
+        body.theme-blackgold .bg-slate-100 { background: #1c1917 !important; }
+        body.theme-blackgold .from-blue-50,
+        body.theme-blackgold .to-cyan-50,
+        body.theme-blackgold .from-emerald-50,
+        body.theme-blackgold .to-teal-50 { background-image: none !important; }
+        body.theme-blackgold .text-gray-800 { color: #fafaf9 !important; }
+        body.theme-blackgold .text-gray-700 { color: #d6d3d1 !important; }
+        body.theme-blackgold .text-gray-600 { color: #c9b896 !important; }
+        body.theme-blackgold .text-gray-500 { color: #a8a29e !important; }
+        body.theme-blackgold .text-gray-400 { color: #8b7d65 !important; }
+        body.theme-blackgold .text-blue-900 { color: #fde68a !important; }
+        body.theme-blackgold .text-blue-700 { color: #d4a853 !important; }
+        body.theme-blackgold .text-slate-600 { color: #c9b896 !important; }
+        body.theme-blackgold .text-emerald-700 { color: #a7f3d0 !important; }
+        body.theme-blackgold .text-yellow-700 { color: #fde68a !important; }
+        body.theme-blackgold .text-red-700 { color: #fecaca !important; }
+        body.theme-blackgold .border,
+        body.theme-blackgold .border-b,
+        body.theme-blackgold .border-blue-200,
+        body.theme-blackgold .border-gray-200,
+        body.theme-blackgold .border-slate-200,
+        body.theme-blackgold .border-emerald-200 { border-color: rgba(212, 168, 83, 0.22) !important; }
+        body.theme-blackgold select,
+        body.theme-blackgold button:not(.bg-red-500):not(.bg-blue-600) { background-color: #1a1814; color: #d6d3d1; border-color: rgba(212, 168, 83, 0.30); }
+        body.theme-blackgold .shadow,
+        body.theme-blackgold .shadow-sm { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55) !important; }
+        body.theme-blackgold .tab-btn.active { border-bottom-color: #d4a853 !important; color: #d4a853 !important; }
+        body.theme-blackgold .bg-white.rounded,
+        body.theme-blackgold .bg-white.rounded-lg,
+        body.theme-blackgold .bg-white.rounded-xl,
+        body.theme-blackgold .bg-white.rounded-2xl,
+        body.theme-blackgold .bg-gray-50.rounded,
+        body.theme-blackgold .bg-gray-50.rounded-lg,
+        body.theme-blackgold .bg-gray-50.rounded-xl,
+        body.theme-blackgold .bg-gray-50.rounded-2xl,
+        body.theme-blackgold .bg-blue-50.rounded-lg,
+        body.theme-blackgold .bg-blue-50.rounded-2xl {
+            border: 1px solid rgba(212, 168, 83, 0.25) !important;
+            box-shadow:
+                0 18px 36px rgba(0, 0, 0, 0.45),
+                inset 0 1px 0 rgba(212, 168, 83, 0.06) !important;
+        }
+        body.theme-blackgold .tab-content > .bg-gray-50.rounded-lg,
+        body.theme-blackgold .tab-content > .bg-white.rounded-lg,
+        body.theme-blackgold .tab-content > .grid .bg-gray-50.rounded-lg,
+        body.theme-blackgold .tab-content > .grid .bg-white.rounded-lg {
+            background-image: linear-gradient(180deg, rgba(212, 168, 83, 0.04), transparent 28%) !important;
+        }
+        body.theme-blackgold .bg-white.p-3.rounded,
+        body.theme-blackgold .bg-white.p-3.rounded-lg,
+        body.theme-blackgold .bg-white.p-4.rounded,
+        body.theme-blackgold .bg-white.p-4.rounded-lg,
+        body.theme-blackgold .bg-gray-50.p-3.rounded,
+        body.theme-blackgold .bg-gray-50.p-3.rounded-lg {
+            border-color: rgba(212, 168, 83, 0.22) !important;
+        }
+        body.theme-blackgold code.bg-white,
+        body.theme-blackgold .bg-white.px-2,
+        body.theme-blackgold .bg-white.p-3:not(.rounded-2xl) {
+            background: #1c1917 !important;
+        }
+        body.theme-blackgold .bg-white.text-gray-600,
+        body.theme-blackgold .bg-white.text-gray-700,
+        body.theme-blackgold .bg-gray-200.text-gray-700,
+        body.theme-blackgold .bg-gray-100.text-gray-500,
+        body.theme-blackgold .bg-slate-100.text-slate-600,
+        body.theme-blackgold .bg-emerald-100.text-emerald-700 {
+            color: #c9b896 !important;
+        }
+        body.theme-blackgold .bg-black\/5,
+        body.theme-blackgold .bg-white\/70 {
+            background: rgba(212, 168, 83, 0.08) !important;
+            color: #d4a853 !important;
+            border: 1px solid rgba(212, 168, 83, 0.22);
+        }
+        body.theme-blackgold #recommendation-meta {
+            color: #c9b896 !important;
+        }
+        body.theme-blackgold #recommendation-analysis-meta {
+            color: #d4a853 !important;
+        }
+        body.theme-blackgold #recommendation-list > div {
+            color: #fafaf9;
+        }
+        body.theme-blackgold #recommendation-list .text-gray-400 {
+            color: #c9b896 !important;
+        }
+        body.theme-blackgold #recommendation-list .text-slate-700 {
+            color: #fafaf9 !important;
+        }
+        body.theme-blackgold #recommendation-timing-advice {
+            color: #c9b896 !important;
+            background: rgba(212, 168, 83, 0.06) !important;
+            border-color: rgba(212, 168, 83, 0.22) !important;
+        }
+        body.theme-blackgold pre {
+            border: 1px solid rgba(212, 168, 83, 0.25);
+            box-shadow: inset 0 1px 0 rgba(212, 168, 83, 0.05);
+        }
+        body.theme-blackgold .bg-amber-50 {
+            background: rgba(212, 168, 83, 0.10) !important;
+        }
+        body.theme-blackgold .border-amber-200 {
+            border-color: rgba(212, 168, 83, 0.25) !important;
+        }
+        body.theme-blackgold .text-amber-800 {
+            color: #fde68a !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">{{ _('ModelGate-dashboard') }}</h1>
+                <p class="text-gray-500">{{ name }}</p>
+            </div>
+            <div class="flex gap-2">
+                <select id="period-select" onchange="loadStats()" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm">
+                    <option value="day">{{ _('Today') }}</option>
+                    <option value="week">{{ _('This Week') }}</option>
+                    <option value="month">{{ _('This Month') }}</option>
+                </select>
+                <select id="lang-select" onchange="switchLang(this.value)" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm">
+                    <option value="en">English</option>
+                    <option value="zh">中文</option>
+                </select>
+                <select id="theme-toggle" onchange="applyTheme(this.value)" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm cursor-pointer">
+                    <option value="light">{{ _('Light Mode') }}</option>
+                    <option value="dark">{{ _('Dark Mode') }}</option>
+                    <option value="blackgold">{{ _('Black Gold') }}</option>
+                </select>
+                <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                    {{ _('Logout') }}
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="flex border-b">
+                <button class="tab-btn active px-6 py-3 font-medium" onclick="showTab('stats')">{{ _('Statistics') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('catalog')">{{ _('Models') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('opencode')">{{ _('OpenCode Config') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('documents')">{{ _('Documents') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('mcp')">MCP Tools</button>
+                <button class="tab-btn px-6 py-3 font-medium" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}</button>
+            </div>
+            
+            {% include 'user/tab_stats.html' %}
+            {% include 'user/tab_catalog.html' %}
+            {% include 'user/tab_opencode.html' %}
+            {% include 'user/tab_usage.html' %}
+            {% include 'user/tab_documents.html' %}
+            {% include 'user/tab_mcp.html' %}
+            {% include 'user/tab_notifications.html' %}
+        </div>
+    </div>
+    
+    <script>
+    window.I18N = {
+        lightMode: {{ _('Light Mode') | tojson }},
+        darkMode: {{ _('Dark Mode') | tojson }},
+        blackGoldMode: {{ _('Black Gold Mode') | tojson }},
+        unauthorized: {{ _('Unauthorized') | tojson }},
+        others: {{ _('Others') | tojson }},
+        owned: {{ _('Owned') | tojson }},
+        available: {{ _('Available') | tojson }},
+        access: {{ _('Access') | tojson }},
+        noActiveProviders: {{ _('No active providers or models') | tojson }},
+        noAccessibleModels: {{ _('No accessible models') | tojson }},
+        fullAccessNote: {{ _('This API key currently has access to all active models on the platform.') | tojson }},
+        limitedAccessNote: {{ _('Models explicitly available to this API key.') | tojson }},
+        modelsAvailableNote: {{ _('Models available to this API key.') | tojson }},
+        platformProviderCatalog: {{ _('Platform provider catalog') | tojson }},
+        modelsThisKeyCanUse: {{ _('Models this key can use') | tojson }},
+        noData: {{ _('No data') | tojson }},
+        allCategories: {{ _('All Categories') | tojson }},
+        noDocuments: {{ _('No documents available') | tojson }},
+        viewDetails: {{ _('View Details') | tojson }},
+        noActiveSessions: {{ _('No active sessions') | tojson }},
+        noRequests: {{ _('No requests yet') | tojson }},
+        noModels: {{ _('No models') | tojson }},
+        copied: {{ _('Copied!') | tojson }},
+        uploadConfig: {{ _('Upload opencode.jsonc') | tojson }},
+        downloadMerged: {{ _('Download Merged Config') | tojson }},
+        mergeSuccess: {{ _('Merged config downloaded!') | tojson }},
+        mergeFailed: {{ _('Merge failed') | tojson }},
+        invalidFile: {{ _('Invalid JSON file') | tojson }},
+        disabledProviders: {{ _('Disabled Providers') | tojson }},
+        personal: {{ _('Personal') | tojson }},
+        system: {{ _('System') | tojson }},
+        clearSavedApiKey: {{ _('Clear saved API Key?') | tojson }},
+        active: {{ _('active') | tojson }},
+        req: {{ _('req') | tojson }},
+        err: {{ _('err') | tojson }},
+        models: {{ _('models') | tojson }},
+        providers: {{ _('providers') | tojson }},
+        ctx: {{ _('ctx') | tojson }},
+        out: {{ _('out') | tojson }},
+        multimodal: {{ _('multimodal') | tojson }},
+        alias: {{ _('alias') | tojson }},
+        requestsLabel: {{ _('Requests') | tojson }},
+        errorsLabel: {{ _('Errors') | tojson }},
+        tokensLabel: {{ _('Tokens') | tojson }},
+        requestsErrorsLabel: {{ _('Requests / Errors') | tojson }},
+        recommendedModels: {{ _('Recommended Models') | tojson }},
+        recommendationScore: {{ _('Recommendation score') | tojson }},
+        avgLatency: {{ _('Avg latency') | tojson }},
+        errorRate: {{ _('Error rate') | tojson }},
+        systemHealth: {{ _('System Health') | tojson }},
+        last20Minutes: {{ _('Last 20 minutes') | tojson }},
+        healthSummary: {{ _('Based on recent load, error rate, and latency') | tojson }},
+        noRecentTraffic: {{ _('No recent traffic in the last 20 minutes') | tojson }},
+        activeUsers: {{ _('Active users') | tojson }},
+        pendingLabel: {{ _('Pending') | tojson }},
+        healthExcellent: {{ _('Excellent') | tojson }},
+        healthHealthy: {{ _('Healthy') | tojson }},
+        healthBusy: {{ _('Busy') | tojson }},
+        healthDegraded: {{ _('Degraded') | tojson }},
+        healthIdle: {{ _('Idle') | tojson }},
+        rankedByStability: {{ _('Ranked by stability, response time, and sample size') | tojson }},
+        basedOnCurrentPeriod: {{ _('Based on the current period and accessible models') | tojson }},
+        noRecommendations: {{ _('No recommendation data yet') | tojson }},
+        loadingRecommendations: {{ _('Loading recommendations...') | tojson }},
+        analyzingBestTimeWindows: {{ _('Analyzing the best daily time windows...') | tojson }},
+        modelUsed: {{ _('Model Used') | tojson }},
+        aiGenerated: {{ _('AI Generated') | tojson }},
+        aiUnavailable: {{ _('AI analysis unavailable') | tojson }},
+        samplesLabel: {{ _('samples') | tojson }},
+        opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and other settings, only add or update the modelgate provider.') | tojson }},
+        loading: {{ _('Loading...') | tojson }},
+        loadFailed: {{ _('Failed to load') | tojson }},
+        topShare: {{ _('top share') | tojson }},
+        onRightAxis: {{ _('on right axis') | tojson }},
+        yourApiKey: {{ _('Your API key') | tojson }},
+        allApiKeys: {{ _('All API keys') | tojson }},
+        soEmpty: {{ _('So empty...') | tojson }},
+        estCostNote: {{ _('Estimated cost based on token usage and model pricing') | tojson }},
+        activeTitles: {
+            empty: {{ _('Online Users') | tojson }},
+            justYou: {{ _('Only You Online') | tojson }},
+            lonelyNight: {{ _('Night Owl — Just You') | tojson }},
+            earlyBird: {{ _('Early Bird — Just You') | tojson }},
+            companions: {{ _('Companions at Work') | tojson }},
+            nightOwls: {{ _('Night Owls Club') | tojson }},
+            earlyBirds: {{ _('Early Birds') | tojson }},
+            tokenFighters: {{ _('Token Rivals') | tojson }},
+            crowded: {{ _('Peak Hours') | tojson }},
+            shouldSleep: {{ _('Shouldn\'t You Be Asleep?') | tojson }},
+        },
+    };
+    </script>
+
+    {% include 'components/lang_switch.html' %}
+    <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+    </script>
+{% raw %}
+    <script>
+        const baseUrl = window.location.origin + APP_BASE_PATH + '/v1';
+        let trendChart = null;
+        let latestTrendData = {};
+        let modelUsageChart = null;
+        let systemModelChart = null;
+        let statsRequestVersion = 0;
+        let catalogLoaded = false;
+        const ownModelPalette = ['#2563eb', '#0f766e', '#0891b2', '#1d4ed8', '#059669', '#0ea5e9', '#14b8a6', '#0284c7'];
+        const systemModelPalette = ['#6366f1', '#06b6d4', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#f97316', '#14b8a6', '#ef4444', '#3b82f6'];
+        
+        document.getElementById('proxy-url-openai').textContent = baseUrl;
+        document.getElementById('base-python-openai').textContent = baseUrl;
+        document.getElementById('base-js-openai').textContent = baseUrl;
+        document.getElementById('base-curl-openai').textContent = baseUrl;
+        document.getElementById('proxy-url-anthropic').textContent = baseUrl;
+        document.getElementById('base-python-anthropic').textContent = baseUrl;
+        document.getElementById('base-python-anthropic-stream').textContent = baseUrl;
+        document.getElementById('base-python-tool').textContent = baseUrl;
+        document.getElementById('base-js-anthropic').textContent = baseUrl;
+        document.getElementById('base-curl-anthropic').textContent = baseUrl;
+
+        function getThemeMode() {
+            return localStorage.getItem('dashboard_theme') || 'dark';
+        }
+
+        function getChartTheme() {
+            const mode = getThemeMode();
+            const isDark = mode === 'dark';
+            const isBlackGold = mode === 'blackgold';
+            return {
+                tickColor: isBlackGold ? '#a8a29e' : (isDark ? '#94a3b8' : '#6b7280'),
+                gridColor: isBlackGold ? 'rgba(168, 162, 158, 0.12)' : (isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)'),
+                titleColor: isBlackGold ? '#d6d3d1' : (isDark ? '#cbd5e1' : '#4b5563'),
+                legendColor: isBlackGold ? '#d6d3d1' : (isDark ? '#e5e7eb' : '#374151'),
+                tooltipBg: isBlackGold ? '#1a1814' : (isDark ? '#0f172a' : '#ffffff'),
+                tooltipTitle: isBlackGold ? '#fafaf9' : (isDark ? '#f8fafc' : '#111827'),
+                tooltipBody: isBlackGold ? '#c9b896' : (isDark ? '#cbd5e1' : '#374151'),
+                tooltipBorder: isBlackGold ? 'rgba(212, 168, 83, 0.30)' : (isDark ? '#334155' : '#e5e7eb')
+            };
+        }
+
+        function applyTheme(mode) {
+            document.body.classList.remove('theme-dark', 'theme-blackgold');
+            if (mode === 'dark') document.body.classList.add('theme-dark');
+            else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
+            localStorage.setItem('dashboard_theme', mode);
+            document.getElementById('theme-toggle').value = mode;
+        }
+
+        applyTheme(getThemeMode());
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = `${APP_BASE_PATH}/user/login`;
+                throw new Error(window.I18N.unauthorized);
+            }
+            return await resp.json();
+        }
+        
+        function showTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            var btn = event.target.closest('.tab-btn');
+            if (btn) { btn.classList.add('active'); }
+            else { document.querySelectorAll('.tab-btn').forEach(function(b){ if(b.getAttribute('data-tab')===tab) b.classList.add('active'); }); }
+            document.getElementById('tab-' + tab).classList.add('active');
+            
+            if (tab === 'opencode') loadOpenCodeConfig();
+            if (tab === 'catalog' && !catalogLoaded) loadCatalog();
+            if (tab === 'documents') loadDocList();
+            if (tab === 'mcp') loadMcpInfo();
+            if (tab === 'notifications') { loadUserNotifList(1); userNotifMarkAllRead(); }
+        }
+
+        let _cachedSystemModels = {};
+        let _cachedPersonalModels = {};
+        let _latestTrendData = {};
+        let _activeSubTab = 'personal';
+
+        function showStatsSubTab(sub) {
+            document.querySelectorAll('.stats-sub-tab').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.stats-sub-content').forEach(c => c.classList.add('hidden'));
+            event.target.classList.add('active');
+            _activeSubTab = sub;
+            const el = document.getElementById('stats-sub-' + sub);
+            el.classList.remove('hidden');
+            setTimeout(() => {
+                if (sub === 'system') {
+                    _renderTrendChartToCanvas(document.getElementById('system-trend-chart').getContext('2d'), _latestTrendData, true);
+                }
+                if (sub === 'personal') {
+                    renderTrendChart(_latestTrendData);
+                }
+            }, 50);
+        }
+
+        function showStatsSummaryTab(sub, evt) {
+            document.querySelectorAll('.stats-summary-tab').forEach(b => b.classList.remove('active'));
+            evt.target.classList.add('active');
+            document.getElementById('stats-summary-personal').classList.toggle('hidden', sub !== 'personal');
+            document.getElementById('stats-summary-system').classList.toggle('hidden', sub !== 'system');
+        }
+
+        function openDocumentPage(docId) {
+            window.location.href = APP_BASE_PATH + '/user/documents/' + docId;
+        }
+
+        async function loadMcpInfo() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/user/api/mcp-info`);
+                if (!data.has_mcp) {
+                    document.getElementById('mcp-no-server').classList.remove('hidden');
+                    document.getElementById('mcp-info').classList.add('hidden');
+                    return;
+                }
+                document.getElementById('mcp-no-server').classList.add('hidden');
+                document.getElementById('mcp-info').classList.remove('hidden');
+
+                const servers = data.servers || [];
+                const tools = data.tools || [];
+
+                const configObj = {
+                    mcpServers: {
+                        "modelgate-proxy": {
+                            url: data.endpoint,
+                            headers: { "Authorization": "Bearer YOUR_API_KEY" }
+                        }
+                    }
+                };
+                const configObjSSE = {
+                    mcpServers: {
+                        "modelgate-proxy": {
+                            url: data.endpoint + "/sse",
+                            headers: { "Authorization": "Bearer YOUR_API_KEY" }
+                        }
+                    }
+                };
+                document.getElementById('mcp-config-snippet').textContent = JSON.stringify(configObj, null, 2);
+                document.getElementById('mcp-config-snippet-sse').textContent = JSON.stringify(configObjSSE, null, 2);
+
+                document.getElementById('mcp-tool-count').textContent = tools.length;
+
+                const toolsList = document.getElementById('mcp-tools-list');
+                toolsList.innerHTML = '';
+                if (tools.length === 0) {
+                    toolsList.innerHTML = '<p class="text-gray-400 text-sm">No tools available</p>';
+                    return;
+                }
+                tools.forEach(tool => {
+                    const div = document.createElement('div');
+                    div.className = 'bg-white rounded-lg p-3 shadow-sm';
+                    div.innerHTML = `
+                        <div class="font-mono text-sm font-semibold text-blue-600 mb-1">${tool.name}</div>
+                        <div class="text-gray-500 text-xs">${tool.description || ''}</div>
+                    `;
+                    toolsList.appendChild(div);
+                });
+            } catch (e) {
+                console.error('Failed to load MCP info:', e);
+            }
+        }
+
+        function copyMcpConfig(elementId) {
+            const text = document.getElementById(elementId || 'mcp-config-snippet').textContent;
+            navigator.clipboard.writeText(text);
+        }
+
+        async function loadDocList() {
+            const category = document.getElementById('doc-category-select').value;
+            const url = APP_BASE_PATH + '/user/api/documents' + (category ? '?category=' + encodeURIComponent(category) : '');
+            const res = await fetch(url);
+            if (res.status === 401) { logout(); return; }
+            const data = await res.json();
+            const catSelect = document.getElementById('doc-category-select');
+            const currentCat = catSelect.value;
+            catSelect.innerHTML = '<option value="">' + (window.I18N.allCategories || 'All Categories') + '</option>';
+            (data.categories || []).forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                catSelect.appendChild(opt);
+            });
+            catSelect.value = currentCat;
+            const docs = data.documents || [];
+            const listEl = document.getElementById('doc-list');
+            const emptyEl = document.getElementById('doc-empty');
+            if (!docs.length) {
+                listEl.innerHTML = '';
+                emptyEl.style.display = '';
+                return;
+            }
+            emptyEl.style.display = 'none';
+            listEl.innerHTML = docs.map(doc => `
+                <div onclick="openDocDetail(${doc.id})" class="cursor-pointer bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow border border-transparent hover:border-blue-200">
+                    <h3 class="font-semibold text-gray-800 mb-1">${doc.title}</h3>
+                    ${doc.category ? '<span class="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mb-2">' + doc.category + '</span>' : ''}
+                    ${doc.summary ? '<p class="text-sm text-gray-500">' + doc.summary + '</p>' : ''}
+                    <div class="mt-3 flex items-center justify-between gap-3">
+                        <div class="text-xs text-gray-400">${doc.updated_at || ''}</div>
+                        <button type="button" onclick="event.stopPropagation();openDocDetail(${doc.id})" class="text-xs text-blue-600 hover:underline">${window.I18N.viewDetails}</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function openDocDetail(docId) {
+            const res = await fetch(APP_BASE_PATH + '/user/api/documents/' + docId);
+            if (res.status === 401) { logout(); return; }
+            if (!res.ok) { openDocumentPage(docId); return; }
+            const doc = await res.json();
+            document.getElementById('doc-detail-title').textContent = doc.title || '';
+            document.getElementById('doc-detail-meta').innerHTML =
+                (doc.category ? '<span class="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mr-2">' + doc.category + '</span>' : '') +
+                (doc.updated_at || '');
+            document.getElementById('doc-detail-content').innerHTML = marked.parse(doc.content || '');
+            document.getElementById('doc-list-view').style.display = 'none';
+            document.getElementById('doc-detail-view').style.display = '';
+            document.getElementById('doc-detail-view').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function closeDocDetail() {
+            document.getElementById('doc-detail-view').style.display = 'none';
+            document.getElementById('doc-list-view').style.display = '';
+        }
+
+        function formatCompactTokens(tokens) {
+            const value = Number(tokens || 0);
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+            if (Number.isInteger(value)) return value.toLocaleString();
+            return value.toFixed(1).replace(/\.0$/, '');
+        }
+
+        function getTokenChartScale(requestValues, tokenValues) {
+            const maxRequests = Math.max(...requestValues, 1);
+            const maxTokens = Math.max(...tokenValues, 1);
+            const scales = [
+                { divisor: 1, suffix: '' },
+                { divisor: 1000, suffix: 'K' },
+                { divisor: 1000000, suffix: 'M' },
+                { divisor: 1000000000, suffix: 'B' }
+            ];
+            let scale = scales.find(s => maxTokens / s.divisor <= maxRequests * 5) || scales[scales.length - 1];
+            if (maxTokens / scale.divisor >= 1000) {
+                scale = scales[scales.indexOf(scale) + 1] || scale;
+            }
+            return scale;
+        }
+
+        function buildDonutSeries(data, palette, metric = 'requests', limit = 5) {
+            const entries = Object.entries(data || {})
+                .sort((a, b) => (b[1][metric] || 0) - (a[1][metric] || 0))
+                .filter(([, stats]) => (stats[metric] || 0) > 0);
+            const topEntries = entries.slice(0, limit);
+            const otherValue = entries.slice(limit).reduce((sum, [, stats]) => sum + (stats[metric] || 0), 0);
+            const labels = topEntries.map(([name]) => name);
+            const values = topEntries.map(([, stats]) => stats[metric] || 0);
+            const colors = topEntries.map((_, index) => palette[index % palette.length]);
+            if (otherValue > 0) {
+                labels.push(window.I18N.others);
+                values.push(otherValue);
+                colors.push('#cbd5e1');
+            }
+            return { entries, labels, values, colors };
+        }
+
+        function renderCatalogSections(data) {
+            const ownedFullNames = new Set(
+                (data.owned_providers || []).flatMap(group =>
+                    (group.models || []).map(model => model.model_name)
+                )
+            );
+
+            const renderPlatformGroups = (groups, emptyText) => {
+                if (!groups || !groups.length) {
+                    return `<div class="text-gray-400 text-center py-4">${emptyText}</div>`;
+                }
+
+                return groups.map(group => {
+                    const modelsHtml = (group.models || []).map(model => {
+                        const isOwned = ownedFullNames.has(model.model_name);
+                        const tone = isOwned
+                            ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-900'
+                            : 'border-gray-200 bg-white text-gray-700';
+                        const badge = isOwned
+                            ? `<span class="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${window.I18N.owned}</span>`
+                            : `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">${window.I18N.available}</span>`;
+                        return `
+                            <div class="rounded-2xl border ${tone} px-3 py-3 shadow-sm transition hover:-translate-y-0.5">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-semibold truncate" title="${model.model_name}">${model.display_name}</div>
+                                        <div class="mt-0.5 text-[11px] text-gray-500 truncate">${model.model_name}</div>
+                                    </div>
+                                    ${badge}
+                                </div>
+                                <div class="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                                    <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
+                                    <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
+                                    ${model.is_multimodal ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
+                                    ${model.has_override ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.alias}</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    return `
+                        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <div>
+                                    <div class="font-semibold text-sm">${group.name}</div>
+                                    <div class="mt-1 text-[11px] text-gray-500">${window.I18N.platformProviderCatalog}</div>
+                                </div>
+                                <div class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 shrink-0">${group.model_count} ${window.I18N.models}</div>
+                            </div>
+                            <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${modelsHtml}</div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            const renderOwnedGroups = (groups, emptyText) => {
+                if (!groups || !groups.length) {
+                    return `<div class="text-gray-400 text-center py-4">${emptyText}</div>`;
+                }
+
+                return groups.map(group => {
+                    const modelsHtml = (group.models || []).map(model => `
+                        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 px-3 py-3 shadow-sm">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <div class="text-sm font-semibold truncate" title="${model.model_name}">${model.display_name}</div>
+                                    <div class="mt-0.5 text-[11px] text-emerald-700/80 truncate">${model.model_name}</div>
+                                </div>
+                                <span class="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${window.I18N.access}</span>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-1.5 text-[11px] text-emerald-900/80">
+                                <span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
+                                <span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
+                                ${model.is_multimodal ? `<span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+
+                    return `
+                        <div class="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <div>
+                                    <div class="font-semibold text-sm">${group.name}</div>
+                                    <div class="mt-1 text-[11px] text-gray-500">${window.I18N.modelsThisKeyCanUse}</div>
+                                </div>
+                                <div class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs text-emerald-700 shrink-0">${group.model_count} ${window.I18N.models}</div>
+                            </div>
+                            <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${modelsHtml}</div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            document.getElementById('platform-catalog-meta').textContent =
+                `${data.platform_provider_count || 0} ${window.I18N.providers} / ${data.platform_model_count || 0} ${window.I18N.models}`;
+            document.getElementById('owned-catalog-meta').textContent =
+                `${data.owned_provider_count || 0} ${window.I18N.providers} / ${data.owned_model_count || 0} ${window.I18N.models}`;
+            document.getElementById('owned-catalog-note').textContent = data.full_access
+                ? window.I18N.fullAccessNote
+                : window.I18N.limitedAccessNote;
+
+            document.getElementById('platform-catalog').innerHTML = renderPlatformGroups(
+                data.platform_providers || [],
+                window.I18N.noActiveProviders
+            );
+            document.getElementById('owned-catalog').innerHTML = renderOwnedGroups(
+                data.owned_providers || [],
+                window.I18N.noAccessibleModels
+            );
+        }
+
+        function renderModelUsageLegend(legendId, metaId, models, series, palette, metaLabel) {
+            const totalRequests = series.entries.reduce((sum, [, stats]) => sum + (stats.requests || 0), 0) || 1;
+            const legendHtml = series.entries.slice(0, 6).map(([name, stats], index) => `
+                <div class="rounded bg-white p-3 shadow-sm">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${palette[index % palette.length]}"></span>
+                        <span class="truncate text-sm font-medium" title="${name}">${name}</span>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-500">${stats.requests.toLocaleString()} ${window.I18N.req} / ${formatCompactTokens(stats.tokens || 0)}</div>
+                    ${typeof stats.errors === 'number' ? `<div class="mt-1 text-xs text-gray-400">${window.I18N.err} ${stats.errors}</div>` : ''}
+                </div>
+            `).join('');
+            document.getElementById(legendId).innerHTML = legendHtml || `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${window.I18N.noData}</div>`;
+            document.getElementById(metaId).textContent = `${metaLabel} / ${Object.keys(models || {}).length} ${window.I18N.models} / ${window.I18N.topShare} ${
+                series.entries[0] ? (((series.entries[0][1].requests || 0) / totalRequests) * 100).toFixed(1) + '%' : '0%'
+            }`;
+        }
+
+        function renderOwnModelChart(models) {
+            const canvas = document.getElementById('model-usage-chart');
+            if (!canvas) return;
+            const series = buildDonutSeries(models, ownModelPalette, 'requests', 6);
+            const ctx = canvas.getContext('2d');
+            const chartTheme = getChartTheme();
+            if (modelUsageChart) modelUsageChart.destroy();
+
+            modelUsageChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: series.labels,
+                    datasets: [{
+                        label: window.I18N.requestsLabel,
+                        data: series.values,
+                        backgroundColor: series.colors.map(color => `${color}cc`),
+                        borderColor: series.colors,
+                        borderWidth: 1,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        maxBarThickness: 26
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
+                                    const pct = context.raw / total;
+                                    return `${context.label}: ${(context.raw || 0).toLocaleString()} ${window.I18N.req} (${(pct * 100).toFixed(1)}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: { color: chartTheme.gridColor },
+                            ticks: { color: chartTheme.tickColor }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { color: chartTheme.tickColor }
+                        }
+                    }
+                }
+            });
+
+            renderModelUsageLegend(
+                'model-stats',
+                'model-usage-meta',
+                models,
+                series,
+                ownModelPalette,
+                window.I18N.yourApiKey
+            );
+        }
+
+        function renderSystemModelChart(models) {
+            const series = buildDonutSeries(models, systemModelPalette, 'requests', 6);
+            const canvas = document.getElementById('system-model-chart');
+            if (!canvas) return;
+            const chartTheme = getChartTheme();
+
+            renderModelUsageLegend(
+                'system-model-legend',
+                'system-model-meta',
+                models,
+                series,
+                systemModelPalette,
+                window.I18N.allApiKeys
+            );
+
+            if (series.labels.length === 0) return;
+            if (systemModelChart) { systemModelChart.destroy(); systemModelChart = null; }
+
+            systemModelChart = new Chart(canvas.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: series.labels,
+                    datasets: [{
+                        data: series.values,
+                        backgroundColor: series.colors.map(color => `${color}b3`),
+                        borderColor: series.colors,
+                        borderWidth: 1.5,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '48%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
+                                    const pct = context.raw / total;
+                                    return `${context.label}: ${(context.raw || 0).toLocaleString()} ${window.I18N.req} (${(pct * 100).toFixed(1)}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function getDynamicActiveTitle(activeCount) {
+            const hour = new Date().getHours();
+            const titles = window.I18N.activeTitles || {};
+            if (activeCount === 0) return titles.empty || window.I18N.systemActiveRequests;
+            if (activeCount === 1) {
+                if (hour >= 0 && hour < 5) return titles.lonelyNight || window.I18N.systemActiveRequests;
+                if (hour >= 5 && hour < 9) return titles.earlyBird || window.I18N.systemActiveRequests;
+                if (hour >= 22) return titles.lonelyNight || window.I18N.systemActiveRequests;
+                return titles.justYou || window.I18N.systemActiveRequests;
+            }
+            if (activeCount >= 2 && activeCount <= 4) {
+                if (hour >= 0 && hour < 5) return titles.nightOwls || window.I18N.systemActiveRequests;
+                if (hour >= 5 && hour < 9) return titles.earlyBirds || window.I18N.systemActiveRequests;
+                if (hour >= 22) return titles.nightOwls || window.I18N.systemActiveRequests;
+                return titles.companions || window.I18N.systemActiveRequests;
+            }
+            if (activeCount >= 5 && activeCount <= 10) {
+                if (hour >= 0 && hour < 6) return titles.shouldSleep || window.I18N.systemActiveRequests;
+                return titles.tokenFighters || window.I18N.systemActiveRequests;
+            }
+            if (hour >= 0 && hour < 6) return titles.shouldSleep || window.I18N.systemActiveRequests;
+            return titles.crowded || window.I18N.systemActiveRequests;
+        }
+
+        function renderSystemActiveSessions(data) {
+            const count = data.active_count || 0;
+            document.getElementById('system-active-title').textContent = getDynamicActiveTitle(count);
+            document.getElementById('system-active-count').textContent = `${count} ${window.I18N.active} / ${(data.request_count || 0).toLocaleString()} ${window.I18N.req}`;
+            if (!count) {
+                document.getElementById('system-active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${window.I18N.soEmpty}</div>`;
+                return;
+            }
+
+            const html = (data.sessions || []).map(session => {
+                const labelClass = session.is_self ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-700';
+                const modelsHtml = Object.entries(session.models || {})
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([model, count]) => `<span class="bg-white text-gray-600 text-xs px-2 py-1 rounded">${model} (${count})</span>`)
+                    .join(' ');
+                return `
+                    <div class="rounded bg-white p-3 shadow-sm">
+                        <div class="flex justify-between items-start gap-3">
+                            <div class="min-w-0">
+                                <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium ${labelClass}">${session.name}</span>
+                                <div class="mt-2 text-xs text-gray-500">${modelsHtml || window.I18N.noModels}</div>
+                            </div>
+                            <div class="text-sm font-medium text-gray-700 shrink-0">${session.requests} ${window.I18N.req}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('system-active-sessions').innerHTML = html;
+        }
+
+        function isCompactTrendLayout() {
+            return window.matchMedia('(max-width: 767px)').matches;
+        }
+
+        function coalesceTrendBucketPair(firstBucket, secondBucket) {
+            const merged = {};
+            const metricKeys = new Set([
+                ...Object.keys(firstBucket || {}),
+                ...Object.keys(secondBucket || {}),
+            ]);
+            metricKeys.forEach(key => {
+                merged[key] = Number(firstBucket?.[key] || 0) + Number(secondBucket?.[key] || 0);
+            });
+            return merged;
+        }
+
+        function normalizeTrendData(trendData) {
+            const labels = Object.keys(trendData || {});
+            const period = document.getElementById('period-select')?.value || 'day';
+            if (period !== 'day' || !isCompactTrendLayout() || labels.length !== 48) {
+                return trendData;
+            }
+
+            const mergedTrendData = {};
+            for (let index = 0; index < labels.length; index += 2) {
+                const hourLabel = labels[index];
+                mergedTrendData[hourLabel] = coalesceTrendBucketPair(
+                    trendData?.[labels[index]],
+                    trendData?.[labels[index + 1]],
+                );
+            }
+            return mergedTrendData;
+        }
+
+        function getTrendVisibleRange(seriesList, totalBuckets) {
+            const period = document.getElementById('period-select')?.value || 'day';
+            let firstIndex = null;
+            let lastIndex = null;
+            seriesList.forEach(series => {
+                (series || []).forEach((value, index) => {
+                    if (!Number(value || 0)) return;
+                    firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
+                    lastIndex = lastIndex === null ? index : Math.max(lastIndex, index);
+                });
+            });
+            if (firstIndex === null || lastIndex === null) {
+                if (period === 'month' || period === 'year') {
+                    const minVisibleBuckets = Math.min(30, totalBuckets);
+                    return { start: Math.max(totalBuckets - minVisibleBuckets, 0), end: Math.max(totalBuckets - 1, 0) };
+                }
+                return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            if (period === 'month' || period === 'year') {
+                const minVisibleBuckets = Math.min(30, totalBuckets);
+                const start = Math.max(Math.min(firstIndex - 1, totalBuckets - minVisibleBuckets), 0);
+                return { start, end: Math.max(totalBuckets - 1, 0) };
+            }
+            let start = Math.max(firstIndex - 1, 0);
+            let end = Math.min(lastIndex + 1, totalBuckets - 1);
+            if (period === 'day') {
+                const minVisibleBuckets = totalBuckets >= 48 ? 12 : 6;
+                const currentVisibleBuckets = end - start + 1;
+                if (currentVisibleBuckets < minVisibleBuckets) {
+                    end = Math.min(end + (minVisibleBuckets - currentVisibleBuckets), totalBuckets - 1);
+                    const stillMissing = minVisibleBuckets - (end - start + 1);
+                    if (stillMissing > 0) {
+                        start = Math.max(start - stillMissing, 0);
+                    }
+                }
+            }
+            return { start, end };
+        }
+
+        function formatHealthLatency(latencyMs) {
+            const value = Number(latencyMs || 0);
+            if (!value) return '--';
+            if (value >= 10000) return `${(value / 1000).toFixed(0)}s`;
+            if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
+            return `${Math.round(value)}ms`;
+        }
+
+        function renderSystemHealth(health) {
+            const errorRate = document.getElementById('system-health-error-rate');
+            if (errorRate) {
+                errorRate.textContent = `${(Number(health?.error_rate || 0) * 100).toFixed(1)}%`;
+            }
+        }
+
+        function renderBusyness(data) {
+            if (!data) return;
+            const colorMap = {red:'bg-red-500',orange:'bg-orange-500',yellow:'bg-yellow-500',green:'bg-green-500',blue:'bg-blue-500',slate:'bg-slate-400'};
+            const badgeBgMap = {red:'bg-red-100 text-red-700',orange:'bg-orange-100 text-orange-700',yellow:'bg-yellow-100 text-yellow-700',green:'bg-green-100 text-green-700',blue:'bg-blue-100 text-blue-700',slate:'bg-slate-100 text-slate-600'};
+            const textMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-700'};
+            const c = data.color || 'slate';
+            const locale = document.documentElement.lang || '{{ current_locale }}' || 'zh';
+            const isZh = locale === 'zh' || locale === 'zh-CN' || locale.startsWith('zh');
+            const zhMap = {extremely_busy:'过载',very_busy:'拥挤',busy:'活跃',normal:'流畅',idle:'平静',quiet:'寂静'};
+            const enMap = {extremely_busy:'Overloaded',very_busy:'Crowded',busy:'Active',normal:'Smooth',idle:'Calm',quiet:'Silent'};
+            const busynessLabel = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
+            const dot = document.getElementById('busyness-dot');
+            const badge = document.getElementById('busyness-badge');
+            const levelText = document.getElementById('busyness-level-text');
+            const activeUsers = document.getElementById('busyness-active-users');
+            const ratio429 = document.getElementById('busyness-429-ratio');
+            if (dot) dot.className = 'w-4 h-4 rounded-full shrink-0 ' + (colorMap[c] || 'bg-slate-400');
+            if (badge) { badge.className = 'rounded-full px-2.5 py-1 text-xs font-semibold ' + (badgeBgMap[c] || 'bg-slate-100 text-slate-600'); badge.textContent = busynessLabel; }
+            if (levelText) { levelText.className = 'text-2xl font-bold ' + (textMap[c] || 'text-slate-700'); levelText.textContent = busynessLabel; }
+            if (activeUsers) activeUsers.textContent = Number(data.active_users_10min || 0).toLocaleString();
+            if (ratio429) ratio429.textContent = (Number(data.rate_429_ratio || 0) * 100).toFixed(1) + '%';
+        }
+
+        async function loadStats() {
+            const period = document.getElementById('period-select').value;
+            const requestVersion = ++statsRequestVersion;
+            const [data, systemModels] = await Promise.all([
+                fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/stats?period=' + period),
+                fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-models?period=' + period)
+            ]);
+             
+            document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
+            document.getElementById('total-prompt-tokens').textContent = formatCompactTokens(data.total_prompt_tokens || 0);
+            document.getElementById('total-completion-tokens').textContent = formatCompactTokens(data.total_completion_tokens || 0);
+            document.getElementById('personal-errors').textContent = (data.total_errors || 0).toLocaleString();
+            const pCost = data.estimated_cost || 0;
+            const pCostEl = document.getElementById('personal-cost');
+            const pCostNote = document.getElementById('personal-cost-note');
+            if (pCost > 0) {
+                pCostEl.textContent = pCost >= 1 ? '¥' + pCost.toFixed(2) : '¥' + pCost.toFixed(4);
+                pCostNote.textContent = '按请求计费快照汇总';
+            } else {
+                pCostEl.textContent = '-';
+                pCostNote.textContent = '';
+            }
+
+            const sysModels = systemModels.models || {};
+            const sysTotalReqs = systemModels.total_requests || 0;
+            const sysTotalTokens = systemModels.total_tokens || 0;
+            const sysTotalPromptTokens = systemModels.total_prompt_tokens || 0;
+            const sysTotalCompletionTokens = systemModels.total_completion_tokens || 0;
+            const sysModelCount = Object.keys(sysModels).length;
+            document.getElementById('system-total-requests').textContent = sysTotalReqs.toLocaleString();
+            document.getElementById('system-total-prompt-tokens').textContent = formatCompactTokens(sysTotalPromptTokens);
+            document.getElementById('system-total-completion-tokens').textContent = formatCompactTokens(sysTotalCompletionTokens);
+            document.getElementById('system-model-count').textContent = sysModelCount;
+            document.getElementById('system-avg-per-model').textContent = sysModelCount > 0 ? Math.round(sysTotalReqs / sysModelCount).toLocaleString() : '0';
+
+            latestTrendData = data.trend || {};
+            _latestTrendData = latestTrendData;
+            _cachedPersonalModels = data.models || {};
+            _cachedSystemModels = systemModels.models || {};
+            renderSystemHealth(data.system_health || {});
+            renderBusyness(data.busyness || null);
+            renderTrendChart(latestTrendData);
+            renderOwnModelChart(data.models || {});
+            renderSystemModelChart(systemModels.models || {});
+
+            fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/recommendations?period=' + period)
+                .then(recommendations => {
+                    const activePeriod = document.getElementById('period-select')?.value || 'day';
+                    if (requestVersion !== statsRequestVersion || activePeriod !== period) return;
+                    renderRecommendations(recommendations || {}, period, requestVersion);
+                })
+                .catch(() => {
+                    if (requestVersion !== statsRequestVersion) return;
+                    document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
+                });
+        }
+
+        function renderRecommendations(data, period, requestVersion) {
+            recommendationsInitialized = true;
+            const items = data.items || [];
+            if (!items.length) {
+                document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
+                return;
+            }
+
+            const html = items.map(item => {
+                const scoreClass = item.rank <= 3
+                    ? ['bg-emerald-500', 'bg-sky-500', 'bg-amber-500'][item.rank - 1]
+                    : 'bg-slate-400';
+                const errPct = (item.error_rate * 100).toFixed(1);
+                const latStr = item.avg_latency_ms >= 1000 ? (item.avg_latency_ms/1000).toFixed(1)+'s' : Math.round(item.avg_latency_ms)+'ms';
+                return `
+                    <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
+                        <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full ${scoreClass} px-1.5 text-[11px] font-semibold text-white">#${item.rank}</span>
+                        <span class="max-w-[13rem] truncate font-medium">${item.display_name || item.actual_model_name}</span>
+                        <span class="text-xs text-gray-400">${item.requests}req · ${errPct}%err · ${latStr}</span>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('recommendation-list').innerHTML = html;
+        }
+
+        async function loadCatalog() {
+            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/catalog');
+            renderCatalogSections(data);
+            catalogLoaded = true;
+        }
+         
+        function renderTrendChart(trendData) {
+            const canvas = document.getElementById('trend-chart');
+            if (!canvas) return;
+            _renderTrendChartToCanvas(canvas.getContext('2d'), trendData, false);
+            const sysCtx = document.getElementById('system-trend-chart');
+            if (sysCtx) _renderTrendChartToCanvas(sysCtx.getContext('2d'), trendData, true);
+        }
+
+        let systemTrendChart = null;
+        function _renderTrendChartToCanvas(canvasEl, trendData, isSystem) {
+            const chartTheme = getChartTheme();
+            if (isSystem) { if (systemTrendChart) systemTrendChart.destroy(); }
+            else { if (trendChart) trendChart.destroy(); }
+
+            const normalizedTrendData = normalizeTrendData(trendData);
+            const labels = Object.keys(normalizedTrendData);
+            const requests = labels.map(l => normalizedTrendData[l].requests || 0);
+            const rawTokens = labels.map(l => normalizedTrendData[l].tokens || 0);
+            const errors = labels.map(l => normalizedTrendData[l].errors || 0);
+            const visibleRange = getTrendVisibleRange([requests, rawTokens, errors], labels.length);
+            const tokenScale = getTokenChartScale(requests, rawTokens);
+            const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
+            const tokenLabel = tokenScale.suffix ? `${window.I18N.tokensLabel} (${tokenScale.suffix})` : window.I18N.tokensLabel;
+
+             
+            const ctx = canvasEl;
+            const chart = new Chart(ctx, {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: window.I18N.requestsLabel,
+                            data: requests,
+                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
+                            borderColor: 'rgba(59, 130, 246, 0.85)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: tokenLabel,
+                            data: tokens,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            pointBackgroundColor: '#10b981',
+                            pointRadius: 3,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.25,
+                            fill: true,
+                            yAxisID: 'yTokens'
+                        },
+                        {
+                            type: 'line',
+                            label: window.I18N.errorsLabel,
+                            data: errors,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [6, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            min: visibleRange.start,
+                            max: visibleRange.end,
+                            grid: { color: chartTheme.gridColor },
+                            ticks: {
+                                color: chartTheme.tickColor,
+                                autoSkip: true,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                maxTicksLimit: labels.length > 20 ? 10 : 12
+                            }
+                        },
+                        yRequests: {
+                            beginAtZero: true,
+                            position: 'left',
+                            grid: { color: chartTheme.gridColor },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: window.I18N.requestsErrorsLabel, color: chartTheme.titleColor }
+                        },
+                        yTokens: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: tokenLabel, color: chartTheme.titleColor }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: chartTheme.legendColor }
+                        },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.yAxisID === 'yTokens') {
+                                        const rawValue = rawTokens[context.dataIndex] || 0;
+                                        return `${tokenLabel}: ${formatCompactTokens(rawValue)} (${rawValue.toLocaleString()})`;
+                                    }
+                                    return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            if (isSystem) systemTrendChart = chart;
+            else trendChart = chart;
+        }
+        let trendLayoutRaf = null;
+        window.addEventListener('resize', () => {
+            if (trendLayoutRaf) cancelAnimationFrame(trendLayoutRaf);
+            trendLayoutRaf = requestAnimationFrame(() => {
+                if (latestTrendData && Object.keys(latestTrendData).length) {
+                    renderTrendChart(latestTrendData);
+                }
+            });
+        });
+        
+        async function loadOpenCodeConfig() {
+            const el = document.getElementById('config-output');
+            el.textContent = window.I18N.loading || 'Loading...';
+            try {
+                const resp = await fetch(APP_BASE_PATH + '/opencode/setup.md');
+                if (!resp.ok) {
+                    el.textContent = window.I18N.loadFailed || 'Failed to load';
+                    return;
+                }
+                const text = await resp.text();
+                el.textContent = text;
+            } catch (e) {
+                el.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
+            }
+        }
+        
+        function copyConfig() {
+            const config = document.getElementById('config-output').textContent;
+            navigator.clipboard.writeText(config).then(() => alert(window.I18N.copied));
+        }
+
+        function copyOpencodeConfigDir() {
+            const dir = document.getElementById('opencode-config-dir')?.textContent || '~/.config/opencode';
+            navigator.clipboard.writeText(dir).then(() => alert(window.I18N.copied));
+        }
+
+        function copyOpencodeOpenCmd() {
+            const cmd = document.getElementById('opencode-open-cmd')?.textContent || 'open ~/.config/opencode';
+            navigator.clipboard.writeText(cmd).then(() => alert(window.I18N.copied));
+        }
+
+        function downloadConfig() {
+            const config = document.getElementById('config-output').textContent || '';
+            if (!config || config === (window.I18N.loading || 'Loading...')) return;
+            const jsonMatch = config.match(/```json\s*([\s\S]*?)```/);
+            const content = jsonMatch ? jsonMatch[1].trim() : config;
+            const filename = jsonMatch ? 'opencode.jsonc' : 'opencode-setup.md';
+            const mime = jsonMatch ? 'application/json' : 'text/markdown;charset=utf-8';
+            const blob = new Blob([content], { type: mime });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadBillingDetails() {
+            const period = document.getElementById('period-select')?.value || 'day';
+            window.location.href = APP_BASE_PATH + '/user/api/billing-details.csv?period=' + encodeURIComponent(period);
+        }
+
+        async function mergeConfigFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const statusEl = document.getElementById('merge-status');
+            const label = document.getElementById('upload-label');
+            try {
+                const text = await file.text();
+                let userConfig;
+                try {
+                    userConfig = JSON.parse(text);
+                } catch {
+                    statusEl.textContent = window.I18N.invalidFile;
+                    statusEl.className = 'mt-2 text-sm text-red-500';
+                    statusEl.classList.remove('hidden');
+                    return;
+                }
+                label.textContent = window.I18N.loading || 'Loading...';
+                const resp = await fetch(APP_BASE_PATH + '/opencode/merge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ config: userConfig }),
+                });
+                if (!resp.ok) {
+                    statusEl.textContent = window.I18N.mergeFailed;
+                    statusEl.className = 'mt-2 text-sm text-red-500';
+                    statusEl.classList.remove('hidden');
+                    return;
+                }
+                const merged = await resp.json();
+                const blob = new Blob([JSON.stringify(merged, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'opencode.jsonc';
+                a.click();
+                URL.revokeObjectURL(url);
+                statusEl.textContent = window.I18N.mergeSuccess;
+                statusEl.className = 'mt-2 text-sm text-green-600';
+                statusEl.classList.remove('hidden');
+            } catch (e) {
+                statusEl.textContent = (window.I18N.mergeFailed || 'Merge failed') + ': ' + e.message;
+                statusEl.className = 'mt-2 text-sm text-red-500';
+                statusEl.classList.remove('hidden');
+            } finally {
+                label.textContent = window.I18N.uploadConfig || 'Upload opencode.jsonc';
+                input.value = '';
+            }
+        }
+        
+        function copyCode(type) {
+            const el = document.getElementById('code-' + type);
+            navigator.clipboard.writeText(el.textContent).then(() => alert(window.I18N.copied));
+        }
+
+        function switchProtocol(proto) {
+            document.getElementById('proto-openai').classList.toggle('hidden', proto !== 'openai');
+            document.getElementById('proto-anthropic').classList.toggle('hidden', proto !== 'anthropic');
+            var tabOpenai = document.getElementById('proto-tab-openai');
+            var tabAnthropic = document.getElementById('proto-tab-anthropic');
+            if (proto === 'openai') {
+                tabOpenai.classList.add('border-blue-500', 'text-blue-600');
+                tabOpenai.classList.remove('border-transparent', 'text-gray-500');
+                tabAnthropic.classList.remove('border-blue-500', 'text-blue-600');
+                tabAnthropic.classList.add('border-transparent', 'text-gray-500');
+            } else {
+                tabAnthropic.classList.add('border-blue-500', 'text-blue-600');
+                tabAnthropic.classList.remove('border-transparent', 'text-gray-500');
+                tabOpenai.classList.remove('border-blue-500', 'text-blue-600');
+                tabOpenai.classList.add('border-transparent', 'text-gray-500');
+            }
+        }
+        
+        async function logout() {
+            const clearSaved = confirm(window.I18N.clearSavedApiKey);
+            if (clearSaved) localStorage.removeItem('user_api_key');
+            await fetch(APP_BASE_PATH + '/user/api/logout', {method: 'POST'});
+            window.location.href = `${APP_BASE_PATH}/user/login`;
+        }
+        
+        async function loadMyRequests() {
+            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active');
+            const list = data.requests || [];
+            const el = document.getElementById('my-requests-list');
+            if (!list.length) {
+                el.innerHTML = `<div class="text-gray-400 text-center py-2">${window.I18N.noRequests || 'No requests'}</div>`;
+                return;
+            }
+            el.innerHTML = list.map(r => {
+                const statusDot = r.status === 'error'
+                    ? '<span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>'
+                    : '<span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>';
+                const latency = r.latency_ms != null ? (r.latency_ms >= 1000 ? (r.latency_ms / 1000).toFixed(1) + 's' : r.latency_ms + 'ms') : '-';
+                const tokens = r.tokens > 0 ? formatCompactTokens(r.tokens) : '-';
+                const time = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+                const errorHtml = r.error ? `<div class="text-xs text-red-500 mt-1 truncate" title="${r.error}">${r.error}</div>` : '';
+                return `
+                    <div class="rounded bg-white p-3 shadow-sm mb-2 last:mb-0">
+                        <div class="flex items-center gap-2 text-sm">
+                            ${statusDot}
+                            <span class="font-medium truncate">${r.model}</span>
+                            <span class="text-gray-400 text-xs ml-auto shrink-0">${time}</span>
+                        </div>
+                        <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                            <span>${window.I18N.tokensLabel || 'Tokens'}: ${tokens}</span>
+                            <span>${latency}</span>
+                        </div>
+                        ${errorHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadSystemActiveSessions() {
+            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-active');
+            renderSystemActiveSessions(data);
+        }
+        
+        loadStats();
+        loadMyRequests();
+        loadSystemActiveSessions();
+        setInterval(loadStats, 30000);
+        setInterval(loadMyRequests, 10000);
+        setInterval(loadSystemActiveSessions, 10000);
+
+        let _userNotifPage = 1;
+        async function loadUserNotifList(page) {
+            _userNotifPage = page;
+            const r = await fetch(APP_BASE_PATH + '/user/api/notifications?page=' + page + '&page_size=10');
+            const d = await r.json();
+            const el = document.getElementById('user-notif-list');
+            if (!d.items || !d.items.length) { el.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + (window.I18N.noNotifications || 'No notifications') + '</div>'; document.getElementById('user-notif-pagination').innerHTML = ''; return; }
+            const levelColors = {info:'border-blue-400 bg-blue-50',warning:'border-yellow-400 bg-yellow-50',error:'border-red-400 bg-red-50'};
+            const levelDots = {info:'bg-blue-500',warning:'bg-yellow-500',error:'bg-red-500'};
+            el.innerHTML = d.items.map(function(n) {
+                const lc = levelColors[n.level]||levelColors.info;
+                const ld = levelDots[n.level]||levelDots.info;
+                return '<div class="bg-white rounded-lg p-3 border ' + lc + ' ' + (n.is_read?'':'border-l-[3px] border-l-blue-500') + '">' +
+                    '<div class="flex items-start gap-2">' +
+                        '<div class="w-2 h-2 rounded-full ' + ld + ' mt-1.5 shrink-0"></div>' +
+                        '<div class="flex-1 min-w-0">' +
+                            '<div class="flex justify-between gap-2"><span class="font-medium text-gray-700 text-sm">' + (n.title||'') + '</span><span class="text-xs text-gray-400 shrink-0">' + new Date(n.created_at).toLocaleString() + '</span></div>' +
+                            (n.body ? '<p class="text-xs text-gray-500 mt-1">' + n.body + '</p>' : '') +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+            const totalPages = Math.ceil(d.total / d.page_size);
+            const pg = document.getElementById('user-notif-pagination');
+            if (totalPages <= 1) { pg.innerHTML = ''; return; }
+            let html = '';
+            if (page > 1) html += '<button onclick="loadUserNotifList(' + (page-1) + ')" class="px-3 py-1 border rounded text-sm">&lt;</button>';
+            for (let i = Math.max(1,page-2); i <= Math.min(totalPages,page+2); i++) {
+                html += '<button onclick="loadUserNotifList(' + i + ')" class="px-3 py-1 border rounded text-sm ' + (i===page?'bg-blue-500 text-white':'') + '">' + i + '</button>';
+            }
+            if (page < totalPages) html += '<button onclick="loadUserNotifList(' + (page+1) + ')" class="px-3 py-1 border rounded text-sm">&gt;</button>';
+            pg.innerHTML = html;
+        }
+        async function userNotifMarkAllRead() {
+            await fetch(APP_BASE_PATH + '/user/api/notifications/read-all', {method:'PUT'});
+            loadUserNotifList(_userNotifPage);
+        }
+    </script>
+{% endraw %}
+</body>
+</html>
+

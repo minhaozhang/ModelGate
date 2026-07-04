@@ -1,0 +1,150 @@
+<div id="tab-stats" class="tab-content active p-6">
+    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+        <div class="flex items-center gap-4 mb-4 border-b pb-2">
+            <button class="stats-summary-tab active text-sm font-semibold px-3 py-1.5 rounded-t" onclick="showStatsSummaryTab('personal', event)">{{ _('Personal') }}</button>
+            <button class="stats-summary-tab text-sm font-semibold px-3 py-1.5 rounded-t" onclick="showStatsSummaryTab('system', event)">{{ _('System') }}</button>
+        </div>
+        <div id="stats-summary-personal">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Total Requests') }}</div>
+                    <div id="total-requests" class="text-2xl font-bold text-blue-600">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Total Tokens') }}</div>
+                    <div class="text-xl font-bold text-green-600">↑<span id="total-prompt-tokens">0</span> / ↓<span id="total-completion-tokens">0</span></div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Errors') }}</div>
+                    <div id="personal-errors" class="text-2xl font-bold text-red-600">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="text-gray-500 text-sm">{{ _('Est. Cost') }}</div>
+                        <button onclick="downloadBillingDetails()" class="inline-flex items-center gap-1 rounded border border-amber-200 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50" title="下载费用明细">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                            下载
+                        </button>
+                    </div>
+                    <div id="personal-cost" class="text-2xl font-bold text-amber-600">¥0</div>
+                    <div id="personal-cost-note" class="text-[10px] text-gray-400 mt-0.5"></div>
+                </div>
+            </div>
+        </div>
+        <div id="stats-summary-system" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Total Requests') }}</div>
+                    <div id="system-total-requests" class="text-2xl font-bold text-blue-600">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Total Tokens') }}</div>
+                    <div class="text-xl font-bold text-green-600">↑<span id="system-total-prompt-tokens">0</span> / ↓<span id="system-total-completion-tokens">0</span></div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Models Used') }}</div>
+                    <div id="system-model-count" class="text-2xl font-bold text-purple-600">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 p-3">
+                    <div class="text-gray-500 text-sm">{{ _('Avg Requests/Model') }}</div>
+                    <div id="system-avg-per-model" class="text-2xl font-bold text-indigo-600">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="recommendation-section" class="bg-gray-50 rounded-lg p-4 mb-6">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-lg font-semibold">{{ _('Recommended Models') }}</h3>
+            <span class="text-xs text-gray-500">{{ _('Based on 7-day usage stats') }}</span>
+        </div>
+        <div id="recommendation-list" class="flex flex-wrap gap-2">
+            <div class="w-full text-gray-500 text-center py-4">{{ _('Loading recommendations...') }}</div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="flex justify-between items-start gap-3 mb-3">
+                <div>
+                    <h3 class="text-lg font-semibold">{{ _('System Status') }}</h3>
+                    <div class="text-xs text-gray-400" id="busyness-detail-line">{{ _('Real-time busyness level') }}</div>
+                </div>
+                <span id="busyness-badge" class="rounded-full px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-600">--</span>
+            </div>
+            <div class="flex items-center gap-3 mb-4">
+                <div id="busyness-dot" class="w-4 h-4 rounded-full bg-slate-400 shrink-0"></div>
+                <div id="busyness-level-text" class="text-2xl font-bold text-slate-700">--</div>
+            </div>
+            <div id="busyness-metrics" class="grid grid-cols-2 gap-3 text-sm">
+                <div class="rounded-lg bg-white/70 px-3 py-2">
+                    <div class="text-xs text-gray-400">{{ _('Active users (10min)') }}</div>
+                    <div id="busyness-active-users" class="mt-1 font-semibold text-slate-700">0</div>
+                </div>
+                <div class="rounded-lg bg-white/70 px-3 py-2">
+                    <div class="text-xs text-gray-400">429 {{ _('ratio') }}</div>
+                    <div id="busyness-429-ratio" class="mt-1 font-semibold text-slate-700">0.0%</div>
+                </div>
+            </div>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <h3 class="text-lg font-semibold mb-3">{{ _('My Requests') }}</h3>
+            <div id="my-requests-list"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="flex justify-between items-center mb-3">
+                <h3 id="system-active-title" class="text-lg font-semibold">{{ _('System Active Requests') }}</h3>
+                <span id="system-active-count" class="text-sm text-gray-500">0 {{ _('active') }}</span>
+            </div>
+            <div id="system-active-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-3"><div class="text-gray-400 text-center py-2 2xl:col-span-2">{{ _('So empty...') }}</div></div>
+        </div>
+    </div>
+
+    <div class="flex border-b mb-6">
+        <button class="stats-sub-tab active px-5 py-2.5 font-medium text-sm" onclick="showStatsSubTab('personal')">{{ _('Personal') }}</button>
+        <button class="stats-sub-tab px-5 py-2.5 font-medium text-sm" onclick="showStatsSubTab('system')">{{ _('System') }}</button>
+    </div>
+
+    <div id="stats-sub-personal" class="stats-sub-content">
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-semibold">{{ _('Request Trend') }}</h3>
+                <span class="text-xs text-gray-500">{{ _('Your API key') }}</span>
+            </div>
+            <div style="height: 250px;">
+                <canvas id="trend-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="stats-sub-system" class="stats-sub-content hidden">
+        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-semibold">{{ _('System Request Trend') }}</h3>
+                <span class="text-xs text-gray-500">{{ _('All API keys') }}</span>
+            </div>
+            <div style="height: 250px;">
+                <canvas id="system-trend-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-semibold">{{ _('Model Usage') }}</h3>
+                <span id="model-usage-meta" class="text-xs text-gray-500">{{ _('Your API key') }}</span>
+            </div>
+            <div class="h-64"><canvas id="model-usage-chart"></canvas></div>
+            <div id="model-stats" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3"></div>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-semibold">{{ _('System Model Usage') }}</h3>
+                <span id="system-model-meta" class="text-xs text-gray-500">{{ _('All API keys') }}</span>
+            </div>
+            <div class="h-64"><canvas id="system-model-chart"></canvas></div>
+            <div id="system-model-legend" class="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3"></div>
+        </div>
+    </div>
+</div>

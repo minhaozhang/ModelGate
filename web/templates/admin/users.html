@@ -1,0 +1,343 @@
+{% set active_page = 'users' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ '用户管理' if current_locale == 'zh' else 'Users' }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <style>
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav, body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border, body.theme-dark .border-b { border-color: #1f2937 !important; }
+        body.theme-dark input, body.theme-dark select, body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow { box-shadow: 0 12px 30px rgba(2,6,23,0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96,165,250,0.15); color: #60a5fa !important; border-right: 3px solid #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148,163,184,0.12); }
+        body.theme-dark tr:hover { background: #1e293b !important; }
+        body.theme-blackgold tr:hover { background: #222 !important; }
+        body.theme-blackgold { background: #0a0a0a !important; color: #e5c07b; }
+        body.theme-blackgold nav, body.theme-blackgold .bg-white { background: #1a1a1a !important; }
+        body.theme-blackgold .bg-gray-50 { background: #111111 !important; }
+        body.theme-blackgold .text-gray-800 { color: #e5c07b !important; }
+        body.theme-blackgold .text-gray-700 { color: #d4a84a !important; }
+        body.theme-blackgold .text-gray-600 { color: #b8963e !important; }
+        body.theme-blackgold .border, body.theme-blackgold .border-b { border-color: #333 !important; }
+        body.theme-blackgold input, body.theme-blackgold select { background: #1a1a1a !important; color: #e5c07b !important; border-color: #444 !important; }
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59,130,246,0.1); }
+        .modal-overlay { position: fixed; inset: 0; padding: 0.75rem; background: rgba(0,0,0,0.5); z-index: 50; display: flex; align-items: center; justify-content: center; }
+        .modal-box { background: white; border-radius: 0.5rem; width: 480px; max-width: 90vw; max-height: calc(100vh - 4rem); max-height: calc(100dvh - 4rem); min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+        .modal-body { min-height: 0; overflow-y: auto; padding: 1.5rem; }
+        .modal-actions { flex-shrink: 0; border-top: 1px solid #e5e7eb; padding: 1rem 1.5rem; }
+        body.theme-dark .modal-box { background: #1e293b; }
+        body.theme-blackgold .modal-box { background: #1a1a1a; }
+        .badge { display: inline-flex; align-items: center; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-yellow { background: #fef3c7; color: #92400e; }
+        body.theme-dark .badge-green { background: #052e16; color: #4ade80; }
+        body.theme-dark .badge-red { background: #450a0a; color: #f87171; }
+        body.theme-dark .badge-blue { background: #172554; color: #60a5fa; }
+        body.theme-dark .badge-yellow { background: #422006; color: #fbbf24; }
+    </style>
+</head>
+<body class="theme-dark bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header('用户管理' if current_locale == 'zh' else 'Users') %}{% endcall %}
+
+            <div class="bg-white rounded-lg shadow p-4 mb-6">
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">{{ '搜索' if current_locale == 'zh' else 'Search' }}</label>
+                        <input id="filter-keyword" type="text" class="border rounded px-2 py-1.5 text-sm w-48" placeholder="{{ '用户名/邮箱/姓名' if current_locale == 'zh' else 'Username/Email/Name' }}">
+                    </div>
+                    <button onclick="loadUsers(1)" class="bg-blue-500 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-600">{{ '查询' if current_locale == 'zh' else 'Search' }}</button>
+                    <button onclick="document.getElementById('filter-keyword').value='';loadUsers(1)" class="border px-4 py-1.5 rounded text-sm hover:bg-gray-50">{{ '重置' if current_locale == 'zh' else 'Reset' }}</button>
+                    <div class="flex-1"></div>
+                    <button onclick="showCreateModal()" class="bg-green-500 text-white px-4 py-1.5 rounded text-sm hover:bg-green-600">+ {{ '创建用户' if current_locale == 'zh' else 'Create User' }}</button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">ID</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '用户名' if current_locale == 'zh' else 'Username' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '邮箱' if current_locale == 'zh' else 'Email' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '姓名' if current_locale == 'zh' else 'Full Name' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '角色' if current_locale == 'zh' else 'Roles' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '状态' if current_locale == 'zh' else 'Status' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '最后登录' if current_locale == 'zh' else 'Last Login' }}</th>
+                                <th class="text-left px-4 py-3 text-gray-500 font-medium">{{ '操作' if current_locale == 'zh' else 'Actions' }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-body">
+                            <tr><td colspan="8" class="text-center py-12 text-gray-400">{{ '加载中...' if current_locale == 'zh' else 'Loading...' }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex items-center justify-between px-4 py-3 border-t">
+                    <span id="total-info" class="text-sm text-gray-500"></span>
+                    <div class="flex gap-2">
+                        <button id="btn-prev" onclick="loadUsers(currentPage-1)" class="border rounded px-3 py-1 text-sm hover:bg-gray-50" disabled>{{ '上一页' if current_locale == 'zh' else 'Prev' }}</button>
+                        <span id="page-info" class="text-sm text-gray-600 py-1"></span>
+                        <button id="btn-next" onclick="loadUsers(currentPage+1)" class="border rounded px-3 py-1 text-sm hover:bg-gray-50" disabled>{{ '下一页' if current_locale == 'zh' else 'Next' }}</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-create" class="modal-overlay" style="display:none">
+        <div class="modal-box">
+            <div class="modal-body">
+                <h3 class="text-lg font-bold mb-4" id="modal-title">{{ '创建用户' if current_locale == 'zh' else 'Create User' }}</h3>
+                <input type="hidden" id="edit-user-id" value="">
+                <div class="mb-3">
+                    <label class="block text-sm text-gray-600 mb-1">{{ '用户名' if current_locale == 'zh' else 'Username' }} *</label>
+                    <input id="f-username" type="text" class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+                <div class="mb-3" id="f-password-wrap">
+                    <label class="block text-sm text-gray-600 mb-1">{{ '密码' if current_locale == 'zh' else 'Password' }} *</label>
+                    <input id="f-password" type="password" class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm text-gray-600 mb-1">{{ '邮箱' if current_locale == 'zh' else 'Email' }}</label>
+                    <input id="f-email" type="email" class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm text-gray-600 mb-1">{{ '姓名' if current_locale == 'zh' else 'Full Name' }}</label>
+                    <input id="f-fullname" type="text" class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">{{ '角色' if current_locale == 'zh' else 'Roles' }}</label>
+                    <div id="f-roles" class="flex flex-wrap gap-2"></div>
+                </div>
+            </div>
+            <div class="modal-actions flex gap-3">
+                <button onclick="submitUser()" class="bg-blue-500 text-white px-6 py-2 rounded text-sm hover:bg-blue-600">{{ '确定' if current_locale == 'zh' else 'OK' }}</button>
+                <button onclick="closeModal()" class="border px-6 py-2 rounded text-sm hover:bg-gray-50">{{ '取消' if current_locale == 'zh' else 'Cancel' }}</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-reset-pw" class="modal-overlay" style="display:none">
+        <div class="modal-box">
+            <div class="modal-body">
+                <h3 class="text-lg font-bold mb-4">{{ '重置密码' if current_locale == 'zh' else 'Reset Password' }}</h3>
+                <input type="hidden" id="reset-user-id" value="">
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">{{ '新密码' if current_locale == 'zh' else 'New Password' }}</label>
+                    <input id="f-new-password" type="password" class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+            </div>
+            <div class="modal-actions flex gap-3">
+                <button onclick="submitResetPassword()" class="bg-blue-500 text-white px-6 py-2 rounded text-sm hover:bg-blue-600">{{ '确定' if current_locale == 'zh' else 'OK' }}</button>
+                <button onclick="document.getElementById('modal-reset-pw').style.display='none'" class="border px-6 py-2 rounded text-sm hover:bg-gray-50">{{ '取消' if current_locale == 'zh' else 'Cancel' }}</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const B = "{{ app_base_path }}";
+        let currentPage = 1, pageSize = 20, total = 0, allRoles = [];
+
+        async function loadRoles() {
+            try {
+                const r = await fetch(`${B}/admin/api/rbac/roles?page_size=100`);
+                const d = await r.json();
+                if (d.success) allRoles = d.data.items || [];
+            } catch(e) {}
+        }
+
+        async function loadUsers(page) {
+            currentPage = page || 1;
+            const kw = document.getElementById('filter-keyword').value;
+            const params = new URLSearchParams({page: currentPage, page_size: pageSize});
+            if (kw) params.set('keyword', kw);
+            try {
+                const r = await fetch(`${B}/admin/api/rbac/users?${params}`);
+                const d = await r.json();
+                if (!d.success) return;
+                total = d.data.total;
+                const items = d.data.items;
+                const tbody = document.getElementById('users-body');
+                if (items.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-gray-400">{{ '暂无数据' if current_locale == 'zh' else 'No data' }}</td></tr>`;
+                } else {
+                    tbody.innerHTML = items.map(u => `
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-2.5">${u.id}</td>
+                            <td class="px-4 py-2.5 font-medium">${esc(u.username)}</td>
+                            <td class="px-4 py-2.5 text-gray-600">${esc(u.email || '-')}</td>
+                            <td class="px-4 py-2.5 text-gray-600">${esc(u.full_name || '-')}</td>
+                            <td class="px-4 py-2.5">${(u.roles||[]).map(r=>'<span class="badge badge-blue">'+esc(r.display_name||r.name)+'</span>').join(' ')}</td>
+                            <td class="px-4 py-2.5">
+                                ${u.is_superuser ? '<span class="badge badge-yellow">{{ "超级管理员" if current_locale == "zh" else "Superadmin" }}</span>' : ''}
+                                ${u.is_active ? '<span class="badge badge-green">{{ "启用" if current_locale == "zh" else "Active" }}</span>' : '<span class="badge badge-red">{{ "禁用" if current_locale == "zh" else "Disabled" }}</span>'}
+                            </td>
+                            <td class="px-4 py-2.5 text-gray-500 text-xs">${u.last_login ? fmtTime(u.last_login) : '-'}</td>
+                            <td class="px-4 py-2.5">
+                                <div class="flex gap-1 flex-wrap">
+                                    <button onclick="showEditModal(${u.id})" class="text-blue-500 hover:underline text-xs">{{ '编辑' if current_locale == 'zh' else 'Edit' }}</button>
+                                    <button onclick="showResetPwModal(${u.id})" class="text-yellow-600 hover:underline text-xs">{{ '重置密码' if current_locale == 'zh' else 'Reset PW' }}</button>
+                                    <button onclick="toggleUser(${u.id},${u.is_active})" class="text-green-600 hover:underline text-xs">${u.is_active ? '{{ "禁用" if current_locale == "zh" else "Disable" }}' : '{{ "启用" if current_locale == "zh" else "Enable" }}'}</button>
+                                    ${!u.is_superuser ? `<button onclick="deleteUser(${u.id},'${esc(u.username)}')" class="text-red-500 hover:underline text-xs">{{ '删除' if current_locale == 'zh' else 'Delete' }}</button>` : ''}
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+                const tp = Math.ceil(total/pageSize)||1;
+                document.getElementById('total-info').textContent = `{{ '共' if current_locale == 'zh' else 'Total' }} ${total} {{ '条' if current_locale == 'zh' else '' }}`;
+                document.getElementById('page-info').textContent = `${currentPage} / ${tp}`;
+                document.getElementById('btn-prev').disabled = currentPage<=1;
+                document.getElementById('btn-next').disabled = currentPage>=tp;
+            } catch(e) {
+                document.getElementById('users-body').innerHTML = `<tr><td colspan="8" class="text-center py-12 text-red-400">{{ '加载失败' if current_locale == 'zh' else 'Load failed' }}</td></tr>`;
+            }
+        }
+
+        function showCreateModal() {
+            document.getElementById('modal-title').textContent = '{{ "创建用户" if current_locale == "zh" else "Create User" }}';
+            document.getElementById('edit-user-id').value = '';
+            document.getElementById('f-username').value = '';
+            document.getElementById('f-username').disabled = false;
+            document.getElementById('f-password').value = '';
+            document.getElementById('f-password-wrap').style.display = '';
+            document.getElementById('f-email').value = '';
+            document.getElementById('f-fullname').value = '';
+            renderRoleCheckboxes([]);
+            document.getElementById('modal-create').style.display = 'flex';
+        }
+
+        async function showEditModal(userId) {
+            try {
+                const r = await fetch(`${B}/admin/api/rbac/users/${userId}`);
+                const d = await r.json();
+                if (!d.success) return;
+                const u = d.data;
+                document.getElementById('modal-title').textContent = '{{ "编辑用户" if current_locale == "zh" else "Edit User" }}';
+                document.getElementById('edit-user-id').value = userId;
+                document.getElementById('f-username').value = u.username;
+                document.getElementById('f-username').disabled = true;
+                document.getElementById('f-password-wrap').style.display = 'none';
+                document.getElementById('f-email').value = u.email || '';
+                document.getElementById('f-fullname').value = u.full_name || '';
+                renderRoleCheckboxes((u.roles||[]).map(r=>r.id));
+                document.getElementById('modal-create').style.display = 'flex';
+            } catch(e) {}
+        }
+
+        function renderRoleCheckboxes(selectedIds) {
+            const box = document.getElementById('f-roles');
+            box.innerHTML = allRoles.map(r =>
+                `<label class="flex items-center gap-1 text-sm"><input type="checkbox" value="${r.id}" ${selectedIds.includes(r.id)?'checked':''} class="role-cb"> ${esc(r.display_name||r.name)}</label>`
+            ).join('');
+        }
+
+        function getSelectedRoleIds() {
+            return [...document.querySelectorAll('.role-cb:checked')].map(cb => parseInt(cb.value));
+        }
+
+        async function submitUser() {
+            const editId = document.getElementById('edit-user-id').value;
+            const username = document.getElementById('f-username').value.trim();
+            const password = document.getElementById('f-password').value;
+            const email = document.getElementById('f-email').value.trim();
+            const fullname = document.getElementById('f-fullname').value.trim();
+            const roleIds = getSelectedRoleIds();
+
+            if (!editId) {
+                if (!username || !password) { alert('{{ "用户名和密码必填" if current_locale == "zh" else "Username and password required" }}'); return; }
+                const r = await fetch(`${B}/admin/api/rbac/users`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password, email, full_name: fullname||null, is_superuser: false, role_ids: roleIds})
+                });
+                const d = await r.json();
+                if (d.success) { closeModal(); loadUsers(1); } else { alert(d.detail || d.error || '{{ "创建失败" if current_locale == "zh" else "Failed" }}'); }
+            } else {
+                const r = await fetch(`${B}/admin/api/rbac/users/${editId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, full_name: fullname||null})
+                });
+                const d = await r.json();
+                if (!d.success) { alert(d.detail || d.error); return; }
+                if (roleIds.length > 0) {
+                    await fetch(`${B}/admin/api/rbac/users/${editId}/assign-roles`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({role_ids: roleIds})
+                    });
+                }
+                closeModal();
+                loadUsers(currentPage);
+            }
+        }
+
+        function showResetPwModal(userId) {
+            document.getElementById('reset-user-id').value = userId;
+            document.getElementById('f-new-password').value = '';
+            document.getElementById('modal-reset-pw').style.display = 'flex';
+        }
+
+        async function submitResetPassword() {
+            const userId = document.getElementById('reset-user-id').value;
+            const pw = document.getElementById('f-new-password').value;
+            if (!pw || pw.length < 6) { alert('{{ "密码至少6位" if current_locale == "zh" else "Password min 6 chars" }}'); return; }
+            const r = await fetch(`${B}/admin/api/rbac/users/${userId}/reset-password`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({new_password: pw})
+            });
+            const d = await r.json();
+            if (d.success) { document.getElementById('modal-reset-pw').style.display = 'none'; } else { alert(d.detail || d.error); }
+        }
+
+        async function toggleUser(userId, currentActive) {
+            const r = await fetch(`${B}/admin/api/rbac/users/${userId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({is_active: !currentActive})
+            });
+            const d = await r.json();
+            if (d.success) loadUsers(currentPage);
+        }
+
+        async function deleteUser(userId, username) {
+            if (!confirm(`{{ "确定删除用户" if current_locale == "zh" else "Delete user" }} "${username}"?`)) return;
+            const r = await fetch(`${B}/admin/api/rbac/users/${userId}`, {method: 'DELETE'});
+            const d = await r.json();
+            if (d.success) loadUsers(currentPage); else alert(d.detail || d.error);
+        }
+
+        function closeModal() { document.getElementById('modal-create').style.display = 'none'; }
+
+        function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+        function fmtTime(iso) { if(!iso) return '-'; const d=new Date(iso); const p=n=>String(n).padStart(2,'0'); return `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+        async function logout() { await fetch(`${B}/admin/api/auth/logout`,{method:'POST'}); window.location.href=`${B}/admin/login`; }
+        function getThemeMode(){return localStorage.getItem('admin_theme')||'dark';}
+        function applyTheme(m){document.body.classList.toggle('theme-dark',m==='dark');document.body.classList.toggle('theme-blackgold',m==='blackgold');localStorage.setItem('admin_theme',m);}
+        applyTheme(getThemeMode());
+
+        loadRoles().then(()=>loadUsers(1));
+    </script>
+</body>
+</html>

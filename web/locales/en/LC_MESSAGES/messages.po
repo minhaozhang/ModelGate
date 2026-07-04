@@ -1,0 +1,1247 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Dashboard"
+msgstr "Dashboard"
+
+msgid "ModelGate-dashboard"
+msgstr "ModelGate-dashboard"
+
+msgid "API Proxy"
+msgstr "ModelGate"
+
+msgid "Admin Dashboard"
+msgstr "Admin Dashboard"
+
+msgid "Today"
+msgstr "Today"
+
+msgid "Week"
+msgstr "Week"
+
+msgid "Month"
+msgstr "Month"
+
+msgid "Year"
+msgstr "Year"
+
+msgid "Requests"
+msgstr "Requests"
+
+msgid "Tokens"
+msgstr "Tokens"
+
+msgid "Errors"
+msgstr "Errors"
+
+msgid "RPS"
+msgstr "RPS"
+
+msgid "TPS"
+msgstr "TPS"
+
+msgid "Err Rate"
+msgstr "Err Rate"
+
+msgid "Active Requests"
+msgstr "Active Requests"
+
+msgid "Active Users"
+msgstr "Active Users"
+
+msgid "Active Sessions"
+msgstr "Active Sessions"
+
+msgid "My Requests"
+msgstr "My Requests"
+
+msgid "No requests yet"
+msgstr "No requests yet"
+
+msgid "Slow Requests"
+msgstr "Slow Requests"
+
+msgid "Provider Usage"
+msgstr "Provider Usage"
+
+msgid "API Key Usage"
+msgstr "API Key Usage"
+
+msgid "Request Trend"
+msgstr "Request Trend"
+
+msgid "No data"
+msgstr "No data"
+
+msgid "No active sessions"
+msgstr "No active sessions"
+
+msgid "No active users"
+msgstr "No active users"
+
+msgid "No slow requests"
+msgstr "No slow requests"
+
+msgid "req"
+msgstr "req"
+
+msgid "pending"
+msgstr "pending"
+
+msgid "{seconds}s elapsed"
+msgstr "{seconds}s elapsed"
+
+msgid "{label} on right axis"
+msgstr "{label} on right axis"
+
+msgid "Dark Mode"
+msgstr "Dark Mode"
+
+msgid "Black Gold Mode"
+msgstr "Black Gold Mode"
+
+msgid "This Week"
+msgstr "This Week"
+
+msgid "This Month"
+msgstr "This Month"
+
+msgid "This Year"
+msgstr "This Year"
+
+msgid "Total Requests"
+msgstr "Total Requests"
+
+msgid "Total Tokens"
+msgstr "Total Tokens"
+
+msgid "Req/sec"
+msgstr "Req/sec"
+
+msgid "Tokens/sec"
+msgstr "Tokens/sec"
+
+msgid "Error Rate"
+msgstr "Error Rate"
+
+msgid "Slow Requests (>60s)"
+msgstr "Slow Requests (>60s)"
+
+msgid "Generate usage reports as reusable task pipelines with CSV, Markdown, and DOCX outputs"
+msgstr "Generate usage reports as reusable task pipelines with CSV, Markdown, and DOCX outputs"
+
+msgid "Create Report Task"
+msgstr "Create Report Task"
+
+msgid "Task orchestration mode"
+msgstr "Task orchestration mode"
+
+msgid "Each report now runs as subtasks with retries, self-checks, and reusable artifacts before DOCX assembly."
+msgstr "Each report now runs as subtasks with retries, self-checks, and reusable artifacts before DOCX assembly."
+
+msgid "Template Preview"
+msgstr "Template Preview"
+
+msgid "Loading template..."
+msgstr "Loading template..."
+
+msgid "Current Task"
+msgstr "Current Task"
+
+msgid "Artifacts"
+msgstr "Artifacts"
+
+msgid "Task ID"
+msgstr "Task ID"
+
+msgid "Attempts"
+msgstr "Attempts"
+
+msgid "No artifacts yet"
+msgstr "No artifacts yet"
+
+msgid "No API Keys found"
+msgstr "No API Keys found"
+
+msgid "Reusable outputs are generated first, then assembled into the final report."
+msgstr "Reusable outputs are generated first, then assembled into the final report."
+
+msgid "Subtasks"
+msgstr "Subtasks"
+
+msgid "Planned Outputs"
+msgstr "Planned Outputs"
+
+msgid "completed"
+msgstr "completed"
+
+msgid "running"
+msgstr "running"
+
+msgid "failed"
+msgstr "failed"
+
+msgid "Login"
+msgstr "Login"
+
+msgid "Empower every developer to harness the power of AI."
+msgstr "Empower every developer to harness the power of AI."
+
+msgid "API Proxy Login"
+msgstr "ModelGate Login"
+
+msgid "Username"
+msgstr "Username"
+
+msgid "Enter username"
+msgstr "Enter username"
+
+msgid "Password"
+msgstr "Password"
+
+msgid "Enter admin password"
+msgstr "Enter admin password"
+
+msgid "Sign In"
+msgstr "Sign In"
+
+msgid "Signing in..."
+msgstr "Signing in..."
+
+msgid "Login failed"
+msgstr "Login failed"
+
+msgid "Network error"
+msgstr "Network error"
+
+msgid "Config"
+msgstr "Config"
+
+msgid "Provider & Model Configuration"
+msgstr "Provider & Model Configuration"
+
+msgid "Providers"
+msgstr "Providers"
+
+msgid "+ Add"
+msgstr "+ Add"
+
+msgid "Models"
+msgstr "Models"
+
+msgid "Sync"
+msgstr "Sync"
+
+msgid "Provider-Model Bindings"
+msgstr "Provider-Model Bindings"
+
+msgid "Sync from API"
+msgstr "Sync from API"
+
+msgid "Select a provider to view bindings"
+msgstr "Select a provider to view bindings"
+
+msgid "Add Provider"
+msgstr "Add Provider"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Base URL"
+msgstr "Base URL"
+
+msgid "API Key"
+msgstr "API Key"
+
+msgid "Active"
+msgstr "Active"
+
+msgid "Merge consecutive same-role messages"
+msgstr "Merge consecutive same-role messages"
+
+msgid "For providers like MiniMax requiring role alternation"
+msgstr "For providers like MiniMax requiring role alternation"
+
+msgid "Save"
+msgstr "Save"
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "Add Model"
+msgstr "Add Model"
+
+msgid "Model Name (ID)"
+msgstr "Model Name (ID)"
+
+msgid "Display Name"
+msgstr "Display Name"
+
+msgid "Max Output"
+msgstr "Max Output"
+
+msgid "Context Window"
+msgstr "Context Window"
+
+msgid "Reasoning Budget"
+msgstr "Reasoning Budget"
+
+msgid "Reasoning"
+msgstr "Reasoning"
+
+msgid "Maximum tokens the model can generate in a single response"
+msgstr "Maximum tokens the model can generate in a single response"
+
+msgid "Total input + output tokens the model can process at once"
+msgstr "Total input + output tokens the model can process at once"
+
+msgid "Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled"
+msgstr "Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled"
+
+msgid "Enable extended reasoning / chain-of-thought for this model"
+msgstr "Enable extended reasoning / chain-of-thought for this model"
+
+msgid "Multimodal"
+msgstr "Multimodal"
+
+msgid "Monitor"
+msgstr "Monitor"
+
+msgid "Statistics Monitor"
+msgstr "Statistics Monitor"
+
+msgid "Composition, concentration, hotspots, and trend behavior"
+msgstr "Composition, concentration, hotspots, and trend behavior"
+
+msgid "Day"
+msgstr "Day"
+
+msgid "Model Usage"
+msgstr "Model Usage"
+
+msgid "Traffic Concentration"
+msgstr "Traffic Concentration"
+
+msgid "Error Hotspots"
+msgstr "Error Hotspots"
+
+msgid "Active Footprint"
+msgstr "Active Footprint"
+
+msgid "Light Mode"
+msgstr "Light Mode"
+
+msgid "Others"
+msgstr "Others"
+
+msgid "tok"
+msgstr "tok"
+
+msgid "err"
+msgstr "err"
+
+msgid "API Keys"
+msgstr "API Keys"
+
+msgid "Provider"
+msgstr "Provider"
+
+msgid "Model"
+msgstr "Model"
+
+msgid "Top 1 share"
+msgstr "Top 1 share"
+
+msgid "Top 3 combined"
+msgstr "Top 3 combined"
+
+msgid "No hotspots"
+msgstr "No hotspots"
+
+msgid "Active Providers"
+msgstr "Active Providers"
+
+msgid "Active API Keys"
+msgstr "Active API Keys"
+
+msgid "Active Models"
+msgstr "Active Models"
+
+msgid "Top:"
+msgstr "Top:"
+
+msgid "No traffic"
+msgstr "No traffic"
+
+msgid "Requests / Errors"
+msgstr "Requests / Errors"
+
+msgid "Usage Guide"
+msgstr "Usage Guide"
+
+msgid "How to Configure API Clients"
+msgstr "How to Configure API Clients"
+
+msgid "Basic Information"
+msgstr "Basic Information"
+
+msgid "Proxy URL:"
+msgstr "Proxy URL:"
+
+msgid "API Endpoint:"
+msgstr "API Endpoint:"
+
+msgid "Auth Header:"
+msgstr "Auth Header:"
+
+msgid "Model Name Format"
+msgstr "Model Name Format"
+
+msgid "Use"
+msgstr "Use"
+
+msgid "format to specify provider:"
+msgstr "format to specify provider:"
+
+msgid "With Provider Prefix"
+msgstr "With Provider Prefix"
+
+msgid "Routes to Zhipu provider"
+msgstr "Routes to Zhipu provider"
+
+msgid "Without Prefix"
+msgstr "Without Prefix"
+
+msgid "Uses default provider"
+msgstr "Uses default provider"
+
+msgid "ChatGPT-Next-Web / LobeChat"
+msgstr "ChatGPT-Next-Web / LobeChat"
+
+msgid "Go to Settings and configure:"
+msgstr "Go to Settings and configure:"
+
+msgid "Python (OpenAI SDK)"
+msgstr "Python (OpenAI SDK)"
+
+msgid "Copy"
+msgstr "Copy"
+
+msgid "JavaScript / Node.js"
+msgstr "JavaScript / Node.js"
+
+msgid "cURL"
+msgstr "cURL"
+
+msgid "VS Code (Continue / Cline)"
+msgstr "VS Code (Continue / Cline)"
+
+msgid "Add to your config.json:"
+msgstr "Add to your config.json:"
+
+msgid "Tips"
+msgstr "Tips"
+
+msgid "Get your API key from"
+msgstr "Get your API key from"
+
+msgid "page"
+msgstr "page"
+
+msgid "Check available models in"
+msgstr "Check available models in"
+
+msgid "Monitor usage in"
+msgstr "Monitor usage in"
+
+msgid "Concurrency"
+msgstr "Concurrency"
+
+msgid "Each provider has its own concurrency limit"
+msgstr "Each provider has its own concurrency limit"
+
+msgid "Copied!"
+msgstr "Copied!"
+
+msgid "Add API Key"
+msgstr "Add API Key"
+
+msgid "Search by name or key..."
+msgstr "Search by name or key..."
+
+msgid "keys"
+msgstr "keys"
+
+msgid "e.g., Project A"
+msgstr "e.g., Project A"
+
+msgid "Allowed Models"
+msgstr "Allowed Models"
+
+msgid "selected"
+msgstr "selected"
+
+msgid "Leave empty to allow all models"
+msgstr "Leave empty to allow all models"
+
+msgid "API Key and usage instructions copied!"
+msgstr "API Key and usage instructions copied!"
+
+msgid "Usage Instructions:"
+msgstr "Usage Instructions:"
+
+msgid "Paste the API Key above to log in on the page"
+msgstr "Paste the API Key above to log in on the page"
+
+msgid "Configure OpenCode:"
+msgstr "Configure OpenCode:"
+
+msgid "Let the agent read the configuration document:"
+msgstr "Let the agent read the configuration document:"
+
+msgid "Edit API Key"
+msgstr "Edit API Key"
+
+msgid "All models"
+msgstr "All models"
+
+msgid "No API keys found"
+msgstr "No API keys found"
+
+msgid "Previous"
+msgstr "Previous"
+
+msgid "Next"
+msgstr "Next"
+
+msgid "No models available. Add providers and models in Config first."
+msgstr "No models available. Add providers and models in Config first."
+
+msgid "API Key created:"
+msgstr "API Key created:"
+
+msgid "Please save this key!"
+msgstr "Please save this key!"
+
+msgid "Failed to save API key"
+msgstr "Failed to save API key"
+
+msgid "Delete this API key?"
+msgstr "Delete this API key?"
+
+msgid "Edit"
+msgstr "Edit"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "Query"
+msgstr "Query"
+
+msgid "User Page:"
+msgstr "User Page:"
+
+msgid "Setup Doc:"
+msgstr "Setup Doc:"
+
+msgid "Copy Setup"
+msgstr "Copy Setup"
+
+msgid "API Key Login"
+msgstr "API Key Login"
+
+msgid "Remember API Key"
+msgstr "Remember API Key"
+
+msgid "Enter your API Key to view usage statistics"
+msgstr "Enter your API Key to view usage statistics"
+
+msgid "API Key Dashboard"
+msgstr "API Key Dashboard"
+
+msgid "Logout"
+msgstr "Logout"
+
+msgid "Statistics"
+msgstr "Statistics"
+
+msgid "OpenCode Config"
+msgstr "OpenCode Config"
+
+msgid "Models Used"
+msgstr "Models Used"
+
+msgid "Active Sessions (Last 1 Minute)"
+msgstr "Active Sessions (Last 1 Minute)"
+
+msgid "active"
+msgstr "active"
+
+msgid "System Active Requests (Last 1 Minute)"
+msgstr "System Active Requests (Last 1 Minute)"
+
+msgid "Anonymized across all API keys. Your own traffic is labeled as Yourself."
+msgstr "Anonymized across all API keys. Your own traffic is labeled as Yourself."
+
+msgid "Requests / Tokens / Errors"
+msgstr "Requests / Tokens / Errors"
+
+msgid "Your API key"
+msgstr "Your API key"
+
+msgid "System Model Usage"
+msgstr "System Model Usage"
+
+msgid "All API keys"
+msgstr "All API keys"
+
+msgid "Platform Providers & Models"
+msgstr "Platform Providers & Models"
+
+msgid "providers"
+msgstr "providers"
+
+msgid "models"
+msgstr "models"
+
+msgid "Loading catalog..."
+msgstr "Loading catalog..."
+
+msgid "Your Access"
+msgstr "Your Access"
+
+msgid "Models available to this API key."
+msgstr "Models available to this API key."
+
+msgid "Loading access..."
+msgstr "Loading access..."
+
+msgid "OpenCode Configuration"
+msgstr "OpenCode Configuration"
+
+msgid "Copy the text below and send it to OpenCode for configuration"
+msgstr "Copy the text below and send it to OpenCode for configuration"
+
+msgid "Available Models"
+msgstr "Available Models"
+
+msgid "How to use"
+msgstr "How to use"
+
+msgid "Copy the generated <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code>"
+msgstr "Copy the generated <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code>"
+
+msgid "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code> in your project root"
+msgstr "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code> in your project root"
+
+msgid "Paste the configuration and save"
+msgstr "Paste the configuration and save"
+
+msgid "OpenCode will now use this proxy for API requests"
+msgstr "OpenCode will now use this proxy for API requests"
+
+msgid "Proxy URL"
+msgstr "Proxy URL"
+
+msgid "API Endpoint"
+msgstr "API Endpoint"
+
+msgid "Auth Header"
+msgstr "Auth Header"
+
+msgid "Use <code class=\"bg-white px-2 py-1 rounded\">provider/model</code> format"
+msgstr "Use <code class=\"bg-white px-2 py-1 rounded\">provider/model</code> format"
+
+msgid "With Provider"
+msgstr "With Provider"
+
+msgid "JavaScript"
+msgstr "JavaScript"
+
+msgid "Home"
+msgstr "Home"
+
+msgid "Enter your API Key to generate config"
+msgstr "Enter your API Key to generate config"
+
+msgid "Generate"
+msgstr "Generate"
+
+msgid "Enter your API Key and click Generate"
+msgstr "Enter your API Key and click Generate"
+
+msgid "Copy the generated"
+msgstr "Copy the generated"
+
+msgid "Create"
+msgstr "Create"
+
+msgid "in your project root"
+msgstr "in your project root"
+
+msgid "Recent Requests"
+msgstr "Recent Requests"
+
+msgid "Refresh"
+msgstr "Refresh"
+
+msgid "System Active Requests"
+msgstr "System Active Requests"
+
+msgid "Unauthorized"
+msgstr "Unauthorized"
+
+msgid "Owned"
+msgstr "Owned"
+
+msgid "Available"
+msgstr "Available"
+
+msgid "Access"
+msgstr "Access"
+
+msgid "No active providers or models"
+msgstr "No active providers or models"
+
+msgid "No accessible models"
+msgstr "No accessible models"
+
+msgid "This API key currently has access to all active models on the platform."
+msgstr "This API key currently has access to all active models on the platform."
+
+msgid "Models explicitly available to this API key."
+msgstr "Models explicitly available to this API key."
+
+msgid "Platform provider catalog"
+msgstr "Platform provider catalog"
+
+msgid "Models this key can use"
+msgstr "Models this key can use"
+
+msgid "top share"
+msgstr "top share"
+
+msgid "on right axis"
+msgstr "on right axis"
+
+msgid "ctx"
+msgstr "ctx"
+
+msgid "out"
+msgstr "out"
+
+msgid "multimodal"
+msgstr "multimodal"
+
+msgid "alias"
+msgstr "alias"
+
+msgid "Clear saved API Key?"
+msgstr "Clear saved API Key?"
+
+msgid "Please help me add the following provider configuration to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and other settings, only add or update the modelgate provider."
+msgstr "Please help me add the following provider configuration to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and other settings, only add or update the modelgate provider."
+
+msgid "Yourself"
+msgstr "Yourself"
+
+msgid "Anonymous"
+msgstr "Anonymous"
+
+msgid "Other {index}"
+msgstr "Other {index}"
+
+msgid "Invalid API Key"
+msgstr "Invalid API Key"
+
+msgid "Not authenticated"
+msgstr "Not authenticated"
+
+msgid "API key not found"
+msgstr "API key not found"
+
+msgid "API Key not found"
+msgstr "API Key not found"
+
+msgid "Hourly average response time by model"
+msgstr "Hourly average response time by model"
+
+msgid "Hour of day"
+msgstr "Hour of day"
+
+msgid "{count} samples"
+msgstr "{count} samples"
+
+msgid "Hourly P95 response time by model"
+msgstr "Hourly P95 response time by model"
+
+msgid "Hourly response time range by model"
+msgstr "Hourly response time range by model"
+
+msgid "Response time heatmap by model and hour"
+msgstr "Response time heatmap by model and hour"
+
+msgid "Average"
+msgstr "Average"
+
+msgid "P95"
+msgstr "P95"
+
+msgid "Range"
+msgstr "Range"
+
+msgid "Heatmap"
+msgstr "Heatmap"
+
+msgid "Min"
+msgstr "Min"
+
+msgid "Max"
+msgstr "Max"
+
+msgid "Avg"
+msgstr "Avg"
+
+msgid "No heatmap data"
+msgstr "No heatmap data"
+
+msgid "Recommended Models"
+msgstr "Recommended Models"
+
+msgid "Ranked by stability, response time, and sample size"
+msgstr "Ranked by stability, response time, and sample size"
+
+msgid "Loading recommendations..."
+msgstr "Loading recommendations..."
+
+msgid "Recommendation score"
+msgstr "Recommendation score"
+
+msgid "Avg latency"
+msgstr "Avg latency"
+
+msgid "Error rate"
+msgstr "Error rate"
+
+msgid "Based on the current period and accessible models"
+msgstr "Based on the current period and accessible models"
+
+msgid "No recommendation data yet"
+msgstr "No recommendation data yet"
+
+msgid "No recent errors, fast responses, and enough usage samples"
+msgstr "No recent errors, fast responses, and enough usage samples"
+
+msgid "Low error rate and stable recent performance"
+msgstr "Low error rate and stable recent performance"
+
+msgid "Fast recent responses and smooth overall performance"
+msgstr "Fast recent responses and smooth overall performance"
+
+msgid "Frequently used recently with relatively stable quality"
+msgstr "Frequently used recently with relatively stable quality"
+
+msgid "Balanced recent stability, speed, and sample size"
+msgstr "Balanced recent stability, speed, and sample size"
+
+msgid "Recent data is limited. Try quieter periods and check system health first"
+msgstr "Recent data is limited. Try quieter periods and check system health first"
+
+msgid "Based on recent daily patterns, {ranges} tends to be smoother with lower errors and faster responses"
+msgstr "Based on recent daily patterns, {ranges} tends to be smoother with lower errors and faster responses"
+
+msgid "Based on recent daily patterns, {ranges} tend to be smoother with lower errors and faster responses"
+msgstr "Based on recent daily patterns, {ranges} tend to be smoother with lower errors and faster responses"
+
+msgid "Analyzing the best daily time windows..."
+msgstr "Analyzing the best daily time windows..."
+
+msgid "samples"
+msgstr "samples"
+
+msgid "System Health"
+msgstr "System Health"
+
+msgid "Last 20 minutes"
+msgstr "Last 20 minutes"
+
+msgid "Based on recent load, error rate, and latency"
+msgstr "Based on recent load, error rate, and latency"
+
+msgid "No recent traffic in the last 20 minutes"
+msgstr "No recent traffic in the last 20 minutes"
+
+msgid "Active users"
+msgstr "Active users"
+
+msgid "Pending"
+msgstr "Pending"
+
+msgid "Insert Image"
+msgstr "Insert Image"
+
+msgid "Attachments"
+msgstr "Attachments"
+
+msgid "Drop files here or click to upload"
+msgstr "Drop files here or click to upload"
+
+msgid "Upload failed"
+msgstr "Upload failed"
+
+msgid "Delete this file?"
+msgstr "Delete this file?"
+
+msgid "Please save the document first"
+msgstr "Please save the document first"
+
+msgid "Image uploaded"
+msgstr "Image uploaded"
+
+msgid "Files"
+msgstr "Files"
+
+msgid "Images"
+msgstr "Images"
+
+msgid "Request Logs"
+msgstr "Request Logs"
+
+msgid "Query and filter proxy request logs by API key, model, status, and time range"
+msgstr "Query and filter proxy request logs by API key, model, status, and time range"
+
+msgid "Key name"
+msgstr "Key name"
+
+msgid "Custom"
+msgstr "Custom"
+
+msgid "All"
+msgstr "All"
+
+msgid "Query"
+msgstr "Query"
+
+msgid "Query Results"
+msgstr "Query Results"
+
+msgid "No logs found matching the current filters."
+msgstr "No logs found matching the current filters."
+
+msgid "Previous"
+msgstr "Previous"
+
+msgid "Next"
+msgstr "Next"
+
+msgid "Upstream"
+msgstr "Upstream"
+
+msgid "Downstream"
+msgstr "Downstream"
+
+msgid "Client IP"
+msgstr "Client IP"
+
+msgid "User Agent"
+msgstr "User Agent"
+
+msgid "Page {page} of {total}"
+msgstr "Page {page} of {total}"
+
+msgid "Total: {count} records"
+msgstr "Total: {count} records"
+
+msgid "Start Time"
+msgstr "Start Time"
+
+msgid "End Time"
+msgstr "End Time"
+
+msgid "Disabled Providers"
+msgstr "Disabled Providers"
+
+msgid "Personal"
+msgstr "Personal"
+
+msgid "Avg Requests/Model"
+msgstr "Avg Requests/Model"
+
+msgid "Ranked by stability, response time, and sample size"
+msgstr "Ranked by stability, response time, and sample size"
+
+msgid "Loading recommendations..."
+msgstr "Loading recommendations..."
+
+msgid "Analyzing the best daily time windows..."
+msgstr "Analyzing the best daily time windows..."
+
+msgid "Based on recent load, error rate, and latency"
+msgstr "Based on recent load, error rate, and latency"
+
+msgid "System Request Trend"
+msgstr "System Request Trend"
+
+msgid "Anonymized across all API keys. Your own traffic is labeled as Yourself."
+msgstr "Anonymized across all API keys. Your own traffic is labeled as Yourself."
+
+msgid "Based on the current period and accessible models"
+msgstr "Based on the current period and accessible models"
+
+msgid "No recommendation data yet"
+msgstr "No recommendation data yet"
+
+msgid "AI analysis unavailable"
+msgstr "AI analysis unavailable"
+
+msgid "Model Used"
+msgstr "Model Used"
+
+msgid "AI Generated"
+msgstr "AI Generated"
+
+msgid "No recent traffic in the last 20 minutes"
+msgstr "No recent traffic in the last 20 minutes"
+
+msgid "models"
+msgstr "models"
+
+msgid "providers"
+msgstr "providers"
+
+msgid "ctx"
+msgstr "ctx"
+
+msgid "out"
+msgstr "out"
+
+msgid "multimodal"
+msgstr "multimodal"
+
+msgid "alias"
+msgstr "alias"
+
+msgid "Recommendation score"
+msgstr "Recommendation score"
+
+msgid "No active providers or models"
+msgstr "No active providers or models"
+
+msgid "No accessible models"
+msgstr "No accessible models"
+
+msgid "This API key currently has access to all active models on the platform."
+msgstr "This API key currently has access to all active models on the platform."
+
+msgid "Models explicitly available to this API key."
+msgstr "Models explicitly available to this API key."
+
+msgid "Models available to this API key."
+msgstr "Models available to this API key."
+
+msgid "Platform provider catalog"
+msgstr "Platform provider catalog"
+
+msgid "Models this key can use"
+msgstr "Models this key can use"
+
+msgid "err"
+msgstr "err"
+
+msgid "So empty..."
+msgstr "So empty..."
+
+msgid "Online Users"
+msgstr "Online Users"
+
+msgid "Only You Online"
+msgstr "Only You Online"
+
+msgid "Night Owl — Just You"
+msgstr "Night Owl — Just You"
+
+msgid "Early Bird — Just You"
+msgstr "Early Bird — Just You"
+
+msgid "Companions at Work"
+msgstr "Companions at Work"
+
+msgid "Night Owls Club"
+msgstr "Night Owls Club"
+
+msgid "Early Birds"
+msgstr "Early Birds"
+
+msgid "Token Rivals"
+msgstr "Token Rivals"
+
+msgid "Peak Hours"
+msgstr "Peak Hours"
+
+msgid "Shouldn't You Be Asleep?"
+msgstr "Shouldn't You Be Asleep?"
+
+msgid "Active 1h"
+msgstr "Active 1h"
+
+msgid "disabled"
+msgstr "disabled"
+
+msgid "Config path: %USERPROFILE%\\.config\\opencode\\opencode.jsonc"
+msgstr "Config path: %USERPROFILE%\\.config\\opencode\\opencode.jsonc"
+
+msgid "Config path: ~/.config/opencode/opencode.jsonc"
+msgstr "Config path: ~/.config/opencode/opencode.jsonc"
+
+msgid "Est. Cost"
+msgstr "Est. Cost"
+
+msgid "Estimated cost based on token usage and model pricing"
+msgstr "Estimated cost based on token usage and model pricing"
+
+msgid "System Status"
+msgstr "System Status"
+
+msgid "Real-time busyness level"
+msgstr "Real-time busyness level"
+
+msgid "Active users (10min)"
+msgstr "Active users (10min)"
+
+msgid "Limited providers"
+msgstr "Limited providers"
+
+msgid "ratio"
+msgstr "ratio"
+
+msgid "providers limited"
+msgstr "providers limited"
+
+msgid "active users"
+msgstr "active users"
+
+msgid "Busyness Control Rules"
+msgstr "Busyness Control Rules"
+
+msgid "Auto downgrade, suggest, or block models based on system busyness level (1=extremely busy ~ 6=quiet)"
+msgstr "Auto downgrade, suggest, or block models based on system busyness level (1=extremely busy ~ 6=quiet)"
+
+msgid "Add Rule"
+msgstr "Add Rule"
+
+msgid "Save Rules"
+msgstr "Save Rules"
+
+msgid "No rules configured"
+msgstr "No rules configured"
+
+msgid "Level"
+msgstr "Level"
+
+msgid "Action"
+msgstr "Action"
+
+msgid "Downgrade"
+msgstr "Downgrade"
+
+msgid "Suggest"
+msgstr "Suggest"
+
+msgid "Block"
+msgstr "Block"
+
+msgid "Models"
+msgstr "Models"
+
+msgid "All models"
+msgstr "All models"
+
+msgid "Redirect to"
+msgstr "Redirect to"
+
+msgid "Optional message"
+msgstr "Optional message"
+
+msgid "Rules saved"
+msgstr "Rules saved"
+
+msgid "Notifications"
+msgstr "Notifications"
+
+msgid "Mark All Read"
+msgstr "Mark All Read"
+
+msgid "No notifications"
+msgstr "No notifications"
+
+msgid "Read"
+msgstr "Read"
+
+msgid "Scheduled Tasks"
+msgstr "Scheduled Tasks"
+
+msgid "No tasks"
+msgstr "No tasks"
+
+msgid "Paused"
+msgstr "Paused"
+
+msgid "Run Now"
+msgstr "Run Now"
+
+msgid "Resume"
+msgstr "Resume"
+
+msgid "Pause"
+msgstr "Pause"
+
+msgid "Logs"
+msgstr "Logs"
+
+msgid "Last run"
+msgstr "Last run"
+
+msgid "Duration"
+msgstr "Duration"
+
+msgid "Next run"
+msgstr "Next run"
+
+msgid "Execution Log"
+msgstr "Execution Log"
+
+msgid "No logs"
+msgstr "No logs"
+
+msgid "Time"
+msgstr "Time"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Result"
+msgstr "Result"
+
+msgid "OpenAI Protocol"
+msgstr "OpenAI Protocol"
+
+msgid "Anthropic Protocol"
+msgstr "Anthropic Protocol"
+
+msgid "Python (Anthropic SDK)"
+msgstr "Python (Anthropic SDK)"
+
+msgid "Python (Streaming)"
+msgstr "Python (Streaming)"
+
+msgid "Tool Use (Function Calling)"
+msgstr "Tool Use (Function Calling)"
+
+msgid "Required Header"
+msgstr "Required Header"
+
+msgid "The Anthropic endpoint translates requests to OpenAI format internally. All models registered in ModelGate can be used, just use <code class=\"bg-white px-1 py-0.5 rounded\">provider/model</code> as the model name."
+msgstr "The Anthropic endpoint translates requests to OpenAI format internally. All models registered in ModelGate can be used, just use <code class=\"bg-white px-1 py-0.5 rounded\">provider/model</code> as the model name."
+

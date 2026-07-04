@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('Monitor') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <script src="/static/js/chart.min.js"></script>
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50,
+        body.theme-dark .bg-slate-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .bg-slate-200,
+        body.theme-dark .bg-gray-200 { background: #1f2937 !important; }
+        body.theme-dark .text-gray-800,
+        body.theme-dark .text-slate-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700,
+        body.theme-dark .text-slate-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600,
+        body.theme-dark .text-slate-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500,
+        body.theme-dark .text-slate-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-b,
+        body.theme-dark .border-t,
+        body.theme-dark .border-blue-100,
+        body.theme-dark .border-emerald-100,
+        body.theme-dark .border-violet-100,
+        body.theme-dark .border-green-100,
+        body.theme-dark .border-amber-100,
+        body.theme-dark .border-red-100 { border-color: #1f2937 !important; }
+        body.theme-dark input,
+        body.theme-dark select,
+        body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500):not(.bg-teal-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow,
+        body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
+        body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark .bg-green-50 { background: rgba(16, 185, 129, 0.14) !important; }
+        body.theme-dark .bg-amber-50 { background: rgba(245, 158, 11, 0.14) !important; }
+        body.theme-dark .bg-red-50 { background: rgba(239, 68, 68, 0.14) !important; }
+        .latency-tab {
+            transition: all 0.2s;
+        }
+        .latency-tab.active {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #2563eb;
+        }
+        body.theme-dark .latency-tab.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: #ffffff;
+        }
+        .heatmap-grid {
+            display: grid;
+            gap: 0.35rem;
+            align-items: stretch;
+        }
+        .heatmap-legend {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .heatmap-legend-scale {
+            width: min(260px, 100%);
+            height: 0.75rem;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #10b981 0%, #f59e0b 55%, #ef4444 100%);
+            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+        }
+        .heatmap-legend-labels {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        .heatmap-cell {
+            min-height: 2.25rem;
+            border-radius: 0.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .heatmap-label {
+            display: flex;
+            align-items: center;
+            padding: 0 0.75rem;
+            border-radius: 0.75rem;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 0.75rem;
+            font-weight: 600;
+            min-height: 2.25rem;
+        }
+        .heatmap-corner {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.1rem;
+            padding: 0.45rem 0.75rem;
+            border-radius: 0.75rem;
+            background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+            color: #1e3a8a;
+            min-height: 2.25rem;
+        }
+        .heatmap-corner strong {
+            font-size: 0.75rem;
+            line-height: 1rem;
+        }
+        .heatmap-corner span {
+            font-size: 0.65rem;
+            line-height: 0.85rem;
+            color: #64748b;
+        }
+        body.theme-dark .heatmap-label {
+            background: #111827;
+            color: #e2e8f0;
+        }
+        body.theme-dark .heatmap-corner {
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.16) 0%, #111827 100%);
+            color: #dbeafe;
+        }
+        body.theme-dark .heatmap-corner span {
+            color: #94a3b8;
+        }
+        body.theme-dark .heatmap-legend-labels {
+            color: #94a3b8;
+        }
+        body.theme-dark .heatmap-legend-scale {
+            box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.16);
+        }
+        .health-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.2rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .health-excellent { background: #dcfce7; color: #15803d; }
+        .health-good { background: #dbeafe; color: #1d4ed8; }
+        .health-warning { background: #fef3c7; color: #b45309; }
+        .health-critical { background: #fee2e2; color: #b91c1c; }
+        .health-unavailable { background: #f1f5f9; color: #64748b; }
+        body.theme-dark .health-excellent { background: rgba(34,197,94,0.16); color: #86efac; }
+        body.theme-dark .health-good { background: rgba(59,130,246,0.16); color: #93c5fd; }
+        body.theme-dark .health-warning { background: rgba(245,158,11,0.16); color: #fcd34d; }
+        body.theme-dark .health-critical { background: rgba(239,68,68,0.16); color: #fca5a5; }
+        body.theme-dark .health-unavailable { background: rgba(100,116,139,0.16); color: #94a3b8; }
+        .conc-bar-bg { width: 60px; height: 8px; border-radius: 9999px; background: #e5e7eb; overflow: hidden; }
+        .conc-bar-fill { height: 100%; border-radius: 9999px; transition: width 0.3s; }
+        body.theme-dark .conc-bar-bg { background: #1f2937; }
+        .model-tag { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.68rem; font-weight: 500; background: #f1f5f9; color: #475569; margin: 1px; }
+        body.theme-dark .model-tag { background: #1f2937; color: #94a3b8; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% set active_page = 'monitor' %}
+        {% include 'components/nav.html' %}
+
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header(_('Statistics Monitor'), _('Composition, concentration, hotspots, and trend behavior')) %}
+            <div class="flex bg-white rounded border overflow-hidden">
+                <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">{{ _('Day') }}</button>
+                <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Week') }}</button>
+                <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Month') }}</button>
+                <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Year') }}</button>
+            </div>
+            {% endcall %}
+
+            <div class="grid grid-cols-1 md:grid-cols-6 xl:grid-cols-9 gap-4 mb-6">
+                <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
+                    <div id="total-requests" class="text-3xl font-bold text-blue-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Total Tokens') }}</div>
+                    <div class="text-xl font-bold leading-none text-green-600">↑<span id="total-prompt-tokens">0</span> / ↓<span id="total-completion-tokens">0</span></div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Errors') }}</div>
+                    <div id="total-errors" class="text-3xl font-bold text-red-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Timeouts') }}</div>
+                    <div id="total-timeouts" class="text-3xl font-bold text-amber-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">{{ _('429') }}</div>
+                    <div id="total-rate-limited" class="text-3xl font-bold text-sky-600">0</div>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow p-5">
+                    <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>
+                    <div id="error-rate" class="text-3xl font-bold text-orange-600">0%</div>
+                </div>
+                <div id="mcp-calls-card" class="stat-card bg-white rounded-lg shadow p-5 hidden">
+                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 调用' if current_locale == 'zh' else 'MCP Calls' }}</div>
+                    <div id="mcp-total-calls" class="text-3xl font-bold text-purple-600">0</div>
+                </div>
+                <div id="mcp-errors-card" class="stat-card bg-white rounded-lg shadow p-5 hidden">
+                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 错误' if current_locale == 'zh' else 'MCP Errors' }}</div>
+                    <div id="mcp-total-errors" class="text-3xl font-bold text-red-600">0</div>
+                </div>
+                <div id="mcp-servers-card" class="stat-card bg-white rounded-lg shadow p-5 hidden">
+                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 服务器' if current_locale == 'zh' else 'MCP Servers' }}</div>
+                    <div id="mcp-server-count" class="text-3xl font-bold text-teal-600">0</div>
+                </div>
+            </div>
+
+            <div id="system-info-panel" class="bg-white rounded-lg shadow p-5 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">{{ '系统资源' if current_locale == 'zh' else 'System Resources' }}</h3>
+                    <div id="system-uptime" class="text-sm text-gray-500">-</div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-500">CPU</span>
+                            <span id="system-cpu-percent" class="text-lg font-bold text-blue-600">-</span>
+                        </div>
+                        <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="system-cpu-bar" class="h-full rounded-full transition-all" style="width:0%;background:#10b981"></div>
+                        </div>
+                        <div id="system-cpu-detail" class="text-xs text-gray-500 mt-2">-</div>
+                    </div>
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-500">{{ '内存' if current_locale == 'zh' else 'Memory' }}</span>
+                            <span id="system-memory-percent" class="text-lg font-bold text-emerald-600">-</span>
+                        </div>
+                        <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="system-memory-bar" class="h-full rounded-full transition-all" style="width:0%;background:#10b981"></div>
+                        </div>
+                        <div id="system-memory-detail" class="text-xs text-gray-500 mt-2">-</div>
+                    </div>
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-500">{{ '磁盘' if current_locale == 'zh' else 'Disk' }}</span>
+                            <span id="system-disk-percent" class="text-lg font-bold text-amber-600">-</span>
+                        </div>
+                        <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="system-disk-bar" class="h-full rounded-full transition-all" style="width:0%;background:#10b981"></div>
+                        </div>
+                        <div id="system-disk-detail" class="text-xs text-gray-500 mt-2">-</div>
+                    </div>
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-500">{{ '进程' if current_locale == 'zh' else 'Process' }}</span>
+                            <span id="system-process-memory" class="text-lg font-bold text-purple-600">-</span>
+                        </div>
+                        <div id="system-process-detail" class="text-xs text-gray-500">-</div>
+                        <div id="system-network-detail" class="text-xs text-gray-500 mt-1">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-5 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">{{ _('Request Trend') }}</h3>
+                    <div id="trend-meta" class="text-sm text-gray-500">{{ _('Requests') }} / {{ _('Tokens') }} / {{ _('Errors') }} / {{ _('Timeouts') }}</div>
+                </div>
+                <canvas id="trendChart" height="80"></canvas>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Provider Usage') }}</h3>
+                    <div class="h-64"><canvas id="providerChart"></canvas></div>
+                    <div id="provider-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">{{ _('API Key Usage') }}</h3>
+                    <div class="h-64"><canvas id="apikeyChart"></canvas></div>
+                    <div id="apikey-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Model Usage') }}</h3>
+                    <div class="h-64"><canvas id="modelChart"></canvas></div>
+                    <div id="model-legend" class="mt-4 space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-4 gap-6 mt-6">
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Traffic Concentration') }}</h3>
+                    <div id="concentration-cards" class="space-y-3"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Error Hotspots') }}</h3>
+                    <div id="error-hotspots" class="space-y-3"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Timeout Hotspots') }}</h3>
+                    <div id="timeout-hotspots" class="space-y-3"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-5">
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Active Footprint') }}</h3>
+                    <div id="footprint-cards" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-5 mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">{{ _('Model Response Time') }}</h3>
+                    <div id="latency-meta" class="text-sm text-gray-500">{{ _('Hourly average response time by model') }}</div>
+                </div>
+                <div class="mb-4 flex flex-wrap gap-2">
+                    <button type="button" id="latency-tab-average" onclick="setLatencyView('average')" class="latency-tab active rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Average') }}</button>
+                    <button type="button" id="latency-tab-p95" onclick="setLatencyView('p95')" class="latency-tab rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('P95') }}</button>
+                    <button type="button" id="latency-tab-range" onclick="setLatencyView('range')" class="latency-tab rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Range') }}</button>
+                    <button type="button" id="latency-tab-heatmap" onclick="setLatencyView('heatmap')" class="latency-tab rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Heatmap') }}</button>
+                </div>
+                <div class="h-80">
+                    <canvas id="latencyChart"></canvas>
+                    <div id="latency-heatmap" class="hidden h-full overflow-auto"></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-5 mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">{{ _('Provider / Key / Model Status') if current_locale == 'zh' else 'Provider / Key / Model Status' }}</h3>
+                    <div id="provider-status-meta" class="text-sm text-gray-500"></div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200 text-left text-gray-500">
+                                <th class="px-4 py-3 font-medium">Provider</th>
+                                <th class="px-4 py-3 font-medium">Key</th>
+                                <th class="px-4 py-3 font-medium text-center">Health</th>
+                                <th class="px-4 py-3 font-medium text-center">Concurrency</th>
+                                <th class="px-4 py-3 font-medium">Models</th>
+                            </tr>
+                        </thead>
+                        <tbody id="provider-status-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    window.I18N = {
+        lightMode: "{{ _('Light Mode') }}",
+        darkMode: "{{ _('Dark Mode') }}",
+        others: "{{ _('Others') }}",
+        noData: "{{ _('No data') }}",
+        req: "{{ _('req') }}",
+        tok: "{{ _('tok') }}",
+        err: "{{ _('err') }}",
+        timeout: "{{ _('Timeout') }}",
+        timeouts: "{{ _('Timeouts') }}",
+        providers: "{{ _('Providers') }}",
+        apiKeys: "{{ _('API Keys') }}",
+        models: "{{ _('Models') }}",
+        provider: "{{ _('Provider') }}",
+        apiKey: "{{ _('API Key') }}",
+        model: "{{ _('Model') }}",
+        top1Share: "{{ _('Top 1 share') }}",
+        top3Combined: "{{ _('Top 3 combined') }}",
+        noHotspots: "{{ _('No hotspots') }}",
+        noLatencyData: "{{ _('No latency data') }}",
+        activeProviders: "{{ _('Active Providers') }}",
+        activeApiKeys: "{{ _('Active API Keys') }}",
+        activeModels: "{{ _('Active Models') }}",
+        top: "{{ _('Top:') }}",
+        noTraffic: "{{ _('No traffic') }}",
+        requests: "{{ _('Requests') }}",
+        tokens: "{{ _('Tokens') }}",
+        errors: "{{ _('Errors') }}",
+        requestsErrorsTimeouts: "{{ _('Requests / Errors / Timeouts') }}",
+        onRightAxis: "{{ _('{label} on right axis') }}",
+        responseTimeSeconds: "{{ _('Response Time (s)') }}",
+        hourlyAverageResponseTime: "{{ _('Hourly average response time by model') }}",
+        hourlyP95ResponseTime: "{{ _('Hourly P95 response time by model') }}",
+        hourlyResponseTimeRange: "{{ _('Hourly response time range by model') }}",
+        responseTimeHeatmap: "{{ _('Response time heatmap by model and hour') }}",
+        hourOfDay: "{{ _('Hour of day') }}",
+        sampleCount: "{{ _('{count} samples') }}",
+        average: "{{ _('Average') }}",
+        p95: "{{ _('P95') }}",
+        range: "{{ _('Range') }}",
+        heatmap: "{{ _('Heatmap') }}",
+        min: "{{ _('Min') }}",
+        max: "{{ _('Max') }}",
+        avgShort: "{{ _('Avg') }}",
+        noHeatmapData: "{{ _('No heatmap data') }}",
+    };
+    </script>
+    <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+        let currentPeriod = 'day';
+        let currentLatencyView = 'average';
+        let trendChart = null;
+        let providerChart = null;
+        let apikeyChart = null;
+        let modelChart = null;
+        let latencyChart = null;
+        const providerPalette = ['#2563eb', '#3b82f6', '#0ea5e9', '#38bdf8', '#1d4ed8', '#60a5fa', '#0284c7', '#7dd3fc'];
+        const apikeyPalette = ['#059669', '#10b981', '#14b8a6', '#34d399', '#0f766e', '#2dd4bf', '#22c55e', '#6ee7b7'];
+        const modelPalette = ['#2563eb', '#059669', '#ea580c', '#dc2626', '#7c3aed', '#0891b2', '#ca8a04', '#4f46e5'];
+
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, { method: 'POST' });
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+        }
+
+        function getThemeMode() {
+            return localStorage.getItem('admin_theme') || 'dark';
+        }
+
+        function getChartTheme() {
+            const isDark = document.body.classList.contains('theme-dark');
+            return {
+                tickColor: isDark ? '#94a3b8' : '#6b7280',
+                gridColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.18)',
+                titleColor: isDark ? '#cbd5e1' : '#4b5563',
+                legendColor: isDark ? '#e5e7eb' : '#374151',
+                tooltipBg: isDark ? '#0f172a' : '#ffffff',
+                tooltipTitle: isDark ? '#f8fafc' : '#111827',
+                tooltipBody: isDark ? '#cbd5e1' : '#374151',
+                tooltipBorder: isDark ? '#334155' : '#e5e7eb'
+            };
+        }
+
+        function applyTheme(mode) {
+            const isDark = mode === 'dark';
+            document.body.classList.toggle('theme-dark', isDark);
+            localStorage.setItem('admin_theme', mode);
+            document.getElementById('theme-toggle').value = mode;
+        }
+
+        applyTheme(getThemeMode());
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = `${APP_BASE_PATH}/admin/login`;
+                throw new Error('Unauthorized');
+            }
+            if (!resp.ok) throw new Error(await resp.text());
+            return await resp.json();
+        }
+
+        function setPeriod(period) {
+            currentPeriod = period;
+            document.querySelectorAll('[id^="btn-"]').forEach(btn => {
+                btn.classList.remove('bg-blue-500', 'text-white');
+                btn.classList.add('text-gray-600', 'hover:bg-gray-100');
+            });
+            document.getElementById('btn-' + period).classList.add('bg-blue-500', 'text-white');
+            document.getElementById('btn-' + period).classList.remove('text-gray-600', 'hover:bg-gray-100');
+            loadData();
+        }
+
+        function setLatencyView(view) {
+            currentLatencyView = view;
+            document.querySelectorAll('[id^="latency-tab-"]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById('latency-tab-' + view).classList.add('active');
+            if (window.latestMonitorLatencyData) {
+                renderLatencyChart(window.latestMonitorLatencyData);
+            }
+        }
+
+        function maskName(name) {
+            if (!name || name.length <= 4) return name;
+            return name.slice(0, 2) + '***' + name.slice(-2);
+        }
+        function formatCompactTokens(tokens) {
+            const value = Number(tokens || 0);
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+            if (Number.isInteger(value)) return value.toLocaleString();
+            return value.toFixed(1).replace(/\.0$/, '');
+        }
+
+        function formatPct(value, digits = 1) {
+            return `${(Number(value || 0) * 100).toFixed(digits)}%`;
+        }
+
+        function getTokenChartScale(requestValues, tokenValues) {
+            const maxRequests = Math.max(...requestValues, 1);
+            const maxTokens = Math.max(...tokenValues, 1);
+            const scales = [
+                { divisor: 1, suffix: '' },
+                { divisor: 1000, suffix: 'K' },
+                { divisor: 1000000, suffix: 'M' },
+                { divisor: 1000000000, suffix: 'B' }
+            ];
+            let scale = scales.find(s => maxTokens / s.divisor <= maxRequests * 5) || scales[scales.length - 1];
+            if (maxTokens / scale.divisor >= 1000) {
+                scale = scales[scales.indexOf(scale) + 1] || scale;
+            }
+            return scale;
+        }
+
+        function buildDonutSeries(data, palette, metric = 'tokens', limit = 5) {
+            const entries = Object.entries(data || {})
+                .sort((a, b) => (b[1][metric] || 0) - (a[1][metric] || 0))
+                .filter(([, stats]) => (stats[metric] || 0) > 0);
+            const topEntries = entries.slice(0, limit);
+            const otherValue = entries.slice(limit).reduce((sum, [, stats]) => sum + (stats[metric] || 0), 0);
+            const labels = topEntries.map(([name]) => name);
+            const values = topEntries.map(([, stats]) => stats[metric] || 0);
+            const colors = topEntries.map((_, index) => palette[index % palette.length]);
+            if (otherValue > 0) {
+                labels.push(window.I18N.others);
+                values.push(otherValue);
+                colors.push('#cbd5e1');
+            }
+            return { entries, labels, values, colors };
+        }
+
+        function renderUsageChart(currentChart, canvasId, legendId, data, config) {
+            const series = buildDonutSeries(data, config.palette, 'tokens', 5);
+            const canvas = document.getElementById(canvasId);
+            const chartTheme = getChartTheme();
+            if (currentChart) currentChart.destroy();
+
+            const chart = new Chart(canvas.getContext('2d'), {
+                type: config.type,
+                data: {
+                    labels: series.labels,
+                    datasets: [{
+                        data: series.values,
+                        backgroundColor: series.colors,
+                        borderWidth: 0,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: config.cutout,
+                    rotation: config.rotation || 0,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const total = series.values.reduce((sum, value) => sum + value, 0) || 1;
+                                    const pct = context.raw / total;
+                                    const label = config.maskLabels ? maskName(context.label) : context.label;
+                                    return `${label}: ${formatCompactTokens(context.raw)} (${formatPct(pct)})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const total = series.entries.reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0) || 1;
+            const legendHtml = series.entries.slice(0, 6).map(([name, stats], index) => {
+                const pct = (stats.tokens || 0) / total;
+                const errRate = stats.requests ? stats.errors / stats.requests : 0;
+                const color = config.palette[index % config.palette.length];
+                const displayName = config.maskLabels ? maskName(name) : name;
+                return `
+                    <div class="rounded-lg border ${config.cardBorder} p-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${color}"></span>
+                                    <div class="font-medium text-sm truncate" title="${name}">${displayName}</div>
+                                </div>
+                                <div class="mt-1 text-xs text-gray-500">${stats.requests.toLocaleString()} ${window.I18N.req} / ${formatCompactTokens(stats.tokens || 0)} ${window.I18N.tok}</div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <div class="text-sm font-semibold" style="color:${config.accentColor}">${formatPct(pct)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById(legendId).innerHTML = legendHtml || `<div class="text-gray-400 text-center py-4">${window.I18N.noData}</div>`;
+            return { chart, entries: series.entries };
+        }
+
+        function renderConcentrationCards(providerEntries, apikeyEntries, modelEntries) {
+            const sections = [
+                 [window.I18N.providers, providerEntries, false],
+                 [window.I18N.apiKeys, apikeyEntries, true],
+                 [window.I18N.models, modelEntries, false]
+             ];
+             const html = sections.map(([label, entries, shouldMask]) => {
+                 const total = entries.reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0) || 1;
+                 const top1 = entries[0];
+                 const top3Value = entries.slice(0, 3).reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0);
+                 const displayName = top1 ? (shouldMask ? maskName(top1[0]) : top1[0]) : window.I18N.noData;
+                 const fullName = top1 ? top1[0] : '';
+                 return `
+                     <div class="rounded-lg bg-slate-50 p-4">
+                         <div class="text-xs uppercase tracking-wide text-slate-500">${label}</div>
+                         <div class="mt-2 text-sm font-medium text-slate-800 truncate" title="${fullName}">${displayName}</div>
+                        <div class="mt-1 text-xs text-slate-500">${window.I18N.top1Share} ${top1 ? formatPct((top1[1].tokens || 0) / total) : '0%'}</div>
+                        <div class="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
+                            <div class="h-full bg-slate-700" style="width:${Math.min((top3Value / total) * 100, 100)}%"></div>
+                        </div>
+                        <div class="mt-2 text-xs text-slate-500">${window.I18N.top3Combined} ${formatPct(top3Value / total)}</div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('concentration-cards').innerHTML = html;
+        }
+
+        function renderHotspots(targetId, hotspots, kind = 'error') {
+            const countKey = kind === 'timeout' ? 'timeouts' : 'errors';
+            const rateKey = kind === 'timeout' ? 'timeout_rate' : 'error_rate';
+            const primaryLabel = kind === 'timeout' ? window.I18N.timeouts : window.I18N.errors;
+            const html = (hotspots || []).map(item => {
+                const rate = Number(item[rateKey] || 0);
+                const count = Number(item[countKey] || 0);
+                const tone = rate < 0.05
+                    ? {
+                        border: kind === 'timeout' ? 'border-amber-100' : 'border-amber-100',
+                        bg: kind === 'timeout' ? 'bg-amber-50' : 'bg-amber-50',
+                        scope: kind === 'timeout' ? 'text-amber-600' : 'text-amber-600',
+                        meta: kind === 'timeout' ? 'text-amber-500' : 'text-amber-500',
+                        value: kind === 'timeout' ? 'text-amber-600' : 'text-amber-600'
+                    }
+                    : {
+                        border: kind === 'timeout' ? 'border-orange-100' : 'border-red-100',
+                        bg: kind === 'timeout' ? 'bg-amber-50' : 'bg-red-50',
+                        scope: kind === 'timeout' ? 'text-orange-600' : 'text-red-500',
+                        meta: kind === 'timeout' ? 'text-orange-500' : 'text-red-400',
+                        value: kind === 'timeout' ? 'text-orange-600' : 'text-red-600'
+                    };
+                const scopeLabel = item.scope === 'provider'
+                    ? window.I18N.provider
+                    : item.scope === 'api_key'
+                        ? window.I18N.apiKey
+                        : window.I18N.model;
+                const displayName = item.masked ? maskName(item.name) : item.name;
+                return `
+                <div class="rounded-lg border ${tone.border} ${tone.bg} p-3">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="text-xs uppercase tracking-wide ${tone.scope}">${scopeLabel}</div>
+                            <div class="mt-1 font-medium text-sm truncate" title="${item.name}">${displayName}</div>
+                            <div class="mt-1 text-xs ${tone.meta}">${count.toLocaleString()} ${primaryLabel} / ${Number(item.requests || 0).toLocaleString()} ${window.I18N.requests}</div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-lg font-bold ${tone.value}">${formatPct(rate, 1)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            }).join('');
+
+            document.getElementById(targetId).innerHTML = html || `<div class="text-gray-400 text-center py-4">${window.I18N.noHotspots}</div>`;
+        }
+
+        function getLatencyVisibleRange(models, series, totalHours) {
+            let firstIndex = null;
+            let lastIndex = null;
+            const metricKeys = ['avg_latency_ms', 'p95_latency_ms', 'min_latency_ms', 'max_latency_ms'];
+
+            models.forEach(model => {
+                const modelSeries = series[model] || {};
+                metricKeys.forEach(metricKey => {
+                    (modelSeries[metricKey] || []).forEach((value, index) => {
+                        if (value === null || value === undefined) return;
+                        firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
+                        lastIndex = lastIndex === null ? index : Math.max(lastIndex, index);
+                    });
+                });
+            });
+
+            if (firstIndex === null || lastIndex === null) {
+                return { start: 0, end: Math.max(totalHours - 1, 0) };
+            }
+            let start = Math.max(firstIndex - 1, 0);
+            let end = Math.min(lastIndex + 1, totalHours - 1);
+            const minVisibleHours = 6;
+            const currentVisibleHours = end - start + 1;
+            if (currentVisibleHours < minVisibleHours) {
+                end = Math.min(end + (minVisibleHours - currentVisibleHours), totalHours - 1);
+                const stillMissing = minVisibleHours - (end - start + 1);
+                if (stillMissing > 0) {
+                    start = Math.max(start - stillMissing, 0);
+                }
+            }
+
+            return { start, end };
+        }
+
+        function getTrendVisibleRange(seriesList, totalBuckets) {
+            let firstIndex = null;
+            let lastIndex = null;
+            seriesList.forEach(series => {
+                (series || []).forEach((value, index) => {
+                    if (!Number(value || 0)) return;
+                    firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
+                    lastIndex = lastIndex === null ? index : Math.max(lastIndex, index);
+                });
+            });
+            if (firstIndex === null || lastIndex === null) {
+                if (currentPeriod === 'month' || currentPeriod === 'year') {
+                    const minVisibleBuckets = Math.min(30, totalBuckets);
+                    return { start: Math.max(totalBuckets - minVisibleBuckets, 0), end: Math.max(totalBuckets - 1, 0) };
+                }
+                return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            if (currentPeriod === 'month' || currentPeriod === 'year') {
+                const minVisibleBuckets = Math.min(30, totalBuckets);
+                const start = Math.max(Math.min(firstIndex - 1, totalBuckets - minVisibleBuckets), 0);
+                return { start, end: Math.max(totalBuckets - 1, 0) };
+            }
+            let start = Math.max(firstIndex - 1, 0);
+            let end = Math.min(lastIndex + 1, totalBuckets - 1);
+            if (currentPeriod === 'day') {
+                const minVisibleBuckets = totalBuckets >= 48 ? 12 : 6;
+                const currentVisibleBuckets = end - start + 1;
+                if (currentVisibleBuckets < minVisibleBuckets) {
+                    end = Math.min(end + (minVisibleBuckets - currentVisibleBuckets), totalBuckets - 1);
+                    const stillMissing = minVisibleBuckets - (end - start + 1);
+                    if (stillMissing > 0) {
+                        start = Math.max(start - stillMissing, 0);
+                    }
+                }
+            }
+            return { start, end };
+        }
+
+        function renderLatencyChart(latencyData) {
+            const chartTheme = getChartTheme();
+            const ctx = document.getElementById('latencyChart').getContext('2d');
+            if (latencyChart) latencyChart.destroy();
+            window.latestMonitorLatencyData = latencyData;
+
+            const models = latencyData.models || [];
+            const intervals = latencyData.intervals || Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, '0')}:00`);
+            const series = latencyData.series || {};
+            const canvas = document.getElementById('latencyChart');
+            const heatmap = document.getElementById('latency-heatmap');
+            const metaByView = {
+                average: window.I18N.hourlyAverageResponseTime,
+                p95: window.I18N.hourlyP95ResponseTime,
+                range: window.I18N.hourlyResponseTimeRange,
+                heatmap: window.I18N.responseTimeHeatmap,
+            };
+            document.getElementById('latency-meta').textContent = models.length
+                ? `${metaByView[currentLatencyView]} / ${models.length} ${window.I18N.models}`
+                : window.I18N.noLatencyData;
+
+            const hasLatencyData = models.some(model => {
+                const metrics = series[model] || {};
+                return ['avg_latency_ms', 'p95_latency_ms', 'min_latency_ms', 'max_latency_ms'].some(key =>
+                    (metrics[key] || []).some(value => value !== null && value !== undefined)
+                );
+            });
+            const visibleRange = getLatencyVisibleRange(models, series, intervals.length);
+
+            if (currentLatencyView === 'heatmap') {
+                canvas.classList.add('hidden');
+                heatmap.classList.remove('hidden');
+                renderLatencyHeatmap(models, intervals, series, visibleRange);
+                return;
+            }
+
+            canvas.classList.remove('hidden');
+            heatmap.classList.add('hidden');
+
+            if (!models.length || !hasLatencyData) {
+                latencyChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: intervals, datasets: [] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        },
+                        scales: {
+                            x: {
+                                min: visibleRange.start,
+                                max: visibleRange.end,
+                                grid: { color: chartTheme.gridColor },
+                                ticks: {
+                                    color: chartTheme.tickColor,
+                                    maxTicksLimit: 12,
+                                },
+                                title: { display: true, text: window.I18N.hourOfDay, color: chartTheme.titleColor }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: chartTheme.gridColor },
+                                ticks: { color: chartTheme.tickColor },
+                                title: { display: true, text: window.I18N.responseTimeSeconds, color: chartTheme.titleColor }
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+
+            let datasets = [];
+            if (currentLatencyView === 'range') {
+                datasets = models.flatMap((model, index) => {
+                    const color = modelPalette[index % modelPalette.length];
+                    const baseData = intervals.map((label, hourIndex) => ({
+                        x: label,
+                        samples: (series[model]?.samples || [])[hourIndex] || 0,
+                    }));
+                    const minData = baseData.map((item, hourIndex) => ({
+                        ...item,
+                        metric: 'min',
+                        y: series[model]?.min_latency_ms?.[hourIndex] == null ? null : Number((series[model].min_latency_ms[hourIndex] / 1000).toFixed(2)),
+                    }));
+                    const maxData = baseData.map((item, hourIndex) => ({
+                        ...item,
+                        metric: 'max',
+                        y: series[model]?.max_latency_ms?.[hourIndex] == null ? null : Number((series[model].max_latency_ms[hourIndex] / 1000).toFixed(2)),
+                    }));
+                    const avgData = baseData.map((item, hourIndex) => ({
+                        ...item,
+                        metric: 'avg',
+                        y: series[model]?.avg_latency_ms?.[hourIndex] == null ? null : Number((series[model].avg_latency_ms[hourIndex] / 1000).toFixed(2)),
+                    }));
+                    return [
+                        {
+                            label: `${model} (${window.I18N.min})`,
+                            stackLabel: model,
+                            metric: 'min',
+                            data: minData,
+                            borderColor: 'rgba(148, 163, 184, 0.35)',
+                            backgroundColor: 'rgba(148, 163, 184, 0)',
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            borderWidth: 1,
+                            spanGaps: false,
+                            tension: 0.22,
+                        },
+                        {
+                            label: `${model} (${window.I18N.max})`,
+                            stackLabel: model,
+                            metric: 'max',
+                            data: maxData,
+                            borderColor: 'rgba(148, 163, 184, 0.35)',
+                            backgroundColor: color + '22',
+                            fill: '-1',
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            borderWidth: 1,
+                            spanGaps: false,
+                            tension: 0.22,
+                        },
+                        {
+                            label: `${model} (${window.I18N.avgShort})`,
+                            stackLabel: model,
+                            metric: 'avg',
+                            data: avgData,
+                            borderColor: color,
+                            backgroundColor: color,
+                            pointRadius: 2.5,
+                            pointHoverRadius: 5,
+                            pointHitRadius: 12,
+                            borderWidth: 2,
+                            spanGaps: false,
+                            tension: 0.28,
+                        }
+                    ];
+                }).filter(dataset => dataset.data.some(point => point.y !== null));
+            } else {
+                const metricKey = currentLatencyView === 'p95' ? 'p95_latency_ms' : 'avg_latency_ms';
+                datasets = models.map((model, index) => ({
+                    label: model,
+                    data: intervals.map((label, hourIndex) => ({
+                        x: label,
+                        y: series[model]?.[metricKey]?.[hourIndex] == null ? null : Number((series[model][metricKey][hourIndex] / 1000).toFixed(2)),
+                        samples: (series[model]?.samples || [])[hourIndex] || 0,
+                    })),
+                    backgroundColor: modelPalette[index % modelPalette.length],
+                    borderColor: modelPalette[index % modelPalette.length],
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    pointHitRadius: 12,
+                    borderWidth: 2,
+                    spanGaps: false,
+                    tension: 0.28,
+                })).filter(dataset => dataset.data.some(point => point.y !== null));
+            }
+
+            latencyChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: intervals, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: chartTheme.legendColor,
+                                filter: function(item, chartData) {
+                                    const dataset = chartData.datasets[item.datasetIndex];
+                                    return currentLatencyView !== 'range' || dataset.metric === 'avg';
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                title: function(items) {
+                                    return items[0]?.label || '';
+                                },
+                                label: function(context) {
+                                    const raw = context.raw || {};
+                                    if (currentLatencyView === 'range') {
+                                        return `${context.dataset.stackLabel} ${window.I18N[context.dataset.metric === 'avg' ? 'avgShort' : context.dataset.metric]}: ${(raw.y || 0).toFixed(2)}s`;
+                                    }
+                                    return `${context.dataset.label}: ${(raw.y || 0).toFixed(2)}s`;
+                                },
+                                afterLabel: function(context) {
+                                    const raw = context.raw || {};
+                                    return raw.samples
+                                        ? window.I18N.sampleCount.replace('{count}', raw.samples)
+                                        : [];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            min: visibleRange.start,
+                            max: visibleRange.end,
+                            grid: { color: chartTheme.gridColor },
+                            ticks: {
+                                color: chartTheme.tickColor,
+                                maxTicksLimit: 12,
+                            },
+                            title: { display: true, text: window.I18N.hourOfDay, color: chartTheme.titleColor }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: chartTheme.gridColor },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: window.I18N.responseTimeSeconds, color: chartTheme.titleColor }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderLatencyHeatmap(models, intervals, series, visibleRange) {
+            const container = document.getElementById('latency-heatmap');
+            const visibleIntervals = intervals.slice(visibleRange.start, visibleRange.end + 1);
+            const entries = models.flatMap(model =>
+                (series[model]?.avg_latency_ms || [])
+                    .slice(visibleRange.start, visibleRange.end + 1)
+                    .filter(value => value !== null && value !== undefined)
+            );
+            const maxValue = Math.max(...entries, 0);
+            const minValue = Math.min(...entries, maxValue);
+            if (!models.length || !maxValue) {
+                container.innerHTML = `<div class="h-full flex items-center justify-center text-gray-400">${window.I18N.noHeatmapData}</div>`;
+                return;
+            }
+
+            const formatHeatmapSeconds = (value) => Number((value / 1000).toFixed(2));
+            const getHeatColor = (value) => {
+                const spread = Math.max(maxValue - minValue, 1);
+                const ratio = Math.max(0, Math.min(1, (value - minValue) / spread));
+                const hue = 150 - (ratio * 150);
+                const lightness = 90 - (ratio * 42);
+                return {
+                    background: `hsl(${hue} 78% ${lightness}%)`,
+                    text: ratio > 0.58 ? '#ffffff' : '#1f2937',
+                };
+            };
+
+            const midValue = minValue + ((maxValue - minValue) / 2);
+            const legend = `
+                <div class="heatmap-legend">
+                    <div class="heatmap-legend-labels">
+                        <span>${window.I18N.average}</span>
+                        <span>${formatHeatmapSeconds(minValue)}s</span>
+                    </div>
+                    <div class="heatmap-legend-scale"></div>
+                    <div class="heatmap-legend-labels">
+                        <span>${formatHeatmapSeconds(midValue)}s</span>
+                        <span>${formatHeatmapSeconds(maxValue)}s</span>
+                    </div>
+                </div>
+            `;
+
+            const header = `
+                <div class="heatmap-corner"><strong>${window.I18N.model}</strong><span>${window.I18N.hourOfDay}</span></div>
+                ${visibleIntervals.map(label => `<div class="heatmap-cell text-gray-500">${label.slice(0, 2)}</div>`).join('')}
+            `;
+            const rows = models.map(model => {
+                const avgValues = series[model]?.avg_latency_ms || [];
+                const sampleValues = series[model]?.samples || [];
+                const cells = visibleIntervals.map((_, offset) => {
+                    const hourIndex = visibleRange.start + offset;
+                    const value = avgValues[hourIndex];
+                    const samples = sampleValues[hourIndex] || 0;
+                    if (value == null) {
+                        return `<div class="heatmap-cell bg-gray-100 text-gray-300">-</div>`;
+                    }
+                    const color = getHeatColor(value);
+                    const title = `${model} | ${intervals[hourIndex]} | ${window.I18N.average}: ${formatHeatmapSeconds(value)}s | ${window.I18N.sampleCount.replace('{count}', samples)}`;
+                    return `<div class="heatmap-cell" style="background:${color.background};color:${color.text}" title="${title}">${Number((value / 1000).toFixed(1))}</div>`;
+                }).join('');
+                return `<div class="heatmap-label" title="${model}">${model}</div>${cells}`;
+            }).join('');
+            container.innerHTML = `${legend}<div class="heatmap-grid" style="grid-template-columns:minmax(140px, 1.4fr) repeat(${visibleIntervals.length}, minmax(28px, 1fr));">${header}${rows}</div>`;
+        }
+
+        function renderFootprintCards(providerEntries, apikeyEntries, modelEntries) {
+            const cards = [
+                {
+                    label: window.I18N.activeProviders,
+                    value: providerEntries.length,
+                    detail: providerEntries[0] ? `${window.I18N.top} ${providerEntries[0][0]}` : window.I18N.noTraffic
+                },
+                {
+                    label: window.I18N.activeApiKeys,
+                    value: apikeyEntries.length,
+                    detail: apikeyEntries[0] ? `${window.I18N.top} ${maskName(apikeyEntries[0][0])}` : window.I18N.noTraffic
+                },
+                {
+                    label: window.I18N.activeModels,
+                    value: modelEntries.length,
+                    detail: modelEntries[0] ? `${window.I18N.top} ${modelEntries[0][0]}` : window.I18N.noTraffic
+                }
+            ];
+
+            const html = cards.map(card => `
+                <div class="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <div class="text-xs uppercase tracking-wide text-gray-500">${card.label}</div>
+                    <div class="mt-2 text-2xl font-bold text-gray-800">${card.value.toLocaleString()}</div>
+                    <div class="mt-1 text-sm text-gray-500 truncate" title="${card.detail}">${card.detail}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('footprint-cards').innerHTML = html;
+        }
+
+        function renderTrendChart(data) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            const chartTheme = getChartTheme();
+            if (trendChart) trendChart.destroy();
+
+            const requests = data.intervals.map(label => data.data[label]?.requests || 0);
+            const rawTokens = data.intervals.map(label => data.data[label]?.tokens || 0);
+            const errors = data.intervals.map(label => data.data[label]?.errors || 0);
+            const timeouts = data.intervals.map(label => data.data[label]?.timeouts || 0);
+            const visibleRange = getTrendVisibleRange([requests, rawTokens, errors, timeouts], data.intervals.length);
+            const tokenScale = getTokenChartScale(requests, rawTokens);
+            const tokens = rawTokens.map(value => Number((value / tokenScale.divisor).toFixed(2)));
+            const tokenLabel = tokenScale.suffix ? `${window.I18N.tokens} (${tokenScale.suffix})` : window.I18N.tokens;
+            document.getElementById('trend-meta').textContent = window.I18N.onRightAxis.replace('{label}', tokenLabel);
+
+            trendChart = new Chart(ctx, {
+                data: {
+                    labels: data.intervals,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: window.I18N.requests,
+                            data: requests,
+                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
+                            borderColor: 'rgba(59, 130, 246, 0.85)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: tokenLabel,
+                            data: tokens,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            pointBackgroundColor: '#10b981',
+                            pointRadius: 3,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.25,
+                            fill: true,
+                            yAxisID: 'yTokens'
+                        },
+                        {
+                            type: 'line',
+                            label: window.I18N.errors,
+                            data: errors,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [6, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: window.I18N.timeouts,
+                            data: timeouts,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                            pointBackgroundColor: '#f59e0b',
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.2,
+                            borderDash: [2, 5],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            min: visibleRange.start,
+                            max: visibleRange.end,
+                            grid: { color: chartTheme.gridColor },
+                            ticks: {
+                                color: chartTheme.tickColor,
+                                autoSkip: true,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                maxTicksLimit: currentPeriod === 'week' ? 10 : 12
+                            }
+                        },
+                        yRequests: {
+                            beginAtZero: true,
+                            position: 'left',
+                            grid: { color: chartTheme.gridColor },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: window.I18N.requestsErrorsTimeouts, color: chartTheme.titleColor }
+                        },
+                        yTokens: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: tokenLabel, color: chartTheme.titleColor }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { color: chartTheme.legendColor } },
+                        tooltip: {
+                            backgroundColor: chartTheme.tooltipBg,
+                            titleColor: chartTheme.tooltipTitle,
+                            bodyColor: chartTheme.tooltipBody,
+                            borderColor: chartTheme.tooltipBorder,
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.yAxisID === 'yTokens') {
+                                        const rawValue = rawTokens[context.dataIndex] || 0;
+                                        return `${tokenLabel}: ${formatCompactTokens(rawValue)} (${rawValue.toLocaleString()})`;
+                                    }
+                                    return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadData() {
+            const [providerData, apikeyData, modelData, monitorData] = await Promise.all([
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=provider&period=` + currentPeriod),
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=api_key&period=` + currentPeriod),
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=model&period=` + currentPeriod),
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/monitor-details?period=` + currentPeriod)
+            ]);
+
+            const totalRequests = providerData.total_requests || 0;
+            const totalTokens = providerData.total_tokens || 0;
+            const totalPromptTokens = providerData.total_prompt_tokens || 0;
+            const totalCompletionTokens = providerData.total_completion_tokens || 0;
+            const totalErrors = monitorData.total_errors || 0;
+            const totalTimeouts = monitorData.total_timeouts || 0;
+            const totalRateLimited = monitorData.total_rate_limited || 0;
+
+            document.getElementById('total-requests').textContent = totalRequests.toLocaleString();
+            document.getElementById('total-prompt-tokens').textContent = formatCompactTokens(totalPromptTokens);
+            document.getElementById('total-completion-tokens').textContent = formatCompactTokens(totalCompletionTokens);
+            document.getElementById('total-errors').textContent = totalErrors.toLocaleString();
+            document.getElementById('total-timeouts').textContent = totalTimeouts.toLocaleString();
+            document.getElementById('total-rate-limited').textContent = totalRateLimited.toLocaleString();
+            document.getElementById('error-rate').textContent = (totalRequests > 0 ? ((totalErrors / totalRequests) * 100).toFixed(1) : '0.0') + '%';
+
+            const providerResult = renderUsageChart(providerChart, 'providerChart', 'provider-legend', providerData.data || {}, {
+                type: 'doughnut',
+                cutout: '74%',
+                rotation: -90,
+                palette: providerPalette,
+                accentColor: '#2563eb',
+                cardBorder: 'border-blue-100',
+                maskLabels: false
+            });
+            providerChart = providerResult.chart;
+            const apikeyResult = renderUsageChart(apikeyChart, 'apikeyChart', 'apikey-legend', apikeyData.data || {}, {
+                type: 'doughnut',
+                cutout: '48%',
+                rotation: -45,
+                palette: apikeyPalette,
+                accentColor: '#059669',
+                cardBorder: 'border-emerald-100',
+                maskLabels: true
+            });
+            apikeyChart = apikeyResult.chart;
+            const modelResult = renderUsageChart(modelChart, 'modelChart', 'model-legend', modelData.data || {}, {
+                type: 'pie',
+                cutout: 0,
+                rotation: 15,
+                palette: modelPalette,
+                accentColor: '#7c3aed',
+                cardBorder: 'border-violet-100',
+                maskLabels: false
+            });
+            modelChart = modelResult.chart;
+
+            renderConcentrationCards(providerResult.entries, apikeyResult.entries, modelResult.entries);
+            renderHotspots('error-hotspots', monitorData.error_hotspots || [], 'error');
+            renderHotspots('timeout-hotspots', monitorData.timeout_hotspots || [], 'timeout');
+            renderFootprintCards(providerResult.entries, apikeyResult.entries, modelResult.entries);
+            renderLatencyChart(monitorData.latency || {});
+            renderTrendChart(monitorData.trend || { intervals: [], data: {} });
+        }
+
+        loadData();
+        setInterval(loadData, 30000);
+        loadProviderStatus();
+        setInterval(loadProviderStatus, 10000);
+        loadMcpStats();
+        setInterval(loadMcpStats, 60000);
+        loadSystemInfo();
+        setInterval(loadSystemInfo, 10000);
+
+        async function loadProviderStatus() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models-status`);
+                if (!data || !data.rows) return;
+                const rows = data.rows;
+                let totalKeys = rows.filter(r => r.key_id !== null).length;
+                let healthyKeys = rows.filter(r => r.health_score >= 60).length;
+                document.getElementById('provider-status-meta').textContent = `${healthyKeys}/${totalKeys} keys healthy`;
+
+                const tbody = document.getElementById('provider-status-tbody');
+                tbody.innerHTML = rows.map(r => {
+                    const hClass = 'health-' + r.health_level;
+                    const hBadge = `<span class="health-badge ${hClass}">${r.health_score}</span>`;
+
+                    let concHtml = '-';
+                    if (r.concurrency_limit > 0) {
+                        const pct = Math.min((r.concurrency_in_use / r.concurrency_limit) * 100, 100);
+                        const barColor = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
+                        concHtml = `<div class="flex items-center gap-2">
+                            <div class="conc-bar-bg"><div class="conc-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+                            <span class="text-xs text-gray-600">${r.concurrency_in_use}/${r.concurrency_limit}</span>
+                        </div>`;
+                    }
+
+                    let modelsHtml = '-';
+                    if (Array.isArray(r.models)) {
+                        if (r.models.length && typeof r.models[0] === 'object') {
+                            modelsHtml = r.models.map(m => {
+                                const cls = m.in_use > 0 ? 'background:#dbeafe;color:#1d4ed8;' : '';
+                                return `<span class="model-tag" style="${cls}">${escapeHtml(m.name)}${m.in_use > 0 ? ` (${m.in_use})` : ''}</span>`;
+                            }).join('');
+                        } else {
+                            modelsHtml = r.models.map(m => `<span class="model-tag">${escapeHtml(m)}</span>`).join('');
+                        }
+                    }
+
+                    const providerStyle = r.provider_disabled ? 'text-red-500 line-through' : 'text-gray-800';
+                    const providerTitle = r.provider_disabled ? r.provider_disabled_reason : '';
+                    const keyStyle = !r.key_active ? 'text-red-400' : 'text-gray-700';
+
+                    return `<tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium ${providerStyle}" title="${escapeHtml(providerTitle)}">${escapeHtml(r.provider)}</td>
+                        <td class="px-4 py-3 ${keyStyle}">${escapeHtml(r.key_label)}</td>
+                        <td class="px-4 py-3 text-center">${hBadge}</td>
+                        <td class="px-4 py-3">${concHtml}</td>
+                        <td class="px-4 py-3 max-w-xs">${modelsHtml}</td>
+                    </tr>`;
+                }).join('');
+            } catch(e) { console.error('Failed to load provider status', e); }
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function fmtBytes(value) {
+            const n = Number(value || 0);
+            if (!n) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const idx = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
+            return `${(n / Math.pow(1024, idx)).toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`;
+        }
+
+        function barColor(percent) {
+            return percent >= 85 ? '#ef4444' : percent >= 65 ? '#f59e0b' : '#10b981';
+        }
+
+        function fmtUptime(seconds) {
+            const total = Number(seconds || 0);
+            const days = Math.floor(total / 86400);
+            const hours = Math.floor((total % 86400) / 3600);
+            const minutes = Math.floor((total % 3600) / 60);
+            if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+            if (hours > 0) return `${hours}h ${minutes}m`;
+            return `${minutes}m`;
+        }
+
+        async function loadSystemInfo() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/system/info`);
+                const cpu = data.cpu || {};
+                const memory = data.memory || {};
+                const disk = data.host_disk || data.disk || {};
+                const proc = data.process || {};
+                const net = data.network || {};
+
+                const cpuPct = Number(cpu.percent || 0);
+                document.getElementById('system-cpu-percent').textContent = `${cpuPct.toFixed(1)}%`;
+                document.getElementById('system-cpu-bar').style.width = `${Math.min(cpuPct, 100)}%`;
+                document.getElementById('system-cpu-bar').style.background = barColor(cpuPct);
+                const cpuParts = [`${cpu.count_logical || '-'} cores`];
+                if (cpu.freq_current) cpuParts.push(`${cpu.freq_current} MHz`);
+                if (cpu.load_avg_1m !== null && cpu.load_avg_1m !== undefined) cpuParts.push(`load ${cpu.load_avg_1m}/${cpu.load_avg_5m}/${cpu.load_avg_15m}`);
+                document.getElementById('system-cpu-detail').textContent = cpuParts.join(' · ');
+
+                const memPct = Number(memory.percent || 0);
+                document.getElementById('system-memory-percent').textContent = `${memPct.toFixed(1)}%`;
+                document.getElementById('system-memory-bar').style.width = `${Math.min(memPct, 100)}%`;
+                document.getElementById('system-memory-bar').style.background = barColor(memPct);
+                document.getElementById('system-memory-detail').textContent = `${fmtBytes(memory.used)} / ${fmtBytes(memory.total)} · swap ${Number(memory.swap_percent || 0).toFixed(1)}%`;
+
+                const diskPct = Number(disk.percent || 0);
+                document.getElementById('system-disk-percent').textContent = `${diskPct.toFixed(1)}%`;
+                document.getElementById('system-disk-bar').style.width = `${Math.min(diskPct, 100)}%`;
+                document.getElementById('system-disk-bar').style.background = barColor(diskPct);
+                const diskLabel = data.host_disk ? '{{ "宿主机" if current_locale == "zh" else "host" }}' : '{{ "容器" if current_locale == "zh" else "container" }}';
+                document.getElementById('system-disk-detail').textContent = `${diskLabel}: ${fmtBytes(disk.used)} / ${fmtBytes(disk.total)}`;
+
+                document.getElementById('system-uptime').textContent = `{{ "运行时间" if current_locale == "zh" else "Uptime" }} ${fmtUptime(data.uptime)}`;
+                document.getElementById('system-process-memory').textContent = fmtBytes(proc.memory_rss);
+                document.getElementById('system-process-detail').textContent = `CPU ${Number(proc.cpu_percent || 0).toFixed(1)}% · ${proc.threads || 0} threads · ${proc.connections ?? '-'} conn`;
+                document.getElementById('system-network-detail').textContent = `↑ ${fmtBytes(net.bytes_sent)} · ↓ ${fmtBytes(net.bytes_recv)}`;
+            } catch (e) {
+                console.error('Failed to load system info', e);
+            }
+        }
+
+        async function loadMcpStats() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`);
+                const servers = data.servers || [];
+                if (servers.length === 0) return;
+                document.getElementById('mcp-calls-card').classList.remove('hidden');
+                document.getElementById('mcp-errors-card').classList.remove('hidden');
+                document.getElementById('mcp-servers-card').classList.remove('hidden');
+                const logsResp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-logs/query?time_range=24h&page_size=1`);
+                const totalCalls = logsResp.total || 0;
+                let totalErrors = 0;
+                if (totalCalls > 0) {
+                    const errResp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-logs/query?status=error&page_size=1`);
+                    totalErrors = errResp.total || 0;
+                }
+                document.getElementById('mcp-total-calls').textContent = totalCalls.toLocaleString();
+                document.getElementById('mcp-total-errors').textContent = totalErrors.toLocaleString();
+                document.getElementById('mcp-server-count').textContent = servers.length.toLocaleString();
+            } catch (e) {}
+        }
+    </script>
+</body>
+</html>

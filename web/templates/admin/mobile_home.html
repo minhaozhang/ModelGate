@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{ _('Dashboard') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css">
+    <script src="/static/js/chart.min.js"></script>
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav,
+        body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .bg-gray-200 { background: #1f2937 !important; }
+        body.theme-dark .bg-orange-50 { background: rgba(249, 115, 22, 0.12) !important; }
+        body.theme-dark .bg-orange-100 { background: rgba(249, 115, 22, 0.18) !important; }
+        body.theme-dark .bg-green-100 { background: rgba(34, 197, 94, 0.18) !important; }
+        body.theme-dark .bg-red-100 { background: rgba(239, 68, 68, 0.18) !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .text-orange-600 { color: #fdba74 !important; }
+        body.theme-dark .text-orange-700 { color: #fed7aa !important; }
+        body.theme-dark .text-green-700 { color: #bbf7d0 !important; }
+        body.theme-dark .text-red-700 { color: #fecaca !important; }
+        body.theme-dark .border,
+        body.theme-dark .border-l-2,
+        body.theme-dark .border-orange-200 { border-color: rgba(249, 115, 22, 0.28) !important; }
+        body.theme-dark select,
+        body.theme-dark button:not(.text-red-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .shadow-sm { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
+        .stat-card { transition: transform 0.15s; }
+        .stat-card:active { transform: scale(0.97); }
+        .collapsible-header { -webkit-tap-highlight-color: transparent; }
+        .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+        .collapsible-content.open { max-height: 2000px; }
+        .chevron { transition: transform 0.3s; }
+        .chevron.open { transform: rotate(180deg); }
+        ::-webkit-scrollbar { display: none; }
+        .fd,.fs { display:inline-block; height:1em; line-height:1em; overflow:hidden; vertical-align:bottom; }
+        .fd { font-variant-numeric:tabular-nums; }
+        .fr { display:block; transition:transform .6s cubic-bezier(.25,1,.5,1) !important; }
+        .fc { display:block; height:1em; line-height:1em; text-align:center; }
+        .metric-flip { display:inline-flex; align-items:flex-end; min-height:1em; line-height:1; white-space:nowrap; }
+        @media(prefers-reduced-motion:reduce){ .fr{transition-duration:.01ms!important;} }
+        .warn-icon { position: relative; display: inline-flex; align-items: center; cursor: pointer; color: #ef4444; vertical-align: middle; }
+        .warn-icon .warn-tip { display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); background: #1f2937; color: #f9fafb; padding: 6px 10px; border-radius: 6px; font-size: 12px; max-width: 200px; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.4; }
+        .warn-icon:hover .warn-tip { display: block; }
+    </style>
+</head>
+<body class="theme-dark bg-gray-50 min-h-screen pb-20">
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="flex items-center justify-between px-4 py-3">
+            <div>
+                <h1 class="text-lg font-bold text-gray-800">ModelGate</h1>
+                <div class="text-xs text-gray-400">{{ _('Admin Dashboard') }}</div>
+            </div>
+            <div class="flex items-center gap-2">
+                <select id="lang-select" onchange="switchLang(this.value)" class="text-xs border rounded-lg px-1.5 py-1 bg-gray-50">
+                    <option value="en">English</option>
+                    <option value="zh">中文</option>
+                </select>
+                <select id="period-select" class="text-xs border rounded-lg px-2 py-1.5 bg-gray-50" onchange="loadData()">
+                    <option value="day">{{ _('Today') }}</option>
+                    <option value="week">{{ _('Week') }}</option>
+                    <option value="month">{{ _('Month') }}</option>
+                    <option value="year">{{ _('Year') }}</option>
+                </select>
+                <button onclick="logout()" class="p-2 text-gray-400 hover:text-red-500 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="px-4 pt-4 space-y-4">
+        <div class="grid grid-cols-3 gap-3">
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Requests') }}</div>
+                <div id="total-requests" class="metric-flip mt-1 text-lg font-bold leading-none text-blue-600">0</div>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Tokens') }}</div>
+                <div id="total-tokens" class="metric-flip mt-1 text-lg font-bold leading-none text-green-600">0</div>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Errors') }}</div>
+                <div id="total-errors" class="metric-flip mt-1 text-lg font-bold leading-none text-red-500">0</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Timeouts') }}</div>
+                <div id="total-timeouts" class="metric-flip mt-1 text-lg font-bold leading-none text-amber-500">0</div>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">429</div>
+                <div id="total-rate-limited" class="metric-flip mt-1 text-lg font-bold leading-none text-sky-500">0</div>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Active Requests') }}</div>
+                <div id="rps" class="metric-flip mt-1 text-lg font-bold leading-none text-orange-500">0</div>
+            </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Tokens/s') }}</div>
+                <div id="tps" class="metric-flip mt-1 text-lg font-bold leading-none text-teal-600">0</div>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Err Rate') }}</div>
+                <div id="error-rate" class="metric-flip mt-1 text-lg font-bold leading-none text-purple-600">0%</div>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Busyness') }}</div>
+                <div id="busyness-level" class="metric-flip mt-1 text-lg font-bold leading-none text-slate-600">--</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm p-4">
+            <div class="flex items-center justify-between mb-3">
+                <span class="font-medium text-sm text-gray-800">{{ _('Request Trend') }}</span>
+            </div>
+            <div style="height: 220px;">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="collapsible-header flex items-center justify-between p-4" onclick="toggleSection('active')">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span class="font-medium text-sm text-gray-800">{{ _('Active Users') }}</span>
+                    <span id="active-count" class="text-xs text-gray-400">0</span>
+                </div>
+                <svg id="chevron-active" class="chevron w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </div>
+            <div id="active-content" class="collapsible-content">
+                <div id="active-sessions" class="px-4 pb-4 space-y-2"></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="collapsible-header flex items-center justify-between p-4" onclick="toggleSection('slow')">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="font-medium text-sm text-gray-800">{{ _('Slow Requests') }}</span>
+                    <span id="slow-count" class="text-xs text-gray-400">0</span>
+                </div>
+                <svg id="chevron-slow" class="chevron w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </div>
+            <div id="slow-content" class="collapsible-content">
+                <div id="slow-requests" class="px-4 pb-4 space-y-2"></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="collapsible-header flex items-center justify-between p-4" onclick="toggleSection('providers')">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/>
+                    </svg>
+                    <span class="font-medium text-sm text-gray-800">{{ _('Provider Usage') }}</span>
+                </div>
+                <svg id="chevron-providers" class="chevron w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </div>
+            <div id="providers-content" class="collapsible-content">
+                <div id="provider-bars" class="px-4 pb-4 space-y-3"></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="collapsible-header flex items-center justify-between p-4" onclick="toggleSection('apikeys')">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                    </svg>
+                    <span class="font-medium text-sm text-gray-800">{{ _('API Key Usage') }}</span>
+                </div>
+                <svg id="chevron-apikeys" class="chevron w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </div>
+            <div id="apikeys-content" class="collapsible-content">
+                <div id="apikey-bars" class="px-4 pb-4 space-y-3"></div>
+            </div>
+        </div>
+    </div>
+
+    {% include 'components/lang_switch.html' %}
+    <script>
+    window.I18N = {
+        requests: "{{ _('Requests') }}",
+        tokens: "{{ _('Tokens') }}",
+        errors: "{{ _('Errors') }}",
+        noData: "{{ _('No data') }}",
+        noActiveUsers: "{{ _('No active users') }}",
+        noSlowRequests: "{{ _('No slow requests') }}",
+        req: "{{ _('req') }}",
+        pending: "{{ _('pending') }}",
+        elapsed: "{{ _('{seconds}s elapsed') }}",
+        onRightAxis: "{{ _('{label} on right axis') }}",
+    };
+    </script>
+    <script>
+        let currentPeriod = 'day';
+        let trendChart = null;
+        let liveStatsSocket = null;
+        let liveStatsReconnectTimer = null;
+        let adminAuthRedirecting = false;
+        const MOBILE_HOME_OVERVIEW_REFRESH_MS = 8000;
+        const MOBILE_HOME_SLOW_REFRESH_MS = 5000;
+
+        Chart.defaults.color = '#cbd5e1';
+        Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.15)';
+
+        function getCounterSkeleton(text) {
+            return String(text ?? '').replace(/\d/g, '#');
+        }
+
+        function formatCompactTokens(tokens) {
+            const value = Number(tokens || 0);
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+            if (Number.isInteger(value)) return value.toLocaleString();
+            return value.toFixed(1).replace(/\.0$/, '');
+        }
+
+        function maskName(name) {
+            if (!name || name.length <= 4) return name;
+            return name.slice(0, 2) + '***' + name.slice(-2);
+        }
+
+        function getTokenChartScale(requestValues, tokenValues) {
+            const maxRequests = Math.max(...requestValues, 1);
+            const maxTokens = Math.max(...tokenValues, 1);
+            const scales = [
+                { divisor: 1, suffix: '' },
+                { divisor: 1000, suffix: 'K' },
+                { divisor: 1000000, suffix: 'M' },
+                { divisor: 1000000000, suffix: 'B' }
+            ];
+            let scale = scales.find(s => maxTokens / s.divisor <= maxRequests * 5) || scales[scales.length - 1];
+            if (maxTokens / scale.divisor >= 1000) {
+                scale = scales[scales.indexOf(scale) + 1] || scale;
+            }
+            return scale;
+        }
+
+        function toggleSection(name) {
+            const content = document.getElementById(name + '-content');
+            const chevron = document.getElementById('chevron-' + name);
+            content.classList.toggle('open');
+            chevron.classList.toggle('open');
+        }
+
+        function renderModelList(models) {
+            const items = Object.entries(models || {})
+                .filter(([, m]) => (m.requests || 0) > 0)
+                .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0))
+                .map(([model, m]) => `<div class="flex justify-between text-[11px] text-gray-500"><span class="truncate">${model}</span><span class="shrink-0 ml-2">${m.requests} / ${formatCompactTokens(m.tokens || 0)}</span></div>`)
+                .join('');
+            return items ? `<div class="mt-2 space-y-1 border-l-2 border-gray-100 pl-2">${items}</div>` : '';
+        }
+
+        function renderProviderBars(providers, disabledProviders) {
+            const entries = Object.entries(providers)
+                .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0));
+            const maxTokens = Math.max(...entries.map(([, p]) => p.tokens || 0), 1);
+            const disabledCount = Object.keys(disabledProviders || {}).length;
+            const badgeHtml = disabledCount > 0 ? `<span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">${disabledCount} {{ _('disabled') }}</span>` : '';
+            document.querySelector('[onclick="toggleSection(\'providers\')"] .flex.items-center').innerHTML = `
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
+                    <span class="font-medium text-sm text-gray-800">{{ _('Provider Usage') }}</span>
+                    ${badgeHtml}
+            `;
+            const html = entries.map(([name, p]) => {
+                const pct = ((p.tokens || 0) / maxTokens) * 100;
+                const modelsHtml = renderModelList(p.models);
+                const isDisabled = disabledProviders && disabledProviders[name];
+                const warnIcon = isDisabled
+                    ? `<span class="warn-icon ml-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${isDisabled}</span></span>`
+                    : '';
+                return `<div class="bg-gray-50 rounded-lg p-3">
+                    <div class="flex justify-between text-xs gap-2"><span class="font-medium truncate">${name}${warnIcon}</span><span class="text-gray-500 shrink-0">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span></div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>
+                    ${modelsHtml}
+                </div>`;
+            }).join('');
+            document.getElementById('provider-bars').innerHTML = html || `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noData}</div>`;
+        }
+
+        function renderApiKeyBars(apiKeys) {
+            const entries = Object.entries(apiKeys)
+                .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0));
+            const maxTokens = Math.max(...entries.map(([, k]) => k.tokens || 0), 1);
+            const html = entries.map(([name, k]) => {
+                const pct = ((k.tokens || 0) / maxTokens) * 100;
+                const modelsHtml = renderModelList(k.models);
+                return `<div class="bg-gray-50 rounded-lg p-3">
+                    <div class="flex justify-between text-xs gap-2"><span class="font-medium truncate">${name}</span><span class="text-gray-500 shrink-0">${k.requests} ${window.I18N.req} / ${formatCompactTokens(k.tokens || 0)}</span></div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2"><div class="bg-emerald-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>
+                    ${modelsHtml}
+                </div>`;
+            }).join('');
+            document.getElementById('apikey-bars').innerHTML = html || `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noData}</div>`;
+        }
+
+        function getTrendVisibleRange(seriesList, totalBuckets) {
+            let firstIndex = null;
+            let lastIndex = null;
+            seriesList.forEach(series => {
+                (series || []).forEach((value, index) => {
+                    if (!Number(value || 0)) return;
+                    firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
+                    lastIndex = lastIndex === null ? index : Math.max(lastIndex, index);
+                });
+            });
+            if (firstIndex === null || lastIndex === null) {
+                if (currentPeriod === 'month' || currentPeriod === 'year') {
+                    const minVisibleBuckets = Math.min(30, totalBuckets);
+                    return { start: Math.max(totalBuckets - minVisibleBuckets, 0), end: Math.max(totalBuckets - 1, 0) };
+                }
+                return { start: 0, end: Math.max(totalBuckets - 1, 0) };
+            }
+            if (currentPeriod === 'month' || currentPeriod === 'year') {
+                const minVisibleBuckets = Math.min(30, totalBuckets);
+                const start = Math.max(Math.min(firstIndex - 1, totalBuckets - minVisibleBuckets), 0);
+                return { start, end: Math.max(totalBuckets - 1, 0) };
+            }
+            let start = Math.max(firstIndex - 1, 0);
+            let end = Math.min(lastIndex + 1, totalBuckets - 1);
+            if (currentPeriod === 'day') {
+                const minVisibleBuckets = totalBuckets >= 48 ? 12 : 6;
+                const currentVisibleBuckets = end - start + 1;
+                if (currentVisibleBuckets < minVisibleBuckets) {
+                    end = Math.min(end + (minVisibleBuckets - currentVisibleBuckets), totalBuckets - 1);
+                    const stillMissing = minVisibleBuckets - (end - start + 1);
+                    if (stillMissing > 0) {
+                        start = Math.max(start - stillMissing, 0);
+                    }
+                }
+            }
+            return { start, end };
+        }
+
+        function coalesceTrendBucketPair(firstBucket, secondBucket) {
+            const merged = {};
+            const metricKeys = new Set([
+                ...Object.keys(firstBucket || {}),
+                ...Object.keys(secondBucket || {}),
+            ]);
+            metricKeys.forEach(key => {
+                merged[key] = Number(firstBucket?.[key] || 0) + Number(secondBucket?.[key] || 0);
+            });
+            return merged;
+        }
+
+        function normalizeTrendChartData(chartData) {
+            const labels = chartData?.intervals || [];
+            if (currentPeriod !== 'day' || labels.length !== 48) {
+                return chartData;
+            }
+
+            const mergedIntervals = [];
+            const mergedData = {};
+            for (let index = 0; index < labels.length; index += 2) {
+                const hourLabel = labels[index];
+                mergedIntervals.push(hourLabel);
+                mergedData[hourLabel] = coalesceTrendBucketPair(
+                    chartData.data?.[labels[index]],
+                    chartData.data?.[labels[index + 1]],
+                );
+            }
+
+            return {
+                ...chartData,
+                intervals: mergedIntervals,
+                data: mergedData,
+            };
+        }
+
+        function renderTrendChart(chartData) {
+            const normalizedChartData = normalizeTrendChartData(chartData);
+            const labels = normalizedChartData.intervals || [];
+            const requests = labels.map(i => normalizedChartData.data?.[i]?.requests || 0);
+            const rawTokens = labels.map(i => normalizedChartData.data?.[i]?.tokens || 0);
+            const errors = labels.map(i => normalizedChartData.data?.[i]?.errors || 0);
+            const timeouts = labels.map(i => normalizedChartData.data?.[i]?.timeouts || 0);
+            const rateLimited = labels.map(i => normalizedChartData.data?.[i]?.rate_limited || 0);
+            const visibleRange = getTrendVisibleRange([requests, rawTokens], labels.length);
+            const tokenScale = getTokenChartScale(requests, rawTokens);
+            const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
+            const tokenLabel = tokenScale.suffix ? `${window.I18N.tokens} (${tokenScale.suffix})` : window.I18N.tokens;
+
+            if (trendChart && trendChart.data.labels.length === labels.length) {
+                trendChart.data.labels = labels;
+                trendChart.data.datasets[0].data = requests;
+                trendChart.data.datasets[1].data = tokens;
+                trendChart.data.datasets[1].label = tokenLabel;
+                trendChart.data.datasets[2].data = errors;
+                trendChart.data.datasets[3].data = timeouts;
+                trendChart.data.datasets[4].data = rateLimited;
+                trendChart.options.scales.x.min = visibleRange.start;
+                trendChart.options.scales.x.max = visibleRange.end;
+                trendChart.options.scales.yTokens.title.text = tokenLabel;
+                trendChart.options.plugins.tooltip.callbacks.label = function(context) {
+                    if (context.dataset.yAxisID === 'yTokens') {
+                        const raw = rawTokens[context.dataIndex] || 0;
+                        return `${tokenLabel}: ${formatCompactTokens(raw)}`;
+                    }
+                    return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
+                };
+                trendChart.update('none');
+                return;
+            }
+
+            if (trendChart) trendChart.destroy();
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(ctx, {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: window.I18N.requests,
+                            data: requests,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                            pointBackgroundColor: '#3b82f6',
+                            pointRadius: 2,
+                            pointHoverRadius: 3,
+                            borderWidth: 2,
+                            tension: 0.25,
+                            fill: true,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'bar',
+                            label: tokenLabel,
+                            data: tokens,
+                            backgroundColor: 'rgba(16, 185, 129, 0.35)',
+                            borderColor: 'rgba(16, 185, 129, 0.85)',
+                            borderWidth: 1,
+                            borderRadius: 3,
+                            yAxisID: 'yTokens'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Errors',
+                            data: errors,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 1,
+                            pointHoverRadius: 3,
+                            borderWidth: 1.5,
+                            tension: 0.2,
+                            borderDash: [6, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Timeouts',
+                            data: timeouts,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                            pointBackgroundColor: '#f59e0b',
+                            pointRadius: 1,
+                            pointHoverRadius: 3,
+                            borderWidth: 1.5,
+                            tension: 0.2,
+                            borderDash: [2, 5],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        },
+                        {
+                            type: 'line',
+                            label: '429',
+                            data: rateLimited,
+                            borderColor: '#0ea5e9',
+                            backgroundColor: 'rgba(14, 165, 233, 0.08)',
+                            pointBackgroundColor: '#0ea5e9',
+                            pointRadius: 1,
+                            pointHoverRadius: 3,
+                            borderWidth: 1.5,
+                            tension: 0.2,
+                            borderDash: [10, 4],
+                            fill: false,
+                            yAxisID: 'yRequests'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            min: visibleRange.start,
+                            max: visibleRange.end,
+                            ticks: { autoSkip: true, maxRotation: 0, minRotation: 0, maxTicksLimit: 6, font: { size: 10 } }
+                        },
+                        yRequests: {
+                            beginAtZero: true,
+                            position: 'left',
+                            title: { display: true, text: window.I18N.requests, font: { size: 10 } },
+                            ticks: { font: { size: 10 } }
+                        },
+                        yTokens: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            title: { display: true, text: tokenLabel, font: { size: 10 } },
+                            ticks: { font: { size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.yAxisID === 'yTokens') {
+                                        const raw = rawTokens[context.dataIndex] || 0;
+                                        return `${tokenLabel}: ${formatCompactTokens(raw)}`;
+                                    }
+                                    return `${window.I18N.requests}: ${(context.parsed.y || 0).toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+
+        function flipCounter(elementId, newValue) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const newText = String(newValue);
+            const oldText = el.getAttribute('data-value') || '';
+            if (oldText === newText) return;
+            el.setAttribute('data-value', newText);
+            if (!oldText || getCounterSkeleton(oldText) !== getCounterSkeleton(newText)) {
+                el.textContent = newText;
+                return;
+            }
+            const oldD = oldText.replace(/[^\d]/g, '');
+            const newD = newText.replace(/[^\d]/g, '');
+            const len = Math.max(oldD.length, newD.length);
+            const paddedOld = oldD.padStart(len, 'X');
+            let html = '', dIdx = 0;
+            for (let i = 0; i < newText.length; i++) {
+                const ch = newText[i];
+                if (/\d/.test(ch)) {
+                    const target = parseInt(ch);
+                    const oldCh = paddedOld[dIdx];
+                    const start = (oldCh >= '0' && oldCh <= '9') ? parseInt(oldCh) : 0;
+                    html += '<span class="fd"><span class="fr" data-t="' + target + '" style="transform:translateY(-' + start + '0%)">';
+                    for (let d = 0; d <= 9; d++) html += '<span class="fc">' + d + '</span>';
+                    html += '</span></span>';
+                    dIdx++;
+                } else {
+                    html += '<span class="fs">' + ch + '</span>';
+                }
+            }
+            el.innerHTML = html;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    el.querySelectorAll('.fr').forEach(r => {
+                        r.style.transform = 'translateY(-' + r.dataset.t + '0%)';
+                    });
+                });
+            });
+        }
+
+        async function loadData() {
+            const period = document.getElementById('period-select').value;
+            try {
+                const [statsResp, chartResp] = await Promise.all([
+                    fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/period?period=` + period),
+                    fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/chart?period=` + period)
+                ]);
+                const data = statsResp;
+                const chartData = chartResp;
+
+                flipCounter('total-requests', (data.total_requests || 0).toLocaleString());
+                flipCounter('total-tokens', formatCompactTokens(data.total_tokens || 0));
+                flipCounter('total-errors', data.total_errors || 0);
+                flipCounter('total-timeouts', data.total_timeouts || 0);
+                flipCounter('total-rate-limited', data.total_rate_limited || 0);
+                const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
+                flipCounter('error-rate', errorRate + '%');
+
+                renderProviderBars(data.providers || {}, data.disabled_providers || {});
+                renderApiKeyBars(data.api_keys || {});
+                renderTrendChart(chartData);
+            } catch (e) {
+                console.error('Failed to load data:', e);
+            }
+        }
+
+        function renderLiveStats(data) {
+            const activeRequests = data.active_requests || 0;
+            const activeUsers = data.active_count ?? data.active_users ?? 0;
+            const tokensPerSecond = Math.round(data.tokens_per_second || 0);
+            const sessions = data.sessions || {};
+            flipCounter('rps', activeRequests);
+            flipCounter('tps', tokensPerSecond.toLocaleString());
+            flipCounter('active-count', activeUsers);
+            if (activeUsers === 0) {
+                document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noActiveUsers}</div>`;
+                return;
+            }
+            const html = Object.entries(sessions)
+                    .sort((a, b) => new Date(b[1].last_activity || 0) - new Date(a[1].last_activity || 0))
+                    .map(([keyName, session]) => {
+                    const disabledProviders = data.disabled_providers || {};
+                    const models = Object.entries(session.models || {})
+                        .sort((a, b) => (b[1].count ?? b[1]) - (a[1].count ?? a[1]))
+                        .map(([m, info]) => {
+                            const c = info.count ?? info;
+                            const modelTokens = info.tokens ?? 0;
+                            const providerName = m.includes('/') ? m.split('/')[0] : '';
+                            const isDisabled = providerName && disabledProviders[providerName];
+                            const warnIcon = isDisabled
+                                ? `<span class="warn-icon ml-0.5"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${disabledProviders[providerName]}</span></span>`
+                                : '';
+                            const td = modelTokens >= 1_000_000
+                                ? (modelTokens / 1_000_000).toFixed(1) + 'M'
+                                : modelTokens >= 1_000
+                                    ? (modelTokens / 1_000).toFixed(1) + 'K'
+                                    : String(modelTokens);
+                            return `<div class="flex items-center gap-1 py-0.5"><span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded max-w-[180px] truncate">${m} (${c})${warnIcon}</span><span class="text-[10px] text-gray-400 flex-shrink-0 ml-auto">${td}</span></div>`;
+                        })
+                        .join('');
+                    return `<div class="bg-gray-50 rounded-lg p-3">
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${keyName}">${keyName}</div><div class="mt-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
+                        </div>
+                    </div>`;
+                }).join('');
+            document.getElementById('active-sessions').innerHTML = html;
+        }
+
+        async function loadLiveStatsFallback() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/active`);
+                renderLiveStats(data);
+            } catch (e) {}
+        }
+
+        function scheduleLiveStatsReconnect() {
+            if (adminAuthRedirecting) return;
+            if (liveStatsReconnectTimer) return;
+            liveStatsReconnectTimer = setTimeout(() => {
+                liveStatsReconnectTimer = null;
+                connectLiveStats();
+            }, 2000);
+        }
+
+        function connectLiveStats() {
+            if (adminAuthRedirecting) return;
+            if (liveStatsSocket) {
+                liveStatsSocket.close();
+            }
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            liveStatsSocket = new WebSocket(`${protocol}//${window.location.host}/modelgate/admin/api/stats/live`);
+            liveStatsSocket.onmessage = (event) => {
+                try {
+                    renderLiveStats(JSON.parse(event.data));
+                } catch (e) {}
+            };
+            liveStatsSocket.onclose = (event) => {
+                liveStatsSocket = null;
+                if (event.code === 4401) {
+                    handleAdminUnauthorized();
+                    return;
+                }
+                scheduleLiveStatsReconnect();
+            };
+            liveStatsSocket.onerror = () => {
+                if (liveStatsSocket) {
+                    liveStatsSocket.close();
+                }
+                loadLiveStatsFallback();
+            };
+        }
+
+        async function loadSlowRequests() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/slow`);
+                const pending = data.pending || [];
+                const recent = data.recent || [];
+                const count = pending.length + recent.length;
+                document.getElementById('slow-count').textContent = count;
+                if (count === 0) {
+                    document.getElementById('slow-requests').innerHTML = `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noSlowRequests}</div>`;
+                    return;
+                }
+                let html = '';
+                for (const req of pending) {
+                    const elapsed = Number.isFinite(Number(req.elapsed_seconds))
+                        ? Math.max(0, Math.round(Number(req.elapsed_seconds)))
+                        : 0;
+                    const elapsedText = window.I18N.elapsed.replace('{seconds}', elapsed);
+                    const rawKeyName = req.api_key || req.key_name || '-';
+                    const maskedKeyName = maskName(rawKeyName);
+                    html += `<div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-orange-600 mt-1">${elapsedText}${req.input_tokens ? ' | ' + formatCompactTokens(req.input_tokens) : ''}</div></div>
+                            <span class="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">${window.I18N.pending}</span>
+                        </div>
+                    </div>`;
+                }
+                for (const req of recent.slice(0, 5)) {
+                    const statusClass = req.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+                    const rawKeyName = req.api_key || req.key_name || '-';
+                    const maskedKeyName = maskName(rawKeyName);
+                    html += `<div class="bg-gray-50 rounded-lg p-3">
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-gray-500 mt-1">${Math.round(req.latency_ms / 1000)}s${req.input_tokens ? ' | ' + formatCompactTokens(req.input_tokens) : ''}</div></div>
+                            <span class="text-[10px] ${statusClass} px-1.5 py-0.5 rounded">${req.status}</span>
+                        </div>
+                    </div>`;
+                }
+                document.getElementById('slow-requests').innerHTML = html || `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noSlowRequests}</div>`;
+            } catch (e) {}
+        }
+
+        async function logout() {
+            await fetch(`${APP_BASE_PATH}/admin/api/auth/logout`, { method: 'POST' });
+            window.location.href = `${APP_BASE_PATH}/admin/m/login`;
+        }
+
+        function handleAdminUnauthorized() {
+            if (adminAuthRedirecting) return;
+            adminAuthRedirecting = true;
+            if (liveStatsReconnectTimer) {
+                clearTimeout(liveStatsReconnectTimer);
+                liveStatsReconnectTimer = null;
+            }
+            if (liveStatsSocket) {
+                liveStatsSocket.onclose = null;
+                liveStatsSocket.close();
+                liveStatsSocket = null;
+            }
+            window.location.href = `${APP_BASE_PATH}/admin/m/login`;
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                handleAdminUnauthorized();
+                throw new Error('Unauthorized');
+            }
+            if (!resp.ok) throw new Error(await resp.text());
+            return await resp.json();
+        }
+
+        async function loadBusyness() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/busyness`);
+                const el = document.getElementById('busyness-level');
+                if (!el || !data.level) return;
+                const colorMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-600'};
+                el.className = 'metric-flip mt-1 text-lg font-bold leading-none ' + (colorMap[data.color] || 'text-slate-600');
+                const locale = document.documentElement.lang || '{{ current_locale }}' || 'zh';
+                const isZh = locale === 'zh' || locale === 'zh-CN' || locale.startsWith('zh');
+                const zhMap = {extremely_busy:'过载',very_busy:'拥挤',busy:'活跃',normal:'流畅',idle:'平静',quiet:'寂静'};
+                const enMap = {extremely_busy:'Overloaded',very_busy:'Crowded',busy:'Active',normal:'Smooth',idle:'Calm',quiet:'Silent'};
+                el.textContent = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
+            } catch(e) {}
+        }
+
+        loadData();
+        loadLiveStatsFallback();
+        connectLiveStats();
+        loadSlowRequests();
+        loadBusyness();
+
+        setInterval(loadData, MOBILE_HOME_OVERVIEW_REFRESH_MS);
+        setInterval(loadSlowRequests, MOBILE_HOME_SLOW_REFRESH_MS);
+        setInterval(loadBusyness, 30000);
+    </script>
+</body>
+</html>

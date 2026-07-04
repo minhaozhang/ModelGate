@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, patch
 
 from starlette.requests import Request
 
-from core.i18n import render
-from routes.user import user_api_document_detail
+from app.core.i18n import render
+from app.routes.user import user_api_document_detail
 
 
 def make_request(path: str = "/user/api/documents/1", cookies=None):
@@ -34,7 +34,7 @@ class UserDocumentTests(unittest.IsolatedAsyncioTestCase):
         }
 
         with patch(
-            "services.documents.get_document", new=AsyncMock(return_value=serialized_doc)
+            "app.services.documents.get_document", new=AsyncMock(return_value=serialized_doc)
         ):
             result = await user_api_document_detail(request=request, doc_id=1, api_key_id=123)
 

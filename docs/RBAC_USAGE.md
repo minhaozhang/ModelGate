@@ -17,10 +17,10 @@ ModelGate 的 RBAC（基于角色的访问控制）系统提供了完整的四�
 
 ```bash
 # 创建表结构
-python migrations/add_rbac_tables.py
+python db/migrations/add_rbac_tables.py
 
 # 初始化数据（角色、权限、菜单）
-python migrations/init_rbac_data.py
+python db/migrations/init_rbac_data.py
 ```
 
 ### 2. 安装依赖
@@ -40,7 +40,7 @@ JWT_SECRET_KEY=your-secret-key-change-in-production
 ### 4. 启动服务
 
 ```bash
-python main.py
+python -m app.main
 ```
 
 ## 预设角色
@@ -240,7 +240,7 @@ Cookie: admin_token=<token>
 
 ```python
 from fastapi import APIRouter, Request, Depends
-from core.permissions import permission_required, login_required
+from app.core.permissions import permission_required, login_required
 
 router = APIRouter()
 
@@ -261,7 +261,7 @@ async def list_providers(
     return {"providers": [...]}
 
 # 要求任一权限
-from core.permissions import any_permission_required
+from app.core.permissions import any_permission_required
 
 @router.get("/logs")
 async def list_logs(
@@ -274,7 +274,7 @@ async def list_logs(
 ### 手动权限检查
 
 ```python
-from services.rbac import has_permission, query_user_permissions
+from app.services.rbac import has_permission, query_user_permissions
 
 # 检查单个权限
 if await has_permission(user.id, "provider.create"):
@@ -338,11 +338,11 @@ router.beforeEach((to, from, next) => {
 如果你已经有 `admin_users` 配置，需要迁移到新的用户表：
 
 ```python
-# 创建迁移脚本 migrations/migrate_admin_users.py
+# 创建迁移脚本 db/migrations/migrate_admin_users.py
 import asyncio
-from core.config import admin_users
-from core.database import User, UserRole, async_session_maker
-from services.auth import hash_password
+from app.core.config import admin_users
+from app.core.database import User, UserRole, async_session_maker
+from app.services.auth import hash_password
 
 async def migrate():
     async with async_session_maker() as session:
