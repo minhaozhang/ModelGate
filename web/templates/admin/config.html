@@ -146,8 +146,8 @@
                     <button class="config-tab-btn" data-config-tab="providers" onclick="switchConfigTab('providers')">供应商</button>
                     <button class="config-tab-btn" data-config-tab="models" onclick="switchConfigTab('models')">标准模型</button>
                     <button class="config-tab-btn" data-config-tab="auto" onclick="switchConfigTab('auto')">Auto 路由</button>
-                    <button class="config-tab-btn" data-config-tab="routing" onclick="switchConfigTab('routing')">模型路由</button>
-                    <button class="config-tab-btn" data-config-tab="billing" onclick="switchConfigTab('billing')">模型计费</button>
+                    <button class="config-tab-btn" data-config-tab="provider-models" onclick="switchConfigTab('provider-models')">供应商模型</button>
+                    <button class="config-tab-btn" data-config-tab="pricing" onclick="switchConfigTab('pricing')">价目总览</button>
                     <button class="config-tab-btn" data-config-tab="templates" onclick="switchConfigTab('templates')">策略模板</button>
                     <button class="config-tab-btn" data-config-tab="preview" onclick="switchConfigTab('preview')">路由预览</button>
                 </div>
@@ -272,13 +272,13 @@
                 </div>
             </div>
 
-            <div id="config-tab-routing" class="config-tab-panel hidden">
+            <div id="config-tab-provider-models" class="config-tab-panel hidden">
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b">
                         <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                             <div>
-                                <h3 class="text-lg font-semibold">模型路由矩阵</h3>
-                                <p class="text-xs text-gray-500 mt-1">一行就是一个“标准模型 -> 供应商模型”绑定；优先级越大越靠前。</p>
+                                <h3 class="text-lg font-semibold">供应商模型绑定</h3>
+                                <p class="text-xs text-gray-500 mt-1">一行就是一个“标准模型 -> 供应商模型”绑定；上方添加绑定/同步，下方内联编辑价格。优先级越大越靠前。</p>
                             </div>
                             <div class="flex flex-wrap gap-2">
                                 <select id="routing-bind-provider" class="border rounded px-3 py-2 text-sm min-w-40"></select>
@@ -294,7 +294,7 @@
                 </div>
             </div>
 
-            <div id="config-tab-billing" class="config-tab-panel hidden">
+            <div id="config-tab-pricing" class="config-tab-panel hidden">
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                         <div>
@@ -660,7 +660,7 @@
         }
 
         function switchConfigTab(tab) {
-            const knownTabs = new Set(['overview', 'providers', 'models', 'auto', 'routing', 'billing', 'templates', 'preview']);
+            const knownTabs = new Set(['overview', 'providers', 'models', 'auto', 'provider-models', 'pricing', 'templates', 'preview']);
             if (!knownTabs.has(tab)) tab = 'providers';
             document.querySelectorAll('.config-tab-panel').forEach(panel => panel.classList.add('hidden'));
             document.querySelectorAll('.config-tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -672,8 +672,8 @@
             url.searchParams.set('tab', tab);
             window.history.replaceState(null, '', url.toString());
             if (tab === 'auto') { loadAutoModelConfig(); if (!allProviderModels.length) loadProviderModelRoutes(); }
-            if (tab === 'routing') loadProviderModelRoutes();
-            if (tab === 'billing') loadModelPricing();
+            if (tab === 'provider-models') loadProviderModelRoutes();
+            if (tab === 'pricing') loadModelPricing();
             if (tab === 'templates') loadStrategyTemplates();
         }
 

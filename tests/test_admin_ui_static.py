@@ -415,6 +415,15 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("function showPriceDetail", html)
         self.assertIn("function closePriceDetail", html)
 
+    def test_config_reorganized_tabs(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        self.assertIn('data-config-tab="provider-models"', html)
+        self.assertIn('data-config-tab="pricing"', html)
+        self.assertIn('id="config-tab-provider-models"', html)
+        self.assertIn('id="config-tab-pricing"', html)
+        self.assertIn('if (tab === \'provider-models\') loadProviderModelRoutes();', html)
+        self.assertIn('if (tab === \'pricing\') loadModelPricing();', html)
+
 
 if __name__ == "__main__":
     unittest.main()
