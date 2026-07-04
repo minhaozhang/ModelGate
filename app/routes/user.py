@@ -410,6 +410,40 @@ def get_score_by_threshold(value: float, good: float, bad: float) -> float:
     return max(0.0, 1.0 - ((value - good) / (bad - good)))
 
 
+def aggregate_model_pricing(provider_model_dicts):
+    input_prices = []
+    output_prices = []
+    cached_prices = []
+    tier_samples = []
+    for pm in provider_model_dicts or []:
+        ip = pm.get("input")
+        op = pm.get("output")
+        cp = pm.get("cached")
+        if ip is not None:
+            input_prices.append(ip)
+        if op is not None:
+            output_prices.append(op)
+        cp_eff = cp if cp is not None else ip
+        if cp_eff is not None:
+            cached_prices.append(cp_eff)
+        for tier in pm.get("tiers") or []:
+            if not isinstance(tier, dict):
+                continue
+            tier_samples.append({
+                "min_context_tokens": tier.get("min_context_tokens"),
+                "max_context_tokens": tier.get("max_context_tokens"),
+                "input_price": tier.get("input_price_cny_per_million"),
+                "output_price": tier.get("output_price_cny_per_million"),
+            })
+    tier_samples.sort(key=lambda t: (t["min_context_tokens"] is None, t["min_context_tokens"] or 0))
+    return {
+        "min_input_price": min(input_prices) if input_prices else None,
+        "min_output_price": min(output_prices) if output_prices else None,
+        "min_cached_price": min(cached_prices) if cached_prices else None,
+        "tier_samples": tier_samples,
+    }
+
+
 def build_system_health_summary(
     recent_requests: int,
     completed_requests: int,
@@ -1458,6 +1492,13 @@ async def get_user_catalog(
             existing = models_by_id.get(model.id)
             provider_names = set(existing.get("providers", [])) if existing else set()
             provider_names.add(provider_map[provider_model.provider_id].name)
+            pm_prices = existing.get("_pm_prices", []) if existing else []
+            pm_prices.append({
+                "input": provider_model.input_price_cny_per_million,
+                "output": provider_model.output_price_cny_per_million,
+                "cached": provider_model.cached_input_price_cny_per_million,
+                "tiers": provider_model.pricing_tiers or [],
+            })
             models_by_id[model.id] = {
                 "id": model.id,
                 "name": model_name,
@@ -1471,10 +1512,18 @@ async def get_user_catalog(
                     or provider_model.model_name_override
                 ),
                 "providers": sorted(provider_names),
+                "_pm_prices": pm_prices,
             }
 
         for virtual_model in serialize_virtual_models(virtual_model_ids or set()):
             models_by_id[virtual_model["id"]] = virtual_model
+
+        for model_entry in models_by_id.values():
+            pricing = aggregate_model_pricing(model_entry.pop("_pm_prices", []))
+            model_entry["min_input_price"] = pricing["min_input_price"]
+            model_entry["min_output_price"] = pricing["min_output_price"]
+            model_entry["min_cached_price"] = pricing["min_cached_price"]
+            model_entry["tier_samples"] = pricing["tier_samples"]
 
         models_data = sorted(models_by_id.values(), key=lambda item: item["model_name"])
         if not models_data:
