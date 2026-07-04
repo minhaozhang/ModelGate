@@ -651,6 +651,50 @@
             return value.toFixed(1).replace(/\.0$/, '');
         }
 
+        let _catalogCache = { platform: [], owned: [] };
+        function findModelInCache(modelName) {
+            for (const group of [..._catalogCache.platform, ..._catalogCache.owned]) {
+                const found = (group.models || []).find(m => m.model_name === modelName);
+                if (found) return found;
+            }
+            return null;
+        }
+
+        function showPriceDetail(modelName) {
+            const model = findModelInCache(modelName);
+            if (!model) return;
+            document.getElementById('price-detail-name').textContent = model.display_name || model.model_name;
+            document.getElementById('price-detail-model-name').textContent = model.model_name;
+            const body = document.getElementById('price-detail-body');
+            const rows = [
+                ['输入', model.min_input_price],
+                ['输出', model.min_output_price],
+                ['缓存', model.min_cached_price],
+            ].filter(r => r[1] != null);
+            let html = rows.map(r =>
+                `<div class="flex justify-between"><span class="text-gray-500">${r[0]}</span><span>¥${r[1]} / 百万 tokens</span></div>`
+            ).join('');
+            if ((model.tier_samples || []).length) {
+                html += `<div class="pt-2 mt-2 border-t"><div class="text-xs text-gray-400 mb-1">长上下文另有 ${model.tier_samples.length} 档定价</div>`;
+                html += model.tier_samples.map(t => {
+                    const lo = t.min_context_tokens != null ? formatCompactTokens(t.min_context_tokens) : '0';
+                    const hi = t.max_context_tokens != null ? formatCompactTokens(t.max_context_tokens) : '∞';
+                    return `<div class="flex justify-between text-xs text-gray-500"><span>${lo} - ${hi}</span><span>输入 ¥${t.input_price} / 输出 ¥${t.output_price}</span></div>`;
+                }).join('');
+                html += `</div>`;
+            }
+            body.innerHTML = html || '<div class="text-gray-400">价格未配置</div>';
+            const modal = document.getElementById('price-detail-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closePriceDetail() {
+            const modal = document.getElementById('price-detail-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
         function getTokenChartScale(requestValues, tokenValues) {
             const maxRequests = Math.max(...requestValues, 1);
             const maxTokens = Math.max(...tokenValues, 1);
@@ -705,6 +749,12 @@
                         const badge = isOwned
                             ? `<span class="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${window.I18N.owned}</span>`
                             : `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">${window.I18N.available}</span>`;
+                        const priceBadge = model.min_input_price != null
+                            ? `<span class="rounded-full bg-amber-50 px-2 py-1 text-amber-700">¥${model.min_input_price} 起 / 输入</span>`
+                            : `<span class="rounded-full bg-black/5 px-2 py-1 text-gray-400">价格未配置</span>`;
+                        const priceBtn = model.min_input_price != null
+                            ? `<button onclick="showPriceDetail('${model.model_name}')" class="rounded-full bg-blue-50 px-2 py-1 text-blue-700 hover:bg-blue-100">查价</button>`
+                            : '';
                         return `
                             <div class="rounded-2xl border ${tone} px-3 py-3 shadow-sm transition hover:-translate-y-0.5">
                                 <div class="flex items-start justify-between gap-2">
@@ -719,7 +769,9 @@
                                     <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
                                     ${model.is_multimodal ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
                                     ${model.has_override ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.alias}</span>` : ''}
+                                    ${priceBadge}
                                 </div>
+                                ${priceBtn ? `<div class="mt-2">${priceBtn}</div>` : ''}
                             </div>
                         `;
                     }).join('');
@@ -745,7 +797,14 @@
                 }
 
                 return groups.map(group => {
-                    const modelsHtml = (group.models || []).map(model => `
+                    const modelsHtml = (group.models || []).map(model => {
+                        const priceBadge = model.min_input_price != null
+                            ? `<span class="rounded-full bg-amber-50 px-2 py-1 text-amber-700">¥${model.min_input_price} 起 / 输入</span>`
+                            : `<span class="rounded-full bg-white/70 px-2 py-1 text-gray-400">价格未配置</span>`;
+                        const priceBtn = model.min_input_price != null
+                            ? `<button onclick="showPriceDetail('${model.model_name}')" class="rounded-full bg-white/70 px-2 py-1 text-blue-700 hover:bg-blue-100">查价</button>`
+                            : '';
+                        return `
                         <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 px-3 py-3 shadow-sm">
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0">
@@ -758,9 +817,11 @@
                                 <span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
                                 <span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
                                 ${model.is_multimodal ? `<span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
+                                ${priceBadge}
                             </div>
+                            ${priceBtn ? `<div class="mt-2">${priceBtn}</div>` : ''}
                         </div>
-                    `).join('');
+                    `;}).join('');
 
                     return `
                         <div class="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
@@ -784,6 +845,8 @@
             document.getElementById('owned-catalog-note').textContent = data.full_access
                 ? window.I18N.fullAccessNote
                 : window.I18N.limitedAccessNote;
+
+            _catalogCache = { platform: data.platform_providers || [], owned: data.owned_providers || [] };
 
             document.getElementById('platform-catalog').innerHTML = renderPlatformGroups(
                 data.platform_providers || [],
@@ -1545,6 +1608,18 @@
         }
     </script>
 {% endraw %}
+<div id="price-detail-modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6">
+    <div class="flex justify-between items-start mb-4">
+      <div>
+        <div id="price-detail-name" class="text-lg font-semibold"></div>
+        <div id="price-detail-model-name" class="text-xs text-gray-500"></div>
+      </div>
+      <button onclick="closePriceDetail()" class="text-gray-400 hover:text-gray-600">✕</button>
+    </div>
+    <div id="price-detail-body" class="space-y-2 text-sm"></div>
+  </div>
+</div>
 </body>
 </html>
 

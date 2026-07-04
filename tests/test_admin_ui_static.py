@@ -403,6 +403,18 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("input_price_cny_per_million = Column", database)
         self.assertIn("pricing_tiers = Column(JSONB", database)
 
+    def test_user_catalog_renders_price_badge(self):
+        html = (ROOT / "web" / "templates" / "user" / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn("min_input_price", html)
+        self.assertIn("价格未配置", html)
+        self.assertIn("showPriceDetail", html)
+
+    def test_user_price_detail_modal_exists(self):
+        html = (ROOT / "web" / "templates" / "user" / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn('id="price-detail-modal"', html)
+        self.assertIn("function showPriceDetail", html)
+        self.assertIn("function closePriceDetail", html)
+
 
 if __name__ == "__main__":
     unittest.main()
