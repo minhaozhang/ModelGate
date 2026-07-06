@@ -89,6 +89,9 @@
         .config-table-wrap { overflow-x: auto; }
         .config-table { width: 100%; border-collapse: collapse; min-width: 760px; }
         .routing-table { min-width: 720px; table-layout: fixed; }
+        .pricing-table { min-width: 1180px; table-layout: fixed; }
+        .pricing-table th, .pricing-table td { padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
+        .pricing-table input, .pricing-table textarea { min-width: 0 !important; }
         .routing-table th,
         .routing-table td { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
         .routing-table input,
@@ -1875,7 +1878,18 @@
                 return;
             }
             container.innerHTML = `<div class="config-table-wrap">
-                <table class="config-table">
+                <table class="config-table pricing-table">
+                    <colgroup>
+                        <col style="width: 44px">
+                        <col style="width: 200px">
+                        <col style="width: 200px">
+                        <col style="width: 130px">
+                        <col style="width: 130px">
+                        <col style="width: 140px">
+                        <col style="width: 150px">
+                        <col style="width: 240px">
+                        <col style="width: 120px">
+                    </colgroup>
                     <thead>
                         <tr>
                             <th class="w-8"><input type="checkbox" id="pricing-select-all" onchange="toggleAllPricing(this)"></th>
@@ -1893,19 +1907,19 @@
                         ${rows.map(route => `<tr>
                             <td><input type="checkbox" class="pricing-row-check" data-pm-id="${route.id}"></td>
                             <td>
-                                <div class="font-medium text-sm text-gray-800">${escapeHtml(route.model_display_name || route.model_name)}</div>
-                                <div class="text-xs text-gray-500 mt-1">${escapeHtml(route.model_name || '')}</div>
+                                <div class="font-medium text-sm text-gray-800 truncate" title="${escapeAttr(route.model_display_name || route.model_name || '')}">${escapeHtml(route.model_display_name || route.model_name)}</div>
+                                <div class="text-xs text-gray-500 mt-1 truncate" title="${escapeAttr(route.model_name || '')}">${escapeHtml(route.model_name || '')}</div>
                             </td>
                             <td>
-                                <div class="font-medium text-sm">${escapeHtml(route.provider_name || '')}</div>
-                                <div class="text-xs text-gray-500 mt-1">${escapeHtml(route.upstream_model_name || route.model_name || '')}</div>
+                                <div class="font-medium text-sm truncate" title="${escapeAttr(route.provider_name || '')}">${escapeHtml(route.provider_name || '')}</div>
+                                <div class="text-xs text-gray-500 mt-1 truncate" title="${escapeAttr(route.upstream_model_name || route.model_name || '')}">${escapeHtml(route.upstream_model_name || route.model_name || '')}</div>
                             </td>
-                            <td><input id="pricing-input-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.input_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
-                            <td><input id="pricing-output-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.output_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
-                            <td><input id="pricing-cached-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.cached_input_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
-                            <td><input id="pricing-cache-ratio-${route.id}" type="number" min="0" max="100" step="0.1" value="${escapeAttr(pricingValue(route.default_cache_hit_ratio))}" class="w-20 border rounded px-2 py-1.5 text-sm text-right"> <span class="text-xs text-gray-400">%</span></td>
+                            <td><input id="pricing-input-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.input_price_cny_per_million))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-output-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.output_price_cny_per_million))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-cached-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.cached_input_price_cny_per_million))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-cache-ratio-${route.id}" type="number" min="0" max="100" step="0.1" value="${escapeAttr(pricingValue(route.default_cache_hit_ratio))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"> <span class="text-xs text-gray-400">%</span></td>
                             <td>
-                                <textarea id="pricing-tiers-${route.id}" rows="2" class="w-56 border rounded px-2 py-1.5 text-xs font-mono" placeholder='[{"max_context_tokens":524288,...}]'>${escapeHtml(pricingTiersValue(route))}</textarea>
+                                <textarea id="pricing-tiers-${route.id}" rows="2" class="w-full border rounded px-2 py-1.5 text-xs font-mono" placeholder='[{"max_context_tokens":524288,...}]'>${escapeHtml(pricingTiersValue(route))}</textarea>
                             </td>
                             <td>
                                 <div class="flex flex-col items-end gap-1">
