@@ -197,7 +197,61 @@ async def validate_api_key(
 
     key_info = api_keys_cache.get(key)
     if not key_info:
-        return None, "API Key 无效"
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(ApiKey).where(ApiKey.key == key, ApiKey.is_active == True)
+            )
+            db_key = result.scalar_one_or_none()
+            if not db_key:
+                return None, "API Key 无效"
+            model_access_result = await session.execute(
+                select(ApiKeyModelAccess.model_id).where(
+                    ApiKeyModelAccess.api_key_id == db_key.id
+                )
+            )
+            model_ids = [row[0] for row in model_access_result.fetchall()]
+            rules_result = await session.execute(
+                select(ApiKeyTimeRule)
+                .where(ApiKeyTimeRule.api_key_id == db_key.id)
+                .order_by(ApiKeyTimeRule.rule_type, ApiKeyTimeRule.id)
+            )
+            rules = []
+            for r in rules_result.scalars().all():
+                rule_data = {
+                    "id": r.id,
+                    "rule_type": r.rule_type,
+                    "allowed": r.allowed,
+                }
+                if r.start_time is not None:
+                    rule_data["start_time"] = r.start_time.strftime("%H:%M:%S")
+                if r.end_time is not None:
+                    rule_data["end_time"] = r.end_time.strftime("%H:%M:%S")
+                if r.start_date is not None:
+                    rule_data["start_date"] = r.start_date.isoformat()
+                if r.end_date is not None:
+                    rule_data["end_date"] = r.end_date.isoformat()
+                if r.weekdays is not None:
+                    rule_data["weekdays"] = r.weekdays
+                rules.append(rule_data)
+            mcp_result = await session.execute(
+                select(ApiKeyMcpServer.mcp_server_id).where(
+                    ApiKeyMcpServer.api_key_id == db_key.id
+                )
+            )
+            mcp_ids = [row[0] for row in mcp_result.fetchall()]
+            key_info = {
+                "id": db_key.id,
+                "name": db_key.name,
+                "email": db_key.email if hasattr(db_key, "email") else None,
+                "expires_at": db_key.expires_at if hasattr(db_key, "expires_at") else None,
+                "bypass_busyness": db_key.bypass_busyness or False,
+                "preferred_tags": db_key.preferred_tags if hasattr(db_key, "preferred_tags") else None,
+                "allowed_provider_model_ids": [],
+                "allowed_model_ids": model_ids,
+                "time_rules": rules,
+                "mcp_server_ids": mcp_ids,
+            }
+            api_keys_cache[key] = key_info
 
     if _is_api_key_expired(key_info.get("expires_at")):
         return None, "API Key 已过期，请联系管理员续期或重新配置"
