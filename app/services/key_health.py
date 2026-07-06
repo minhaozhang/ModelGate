@@ -15,12 +15,13 @@ _lock = threading.Lock()
 
 WINDOW_SECONDS = 300
 BASE_SCORE = 100
-DEDUCT_RATE_LIMIT = 15
+DEDUCT_RATE_LIMIT = 5
 DEDUCT_SERVER_ERROR = 10
 DEDUCT_CLIENT_ERROR = 5
 BONUS_SUCCESS_PER = 10
 BONUS_SUCCESS_POINTS = 5
 REENABLE_SCORE = 60
+RATE_LIMIT_FLOOR = 20
 
 
 def record_key_event(key_id: int, event_type: str, status_code: int = 0) -> None:
@@ -64,13 +65,17 @@ def compute_health_score(key_id: int, is_active: bool = True) -> int:
     if disabled_count > 0:
         return 0
 
-    deductions = (
-        rate_limited_count * DEDUCT_RATE_LIMIT
-        + server_error_count * DEDUCT_SERVER_ERROR
+    other_deductions = (
+        server_error_count * DEDUCT_SERVER_ERROR
         + client_error_count * DEDUCT_CLIENT_ERROR
     )
     bonus = (success_count // BONUS_SUCCESS_PER) * BONUS_SUCCESS_POINTS
-    return max(0, min(BASE_SCORE, BASE_SCORE - deductions + bonus))
+    score_before_429 = max(0, min(BASE_SCORE, BASE_SCORE - other_deductions + bonus))
+    rate_deduction = min(
+        rate_limited_count * DEDUCT_RATE_LIMIT,
+        max(0, score_before_429 - RATE_LIMIT_FLOOR),
+    )
+    return max(0, min(BASE_SCORE, score_before_429 - rate_deduction))
 
 
 def get_health_level(score: int) -> str:
