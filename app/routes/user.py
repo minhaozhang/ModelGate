@@ -1119,7 +1119,7 @@ async def get_user_my_requests(
     api_key_id: int = Depends(get_user_session),
     model: Optional[str] = None,
     status: Optional[str] = None,
-    time_range: str = "7d",
+    time_range: str = "1h",
     page: int = 1,
     page_size: int = 20,
 ):

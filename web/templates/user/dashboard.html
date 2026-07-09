@@ -1623,7 +1623,7 @@
                 ['all', window.I18N.allTime || 'All Time'],
             ];
             document.getElementById('my-requests-range').innerHTML = ranges
-                .map(([v, l]) => `<option value="${v}" ${v === '7d' ? 'selected' : ''}>${l}</option>`).join('');
+                .map(([v, l]) => `<option value="${v}" ${v === '1h' ? 'selected' : ''}>${l}</option>`).join('');
             const statuses = [
                 ['', window.I18N.allStatuses || 'All Statuses'],
                 ['success', 'Success'],
@@ -1638,7 +1638,7 @@
         }
         async function loadMyRequestsModal(page) {
             _myReqPage = page;
-            const range = document.getElementById('my-requests-range')?.value || '7d';
+            const range = document.getElementById('my-requests-range')?.value || '1h';
             const model = document.getElementById('my-requests-model')?.value || '';
             const status = document.getElementById('my-requests-status')?.value || '';
             const listEl = document.getElementById('my-requests-modal-list');
@@ -1743,7 +1743,7 @@
     <div id="price-detail-body" class="space-y-2 text-sm"></div>
   </div>
 </div>
-<div id="my-requests-modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+<div id="my-requests-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(0,0,0,0.5)">
   <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
     <div class="flex justify-between items-center px-4 py-3 border-b shrink-0">
       <h3 class="text-base font-semibold" id="my-requests-modal-title"></h3>
