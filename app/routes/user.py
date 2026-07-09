@@ -1059,6 +1059,153 @@ async def get_user_recent_requests(
         return {"requests": requests}
 
 
+def _summarize_request_row(r, provider_map) -> dict:
+    token_count = get_token_count(r.tokens) if r.tokens else 0
+    status_text = (
+        "error"
+        if r.status in ("error", "failed")
+        else "success"
+        if r.status == "success"
+        else r.status
+    )
+    short_error = (
+        r.error[:120] if r.error and len(r.error) > 120 else r.error
+    )
+    tokens_payload = r.tokens if isinstance(r.tokens, dict) else {}
+    input_tokens = _billing_int(
+        tokens_payload.get("prompt_tokens")
+        or tokens_payload.get("input_tokens")
+    )
+    output_tokens = _billing_int(
+        tokens_payload.get("completion_tokens")
+        or tokens_payload.get("output_tokens")
+    )
+    cached_tokens = 0
+    prompt_details = tokens_payload.get("prompt_tokens_details")
+    if isinstance(prompt_details, dict):
+        cached_tokens = _billing_int(prompt_details.get("cached_tokens"))
+    billing = tokens_payload.get("billing")
+    cost_cny = (
+        _billing_number(billing.get("total_cost_cny"))
+        if isinstance(billing, dict)
+        else 0.0
+    )
+    cache_ratio = (
+        round(cached_tokens / input_tokens * 100, 1)
+        if input_tokens > 0 and cached_tokens > 0
+        else 0.0
+    )
+    return {
+        "id": r.id,
+        "model": r.model,
+        "provider": provider_map.get(r.provider_id, "-"),
+        "tokens": token_count,
+        "context_tokens": int(r.request_context_tokens or 0),
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cached_tokens": cached_tokens,
+        "cache_ratio": cache_ratio,
+        "cost_cny": round(cost_cny, 6),
+        "latency_ms": int(r.latency_ms) if r.latency_ms else None,
+        "status": status_text,
+        "error": short_error,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    }
+
+
+@router.get("/user/api/my-requests")
+async def get_user_my_requests(
+    request: Request,
+    api_key_id: int = Depends(get_user_session),
+    model: Optional[str] = None,
+    status: Optional[str] = None,
+    time_range: str = "7d",
+    page: int = 1,
+    page_size: int = 20,
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+
+    page = max(1, page)
+    page_size = max(1, min(page_size, 100))
+    now = datetime.now()
+
+    if time_range == "all":
+        dt_start = datetime(2000, 1, 1)
+    else:
+        deltas = {
+            "1h": timedelta(hours=1),
+            "6h": timedelta(hours=6),
+            "24h": timedelta(hours=24),
+            "7d": timedelta(days=7),
+            "30d": timedelta(days=30),
+            "90d": timedelta(days=90),
+        }
+        dt_start = now - deltas.get(time_range, timedelta(days=7))
+    dt_end = now
+
+    async with async_session_maker() as session:
+        filters = [
+            RequestLog.api_key_id == api_key_id,
+            RequestLog.created_at >= dt_start,
+            RequestLog.created_at <= dt_end,
+        ]
+        if model:
+            filters.append(RequestLog.model.ilike(f"%{_escape_user_model(model)}%"))
+        if status:
+            if status == "error":
+                filters.append(RequestLog.status.in_(ERROR_STATUSES))
+            elif status == "success":
+                filters.append(RequestLog.status == "success")
+
+        count_q = select(func.count()).select_from(RequestLog).where(*filters)
+        total = (await session.execute(count_q)).scalar() or 0
+
+        offset = (page - 1) * page_size
+        q = (
+            select(RequestLog)
+            .where(*filters)
+            .order_by(RequestLog.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        rows = (await session.execute(q)).fetchall()
+
+        provider_ids = {r.provider_id for r in rows if r.provider_id}
+        provider_map = {}
+        if provider_ids:
+            prov_result = await session.execute(
+                select(Provider.id, Provider.name).where(Provider.id.in_(provider_ids))
+            )
+            provider_map = dict(prov_result.fetchall())
+
+        requests = [_summarize_request_row(r, provider_map) for r in rows]
+
+        model_options_result = await session.execute(
+            select(RequestLog.model)
+            .where(
+                RequestLog.api_key_id == api_key_id,
+                RequestLog.created_at >= dt_start,
+                RequestLog.created_at <= dt_end,
+            )
+            .distinct()
+            .order_by(RequestLog.model)
+        )
+        model_options = [m[0] for m in model_options_result.fetchall() if m[0]]
+
+        return {
+            "requests": requests,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "models": model_options,
+        }
+
+
+def _escape_user_model(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 @router.get("/user/api/system-models")
 async def get_system_model_stats(
     request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"
