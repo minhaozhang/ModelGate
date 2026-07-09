@@ -1163,7 +1163,17 @@ async def get_user_my_requests(
 
         offset = (page - 1) * page_size
         q = (
-            select(RequestLog)
+            select(
+                RequestLog.id,
+                RequestLog.model,
+                RequestLog.provider_id,
+                RequestLog.tokens,
+                RequestLog.request_context_tokens,
+                RequestLog.latency_ms,
+                RequestLog.status,
+                RequestLog.error,
+                RequestLog.created_at,
+            )
             .where(*filters)
             .order_by(RequestLog.created_at.desc())
             .offset(offset)
