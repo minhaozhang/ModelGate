@@ -990,6 +990,7 @@ async def get_user_recent_requests(
                 RequestLog.model,
                 RequestLog.provider_id,
                 RequestLog.tokens,
+                RequestLog.request_context_tokens,
                 RequestLog.latency_ms,
                 RequestLog.status,
                 RequestLog.error,
@@ -1016,10 +1017,39 @@ async def get_user_recent_requests(
             short_error = None
             if r.error:
                 short_error = r.error[:120] if len(r.error) > 120 else r.error
+            tokens_payload = r.tokens if isinstance(r.tokens, dict) else {}
+            input_tokens = _billing_int(
+                tokens_payload.get("prompt_tokens")
+                or tokens_payload.get("input_tokens")
+            )
+            output_tokens = _billing_int(
+                tokens_payload.get("completion_tokens")
+                or tokens_payload.get("output_tokens")
+            )
+            cached_tokens = 0
+            prompt_details = tokens_payload.get("prompt_tokens_details")
+            if isinstance(prompt_details, dict):
+                cached_tokens = _billing_int(prompt_details.get("cached_tokens"))
+            billing = tokens_payload.get("billing")
+            if isinstance(billing, dict):
+                cost_cny = _billing_number(billing.get("total_cost_cny"))
+            else:
+                cost_cny = 0.0
+            cache_ratio = (
+                round(cached_tokens / input_tokens * 100, 1)
+                if input_tokens > 0 and cached_tokens > 0
+                else 0.0
+            )
             requests.append({
                 "model": r.model,
                 "provider": provider_map.get(r.provider_id, "-"),
                 "tokens": token_count,
+                "context_tokens": int(r.request_context_tokens or 0),
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cached_tokens": cached_tokens,
+                "cache_ratio": cache_ratio,
+                "cost_cny": round(cost_cny, 6),
                 "latency_ms": int(r.latency_ms) if r.latency_ms else None,
                 "status": status_text,
                 "error": short_error,

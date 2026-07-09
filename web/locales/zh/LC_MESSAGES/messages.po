@@ -1054,6 +1054,21 @@ msgstr "Tokens/s"
 msgid "Tokens"
 msgstr "Tokens"
 
+msgid "Context"
+msgstr "上下文"
+
+msgid "Input"
+msgstr "输入"
+
+msgid "Output"
+msgstr "输出"
+
+msgid "Cache"
+msgstr "缓存"
+
+msgid "Cost"
+msgstr "成本"
+
 msgid "Usage Report"
 msgstr "使用报告"
 

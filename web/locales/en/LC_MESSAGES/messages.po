@@ -33,6 +33,21 @@ msgstr "Requests"
 msgid "Tokens"
 msgstr "Tokens"
 
+msgid "Context"
+msgstr "Context"
+
+msgid "Input"
+msgstr "Input"
+
+msgid "Output"
+msgstr "Output"
+
+msgid "Cache"
+msgstr "Cache"
+
+msgid "Cost"
+msgstr "Cost"
+
 msgid "Errors"
 msgstr "Errors"
 

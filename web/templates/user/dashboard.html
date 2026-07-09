@@ -362,6 +362,11 @@
         requestsLabel: {{ _('Requests') | tojson }},
         errorsLabel: {{ _('Errors') | tojson }},
         tokensLabel: {{ _('Tokens') | tojson }},
+        contextLabel: {{ _('Context') | tojson }},
+        inputLabel: {{ _('Input') | tojson }},
+        outputLabel: {{ _('Output') | tojson }},
+        cacheLabel: {{ _('Cache') | tojson }},
+        costLabel: {{ _('Cost') | tojson }},
         requestsErrorsLabel: {{ _('Requests / Errors') | tojson }},
         recommendedModels: {{ _('Recommended Models') | tojson }},
         recommendationScore: {{ _('Recommendation score') | tojson }},
@@ -1540,6 +1545,12 @@
                 const tokens = r.tokens > 0 ? formatCompactTokens(r.tokens) : '-';
                 const time = r.created_at ? new Date(r.created_at).toLocaleString() : '';
                 const errorHtml = r.error ? `<div class="text-xs text-red-500 mt-1 truncate" title="${r.error}">${r.error}</div>` : '';
+                const ctx = r.context_tokens > 0 ? formatCompactTokens(r.context_tokens) : '-';
+                const inputT = r.input_tokens > 0 ? formatCompactTokens(r.input_tokens) : '-';
+                const outputT = r.output_tokens > 0 ? formatCompactTokens(r.output_tokens) : '-';
+                const cachedT = r.cached_tokens > 0 ? formatCompactTokens(r.cached_tokens) : '-';
+                const cachePct = r.cache_ratio > 0 ? r.cache_ratio + '%' : '-';
+                const cost = r.cost_cny > 0 ? '¥' + (r.cost_cny >= 0.01 ? r.cost_cny.toFixed(4) : r.cost_cny.toFixed(6)) : '-';
                 return `
                     <div class="rounded bg-white p-3 shadow-sm mb-2 last:mb-0">
                         <div class="flex items-center gap-2 text-sm">
@@ -1547,9 +1558,14 @@
                             <span class="font-medium truncate">${r.model}</span>
                             <span class="text-gray-400 text-xs ml-auto shrink-0">${time}</span>
                         </div>
-                        <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                        <div class="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
                             <span>${window.I18N.tokensLabel || 'Tokens'}: ${tokens}</span>
-                            <span>${latency}</span>
+                            <span>${window.I18N.contextLabel || 'Context'}: ${ctx}</span>
+                            <span>${window.I18N.inputLabel || 'Input'}: ${inputT}</span>
+                            <span>${window.I18N.outputLabel || 'Output'}: ${outputT}</span>
+                            <span>${window.I18N.cacheLabel || 'Cache'}: ${cachedT} <span class="text-gray-400">(${cachePct})</span></span>
+                            <span>${window.I18N.costLabel || 'Cost'}: ${cost}</span>
+                            <span class="ml-auto">${latency}</span>
                         </div>
                         ${errorHtml}
                     </div>
