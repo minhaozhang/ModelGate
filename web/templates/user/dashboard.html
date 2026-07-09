@@ -1569,14 +1569,13 @@
             const cost = r.cost_cny > 0 ? '¥' + (r.cost_cny >= 0.01 ? r.cost_cny.toFixed(4) : r.cost_cny.toFixed(6)) : '-';
             const providerTag = showProvider && r.provider ? `<span class="text-gray-400">·</span><span>${r.provider}</span>` : '';
             return `
-                <div class="rounded bg-white p-3 shadow-sm mb-2 last:mb-0">
+                <div class="rounded bg-gray-50 p-2 mb-1.5 last:mb-0">
                     <div class="flex items-center gap-2 text-sm">
                         ${statusDot}
                         <span class="font-medium truncate">${r.model}</span>
-                        ${providerTag}
                         <span class="text-gray-400 text-xs ml-auto shrink-0">${time}</span>
                     </div>
-                    <div class="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
+                    <div class="flex items-center gap-2.5 mt-0.5 text-xs text-gray-500 flex-wrap">
                         <span>${window.I18N.tokensLabel || 'Tokens'}: ${tokens}</span>
                         <span>${window.I18N.contextLabel || 'Context'}: ${ctx}</span>
                         <span>${window.I18N.inputLabel || 'Input'}: ${inputT}</span>
@@ -1646,7 +1645,7 @@
             const pgEl = document.getElementById('my-requests-modal-pagination');
             listEl.innerHTML = `<div class="text-gray-400 text-center py-8">${window.I18N.loading || 'Loading...'}</div>`;
             pgEl.innerHTML = '';
-            const params = new URLSearchParams({ time_range: range, page: String(page), page_size: '20' });
+            const params = new URLSearchParams({ time_range: range, page: String(page), page_size: '10' });
             if (model) params.set('model', model);
             if (status) params.set('status', status);
             let data;
@@ -1666,8 +1665,8 @@
                 pgEl.innerHTML = '';
                 return;
             }
-            listEl.innerHTML = list.map(r => renderRequestRow(r, true)).join('');
-            _myReqTotalPages = Math.max(1, Math.ceil((data.total || 0) / (data.page_size || 20)));
+            listEl.innerHTML = list.map(r => renderRequestRow(r, false)).join('');
+            _myReqTotalPages = Math.max(1, Math.ceil((data.total || 0) / (data.page_size || 10)));
             let html = `<span class="text-gray-500">${(data.total || 0).toLocaleString()} ${window.I18N.req || 'req'} · ${_myReqPage}/${_myReqTotalPages}</span>`;
             let btns = '<span class="flex gap-1">';
             if (page > 1) btns += `<button onclick="loadMyRequestsModal(${page - 1})" class="px-3 py-1 border rounded">&lt;</button>`;
@@ -1745,20 +1744,20 @@
   </div>
 </div>
 <div id="my-requests-modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
-  <div class="bg-white rounded-2xl shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] flex flex-col">
-    <div class="flex justify-between items-center p-5 border-b shrink-0">
-      <h3 class="text-lg font-semibold" id="my-requests-modal-title"></h3>
+  <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+    <div class="flex justify-between items-center px-4 py-3 border-b shrink-0">
+      <h3 class="text-base font-semibold" id="my-requests-modal-title"></h3>
       <button onclick="closeMyRequestsModal()" class="text-gray-400 hover:text-gray-600">✕</button>
     </div>
-    <div class="px-5 py-3 border-b flex flex-wrap items-center gap-2 text-sm shrink-0">
+    <div class="px-3 py-2 border-b flex flex-wrap items-center gap-2 text-sm shrink-0">
       <span class="text-gray-500" id="my-requests-time-label"></span>
-      <select id="my-requests-range" class="border rounded px-2 py-1.5 text-sm" onchange="resetAndLoadMyRequestsModal()"></select>
-      <select id="my-requests-model" class="border rounded px-2 py-1.5 text-sm min-w-40" onchange="resetAndLoadMyRequestsModal()"></select>
-      <select id="my-requests-status" class="border rounded px-2 py-1.5 text-sm" onchange="resetAndLoadMyRequestsModal()"></select>
-      <button onclick="resetAndLoadMyRequestsModal()" class="ml-auto px-3 py-1.5 border rounded text-sm hover:bg-gray-50" id="my-requests-refresh"></button>
+      <select id="my-requests-range" class="border rounded px-2 py-1 text-sm" onchange="resetAndLoadMyRequestsModal()"></select>
+      <select id="my-requests-model" class="border rounded px-2 py-1 text-sm min-w-32" onchange="resetAndLoadMyRequestsModal()"></select>
+      <select id="my-requests-status" class="border rounded px-2 py-1 text-sm" onchange="resetAndLoadMyRequestsModal()"></select>
+      <button onclick="resetAndLoadMyRequestsModal()" class="ml-auto px-2 py-1 border rounded text-sm hover:bg-gray-50" id="my-requests-refresh"></button>
     </div>
-    <div id="my-requests-modal-list" class="p-5 overflow-y-auto flex-1 space-y-2"></div>
-    <div id="my-requests-modal-pagination" class="px-5 py-3 border-t flex items-center justify-between text-sm shrink-0"></div>
+    <div id="my-requests-modal-list" class="p-3 overflow-y-auto flex-1 min-h-0 space-y-2"></div>
+    <div id="my-requests-modal-pagination" class="px-3 py-2 border-t flex items-center justify-between text-sm shrink-0"></div>
   </div>
 </div>
 </body>
