@@ -55,7 +55,7 @@ from app.services.proxy_runtime import (
     log_request_info,
     schedule_api_key_last_used_update,
 )
-from app.services.proxy_runtime.response_handler import _is_key_retryable_status
+from app.services.proxy_runtime.response_handler import _is_key_retryable_status, _is_route_fallback_status
 from app.services.proxy_runtime.adapters import get_adapter
 
 
@@ -921,75 +921,98 @@ async def proxy_request(request: Request, endpoint: str):
 
                 client = get_http_client()
                 entered_handler = True
-                if stream:
-                    response = await handle_streaming(
-                        target_url,
-                        headers,
-                        body,
+                try:
+                    if stream:
+                        response = await handle_streaming(
+                            target_url,
+                            headers,
+                            body,
+                            provider_name,
+                            actual_model,
+                            messages,
+                            start_time,
+                            route_body_json,
+                            api_key_id,
+                            client_ip,
+                            user_agent,
+                            request_context_tokens,
+                            provider_key_semaphore,
+                            user_provider_model_semaphore,
+                            user_api_key_semaphore,
+                            request_id,
+                            stream_log_id,
+                            request,
+                            chosen_key_id=chosen_key_id,
+                            protocol=provider_protocol,
+                            extra_response_headers=busyness_headers,
+                            intent=request_intent,
+                            requested_model=requested_model,
+                            provider_key_label=_get_key_label(provider_config, chosen_key_id),
+                            routing_decision=_build_routing_decision(
+                                routing_decision_base,
+                                route_result,
+                                key_explanation,
+                                chosen_key_id,
+                                "stream_started",
+                            ),
+                        )
+                        if isinstance(response, StreamingResponse):
+                            user_api_key_acquired = False
+                            user_api_key_semaphore = None
+                    else:
+                        response = await handle_normal(
+                            client,
+                            target_url,
+                            headers,
+                            body,
+                            provider_name,
+                            actual_model,
+                            messages,
+                            start_time,
+                            route_body_json,
+                            api_key_id,
+                            client_ip,
+                            user_agent,
+                            request_context_tokens,
+                            provider_key_semaphore,
+                            user_provider_model_semaphore,
+                            request_id,
+                            chosen_key_id=chosen_key_id,
+                            protocol=provider_protocol,
+                            extra_response_headers=busyness_headers,
+                            intent=request_intent,
+                            requested_model=requested_model,
+                            provider_key_label=_get_key_label(provider_config, chosen_key_id),
+                            routing_decision=_build_routing_decision(
+                                routing_decision_base,
+                                route_result,
+                                key_explanation,
+                                chosen_key_id,
+                                "normal_started",
+                            ),
+                        )
+                except Exception as handler_exc:
+                    logger.warning(
+                        "[ROUTE FALLBACK] Provider %s raised %s: %s, trying next provider",
                         provider_name,
-                        actual_model,
-                        messages,
-                        start_time,
-                        route_body_json,
-                        api_key_id,
-                        client_ip,
-                        user_agent,
-                        request_context_tokens,
-                        provider_key_semaphore,
-                        user_provider_model_semaphore,
-                        user_api_key_semaphore,
-                        request_id,
-                        stream_log_id,
-                        request,
-                        chosen_key_id=chosen_key_id,
-                        protocol=provider_protocol,
-                        extra_response_headers=busyness_headers,
-                        intent=request_intent,
-                        requested_model=requested_model,
-                        provider_key_label=_get_key_label(provider_config, chosen_key_id),
-                        routing_decision=_build_routing_decision(
-                            routing_decision_base,
-                            route_result,
-                            key_explanation,
-                            chosen_key_id,
-                            "stream_started",
-                        ),
+                        type(handler_exc).__name__,
+                        sanitize_text_for_log(handler_exc, limit=200),
                     )
-                    if isinstance(response, StreamingResponse):
-                        user_api_key_acquired = False
-                        user_api_key_semaphore = None
-                else:
-                    response = await handle_normal(
-                        client,
-                        target_url,
-                        headers,
-                        body,
-                        provider_name,
-                        actual_model,
-                        messages,
-                        start_time,
-                        route_body_json,
-                        api_key_id,
-                        client_ip,
-                        user_agent,
-                        request_context_tokens,
-                        provider_key_semaphore,
-                        user_provider_model_semaphore,
-                        request_id,
-                        chosen_key_id=chosen_key_id,
-                        protocol=provider_protocol,
-                        extra_response_headers=busyness_headers,
-                        intent=request_intent,
-                        requested_model=requested_model,
-                        provider_key_label=_get_key_label(provider_config, chosen_key_id),
-                        routing_decision=_build_routing_decision(
-                            routing_decision_base,
-                            route_result,
-                            key_explanation,
-                            chosen_key_id,
-                            "normal_started",
-                        ),
+                    acquired = False
+                    user_provider_model_acquired = False
+                    provider_key_semaphore = None
+                    user_provider_model_semaphore = None
+                    last_response = _openai_error_response(
+                        f"供应商 '{provider_name}' 请求异常: {type(handler_exc).__name__}",
+                        502,
+                        "api_error",
+                        "provider_request_exception",
+                        headers=busyness_headers or None,
                     )
+                    if not is_last_route and not route_result.is_forced_provider:
+                        route_exhausted = True
+                        break
+                    return last_response
 
                 acquired = False
                 user_provider_model_acquired = False
@@ -997,12 +1020,17 @@ async def proxy_request(request: Request, endpoint: str):
                 user_provider_model_semaphore = None
 
                 if isinstance(response, Response) and not isinstance(response, StreamingResponse):
-                    if _is_key_retryable_status(response.status_code):
-                        last_response = response
+                    last_response = response
+                    status_code = response.status_code
+
+                    if status_code < 400:
+                        return response
+
+                    if _is_key_retryable_status(status_code):
                         if attempt_idx < len(all_keys) - 1:
                             logger.warning(
                                 "[KEY FALLBACK] Key %s returned status %d, trying next key",
-                                chosen_key_id, response.status_code,
+                                chosen_key_id, status_code,
                             )
                             continue
                         if not is_last_route and not route_result.is_forced_provider:
@@ -1017,6 +1045,18 @@ async def proxy_request(request: Request, endpoint: str):
                             and _should_prefer_local_rate_limit_response(response)
                         ):
                             return preferred_local_rate_limit_response
+                        return response
+
+                    if _is_route_fallback_status(status_code):
+                        if not is_last_route and not route_result.is_forced_provider:
+                            logger.warning(
+                                "[ROUTE FALLBACK] Provider %s returned status %d, trying next provider",
+                                provider_name, status_code,
+                            )
+                            route_exhausted = True
+                            break
+                        return response
+
                 return response
 
             if route_exhausted:
