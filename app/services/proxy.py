@@ -1012,7 +1012,9 @@ async def proxy_request(request: Request, endpoint: str):
                     if not is_last_route and not route_result.is_forced_provider:
                         route_exhausted = True
                         break
-                    return last_response
+                    if route_result.is_forced_provider:
+                        return last_response
+                    break
 
                 acquired = False
                 user_provider_model_acquired = False
@@ -1045,7 +1047,9 @@ async def proxy_request(request: Request, endpoint: str):
                             and _should_prefer_local_rate_limit_response(response)
                         ):
                             return preferred_local_rate_limit_response
-                        return response
+                        if route_result.is_forced_provider:
+                            return response
+                        break
 
                     if _is_route_fallback_status(status_code):
                         if not is_last_route and not route_result.is_forced_provider:
@@ -1055,7 +1059,9 @@ async def proxy_request(request: Request, endpoint: str):
                             )
                             route_exhausted = True
                             break
-                        return response
+                        if route_result.is_forced_provider:
+                            return response
+                        break
 
                 return response
 
@@ -1068,7 +1074,17 @@ async def proxy_request(request: Request, endpoint: str):
                 and _should_prefer_local_rate_limit_response(last_response)
             ):
                 return preferred_local_rate_limit_response
-            return last_response
+            logger.warning(
+                "[ROUTE FALLBACK] All providers failed for model %s, last status=%d",
+                model,
+                getattr(last_response, "status_code", 0),
+            )
+            return _openai_error_response(
+                f"模型 '{model}' 当前没有可用的供应商，所有供应商均请求失败，请稍后重试或联系管理员检查供应商状态",
+                503,
+                "server_error",
+                "model_unavailable",
+            )
         if access_denied_seen:
             return _openai_error_response(
                 build_model_access_denied_message(requested_model),

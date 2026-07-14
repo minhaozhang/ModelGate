@@ -1216,7 +1216,11 @@ class RouteFallbackOnServerErrorTests(unittest.IsolatedAsyncioTestCase):
             routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
         )
 
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 503)
+        import json as _json
+        body = _json.loads(response.body)
+        self.assertEqual(body.get("error", {}).get("code"), "model_unavailable")
+        self.assertIn("没有可用的供应商", body.get("error", {}).get("message", ""))
 
     async def test_network_exception_from_first_provider_falls_back_to_second(self):
         routes = [self._make_route("primary", 1), self._make_route("fallback", 2)]
@@ -1326,3 +1330,47 @@ class RouteFallbackOnServerErrorTests(unittest.IsolatedAsyncioTestCase):
             response = await proxy_request(request, "/chat/completions")
 
         self.assertEqual(response.status_code, 200)
+
+    async def test_all_providers_return_429_returns_unified_message(self):
+        routes = [self._make_route("primary", 1), self._make_route("fallback", 2)]
+
+        async def fake_handle_normal(*args, **_kwargs):
+            sem = args[13]
+            user_sem = args[14]
+            if sem is not None:
+                sem.release()
+            if user_sem is not None:
+                user_sem.release()
+            return Response(content=b'{"error":"rate limited"}', status_code=429)
+
+        response = await self._run_proxy_with_routes(
+            routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
+        )
+
+        self.assertEqual(response.status_code, 503)
+        import json as _json
+        body = _json.loads(response.body)
+        self.assertEqual(body.get("error", {}).get("code"), "model_unavailable")
+        self.assertIn("没有可用的供应商", body.get("error", {}).get("message", ""))
+
+    async def test_all_providers_network_exception_returns_unified_message(self):
+        routes = [self._make_route("primary", 1), self._make_route("fallback", 2)]
+
+        async def fake_handle_normal(*args, **_kwargs):
+            sem = args[13]
+            user_sem = args[14]
+            if sem is not None:
+                sem.release()
+            if user_sem is not None:
+                user_sem.release()
+            raise ConnectionError("connection refused")
+
+        response = await self._run_proxy_with_routes(
+            routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
+        )
+
+        self.assertEqual(response.status_code, 503)
+        import json as _json
+        body = _json.loads(response.body)
+        self.assertEqual(body.get("error", {}).get("code"), "model_unavailable")
+        self.assertIn("没有可用的供应商", body.get("error", {}).get("message", ""))
