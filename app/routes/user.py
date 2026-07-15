@@ -23,6 +23,7 @@ from app.core.database import (
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
     ModelDailyStat,
+    generate_api_key,
 )
 from app.core.i18n import render, translate
 
@@ -611,7 +612,44 @@ async def user_logout(request: Request, response: Response, user_session: Option
     return {"success": True}
 
 
-@router.get("/user/api/stats")
+@router.post("/user/api/regenerate-key")
+async def user_regenerate_key(
+    request: Request,
+    response: Response,
+    api_key_id: int = Depends(get_user_session),
+    user_session: Optional[str] = Cookie(None),
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+
+    async with async_session_maker() as session:
+        result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
+        key = result.scalar_one_or_none()
+        if not key:
+            return translated_error(request, "Not authenticated", 401)
+        key.key = generate_api_key()
+        await session.commit()
+        await session.refresh(key)
+
+        from app.services.auth import load_api_keys
+        await load_api_keys()
+
+        old_name = USER_SESSIONS.get(user_session, {}).get("name", "") if user_session else ""
+        try:
+            from app.services.audit import write_audit_log
+            await write_audit_log(
+                request, "update", "api_key", str(api_key_id),
+                "用户重置 API Key", None, 200,
+                username=old_name, user_id=api_key_id,
+            )
+        except Exception:
+            pass
+
+        if user_session and user_session in USER_SESSIONS:
+            del USER_SESSIONS[user_session]
+        response.delete_cookie("user_session")
+
+        return {"success": True, "key": key.key}
 async def get_user_stats(
     request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"
 ):

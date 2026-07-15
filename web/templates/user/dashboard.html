@@ -289,6 +289,9 @@
                     <option value="dark">{{ _('Dark Mode') }}</option>
                     <option value="blackgold">{{ _('Black Gold') }}</option>
                 </select>
+                <button onclick="regenerateKey()" class="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600">
+                    {{ _('Reset API Key') }}
+                </button>
                 <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
                     {{ _('Logout') }}
                 </button>
@@ -1540,6 +1543,20 @@
             if (clearSaved) localStorage.removeItem('user_api_key');
             await fetch(APP_BASE_PATH + '/user/api/logout', {method: 'POST'});
             window.location.href = `${APP_BASE_PATH}/user/login`;
+        }
+        
+        async function regenerateKey() {
+            if (!confirm('{{ _("Regenerate the API key? The old key will stop working immediately, and you will be logged out.") }}')) return;
+            try {
+                const res = await fetch(APP_BASE_PATH + '/user/api/regenerate-key', {method: 'POST'});
+                if (!res.ok) { alert('{{ _("Failed to regenerate API key") }}'); return; }
+                const data = await res.json();
+                localStorage.removeItem('user_api_key');
+                alert('{{ _("Your new API Key is:") }}\n\n' + data.key + '\n\n{{ _("Please save it securely. You will need it to log in again.") }}');
+                window.location.href = `${APP_BASE_PATH}/user/login`;
+            } catch(e) {
+                alert('{{ _("Failed to regenerate API key") }}');
+            }
         }
         
         async function loadMyRequests() {

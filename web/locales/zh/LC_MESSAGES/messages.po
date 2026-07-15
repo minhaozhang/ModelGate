@@ -190,6 +190,30 @@ msgstr "复制"
 msgid "Edit"
 msgstr "编辑"
 
+msgid "Regenerate"
+msgstr "重置密钥"
+
+msgid "Regenerate the API key? The old key will stop working immediately."
+msgstr "确定要重置 API 密钥吗？旧密钥将立即失效。"
+
+msgid "New API Key:"
+msgstr "新 API 密钥:"
+
+msgid "Reset API Key"
+msgstr "重置 API 密钥"
+
+msgid "Regenerate the API key? The old key will stop working immediately, and you will be logged out."
+msgstr "确定要重置 API 密钥吗？旧密钥将立即失效，您将被退出登录。"
+
+msgid "Failed to regenerate API key"
+msgstr "重置 API 密钥失败"
+
+msgid "Your new API Key is:"
+msgstr "您的新 API 密钥是:"
+
+msgid "Please save it securely. You will need it to log in again."
+msgstr "请妥善保存，您需要使用新密钥重新登录。"
+
 #: web/templates/admin/api_keys.html:210 web/templates/admin/config.html:582
 #: web/templates/admin/documents.html:156
 msgid "Delete"

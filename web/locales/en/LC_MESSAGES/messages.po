@@ -190,6 +190,30 @@ msgstr "Copy"
 msgid "Edit"
 msgstr "Edit"
 
+msgid "Regenerate"
+msgstr "Regenerate"
+
+msgid "Regenerate the API key? The old key will stop working immediately."
+msgstr "Regenerate the API key? The old key will stop working immediately."
+
+msgid "New API Key:"
+msgstr "New API Key:"
+
+msgid "Reset API Key"
+msgstr "Reset API Key"
+
+msgid "Regenerate the API key? The old key will stop working immediately, and you will be logged out."
+msgstr "Regenerate the API key? The old key will stop working immediately, and you will be logged out."
+
+msgid "Failed to regenerate API key"
+msgstr "Failed to regenerate API key"
+
+msgid "Your new API Key is:"
+msgstr "Your new API Key is:"
+
+msgid "Please save it securely. You will need it to log in again."
+msgstr "Please save it securely. You will need it to log in again."
+
 #: web/templates/admin/api_keys.html:210 web/templates/admin/config.html:582
 #: web/templates/admin/documents.html:156
 msgid "Delete"

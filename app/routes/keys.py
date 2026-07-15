@@ -295,6 +295,20 @@ async def delete_api_key(key_id: int, _: bool = Depends(permission_required("api
         return {"deleted": True}
 
 
+@router.post("/keys/{key_id}/regenerate")
+async def regenerate_api_key(key_id: int, _: bool = Depends(permission_required("api_key.update"))):
+    async with async_session_maker() as session:
+        result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
+        key = result.scalar_one_or_none()
+        if not key:
+            return JSONResponse({"error": "API key not found"}, status_code=404)
+        key.key = generate_api_key()
+        await session.commit()
+        await session.refresh(key)
+        await load_api_keys()
+        return {"id": key.id, "key": key.key}
+
+
 @router.get("/keys/{key_id}/stats")
 async def get_api_key_stats(
     key_id: int, user_api_key_id: int = Depends(get_user_session)
