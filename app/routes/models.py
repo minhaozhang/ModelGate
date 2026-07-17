@@ -12,10 +12,8 @@ from app.core.database import (
     async_session_maker,
     Model,
     ApiKey,
-    ApiKeyModel,
     ApiKeyModelAccess,
     ApiKeyTag,
-    ProviderModel,
 )
 from app.core.permissions import permission_required
 from app.services.auth import load_api_keys
@@ -98,38 +96,11 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
         models = result.scalars().all()
 
         model_ids = [m.id for m in models]
-        pm_result = await session.execute(
-            select(ProviderModel.model_id, ProviderModel.id).where(
-                ProviderModel.model_id.in_(model_ids)
-            )
-        )
-        model_pm_map: dict[int, list[int]] = {m.id: [] for m in models}
-        pm_model_map: dict[int, int] = {}
-        for row in pm_result.fetchall():
-            model_pm_map[row[0]].append(row[1])
-            pm_model_map[row[1]] = row[0]
-
-        all_pm_ids = [pm_id for ids in model_pm_map.values() for pm_id in ids]
         model_key_ids: dict[int, set[int]] = {m.id: set() for m in models}
-        valid_key_ids: set[int] = set()
-        if model_ids or all_pm_ids:
+        if model_ids:
             valid_key_ids = {
                 r[0] for r in (await session.execute(select(ApiKey.id))).fetchall()
             }
-        if all_pm_ids:
-            ak_count_result = await session.execute(
-                select(ApiKeyModel.provider_model_id, ApiKeyModel.api_key_id).where(
-                    ApiKeyModel.provider_model_id.in_(all_pm_ids)
-                )
-            )
-            for row in ak_count_result.fetchall():
-                if row[1] not in valid_key_ids:
-                    continue
-                model_id = pm_model_map.get(row[0])
-                if model_id:
-                    model_key_ids.setdefault(model_id, set()).add(row[1])
-
-        if model_ids:
             model_access_result = await session.execute(
                 select(ApiKeyModelAccess.model_id, ApiKeyModelAccess.api_key_id).where(
                     ApiKeyModelAccess.model_id.in_(model_ids)
