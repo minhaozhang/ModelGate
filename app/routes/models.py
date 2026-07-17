@@ -273,33 +273,46 @@ async def update_model_api_keys(
     data: ModelApiKeysUpdate,
     _: bool = Depends(permission_required("model.update")),
 ):
-    target_ids = sorted({int(x) for x in data.api_key_ids if int(x) > 0})
+    raw_ids = [int(x) for x in data.api_key_ids]
+    if any(x <= 0 for x in raw_ids):
+        return JSONResponse(
+            {"error": "api_key_ids must be positive integers"},
+            status_code=400,
+        )
+    target_ids = sorted(set(raw_ids))
     async with async_session_maker() as session:
         model_result = await session.execute(select(Model).where(Model.id == model_id))
         if model_result.scalar_one_or_none() is None:
             return JSONResponse({"error": "Model not found"}, status_code=404)
 
-        if target_ids:
-            await session.execute(
-                delete(ApiKeyModelAccess)
-                .where(ApiKeyModelAccess.model_id == model_id)
-                .where(ApiKeyModelAccess.api_key_id.not_in(target_ids))
-            )
-            existing_result = await session.execute(
-                select(ApiKeyModelAccess.api_key_id).where(
-                    ApiKeyModelAccess.model_id == model_id
+        try:
+            if target_ids:
+                await session.execute(
+                    delete(ApiKeyModelAccess)
+                    .where(ApiKeyModelAccess.model_id == model_id)
+                    .where(ApiKeyModelAccess.api_key_id.not_in(target_ids))
                 )
-            )
-            existing_ids = {int(r[0]) for r in existing_result.fetchall()}
-            for ak_id in target_ids:
-                if ak_id not in existing_ids:
-                    session.add(ApiKeyModelAccess(api_key_id=ak_id, model_id=model_id))
-        else:
-            await session.execute(
-                delete(ApiKeyModelAccess).where(
-                    ApiKeyModelAccess.model_id == model_id
+                existing_result = await session.execute(
+                    select(ApiKeyModelAccess.api_key_id).where(
+                        ApiKeyModelAccess.model_id == model_id
+                    )
                 )
+                existing_ids = {int(r[0]) for r in existing_result.fetchall()}
+                for ak_id in target_ids:
+                    if ak_id not in existing_ids:
+                        session.add(ApiKeyModelAccess(api_key_id=ak_id, model_id=model_id))
+            else:
+                await session.execute(
+                    delete(ApiKeyModelAccess).where(
+                        ApiKeyModelAccess.model_id == model_id
+                    )
+                )
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            return JSONResponse(
+                {"error": "One or more api_key_ids do not exist"},
+                status_code=400,
             )
-        await session.commit()
     await load_api_keys()
     return {"model_id": model_id, "api_key_ids": target_ids}

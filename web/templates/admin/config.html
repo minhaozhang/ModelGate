@@ -1883,7 +1883,7 @@
                         : (k.is_expired ? '<span class="text-xs text-red-500">过期</span>' : '<span class="text-xs text-green-500">可用</span>');
                     const tags = (k.tags || []).map(tg => `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">${escapeHtml(tg)}</span>`).join(' ');
                     return `<label class="flex items-center gap-3 py-2 px-3 rounded border hover:bg-gray-50 cursor-pointer">
-                        <input type="checkbox" class="model-ak-check" data-ak-id="${k.id}" ${checked} onchange="onModelApiKeyToggle(${k.id}, this.checked)">
+                        <input type="checkbox" class="model-ak-check" data-ak-id="${Number(k.id)}" ${checked} onchange="onModelApiKeyToggle(${Number(k.id)}, this.checked)">
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="text-sm font-medium text-gray-800 truncate">${escapeHtml(k.name)}</span>

@@ -300,6 +300,57 @@ class AdminModelListTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(data, JSONResponse)
         self.assertEqual(data.status_code, 404)
 
+    async def test_put_model_api_keys_rejects_non_positive_id_with_400(self):
+        with patch("app.routes.models.async_session_maker") as session_ctx:
+            from app.routes.models import ModelApiKeysUpdate
+            data = await update_model_api_keys(
+                42, ModelApiKeysUpdate(api_key_ids=[0, 1]), _=True
+            )
+
+        self.assertIsInstance(data, JSONResponse)
+        self.assertEqual(data.status_code, 400)
+        session_ctx.assert_not_called()
+
+    async def test_put_model_api_keys_returns_400_on_integrity_error(self):
+        from sqlalchemy.exc import IntegrityError
+
+        class _FakeSessionIntegrity(_FakeSession):
+            def __init__(self, results):
+                super().__init__(results)
+                self.rolled_back = False
+
+            async def commit(self):
+                raise IntegrityError("INSERT", {}, Exception("FK violation"))
+
+            async def rollback(self):
+                self.rolled_back = True
+
+        existing_model = SimpleNamespace(id=42)
+        session = _FakeSessionIntegrity(
+            [
+                _FakeResult(one=existing_model),  # model exists
+                _FakeResult(),                    # delete (not_in [1])
+                _FakeResult(rows=[]),             # existing api_key_ids after delete
+            ]
+        )
+
+        with (
+            patch(
+                "app.routes.models.async_session_maker",
+                return_value=_FakeSessionContext(session),
+            ),
+            patch("app.routes.models.load_api_keys") as load_keys,
+        ):
+            from app.routes.models import ModelApiKeysUpdate
+            data = await update_model_api_keys(
+                42, ModelApiKeysUpdate(api_key_ids=[1]), _=True
+            )
+
+        self.assertIsInstance(data, JSONResponse)
+        self.assertEqual(data.status_code, 400)
+        self.assertTrue(session.rolled_back)
+        load_keys.assert_not_awaited()
+
 
 if __name__ == "__main__":
     unittest.main()
