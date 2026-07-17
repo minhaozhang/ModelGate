@@ -1,16 +1,20 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from typing import Optional, Union
 from pydantic import BaseModel, Field
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import (
     async_session_maker,
     Model,
+    ApiKey,
     ApiKeyModel,
     ApiKeyModelAccess,
+    ApiKeyTag,
     ProviderModel,
 )
 from app.core.permissions import permission_required
@@ -205,3 +209,55 @@ async def resolve_model(name: str, _: bool = Depends(permission_required("page.m
     ]
     selected = results[0]["provider"] if results else None
     return {"model": name, "providers": results, "selected": selected}
+
+
+@router.get("/models/{model_id}/api-keys")
+async def get_model_api_keys(
+    model_id: int,
+    _: bool = Depends(permission_required("model.update")),
+):
+    async with async_session_maker() as session:
+        model_result = await session.execute(select(Model).where(Model.id == model_id))
+        if model_result.scalar_one_or_none() is None:
+            return JSONResponse({"error": "Model not found"}, status_code=404)
+
+        keys_result = await session.execute(select(ApiKey).order_by(ApiKey.name))
+        keys = keys_result.scalars().all()
+
+        tag_rows: list[tuple[int, str]] = []
+        if keys:
+            tag_result = await session.execute(
+                select(ApiKeyTag.api_key_id, ApiKeyTag.tag).where(
+                    ApiKeyTag.api_key_id.in_([k.id for k in keys])
+                )
+            )
+            tag_rows = [(int(r[0]), str(r[1])) for r in tag_result.fetchall()]
+
+        tags_by_key: dict[int, list[str]] = {}
+        for ak_id, tag in tag_rows:
+            tags_by_key.setdefault(ak_id, []).append(tag)
+
+        bound_result = await session.execute(
+            select(ApiKeyModelAccess.api_key_id).where(
+                ApiKeyModelAccess.model_id == model_id
+            )
+        )
+        bound_ids = [int(r[0]) for r in bound_result.fetchall()]
+
+        now = datetime.now()
+        api_keys_out = []
+        for k in keys:
+            api_keys_out.append({
+                "id": k.id,
+                "name": k.name,
+                "email": k.email,
+                "is_active": bool(k.is_active),
+                "is_expired": bool(k.expires_at and k.expires_at < now),
+                "tags": tags_by_key.get(k.id, []),
+            })
+
+        return {
+            "model_id": model_id,
+            "api_keys": api_keys_out,
+            "bound_key_ids": bound_ids,
+        }

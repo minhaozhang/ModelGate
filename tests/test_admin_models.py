@@ -2,9 +2,12 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from fastapi.responses import JSONResponse
+
 from app.routes.models import (
     AutoModelConfigUpdate,
     get_auto_model_config,
+    get_model_api_keys,
     list_all_models,
     update_auto_model_config,
 )
@@ -188,6 +191,52 @@ class AdminModelListTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(data["enabled"])
         self.assertEqual(data["provider_model_ids"], [22, 33])
         self.assertEqual(data["model_ids"], [101, 202])
+
+    async def test_get_model_api_keys_returns_all_keys_and_bound_set(self):
+        from datetime import datetime, timedelta
+
+        key_a = SimpleNamespace(id=1, name="Key A", email="a@x.com",
+                                is_active=True, expires_at=None)
+        key_b = SimpleNamespace(id=2, name="Key B", email="b@x.com",
+                                is_active=False, expires_at=datetime.now() - timedelta(days=1))
+        key_c = SimpleNamespace(id=3, name="Key C", email=None,
+                                is_active=True, expires_at=None)
+        session = _FakeSession(
+            [
+                _FakeResult(one=SimpleNamespace(id=42)),  # model lookup
+                _FakeResult(values=[key_a, key_b, key_c]),  # all api keys
+                _FakeResult(rows=[(1, "vip"), (3, "premium"), (99, "orphan")]),  # ApiKeyTag rows (api_key_id, tag)
+                _FakeResult(rows=[(2,)]),  # bound api_key_ids for this model
+            ]
+        )
+
+        with patch(
+            "app.routes.models.async_session_maker",
+            return_value=_FakeSessionContext(session),
+        ):
+            data = await get_model_api_keys(42, _=True)
+
+        self.assertEqual(data["model_id"], 42)
+        ids = [k["id"] for k in data["api_keys"]]
+        self.assertEqual(ids, [1, 2, 3])
+        b_key = next(k for k in data["api_keys"] if k["id"] == 2)
+        self.assertFalse(b_key["is_active"])
+        self.assertTrue(b_key["is_expired"])
+        a_key = next(k for k in data["api_keys"] if k["id"] == 1)
+        self.assertEqual(a_key["tags"], ["vip"])
+        self.assertEqual(data["bound_key_ids"], [2])
+
+    async def test_get_model_api_keys_returns_404_when_model_missing(self):
+        session = _FakeSession([_FakeResult(one=None)])
+
+        with patch(
+            "app.routes.models.async_session_maker",
+            return_value=_FakeSessionContext(session),
+        ):
+            data = await get_model_api_keys(999, _=True)
+
+        self.assertIsInstance(data, JSONResponse)
+        self.assertEqual(data.status_code, 404)
 
 
 if __name__ == "__main__":
