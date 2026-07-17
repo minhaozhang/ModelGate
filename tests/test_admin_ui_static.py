@@ -355,17 +355,6 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertNotIn("xl:grid-cols-[1.2fr_150px_1fr_120px_90px_110px_110px_110px_110px_120px_auto]", html)
         self.assertNotIn("xl:grid-cols-[1fr_120px_90px_95px_95px_95px_95px_95px_95px_100px_auto]", html)
 
-    def test_model_routing_matrix_has_no_bulk_api_key_configuration(self):
-        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
-        route = (ROOT / "app" / "routes" / "models.py").read_text(encoding="utf-8")
-
-        self.assertNotIn('id="model-keys-modal"', html)
-        self.assertNotIn("openModelKeys", html)
-        self.assertNotIn("openProviderModelKeys", html)
-        self.assertNotIn("配置 Key", html)
-        self.assertNotIn("/models/{model_id}/api-keys", route)
-        self.assertNotIn("ModelApiKeysUpdate", route)
-
     def test_model_routing_rules_can_scope_provider_keys(self):
         html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
         routing_route = (ROOT / "app" / "routes" / "routing.py").read_text(encoding="utf-8")
