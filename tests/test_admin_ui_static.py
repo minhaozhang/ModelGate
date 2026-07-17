@@ -210,6 +210,17 @@ class AdminUiStaticTests(unittest.TestCase):
 
         self.assertIn("await loadModels()", save_body)
 
+    def test_auto_pool_rebuild_does_not_re_add_removed_provider_models(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        build_start = html.index("function buildAutoPoolFromConfig()")
+        build_end = html.index("function renderAutoTab()", build_start)
+        build_body = html[build_start:build_end]
+
+        guard = "if (pool.length === 0 && modelIds.size)"
+        self.assertIn(guard, build_body)
+        self.assertNotIn("if (modelIds.size) {", build_body)
+        self.assertNotIn("if (modelIds.size)\n", build_body)
+
     def test_auto_virtual_model_delete_button_is_hidden(self):
         html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
         table_start = html.index("function renderModelTable(models)")

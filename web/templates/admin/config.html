@@ -1475,7 +1475,7 @@
                 const pm = getActiveProviderModels().find(p => Number(p.id) === pmId);
                 if (pm) { pool.push({...pm, _min_ctx: null, _max_ctx: null}); seen.add(pmId); }
             }
-            if (modelIds.size) {
+            if (pool.length === 0 && modelIds.size) {
                 for (const pm of getActiveProviderModels()) {
                     if (modelIds.has(Number(pm.model_id)) && !seen.has(Number(pm.id))) {
                         pool.push({...pm, _min_ctx: null, _max_ctx: null}); seen.add(Number(pm.id));
