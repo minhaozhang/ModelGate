@@ -232,6 +232,31 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("${canDeleteModel ? `", table_body)
         self.assertIn("deleteModel(${m.id})", table_body)
 
+    def test_model_apikeys_modal_has_required_dom_and_handlers(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="model-apikeys-modal"', html)
+        self.assertIn('id="model-apikeys-title"', html)
+        self.assertIn('id="model-apikeys-search"', html)
+        self.assertIn('id="model-apikeys-count"', html)
+        self.assertIn('id="model-apikeys-list"', html)
+        self.assertIn("openModelApiKeysModal", html)
+        self.assertIn("closeModelApiKeysModal", html)
+        self.assertIn("saveModelApiKeys", html)
+        self.assertIn("renderModelApiKeysList", html)
+        self.assertIn("selectAllModelApiKeys", html)
+        self.assertIn("clearAllModelApiKeys", html)
+        self.assertIn("onModelApiKeyToggle", html)
+
+    def test_model_table_row_has_apikeys_button(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        table_start = html.index("function renderModelTable(models)")
+        table_end = html.index("function isProtectedAutoModel", table_start)
+        table_body = html[table_start:table_end]
+
+        self.assertIn("openModelApiKeysModal(${m.id})", table_body)
+        self.assertIn("text-amber-500", table_body)
+
     def test_api_key_standard_model_picker_marks_virtual_models(self):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
 

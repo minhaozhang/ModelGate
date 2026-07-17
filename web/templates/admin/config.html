@@ -426,6 +426,26 @@
         </div>
     </div>
 
+    <div id="model-apikeys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[calc(100dvh-4rem)] flex min-h-0 flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h3 id="model-apikeys-title" class="font-semibold"></h3>
+                <button onclick="closeModelApiKeysModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="px-4 py-3 border-b shrink-0 flex items-center gap-2 flex-wrap">
+                <input id="model-apikeys-search" type="text" placeholder="搜索名称/email/tag..." oninput="renderModelApiKeysList()" class="flex-1 min-w-[12rem] border rounded px-3 py-1.5 text-sm">
+                <button onclick="selectAllModelApiKeys()" class="text-xs text-blue-500 hover:text-blue-700 px-2 py-1">全选</button>
+                <button onclick="clearAllModelApiKeys()" class="text-xs text-gray-500 hover:text-gray-700 px-2 py-1">清空</button>
+                <span id="model-apikeys-count" class="text-xs text-gray-400 ml-auto"></span>
+            </div>
+            <div id="model-apikeys-list" class="p-4 overflow-y-auto flex-1 min-h-0"><!-- Task 4 renders rows here, each with onchange="onModelApiKeyToggle(${key.id})" --></div>
+            <div class="p-4 border-t shrink-0 flex justify-end gap-2">
+                <button onclick="closeModelApiKeysModal()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">取消</button>
+                <button onclick="saveModelApiKeys()" class="px-4 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">保存</button>
+            </div>
+        </div>
+    </div>
+
     <div id="provider-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
         <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-md w-full mx-4 flex min-h-0 flex-col overflow-hidden">
             <div class="p-4 border-b flex justify-between items-center shrink-0">
@@ -1793,6 +1813,9 @@
                                     <div class="flex justify-end gap-1">
                                         <button onclick="openModelRoutingConfig(${m.id})" class="icon-btn text-purple-500 hover:text-purple-700" title="路由配置">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51 15.42 17.49"/><path d="M15.41 6.51 8.59 10.49"/></svg>
+                                        </button>
+                                        <button onclick="openModelApiKeysModal(${m.id})" class="icon-btn text-amber-500 hover:text-amber-700" title="API Key 绑定">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
                                         </button>
                                         <button onclick="editModel(${m.id})" class="icon-btn text-blue-500 hover:text-blue-700" title="${t('edit', 'Edit')}">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
