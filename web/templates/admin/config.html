@@ -438,7 +438,7 @@
                 <button onclick="clearAllModelApiKeys()" class="text-xs text-gray-500 hover:text-gray-700 px-2 py-1">清空</button>
                 <span id="model-apikeys-count" class="text-xs text-gray-400 ml-auto"></span>
             </div>
-            <div id="model-apikeys-list" class="p-4 overflow-y-auto flex-1 min-h-0"><!-- Task 4 renders rows here, each with onchange="onModelApiKeyToggle(${key.id})" --></div>
+            <div id="model-apikeys-list" class="p-4 overflow-y-auto flex-1 min-h-0"></div>
             <div class="p-4 border-t shrink-0 flex justify-end gap-2">
                 <button onclick="closeModelApiKeysModal()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">取消</button>
                 <button onclick="saveModelApiKeys()" class="px-4 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">保存</button>
@@ -1834,6 +1834,115 @@
 
         function isProtectedAutoModel(model) {
             return Boolean(model?.is_virtual) && String(model?.name || '').toLowerCase() === 'auto';
+        }
+
+        let modelApiKeysTarget = null;
+        let modelApiKeysCache = [];
+        let modelApiKeysBound = new Set();
+
+        async function openModelApiKeysModal(modelId) {
+            modelApiKeysTarget = modelId;
+            const m = allModels.find(x => x.id === modelId);
+            document.getElementById('model-apikeys-title').textContent = `${m ? (m.display_name || m.name) : '模型'} · API Key 访问`;
+            document.getElementById('model-apikeys-search').value = '';
+            document.getElementById('model-apikeys-count').textContent = '';
+            document.getElementById('model-apikeys-list').innerHTML = '<div class="text-center text-gray-400 py-8">加载中...</div>';
+            const modal = document.getElementById('model-apikeys-modal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models/${modelId}/api-keys`);
+                modelApiKeysCache = data.api_keys || [];
+                modelApiKeysBound = new Set((data.bound_key_ids || []).map(Number));
+                renderModelApiKeysList();
+            } catch(e) {
+                document.getElementById('model-apikeys-list').innerHTML = '<div class="text-center text-red-500 py-8">加载失败</div>';
+            }
+        }
+
+        function _modelApiKeysSearchTerm() {
+            return (document.getElementById('model-apikeys-search')?.value || '').trim().toLowerCase();
+        }
+
+        function _modelApiKeyMatches(k, term) {
+            if (!term) return true;
+            const hay = [k.name, k.email, (k.tags || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
+            return hay.includes(term);
+        }
+
+        function renderModelApiKeysList() {
+            const list = document.getElementById('model-apikeys-list');
+            const term = _modelApiKeysSearchTerm();
+            const filtered = modelApiKeysCache.filter(k => _modelApiKeyMatches(k, term));
+            if (!filtered.length) {
+                list.innerHTML = '<div class="text-center text-gray-400 py-8">没有匹配的 API Key</div>';
+            } else {
+                list.innerHTML = filtered.map(k => {
+                    const checked = modelApiKeysBound.has(Number(k.id)) ? 'checked' : '';
+                    const statusPill = !k.is_active
+                        ? '<span class="text-xs text-red-500">停用</span>'
+                        : (k.is_expired ? '<span class="text-xs text-red-500">过期</span>' : '<span class="text-xs text-green-500">可用</span>');
+                    const tags = (k.tags || []).map(tg => `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">${escapeHtml(tg)}</span>`).join(' ');
+                    return `<label class="flex items-center gap-3 py-2 px-3 rounded border hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" class="model-ak-check" data-ak-id="${k.id}" ${checked} onchange="onModelApiKeyToggle(${k.id}, this.checked)">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-sm font-medium text-gray-800 truncate">${escapeHtml(k.name)}</span>
+                                ${statusPill}
+                            </div>
+                            <div class="text-xs text-gray-400 truncate">${escapeHtml(k.email || '')}${tags ? ' · ' + tags : ''}</div>
+                        </div>
+                    </label>`;
+                }).join('');
+            }
+            document.getElementById('model-apikeys-count').textContent = `已选 ${modelApiKeysBound.size} / 共 ${modelApiKeysCache.length}`;
+        }
+
+        function onModelApiKeyToggle(id, checked) {
+            id = Number(id);
+            if (checked) modelApiKeysBound.add(id); else modelApiKeysBound.delete(id);
+            document.getElementById('model-apikeys-count').textContent = `已选 ${modelApiKeysBound.size} / 共 ${modelApiKeysCache.length}`;
+        }
+
+        function selectAllModelApiKeys() {
+            const term = _modelApiKeysSearchTerm();
+            modelApiKeysCache.forEach(k => {
+                if (_modelApiKeyMatches(k, term)) modelApiKeysBound.add(Number(k.id));
+            });
+            renderModelApiKeysList();
+        }
+
+        function clearAllModelApiKeys() {
+            const term = _modelApiKeysSearchTerm();
+            if (!term) {
+                modelApiKeysBound.clear();
+            } else {
+                modelApiKeysCache.forEach(k => {
+                    if (_modelApiKeyMatches(k, term)) modelApiKeysBound.delete(Number(k.id));
+                });
+            }
+            renderModelApiKeysList();
+        }
+
+        function closeModelApiKeysModal() {
+            const modal = document.getElementById('model-apikeys-modal');
+            modal.classList.add('hidden'); modal.classList.remove('flex');
+            modelApiKeysTarget = null;
+            modelApiKeysCache = [];
+            modelApiKeysBound = new Set();
+        }
+
+        async function saveModelApiKeys() {
+            if (!modelApiKeysTarget) return;
+            const ids = [...modelApiKeysBound].map(Number);
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/models/${modelApiKeysTarget}/api-keys`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({api_key_ids: ids})
+                }, {success: 'API Key 绑定已保存', error: '保存失败'});
+                closeModelApiKeysModal();
+                await loadModels();
+            } catch(e) {}
         }
 
         async function loadProviderModelRoutes() {

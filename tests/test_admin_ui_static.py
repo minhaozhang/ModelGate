@@ -248,6 +248,21 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("clearAllModelApiKeys", html)
         self.assertIn("onModelApiKeyToggle", html)
 
+    def test_model_apikeys_js_uses_set_semantics_and_correct_endpoints(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        js_start = html.index("function openModelApiKeysModal")
+        js_end = html.index("async function saveModelApiKeys", js_start)
+        js_end = html.index("}", html.index("await loadModels()", js_end)) + 1
+        js_body = html[js_start:js_end]
+
+        self.assertIn("/admin/api/models/${modelId}/api-keys", js_body)
+        self.assertIn("modelApiKeysBound = new Set", js_body)
+        self.assertIn("api_key_ids: ids", js_body)
+        self.assertIn("await loadModels()", js_body)
+        self.assertIn("modelApiKeysBound.has(Number(k.id))", js_body)
+        self.assertIn("modelApiKeysBound.add(Number(k.id))", js_body)
+        self.assertIn("modelApiKeysBound.delete(Number(k.id))", js_body)
+
     def test_model_table_row_has_apikeys_button(self):
         html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
         table_start = html.index("function renderModelTable(models)")
