@@ -65,6 +65,10 @@ class AutoModelConfigUpdate(BaseModel):
     provider_model_ids: list[Union[AutoPoolItem, int]] = Field(default_factory=list)
 
 
+class ModelApiKeysUpdate(BaseModel):
+    api_key_ids: list[int] = Field(default_factory=list)
+
+
 @router.get("/routing/auto-model")
 async def get_auto_model_config(_: bool = Depends(permission_required("page.models"))):
     async with async_session_maker() as session:
@@ -261,3 +265,41 @@ async def get_model_api_keys(
             "api_keys": api_keys_out,
             "bound_key_ids": bound_ids,
         }
+
+
+@router.put("/models/{model_id}/api-keys")
+async def update_model_api_keys(
+    model_id: int,
+    data: ModelApiKeysUpdate,
+    _: bool = Depends(permission_required("model.update")),
+):
+    target_ids = sorted({int(x) for x in data.api_key_ids if int(x) > 0})
+    async with async_session_maker() as session:
+        model_result = await session.execute(select(Model).where(Model.id == model_id))
+        if model_result.scalar_one_or_none() is None:
+            return JSONResponse({"error": "Model not found"}, status_code=404)
+
+        if target_ids:
+            await session.execute(
+                delete(ApiKeyModelAccess)
+                .where(ApiKeyModelAccess.model_id == model_id)
+                .where(ApiKeyModelAccess.api_key_id.not_in(target_ids))
+            )
+            existing_result = await session.execute(
+                select(ApiKeyModelAccess.api_key_id).where(
+                    ApiKeyModelAccess.model_id == model_id
+                )
+            )
+            existing_ids = {int(r[0]) for r in existing_result.fetchall()}
+            for ak_id in target_ids:
+                if ak_id not in existing_ids:
+                    session.add(ApiKeyModelAccess(api_key_id=ak_id, model_id=model_id))
+        else:
+            await session.execute(
+                delete(ApiKeyModelAccess).where(
+                    ApiKeyModelAccess.model_id == model_id
+                )
+            )
+        await session.commit()
+    await load_api_keys()
+    return {"model_id": model_id, "api_key_ids": target_ids}

@@ -10,7 +10,9 @@ from app.routes.models import (
     get_model_api_keys,
     list_all_models,
     update_auto_model_config,
+    update_model_api_keys,
 )
+from app.core.database import ApiKeyModelAccess
 
 
 class _FakeResult:
@@ -234,6 +236,66 @@ class AdminModelListTests(unittest.IsolatedAsyncioTestCase):
             return_value=_FakeSessionContext(session),
         ):
             data = await get_model_api_keys(999, _=True)
+
+        self.assertIsInstance(data, JSONResponse)
+        self.assertEqual(data.status_code, 404)
+
+    async def test_put_model_api_keys_set_semantics_diff_and_add(self):
+        existing_model = SimpleNamespace(id=42)
+        session = _FakeSession(
+            [
+                _FakeResult(one=existing_model),  # model exists
+                _FakeResult(),                    # delete (not_in [1,3])
+                _FakeResult(rows=[(3,)]),         # existing api_key_ids after delete
+            ]
+        )
+
+        with (
+            patch(
+                "app.routes.models.async_session_maker",
+                return_value=_FakeSessionContext(session),
+            ),
+            patch("app.routes.models.load_api_keys") as load_keys,
+        ):
+            from app.routes.models import ModelApiKeysUpdate
+            data = await update_model_api_keys(42, ModelApiKeysUpdate(api_key_ids=[1, 3]), _=True)
+
+        self.assertEqual(data, {"model_id": 42, "api_key_ids": [1, 3]})
+        added_ids = [obj.api_key_id for obj in session.added if isinstance(obj, ApiKeyModelAccess)]
+        self.assertEqual(sorted(added_ids), [1])
+        load_keys.assert_awaited_once()
+
+    async def test_put_model_api_keys_empty_list_clears_all(self):
+        existing_model = SimpleNamespace(id=42)
+        session = _FakeSession(
+            [
+                _FakeResult(one=existing_model),  # model exists
+                _FakeResult(),                    # delete all where model_id==42
+            ]
+        )
+
+        with (
+            patch(
+                "app.routes.models.async_session_maker",
+                return_value=_FakeSessionContext(session),
+            ),
+            patch("app.routes.models.load_api_keys"),
+        ):
+            from app.routes.models import ModelApiKeysUpdate
+            data = await update_model_api_keys(42, ModelApiKeysUpdate(api_key_ids=[]), _=True)
+
+        self.assertEqual(data, {"model_id": 42, "api_key_ids": []})
+        self.assertEqual(session.added, [])
+
+    async def test_put_model_api_keys_returns_404_when_model_missing(self):
+        session = _FakeSession([_FakeResult(one=None)])
+
+        with patch(
+            "app.routes.models.async_session_maker",
+            return_value=_FakeSessionContext(session),
+        ):
+            from app.routes.models import ModelApiKeysUpdate
+            data = await update_model_api_keys(999, ModelApiKeysUpdate(api_key_ids=[1]), _=True)
 
         self.assertIsInstance(data, JSONResponse)
         self.assertEqual(data.status_code, 404)
