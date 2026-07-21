@@ -650,6 +650,8 @@ async def user_regenerate_key(
         response.delete_cookie("user_session")
 
         return {"success": True, "key": key.key}
+
+@router.get("/user/api/stats")
 async def get_user_stats(
     request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"
 ):
