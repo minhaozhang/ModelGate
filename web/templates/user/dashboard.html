@@ -429,6 +429,10 @@
             crowded: {{ _('Peak Hours') | tojson }},
             shouldSleep: {{ _('Shouldn\'t You Be Asleep?') | tojson }},
         },
+        regenerateKeyConfirm: {{ _('Regenerate the API key? The old key will stop working immediately, and you will be logged out.') | tojson }},
+        regenerateKeyFailed: {{ _('Failed to regenerate API key') | tojson }},
+        newKeyIs: {{ _('Your new API Key is:') | tojson }},
+        newKeySaveNote: {{ _('Please save it securely. You will need it to log in again.') | tojson }},
     };
     </script>
 
@@ -1546,16 +1550,16 @@
         }
         
         async function regenerateKey() {
-            if (!confirm('{{ _("Regenerate the API key? The old key will stop working immediately, and you will be logged out.") }}')) return;
+            if (!confirm(window.I18N.regenerateKeyConfirm)) return;
             try {
                 const res = await fetch(APP_BASE_PATH + '/user/api/regenerate-key', {method: 'POST'});
-                if (!res.ok) { alert('{{ _("Failed to regenerate API key") }}'); return; }
+                if (!res.ok) { alert(window.I18N.regenerateKeyFailed); return; }
                 const data = await res.json();
                 localStorage.removeItem('user_api_key');
-                alert('{{ _("Your new API Key is:") }}\n\n' + data.key + '\n\n{{ _("Please save it securely. You will need it to log in again.") }}');
+                alert(window.I18N.newKeyIs + '\n\n' + data.key + '\n\n' + window.I18N.newKeySaveNote);
                 window.location.href = `${APP_BASE_PATH}/user/login`;
             } catch(e) {
-                alert('{{ _("Failed to regenerate API key") }}');
+                alert(window.I18N.regenerateKeyFailed);
             }
         }
         

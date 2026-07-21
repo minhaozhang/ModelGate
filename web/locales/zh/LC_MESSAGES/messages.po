@@ -214,6 +214,18 @@ msgstr "您的新 API 密钥是:"
 msgid "Please save it securely. You will need it to log in again."
 msgstr "请妥善保存，您需要使用新密钥重新登录。"
 
+msgid "API Key Created"
+msgstr "API 密钥已创建"
+
+msgid "API Key Regenerated"
+msgstr "API 密钥已重置"
+
+msgid "Copy this key now. For security reasons, it will be masked in the list afterwards."
+msgstr "请立即复制此密钥。出于安全考虑，列表中将只显示掩码版本。"
+
+msgid "I have saved it"
+msgstr "我已保存"
+
 #: web/templates/admin/api_keys.html:210 web/templates/admin/config.html:582
 #: web/templates/admin/documents.html:156
 msgid "Delete"

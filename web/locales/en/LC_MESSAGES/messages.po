@@ -214,6 +214,18 @@ msgstr "Your new API Key is:"
 msgid "Please save it securely. You will need it to log in again."
 msgstr "Please save it securely. You will need it to log in again."
 
+msgid "API Key Created"
+msgstr "API Key Created"
+
+msgid "API Key Regenerated"
+msgstr "API Key Regenerated"
+
+msgid "Copy this key now. For security reasons, it will be masked in the list afterwards."
+msgstr "Copy this key now. For security reasons, it will be masked in the list afterwards."
+
+msgid "I have saved it"
+msgstr "I have saved it"
+
 #: web/templates/admin/api_keys.html:210 web/templates/admin/config.html:582
 #: web/templates/admin/documents.html:156
 msgid "Delete"
