@@ -226,6 +226,12 @@ msgstr "Copy this key now. For security reasons, it will be masked in the list a
 msgid "I have saved it"
 msgstr "I have saved it"
 
+msgid "Temporarily unavailable"
+msgstr "Temporarily unavailable"
+
+msgid "Temporarily unavailable"
+msgstr "Temporarily unavailable"
+
 #: web/templates/admin/api_keys.html:210 web/templates/admin/config.html:582
 #: web/templates/admin/documents.html:156
 msgid "Delete"

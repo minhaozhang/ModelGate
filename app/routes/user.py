@@ -1606,7 +1606,7 @@ async def get_user_catalog(
             return translated_error(request, "API Key not found", 404)
 
         providers_result = await session.execute(
-            select(Provider).where(Provider.is_active == True)
+            select(Provider)
         )
         models_result = await session.execute(
             select(Model).where(Model.is_active == True)
@@ -1658,6 +1658,8 @@ async def get_user_catalog(
         provider = provider_map.get(provider_model.provider_id)
         model = model_map.get(provider_model.model_id)
         if not provider or not model:
+            return False
+        if not provider.is_active:
             return False
         provider_name = provider.name
         model_name = model.name
@@ -1713,12 +1715,12 @@ async def get_user_catalog(
             model_name = model.name
             display_name = model.display_name or model_name
 
-            if not _is_provider_model_available(provider_model):
-                continue
+            is_pm_available = _is_provider_model_available(provider_model)
 
             existing = models_by_id.get(model.id)
             provider_names = set(existing.get("providers", [])) if existing else set()
-            provider_names.add(provider_map[provider_model.provider_id].name)
+            if is_pm_available:
+                provider_names.add(provider_map[provider_model.provider_id].name)
             pm_prices = existing.get("_pm_prices", []) if existing else []
             pm_prices.append({
                 "input": provider_model.input_price_cny_per_million,
@@ -1726,6 +1728,7 @@ async def get_user_catalog(
                 "cached": provider_model.cached_input_price_cny_per_million,
                 "tiers": provider_model.pricing_tiers or [],
             })
+            prev_available = existing.get("is_available", False) if existing else False
             models_by_id[model.id] = {
                 "id": model.id,
                 "name": model_name,
@@ -1739,10 +1742,12 @@ async def get_user_catalog(
                     or provider_model.model_name_override
                 ),
                 "providers": sorted(provider_names),
+                "is_available": prev_available or is_pm_available,
                 "_pm_prices": pm_prices,
             }
 
         for virtual_model in serialize_virtual_models(virtual_model_ids or set()):
+            virtual_model["is_available"] = True
             models_by_id[virtual_model["id"]] = virtual_model
 
         for model_entry in models_by_id.values():

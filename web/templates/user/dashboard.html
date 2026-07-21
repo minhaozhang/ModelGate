@@ -433,6 +433,7 @@
         regenerateKeyFailed: {{ _('Failed to regenerate API key') | tojson }},
         newKeyIs: {{ _('Your new API Key is:') | tojson }},
         newKeySaveNote: {{ _('Please save it securely. You will need it to log in again.') | tojson }},
+        temporarilyUnavailable: {{ _('Temporarily unavailable') | tojson }},
     };
     </script>
 
@@ -765,55 +766,59 @@
                     return `<div class="text-gray-400 text-center py-4">${emptyText}</div>`;
                 }
 
-                return groups.map(group => {
-                    const modelsHtml = (group.models || []).map(model => {
-                        const isOwned = ownedFullNames.has(model.model_name);
-                        const tone = isOwned
-                            ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-900'
-                            : 'border-gray-200 bg-white text-gray-700';
-                        const badge = isOwned
-                            ? `<span class="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${window.I18N.owned}</span>`
-                            : `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">${window.I18N.available}</span>`;
-                        const priceBadge = model.min_input_price != null
-                            ? `<span class="rounded-full bg-amber-50 px-2 py-1 text-amber-700">¥${model.min_input_price} 起 / 输入</span>`
-                            : `<span class="rounded-full bg-black/5 px-2 py-1 text-gray-400">价格未配置</span>`;
-                        const priceBtn = model.min_input_price != null
-                            ? `<button onclick="showPriceDetail('${model.model_name}')" class="rounded-full bg-blue-50 px-2 py-1 text-blue-700 hover:bg-blue-100">查价</button>`
-                            : '';
-                        return `
-                            <div class="rounded-2xl border ${tone} px-3 py-3 shadow-sm transition hover:-translate-y-0.5">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div class="min-w-0">
-                                        <div class="text-sm font-semibold truncate" title="${model.model_name}">${model.display_name}</div>
-                                        <div class="mt-0.5 text-[11px] text-gray-500 truncate">${model.model_name}</div>
+                    return groups.map(group => {
+                        const modelsHtml = (group.models || []).map(model => {
+                            const isOwned = ownedFullNames.has(model.model_name);
+                            const tone = isOwned
+                                ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-900'
+                                : 'border-gray-200 bg-white text-gray-700';
+                            const badge = isOwned
+                                ? `<span class="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${window.I18N.owned}</span>`
+                                : `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">${window.I18N.available}</span>`;
+                            const unavailableBadge = model.is_available === false
+                                ? `<div class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 text-white text-xs flex items-center justify-center font-bold cursor-help shadow" title="${window.I18N.temporarilyUnavailable}">!</div>`
+                                : '';
+                            const priceBadge = model.min_input_price != null
+                                ? `<span class="rounded-full bg-amber-50 px-2 py-1 text-amber-700">¥${model.min_input_price} 起 / 输入</span>`
+                                : `<span class="rounded-full bg-black/5 px-2 py-1 text-gray-400">价格未配置</span>`;
+                            const priceBtn = model.min_input_price != null
+                                ? `<button onclick="showPriceDetail('${model.model_name}')" class="rounded-full bg-blue-50 px-2 py-1 text-blue-700 hover:bg-blue-100">查价</button>`
+                                : '';
+                            return `
+                                <div class="relative rounded-2xl border ${tone} px-3 py-3 shadow-sm transition hover:-translate-y-0.5">
+                                    ${unavailableBadge}
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="min-w-0">
+                                            <div class="text-sm font-semibold truncate" title="${model.model_name}">${model.display_name}</div>
+                                            <div class="mt-0.5 text-[11px] text-gray-500 truncate">${model.model_name}</div>
+                                        </div>
+                                        ${badge}
                                     </div>
-                                    ${badge}
+                                    <div class="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                                        <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
+                                        <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
+                                        ${model.is_multimodal ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
+                                        ${model.has_override ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.alias}</span>` : ''}
+                                        ${priceBadge}
+                                    </div>
+                                    ${priceBtn ? `<div class="mt-2">${priceBtn}</div>` : ''}
                                 </div>
-                                <div class="mt-3 flex flex-wrap gap-1.5 text-[11px]">
-                                    <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
-                                    <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
-                                    ${model.is_multimodal ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
-                                    ${model.has_override ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.alias}</span>` : ''}
-                                    ${priceBadge}
+                            `;
+                        }).join('');
+
+                        return `
+                            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                <div class="flex items-center justify-between gap-3 mb-3">
+                                    <div>
+                                        <div class="font-semibold text-sm">${group.name}</div>
+                                        <div class="mt-1 text-[11px] text-gray-500">${window.I18N.platformProviderCatalog}</div>
+                                    </div>
+                                    <div class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 shrink-0">${group.model_count} ${window.I18N.models}</div>
                                 </div>
-                                ${priceBtn ? `<div class="mt-2">${priceBtn}</div>` : ''}
+                                <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${modelsHtml}</div>
                             </div>
                         `;
                     }).join('');
-
-                    return `
-                        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <div class="flex items-center justify-between gap-3 mb-3">
-                                <div>
-                                    <div class="font-semibold text-sm">${group.name}</div>
-                                    <div class="mt-1 text-[11px] text-gray-500">${window.I18N.platformProviderCatalog}</div>
-                                </div>
-                                <div class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 shrink-0">${group.model_count} ${window.I18N.models}</div>
-                            </div>
-                            <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${modelsHtml}</div>
-                        </div>
-                    `;
-                }).join('');
             };
 
             const renderOwnedGroups = (groups, emptyText) => {
@@ -823,6 +828,9 @@
 
                 return groups.map(group => {
                     const modelsHtml = (group.models || []).map(model => {
+                        const unavailableBadge = model.is_available === false
+                            ? `<div class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 text-white text-xs flex items-center justify-center font-bold cursor-help shadow" title="${window.I18N.temporarilyUnavailable}">!</div>`
+                            : '';
                         const priceBadge = model.min_input_price != null
                             ? `<span class="rounded-full bg-amber-50 px-2 py-1 text-amber-700">¥${model.min_input_price} 起 / 输入</span>`
                             : `<span class="rounded-full bg-white/70 px-2 py-1 text-gray-400">价格未配置</span>`;
@@ -830,7 +838,8 @@
                             ? `<button onclick="showPriceDetail('${model.model_name}')" class="rounded-full bg-white/70 px-2 py-1 text-blue-700 hover:bg-blue-100">查价</button>`
                             : '';
                         return `
-                        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 px-3 py-3 shadow-sm">
+                        <div class="relative rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 px-3 py-3 shadow-sm">
+                            ${unavailableBadge}
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0">
                                     <div class="text-sm font-semibold truncate" title="${model.model_name}">${model.display_name}</div>
