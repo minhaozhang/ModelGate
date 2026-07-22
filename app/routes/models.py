@@ -34,6 +34,7 @@ class ModelCreate(BaseModel):
     context_length: int = 204800
     thinking_enabled: bool = True
     thinking_budget: int = 8192
+    reasoning_effort: Optional[str] = None
     is_multimodal: bool = False
     is_active: bool = True
     tags: Optional[str] = None
@@ -45,6 +46,7 @@ class ModelUpdate(BaseModel):
     context_length: Optional[int] = None
     thinking_enabled: Optional[bool] = None
     thinking_budget: Optional[int] = None
+    reasoning_effort: Optional[str] = None
     is_multimodal: Optional[bool] = None
     is_active: Optional[bool] = None
     estimated_price: Optional[float] = None
@@ -121,6 +123,7 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
                     "context_length": m.context_length,
                     "thinking_enabled": m.thinking_enabled,
                     "thinking_budget": m.thinking_budget,
+                    "reasoning_effort": m.reasoning_effort,
                     "is_multimodal": m.is_multimodal,
                     "is_active": m.is_active,
                     "is_virtual": bool(getattr(m, "is_virtual", False)),

@@ -191,6 +191,7 @@ class Model(Base):
     context_length = Column(Integer, default=204800)
     thinking_enabled = Column(Boolean, default=True)
     thinking_budget = Column(Integer, default=8192)
+    reasoning_effort = Column(Text, nullable=True)
     is_multimodal = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     is_virtual = Column(Boolean, default=False)
@@ -1016,6 +1017,12 @@ async def init_db():
             text(
                 "ALTER TABLE models "
                 "ADD COLUMN IF NOT EXISTS is_virtual BOOLEAN DEFAULT FALSE"
+            )
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE models "
+                "ADD COLUMN IF NOT EXISTS reasoning_effort TEXT"
             )
         )
         await conn.execute(

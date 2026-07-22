@@ -527,6 +527,10 @@
                         </label>
                     </div>
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Comma-separated reasoning effort levels exposed as switchable variants in opencode (e.g. high,max). Leave empty to disable effort variants.') }}">{{ _('Reasoning Effort Variants') }}</label>
+                    <input type="text" id="model-reasoning-effort" class="w-full border rounded px-3 py-2 text-sm" placeholder="e.g. low,medium,high,max">
+                </div>
                 <div class="flex-1">
                     <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Estimated blended price per 1M tokens (USD). Used for cost estimation on user dashboard.') }}">{{ _('Est. Price $/1M tokens') }}</label>
                     <input type="number" step="0.01" id="model-estimated-price" value="" placeholder="0.00" class="w-full border rounded px-3 py-2">
@@ -976,6 +980,7 @@
             document.getElementById('model-context-length').value = '200k';
             document.getElementById('model-thinking-enabled').checked = true;
             document.getElementById('model-thinking-budget').value = '8k';
+            document.getElementById('model-reasoning-effort').value = '';
             document.getElementById('model-multimodal').checked = false;
             document.getElementById('model-active').checked = true;
             document.getElementById('model-tags').value = '';
@@ -995,6 +1000,7 @@
             document.getElementById('model-context-length').value = formatTokenValue(m.context_length);
             document.getElementById('model-thinking-enabled').checked = m.thinking_enabled;
             document.getElementById('model-thinking-budget').value = formatTokenValue(m.thinking_budget);
+            document.getElementById('model-reasoning-effort').value = m.reasoning_effort || '';
             document.getElementById('model-estimated-price').value = m.estimated_price || '';
             document.getElementById('model-multimodal').checked = m.is_multimodal;
             document.getElementById('model-active').checked = m.is_active;
@@ -1019,6 +1025,7 @@
                 context_length: parseTokenValue(document.getElementById('model-context-length').value) || 204800,
                 thinking_enabled: document.getElementById('model-thinking-enabled').checked,
                 thinking_budget: parseTokenValue(document.getElementById('model-thinking-budget').value) || 8192,
+                reasoning_effort: document.getElementById('model-reasoning-effort').value.trim() || null,
                 estimated_price: parseFloat(document.getElementById('model-estimated-price').value) || null,
                 is_multimodal: document.getElementById('model-multimodal').checked,
                 is_active: document.getElementById('model-active').checked
@@ -1034,6 +1041,7 @@
                             context_length: data.context_length,
                             thinking_enabled: data.thinking_enabled,
                             thinking_budget: data.thinking_budget,
+                            reasoning_effort: data.reasoning_effort,
                             is_multimodal: data.is_multimodal,
                             is_active: data.is_active,
                             tags: document.getElementById('model-tags').value.trim() || null

@@ -581,6 +581,12 @@ msgstr ""
 msgid "Reasoning Budget"
 msgstr "Reasoning Budget"
 
+msgid "Reasoning Effort Variants"
+msgstr "Reasoning Effort Variants"
+
+msgid "Comma-separated reasoning effort levels exposed as switchable variants in opencode (e.g. high,max). Leave empty to disable effort variants."
+msgstr "Comma-separated reasoning effort levels exposed as switchable variants in opencode (e.g. high,max). Leave empty to disable effort variants."
+
 #: web/templates/admin/config.html:504
 msgid "Enable extended reasoning / chain-of-thought for this model"
 msgstr "Enable extended reasoning / chain-of-thought for this model"

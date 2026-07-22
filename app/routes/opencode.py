@@ -177,6 +177,18 @@ async def build_opencode_config(
         if thinking_config:
             model_entry["options"] = {"thinking": thinking_config}
 
+        reasoning_effort_raw = (model.reasoning_effort or "").strip()
+        if reasoning_effort_raw:
+            efforts = [
+                e.strip()
+                for e in reasoning_effort_raw.split(",")
+                if e.strip()
+            ]
+            if efforts:
+                model_entry["variants"] = {
+                    effort: {"reasoningEffort": effort} for effort in efforts
+                }
+
         models_config[model_key] = model_entry
         model_priority[model_key] = priority
 

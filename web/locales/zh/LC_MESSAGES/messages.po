@@ -551,6 +551,12 @@ msgstr "推理/思考过程的最大 Token 数，仅在启用推理时生效"
 msgid "Reasoning Budget"
 msgstr "推理预算"
 
+msgid "Reasoning Effort Variants"
+msgstr "推理强度变体"
+
+msgid "Comma-separated reasoning effort levels exposed as switchable variants in opencode (e.g. high,max). Leave empty to disable effort variants."
+msgstr "逗号分隔的推理强度级别，在 opencode 中作为可切换变体暴露（如 high,max）。留空则不生成变体。"
+
 #: web/templates/admin/config.html:504
 msgid "Enable extended reasoning / chain-of-thought for this model"
 msgstr "启用该模型的深度推理/思维链能力"
