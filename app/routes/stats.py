@@ -316,48 +316,40 @@ async def get_cached_today_stats(start: datetime) -> dict:
 
 @router.get("/stats")
 async def get_stats(_: bool = Depends(permission_required("page.stats"))):
+    now = get_local_now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_str = today_start.strftime("%Y-%m-%d")
+
     async with async_session_maker() as session:
-        total_result = await session.execute(
-            select(func.count(RequestLog.id)).where(
-                RequestLog.status.notin_(RATE_LIMITED_STATUSES)
-            )
+        hist_result = await session.execute(
+            select(
+                func.coalesce(func.sum(ProviderDailyStat.requests), 0).label("requests"),
+                func.coalesce(func.sum(ProviderDailyStat.tokens), 0).label("tokens"),
+                func.coalesce(func.sum(ProviderDailyStat.errors), 0).label("errors"),
+                func.coalesce(func.sum(ProviderDailyStat.rate_limited), 0).label("rate_limited"),
+            ).where(ProviderDailyStat.date < today_str)
         )
-        total_requests = total_result.scalar() or 0
+        h = hist_result.one()
 
-        tokens_result = await session.execute(
-            select(func.sum(RequestLog.tokens["total_tokens"].as_integer())).where(
-                RequestLog.status.notin_(RATE_LIMITED_STATUSES)
-            )
-        )
-        total_tokens = tokens_result.scalar() or 0
+    today_cache = await get_cached_today_stats(today_start)
+    today_provider = today_cache.get("provider", {})
+    t_req = sum(d.get("requests", 0) for d in today_provider.values())
+    t_tok = sum(d.get("tokens", 0) for d in today_provider.values())
+    t_err = sum(d.get("errors", 0) for d in today_provider.values())
+    t_rl = sum(d.get("rate_limited", 0) for d in today_provider.values())
 
-        errors_result = await session.execute(
-            select(func.count(RequestLog.id)).where(
-                RequestLog.status.in_(ERROR_STATUSES)
-            )
-        )
-        total_errors = errors_result.scalar() or 0
+    minute_key = now.strftime("%Y%m%d_%H%M")
+    rpm = stats["requests_per_minute"].count(minute_key)
 
-        rate_limited_result = await session.execute(
-            select(func.count(RequestLog.id)).where(
-                RequestLog.status.in_(RATE_LIMITED_STATUSES)
-            )
-        )
-        total_rate_limited = rate_limited_result.scalar() or 0
-
-        now = datetime.now()
-        minute_key = now.strftime("%Y%m%d_%H%M")
-        rpm = stats["requests_per_minute"].count(minute_key)
-
-        return {
-            "total_requests": total_requests,
-            "total_tokens": total_tokens,
-            "total_errors": total_errors,
-            "total_rate_limited": total_rate_limited,
-            "requests_per_minute": rpm,
-            "providers": dict(stats["providers"]),
-            "models": dict(stats["models"]),
-        }
+    return {
+        "total_requests": int(h.requests) + t_req,
+        "total_tokens": int(h.tokens) + t_tok,
+        "total_errors": int(h.errors) + t_err,
+        "total_rate_limited": int(h.rate_limited) + t_rl,
+        "requests_per_minute": rpm,
+        "providers": dict(stats["providers"]),
+        "models": dict(stats["models"]),
+    }
 
 
 def get_period_range(
