@@ -13,7 +13,7 @@ from sqlalchemy import select, func, and_, or_, case
 
 from app.core.database import (
     async_session_maker,
-    RequestLogRead as RequestLog,
+    RequestLog,
     ApiKey,
     Provider,
     ProviderDailyStat,

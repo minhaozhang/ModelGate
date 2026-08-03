@@ -19,7 +19,7 @@ from app.core.database import (
     Model,
     Provider,
     ProviderModel,
-    RequestLogRead as RequestLog,
+    RequestLog,
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
     ModelDailyStat,
