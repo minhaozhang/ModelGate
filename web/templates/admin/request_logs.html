@@ -245,10 +245,6 @@
                 </section>
 
                 <section id="logs-section" class="bg-white rounded-xl shadow">
-                    <div class="p-6 border-b border-gray-200 flex items-center justify-between">
-                        <h3 class="text-lg font-semibold text-gray-800">{{ _('Query Results') }}</h3>
-                        <div id="result-meta" class="text-sm text-gray-500"></div>
-                    </div>
                     <div id="logs-empty" class="hidden p-6 text-sm text-gray-500">{{ _('No logs found matching the current filters.') }}</div>
                     <div id="logs-loading" class="hidden p-6 flex items-center justify-center gap-3 text-sm text-gray-500">
                         <div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25)"></div>
@@ -274,8 +270,9 @@
                             <tbody id="logs-tbody"></tbody>
                         </table>
                     </div>
-                    <div id="pagination" class="p-4 border-t border-gray-200 flex items-center justify-between hidden">
-                        <div id="page-info" class="text-sm text-gray-500"></div>
+                    <div id="pagination" class="p-4 border-t border-gray-200 flex items-center justify-between gap-4 hidden">
+                        <div id="result-meta" class="text-sm text-gray-500"></div>
+                        <div id="page-info" class="text-sm text-gray-500 flex-1 text-center"></div>
                         <div class="flex gap-2">
                             <button id="prev-btn" onclick="prevPage()" class="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">{{ _('Previous') }}</button>
                             <button id="next-btn" onclick="nextPage()" class="border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">{{ _('Next') }}</button>
@@ -717,11 +714,17 @@
             metaEl.textContent = window.I18N.totalRecords.replace('{count}', formatNumber(totalRecords));
 
             if (totalPages <= 1) {
-                paginationEl.classList.add('hidden');
+                // Single page — still show total + page info, hide prev/next
+                paginationEl.classList.remove('hidden');
+                pageInfo.textContent = '';
+                prevBtn.classList.add('hidden');
+                nextBtn.classList.add('hidden');
                 return;
             }
 
             paginationEl.classList.remove('hidden');
+            prevBtn.classList.remove('hidden');
+            nextBtn.classList.remove('hidden');
             pageInfo.textContent = window.I18N.pageOf.replace('{page}', currentPage).replace('{total}', totalPages);
             prevBtn.disabled = currentPage <= 1;
             nextBtn.disabled = currentPage >= totalPages;
