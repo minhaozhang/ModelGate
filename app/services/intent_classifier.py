@@ -135,7 +135,7 @@ _INTENT_RULES = [
                 "字段", "属性", "对象", "实例",
                 "数据库", "缓存", "session", "token", "cookie",
                 "服务", "微服务", "后端", "前端",
-                "页面", "组件", "模块", "路由", "中间件", "handler",
+                "组件", "模块", "路由", "中间件", "handler",
                 "页面", "按钮", "列表", "表单", "弹窗", "下拉", "筛选",
                 "json", "xml", "yaml", "toml", "ini",
                 "sql", "select ", "insert ", "update ", "delete ",
@@ -304,7 +304,13 @@ _SNAKE_CASE_ID = re.compile(r"\b[a-z]+_[a-z_]{2,}\b")
 _CODE_BACKTICKS = re.compile(r"`[^`\n]{3,}`")
 
 
-def _has_strong_coding_signal(text_lower: str) -> bool:
+def _has_strong_coding_signal(text: str) -> bool:
+    """Detect unambiguous coding signals in a user message.
+
+    Args:
+        text: ORIGINAL case text (camelCase detection needs case preserved).
+    """
+    text_lower = text.lower()
     if _FILE_PATH_PATTERN.search(text_lower):
         return True
     if _ERROR_LINE_PATTERN.search(text_lower):
@@ -312,8 +318,9 @@ def _has_strong_coding_signal(text_lower: str) -> bool:
     for kw in _CODING_OVERRIDE_KEYWORDS:
         if kw in text_lower:
             return True
-    # Multiple distinct code identifiers — strong signal
-    ids = set(_CAMELCASE_ID.findall(text_lower))
+    # Multiple distinct code identifiers — strong signal. camelCase regex
+    # runs on original text (case-sensitive); snake_case + backticks on lowered.
+    ids = set(_CAMELCASE_ID.findall(text))
     ids |= set(_SNAKE_CASE_ID.findall(text_lower))
     if len(ids) >= 2:
         return True
@@ -463,7 +470,7 @@ def classify_intent(messages: list[dict]) -> str:
         # real coding traffic. Example: "Very thorough exploration.
         # downstream usage of `project_result` created by
         # `syncPullThirdPlatformFileToSpace`".
-        if _has_strong_coding_signal(last_text_lower):
+        if _has_strong_coding_signal(last_text):
             return "coding"
         return DEFAULT_INTENT
 
@@ -472,7 +479,7 @@ def classify_intent(messages: list[dict]) -> str:
     # writing/design classification. Real example from logs:
     #   "帮我写一个基于Java的markdown导出word工具类" → contains ".java" + 报错
     #   should be coding, not writing.
-    if best in ("writing", "design") and _has_strong_coding_signal(last_text_lower):
+    if best in ("writing", "design") and _has_strong_coding_signal(last_text):
         return "coding"
 
     return best
