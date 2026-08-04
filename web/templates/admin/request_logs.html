@@ -15,10 +15,11 @@
         .badge {
             display: inline-flex;
             align-items: center;
-            padding: 0.2rem 0.55rem;
+            padding: 0.15rem 0.5rem;
             border-radius: 9999px;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
+            line-height: 1.2;
         }
         .badge-success { background: #dcfce7; color: #15803d; }
         .badge-error { background: #fee2e2; color: #b91c1c; }
@@ -26,15 +27,54 @@
         .badge-pending { background: #fef9c3; color: #a16207; }
         .badge-cancelled { background: #f1f5f9; color: #475569; }
 
-        .log-grid {
-            display: grid;
-            grid-template-columns: minmax(122px, 135px) minmax(108px, 144px) minmax(72px, 90px) minmax(150px, 1fr) minmax(90px, 110px) minmax(90px, 120px) minmax(90px, 110px) minmax(200px, 2fr);
-            gap: 0.75rem;
-            align-items: start;
+        /* Request logs table */
+        .log-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.8125rem; }
+        .log-table thead th {
+            position: sticky; top: 0; z-index: 5;
+            background: #f9fafb; color: #6b7280; font-weight: 500;
+            text-align: left; padding: 0.6rem 0.75rem;
+            border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+            font-size: 0.75rem;
         }
-        .log-row + .log-row {
-            border-top: 1px solid #e5e7eb;
+        .log-table thead th.num { text-align: right; }
+        .log-table tbody td {
+            padding: 0.55rem 0.75rem; vertical-align: top;
+            border-bottom: 1px solid #f1f5f9;
         }
+        .log-table tbody tr:hover { background: #f9fafb; }
+        .log-table tbody tr.is-error { background: #fef2f2; }
+        .log-table tbody tr.is-error:hover { background: #fee2e2; }
+        .log-row .cell-model,
+        .log-row .cell-key,
+        .log-row .cell-ip { word-break: break-all; }
+        .log-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+        .intent-badge {
+            display: inline-block; padding: 0.1rem 0.45rem;
+            border-radius: 9999px; font-size: 0.625rem;
+            font-weight: 600; line-height: 1.2;
+        }
+        .intent-coding { background: #dbeafe; color: #1d4ed8; }
+        .intent-writing { background: #fef3c7; color: #b45309; }
+        .intent-testing { background: #ffe4e6; color: #be123c; }
+        .intent-design  { background: #f3e8ff; color: #7e22ce; }
+        .intent-chat    { background: #f3f4f6; color: #4b5563; }
+        .proto-badge {
+            display: inline-block; padding: 0.1rem 0.4rem;
+            border-radius: 4px; font-size: 0.625rem;
+            font-weight: 600; background: #f3e8ff; color: #7e22ce;
+        }
+        .cache-badge {
+            display: inline-block; padding: 0.1rem 0.4rem;
+            border-radius: 4px; font-size: 0.625rem;
+            font-weight: 600; background: #d1fae5; color: #047857;
+        }
+        .link-btn {
+            background: transparent; border: 0; padding: 0;
+            color: #3b82f6; cursor: pointer; font-size: 0.75rem;
+            text-decoration: none; display: inline-block;
+        }
+        .link-btn:hover { text-decoration: underline; }
+        .log-table-wrap { overflow-x: auto; max-height: calc(100vh - 380px); max-height: calc(100dvh - 380px); overflow-y: auto; }
         .mono {
             font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
         }
@@ -88,6 +128,20 @@
         body.theme-dark .badge-timeout { background: rgba(249, 115, 22, 0.16); color: #fdba74; }
         body.theme-dark .badge-pending { background: rgba(234, 179, 8, 0.16); color: #fde047; }
         body.theme-dark .badge-cancelled { background: rgba(100, 116, 139, 0.16); color: #94a3b8; }
+
+        body.theme-dark .log-table thead th { background: #0b1220; color: #94a3b8; border-color: #1f2937; }
+        body.theme-dark .log-table tbody td { border-color: #1f2937; color: #cbd5e1; }
+        body.theme-dark .log-table tbody tr:hover { background: #0b1a2f; }
+        body.theme-dark .log-table tbody tr.is-error { background: rgba(239, 68, 68, 0.08); }
+        body.theme-dark .log-table tbody tr.is-error:hover { background: rgba(239, 68, 68, 0.15); }
+        body.theme-dark .intent-coding { background: rgba(59,130,246,0.18); color: #93c5fd; }
+        body.theme-dark .intent-writing { background: rgba(245,158,11,0.18); color: #fcd34d; }
+        body.theme-dark .intent-testing { background: rgba(244,63,94,0.18); color: #fda4af; }
+        body.theme-dark .intent-design  { background: rgba(168,85,247,0.18); color: #d8b4fe; }
+        body.theme-dark .intent-chat    { background: rgba(148,163,184,0.18); color: #cbd5e1; }
+        body.theme-dark .proto-badge { background: rgba(168,85,247,0.18); color: #d8b4fe; }
+        body.theme-dark .cache-badge { background: rgba(16,185,129,0.18); color: #6ee7b7; }
+        body.theme-dark .link-btn { color: #60a5fa; }
 
         body.theme-dark .time-btn { background: #0f172a; color: #e5e7eb; border-color: #334155; }
         body.theme-dark .time-btn:hover { background: #1e293b; }
@@ -200,7 +254,26 @@
                         <div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25)"></div>
                         {{ _('Loading...') }}
                     </div>
-                    <div id="logs-list" class="divide-y divide-gray-200"></div>
+                    <div class="log-table-wrap">
+                        <table class="log-table">
+                            <thead>
+                                <tr>
+                                    <th>{{ _('Created At') }}</th>
+                                    <th>{{ _('Status') }}</th>
+                                    <th>{{ _('API Key') }}</th>
+                                    <th>{{ _('Provider') }}</th>
+                                    <th>{{ _('Model') }}</th>
+                                    <th>{{ _('Upstream') }}/{{ _('Downstream') }}</th>
+                                    <th class="num">{{ _('Tokens') }}</th>
+                                    <th class="num">{{ _('Latency') }}</th>
+                                    <th class="num">{{ _('Cost') }}</th>
+                                    <th>{{ _('Client IP') }}</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="logs-tbody"></tbody>
+                        </table>
+                    </div>
                     <div id="pagination" class="p-4 border-t border-gray-200 flex items-center justify-between hidden">
                         <div id="page-info" class="text-sm text-gray-500"></div>
                         <div class="flex gap-2">
@@ -520,17 +593,6 @@
             return map[status] || 'badge-cancelled';
         }
 
-        function getIntentBadgeClass(intent) {
-            const map = {
-                coding: 'bg-blue-100 text-blue-700',
-                writing: 'bg-amber-100 text-amber-700',
-                testing: 'bg-rose-100 text-rose-700',
-                design: 'bg-purple-100 text-purple-700',
-                chat: 'bg-gray-100 text-gray-600',
-            };
-            return map[intent] || 'bg-gray-100 text-gray-600';
-        }
-
         function buildQueryUrl(page) {
             const params = new URLSearchParams();
             const keyName = document.getElementById('filter-key').value.trim();
@@ -559,77 +621,83 @@
 
         function renderLogs(logs) {
             const emptyEl = document.getElementById('logs-empty');
-            const listEl = document.getElementById('logs-list');
+            const tbodyEl = document.getElementById('logs-tbody');
             if (!Array.isArray(logs) || logs.length === 0) {
                 emptyEl.classList.remove('hidden');
-                listEl.innerHTML = '';
+                tbodyEl.innerHTML = '';
                 return;
             }
             emptyEl.classList.add('hidden');
-            listEl.innerHTML = logs.map(log => {
+            tbodyEl.innerHTML = logs.map(log => {
                 const badgeClass = getStatusBadgeClass(log.status);
                 const tokenParts = typeof log.tokens === 'object' ? getTokenParts(log.tokens) : null;
                 const billingCost = typeof log.tokens === 'object' ? getBillingCost(log.tokens) : null;
+                const cached = typeof log.tokens === 'object' ? getCachedTokens(log.tokens) : 0;
                 const hasResponse = log.response && log.response.trim();
                 const hasError = log.error && log.error.trim();
+                const intent = log.intent || '';
+                const intentBadge = intent
+                    ? `<span class="intent-badge intent-${escapeHtml(intent)}">${escapeHtml(intent)}</span>`
+                    : '';
+                const protoBadge = (log.inbound_protocol && log.inbound_protocol !== 'openai')
+                    ? `<span class="proto-badge mt-0.5">${escapeHtml(log.inbound_protocol)}</span>`
+                    : '';
+                const errIndicator = hasError
+                    ? `<div class="text-[10px] text-red-500 mt-1 max-w-[180px] truncate" title="${escapeHtml(log.error.substring(0, 300))}">⚠ ${escapeHtml(log.error.substring(0, 80))}${log.error.length > 80 ? '…' : ''}</div>`
+                    : '';
+
+                let tokensHtml = '<span class="text-gray-400">-</span>';
+                if (tokenParts) {
+                    tokensHtml = `<div class="mono text-xs">↑${formatK(tokenParts.prompt)}<br>↓${formatK(tokenParts.completion)}</div>`;
+                    if (cached > 0) {
+                        const pct = tokenParts.prompt > 0 ? Math.round(cached / tokenParts.prompt * 100) : 0;
+                        tokensHtml += `<div class="mt-0.5"><span class="cache-badge">缓存 ${formatK(cached)} · ${pct}%</span></div>`;
+                    }
+                }
+
+                let modelExtra = '';
+                if (log.requested_model && log.requested_model !== log.model) {
+                    modelExtra += `<div class="text-[10px] text-blue-500 mt-0.5">→ ${escapeHtml(log.requested_model)}</div>`;
+                }
+                if (log.provider_key_label) {
+                    modelExtra += `<div class="text-[10px] text-gray-400 mt-0.5">Key: ${escapeHtml(log.provider_key_label)}</div>`;
+                }
+
                 return `
-                    <article class="log-row p-6" data-response="${escapeHtml(hasResponse ? log.response : '')}" data-user-agent="${escapeHtml(log.user_agent || '')}" data-error="${escapeHtml(hasError ? log.error : '')}" data-model="${escapeHtml(log.model || '')}" data-tokens="${escapeHtml(typeof log.tokens === 'object' ? JSON.stringify(log.tokens) : (log.tokens || ''))}">
-                        <div class="log-grid text-sm">
-                            <div>
-                                <div class="text-gray-500 mb-1">${window.I18N.requestAt}</div>
-                                <div class="font-medium text-gray-800">${escapeHtml(new Date(log.created_at).toLocaleString())}</div>
+                    <tr class="log-row${hasError ? ' is-error' : ''}"
+                        data-response="${escapeHtml(hasResponse ? log.response : '')}"
+                        data-user-agent="${escapeHtml(log.user_agent || '')}"
+                        data-error="${escapeHtml(hasError ? log.error : '')}"
+                        data-model="${escapeHtml(log.model || '')}"
+                        data-tokens="${escapeHtml(typeof log.tokens === 'object' ? JSON.stringify(log.tokens) : (log.tokens || ''))}">
+                        <td class="cell-time whitespace-nowrap text-gray-700">${escapeHtml(new Date(log.created_at).toLocaleString())}</td>
+                        <td class="cell-status">
+                            <div class="flex items-center gap-1 flex-wrap">
+                                <span class="badge ${badgeClass}">${escapeHtml(log.status)}</span>
+                                ${intentBadge}
                             </div>
-                            <div>
-                                <div class="text-gray-500 mb-1">${window.I18N.status}</div>
-                                <div class="flex flex-wrap gap-1">
-                                    <span class="badge ${badgeClass}">${escapeHtml(log.status)}</span>
-                                    ${log.intent ? `<span class="inline-block text-[10px] px-1.5 py-0.5 rounded-full font-medium ${getIntentBadgeClass(log.intent)}">${escapeHtml(log.intent)}</span>` : ''}
-                                </div>
-                            </div>
-                            <div>
-                                <div class="text-gray-500 mb-1">${window.I18N.provider}</div>
-                                <div class="font-medium text-gray-800">${escapeHtml(log.provider || '-')}</div>
-                            </div>
-                            <div>
-                                <div class="text-gray-500 mb-1">${window.I18N.model}</div>
-                                <div class="font-medium text-gray-800 break-all">${escapeHtml(log.model || '-')}${log.inbound_protocol && log.inbound_protocol !== 'openai' ? ` <span class="inline-block text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">${escapeHtml(log.inbound_protocol)}</span>` : ''}</div>
-                                ${log.requested_model && log.requested_model !== log.model ? `<div class="text-xs text-blue-500 mt-0.5">→ ${escapeHtml(log.requested_model)}</div>` : ''}
-                                ${log.provider_key_label ? `<div class="text-xs text-gray-400 mt-0.5">Key: ${escapeHtml(log.provider_key_label)}</div>` : ''}
-                                <div class="text-xs text-gray-500 mt-1">${window.I18N.apiKey}: ${escapeHtml(log.api_key || '-')}</div>
-                            </div>
-                            <div>
-                                <div class="text-gray-500 mb-1">${window.I18N.upstream}</div>
-                                <div class="font-medium text-gray-800">${escapeHtml(log.upstream_status_code ?? '-')}</div>
-                                <div class="text-xs text-gray-400 mt-1">${window.I18N.downstream || 'Downstream'}: ${escapeHtml(log.downstream_status_code ?? '-')}</div>
-                            </div>
-                            <div>
-                                <div class="text-gray-500 mb-1">${window.I18N.latency}</div>
-                                <div class="font-medium text-gray-800">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + ' s' : '-'}</div>
-                            </div>
-                            <div>
-                                <div class="text-gray-500 mb-1">${window.I18N.tokens}</div>
-                                <div class="font-medium text-gray-800">${tokenParts ? `↑${formatK(tokenParts.prompt)} / ↓${formatK(tokenParts.completion)}` : '-'}</div>
-                                ${(() => {
-                                    if (!tokenParts) return '';
-                                    const cached = getCachedTokens(log.tokens);
-                                    let extra = '';
-                                    if (cached > 0) {
-                                        const pct = tokenParts.prompt > 0 ? Math.round(cached / tokenParts.prompt * 100) : 0;
-                                        extra += `<span class="inline-block text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700">缓存 ${formatK(cached)} (${pct}%)</span> `;
-                                    }
-                                    return extra ? `<div class="flex gap-1 mt-1 flex-wrap">${extra}</div>` : '';
-                                })()}
-                                <div class="text-xs text-gray-500 mt-1">${billingCost !== null ? `成本 ${formatCost(billingCost)}` : '成本 -'}</div>
-                                <div class="text-xs text-gray-500 mt-1 mono break-all">${escapeHtml(log.client_ip || '-')}</div>
-                            </div>
-                            <div>
-                                <div class="text-gray-500 mb-1">${window.I18N.errorDetail}</div>
-                                ${hasError ? `<div class="text-gray-700 whitespace-pre-wrap break-words text-xs">${escapeHtml(log.error.substring(0, 200))}${log.error.length > 200 ? '...' : ''}</div>` : '<div class="text-gray-400 text-xs">-</div>'}
-                                ${hasResponse ? `<div class="resp-btn mt-2" onclick="showResponseDetail(this)">${window.I18N.response}</div>` : ''}
-                                <div class="resp-btn mt-2" onclick="showContentDetail(${log.id})">Content</div>
-                            </div>
-                        </div>
-                    </article>
+                            ${protoBadge ? `<div class="mt-0.5">${protoBadge}</div>` : ''}
+                            ${errIndicator}
+                        </td>
+                        <td class="cell-key text-xs text-gray-700">${escapeHtml(log.api_key || '-')}</td>
+                        <td class="cell-provider text-gray-700">${escapeHtml(log.provider || '-')}</td>
+                        <td class="cell-model">
+                            <div class="font-medium text-gray-800 break-all">${escapeHtml(log.model || '-')}</div>
+                            ${modelExtra}
+                        </td>
+                        <td class="cell-code mono text-xs text-gray-600">
+                            ${escapeHtml(log.upstream_status_code ?? '-')}<br>
+                            <span class="text-gray-400">${escapeHtml(log.downstream_status_code ?? '-')}</span>
+                        </td>
+                        <td class="cell-tokens num">${tokensHtml}</td>
+                        <td class="cell-latency num mono text-gray-700">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + 's' : '-'}</td>
+                        <td class="cell-cost num mono text-gray-700">${billingCost !== null ? formatCost(billingCost) : '-'}</td>
+                        <td class="cell-ip mono text-xs text-gray-600">${escapeHtml(log.client_ip || '-')}</td>
+                        <td class="cell-actions whitespace-nowrap">
+                            ${hasResponse ? `<button class="link-btn" onclick="showResponseDetail(this)">${window.I18N.response}</button>` : ''}
+                            <button class="link-btn ml-2" onclick="showContentDetail(${log.id})">Content</button>
+                        </td>
+                    </tr>
                 `;
             }).join('');
         }
@@ -663,11 +731,11 @@
             page = page || 1;
             const loadingEl = document.getElementById('logs-loading');
             const emptyEl = document.getElementById('logs-empty');
-            const listEl = document.getElementById('logs-list');
+            const tbodyEl = document.getElementById('logs-tbody');
 
             loadingEl.classList.remove('hidden');
             emptyEl.classList.add('hidden');
-            listEl.innerHTML = '';
+            tbodyEl.innerHTML = '';
 
             try {
                 const url = buildQueryUrl(page);
@@ -694,12 +762,12 @@
         }
 
         function showResponseDetail(el) {
-            const article = el.closest('article');
-            const response = article.dataset.response;
-            const ua = article.dataset.userAgent;
-            const model = article.dataset.model;
-            const error = article.dataset.error;
-            const tokens = article.dataset.tokens;
+            const row = el.closest('tr.log-row');
+            const response = row.dataset.response;
+            const ua = row.dataset.userAgent;
+            const model = row.dataset.model;
+            const error = row.dataset.error;
+            const tokens = row.dataset.tokens;
 
             const tabs = [];
             const panels = [];
