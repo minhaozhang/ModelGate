@@ -289,6 +289,9 @@
                     <option value="dark">{{ _('Dark Mode') }}</option>
                     <option value="blackgold">{{ _('Black Gold') }}</option>
                 </select>
+                <button onclick="regenerateKey()" class="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600">
+                    {{ _('Reset API Key') }}
+                </button>
                 <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
                     {{ _('Logout') }}
                 </button>
@@ -362,7 +365,24 @@
         requestsLabel: {{ _('Requests') | tojson }},
         errorsLabel: {{ _('Errors') | tojson }},
         tokensLabel: {{ _('Tokens') | tojson }},
+        contextLabel: {{ _('Context') | tojson }},
+        inputLabel: {{ _('Input') | tojson }},
+        outputLabel: {{ _('Output') | tojson }},
+        cacheLabel: {{ _('Cache') | tojson }},
+        costLabel: {{ _('Cost') | tojson }},
         requestsErrorsLabel: {{ _('Requests / Errors') | tojson }},
+        viewAll: {{ _('View All') | tojson }},
+        myRequestsTitle: {{ _('My Request History') | tojson }},
+        timeRange: {{ _('Time Range') | tojson }},
+        allModels: {{ _('All Models') | tojson }},
+        allStatuses: {{ _('All Statuses') | tojson }},
+        last1h: {{ _('Last 1h') | tojson }},
+        last6h: {{ _('Last 6h') | tojson }},
+        last24h: {{ _('Last 24h') | tojson }},
+        last7d: {{ _('Last 7d') | tojson }},
+        last30d: {{ _('Last 30d') | tojson }},
+        last90d: {{ _('Last 90d') | tojson }},
+        allTime: {{ _('All Time') | tojson }},
         recommendedModels: {{ _('Recommended Models') | tojson }},
         recommendationScore: {{ _('Recommendation score') | tojson }},
         avgLatency: {{ _('Avg latency') | tojson }},
@@ -390,6 +410,7 @@
         opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and other settings, only add or update the modelgate provider.') | tojson }},
         loading: {{ _('Loading...') | tojson }},
         loadFailed: {{ _('Failed to load') | tojson }},
+        refresh: {{ _('Refresh') | tojson }},
         topShare: {{ _('top share') | tojson }},
         onRightAxis: {{ _('on right axis') | tojson }},
         yourApiKey: {{ _('Your API key') | tojson }},
@@ -408,6 +429,11 @@
             crowded: {{ _('Peak Hours') | tojson }},
             shouldSleep: {{ _('Shouldn\'t You Be Asleep?') | tojson }},
         },
+        regenerateKeyConfirm: {{ _('Regenerate the API key? The old key will stop working immediately, and you will be logged out.') | tojson }},
+        regenerateKeyFailed: {{ _('Failed to regenerate API key') | tojson }},
+        newKeyIs: {{ _('Your new API Key is:') | tojson }},
+        newKeySaveNote: {{ _('Please save it securely. You will need it to log in again.') | tojson }},
+        temporarilyUnavailable: {{ _('Temporarily unavailable') | tojson }},
     };
     </script>
 
@@ -651,6 +677,50 @@
             return value.toFixed(1).replace(/\.0$/, '');
         }
 
+        let _catalogCache = { platform: [], owned: [] };
+        function findModelInCache(modelName) {
+            for (const group of [..._catalogCache.platform, ..._catalogCache.owned]) {
+                const found = (group.models || []).find(m => m.model_name === modelName);
+                if (found) return found;
+            }
+            return null;
+        }
+
+        function showPriceDetail(modelName) {
+            const model = findModelInCache(modelName);
+            if (!model) return;
+            document.getElementById('price-detail-name').textContent = model.display_name || model.model_name;
+            document.getElementById('price-detail-model-name').textContent = model.model_name;
+            const body = document.getElementById('price-detail-body');
+            const rows = [
+                ['输入', model.min_input_price],
+                ['输出', model.min_output_price],
+                ['缓存', model.min_cached_price],
+            ].filter(r => r[1] != null);
+            let html = rows.map(r =>
+                `<div class="flex justify-between"><span class="text-gray-500">${r[0]}</span><span>¥${r[1]} / 百万 tokens</span></div>`
+            ).join('');
+            if ((model.tier_samples || []).length) {
+                html += `<div class="pt-2 mt-2 border-t"><div class="text-xs text-gray-400 mb-1">长上下文另有 ${model.tier_samples.length} 档定价</div>`;
+                html += model.tier_samples.map(t => {
+                    const lo = t.min_context_tokens != null ? formatCompactTokens(t.min_context_tokens) : '0';
+                    const hi = t.max_context_tokens != null ? formatCompactTokens(t.max_context_tokens) : '∞';
+                    return `<div class="flex justify-between text-xs text-gray-500"><span>${lo} - ${hi}</span><span>输入 ¥${t.input_price} / 输出 ¥${t.output_price}</span></div>`;
+                }).join('');
+                html += `</div>`;
+            }
+            body.innerHTML = html || '<div class="text-gray-400">价格未配置</div>';
+            const modal = document.getElementById('price-detail-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closePriceDetail() {
+            const modal = document.getElementById('price-detail-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
         function getTokenChartScale(requestValues, tokenValues) {
             const maxRequests = Math.max(...requestValues, 1);
             const maxTokens = Math.max(...tokenValues, 1);
@@ -696,47 +766,59 @@
                     return `<div class="text-gray-400 text-center py-4">${emptyText}</div>`;
                 }
 
-                return groups.map(group => {
-                    const modelsHtml = (group.models || []).map(model => {
-                        const isOwned = ownedFullNames.has(model.model_name);
-                        const tone = isOwned
-                            ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-900'
-                            : 'border-gray-200 bg-white text-gray-700';
-                        const badge = isOwned
-                            ? `<span class="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${window.I18N.owned}</span>`
-                            : `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">${window.I18N.available}</span>`;
-                        return `
-                            <div class="rounded-2xl border ${tone} px-3 py-3 shadow-sm transition hover:-translate-y-0.5">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div class="min-w-0">
-                                        <div class="text-sm font-semibold truncate" title="${model.model_name}">${model.display_name}</div>
-                                        <div class="mt-0.5 text-[11px] text-gray-500 truncate">${model.model_name}</div>
+                    return groups.map(group => {
+                        const modelsHtml = (group.models || []).map(model => {
+                            const isOwned = ownedFullNames.has(model.model_name);
+                            const tone = isOwned
+                                ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-900'
+                                : 'border-gray-200 bg-white text-gray-700';
+                            const badge = isOwned
+                                ? `<span class="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${window.I18N.owned}</span>`
+                                : `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">${window.I18N.available}</span>`;
+                            const unavailableBadge = model.is_available === false
+                                ? `<div class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 text-white text-xs flex items-center justify-center font-bold cursor-help shadow" title="${window.I18N.temporarilyUnavailable}">!</div>`
+                                : '';
+                            const priceBadge = model.min_input_price != null
+                                ? `<span class="rounded-full bg-amber-50 px-2 py-1 text-amber-700">¥${model.min_input_price} 起 / 输入</span>`
+                                : `<span class="rounded-full bg-black/5 px-2 py-1 text-gray-400">价格未配置</span>`;
+                            const priceBtn = model.min_input_price != null
+                                ? `<button onclick="showPriceDetail('${model.model_name}')" class="rounded-full bg-blue-50 px-2 py-1 text-blue-700 hover:bg-blue-100">查价</button>`
+                                : '';
+                            return `
+                                <div class="relative rounded-2xl border ${tone} px-3 py-3 shadow-sm transition hover:-translate-y-0.5">
+                                    ${unavailableBadge}
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="min-w-0">
+                                            <div class="text-sm font-semibold truncate" title="${model.model_name}">${model.display_name}</div>
+                                            <div class="mt-0.5 text-[11px] text-gray-500 truncate">${model.model_name}</div>
+                                        </div>
+                                        ${badge}
                                     </div>
-                                    ${badge}
+                                    <div class="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                                        <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
+                                        <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
+                                        ${model.is_multimodal ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
+                                        ${model.has_override ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.alias}</span>` : ''}
+                                        ${priceBadge}
+                                    </div>
+                                    ${priceBtn ? `<div class="mt-2">${priceBtn}</div>` : ''}
                                 </div>
-                                <div class="mt-3 flex flex-wrap gap-1.5 text-[11px]">
-                                    <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
-                                    <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
-                                    ${model.is_multimodal ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
-                                    ${model.has_override ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.alias}</span>` : ''}
+                            `;
+                        }).join('');
+
+                        return `
+                            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                <div class="flex items-center justify-between gap-3 mb-3">
+                                    <div>
+                                        <div class="font-semibold text-sm">${group.name}</div>
+                                        <div class="mt-1 text-[11px] text-gray-500">${window.I18N.platformProviderCatalog}</div>
+                                    </div>
+                                    <div class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 shrink-0">${group.model_count} ${window.I18N.models}</div>
                                 </div>
+                                <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${modelsHtml}</div>
                             </div>
                         `;
                     }).join('');
-
-                    return `
-                        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                            <div class="flex items-center justify-between gap-3 mb-3">
-                                <div>
-                                    <div class="font-semibold text-sm">${group.name}</div>
-                                    <div class="mt-1 text-[11px] text-gray-500">${window.I18N.platformProviderCatalog}</div>
-                                </div>
-                                <div class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 shrink-0">${group.model_count} ${window.I18N.models}</div>
-                            </div>
-                            <div class="grid grid-cols-1 2xl:grid-cols-2 gap-3">${modelsHtml}</div>
-                        </div>
-                    `;
-                }).join('');
             };
 
             const renderOwnedGroups = (groups, emptyText) => {
@@ -745,8 +827,19 @@
                 }
 
                 return groups.map(group => {
-                    const modelsHtml = (group.models || []).map(model => `
-                        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 px-3 py-3 shadow-sm">
+                    const modelsHtml = (group.models || []).map(model => {
+                        const unavailableBadge = model.is_available === false
+                            ? `<div class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 text-white text-xs flex items-center justify-center font-bold cursor-help shadow" title="${window.I18N.temporarilyUnavailable}">!</div>`
+                            : '';
+                        const priceBadge = model.min_input_price != null
+                            ? `<span class="rounded-full bg-amber-50 px-2 py-1 text-amber-700">¥${model.min_input_price} 起 / 输入</span>`
+                            : `<span class="rounded-full bg-white/70 px-2 py-1 text-gray-400">价格未配置</span>`;
+                        const priceBtn = model.min_input_price != null
+                            ? `<button onclick="showPriceDetail('${model.model_name}')" class="rounded-full bg-white/70 px-2 py-1 text-blue-700 hover:bg-blue-100">查价</button>`
+                            : '';
+                        return `
+                        <div class="relative rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 px-3 py-3 shadow-sm">
+                            ${unavailableBadge}
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0">
                                     <div class="text-sm font-semibold truncate" title="${model.model_name}">${model.display_name}</div>
@@ -758,9 +851,11 @@
                                 <span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
                                 <span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
                                 ${model.is_multimodal ? `<span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
+                                ${priceBadge}
                             </div>
+                            ${priceBtn ? `<div class="mt-2">${priceBtn}</div>` : ''}
                         </div>
-                    `).join('');
+                    `;}).join('');
 
                     return `
                         <div class="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
@@ -784,6 +879,8 @@
             document.getElementById('owned-catalog-note').textContent = data.full_access
                 ? window.I18N.fullAccessNote
                 : window.I18N.limitedAccessNote;
+
+            _catalogCache = { platform: data.platform_providers || [], owned: data.owned_providers || [] };
 
             document.getElementById('platform-catalog').innerHTML = renderPlatformGroups(
                 data.platform_providers || [],
@@ -1461,6 +1558,20 @@
             window.location.href = `${APP_BASE_PATH}/user/login`;
         }
         
+        async function regenerateKey() {
+            if (!confirm(window.I18N.regenerateKeyConfirm)) return;
+            try {
+                const res = await fetch(APP_BASE_PATH + '/user/api/regenerate-key', {method: 'POST'});
+                if (!res.ok) { alert(window.I18N.regenerateKeyFailed); return; }
+                const data = await res.json();
+                localStorage.removeItem('user_api_key');
+                alert(window.I18N.newKeyIs + '\n\n' + data.key + '\n\n' + window.I18N.newKeySaveNote);
+                window.location.href = `${APP_BASE_PATH}/user/login`;
+            } catch(e) {
+                alert(window.I18N.regenerateKeyFailed);
+            }
+        }
+        
         async function loadMyRequests() {
             const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active');
             const list = data.requests || [];
@@ -1469,29 +1580,134 @@
                 el.innerHTML = `<div class="text-gray-400 text-center py-2">${window.I18N.noRequests || 'No requests'}</div>`;
                 return;
             }
-            el.innerHTML = list.map(r => {
-                const statusDot = r.status === 'error'
-                    ? '<span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>'
-                    : '<span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>';
-                const latency = r.latency_ms != null ? (r.latency_ms >= 1000 ? (r.latency_ms / 1000).toFixed(1) + 's' : r.latency_ms + 'ms') : '-';
-                const tokens = r.tokens > 0 ? formatCompactTokens(r.tokens) : '-';
-                const time = r.created_at ? new Date(r.created_at).toLocaleString() : '';
-                const errorHtml = r.error ? `<div class="text-xs text-red-500 mt-1 truncate" title="${r.error}">${r.error}</div>` : '';
-                return `
-                    <div class="rounded bg-white p-3 shadow-sm mb-2 last:mb-0">
-                        <div class="flex items-center gap-2 text-sm">
-                            ${statusDot}
-                            <span class="font-medium truncate">${r.model}</span>
-                            <span class="text-gray-400 text-xs ml-auto shrink-0">${time}</span>
-                        </div>
-                        <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                            <span>${window.I18N.tokensLabel || 'Tokens'}: ${tokens}</span>
-                            <span>${latency}</span>
-                        </div>
-                        ${errorHtml}
+            el.innerHTML = list.map(r => renderRequestRow(r, false)).join('');
+        }
+
+        function renderRequestRow(r, showProvider) {
+            const statusDot = r.status === 'error'
+                ? '<span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>'
+                : '<span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>';
+            const latency = r.latency_ms != null ? (r.latency_ms >= 1000 ? (r.latency_ms / 1000).toFixed(1) + 's' : r.latency_ms + 'ms') : '-';
+            const tokens = r.tokens > 0 ? formatCompactTokens(r.tokens) : '-';
+            const time = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+            const errorHtml = r.error ? `<div class="text-xs text-red-500 mt-1 truncate" title="${r.error}">${r.error}</div>` : '';
+            const ctx = r.context_tokens > 0 ? formatCompactTokens(r.context_tokens) : '-';
+            const inputT = r.input_tokens > 0 ? formatCompactTokens(r.input_tokens) : '-';
+            const outputT = r.output_tokens > 0 ? formatCompactTokens(r.output_tokens) : '-';
+            const cachedT = r.cached_tokens > 0 ? formatCompactTokens(r.cached_tokens) : '-';
+            const cachePct = r.cache_ratio > 0 ? r.cache_ratio + '%' : '-';
+            const cost = r.cost_cny > 0 ? '¥' + (r.cost_cny >= 0.01 ? r.cost_cny.toFixed(4) : r.cost_cny.toFixed(6)) : '-';
+            const providerTag = showProvider && r.provider ? `<span class="text-gray-400">·</span><span>${r.provider}</span>` : '';
+            return `
+                <div class="rounded bg-gray-50 p-2 mb-1.5 last:mb-0">
+                    <div class="flex items-center gap-2 text-sm">
+                        ${statusDot}
+                        <span class="font-medium truncate">${r.model}</span>
+                        <span class="text-gray-400 text-xs ml-auto shrink-0">${time}</span>
                     </div>
-                `;
-            }).join('');
+                    <div class="flex items-center gap-2.5 mt-0.5 text-xs text-gray-500 flex-wrap">
+                        <span>${window.I18N.tokensLabel || 'Tokens'}: ${tokens}</span>
+                        <span>${window.I18N.contextLabel || 'Context'}: ${ctx}</span>
+                        <span>${window.I18N.inputLabel || 'Input'}: ${inputT}</span>
+                        <span>${window.I18N.outputLabel || 'Output'}: ${outputT}</span>
+                        <span>${window.I18N.cacheLabel || 'Cache'}: ${cachedT} <span class="text-gray-400">(${cachePct})</span></span>
+                        <span>${window.I18N.costLabel || 'Cost'}: ${cost}</span>
+                        <span class="ml-auto">${latency}</span>
+                    </div>
+                    ${errorHtml}
+                </div>
+            `;
+        }
+
+        let _myReqPage = 1;
+        let _myReqTotalPages = 1;
+        let _myReqOpen = false;
+        function openMyRequestsModal() {
+            const modal = document.getElementById('my-requests-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            _myReqOpen = true;
+            if (!_myReqInited) initMyRequestsModal();
+            loadMyRequestsModal(1);
+        }
+        function closeMyRequestsModal() {
+            const modal = document.getElementById('my-requests-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            _myReqOpen = false;
+        }
+
+        let _myReqInited = false;
+        function initMyRequestsModal() {
+            _myReqInited = true;
+            document.getElementById('my-requests-modal-title').textContent = window.I18N.myRequestsTitle || 'My Request History';
+            document.getElementById('my-requests-time-label').textContent = window.I18N.timeRange || 'Time Range';
+            document.getElementById('my-requests-refresh').textContent = window.I18N.refresh || 'Refresh';
+            const ranges = [
+                ['1h', window.I18N.last1h || 'Last 1h'],
+                ['6h', window.I18N.last6h || 'Last 6h'],
+                ['24h', window.I18N.last24h || 'Last 24h'],
+                ['7d', window.I18N.last7d || 'Last 7d'],
+                ['30d', window.I18N.last30d || 'Last 30d'],
+                ['90d', window.I18N.last90d || 'Last 90d'],
+                ['all', window.I18N.allTime || 'All Time'],
+            ];
+            document.getElementById('my-requests-range').innerHTML = ranges
+                .map(([v, l]) => `<option value="${v}" ${v === '1h' ? 'selected' : ''}>${l}</option>`).join('');
+            const statuses = [
+                ['', window.I18N.allStatuses || 'All Statuses'],
+                ['success', 'Success'],
+                ['error', 'Error'],
+            ];
+            document.getElementById('my-requests-status').innerHTML = statuses
+                .map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+        }
+        function resetAndLoadMyRequestsModal() {
+            document.getElementById('my-requests-model').innerHTML = `<option value="">${window.I18N.allModels || 'All Models'}</option>`;
+            loadMyRequestsModal(1);
+        }
+        async function loadMyRequestsModal(page) {
+            _myReqPage = page;
+            const range = document.getElementById('my-requests-range')?.value || '1h';
+            const model = document.getElementById('my-requests-model')?.value || '';
+            const status = document.getElementById('my-requests-status')?.value || '';
+            const listEl = document.getElementById('my-requests-modal-list');
+            const pgEl = document.getElementById('my-requests-modal-pagination');
+            listEl.innerHTML = `<div class="text-gray-400 text-center py-8">${window.I18N.loading || 'Loading...'}</div>`;
+            pgEl.innerHTML = '';
+            const params = new URLSearchParams({ time_range: range, page: String(page), page_size: '10' });
+            if (model) params.set('model', model);
+            if (status) params.set('status', status);
+            let data;
+            try {
+                data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/user/api/my-requests?${params}`);
+            } catch (e) {
+                listEl.innerHTML = `<div class="text-red-500 text-center py-8">${window.I18N.loadFailed || 'Failed to load'}</div>`;
+                return;
+            }
+            const modelSel = document.getElementById('my-requests-model');
+            const curModel = modelSel.value;
+            modelSel.innerHTML = `<option value="">${window.I18N.allModels || 'All Models'}</option>`
+                + (data.models || []).map(m => `<option value="${m}" ${m === curModel ? 'selected' : ''}>${m}</option>`).join('');
+            const list = data.requests || [];
+            if (!list.length) {
+                listEl.innerHTML = `<div class="text-gray-400 text-center py-8">${window.I18N.noRequests || 'No requests'}</div>`;
+                pgEl.innerHTML = '';
+                return;
+            }
+            listEl.innerHTML = list.map(r => renderRequestRow(r, false)).join('');
+            _myReqTotalPages = Math.max(1, Math.ceil((data.total || 0) / (data.page_size || 10)));
+            let html = `<span class="text-gray-500">${(data.total || 0).toLocaleString()} ${window.I18N.req || 'req'} · ${_myReqPage}/${_myReqTotalPages}</span>`;
+            let btns = '<span class="flex gap-1">';
+            if (page > 1) btns += `<button onclick="loadMyRequestsModal(${page - 1})" class="px-3 py-1 border rounded">&lt;</button>`;
+            const start = Math.max(1, page - 2);
+            const end = Math.min(_myReqTotalPages, page + 2);
+            for (let i = start; i <= end; i++) {
+                btns += `<button onclick="loadMyRequestsModal(${i})" class="px-3 py-1 border rounded ${i === page ? 'bg-blue-500 text-white' : ''}">${i}</button>`;
+            }
+            if (page < _myReqTotalPages) btns += `<button onclick="loadMyRequestsModal(${page + 1})" class="px-3 py-1 border rounded">&gt;</button>`;
+            btns += '</span>';
+            pgEl.innerHTML = html + btns;
         }
 
         async function loadSystemActiveSessions() {
@@ -1545,6 +1761,35 @@
         }
     </script>
 {% endraw %}
+<div id="price-detail-modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6">
+    <div class="flex justify-between items-start mb-4">
+      <div>
+        <div id="price-detail-name" class="text-lg font-semibold"></div>
+        <div id="price-detail-model-name" class="text-xs text-gray-500"></div>
+      </div>
+      <button onclick="closePriceDetail()" class="text-gray-400 hover:text-gray-600">✕</button>
+    </div>
+    <div id="price-detail-body" class="space-y-2 text-sm"></div>
+  </div>
+</div>
+<div id="my-requests-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(0,0,0,0.5)">
+  <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+    <div class="flex justify-between items-center px-4 py-3 border-b shrink-0">
+      <h3 class="text-base font-semibold" id="my-requests-modal-title"></h3>
+      <button onclick="closeMyRequestsModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+    </div>
+    <div class="px-3 py-2 border-b flex flex-wrap items-center gap-2 text-sm shrink-0">
+      <span class="text-gray-500" id="my-requests-time-label"></span>
+      <select id="my-requests-range" class="border rounded px-2 py-1 text-sm" onchange="resetAndLoadMyRequestsModal()"></select>
+      <select id="my-requests-model" class="border rounded px-2 py-1 text-sm min-w-32" onchange="resetAndLoadMyRequestsModal()"></select>
+      <select id="my-requests-status" class="border rounded px-2 py-1 text-sm" onchange="resetAndLoadMyRequestsModal()"></select>
+      <button onclick="resetAndLoadMyRequestsModal()" class="ml-auto px-2 py-1 border rounded text-sm hover:bg-gray-50" id="my-requests-refresh"></button>
+    </div>
+    <div id="my-requests-modal-list" class="p-3 overflow-y-auto flex-1 min-h-0 space-y-2"></div>
+    <div id="my-requests-modal-pagination" class="px-3 py-2 border-t flex items-center justify-between text-sm shrink-0"></div>
+  </div>
+</div>
 </body>
 </html>
 

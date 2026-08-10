@@ -19,10 +19,11 @@ from app.core.database import (
     Model,
     Provider,
     ProviderModel,
-    RequestLogRead as RequestLog,
+    RequestLog,
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
     ModelDailyStat,
+    generate_api_key,
 )
 from app.core.i18n import render, translate
 
@@ -410,6 +411,40 @@ def get_score_by_threshold(value: float, good: float, bad: float) -> float:
     return max(0.0, 1.0 - ((value - good) / (bad - good)))
 
 
+def aggregate_model_pricing(provider_model_dicts):
+    input_prices = []
+    output_prices = []
+    cached_prices = []
+    tier_samples = []
+    for pm in provider_model_dicts or []:
+        ip = pm.get("input")
+        op = pm.get("output")
+        cp = pm.get("cached")
+        if ip is not None:
+            input_prices.append(ip)
+        if op is not None:
+            output_prices.append(op)
+        cp_eff = cp if cp is not None else ip
+        if cp_eff is not None:
+            cached_prices.append(cp_eff)
+        for tier in pm.get("tiers") or []:
+            if not isinstance(tier, dict):
+                continue
+            tier_samples.append({
+                "min_context_tokens": tier.get("min_context_tokens"),
+                "max_context_tokens": tier.get("max_context_tokens"),
+                "input_price": tier.get("input_price_cny_per_million"),
+                "output_price": tier.get("output_price_cny_per_million"),
+            })
+    tier_samples.sort(key=lambda t: (t["min_context_tokens"] is None, t["min_context_tokens"] or 0))
+    return {
+        "min_input_price": min(input_prices) if input_prices else None,
+        "min_output_price": min(output_prices) if output_prices else None,
+        "min_cached_price": min(cached_prices) if cached_prices else None,
+        "tier_samples": tier_samples,
+    }
+
+
 def build_system_health_summary(
     recent_requests: int,
     completed_requests: int,
@@ -576,6 +611,45 @@ async def user_logout(request: Request, response: Response, user_session: Option
     response.delete_cookie("user_session")
     return {"success": True}
 
+
+@router.post("/user/api/regenerate-key")
+async def user_regenerate_key(
+    request: Request,
+    response: Response,
+    api_key_id: int = Depends(get_user_session),
+    user_session: Optional[str] = Cookie(None),
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+
+    async with async_session_maker() as session:
+        result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
+        key = result.scalar_one_or_none()
+        if not key:
+            return translated_error(request, "Not authenticated", 401)
+        key.key = generate_api_key()
+        await session.commit()
+        await session.refresh(key)
+
+        from app.services.auth import load_api_keys
+        await load_api_keys()
+
+        old_name = USER_SESSIONS.get(user_session, {}).get("name", "") if user_session else ""
+        try:
+            from app.services.audit import write_audit_log
+            await write_audit_log(
+                request, "update", "api_key", str(api_key_id),
+                "用户重置 API Key", None, 200,
+                username=old_name, user_id=api_key_id,
+            )
+        except Exception:
+            pass
+
+        if user_session and user_session in USER_SESSIONS:
+            del USER_SESSIONS[user_session]
+        response.delete_cookie("user_session")
+
+        return {"success": True, "key": key.key}
 
 @router.get("/user/api/stats")
 async def get_user_stats(
@@ -956,6 +1030,7 @@ async def get_user_recent_requests(
                 RequestLog.model,
                 RequestLog.provider_id,
                 RequestLog.tokens,
+                RequestLog.request_context_tokens,
                 RequestLog.latency_ms,
                 RequestLog.status,
                 RequestLog.error,
@@ -982,10 +1057,39 @@ async def get_user_recent_requests(
             short_error = None
             if r.error:
                 short_error = r.error[:120] if len(r.error) > 120 else r.error
+            tokens_payload = r.tokens if isinstance(r.tokens, dict) else {}
+            input_tokens = _billing_int(
+                tokens_payload.get("prompt_tokens")
+                or tokens_payload.get("input_tokens")
+            )
+            output_tokens = _billing_int(
+                tokens_payload.get("completion_tokens")
+                or tokens_payload.get("output_tokens")
+            )
+            cached_tokens = 0
+            prompt_details = tokens_payload.get("prompt_tokens_details")
+            if isinstance(prompt_details, dict):
+                cached_tokens = _billing_int(prompt_details.get("cached_tokens"))
+            billing = tokens_payload.get("billing")
+            if isinstance(billing, dict):
+                cost_cny = _billing_number(billing.get("total_cost_cny"))
+            else:
+                cost_cny = 0.0
+            cache_ratio = (
+                round(cached_tokens / input_tokens * 100, 1)
+                if input_tokens > 0 and cached_tokens > 0
+                else 0.0
+            )
             requests.append({
                 "model": r.model,
                 "provider": provider_map.get(r.provider_id, "-"),
                 "tokens": token_count,
+                "context_tokens": int(r.request_context_tokens or 0),
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cached_tokens": cached_tokens,
+                "cache_ratio": cache_ratio,
+                "cost_cny": round(cost_cny, 6),
                 "latency_ms": int(r.latency_ms) if r.latency_ms else None,
                 "status": status_text,
                 "error": short_error,
@@ -993,6 +1097,163 @@ async def get_user_recent_requests(
             })
 
         return {"requests": requests}
+
+
+def _summarize_request_row(r, provider_map) -> dict:
+    token_count = get_token_count(r.tokens) if r.tokens else 0
+    status_text = (
+        "error"
+        if r.status in ("error", "failed")
+        else "success"
+        if r.status == "success"
+        else r.status
+    )
+    short_error = (
+        r.error[:120] if r.error and len(r.error) > 120 else r.error
+    )
+    tokens_payload = r.tokens if isinstance(r.tokens, dict) else {}
+    input_tokens = _billing_int(
+        tokens_payload.get("prompt_tokens")
+        or tokens_payload.get("input_tokens")
+    )
+    output_tokens = _billing_int(
+        tokens_payload.get("completion_tokens")
+        or tokens_payload.get("output_tokens")
+    )
+    cached_tokens = 0
+    prompt_details = tokens_payload.get("prompt_tokens_details")
+    if isinstance(prompt_details, dict):
+        cached_tokens = _billing_int(prompt_details.get("cached_tokens"))
+    billing = tokens_payload.get("billing")
+    cost_cny = (
+        _billing_number(billing.get("total_cost_cny"))
+        if isinstance(billing, dict)
+        else 0.0
+    )
+    cache_ratio = (
+        round(cached_tokens / input_tokens * 100, 1)
+        if input_tokens > 0 and cached_tokens > 0
+        else 0.0
+    )
+    return {
+        "id": r.id,
+        "model": r.model,
+        "provider": provider_map.get(r.provider_id, "-"),
+        "tokens": token_count,
+        "context_tokens": int(r.request_context_tokens or 0),
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cached_tokens": cached_tokens,
+        "cache_ratio": cache_ratio,
+        "cost_cny": round(cost_cny, 6),
+        "latency_ms": int(r.latency_ms) if r.latency_ms else None,
+        "status": status_text,
+        "error": short_error,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    }
+
+
+@router.get("/user/api/my-requests")
+async def get_user_my_requests(
+    request: Request,
+    api_key_id: int = Depends(get_user_session),
+    model: Optional[str] = None,
+    status: Optional[str] = None,
+    time_range: str = "1h",
+    page: int = 1,
+    page_size: int = 20,
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+
+    page = max(1, page)
+    page_size = max(1, min(page_size, 100))
+    now = datetime.now()
+
+    if time_range == "all":
+        dt_start = datetime(2000, 1, 1)
+    else:
+        deltas = {
+            "1h": timedelta(hours=1),
+            "6h": timedelta(hours=6),
+            "24h": timedelta(hours=24),
+            "7d": timedelta(days=7),
+            "30d": timedelta(days=30),
+            "90d": timedelta(days=90),
+        }
+        dt_start = now - deltas.get(time_range, timedelta(days=7))
+    dt_end = now
+
+    async with async_session_maker() as session:
+        filters = [
+            RequestLog.api_key_id == api_key_id,
+            RequestLog.created_at >= dt_start,
+            RequestLog.created_at <= dt_end,
+        ]
+        if model:
+            filters.append(RequestLog.model.ilike(f"%{_escape_user_model(model)}%"))
+        if status:
+            if status == "error":
+                filters.append(RequestLog.status.in_(ERROR_STATUSES))
+            elif status == "success":
+                filters.append(RequestLog.status == "success")
+
+        count_q = select(func.count()).select_from(RequestLog).where(*filters)
+        total = (await session.execute(count_q)).scalar() or 0
+
+        offset = (page - 1) * page_size
+        q = (
+            select(
+                RequestLog.id,
+                RequestLog.model,
+                RequestLog.provider_id,
+                RequestLog.tokens,
+                RequestLog.request_context_tokens,
+                RequestLog.latency_ms,
+                RequestLog.status,
+                RequestLog.error,
+                RequestLog.created_at,
+            )
+            .where(*filters)
+            .order_by(RequestLog.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        rows = (await session.execute(q)).fetchall()
+
+        provider_ids = {r.provider_id for r in rows if r.provider_id}
+        provider_map = {}
+        if provider_ids:
+            prov_result = await session.execute(
+                select(Provider.id, Provider.name).where(Provider.id.in_(provider_ids))
+            )
+            provider_map = dict(prov_result.fetchall())
+
+        requests = [_summarize_request_row(r, provider_map) for r in rows]
+
+        model_options_result = await session.execute(
+            select(RequestLog.model)
+            .where(
+                RequestLog.api_key_id == api_key_id,
+                RequestLog.created_at >= dt_start,
+                RequestLog.created_at <= dt_end,
+            )
+            .distinct()
+            .order_by(RequestLog.model)
+        )
+        model_options = [m[0] for m in model_options_result.fetchall() if m[0]]
+
+        return {
+            "requests": requests,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "models": model_options,
+        }
+
+
+def _escape_user_model(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 @router.get("/user/api/system-models")
@@ -1345,7 +1606,7 @@ async def get_user_catalog(
             return translated_error(request, "API Key not found", 404)
 
         providers_result = await session.execute(
-            select(Provider).where(Provider.is_active == True)
+            select(Provider)
         )
         models_result = await session.execute(
             select(Model).where(Model.is_active == True)
@@ -1397,6 +1658,8 @@ async def get_user_catalog(
         provider = provider_map.get(provider_model.provider_id)
         model = model_map.get(provider_model.model_id)
         if not provider or not model:
+            return False
+        if not provider.is_active:
             return False
         provider_name = provider.name
         model_name = model.name
@@ -1452,12 +1715,20 @@ async def get_user_catalog(
             model_name = model.name
             display_name = model.display_name or model_name
 
-            if not _is_provider_model_available(provider_model):
-                continue
+            is_pm_available = _is_provider_model_available(provider_model)
 
             existing = models_by_id.get(model.id)
             provider_names = set(existing.get("providers", [])) if existing else set()
-            provider_names.add(provider_map[provider_model.provider_id].name)
+            if is_pm_available:
+                provider_names.add(provider_map[provider_model.provider_id].name)
+            pm_prices = existing.get("_pm_prices", []) if existing else []
+            pm_prices.append({
+                "input": provider_model.input_price_cny_per_million,
+                "output": provider_model.output_price_cny_per_million,
+                "cached": provider_model.cached_input_price_cny_per_million,
+                "tiers": provider_model.pricing_tiers or [],
+            })
+            prev_available = existing.get("is_available", False) if existing else False
             models_by_id[model.id] = {
                 "id": model.id,
                 "name": model_name,
@@ -1471,10 +1742,20 @@ async def get_user_catalog(
                     or provider_model.model_name_override
                 ),
                 "providers": sorted(provider_names),
+                "is_available": prev_available or is_pm_available,
+                "_pm_prices": pm_prices,
             }
 
         for virtual_model in serialize_virtual_models(virtual_model_ids or set()):
+            virtual_model["is_available"] = True
             models_by_id[virtual_model["id"]] = virtual_model
+
+        for model_entry in models_by_id.values():
+            pricing = aggregate_model_pricing(model_entry.pop("_pm_prices", []))
+            model_entry["min_input_price"] = pricing["min_input_price"]
+            model_entry["min_output_price"] = pricing["min_output_price"]
+            model_entry["min_cached_price"] = pricing["min_cached_price"]
+            model_entry["tier_samples"] = pricing["tier_samples"]
 
         models_data = sorted(models_by_id.values(), key=lambda item: item["model_name"])
         if not models_data:

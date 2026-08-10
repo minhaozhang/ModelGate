@@ -1,17 +1,19 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from typing import Optional, Union
 from pydantic import BaseModel, Field
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import (
     async_session_maker,
     Model,
-    ApiKeyModel,
+    ApiKey,
     ApiKeyModelAccess,
-    ProviderModel,
+    ApiKeyTag,
 )
 from app.core.permissions import permission_required
 from app.services.auth import load_api_keys
@@ -32,6 +34,7 @@ class ModelCreate(BaseModel):
     context_length: int = 204800
     thinking_enabled: bool = True
     thinking_budget: int = 8192
+    reasoning_effort: Optional[str] = None
     is_multimodal: bool = False
     is_active: bool = True
     tags: Optional[str] = None
@@ -43,6 +46,7 @@ class ModelUpdate(BaseModel):
     context_length: Optional[int] = None
     thinking_enabled: Optional[bool] = None
     thinking_budget: Optional[int] = None
+    reasoning_effort: Optional[str] = None
     is_multimodal: Optional[bool] = None
     is_active: Optional[bool] = None
     estimated_price: Optional[float] = None
@@ -59,6 +63,10 @@ class AutoModelConfigUpdate(BaseModel):
     enabled: bool = False
     model_ids: list[int] = Field(default_factory=list)
     provider_model_ids: list[Union[AutoPoolItem, int]] = Field(default_factory=list)
+
+
+class ModelApiKeysUpdate(BaseModel):
+    api_key_ids: list[int] = Field(default_factory=list)
 
 
 @router.get("/routing/auto-model")
@@ -90,37 +98,19 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
         models = result.scalars().all()
 
         model_ids = [m.id for m in models]
-        pm_result = await session.execute(
-            select(ProviderModel.model_id, ProviderModel.id).where(
-                ProviderModel.model_id.in_(model_ids)
-            )
-        )
-        model_pm_map: dict[int, list[int]] = {m.id: [] for m in models}
-        pm_model_map: dict[int, int] = {}
-        for row in pm_result.fetchall():
-            model_pm_map[row[0]].append(row[1])
-            pm_model_map[row[1]] = row[0]
-
-        all_pm_ids = [pm_id for ids in model_pm_map.values() for pm_id in ids]
         model_key_ids: dict[int, set[int]] = {m.id: set() for m in models}
-        if all_pm_ids:
-            ak_count_result = await session.execute(
-                select(ApiKeyModel.provider_model_id, ApiKeyModel.api_key_id).where(
-                    ApiKeyModel.provider_model_id.in_(all_pm_ids)
-                )
-            )
-            for row in ak_count_result.fetchall():
-                model_id = pm_model_map.get(row[0])
-                if model_id:
-                    model_key_ids.setdefault(model_id, set()).add(row[1])
-
         if model_ids:
+            valid_key_ids = {
+                r[0] for r in (await session.execute(select(ApiKey.id))).fetchall()
+            }
             model_access_result = await session.execute(
                 select(ApiKeyModelAccess.model_id, ApiKeyModelAccess.api_key_id).where(
                     ApiKeyModelAccess.model_id.in_(model_ids)
                 )
             )
             for row in model_access_result.fetchall():
+                if row[1] not in valid_key_ids:
+                    continue
                 model_key_ids.setdefault(row[0], set()).add(row[1])
 
         return {
@@ -133,6 +123,7 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
                     "context_length": m.context_length,
                     "thinking_enabled": m.thinking_enabled,
                     "thinking_budget": m.thinking_budget,
+                    "reasoning_effort": m.reasoning_effort,
                     "is_multimodal": m.is_multimodal,
                     "is_active": m.is_active,
                     "is_virtual": bool(getattr(m, "is_virtual", False)),
@@ -205,3 +196,106 @@ async def resolve_model(name: str, _: bool = Depends(permission_required("page.m
     ]
     selected = results[0]["provider"] if results else None
     return {"model": name, "providers": results, "selected": selected}
+
+
+@router.get("/models/{model_id}/api-keys")
+async def get_model_api_keys(
+    model_id: int,
+    _: bool = Depends(permission_required("model.update")),
+):
+    async with async_session_maker() as session:
+        model_result = await session.execute(select(Model).where(Model.id == model_id))
+        if model_result.scalar_one_or_none() is None:
+            return JSONResponse({"error": "Model not found"}, status_code=404)
+
+        keys_result = await session.execute(select(ApiKey).order_by(ApiKey.name))
+        keys = keys_result.scalars().all()
+
+        tag_rows: list[tuple[int, str]] = []
+        if keys:
+            tag_result = await session.execute(
+                select(ApiKeyTag.api_key_id, ApiKeyTag.tag).where(
+                    ApiKeyTag.api_key_id.in_([k.id for k in keys])
+                )
+            )
+            tag_rows = [(int(r[0]), str(r[1])) for r in tag_result.fetchall()]
+
+        tags_by_key: dict[int, list[str]] = {}
+        for ak_id, tag in tag_rows:
+            tags_by_key.setdefault(ak_id, []).append(tag)
+
+        bound_result = await session.execute(
+            select(ApiKeyModelAccess.api_key_id).where(
+                ApiKeyModelAccess.model_id == model_id
+            )
+        )
+        bound_ids = [int(r[0]) for r in bound_result.fetchall()]
+
+        now = datetime.now()
+        api_keys_out = []
+        for k in keys:
+            api_keys_out.append({
+                "id": k.id,
+                "name": k.name,
+                "email": k.email,
+                "is_active": bool(k.is_active),
+                "is_expired": bool(k.expires_at and k.expires_at < now),
+                "tags": tags_by_key.get(k.id, []),
+            })
+
+        return {
+            "model_id": model_id,
+            "api_keys": api_keys_out,
+            "bound_key_ids": bound_ids,
+        }
+
+
+@router.put("/models/{model_id}/api-keys")
+async def update_model_api_keys(
+    model_id: int,
+    data: ModelApiKeysUpdate,
+    _: bool = Depends(permission_required("model.update")),
+):
+    raw_ids = [int(x) for x in data.api_key_ids]
+    if any(x <= 0 for x in raw_ids):
+        return JSONResponse(
+            {"error": "api_key_ids must be positive integers"},
+            status_code=400,
+        )
+    target_ids = sorted(set(raw_ids))
+    async with async_session_maker() as session:
+        model_result = await session.execute(select(Model).where(Model.id == model_id))
+        if model_result.scalar_one_or_none() is None:
+            return JSONResponse({"error": "Model not found"}, status_code=404)
+
+        try:
+            if target_ids:
+                await session.execute(
+                    delete(ApiKeyModelAccess)
+                    .where(ApiKeyModelAccess.model_id == model_id)
+                    .where(ApiKeyModelAccess.api_key_id.not_in(target_ids))
+                )
+                existing_result = await session.execute(
+                    select(ApiKeyModelAccess.api_key_id).where(
+                        ApiKeyModelAccess.model_id == model_id
+                    )
+                )
+                existing_ids = {int(r[0]) for r in existing_result.fetchall()}
+                for ak_id in target_ids:
+                    if ak_id not in existing_ids:
+                        session.add(ApiKeyModelAccess(api_key_id=ak_id, model_id=model_id))
+            else:
+                await session.execute(
+                    delete(ApiKeyModelAccess).where(
+                        ApiKeyModelAccess.model_id == model_id
+                    )
+                )
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            return JSONResponse(
+                {"error": "One or more api_key_ids do not exist"},
+                status_code=400,
+            )
+    await load_api_keys()
+    return {"model_id": model_id, "api_key_ids": target_ids}

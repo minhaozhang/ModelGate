@@ -129,6 +129,155 @@ async def update_provider_model_pricing(
         return {"id": pm.id}
 
 
+class ProviderModelBatchPricingUpdate(BaseModel):
+    ids: list[int]
+    input_price_cny_per_million: Optional[float] = None
+    output_price_cny_per_million: Optional[float] = None
+    cached_input_price_cny_per_million: Optional[float] = None
+    default_cache_hit_ratio: Optional[float] = None
+
+
+@router.post("/provider-models/batch-pricing")
+async def batch_update_provider_model_pricing(
+    data: ProviderModelBatchPricingUpdate,
+    _: bool = Depends(permission_required("provider_model.update")),
+):
+    if not data.ids:
+        return JSONResponse({"error": "ids is empty"}, status_code=400)
+    fields = {}
+    for fname in (
+        "input_price_cny_per_million",
+        "output_price_cny_per_million",
+        "cached_input_price_cny_per_million",
+        "default_cache_hit_ratio",
+    ):
+        val = getattr(data, fname)
+        if val is not None:
+            fields[fname] = val
+    if not fields:
+        return JSONResponse({"error": "no fields to update"}, status_code=400)
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(ProviderModel).where(ProviderModel.id.in_(data.ids))
+        )
+        pms = result.scalars().all()
+        found_ids = {pm.id for pm in pms}
+        missing = set(data.ids) - found_ids
+        if missing:
+            return JSONResponse({"error": f"not found: {sorted(missing)}"}, status_code=404)
+        for pm in pms:
+            for fname, val in fields.items():
+                setattr(pm, fname, val)
+        await session.commit()
+    return {"updated": sorted(found_ids)}
+
+
+class CopyPricingPayload(BaseModel):
+    target_pm_id: int
+
+
+@router.post("/provider-models/{pm_id}/copy-pricing")
+async def copy_provider_model_pricing(
+    pm_id: int,
+    data: CopyPricingPayload,
+    _: bool = Depends(permission_required("provider_model.update")),
+):
+    async with async_session_maker() as session:
+        src_result = await session.execute(select(ProviderModel).where(ProviderModel.id == pm_id))
+        src = src_result.scalar_one_or_none()
+        if not src:
+            return JSONResponse({"error": "source not found"}, status_code=404)
+        tgt_result = await session.execute(
+            select(ProviderModel).where(ProviderModel.id == data.target_pm_id)
+        )
+        tgt = tgt_result.scalar_one_or_none()
+        if not tgt:
+            return JSONResponse({"error": "target not found"}, status_code=404)
+        for fname in (
+            "input_price_cny_per_million",
+            "output_price_cny_per_million",
+            "cached_input_price_cny_per_million",
+            "default_cache_hit_ratio",
+            "pricing_tiers",
+        ):
+            setattr(tgt, fname, getattr(src, fname))
+        await session.commit()
+    return {"copied_from": pm_id, "copied_to": data.target_pm_id}
+
+
+@router.post("/provider-models/{pm_id}/sync-to-siblings")
+async def sync_pricing_to_siblings(
+    pm_id: int,
+    _: bool = Depends(permission_required("provider_model.update")),
+):
+    async with async_session_maker() as session:
+        base_result = await session.execute(select(ProviderModel).where(ProviderModel.id == pm_id))
+        base = base_result.scalar_one_or_none()
+        if not base:
+            return JSONResponse({"error": "base not found"}, status_code=404)
+        siblings_result = await session.execute(
+            select(ProviderModel).where(
+                ProviderModel.model_id == base.model_id,
+                ProviderModel.id != pm_id,
+            )
+        )
+        siblings = siblings_result.scalars().all()
+        for sib in siblings:
+            for fname in (
+                "input_price_cny_per_million",
+                "output_price_cny_per_million",
+                "cached_input_price_cny_per_million",
+                "default_cache_hit_ratio",
+                "pricing_tiers",
+            ):
+                setattr(sib, fname, getattr(base, fname))
+        await session.commit()
+    return {"synced_to": [sib.id for sib in siblings]}
+
+
+@router.get("/provider-models/pricing-export.csv")
+async def export_provider_model_pricing_csv(
+    _: bool = Depends(permission_required("provider_model.view")),
+):
+    import csv
+    import io
+    import json
+    from fastapi.responses import Response
+
+    async with async_session_maker() as session:
+        stmt = (
+            select(ProviderModel, Provider, Model)
+            .join(Provider, Provider.id == ProviderModel.provider_id)
+            .join(Model, Model.id == ProviderModel.model_id)
+            .order_by(Model.name, Provider.name)
+        )
+        result = await session.execute(stmt)
+        rows = result.all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "provider", "model", "upstream_model",
+        "input_price_cny_per_million", "output_price_cny_per_million",
+        "cached_input_price_cny_per_million", "default_cache_hit_ratio",
+        "tiers_json",
+    ])
+    for pm, provider, model in rows:
+        writer.writerow([
+            provider.name, model.name,
+            pm.upstream_model_name or pm.model_name_override or model.name,
+            pm.input_price_cny_per_million,
+            pm.output_price_cny_per_million,
+            pm.cached_input_price_cny_per_million,
+            pm.default_cache_hit_ratio,
+            json.dumps(pm.pricing_tiers or [], ensure_ascii=False),
+        ])
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=modelgate_pricing.csv"},
+    )
+
+
 @router.put("/providers/{provider_id}/models/{pm_id}")
 async def update_provider_model(
     provider_id: int,

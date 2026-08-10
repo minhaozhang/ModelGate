@@ -15,7 +15,7 @@ from app.core.database import (
     ApiKeyMcpServer,
     ApiKeyTag,
     ApiKeyTimeRule,
-    RequestLogRead as RequestLog,
+    RequestLog,
     generate_api_key,
     Model,
 )
@@ -295,6 +295,20 @@ async def delete_api_key(key_id: int, _: bool = Depends(permission_required("api
         return {"deleted": True}
 
 
+@router.post("/keys/{key_id}/regenerate")
+async def regenerate_api_key(key_id: int, _: bool = Depends(permission_required("api_key.update"))):
+    async with async_session_maker() as session:
+        result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
+        key = result.scalar_one_or_none()
+        if not key:
+            return JSONResponse({"error": "API key not found"}, status_code=404)
+        key.key = generate_api_key()
+        await session.commit()
+        await session.refresh(key)
+        await load_api_keys()
+        return {"id": key.id, "key": key.key}
+
+
 @router.get("/keys/{key_id}/stats")
 async def get_api_key_stats(
     key_id: int, user_api_key_id: int = Depends(get_user_session)
@@ -311,21 +325,29 @@ async def get_api_key_stats(
         if not key:
             return JSONResponse({"error": "API key not found"}, status_code=404)
 
+        cutoff = datetime.now() - timedelta(days=30)
+
         total_result = await session.execute(
-            select(func.count(RequestLog.id)).where(RequestLog.api_key_id == key_id)
+            select(func.count(RequestLog.id)).where(
+                RequestLog.api_key_id == key_id,
+                RequestLog.created_at >= cutoff,
+            )
         )
         total_requests = total_result.scalar() or 0
 
         tokens_result = await session.execute(
             select(func.sum(RequestLog.tokens["total_tokens"].as_integer())).where(
-                RequestLog.api_key_id == key_id
+                RequestLog.api_key_id == key_id,
+                RequestLog.created_at >= cutoff,
             )
         )
         total_tokens = tokens_result.scalar() or 0
 
         errors_result = await session.execute(
             select(func.count(RequestLog.id)).where(
-                RequestLog.api_key_id == key_id, RequestLog.status == "error"
+                RequestLog.api_key_id == key_id,
+                RequestLog.status == "error",
+                RequestLog.created_at >= cutoff,
             )
         )
         total_errors = errors_result.scalar() or 0
@@ -338,7 +360,10 @@ async def get_api_key_stats(
                     "tokens"
                 ),
             )
-            .where(RequestLog.api_key_id == key_id)
+            .where(
+                RequestLog.api_key_id == key_id,
+                RequestLog.created_at >= cutoff,
+            )
             .group_by(RequestLog.model)
         )
         model_stats = {

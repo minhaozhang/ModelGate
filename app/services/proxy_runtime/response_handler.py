@@ -54,6 +54,10 @@ def _is_key_retryable_status(status_code: int) -> bool:
     return status_code in KEY_RETRYABLE_STATUSES
 
 
+def _is_route_fallback_status(status_code: int) -> bool:
+    return status_code >= 500
+
+
 def _resolve_request_status(status_code: int, provider_error: str | None = None) -> str:
     if _is_rate_limited_status(status_code):
         return RATE_LIMITED_STATUS

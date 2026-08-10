@@ -89,6 +89,9 @@
         .config-table-wrap { overflow-x: auto; }
         .config-table { width: 100%; border-collapse: collapse; min-width: 760px; }
         .routing-table { min-width: 720px; table-layout: fixed; }
+        .pricing-table { min-width: 1180px; table-layout: fixed; }
+        .pricing-table th, .pricing-table td { padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
+        .pricing-table input, .pricing-table textarea { min-width: 0 !important; }
         .routing-table th,
         .routing-table td { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
         .routing-table input,
@@ -146,8 +149,8 @@
                     <button class="config-tab-btn" data-config-tab="providers" onclick="switchConfigTab('providers')">供应商</button>
                     <button class="config-tab-btn" data-config-tab="models" onclick="switchConfigTab('models')">标准模型</button>
                     <button class="config-tab-btn" data-config-tab="auto" onclick="switchConfigTab('auto')">Auto 路由</button>
-                    <button class="config-tab-btn" data-config-tab="routing" onclick="switchConfigTab('routing')">模型路由</button>
-                    <button class="config-tab-btn" data-config-tab="billing" onclick="switchConfigTab('billing')">模型计费</button>
+                    <button class="config-tab-btn" data-config-tab="provider-models" onclick="switchConfigTab('provider-models')">供应商模型</button>
+                    <button class="config-tab-btn" data-config-tab="pricing" onclick="switchConfigTab('pricing')">价目总览</button>
                     <button class="config-tab-btn" data-config-tab="templates" onclick="switchConfigTab('templates')">策略模板</button>
                     <button class="config-tab-btn" data-config-tab="preview" onclick="switchConfigTab('preview')">路由预览</button>
                 </div>
@@ -272,13 +275,13 @@
                 </div>
             </div>
 
-            <div id="config-tab-routing" class="config-tab-panel hidden">
+            <div id="config-tab-provider-models" class="config-tab-panel hidden">
                 <div class="bg-white rounded-lg shadow">
                     <div class="p-4 border-b">
                         <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                             <div>
-                                <h3 class="text-lg font-semibold">模型路由矩阵</h3>
-                                <p class="text-xs text-gray-500 mt-1">一行就是一个“标准模型 -> 供应商模型”绑定；优先级越大越靠前。</p>
+                                <h3 class="text-lg font-semibold">供应商模型绑定</h3>
+                                <p class="text-xs text-gray-500 mt-1">一行就是一个“标准模型 -> 供应商模型”绑定；上方添加绑定/同步，下方内联编辑价格。优先级越大越靠前。</p>
                             </div>
                             <div class="flex flex-wrap gap-2">
                                 <select id="routing-bind-provider" class="border rounded px-3 py-2 text-sm min-w-40"></select>
@@ -294,14 +297,29 @@
                 </div>
             </div>
 
-            <div id="config-tab-billing" class="config-tab-panel hidden">
+            <div id="config-tab-pricing" class="config-tab-panel hidden">
                 <div class="bg-white rounded-lg shadow">
-                    <div class="p-4 border-b flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                            <h3 class="text-lg font-semibold">模型计费配置</h3>
-                            <p class="text-xs text-gray-500 mt-1">价格按供应商模型绑定配置，单位均为人民币 / 百万 tokens；历史请求会保存当次计费快照。</p>
+                    <div class="p-4 border-b space-y-3">
+                        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                                <h3 class="text-lg font-semibold">价目总览</h3>
+                                <p class="text-xs text-gray-500 mt-1">按供应商模型绑定配置价格；支持筛选、对比、批量改价、复制与同步。单位均为人民币 / 百万 tokens。</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="exportPricingCsv()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">导出 CSV</button>
+                                <button onclick="openBatchPricingModal()" class="px-4 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">批量改价</button>
+                                <button onclick="loadModelPricing()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">刷新</button>
+                            </div>
                         </div>
-                        <button onclick="loadModelPricing()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">刷新</button>
+                        <div class="flex flex-wrap gap-2 text-sm">
+                            <select id="pricing-filter-provider" class="border rounded px-3 py-2" onchange="renderModelPricing()"></select>
+                            <select id="pricing-filter-model" class="border rounded px-3 py-2 min-w-48" onchange="renderModelPricing()"></select>
+                            <select id="pricing-filter-status" class="border rounded px-3 py-2" onchange="renderModelPricing()">
+                                <option value="">全部</option>
+                                <option value="priced">已配价</option>
+                                <option value="unpriced">未配价</option>
+                            </select>
+                        </div>
                     </div>
                     <div id="model-pricing-list" class="p-4"></div>
                 </div>
@@ -408,6 +426,26 @@
         </div>
     </div>
 
+    <div id="model-apikeys-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 flex min-h-0 flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h3 id="model-apikeys-title" class="font-semibold"></h3>
+                <button onclick="closeModelApiKeysModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="px-4 py-3 border-b shrink-0 flex items-center gap-2 flex-wrap">
+                <input id="model-apikeys-search" type="text" placeholder="搜索名称/email/tag..." oninput="renderModelApiKeysList()" class="flex-1 min-w-[12rem] border rounded px-3 py-1.5 text-sm">
+                <button onclick="selectAllModelApiKeys()" class="text-xs text-blue-500 hover:text-blue-700 px-2 py-1">全选</button>
+                <button onclick="clearAllModelApiKeys()" class="text-xs text-gray-500 hover:text-gray-700 px-2 py-1">清空</button>
+                <span id="model-apikeys-count" class="text-xs text-gray-400 ml-auto"></span>
+            </div>
+            <div id="model-apikeys-list" class="p-4 overflow-y-auto flex-1 min-h-0"></div>
+            <div class="p-4 border-t shrink-0 flex justify-end gap-2">
+                <button onclick="closeModelApiKeysModal()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">取消</button>
+                <button onclick="saveModelApiKeys()" class="px-4 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">保存</button>
+            </div>
+        </div>
+    </div>
+
     <div id="provider-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
         <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-md w-full mx-4 flex min-h-0 flex-col overflow-hidden">
             <div class="p-4 border-b flex justify-between items-center shrink-0">
@@ -488,6 +526,10 @@
                             <span class="text-sm text-gray-700">{{ _('Reasoning') }}</span>
                         </label>
                     </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Comma-separated reasoning effort levels exposed as switchable variants in opencode (e.g. high,max). Leave empty to disable effort variants.') }}">{{ _('Reasoning Effort Variants') }}</label>
+                    <input type="text" id="model-reasoning-effort" class="w-full border rounded px-3 py-2 text-sm" placeholder="e.g. low,medium,high,max">
                 </div>
                 <div class="flex-1">
                     <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Estimated blended price per 1M tokens (USD). Used for cost estimation on user dashboard.') }}">{{ _('Est. Price $/1M tokens') }}</label>
@@ -660,7 +702,7 @@
         }
 
         function switchConfigTab(tab) {
-            const knownTabs = new Set(['overview', 'providers', 'models', 'auto', 'routing', 'billing', 'templates', 'preview']);
+            const knownTabs = new Set(['overview', 'providers', 'models', 'auto', 'provider-models', 'pricing', 'templates', 'preview']);
             if (!knownTabs.has(tab)) tab = 'providers';
             document.querySelectorAll('.config-tab-panel').forEach(panel => panel.classList.add('hidden'));
             document.querySelectorAll('.config-tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -672,8 +714,8 @@
             url.searchParams.set('tab', tab);
             window.history.replaceState(null, '', url.toString());
             if (tab === 'auto') { loadAutoModelConfig(); if (!allProviderModels.length) loadProviderModelRoutes(); }
-            if (tab === 'routing') loadProviderModelRoutes();
-            if (tab === 'billing') loadModelPricing();
+            if (tab === 'provider-models') loadProviderModelRoutes();
+            if (tab === 'pricing') loadModelPricing();
             if (tab === 'templates') loadStrategyTemplates();
         }
 
@@ -938,6 +980,7 @@
             document.getElementById('model-context-length').value = '200k';
             document.getElementById('model-thinking-enabled').checked = true;
             document.getElementById('model-thinking-budget').value = '8k';
+            document.getElementById('model-reasoning-effort').value = '';
             document.getElementById('model-multimodal').checked = false;
             document.getElementById('model-active').checked = true;
             document.getElementById('model-tags').value = '';
@@ -957,6 +1000,7 @@
             document.getElementById('model-context-length').value = formatTokenValue(m.context_length);
             document.getElementById('model-thinking-enabled').checked = m.thinking_enabled;
             document.getElementById('model-thinking-budget').value = formatTokenValue(m.thinking_budget);
+            document.getElementById('model-reasoning-effort').value = m.reasoning_effort || '';
             document.getElementById('model-estimated-price').value = m.estimated_price || '';
             document.getElementById('model-multimodal').checked = m.is_multimodal;
             document.getElementById('model-active').checked = m.is_active;
@@ -981,6 +1025,7 @@
                 context_length: parseTokenValue(document.getElementById('model-context-length').value) || 204800,
                 thinking_enabled: document.getElementById('model-thinking-enabled').checked,
                 thinking_budget: parseTokenValue(document.getElementById('model-thinking-budget').value) || 8192,
+                reasoning_effort: document.getElementById('model-reasoning-effort').value.trim() || null,
                 estimated_price: parseFloat(document.getElementById('model-estimated-price').value) || null,
                 is_multimodal: document.getElementById('model-multimodal').checked,
                 is_active: document.getElementById('model-active').checked
@@ -996,6 +1041,7 @@
                             context_length: data.context_length,
                             thinking_enabled: data.thinking_enabled,
                             thinking_budget: data.thinking_budget,
+                            reasoning_effort: data.reasoning_effort,
                             is_multimodal: data.is_multimodal,
                             is_active: data.is_active,
                             tags: document.getElementById('model-tags').value.trim() || null
@@ -1457,7 +1503,7 @@
                 const pm = getActiveProviderModels().find(p => Number(p.id) === pmId);
                 if (pm) { pool.push({...pm, _min_ctx: null, _max_ctx: null}); seen.add(pmId); }
             }
-            if (modelIds.size) {
+            if (pool.length === 0 && modelIds.size) {
                 for (const pm of getActiveProviderModels()) {
                     if (modelIds.has(Number(pm.model_id)) && !seen.has(Number(pm.id))) {
                         pool.push({...pm, _min_ctx: null, _max_ctx: null}); seen.add(Number(pm.id));
@@ -1776,6 +1822,9 @@
                                         <button onclick="openModelRoutingConfig(${m.id})" class="icon-btn text-purple-500 hover:text-purple-700" title="路由配置">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51 15.42 17.49"/><path d="M15.41 6.51 8.59 10.49"/></svg>
                                         </button>
+                                        <button onclick="openModelApiKeysModal(${m.id})" class="icon-btn text-amber-500 hover:text-amber-700" title="API Key 绑定">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                                        </button>
                                         <button onclick="editModel(${m.id})" class="icon-btn text-blue-500 hover:text-blue-700" title="${t('edit', 'Edit')}">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                         </button>
@@ -1793,6 +1842,115 @@
 
         function isProtectedAutoModel(model) {
             return Boolean(model?.is_virtual) && String(model?.name || '').toLowerCase() === 'auto';
+        }
+
+        let modelApiKeysTarget = null;
+        let modelApiKeysCache = [];
+        let modelApiKeysBound = new Set();
+
+        async function openModelApiKeysModal(modelId) {
+            modelApiKeysTarget = modelId;
+            const m = allModels.find(x => x.id === modelId);
+            document.getElementById('model-apikeys-title').textContent = `${m ? (m.display_name || m.name) : '模型'} · API Key 访问`;
+            document.getElementById('model-apikeys-search').value = '';
+            document.getElementById('model-apikeys-count').textContent = '';
+            document.getElementById('model-apikeys-list').innerHTML = '<div class="text-center text-gray-400 py-8">加载中...</div>';
+            const modal = document.getElementById('model-apikeys-modal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models/${modelId}/api-keys`);
+                modelApiKeysCache = data.api_keys || [];
+                modelApiKeysBound = new Set((data.bound_key_ids || []).map(Number));
+                renderModelApiKeysList();
+            } catch(e) {
+                document.getElementById('model-apikeys-list').innerHTML = '<div class="text-center text-red-500 py-8">加载失败</div>';
+            }
+        }
+
+        function _modelApiKeysSearchTerm() {
+            return (document.getElementById('model-apikeys-search')?.value || '').trim().toLowerCase();
+        }
+
+        function _modelApiKeyMatches(k, term) {
+            if (!term) return true;
+            const hay = [k.name, k.email, (k.tags || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
+            return hay.includes(term);
+        }
+
+        function renderModelApiKeysList() {
+            const list = document.getElementById('model-apikeys-list');
+            const term = _modelApiKeysSearchTerm();
+            const filtered = modelApiKeysCache.filter(k => _modelApiKeyMatches(k, term));
+            if (!filtered.length) {
+                list.innerHTML = '<div class="text-center text-gray-400 py-8">没有匹配的 API Key</div>';
+            } else {
+                list.innerHTML = filtered.map(k => {
+                    const checked = modelApiKeysBound.has(Number(k.id)) ? 'checked' : '';
+                    const statusPill = !k.is_active
+                        ? '<span class="text-xs text-red-500">停用</span>'
+                        : (k.is_expired ? '<span class="text-xs text-red-500">过期</span>' : '<span class="text-xs text-green-500">可用</span>');
+                    const tags = (k.tags || []).map(tg => `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">${escapeHtml(tg)}</span>`).join(' ');
+                    return `<label class="flex items-center gap-3 py-2 px-3 rounded border hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" class="model-ak-check" data-ak-id="${Number(k.id)}" ${checked} onchange="onModelApiKeyToggle(${Number(k.id)}, this.checked)">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-sm font-medium text-gray-800 truncate">${escapeHtml(k.name)}</span>
+                                ${statusPill}
+                            </div>
+                            <div class="text-xs text-gray-400 truncate">${escapeHtml(k.email || '')}${tags ? ' · ' + tags : ''}</div>
+                        </div>
+                    </label>`;
+                }).join('');
+            }
+            document.getElementById('model-apikeys-count').textContent = `已选 ${modelApiKeysBound.size} / 共 ${modelApiKeysCache.length}`;
+        }
+
+        function onModelApiKeyToggle(id, checked) {
+            id = Number(id);
+            if (checked) modelApiKeysBound.add(id); else modelApiKeysBound.delete(id);
+            document.getElementById('model-apikeys-count').textContent = `已选 ${modelApiKeysBound.size} / 共 ${modelApiKeysCache.length}`;
+        }
+
+        function selectAllModelApiKeys() {
+            const term = _modelApiKeysSearchTerm();
+            modelApiKeysCache.forEach(k => {
+                if (_modelApiKeyMatches(k, term)) modelApiKeysBound.add(Number(k.id));
+            });
+            renderModelApiKeysList();
+        }
+
+        function clearAllModelApiKeys() {
+            const term = _modelApiKeysSearchTerm();
+            if (!term) {
+                modelApiKeysBound.clear();
+            } else {
+                modelApiKeysCache.forEach(k => {
+                    if (_modelApiKeyMatches(k, term)) modelApiKeysBound.delete(Number(k.id));
+                });
+            }
+            renderModelApiKeysList();
+        }
+
+        function closeModelApiKeysModal() {
+            const modal = document.getElementById('model-apikeys-modal');
+            modal.classList.add('hidden'); modal.classList.remove('flex');
+            modelApiKeysTarget = null;
+            modelApiKeysCache = [];
+            modelApiKeysBound = new Set();
+        }
+
+        async function saveModelApiKeys() {
+            if (!modelApiKeysTarget) return;
+            const ids = [...modelApiKeysBound].map(Number);
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/models/${modelApiKeysTarget}/api-keys`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({api_key_ids: ids})
+                }, {success: 'API Key 绑定已保存', error: '保存失败'});
+                closeModelApiKeysModal();
+                await loadModels();
+            } catch(e) {}
         }
 
         async function loadProviderModelRoutes() {
@@ -1834,19 +1992,47 @@
         function renderModelPricing() {
             const container = document.getElementById('model-pricing-list');
             if (!container) return;
-            const rows = [...allProviderModels].sort((a, b) => {
+            const providerFilter = document.getElementById('pricing-filter-provider')?.value || '';
+            const modelFilter = document.getElementById('pricing-filter-model')?.value || '';
+            const statusFilter = document.getElementById('pricing-filter-status')?.value || '';
+
+            const providerOptions = [...new Set(allProviderModels.map(r => r.provider_name || '').filter(Boolean))].sort();
+            const modelOptions = [...new Set(allProviderModels.map(r => r.model_name || '').filter(Boolean))].sort();
+            const provSel = document.getElementById('pricing-filter-provider');
+            const modSel = document.getElementById('pricing-filter-model');
+            if (provSel) provSel.innerHTML = `<option value="">全部供应商</option>` + providerOptions.map(p => `<option value="${escapeAttr(p)}" ${p===providerFilter?'selected':''}>${escapeHtml(p)}</option>`).join('');
+            if (modSel) modSel.innerHTML = `<option value="">全部模型</option>` + modelOptions.map(m => `<option value="${escapeAttr(m)}" ${m===modelFilter?'selected':''}>${escapeHtml(m)}</option>`).join('');
+
+            let rows = [...allProviderModels];
+            if (providerFilter) rows = rows.filter(r => r.provider_name === providerFilter);
+            if (modelFilter) rows = rows.filter(r => r.model_name === modelFilter);
+            if (statusFilter === 'priced') rows = rows.filter(r => r.input_price_cny_per_million != null || r.output_price_cny_per_million != null);
+            if (statusFilter === 'unpriced') rows = rows.filter(r => r.input_price_cny_per_million == null && r.output_price_cny_per_million == null);
+            rows.sort((a, b) => {
                 const left = `${a.model_name || ''}/${a.provider_name || ''}`;
                 const right = `${b.model_name || ''}/${b.provider_name || ''}`;
                 return left.localeCompare(right);
             });
             if (!rows.length) {
-                container.innerHTML = '<div class="text-gray-400 text-center py-4">暂无供应商模型绑定，先在模型路由里添加绑定。</div>';
+                container.innerHTML = '<div class="text-gray-400 text-center py-4">暂无数据，先在「供应商模型」里添加绑定。</div>';
                 return;
             }
             container.innerHTML = `<div class="config-table-wrap">
-                <table class="config-table">
+                <table class="config-table pricing-table">
+                    <colgroup>
+                        <col style="width: 44px">
+                        <col style="width: 200px">
+                        <col style="width: 200px">
+                        <col style="width: 130px">
+                        <col style="width: 130px">
+                        <col style="width: 140px">
+                        <col style="width: 150px">
+                        <col style="width: 240px">
+                        <col style="width: 120px">
+                    </colgroup>
                     <thead>
                         <tr>
+                            <th class="w-8"><input type="checkbox" id="pricing-select-all" onchange="toggleAllPricing(this)"></th>
                             <th>标准模型</th>
                             <th>供应商 / 上游模型</th>
                             <th>输入价</th>
@@ -1859,24 +2045,29 @@
                     </thead>
                     <tbody>
                         ${rows.map(route => `<tr>
+                            <td><input type="checkbox" class="pricing-row-check" data-pm-id="${route.id}"></td>
                             <td>
-                                <div class="font-medium text-sm text-gray-800">${escapeHtml(route.model_display_name || route.model_name)}</div>
-                                <div class="text-xs text-gray-500 mt-1">${escapeHtml(route.model_name || '')}</div>
+                                <div class="font-medium text-sm text-gray-800 truncate" title="${escapeAttr(route.model_display_name || route.model_name || '')}">${escapeHtml(route.model_display_name || route.model_name)}</div>
+                                <div class="text-xs text-gray-500 mt-1 truncate" title="${escapeAttr(route.model_name || '')}">${escapeHtml(route.model_name || '')}</div>
                             </td>
                             <td>
-                                <div class="font-medium text-sm">${escapeHtml(route.provider_name || '')}</div>
-                                <div class="text-xs text-gray-500 mt-1">${escapeHtml(route.upstream_model_name || route.model_name || '')}</div>
+                                <div class="font-medium text-sm truncate" title="${escapeAttr(route.provider_name || '')}">${escapeHtml(route.provider_name || '')}</div>
+                                <div class="text-xs text-gray-500 mt-1 truncate" title="${escapeAttr(route.upstream_model_name || route.model_name || '')}">${escapeHtml(route.upstream_model_name || route.model_name || '')}</div>
                             </td>
-                            <td><input id="pricing-input-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.input_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
-                            <td><input id="pricing-output-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.output_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
-                            <td><input id="pricing-cached-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.cached_input_price_cny_per_million))}" class="w-24 border rounded px-2 py-1.5 text-sm text-right"></td>
-                            <td><input id="pricing-cache-ratio-${route.id}" type="number" min="0" max="100" step="0.1" value="${escapeAttr(pricingValue(route.default_cache_hit_ratio))}" class="w-20 border rounded px-2 py-1.5 text-sm text-right"> <span class="text-xs text-gray-400">%</span></td>
+                            <td><input id="pricing-input-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.input_price_cny_per_million))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-output-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.output_price_cny_per_million))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-cached-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.cached_input_price_cny_per_million))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"></td>
+                            <td><input id="pricing-cache-ratio-${route.id}" type="number" min="0" max="100" step="0.1" value="${escapeAttr(pricingValue(route.default_cache_hit_ratio))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"> <span class="text-xs text-gray-400">%</span></td>
                             <td>
-                                <textarea id="pricing-tiers-${route.id}" rows="2" class="w-56 border rounded px-2 py-1.5 text-xs font-mono" placeholder='[{"max_context_tokens":524288,...}]'>${escapeHtml(pricingTiersValue(route))}</textarea>
+                                <textarea id="pricing-tiers-${route.id}" rows="2" class="w-full border rounded px-2 py-1.5 text-xs font-mono" placeholder='[{"max_context_tokens":524288,...}]'>${escapeHtml(pricingTiersValue(route))}</textarea>
                             </td>
                             <td>
-                                <div class="flex justify-end">
+                                <div class="flex flex-col items-end gap-1">
                                     <button onclick="saveModelPricing(${route.id})" class="text-xs text-blue-500 hover:text-blue-700">保存</button>
+                                    <div class="flex gap-2">
+                                        <button onclick="openCopyPricingModal(${route.id})" class="text-xs text-blue-600 hover:underline">复制</button>
+                                        <button onclick="syncPricingToSiblings(${route.id})" class="text-xs text-purple-600 hover:underline">同步</button>
+                                    </div>
                                 </div>
                             </td>
                         </tr>`).join('')}
@@ -1885,8 +2076,62 @@
             </div>
             <div class="text-xs text-gray-500 mt-3 leading-relaxed">
                 命中缓存 token 优先使用上游返回的 cached_tokens；没有返回时，按默认缓存命中率估算。
-                MiniMax M3 这种上下文分档价格可以填分档 JSON，普通模型留空即可。
+                MiniMax M3 这种上下文分档价格可以填分档 JSON，普通模型留空即可。「复制」把当前行价格复制到同模型其他供应商；「同步」把当前行价格覆盖到同模型所有其他供应商。
             </div>`;
+        }
+
+        function toggleAllPricing(el) {
+            document.querySelectorAll('.pricing-row-check').forEach(c => c.checked = el.checked);
+        }
+        function selectedPricingIds() {
+            return [...document.querySelectorAll('.pricing-row-check:checked')].map(c => parseInt(c.dataset.pmId, 10));
+        }
+        async function openBatchPricingModal() {
+            const ids = selectedPricingIds();
+            if (!ids.length) { showToast('请先勾选要改价的行', 'error'); return; }
+            const input = prompt('输入价（元/百万 tokens，留空跳过）:');
+            if (input === null) return;
+            const output = prompt('输出价（留空跳过）:');
+            if (output === null) return;
+            const cached = prompt('缓存价（留空跳过）:');
+            if (cached === null) return;
+            const body = { ids };
+            if (input !== '') body.input_price_cny_per_million = parseFloat(input);
+            if (output !== '') body.output_price_cny_per_million = parseFloat(output);
+            if (cached !== '') body.cached_input_price_cny_per_million = parseFloat(cached);
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/provider-models/batch-pricing`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+                });
+                showToast('批量改价成功');
+                await loadModelPricing();
+            } catch(e) { showToast('批量改价失败', 'error'); }
+        }
+        async function openCopyPricingModal(pmId) {
+            const base = allProviderModels.find(x => x.id === pmId);
+            const sameModel = allProviderModels.filter(r => r.model_name === base?.model_name && r.id !== pmId);
+            if (!sameModel.length) { showToast('同模型下没有其他供应商可复制', 'error'); return; }
+            const opts = sameModel.map(r => `${r.id}:${r.provider_name}`).join('\n');
+            const targetId = prompt(`选择目标（同模型其他供应商）:\n${opts}\n输入目标 id:`);
+            if (!targetId) return;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/provider-models/${pmId}/copy-pricing`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({target_pm_id: parseInt(targetId,10)})
+                });
+                showToast('复制价格成功');
+                await loadModelPricing();
+            } catch(e) { showToast('复制价格失败', 'error'); }
+        }
+        async function syncPricingToSiblings(pmId) {
+            if (!confirm('将该模型下其他供应商的价格同步为当前行的值？此操作不可逆。')) return;
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/provider-models/${pmId}/sync-to-siblings`, {method:'POST'});
+                showToast('同步价格成功');
+                await loadModelPricing();
+            } catch(e) { showToast('同步价格失败', 'error'); }
+        }
+        function exportPricingCsv() {
+            window.location.href = `${APP_BASE_PATH}/admin/api/provider-models/pricing-export.csv`;
         }
 
         function modelPricingNumber(id) {

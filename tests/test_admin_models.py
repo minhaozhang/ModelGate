@@ -2,12 +2,17 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from fastapi.responses import JSONResponse
+
 from app.routes.models import (
     AutoModelConfigUpdate,
     get_auto_model_config,
+    get_model_api_keys,
     list_all_models,
     update_auto_model_config,
+    update_model_api_keys,
 )
+from app.core.database import ApiKeyModelAccess
 
 
 class _FakeResult:
@@ -188,6 +193,163 @@ class AdminModelListTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(data["enabled"])
         self.assertEqual(data["provider_model_ids"], [22, 33])
         self.assertEqual(data["model_ids"], [101, 202])
+
+    async def test_get_model_api_keys_returns_all_keys_and_bound_set(self):
+        from datetime import datetime, timedelta
+
+        key_a = SimpleNamespace(id=1, name="Key A", email="a@x.com",
+                                is_active=True, expires_at=None)
+        key_b = SimpleNamespace(id=2, name="Key B", email="b@x.com",
+                                is_active=False, expires_at=datetime.now() - timedelta(days=1))
+        key_c = SimpleNamespace(id=3, name="Key C", email=None,
+                                is_active=True, expires_at=None)
+        session = _FakeSession(
+            [
+                _FakeResult(one=SimpleNamespace(id=42)),  # model lookup
+                _FakeResult(values=[key_a, key_b, key_c]),  # all api keys
+                _FakeResult(rows=[(1, "vip"), (3, "premium"), (99, "orphan")]),  # ApiKeyTag rows (api_key_id, tag)
+                _FakeResult(rows=[(2,)]),  # bound api_key_ids for this model
+            ]
+        )
+
+        with patch(
+            "app.routes.models.async_session_maker",
+            return_value=_FakeSessionContext(session),
+        ):
+            data = await get_model_api_keys(42, _=True)
+
+        self.assertEqual(data["model_id"], 42)
+        ids = [k["id"] for k in data["api_keys"]]
+        self.assertEqual(ids, [1, 2, 3])
+        b_key = next(k for k in data["api_keys"] if k["id"] == 2)
+        self.assertFalse(b_key["is_active"])
+        self.assertTrue(b_key["is_expired"])
+        a_key = next(k for k in data["api_keys"] if k["id"] == 1)
+        self.assertEqual(a_key["tags"], ["vip"])
+        self.assertEqual(data["bound_key_ids"], [2])
+
+    async def test_get_model_api_keys_returns_404_when_model_missing(self):
+        session = _FakeSession([_FakeResult(one=None)])
+
+        with patch(
+            "app.routes.models.async_session_maker",
+            return_value=_FakeSessionContext(session),
+        ):
+            data = await get_model_api_keys(999, _=True)
+
+        self.assertIsInstance(data, JSONResponse)
+        self.assertEqual(data.status_code, 404)
+
+    async def test_put_model_api_keys_set_semantics_diff_and_add(self):
+        existing_model = SimpleNamespace(id=42)
+        session = _FakeSession(
+            [
+                _FakeResult(one=existing_model),  # model exists
+                _FakeResult(),                    # delete (not_in [1,3])
+                _FakeResult(rows=[(3,)]),         # existing api_key_ids after delete
+            ]
+        )
+
+        with (
+            patch(
+                "app.routes.models.async_session_maker",
+                return_value=_FakeSessionContext(session),
+            ),
+            patch("app.routes.models.load_api_keys") as load_keys,
+        ):
+            from app.routes.models import ModelApiKeysUpdate
+            data = await update_model_api_keys(42, ModelApiKeysUpdate(api_key_ids=[1, 3]), _=True)
+
+        self.assertEqual(data, {"model_id": 42, "api_key_ids": [1, 3]})
+        added_ids = [obj.api_key_id for obj in session.added if isinstance(obj, ApiKeyModelAccess)]
+        self.assertEqual(sorted(added_ids), [1])
+        load_keys.assert_awaited_once()
+
+    async def test_put_model_api_keys_empty_list_clears_all(self):
+        existing_model = SimpleNamespace(id=42)
+        session = _FakeSession(
+            [
+                _FakeResult(one=existing_model),  # model exists
+                _FakeResult(),                    # delete all where model_id==42
+            ]
+        )
+
+        with (
+            patch(
+                "app.routes.models.async_session_maker",
+                return_value=_FakeSessionContext(session),
+            ),
+            patch("app.routes.models.load_api_keys"),
+        ):
+            from app.routes.models import ModelApiKeysUpdate
+            data = await update_model_api_keys(42, ModelApiKeysUpdate(api_key_ids=[]), _=True)
+
+        self.assertEqual(data, {"model_id": 42, "api_key_ids": []})
+        self.assertEqual(session.added, [])
+
+    async def test_put_model_api_keys_returns_404_when_model_missing(self):
+        session = _FakeSession([_FakeResult(one=None)])
+
+        with patch(
+            "app.routes.models.async_session_maker",
+            return_value=_FakeSessionContext(session),
+        ):
+            from app.routes.models import ModelApiKeysUpdate
+            data = await update_model_api_keys(999, ModelApiKeysUpdate(api_key_ids=[1]), _=True)
+
+        self.assertIsInstance(data, JSONResponse)
+        self.assertEqual(data.status_code, 404)
+
+    async def test_put_model_api_keys_rejects_non_positive_id_with_400(self):
+        with patch("app.routes.models.async_session_maker") as session_ctx:
+            from app.routes.models import ModelApiKeysUpdate
+            data = await update_model_api_keys(
+                42, ModelApiKeysUpdate(api_key_ids=[0, 1]), _=True
+            )
+
+        self.assertIsInstance(data, JSONResponse)
+        self.assertEqual(data.status_code, 400)
+        session_ctx.assert_not_called()
+
+    async def test_put_model_api_keys_returns_400_on_integrity_error(self):
+        from sqlalchemy.exc import IntegrityError
+
+        class _FakeSessionIntegrity(_FakeSession):
+            def __init__(self, results):
+                super().__init__(results)
+                self.rolled_back = False
+
+            async def commit(self):
+                raise IntegrityError("INSERT", {}, Exception("FK violation"))
+
+            async def rollback(self):
+                self.rolled_back = True
+
+        existing_model = SimpleNamespace(id=42)
+        session = _FakeSessionIntegrity(
+            [
+                _FakeResult(one=existing_model),  # model exists
+                _FakeResult(),                    # delete (not_in [1])
+                _FakeResult(rows=[]),             # existing api_key_ids after delete
+            ]
+        )
+
+        with (
+            patch(
+                "app.routes.models.async_session_maker",
+                return_value=_FakeSessionContext(session),
+            ),
+            patch("app.routes.models.load_api_keys") as load_keys,
+        ):
+            from app.routes.models import ModelApiKeysUpdate
+            data = await update_model_api_keys(
+                42, ModelApiKeysUpdate(api_key_ids=[1]), _=True
+            )
+
+        self.assertIsInstance(data, JSONResponse)
+        self.assertEqual(data.status_code, 400)
+        self.assertTrue(session.rolled_back)
+        load_keys.assert_not_awaited()
 
 
 if __name__ == "__main__":

@@ -183,7 +183,28 @@
             </form>
         </div>
     </div>
-    
+
+    <div id="new-key-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="apikey-modal-card bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 flex min-h-0 flex-col overflow-hidden">
+            <div class="shrink-0 p-4 border-b flex justify-between items-center">
+                <h3 id="new-key-title" class="font-semibold">{{ _('API Key') }}</h3>
+                <button onclick="closeNewKeyModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div class="rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2">
+                    {{ _('Copy this key now. For security reasons, it will be masked in the list afterwards.') }}
+                </div>
+                <div class="flex items-stretch gap-2">
+                    <input id="new-key-value" type="text" readonly class="flex-1 font-mono text-sm px-3 py-2 border rounded bg-gray-50">
+                    <button id="new-key-copy-btn" class="px-3 py-2 border rounded text-sm hover:bg-gray-50">{{ _('Copy') }}</button>
+                </div>
+            </div>
+            <div class="p-4 border-t shrink-0 flex justify-end gap-2">
+                <button onclick="closeNewKeyModal()" class="px-4 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">{{ _('I have saved it') }}</button>
+            </div>
+        </div>
+    </div>
+
     <script>
     window.I18N = {
         copied: "{{ _('Copied!') }}",
@@ -208,6 +229,13 @@
         copy: "{{ _('Copy') }}",
         edit: "{{ _('Edit') }}",
         delete: "{{ _('Delete') }}",
+        regenerate: "{{ _('Regenerate') }}",
+        regenerateConfirm: "{{ _('Regenerate the API key? The old key will stop working immediately.') }}",
+        keyRegenerated: "{{ _('New API Key:') }}",
+        newKeyCreatedTitle: "{{ _('API Key Created') }}",
+        keyRegeneratedTitle: "{{ _('API Key Regenerated') }}",
+        saveKeyWarning: "{{ _('Copy this key now. For security reasons, it will be masked in the list afterwards.') }}",
+        iHaveSavedIt: "{{ _('I have saved it') }}",
         query: "{{ _('Query') }}",
         userPage: "{{ _('User Page:') }}",
         setupDoc: "{{ _('Setup Doc:') }}",
@@ -783,6 +811,7 @@
                         <div class="flex flex-wrap gap-2 shrink-0">
                             <button onclick="showTimeRulesModal(${k.id})" class="text-purple-500 hover:text-purple-700 text-sm">${window.I18N.timeRules}</button>
                             <button onclick="editApiKey(${k.id})" class="text-blue-500 hover:text-blue-700 text-sm">${window.I18N.edit}</button>
+                            <button onclick="regenerateApiKey(${k.id})" class="text-amber-600 hover:text-amber-800 text-sm">${window.I18N.regenerate}</button>
                             <button onclick="deleteApiKey(${k.id})" class="text-red-500 hover:text-red-700 text-sm">${window.I18N.delete}</button>
                         </div>
                     </div>
@@ -1153,7 +1182,7 @@ ${setupMdUrl}`;
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(data)
                     }, {error: window.I18N.failedToSave});
-                    showToast(window.I18N.apiKeyCreated + ' ' + result.key, 'success');
+                    showNewKeyModal(result.key, window.I18N.newKeyCreatedTitle);
                 }
                 closeApiKeyModal();
                 loadApiKeys();
@@ -1165,6 +1194,37 @@ ${setupMdUrl}`;
             await fetchOrRedirect(`${APP_BASE_PATH}/admin/api/keys/` + id, {method: 'DELETE'});
             loadApiKeys();
         }
+        
+        async function regenerateApiKey(id) {
+            if (!confirm(window.I18N.regenerateConfirm)) return;
+            try {
+                const result = await mgFetchJson(`${APP_BASE_PATH}/admin/api/keys/` + id + '/regenerate', {
+                    method: 'POST',
+                }, {error: window.I18N.failedToSave});
+                showNewKeyModal(result.key, window.I18N.keyRegeneratedTitle);
+                loadApiKeys();
+            } catch(err) {}
+        }
+
+        function showNewKeyModal(key, title) {
+            document.getElementById('new-key-title').textContent = title || window.I18N.newKeyCreatedTitle;
+            document.getElementById('new-key-value').value = key;
+            const modal = document.getElementById('new-key-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            const copyBtn = document.getElementById('new-key-copy-btn');
+            copyBtn.onclick = () => copyKey(document.getElementById('new-key-value').value);
+        }
+
+        function closeNewKeyModal() {
+            const modal = document.getElementById('new-key-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        document.getElementById('new-key-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeNewKeyModal();
+        });
         
         document.getElementById('apikeys-list').addEventListener('click', (e) => {
             const copyKeyButton = e.target.closest('.copy-key-btn');

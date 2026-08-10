@@ -210,6 +210,17 @@ class AdminUiStaticTests(unittest.TestCase):
 
         self.assertIn("await loadModels()", save_body)
 
+    def test_auto_pool_rebuild_does_not_re_add_removed_provider_models(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        build_start = html.index("function buildAutoPoolFromConfig()")
+        build_end = html.index("function renderAutoTab()", build_start)
+        build_body = html[build_start:build_end]
+
+        guard = "if (pool.length === 0 && modelIds.size)"
+        self.assertIn(guard, build_body)
+        self.assertNotIn("if (modelIds.size) {", build_body)
+        self.assertNotIn("if (modelIds.size)\n", build_body)
+
     def test_auto_virtual_model_delete_button_is_hidden(self):
         html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
         table_start = html.index("function renderModelTable(models)")
@@ -220,6 +231,46 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("const canDeleteModel = !isProtectedAutoModel(m)", table_body)
         self.assertIn("${canDeleteModel ? `", table_body)
         self.assertIn("deleteModel(${m.id})", table_body)
+
+    def test_model_apikeys_modal_has_required_dom_and_handlers(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="model-apikeys-modal"', html)
+        self.assertIn('id="model-apikeys-title"', html)
+        self.assertIn('id="model-apikeys-search"', html)
+        self.assertIn('id="model-apikeys-count"', html)
+        self.assertIn('id="model-apikeys-list"', html)
+        self.assertIn("openModelApiKeysModal", html)
+        self.assertIn("closeModelApiKeysModal", html)
+        self.assertIn("saveModelApiKeys", html)
+        self.assertIn("renderModelApiKeysList", html)
+        self.assertIn("selectAllModelApiKeys", html)
+        self.assertIn("clearAllModelApiKeys", html)
+        self.assertIn("onModelApiKeyToggle", html)
+
+    def test_model_apikeys_js_uses_set_semantics_and_correct_endpoints(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        js_start = html.index("function openModelApiKeysModal")
+        js_end = html.index("async function saveModelApiKeys", js_start)
+        js_end = html.index("}", html.index("await loadModels()", js_end)) + 1
+        js_body = html[js_start:js_end]
+
+        self.assertIn("/admin/api/models/${modelId}/api-keys", js_body)
+        self.assertIn("modelApiKeysBound = new Set", js_body)
+        self.assertIn("api_key_ids: ids", js_body)
+        self.assertIn("await loadModels()", js_body)
+        self.assertIn("modelApiKeysBound.has(Number(k.id))", js_body)
+        self.assertIn("modelApiKeysBound.add(Number(k.id))", js_body)
+        self.assertIn("modelApiKeysBound.delete(Number(k.id))", js_body)
+
+    def test_model_table_row_has_apikeys_button(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        table_start = html.index("function renderModelTable(models)")
+        table_end = html.index("function isProtectedAutoModel", table_start)
+        table_body = html[table_start:table_end]
+
+        self.assertIn("openModelApiKeysModal(${m.id})", table_body)
+        self.assertIn("text-amber-500", table_body)
 
     def test_api_key_standard_model_picker_marks_virtual_models(self):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
@@ -304,17 +355,6 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertNotIn("xl:grid-cols-[1.2fr_150px_1fr_120px_90px_110px_110px_110px_110px_120px_auto]", html)
         self.assertNotIn("xl:grid-cols-[1fr_120px_90px_95px_95px_95px_95px_95px_95px_100px_auto]", html)
 
-    def test_model_routing_matrix_has_no_bulk_api_key_configuration(self):
-        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
-        route = (ROOT / "app" / "routes" / "models.py").read_text(encoding="utf-8")
-
-        self.assertNotIn('id="model-keys-modal"', html)
-        self.assertNotIn("openModelKeys", html)
-        self.assertNotIn("openProviderModelKeys", html)
-        self.assertNotIn("配置 Key", html)
-        self.assertNotIn("/models/{model_id}/api-keys", route)
-        self.assertNotIn("ModelApiKeysUpdate", route)
-
     def test_model_routing_rules_can_scope_provider_keys(self):
         html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
         routing_route = (ROOT / "app" / "routes" / "routing.py").read_text(encoding="utf-8")
@@ -392,8 +432,8 @@ class AdminUiStaticTests(unittest.TestCase):
         route = (ROOT / "app" / "routes" / "provider_models.py").read_text(encoding="utf-8")
         database = (ROOT / "app" / "core" / "database.py").read_text(encoding="utf-8")
 
-        self.assertIn('data-config-tab="billing"', html)
-        self.assertIn('id="config-tab-billing"', html)
+        self.assertIn('data-config-tab="pricing"', html)
+        self.assertIn('id="config-tab-pricing"', html)
         self.assertIn("loadModelPricing", html)
         self.assertIn("saveModelPricing", html)
         self.assertIn("input_price_cny_per_million", html)
@@ -402,6 +442,37 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("class ProviderModelPricingUpdate", route)
         self.assertIn("input_price_cny_per_million = Column", database)
         self.assertIn("pricing_tiers = Column(JSONB", database)
+
+    def test_user_catalog_renders_price_badge(self):
+        html = (ROOT / "web" / "templates" / "user" / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn("min_input_price", html)
+        self.assertIn("价格未配置", html)
+        self.assertIn("showPriceDetail", html)
+
+    def test_user_price_detail_modal_exists(self):
+        html = (ROOT / "web" / "templates" / "user" / "dashboard.html").read_text(encoding="utf-8")
+        self.assertIn('id="price-detail-modal"', html)
+        self.assertIn("function showPriceDetail", html)
+        self.assertIn("function closePriceDetail", html)
+
+    def test_config_reorganized_tabs(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        self.assertIn('data-config-tab="provider-models"', html)
+        self.assertIn('data-config-tab="pricing"', html)
+        self.assertIn('id="config-tab-provider-models"', html)
+        self.assertIn('id="config-tab-pricing"', html)
+        self.assertIn('if (tab === \'provider-models\') loadProviderModelRoutes();', html)
+        self.assertIn('if (tab === \'pricing\') loadModelPricing();', html)
+
+    def test_pricing_overview_has_filters_and_actions(self):
+        html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        self.assertIn('id="pricing-filter-provider"', html)
+        self.assertIn('id="pricing-filter-model"', html)
+        self.assertIn('openBatchPricingModal', html)
+        self.assertIn('openCopyPricingModal', html)
+        self.assertIn('syncPricingToSiblings', html)
+        self.assertIn('exportPricingCsv', html)
+        self.assertIn('toggleAllPricing', html)
 
 
 if __name__ == "__main__":

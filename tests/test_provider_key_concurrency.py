@@ -1099,3 +1099,278 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("model_unavailable", body)
         self.assertNotIn("model_not_found", body)
         self.assertNotIn("未找到模型", body)
+
+
+class RouteFallbackOnServerErrorTests(unittest.IsolatedAsyncioTestCase):
+    async def _run_proxy_with_routes(
+        self,
+        routes,
+        handle_normal_side_effect=None,
+        handle_streaming_side_effect=None,
+    ):
+        import contextlib
+
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [],
+                "query_string": b"",
+                "cookies": {},
+                "root_path": "",
+            }
+        )
+        request._body = b'{"model":"glm-5.1","messages":[]}'
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        cm_stack = contextlib.ExitStack()
+        cm_stack.enter_context(patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))))
+        cm_stack.enter_context(patch("app.services.proxy.get_provider_model_candidates", new=AsyncMock(return_value=routes)))
+        cm_stack.enter_context(patch("app.services.proxy.create_request_log", new=AsyncMock()))
+        cm_stack.enter_context(patch("app.services.proxy.update_stats", new=Mock()))
+        cm_stack.enter_context(patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None))
+        if handle_normal_side_effect is not None:
+            cm_stack.enter_context(patch("app.services.proxy.handle_normal", new=handle_normal_side_effect))
+        if handle_streaming_side_effect is not None:
+            cm_stack.enter_context(patch("app.services.proxy.handle_streaming", new=handle_streaming_side_effect))
+        with cm_stack:
+            response = await proxy_request(request, "/chat/completions")
+        return response
+
+    def _make_route(self, provider_name, provider_id=1, is_forced=False):
+        return proxy_module.RouteResult(
+            provider_config={
+                "id": provider_id,
+                "base_url": f"https://{provider_name}.example/v1",
+                "protocol": "openai",
+                "api_keys": [{"id": provider_id * 10, "api_key": f"sk-{provider_name}", "max_concurrent": 3}],
+                "models": [{"id": provider_id * 10 + 1, "model_id": 101, "model_name": "glm-5.1"}],
+            },
+            provider_name=provider_name,
+            provider_id=provider_id,
+            provider_model_id=provider_id * 10 + 1,
+            model_id=101,
+            requested_model="glm-5.1",
+            model_name="glm-5.1",
+            upstream_model_name="glm-5.1",
+            is_forced_provider=is_forced,
+        )
+
+    async def test_500_from_first_provider_falls_back_to_second(self):
+        routes = [self._make_route("primary", 1), self._make_route("fallback", 2)]
+        responses = [
+            Response(content=b'{"error":"server error"}', status_code=500),
+            Response(content=b'{"choices":[]}', status_code=200),
+        ]
+
+        async def fake_handle_normal(*args, **_kwargs):
+            sem = args[13]
+            user_sem = args[14]
+            if sem is not None:
+                sem.release()
+            if user_sem is not None:
+                user_sem.release()
+            return responses.pop(0)
+
+        response = await self._run_proxy_with_routes(
+            routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    async def test_502_from_first_provider_falls_back_to_second(self):
+        routes = [self._make_route("primary", 1), self._make_route("fallback", 2)]
+        responses = [
+            Response(content=b'{"error":"bad gateway"}', status_code=502),
+            Response(content=b'{"choices":[]}', status_code=200),
+        ]
+
+        async def fake_handle_normal(*args, **_kwargs):
+            sem = args[13]
+            user_sem = args[14]
+            if sem is not None:
+                sem.release()
+            if user_sem is not None:
+                user_sem.release()
+            return responses.pop(0)
+
+        response = await self._run_proxy_with_routes(
+            routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    async def test_all_providers_return_500_returns_error(self):
+        routes = [self._make_route("primary", 1), self._make_route("fallback", 2)]
+
+        async def fake_handle_normal(*args, **_kwargs):
+            sem = args[13]
+            user_sem = args[14]
+            if sem is not None:
+                sem.release()
+            if user_sem is not None:
+                user_sem.release()
+            return Response(content=b'{"error":"server error"}', status_code=500)
+
+        response = await self._run_proxy_with_routes(
+            routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
+        )
+
+        self.assertEqual(response.status_code, 503)
+        import json as _json
+        body = _json.loads(response.body)
+        self.assertEqual(body.get("error", {}).get("code"), "model_unavailable")
+        self.assertIn("没有可用的供应商", body.get("error", {}).get("message", ""))
+
+    async def test_network_exception_from_first_provider_falls_back_to_second(self):
+        routes = [self._make_route("primary", 1), self._make_route("fallback", 2)]
+        call_count = [0]
+
+        async def fake_handle_normal(*args, **_kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise ConnectionError("connection refused")
+            sem = args[13]
+            user_sem = args[14]
+            if sem is not None:
+                sem.release()
+            if user_sem is not None:
+                user_sem.release()
+            return Response(content=b'{"choices":[]}', status_code=200)
+
+        response = await self._run_proxy_with_routes(
+            routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(call_count[0], 2)
+
+    async def test_400_from_first_provider_does_not_fall_back(self):
+        routes = [self._make_route("primary", 1), self._make_route("fallback", 2)]
+
+        async def fake_handle_normal(*args, **_kwargs):
+            sem = args[13]
+            user_sem = args[14]
+            if sem is not None:
+                sem.release()
+            if user_sem is not None:
+                user_sem.release()
+            return Response(content=b'{"error":"bad request"}', status_code=400)
+
+        response = await self._run_proxy_with_routes(
+            routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    async def test_forced_provider_500_does_not_fall_back(self):
+        routes = [
+            self._make_route("primary", 1, is_forced=True),
+            self._make_route("fallback", 2),
+        ]
+        call_count = [0]
+
+        async def fake_handle_normal(*args, **_kwargs):
+            call_count[0] += 1
+            sem = args[13]
+            user_sem = args[14]
+            if sem is not None:
+                sem.release()
+            if user_sem is not None:
+                user_sem.release()
+            return Response(content=b'{"error":"server error"}', status_code=500)
+
+        response = await self._run_proxy_with_routes(
+            routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
+        )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(call_count[0], 1)
+
+    async def test_stream_500_from_first_provider_falls_back_to_second(self):
+        routes = [self._make_route("primary", 1), self._make_route("fallback", 2)]
+        responses = [
+            Response(content=b'{"error":"server error"}', status_code=503),
+            Response(content=b'{"choices":[]}', status_code=200),
+        ]
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [],
+                "query_string": b"",
+                "cookies": {},
+                "root_path": "",
+            }
+        )
+        request._body = b'{"model":"glm-5.1","messages":[],"stream":true}'
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+
+        async def fake_handle_streaming(*args, **_kwargs):
+            provider_key_semaphore = args[12]
+            user_provider_model_semaphore = args[13]
+            if provider_key_semaphore is not None:
+                provider_key_semaphore.release()
+            if user_provider_model_semaphore is not None:
+                user_provider_model_semaphore.release()
+            return responses.pop(0)
+
+        with (
+            patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
+            patch(
+                "app.services.proxy.get_provider_model_candidates",
+                new=AsyncMock(return_value=routes),
+            ),
+            patch("app.services.proxy.handle_streaming", new=AsyncMock(side_effect=fake_handle_streaming)),
+            patch("app.services.proxy.create_request_log", new=AsyncMock(return_value=1)),
+            patch("app.services.proxy.update_stats", new=Mock()),
+            patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
+        ):
+            response = await proxy_request(request, "/chat/completions")
+
+        self.assertEqual(response.status_code, 200)
+
+    async def test_all_providers_return_429_returns_unified_message(self):
+        routes = [self._make_route("primary", 1), self._make_route("fallback", 2)]
+
+        async def fake_handle_normal(*args, **_kwargs):
+            sem = args[13]
+            user_sem = args[14]
+            if sem is not None:
+                sem.release()
+            if user_sem is not None:
+                user_sem.release()
+            return Response(content=b'{"error":"rate limited"}', status_code=429)
+
+        response = await self._run_proxy_with_routes(
+            routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
+        )
+
+        self.assertEqual(response.status_code, 503)
+        import json as _json
+        body = _json.loads(response.body)
+        self.assertEqual(body.get("error", {}).get("code"), "model_unavailable")
+        self.assertIn("没有可用的供应商", body.get("error", {}).get("message", ""))
+
+    async def test_all_providers_network_exception_returns_unified_message(self):
+        routes = [self._make_route("primary", 1), self._make_route("fallback", 2)]
+
+        async def fake_handle_normal(*args, **_kwargs):
+            sem = args[13]
+            user_sem = args[14]
+            if sem is not None:
+                sem.release()
+            if user_sem is not None:
+                user_sem.release()
+            raise ConnectionError("connection refused")
+
+        response = await self._run_proxy_with_routes(
+            routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
+        )
+
+        self.assertEqual(response.status_code, 503)
+        import json as _json
+        body = _json.loads(response.body)
+        self.assertEqual(body.get("error", {}).get("code"), "model_unavailable")
+        self.assertIn("没有可用的供应商", body.get("error", {}).get("message", ""))
