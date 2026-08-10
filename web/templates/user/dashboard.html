@@ -1441,12 +1441,25 @@
             } catch (e) {
                 el.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
             }
+            const origin = window.location.origin;
+            const ps1El = document.getElementById('ps1-cmd');
+            const shEl = document.getElementById('sh-cmd');
+            if (ps1El) ps1El.textContent = `irm '${origin}${APP_BASE_PATH}/opencode/setup.ps1' | iex`;
+            if (shEl) shEl.textContent = `curl -fsSL '${origin}${APP_BASE_PATH}/opencode/setup.sh' | bash`;
         }
         
         function copyConfig() {
             const config = document.getElementById('config-output').textContent;
             navigator.clipboard.writeText(config).then(() => alert(window.I18N.copied));
         }
+
+        function copyById(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const text = el.textContent || '';
+            navigator.clipboard.writeText(text).then(() => alert(window.I18N.copied));
+        }
+
 
         function copyOpencodeConfigDir() {
             const dir = document.getElementById('opencode-config-dir')?.textContent || '~/.config/opencode';
