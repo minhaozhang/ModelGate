@@ -278,6 +278,23 @@
             return items ? `<div class="mt-2 space-y-1 border-l-2 border-gray-100 pl-2">${items}</div>` : '';
         }
 
+        function renderProviderKeyList(keys) {
+            const items = Object.entries(keys || {})
+                .filter(([, k]) => (k.requests || 0) > 0)
+                .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0))
+                .map(([label, k]) => {
+                    const modelsHtml = Object.entries(k.models || {})
+                        .filter(([, m]) => (m.requests || 0) > 0)
+                        .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0))
+                        .map(([model, m]) => `<div class="flex justify-between text-[10px] text-gray-400"><span class="truncate">${model}</span><span class="shrink-0 ml-2">${m.requests} / ${formatCompactTokens(m.tokens || 0)}</span></div>`)
+                        .join('');
+                    const mk = modelsHtml ? `<div class="mt-1 space-y-0.5 border-l-2 border-gray-100 pl-2">${modelsHtml}</div>` : '';
+                    return `<div class="space-y-0.5"><div class="flex justify-between text-[11px]"><span class="truncate text-gray-600 font-medium">${label}</span><span class="shrink-0 ml-2 text-gray-500">${k.requests} / ${formatCompactTokens(k.tokens || 0)}</span></div>${mk}</div>`;
+                })
+                .join('');
+            return items ? `<div class="mt-2 space-y-1.5 border-l-2 border-blue-100 pl-2">${items}</div>` : '';
+        }
+
         function renderProviderBars(providers, disabledProviders) {
             const entries = Object.entries(providers)
                 .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0));
@@ -291,7 +308,8 @@
             `;
             const html = entries.map(([name, p]) => {
                 const pct = ((p.tokens || 0) / maxTokens) * 100;
-                const modelsHtml = renderModelList(p.models);
+                const hasKeys = p.keys && Object.values(p.keys).some(k => (k.requests || 0) > 0);
+                const breakdownHtml = hasKeys ? renderProviderKeyList(p.keys) : renderModelList(p.models);
                 const isDisabled = disabledProviders && disabledProviders[name];
                 const warnIcon = isDisabled
                     ? `<span class="warn-icon ml-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${isDisabled}</span></span>`
@@ -299,7 +317,7 @@
                 return `<div class="bg-gray-50 rounded-lg p-3">
                     <div class="flex justify-between text-xs gap-2"><span class="font-medium truncate">${name}${warnIcon}</span><span class="text-gray-500 shrink-0">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span></div>
                     <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>
-                    ${modelsHtml}
+                    ${breakdownHtml}
                 </div>`;
             }).join('');
             document.getElementById('provider-bars').innerHTML = html || `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noData}</div>`;

@@ -1345,6 +1345,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         RequestLog.model,
                         RequestLog.tokens,
                         RequestLog.status,
+                        RequestLog.provider_key_label,
                     ).where(RequestLog.created_at >= raw_start)
                 )
                 raw_rows = raw_result.fetchall()
@@ -1383,7 +1384,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                     if provider_name:
                         provider_bucket = provider_stats.setdefault(
                             provider_name,
-                            {"requests": 0, "tokens": 0, "models": {}},
+                            {"requests": 0, "tokens": 0, "models": {}, "keys": {}},
                         )
                         provider_bucket["requests"] += 1
                         provider_bucket["tokens"] += tokens
@@ -1393,6 +1394,20 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                             )
                             model_bucket["requests"] += 1
                             model_bucket["tokens"] += tokens
+                        key_label = row.provider_key_label
+                        if key_label:
+                            key_bucket = provider_bucket["keys"].setdefault(
+                                key_label,
+                                {"requests": 0, "tokens": 0, "models": {}},
+                            )
+                            key_bucket["requests"] += 1
+                            key_bucket["tokens"] += tokens
+                            if row.model:
+                                km = key_bucket["models"].setdefault(
+                                    row.model, {"requests": 0, "tokens": 0}
+                                )
+                                km["requests"] += 1
+                                km["tokens"] += tokens
 
                     api_key_name = api_keys_map.get(row.api_key_id)
                     if api_key_name:
@@ -1475,7 +1490,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                 if provider_name:
                     provider_bucket = provider_stats.setdefault(
                         provider_name,
-                        {"requests": 0, "tokens": 0, "models": {}},
+                        {"requests": 0, "tokens": 0, "models": {}, "keys": {}},
                     )
                     provider_bucket["requests"] += 1
                     provider_bucket["tokens"] += tokens
@@ -1485,6 +1500,20 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         )
                         model_bucket["requests"] += 1
                         model_bucket["tokens"] += tokens
+                    key_label = log.provider_key_label
+                    if key_label:
+                        key_bucket = provider_bucket["keys"].setdefault(
+                            key_label,
+                            {"requests": 0, "tokens": 0, "models": {}},
+                        )
+                        key_bucket["requests"] += 1
+                        key_bucket["tokens"] += tokens
+                        if log.model:
+                            km = key_bucket["models"].setdefault(
+                                log.model, {"requests": 0, "tokens": 0}
+                            )
+                            km["requests"] += 1
+                            km["tokens"] += tokens
 
                 api_key_name = api_keys_map.get(log.api_key_id)
                 if api_key_name:
