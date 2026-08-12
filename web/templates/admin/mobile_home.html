@@ -654,7 +654,7 @@
                         .join('');
                     return `<div class="bg-gray-50 rounded-lg p-3">
                         <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${keyName}">${keyName}</div><div class="mt-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
+                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${keyName}">${keyName}${(session.tags || []).map(t => `<span class="bg-amber-100 text-amber-800 text-[9px] px-1 py-0.5 rounded ml-1 align-middle">${t}</span>`).join('')}</div><div class="mt-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
                         </div>
                     </div>`;
                 }).join('');

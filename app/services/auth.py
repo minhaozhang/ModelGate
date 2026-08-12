@@ -9,6 +9,7 @@ from app.core.database import (
     ApiKey,
     ApiKeyModelAccess,
     ApiKeyMcpServer,
+    ApiKeyTag,
     ApiKeyTimeRule,
 )
 
@@ -64,6 +65,15 @@ async def load_api_keys():
         for row in all_mcp_result.fetchall():
             key_mcp_map[row[0]].append(row[1])
 
+        all_tags_result = await session.execute(
+            select(ApiKeyTag.api_key_id, ApiKeyTag.tag).where(
+                ApiKeyTag.api_key_id.in_(key_ids)
+            )
+        )
+        key_tags_map: dict[int, list[str]] = {k.id: [] for k in keys}
+        for row in all_tags_result.fetchall():
+            key_tags_map[row[0]].append(row[1])
+
         api_keys_cache.clear()
         for k in keys:
             api_keys_cache[k.key] = {
@@ -77,6 +87,7 @@ async def load_api_keys():
                 "allowed_model_ids": key_model_access_map[k.id],
                 "time_rules": key_rules_map[k.id],
                 "mcp_server_ids": key_mcp_map[k.id],
+                "tags": key_tags_map[k.id],
             }
 
 
