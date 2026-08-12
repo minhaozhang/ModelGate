@@ -16,6 +16,7 @@ from app.core.database import (
     RequestLog,
     ApiKey,
     Provider,
+    ProviderKey,
     ProviderDailyStat,
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
@@ -1179,6 +1180,13 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
     start = get_period_start(period, now)
 
     async with async_session_maker() as session:
+        # Current provider_key_id -> label map (live values, not the
+        # snapshot stored in request_logs.provider_key_label).
+        pk_label_rows = await session.execute(select(ProviderKey.id, ProviderKey.label))
+        pk_label_map: dict[int, Optional[str]] = {
+            row[0]: row[1] for row in pk_label_rows.fetchall() if row[0] is not None
+        }
+
         model_stats = {}
         provider_stats = {}
         api_key_stats = {}
@@ -1345,6 +1353,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         RequestLog.model,
                         RequestLog.tokens,
                         RequestLog.status,
+                        RequestLog.provider_key_id,
                         RequestLog.provider_key_label,
                     ).where(RequestLog.created_at >= raw_start)
                 )
@@ -1394,20 +1403,22 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                             )
                             model_bucket["requests"] += 1
                             model_bucket["tokens"] += tokens
-                        key_label = row.provider_key_label
-                        if key_label:
-                            key_bucket = provider_bucket["keys"].setdefault(
-                                key_label,
-                                {"requests": 0, "tokens": 0, "models": {}},
+                    key_label = row.provider_key_label
+                    if row.provider_key_id is not None:
+                        key_label = pk_label_map.get(row.provider_key_id, row.provider_key_label)
+                    if key_label:
+                        key_bucket = provider_bucket["keys"].setdefault(
+                            key_label,
+                            {"requests": 0, "tokens": 0, "models": {}},
+                        )
+                        key_bucket["requests"] += 1
+                        key_bucket["tokens"] += tokens
+                        if row.model:
+                            km = key_bucket["models"].setdefault(
+                                row.model, {"requests": 0, "tokens": 0}
                             )
-                            key_bucket["requests"] += 1
-                            key_bucket["tokens"] += tokens
-                            if row.model:
-                                km = key_bucket["models"].setdefault(
-                                    row.model, {"requests": 0, "tokens": 0}
-                                )
-                                km["requests"] += 1
-                                km["tokens"] += tokens
+                            km["requests"] += 1
+                            km["tokens"] += tokens
 
                     api_key_name = api_keys_map.get(row.api_key_id)
                     if api_key_name:
@@ -1501,6 +1512,8 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         model_bucket["requests"] += 1
                         model_bucket["tokens"] += tokens
                     key_label = log.provider_key_label
+                    if log.provider_key_id is not None:
+                        key_label = pk_label_map.get(log.provider_key_id, log.provider_key_label)
                     if key_label:
                         key_bucket = provider_bucket["keys"].setdefault(
                             key_label,
