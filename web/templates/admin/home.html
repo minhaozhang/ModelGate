@@ -422,7 +422,8 @@
                 const pct = ((k.tokens || 0) / maxTokens) * 100;
                 const modelsHtml = renderModelList(k.models, 'text-gray-600');
                 const masked = maskName(name);
-                return `<div class="rounded p-2 bg-gray-50"><div class="flex justify-between text-xs mb-1 gap-2"><span class="font-medium truncate cursor-default" title="${name}">${masked}</span><span class="text-gray-500 shrink-0">${k.requests} req / ${formatCompactTokens(k.tokens || 0)}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-green-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>${modelsHtml}</div>`;
+                const tagsHtml = (k.tags || []).map(t => `<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded ml-1 align-middle">${t}</span>`).join('');
+                return `<div class="rounded p-2 bg-gray-50"><div class="flex justify-between text-xs mb-1 gap-2"><span class="font-medium truncate cursor-default" title="${name}">${masked}${tagsHtml}</span><span class="text-gray-500 shrink-0">${k.requests} req / ${formatCompactTokens(k.tokens || 0)}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="bg-green-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>${modelsHtml}</div>`;
             }).join('');
             document.getElementById('apikey-bars').innerHTML = html || '<div class="text-gray-400 text-center py-2 text-xs">No data</div>';
             document.getElementById('apikey-usage-count').textContent = entries.length > 0 ? `(${entries.length})` : '';
