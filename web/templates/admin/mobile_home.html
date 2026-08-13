@@ -49,7 +49,7 @@
         .metric-flip { display:inline-flex; align-items:flex-end; min-height:1em; line-height:1; white-space:nowrap; }
         @media(prefers-reduced-motion:reduce){ .fr{transition-duration:.01ms!important;} }
         .warn-icon { position: relative; display: inline-flex; align-items: center; cursor: pointer; color: #ef4444; vertical-align: middle; }
-        .warn-icon .warn-tip { display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); background: #1f2937; color: #f9fafb; padding: 6px 10px; border-radius: 6px; font-size: 12px; max-width: 200px; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.4; }
+        .warn-icon .warn-tip { display: none; position: absolute; left: 0; bottom: calc(100% + 6px); background: #1f2937; color: #f9fafb; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; max-width: min(400px, 80vw); z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; }
         .warn-icon:hover .warn-tip { display: block; }
     </style>
 </head>

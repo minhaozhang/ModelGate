@@ -37,10 +37,10 @@
         .icon-btn:hover { background: rgba(0,0,0,0.06); }
         body.theme-dark .icon-btn:hover { background: rgba(255,255,255,0.08); }
         .warn-icon { position: relative; display: inline-flex; align-items: center; cursor: pointer; color: #f59e0b; }
-        .warn-icon .warn-tip { display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); background: #1f2937; color: #f9fafb; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; max-width: 260px; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.4; }
+        .warn-icon .warn-tip { display: none; position: absolute; left: 0; bottom: calc(100% + 6px); background: #1f2937; color: #f9fafb; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; max-width: min(600px, 80vw); z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; }
         .warn-icon:hover .warn-tip { display: block; }
         .help-tip { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 999px; background: #e2e8f0; color: #475569; font-size: 11px; font-weight: 700; cursor: help; }
-        .help-tip .help-tip-body { display: none; position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); width: 260px; background: #1f2937; color: #f9fafb; padding: 8px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; line-height: 1.45; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .help-tip .help-tip-body { display: none; position: absolute; left: 0; bottom: calc(100% + 8px); width: min(600px, 80vw); background: #1f2937; color: #f9fafb; padding: 8px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; line-height: 1.45; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         .help-tip:hover .help-tip-body { display: block; }
         .mk-item:hover { background: #f8fafc; }
         .mk-item.selected { background: #eff6ff; }
