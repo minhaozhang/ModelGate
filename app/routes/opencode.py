@@ -185,7 +185,13 @@ async def build_opencode_config(
                 if e.strip()
             ]
         elif thinking_config:
-            efforts = ["low", "high", "max"]
+            # Zhipu GLM-5.2+ maps low/medium->high and xhigh->max, so only
+            # high/max are meaningful effort levels there.
+            provider_hint = f"{provider.name} {provider.base_url or ''}".lower()
+            if any(h in provider_hint for h in ("zhipu", "bigmodel", "z.ai", "glm")):
+                efforts = ["high", "max"]
+            else:
+                efforts = ["low", "high", "max"]
         else:
             efforts = []
         if efforts:

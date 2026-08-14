@@ -321,6 +321,8 @@ async def remove_provider_model(
     pm_id: int,
     _: bool = Depends(permission_required("provider_model.delete")),
 ):
+    from app.core.database import ApiKeyModel, ApiKey, Model
+
     async with async_session_maker() as session:
         result = await session.execute(
             select(ProviderModel).where(
@@ -330,13 +332,52 @@ async def remove_provider_model(
         pm = result.scalar_one_or_none()
         if not pm:
             return JSONResponse({"error": "ProviderModel not found"}, status_code=404)
+
+        model_result = await session.execute(
+            select(Model.name).where(Model.id == pm.model_id)
+        )
+        model_name = model_result.scalar() or f"#{pm.model_id}"
+
+        key_result = await session.execute(
+            select(ApiKey.name)
+            .select_from(ApiKeyModel)
+            .join(ApiKey, ApiKey.id == ApiKeyModel.api_key_id)
+            .where(ApiKeyModel.provider_model_id == pm_id)
+            .order_by(ApiKey.name)
+            .limit(10)
+        )
+        bound_keys = [row[0] for row in key_result.fetchall()]
+        if bound_keys:
+            from sqlalchemy import func
+
+            total_result = await session.execute(
+                select(func.count()).select_from(ApiKeyModel).where(
+                    ApiKeyModel.provider_model_id == pm_id
+                )
+            )
+            total = total_result.scalar() or len(bound_keys)
+            more = f" 等 {total} 个 Key" if total > len(bound_keys) else ""
+            return JSONResponse(
+                {
+                    "error": (
+                        f"无法解除模型「{model_name}」的绑定：该供应商模型仍被 {total} 个 API Key 引用"
+                        f"（{'、'.join(bound_keys)}{more}）。"
+                        f"请先在这些 API Key 的「允许模型」中移除该模型。"
+                    )
+                },
+                status_code=409,
+            )
+
         try:
             await session.delete(pm)
             await session.commit()
         except IntegrityError:
-            await session.rollback()
+            try:
+                await session.rollback()
+            except Exception:
+                pass
             return JSONResponse(
-                {"error": "Cannot delete: model is bound to API keys. Remove API key bindings first."},
+                {"error": f"无法解除模型「{model_name}」的绑定：仍有关联数据引用它，请先解除相关配置。"},
                 status_code=409,
             )
         await load_providers()
