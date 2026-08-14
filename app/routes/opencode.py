@@ -184,10 +184,14 @@ async def build_opencode_config(
                 for e in reasoning_effort_raw.split(",")
                 if e.strip()
             ]
-            if efforts:
-                model_entry["variants"] = {
-                    effort: {"reasoningEffort": effort} for effort in efforts
-                }
+        elif thinking_config:
+            efforts = ["low", "high", "max"]
+        else:
+            efforts = []
+        if efforts:
+            model_entry["variants"] = {
+                effort: {"reasoningEffort": effort} for effort in efforts
+            }
 
         models_config[model_key] = model_entry
         model_priority[model_key] = priority
@@ -347,6 +351,9 @@ def build_app_base_url(request: Request) -> str:
 
 _POWERSHELL_SCRIPT = r'''$ErrorActionPreference = "Stop"
 
+# PowerShell 5.1 defaults may not include TLS 1.2.
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+
 $BaseUrl = "__BASE_URL__"
 $PresetApiKey = "__API_KEY__"
 
@@ -375,25 +382,31 @@ if (Test-Path -LiteralPath $ConfigFile) {
     Write-Host "Backed up existing config -> $backup" -ForegroundColor Yellow
 }
 
-# Load existing config (strip // line comments and trailing commas for parsing).
-$Existing = @{}
+# Load existing config (strip // line comments, /* */ comment lines and trailing commas).
+$Existing = $null
 if (Test-Path -LiteralPath $ConfigFile) {
     try {
         $raw = Get-Content -LiteralPath $ConfigFile -Raw
-        $stripped = ($raw -split "`n" | Where-Object { $_ -notmatch '^\s*//' -and $_ -notmatch '^\s*/\*' }) -join "`n"
+        $stripped = ($raw -split "`n" | Where-Object { $_ -notmatch '^\s*//' -and $_ -notmatch '^\s*\*' }) -join "`n"
+        $stripped = $stripped -replace '(?m)(?<!:)//.*$', ''
         $stripped = $stripped -replace ',(\s*[}\]])', '$1'
-        $Existing = ConvertFrom-Json $stripped -AsHashtable -ErrorAction Stop
+        if (-not $stripped.Trim()) { $stripped = '{}' }
+        $Existing = ConvertFrom-Json $stripped
     } catch {
-        Write-Host "Existing config could not be parsed, starting fresh." -ForegroundColor Yellow
-        $Existing = @{}
+        Write-Host "Existing config could not be parsed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "Continuing with a fresh config would DROP your existing providers/settings (a backup was kept)." -ForegroundColor Yellow
+        $answer = Read-Host "Continue with a fresh config anyway? (y/N)"
+        if ($answer -notmatch '^[Yy]') { exit 1 }
+        $Existing = $null
     }
 }
+if ($null -eq $Existing) { $Existing = ConvertFrom-Json '{}' }
 
 # POST to /opencode/merge to get merged config back.
 $body = @{ config = $Existing } | ConvertTo-Json -Depth 100 -Compress
 $mergeUrl = "$BaseUrl/opencode/merge?api_key=" + [uri]::EscapeDataString($ApiKey)
 try {
-    $resp = Invoke-RestMethod -Method Post -Uri $mergeUrl -ContentType "application/json; charset=utf-8" -Body $body
+    $resp = Invoke-RestMethod -Method Post -Uri $mergeUrl -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($body))
 } catch {
     Write-Host "Failed to fetch config from ModelGate." -ForegroundColor Red
     $msg = $_.Exception.Message
@@ -402,12 +415,12 @@ try {
     exit 1
 }
 
-# Save merged config.
+# Save merged config (UTF-8 without BOM so any JSON parser can read it).
 if (-not (Test-Path -LiteralPath $ConfigDir)) {
     New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
 }
 $json = $resp | ConvertTo-Json -Depth 100
-Set-Content -LiteralPath $ConfigFile -Value $json -Encoding UTF8
+[IO.File]::WriteAllText($ConfigFile, $json)
 
 Write-Host ""
 Write-Host "ModelGate provider configured." -ForegroundColor Green
@@ -452,12 +465,21 @@ if [ -f "$CONFIG_FILE" ]; then
     echo "Backed up existing config -> $CONFIG_FILE.bak.$stamp"
 fi
 
-# Load existing config (strip // line comments, /* */ blocks, trailing commas).
+# Load existing config (strip // comments outside URLs, /* */ comment lines, trailing commas).
 if [ -f "$CONFIG_FILE" ]; then
-    EXISTING=$(sed -E 's|//.*||g; s|/\*[^*]*\*+([^/*][^*]*\*+)*/||g' "$CONFIG_FILE" \
+    EXISTING=$(sed -E 's|^[[:space:]]*//.*||g; s|^[[:space:]]*/\*.*||g; s|^[[:space:]]*\*.*||g; s|([[:space:]])//.*|\1|g' "$CONFIG_FILE" \
                 | tr -d '\n' \
-                | sed -E 's|,(\s*[}\]])|\1|g' \
-                | jq '.' 2>/dev/null || echo '{}')
+                | sed -E 's|,([[:space:]]*[]}])|\1|g' \
+                | jq '.' 2>/dev/null)
+    if [ -z "$EXISTING" ] || [ "$EXISTING" = "null" ]; then
+        echo "Existing config could not be parsed. A backup was kept next to it." >&2
+        echo "Continuing with a fresh config would DROP your existing providers/settings." >&2
+        read -rp "Continue with a fresh config anyway? (y/N) " answer
+        case "$answer" in
+            [yY]*) EXISTING='{}' ;;
+            *) exit 1 ;;
+        esac
+    fi
 else
     EXISTING='{}'
 fi
