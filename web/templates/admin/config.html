@@ -1047,10 +1047,32 @@
 
         async function deleteModel(id) {
             if (!confirm(t('deleteModelConfirm', 'Delete this model?'))) return;
+            let resp;
             try {
-                await mgFetch(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'}, {success: t('modelDeleted', 'Model deleted'), error: t('deleteFailed', 'Delete failed')});
+                resp = await fetch(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'});
+            } catch(e) {
+                showToast(t('deleteFailed', 'Delete failed'), 'error');
+                return;
+            }
+            if (resp.status === 401) { window.location.href = APP_BASE_PATH + '/admin/login'; return; }
+            let data = null;
+            try { data = await resp.json(); } catch(e) {}
+            if (resp.ok) {
+                showToast(t('modelDeleted', 'Model deleted'), 'success');
                 loadModels();
-            } catch(e) {}
+                return;
+            }
+            if (data && data.code === 'model_bound_to_providers') {
+                const names = (data.bound_providers || []).join('、');
+                const total = data.total || (data.bound_providers || []).length;
+                if (!confirm(`本模型绑定了 ${total} 个供应商（${names}），需要先解绑这些绑定再删除。是否继续？`)) return;
+                try {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/models/` + id + '?cascade_unbind=1', {method: 'DELETE'}, {success: '已解绑并删除模型', error: t('deleteFailed', 'Delete failed')});
+                    loadModels();
+                } catch(e) {}
+                return;
+            }
+            showToast((data && data.error) || t('deleteFailed', 'Delete failed'), 'error');
         }
 
         let providerKeysTargetId = null;
