@@ -1,4 +1,22 @@
 <meta name="baidu-site-verification" content="codeva-0hVPJ6H1HZ" />
+<script>
+(function(){
+  if (location.pathname.indexOf('/admin') !== 0) return;
+  try {
+    var m = localStorage.getItem('admin_theme') || 'dark';
+    if (m !== 'dark' && m !== 'blackgold') return;
+    var cls = m === 'dark' ? 'theme-dark' : 'theme-blackgold';
+    var bg = m === 'dark' ? '#020617' : '#0a0a0a';
+    document.documentElement.style.background = bg;
+    var apply = function(b){ if (b && !b.classList.contains(cls)) b.classList.add(cls); };
+    if (document.body) { apply(document.body); return; }
+    var obs = new MutationObserver(function(){
+      if (document.body) { apply(document.body); obs.disconnect(); }
+    });
+    obs.observe(document.documentElement, { childList: true });
+  } catch(e) {}
+})();
+</script>
 <style>
 body.theme-dark .hover\:bg-gray-50:hover,
 body.theme-dark .hover\:bg-gray-100:hover,
