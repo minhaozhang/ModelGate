@@ -1,7 +1,7 @@
 <meta name="baidu-site-verification" content="codeva-0hVPJ6H1HZ" />
 <script>
 (function(){
-  if (location.pathname.indexOf('/admin') !== 0) return;
+  if (!/\/admin(\/|$)/.test(location.pathname)) return;
   try {
     var m = localStorage.getItem('admin_theme') || 'dark';
     if (m !== 'dark' && m !== 'blackgold') return;
