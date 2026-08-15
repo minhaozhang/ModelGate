@@ -1,5 +1,31 @@
 <meta name="baidu-site-verification" content="codeva-0hVPJ6H1HZ" />
 <script>
+(function(){
+  if (!/\/admin(\/|$)/.test(location.pathname)) return;
+  try {
+    var m = localStorage.getItem('admin_theme') || 'dark';
+    if (m !== 'dark' && m !== 'blackgold') return;
+    var cls = m === 'dark' ? 'theme-dark' : 'theme-blackgold';
+    var bg = m === 'dark' ? '#020617' : '#0a0a0a';
+    document.documentElement.style.background = bg;
+    var apply = function(b){ if (b && !b.classList.contains(cls)) b.classList.add(cls); };
+    if (document.body) { apply(document.body); return; }
+    var obs = new MutationObserver(function(){
+      if (document.body) { apply(document.body); obs.disconnect(); }
+    });
+    obs.observe(document.documentElement, { childList: true });
+  } catch(e) {}
+})();
+</script>
+<style>
+body.theme-dark .hover\:bg-gray-50:hover,
+body.theme-dark .hover\:bg-gray-100:hover,
+body.theme-dark .hover\:bg-white:hover { background-color: rgba(148, 163, 184, 0.10) !important; }
+body.theme-blackgold .hover\:bg-gray-50:hover,
+body.theme-blackgold .hover\:bg-gray-100:hover,
+body.theme-blackgold .hover\:bg-white:hover { background-color: rgba(229, 192, 123, 0.08) !important; }
+</style>
+<script>
 var _hmt = _hmt || [];
 (function() {
   var hm = document.createElement("script");

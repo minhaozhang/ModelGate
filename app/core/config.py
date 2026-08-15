@@ -218,6 +218,15 @@ def get_api_key_name(api_key_id: int | None) -> str | None:
     return None
 
 
+def get_api_key_tags(api_key_id: int | None) -> list[str]:
+    if not api_key_id:
+        return []
+    for key_data in api_keys_cache.values():
+        if key_data["id"] == api_key_id:
+            return list(key_data.get("tags") or [])
+    return []
+
+
 async def register_active_request(
     request_id: str,
     provider: str,
@@ -275,6 +284,7 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                 key_name,
                 {
                     "api_key_id": request_data.get("api_key_id"),
+                    "tags": get_api_key_tags(request_data.get("api_key_id")),
                     "models": {},
                     "requests": 0,
                     "tokens": 0,

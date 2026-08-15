@@ -161,18 +161,81 @@ async def update_model(
 
 @router.delete("/models/{model_id}")
 async def delete_model(model_id: int, _: bool = Depends(permission_required("model.delete"))):
+    from app.core.database import ApiKey, ApiKeyModelAccess, Provider, ProviderModel
+    from sqlalchemy import func
+
     async with async_session_maker() as session:
         result = await session.execute(select(Model).where(Model.id == model_id))
         model = result.scalar_one_or_none()
         if not model:
             return JSONResponse({"error": "Model not found"}, status_code=404)
+
+        bound_result = await session.execute(
+            select(Provider.name)
+            .select_from(ProviderModel)
+            .join(Provider, Provider.id == ProviderModel.provider_id)
+            .where(ProviderModel.model_id == model_id)
+            .order_by(Provider.name)
+            .limit(10)
+        )
+        bound_providers = [row[0] for row in bound_result.fetchall()]
+        if bound_providers:
+            total_result = await session.execute(
+                select(func.count()).select_from(ProviderModel).where(
+                    ProviderModel.model_id == model_id
+                )
+            )
+            total = total_result.scalar() or len(bound_providers)
+            more = f" 等 {total} 个绑定" if total > len(bound_providers) else ""
+            return JSONResponse(
+                {
+                    "error": (
+                        f"无法删除模型「{model.name}」：已被 {total} 个供应商绑定"
+                        f"（{'、'.join(bound_providers)}{more}）。"
+                        f"请先在「供应商与模型」中解除这些绑定后再删除。"
+                    )
+                },
+                status_code=409,
+            )
+
+        access_result = await session.execute(
+            select(ApiKey.name)
+            .select_from(ApiKeyModelAccess)
+            .join(ApiKey, ApiKey.id == ApiKeyModelAccess.api_key_id)
+            .where(ApiKeyModelAccess.model_id == model_id)
+            .order_by(ApiKey.name)
+            .limit(10)
+        )
+        access_keys = [row[0] for row in access_result.fetchall()]
+        if access_keys:
+            total_result = await session.execute(
+                select(func.count()).select_from(ApiKeyModelAccess).where(
+                    ApiKeyModelAccess.model_id == model_id
+                )
+            )
+            total = total_result.scalar() or len(access_keys)
+            more = f" 等 {total} 个 Key" if total > len(access_keys) else ""
+            return JSONResponse(
+                {
+                    "error": (
+                        f"无法删除模型「{model.name}」：仍有 {total} 个 API Key 的「允许模型」包含它"
+                        f"（{'、'.join(access_keys)}{more}）。"
+                        f"请先在这些 Key 的模型授权中移除该模型。"
+                    )
+                },
+                status_code=409,
+            )
+
         try:
             await session.delete(model)
             await session.commit()
         except IntegrityError:
-            await session.rollback()
+            try:
+                await session.rollback()
+            except Exception:
+                pass
             return JSONResponse(
-                {"error": "Cannot delete: model has provider bindings. Remove all provider bindings first."},
+                {"error": f"无法删除模型「{model.name}」：仍有关联数据引用它，请先解除相关配置。"},
                 status_code=409,
             )
         return {"deleted": True}

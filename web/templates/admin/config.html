@@ -37,10 +37,10 @@
         .icon-btn:hover { background: rgba(0,0,0,0.06); }
         body.theme-dark .icon-btn:hover { background: rgba(255,255,255,0.08); }
         .warn-icon { position: relative; display: inline-flex; align-items: center; cursor: pointer; color: #f59e0b; }
-        .warn-icon .warn-tip { display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); background: #1f2937; color: #f9fafb; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; max-width: 260px; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.4; }
+        .warn-icon .warn-tip { display: none; position: absolute; left: 0; bottom: calc(100% + 6px); background: #1f2937; color: #f9fafb; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; max-width: min(600px, 80vw); z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; }
         .warn-icon:hover .warn-tip { display: block; }
         .help-tip { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 999px; background: #e2e8f0; color: #475569; font-size: 11px; font-weight: 700; cursor: help; }
-        .help-tip .help-tip-body { display: none; position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); width: 260px; background: #1f2937; color: #f9fafb; padding: 8px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; line-height: 1.45; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .help-tip .help-tip-body { display: none; position: absolute; left: 0; bottom: calc(100% + 8px); width: min(600px, 80vw); background: #1f2937; color: #f9fafb; padding: 8px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; line-height: 1.45; white-space: normal; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         .help-tip:hover .help-tip-body { display: block; }
         .mk-item:hover { background: #f8fafc; }
         .mk-item.selected { background: #eff6ff; }
@@ -516,10 +516,6 @@
                     </div>
                 </div>
                 <div class="flex gap-4">
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens for the reasoning/thinking process. Only applies when reasoning is enabled') }}">{{ _('Reasoning Budget') }}</label>
-                        <input type="text" id="model-thinking-budget" value="8k" placeholder="e.g. 8192 or 8k" class="w-full border rounded px-3 py-2">
-                    </div>
                     <div class="flex-1 flex flex-col justify-end">
                         <label class="flex items-center" title="{{ _('Enable extended reasoning / chain-of-thought for this model') }}">
                             <input type="checkbox" id="model-thinking-enabled" checked class="mr-2">
@@ -528,12 +524,8 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Comma-separated reasoning effort levels exposed as switchable variants in opencode (e.g. high,max). Leave empty to disable effort variants.') }}">{{ _('Reasoning Effort Variants') }}</label>
-                    <input type="text" id="model-reasoning-effort" class="w-full border rounded px-3 py-2 text-sm" placeholder="e.g. low,medium,high,max">
-                </div>
-                <div class="flex-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Estimated blended price per 1M tokens (USD). Used for cost estimation on user dashboard.') }}">{{ _('Est. Price $/1M tokens') }}</label>
-                    <input type="number" step="0.01" id="model-estimated-price" value="" placeholder="0.00" class="w-full border rounded px-3 py-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Comma-separated reasoning effort levels exposed as switchable variants in opencode (e.g. high,max). Leave empty to use provider defaults (Zhipu GLM-5.2+: high,max; others: low,high,max).') }}">{{ _('Reasoning Effort Variants') }}</label>
+                    <input type="text" id="model-reasoning-effort" class="w-full border rounded px-3 py-2 text-sm" placeholder="{{ _('empty = provider default (Zhipu: high,max)') }}">
                 </div>
                 <div class="flex items-center gap-4">
                     <label class="flex items-center">
@@ -979,7 +971,6 @@
             document.getElementById('model-max-tokens').value = '128k';
             document.getElementById('model-context-length').value = '200k';
             document.getElementById('model-thinking-enabled').checked = true;
-            document.getElementById('model-thinking-budget').value = '8k';
             document.getElementById('model-reasoning-effort').value = '';
             document.getElementById('model-multimodal').checked = false;
             document.getElementById('model-active').checked = true;
@@ -999,9 +990,7 @@
             document.getElementById('model-max-tokens').value = formatTokenValue(m.max_tokens);
             document.getElementById('model-context-length').value = formatTokenValue(m.context_length);
             document.getElementById('model-thinking-enabled').checked = m.thinking_enabled;
-            document.getElementById('model-thinking-budget').value = formatTokenValue(m.thinking_budget);
             document.getElementById('model-reasoning-effort').value = m.reasoning_effort || '';
-            document.getElementById('model-estimated-price').value = m.estimated_price || '';
             document.getElementById('model-multimodal').checked = m.is_multimodal;
             document.getElementById('model-active').checked = m.is_active;
             document.getElementById('model-tags').value = m.tags || '';
@@ -1024,9 +1013,7 @@
                 max_tokens: parseTokenValue(document.getElementById('model-max-tokens').value) || 131072,
                 context_length: parseTokenValue(document.getElementById('model-context-length').value) || 204800,
                 thinking_enabled: document.getElementById('model-thinking-enabled').checked,
-                thinking_budget: parseTokenValue(document.getElementById('model-thinking-budget').value) || 8192,
                 reasoning_effort: document.getElementById('model-reasoning-effort').value.trim() || null,
-                estimated_price: parseFloat(document.getElementById('model-estimated-price').value) || null,
                 is_multimodal: document.getElementById('model-multimodal').checked,
                 is_active: document.getElementById('model-active').checked
             };
@@ -1040,7 +1027,6 @@
                             max_tokens: data.max_tokens,
                             context_length: data.context_length,
                             thinking_enabled: data.thinking_enabled,
-                            thinking_budget: data.thinking_budget,
                             reasoning_effort: data.reasoning_effort,
                             is_multimodal: data.is_multimodal,
                             is_active: data.is_active,
@@ -1097,7 +1083,10 @@
                     <div class="pk-info">
                         <div class="pk-meta">
                             <span class="text-sm font-mono font-medium">${k.api_key}</span>
-                            ${k.label ? '<span class="text-xs text-gray-400">' + k.label + '</span>' : ''}
+                            <input type="text" value="${(k.label || '').replace(/"/g, '&quot;')}" placeholder="${t('label', 'Label')}"
+                                   id="provider-key-label-${k.id}"
+                                   class="w-24 border rounded px-1.5 py-0.5 text-xs">
+                            <button onclick="updateProviderKeyLabel(${k.id})" class="pk-action text-blue-500 hover:text-blue-700 text-xs">${t('save', 'Save')}</button>
                             <span class="text-xs ${k.is_active ? 'text-green-600' : 'text-red-500'}">${k.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
                             ${k.disabled_reason ? '<span class="warn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">' + k.disabled_reason.replace(/</g, '&lt;') + '</span></span>' : ''}
                         </div>
@@ -1426,6 +1415,21 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({priority: priority})
                 }, {success: 'Priority saved', error: t('failedToSave', 'Failed to save')});
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {}
+        }
+
+        async function updateProviderKeyLabel(keyId) {
+            if (!providerKeysTargetId) return;
+            const input = document.getElementById('provider-key-label-' + keyId);
+            const label = input ? input.value.trim() : '';
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({label: label})
+                }, {success: t('labelSaved', 'Label saved'), error: t('failedToSave', 'Failed to save')});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
             } catch(err) {}
@@ -1803,7 +1807,7 @@
                                 </td>
                                 <td>
                                     <div class="flex flex-wrap gap-1.5">
-                                        <span class="status-pill neutral">${m.thinking_enabled ? `推理 ${formatTokenValue(m.thinking_budget) || '0'}` : t('thinkingOff', 'off')}</span>
+                                        <span class="status-pill neutral">${m.thinking_enabled ? (m.reasoning_effort ? `推理 ${escapeHtml(m.reasoning_effort)}` : '推理 on') : t('thinkingOff', 'off')}</span>
                                         ${m.is_multimodal ? `<span class="status-pill neutral">${t('multimodal', 'multimodal')}</span>` : ''}
                                     </div>
                                 </td>

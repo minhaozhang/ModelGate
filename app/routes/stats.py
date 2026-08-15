@@ -15,7 +15,9 @@ from app.core.database import (
     async_session_maker,
     RequestLog,
     ApiKey,
+    ApiKeyTag,
     Provider,
+    ProviderKey,
     ProviderDailyStat,
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
@@ -169,6 +171,24 @@ async def get_api_key_name_map(
         result = await session.execute(select(ApiKey).where(ApiKey.id.in_(missing_ids)))
         names.update({api_key.id: api_key.name for api_key in result.scalars()})
     return names
+
+
+async def get_api_key_tags_map(
+    session, api_key_ids: list[int] | set[int]
+) -> dict[int, list[str]]:
+    """Live {api_key_id: [tag, ...]} from api_key_tags."""
+    api_key_ids = [i for i in api_key_ids if i is not None]
+    if not api_key_ids:
+        return {}
+    result = await session.execute(
+        select(ApiKeyTag.api_key_id, ApiKeyTag.tag).where(
+            ApiKeyTag.api_key_id.in_(api_key_ids)
+        )
+    )
+    tags_map: dict[int, list[str]] = {}
+    for api_key_id, tag in result.fetchall():
+        tags_map.setdefault(api_key_id, []).append(tag)
+    return tags_map
 
 
 def get_aggregate_window_bounds(
@@ -1179,6 +1199,13 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
     start = get_period_start(period, now)
 
     async with async_session_maker() as session:
+        # Current provider_key_id -> label map (live values, not the
+        # snapshot stored in request_logs.provider_key_label).
+        pk_label_rows = await session.execute(select(ProviderKey.id, ProviderKey.label))
+        pk_label_map: dict[int, Optional[str]] = {
+            row[0]: row[1] for row in pk_label_rows.fetchall() if row[0] is not None
+        }
+
         model_stats = {}
         provider_stats = {}
         api_key_stats = {}
@@ -1289,6 +1316,9 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                 api_key_names = await get_api_key_name_map(
                     session, [row.api_key_id for row in api_key_rows if row.api_key_id]
                 )
+                api_key_tags = await get_api_key_tags_map(
+                    session, [row.api_key_id for row in api_key_rows if row.api_key_id]
+                )
                 for row in api_key_rows:
                     if row.api_key_id is None:
                         continue
@@ -1300,6 +1330,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         "tokens": int(row.tokens or 0),
                         "rate_limited": int(row.rate_limited or 0),
                         "models": {},
+                        "tags": api_key_tags.get(row.api_key_id, []),
                     }
 
                 api_key_model_rows_result = await session.execute(
@@ -1329,7 +1360,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                     )
                     api_key_bucket = api_key_stats.setdefault(
                         api_key_name,
-                        {"requests": 0, "tokens": 0, "models": {}},
+                        {"requests": 0, "tokens": 0, "models": {}, "tags": api_key_tags.get(row.api_key_id, [])},
                     )
                     api_key_bucket["models"][row.model_name] = {
                         "requests": int(row.requests or 0),
@@ -1345,6 +1376,8 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         RequestLog.model,
                         RequestLog.tokens,
                         RequestLog.status,
+                        RequestLog.provider_key_id,
+                        RequestLog.provider_key_label,
                     ).where(RequestLog.created_at >= raw_start)
                 )
                 raw_rows = raw_result.fetchall()
@@ -1357,6 +1390,10 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                     },
                 )
                 api_keys_map = await get_api_key_name_map(
+                    session,
+                    {row.api_key_id for row in raw_rows if row.api_key_id is not None},
+                )
+                api_keys_tags_map = await get_api_key_tags_map(
                     session,
                     {row.api_key_id for row in raw_rows if row.api_key_id is not None},
                 )
@@ -1383,7 +1420,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                     if provider_name:
                         provider_bucket = provider_stats.setdefault(
                             provider_name,
-                            {"requests": 0, "tokens": 0, "models": {}},
+                            {"requests": 0, "tokens": 0, "models": {}, "keys": {}},
                         )
                         provider_bucket["requests"] += 1
                         provider_bucket["tokens"] += tokens
@@ -1393,12 +1430,28 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                             )
                             model_bucket["requests"] += 1
                             model_bucket["tokens"] += tokens
+                    key_label = row.provider_key_label
+                    if row.provider_key_id is not None:
+                        key_label = pk_label_map.get(row.provider_key_id, row.provider_key_label)
+                    if key_label:
+                        key_bucket = provider_bucket["keys"].setdefault(
+                            key_label,
+                            {"requests": 0, "tokens": 0, "models": {}},
+                        )
+                        key_bucket["requests"] += 1
+                        key_bucket["tokens"] += tokens
+                        if row.model:
+                            km = key_bucket["models"].setdefault(
+                                row.model, {"requests": 0, "tokens": 0}
+                            )
+                            km["requests"] += 1
+                            km["tokens"] += tokens
 
                     api_key_name = api_keys_map.get(row.api_key_id)
                     if api_key_name:
                         api_key_bucket = api_key_stats.setdefault(
                             api_key_name,
-                            {"requests": 0, "tokens": 0, "models": {}},
+                            {"requests": 0, "tokens": 0, "models": {}, "tags": api_keys_tags_map.get(row.api_key_id, [])},
                         )
                         api_key_bucket["requests"] += 1
                         api_key_bucket["tokens"] += tokens
@@ -1458,6 +1511,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
             api_key_ids = {log.api_key_id for log in logs if log.api_key_id}
             providers_map = await get_provider_name_map(session, provider_ids)
             api_keys_map = await get_api_key_name_map(session, api_key_ids)
+            api_keys_tags_map = await get_api_key_tags_map(session, api_key_ids)
 
             for log in logs:
                 if log.status in RATE_LIMITED_STATUSES:
@@ -1475,7 +1529,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                 if provider_name:
                     provider_bucket = provider_stats.setdefault(
                         provider_name,
-                        {"requests": 0, "tokens": 0, "models": {}},
+                        {"requests": 0, "tokens": 0, "models": {}, "keys": {}},
                     )
                     provider_bucket["requests"] += 1
                     provider_bucket["tokens"] += tokens
@@ -1485,12 +1539,28 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         )
                         model_bucket["requests"] += 1
                         model_bucket["tokens"] += tokens
+                    key_label = log.provider_key_label
+                    if log.provider_key_id is not None:
+                        key_label = pk_label_map.get(log.provider_key_id, log.provider_key_label)
+                    if key_label:
+                        key_bucket = provider_bucket["keys"].setdefault(
+                            key_label,
+                            {"requests": 0, "tokens": 0, "models": {}},
+                        )
+                        key_bucket["requests"] += 1
+                        key_bucket["tokens"] += tokens
+                        if log.model:
+                            km = key_bucket["models"].setdefault(
+                                log.model, {"requests": 0, "tokens": 0}
+                            )
+                            km["requests"] += 1
+                            km["tokens"] += tokens
 
                 api_key_name = api_keys_map.get(log.api_key_id)
                 if api_key_name:
                     api_key_bucket = api_key_stats.setdefault(
                         api_key_name,
-                        {"requests": 0, "tokens": 0, "models": {}},
+                        {"requests": 0, "tokens": 0, "models": {}, "tags": api_keys_tags_map.get(log.api_key_id, [])},
                     )
                     api_key_bucket["requests"] += 1
                     api_key_bucket["tokens"] += tokens

@@ -1434,19 +1434,44 @@
                 const resp = await fetch(APP_BASE_PATH + '/opencode/setup.md');
                 if (!resp.ok) {
                     el.textContent = window.I18N.loadFailed || 'Failed to load';
-                    return;
+                } else {
+                    const text = await resp.text();
+                    el.textContent = text;
                 }
-                const text = await resp.text();
-                el.textContent = text;
             } catch (e) {
                 el.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
             }
+            const origin = window.location.origin;
+            const ps1El = document.getElementById('ps1-cmd');
+            const shEl = document.getElementById('sh-cmd');
+            let keyParam = '';
+            try {
+                const resp = await fetch(APP_BASE_PATH + '/user/api/my-key');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data && data.key) {
+                        keyParam = '?key=' + encodeURIComponent(data.key);
+                        const keyEl = document.getElementById('opencode-api-key');
+                        if (keyEl) keyEl.textContent = data.key;
+                    }
+                }
+            } catch (e) { /* key stays masked out of commands */ }
+            if (ps1El) ps1El.textContent = `irm '${origin}${APP_BASE_PATH}/opencode/setup.ps1${keyParam}' | iex`;
+            if (shEl) shEl.textContent = `curl -fsSL '${origin}${APP_BASE_PATH}/opencode/setup.sh${keyParam}' | bash`;
         }
         
         function copyConfig() {
             const config = document.getElementById('config-output').textContent;
             navigator.clipboard.writeText(config).then(() => alert(window.I18N.copied));
         }
+
+        function copyById(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const text = el.textContent || '';
+            navigator.clipboard.writeText(text).then(() => alert(window.I18N.copied));
+        }
+
 
         function copyOpencodeConfigDir() {
             const dir = document.getElementById('opencode-config-dir')?.textContent || '~/.config/opencode';

@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
 
@@ -21,17 +23,26 @@ async def embeddings(request: Request):
 
 
 @router.api_route("/v1/models", methods=["GET"])
-async def list_models():
-    from app.core.config import providers_cache
-    from app.services.auto_model_routes import get_cached_auto_model_names
+async def list_models(request: Request):
+    from app.services.api_key_access import resolve_visible_models_for_api_key
 
-    model_names = set()
-    for cfg in providers_cache.values():
-        for pm in cfg.get("models", []):
-            model_name = pm.get("model_name") or pm.get("actual_model_name", "")
-            if model_name:
-                model_names.add(model_name)
-    model_names.update(get_cached_auto_model_names())
+    auth = request.headers.get("authorization") or ""
+    api_key = auth[7:].strip() if auth.lower().startswith("bearer ") else auth.strip()
+    model_names, error = await resolve_visible_models_for_api_key(api_key)
+    if error:
+        return Response(
+            content=json.dumps(
+                {
+                    "error": {
+                        "message": error,
+                        "type": "invalid_request_error",
+                        "code": "invalid_api_key",
+                    }
+                }
+            ),
+            status_code=401,
+            media_type="application/json",
+        )
     models = [
         {"id": model_name, "object": "model", "owned_by": "modelgate"}
         for model_name in sorted(model_names)

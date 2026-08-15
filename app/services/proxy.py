@@ -526,6 +526,19 @@ async def proxy_request(request: Request, endpoint: str):
                 },
             )
 
+        if route_candidates and model_explanation.get("is_auto_model"):
+            from app.core.config import busyness_state
+            cand_summary = ",".join(
+                f"{r.provider_name}/{r.upstream_model_name or r.model_name}(pm={r.provider_model_id})"
+                for r in route_candidates
+            )
+            logger.warning(
+                "[AUTO ROUTING] user=%s candidates=[%s] busyness_level=%s",
+                api_key_id,
+                cand_summary,
+                busyness_state.get("level"),
+            )
+
         for route_idx, route_result in enumerate(route_candidates):
             provider_config = route_result.provider_config
             provider_name = route_result.provider_name
@@ -763,13 +776,25 @@ async def proxy_request(request: Request, endpoint: str):
                             "provider_key_concurrency_reached",
                         )
                         if attempt_idx < len(all_keys) - 1:
-                            logger.warning("[KEY FALLBACK] Key %s concurrency reached, trying next key", chosen_key_id)
+                            logger.warning(
+                                "[KEY FALLBACK] Key %s provider-key concurrency reached (limit=%s), trying next key",
+                                chosen_key_id,
+                                getattr(provider_key_semaphore, "_modelgate_scoped_limit", "?"),
+                            )
                             continue
                         if not is_last_route and not route_result.is_forced_provider:
-                            logger.warning("[ROUTE FALLBACK] Provider %s key concurrency exhausted, trying next provider", provider_name)
+                            logger.warning(
+                                "[ROUTE FALLBACK] Provider %s provider-key concurrency exhausted (limit=%s), trying next provider",
+                                provider_name,
+                                getattr(provider_key_semaphore, "_modelgate_scoped_limit", "?"),
+                            )
                             route_exhausted = True
                             break
-                        logger.warning("[RATE LIMIT] %s at max concurrency", provider_key_sem_key)
+                        logger.warning(
+                            "[RATE LIMIT] %s at max concurrency (limit=%s)",
+                            provider_key_sem_key,
+                            getattr(provider_key_semaphore, "_modelgate_scoped_limit", "?"),
+                        )
                         update_stats(
                             provider_name,
                             actual_model,
@@ -841,14 +866,24 @@ async def proxy_request(request: Request, endpoint: str):
                             "user_provider_model_concurrency_reached",
                         )
                         if attempt_idx < len(all_keys) - 1:
-                            logger.warning("[KEY FALLBACK] Key %s user concurrency reached, trying next key", chosen_key_id)
+                            logger.warning(
+                                "[KEY FALLBACK] Key %s user-concurrency reached (limit=%s), trying next key",
+                                chosen_key_id,
+                                getattr(user_provider_model_semaphore, "_modelgate_scoped_limit", "?"),
+                            )
                             continue
                         if not is_last_route and not route_result.is_forced_provider:
-                            logger.warning("[ROUTE FALLBACK] Provider %s user/provider-model concurrency exhausted, trying next provider", provider_name)
+                            logger.warning(
+                                "[ROUTE FALLBACK] Provider %s user/provider-model concurrency exhausted (limit=%s), trying next provider",
+                                provider_name,
+                                getattr(user_provider_model_semaphore, "_modelgate_scoped_limit", "?"),
+                            )
                             route_exhausted = True
                             break
                         logger.warning(
-                            "[RATE LIMIT] %s at max concurrency", user_provider_model_sem_key
+                            "[RATE LIMIT] %s at max concurrency (limit=%s)",
+                            user_provider_model_sem_key,
+                            getattr(user_provider_model_semaphore, "_modelgate_scoped_limit", "?"),
                         )
                         update_stats(
                             provider_name,
@@ -1046,6 +1081,15 @@ async def proxy_request(request: Request, endpoint: str):
                             preferred_local_rate_limit_response is not None
                             and _should_prefer_local_rate_limit_response(response)
                         ):
+                            if model_explanation.get("is_auto_model"):
+                                from app.core.config import busyness_state
+                                logger.warning(
+                                    "[AUTO BLOCKED] user=%s model=%s busyness_level=%s routes_exhausted=%d",
+                                    api_key_id,
+                                    requested_model,
+                                    busyness_state.get("level"),
+                                    len(route_candidates),
+                                )
                             return preferred_local_rate_limit_response
                         if route_result.is_forced_provider:
                             return response

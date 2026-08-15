@@ -651,6 +651,21 @@ async def user_regenerate_key(
 
         return {"success": True, "key": key.key}
 
+@router.get("/user/api/my-key")
+async def get_user_api_key(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+
+    async with async_session_maker() as session:
+        result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
+        key = result.scalar_one_or_none()
+        if not key or not key.is_active:
+            return translated_error(request, "Not authenticated", 401)
+        return {"key": key.key}
+
+
 @router.get("/user/api/stats")
 async def get_user_stats(
     request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"

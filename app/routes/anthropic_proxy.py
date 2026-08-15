@@ -247,15 +247,15 @@ async def anthropic_count_tokens(request: Request):
 
 
 @router.get("/anthropic/v1/models")
-async def anthropic_list_models():
-    from app.core.config import providers_cache
+async def anthropic_list_models(request: Request):
+    from app.services.api_key_access import resolve_visible_models_for_api_key
 
-    model_names = set()
-    for cfg in providers_cache.values():
-        for pm in cfg.get("models", []) or []:
-            model_name = pm.get("model_name") or pm.get("actual_model_name", "")
-            if model_name:
-                model_names.add(model_name)
+    headers = _normalize_auth_header(dict(request.headers))
+    auth = headers.get("authorization") or ""
+    api_key = auth[7:].strip() if auth.lower().startswith("bearer ") else auth.strip()
+    model_names, error = await resolve_visible_models_for_api_key(api_key)
+    if error:
+        return _anthropic_error_response(error, 401, "authentication_error")
     models = [
         {
             "type": "model",

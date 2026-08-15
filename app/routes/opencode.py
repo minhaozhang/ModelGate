@@ -184,10 +184,20 @@ async def build_opencode_config(
                 for e in reasoning_effort_raw.split(",")
                 if e.strip()
             ]
-            if efforts:
-                model_entry["variants"] = {
-                    effort: {"reasoningEffort": effort} for effort in efforts
-                }
+        elif thinking_config:
+            # Zhipu GLM-5.2+ maps low/medium->high and xhigh->max, so only
+            # high/max are meaningful effort levels there.
+            provider_hint = f"{provider.name} {provider.base_url or ''}".lower()
+            if any(h in provider_hint for h in ("zhipu", "bigmodel", "z.ai", "glm")):
+                efforts = ["high", "max"]
+            else:
+                efforts = ["low", "high", "max"]
+        else:
+            efforts = []
+        if efforts:
+            model_entry["variants"] = {
+                effort: {"reasoningEffort": effort} for effort in efforts
+            }
 
         models_config[model_key] = model_entry
         model_priority[model_key] = priority
@@ -329,3 +339,206 @@ async def merge_opencode_config(
         user_config["provider"] = providers
 
         return JSONResponse(user_config)
+
+
+# ---------------------------------------------------------------------------
+# One-liner setup scripts (PowerShell for Windows, bash for macOS/Linux).
+# Pattern: `irm <url> | iex` or `curl -fsSL <url> | bash`.
+# ---------------------------------------------------------------------------
+
+def build_app_base_url(request: Request) -> str:
+    """App base URL without the trailing /v1 (used by setup scripts)."""
+    base_url = str(request.base_url).rstrip("/")
+    app_base_path = get_app_base_path(request)
+    if app_base_path and base_url.endswith(app_base_path):
+        return base_url
+    return f"{base_url}{app_base_path}"
+
+
+_POWERSHELL_SCRIPT = r'''$ErrorActionPreference = "Stop"
+
+# PowerShell 5.1 defaults may not include TLS 1.2.
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+
+$BaseUrl = "__BASE_URL__"
+$PresetApiKey = "__API_KEY__"
+
+# Locate opencode config dir.
+$HomeDir = if ($env:USERPROFILE) { $env:USERPROFILE } elseif ($env:HOME) { $env:HOME } else { (Get-Location).Path }
+$ConfigDir = Join-Path $HomeDir ".config\opencode"
+$ConfigFile = Join-Path $ConfigDir "opencode.jsonc"
+
+# Resolve API key (priority: URL preset > env var > interactive prompt).
+$ApiKey = $PresetApiKey
+if (-not $ApiKey) { $ApiKey = $env:MODELGATE_API_KEY }
+if (-not $ApiKey) {
+    Write-Host "ModelGate API Key required (find it on your user dashboard)."
+    $ApiKey = Read-Host "Enter API key (sk-...)"
+}
+if ($ApiKey -notmatch '^sk-') {
+    Write-Host ("API key must start with 'sk-' (got: '" + $ApiKey.Substring(0,[Math]::Min(15,$ApiKey.Length)) + "').") -ForegroundColor Red
+    exit 1
+}
+
+# Backup existing config.
+if (Test-Path -LiteralPath $ConfigFile) {
+    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $backup = "$ConfigFile.bak.$stamp"
+    Copy-Item -LiteralPath $ConfigFile -Destination $backup
+    Write-Host "Backed up existing config -> $backup" -ForegroundColor Yellow
+}
+
+# Load existing config (strip // line comments, /* */ comment lines and trailing commas).
+$Existing = $null
+if (Test-Path -LiteralPath $ConfigFile) {
+    try {
+        $raw = Get-Content -LiteralPath $ConfigFile -Raw
+        $stripped = ($raw -split "`n" | Where-Object { $_ -notmatch '^\s*//' -and $_ -notmatch '^\s*\*' }) -join "`n"
+        $stripped = $stripped -replace '(?m)(?<!:)//.*$', ''
+        $stripped = $stripped -replace ',(\s*[}\]])', '$1'
+        if (-not $stripped.Trim()) { $stripped = '{}' }
+        $Existing = ConvertFrom-Json $stripped
+    } catch {
+        Write-Host "Existing config could not be parsed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "Continuing with a fresh config would DROP your existing providers/settings (a backup was kept)." -ForegroundColor Yellow
+        $answer = Read-Host "Continue with a fresh config anyway? (y/N)"
+        if ($answer -notmatch '^[Yy]') { exit 1 }
+        $Existing = $null
+    }
+}
+if ($null -eq $Existing) { $Existing = ConvertFrom-Json '{}' }
+
+# POST to /opencode/merge to get merged config back.
+$body = @{ config = $Existing } | ConvertTo-Json -Depth 100 -Compress
+$mergeUrl = "$BaseUrl/opencode/merge?api_key=" + [uri]::EscapeDataString($ApiKey)
+try {
+    $resp = Invoke-RestMethod -Method Post -Uri $mergeUrl -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($body))
+} catch {
+    Write-Host "Failed to fetch config from ModelGate." -ForegroundColor Red
+    $msg = $_.Exception.Message
+    if ($_.ErrorDetails) { $msg = $_.ErrorDetails.Message }
+    Write-Host $msg -ForegroundColor Red
+    exit 1
+}
+
+# Save merged config (UTF-8 without BOM so any JSON parser can read it).
+if (-not (Test-Path -LiteralPath $ConfigDir)) {
+    New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
+}
+$json = $resp | ConvertTo-Json -Depth 100
+[IO.File]::WriteAllText($ConfigFile, $json)
+
+Write-Host ""
+Write-Host "ModelGate provider configured." -ForegroundColor Green
+Write-Host "Config file: $ConfigFile"
+$models = @($resp.provider.modelgate.models.PSObject.Properties.Name) | Sort-Object
+Write-Host ("Available models ({0}):" -f $models.Count)
+foreach ($m in $models) { Write-Host "  - $m" }
+Write-Host ""
+Write-Host "Restart opencode if it is running." -ForegroundColor Cyan
+'''
+
+
+_BASH_SCRIPT = r'''#!/usr/bin/env bash
+set -euo pipefail
+
+BASE_URL="__BASE_URL__"
+PRESET_API_KEY="__API_KEY__"
+
+# Dependencies.
+command -v curl >/dev/null 2>&1 || { echo "curl is required but not installed." >&2; exit 1; }
+command -v jq   >/dev/null 2>&1 || { echo "jq is required but not installed (brew install jq / apt install jq)." >&2; exit 1; }
+
+# Locate opencode config dir.
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+CONFIG_FILE="$CONFIG_DIR/opencode.jsonc"
+
+# Resolve API key (priority: URL preset > env var > interactive prompt).
+API_KEY="$PRESET_API_KEY"
+if [ -z "$API_KEY" ]; then API_KEY="${MODELGATE_API_KEY:-}"; fi
+if [ -z "$API_KEY" ]; then
+    read -rp "ModelGate API Key (sk-...): " API_KEY
+fi
+case "$API_KEY" in
+    sk-*) ;;
+    *) echo "Error: API key must start with 'sk-'." >&2; exit 1 ;;
+esac
+
+# Backup existing config.
+if [ -f "$CONFIG_FILE" ]; then
+    stamp=$(date +%Y%m%d-%H%M%S)
+    cp "$CONFIG_FILE" "$CONFIG_FILE.bak.$stamp"
+    echo "Backed up existing config -> $CONFIG_FILE.bak.$stamp"
+fi
+
+# Load existing config (strip // comments outside URLs, /* */ comment lines, trailing commas).
+if [ -f "$CONFIG_FILE" ]; then
+    EXISTING=$(sed -E 's|^[[:space:]]*//.*||g; s|^[[:space:]]*/\*.*||g; s|^[[:space:]]*\*.*||g; s|([[:space:]])//.*|\1|g' "$CONFIG_FILE" \
+                | tr -d '\n' \
+                | sed -E 's|,([[:space:]]*[]}])|\1|g' \
+                | jq '.' 2>/dev/null)
+    if [ -z "$EXISTING" ] || [ "$EXISTING" = "null" ]; then
+        echo "Existing config could not be parsed. A backup was kept next to it." >&2
+        echo "Continuing with a fresh config would DROP your existing providers/settings." >&2
+        read -rp "Continue with a fresh config anyway? (y/N) " answer
+        case "$answer" in
+            [yY]*) EXISTING='{}' ;;
+            *) exit 1 ;;
+        esac
+    fi
+else
+    EXISTING='{}'
+fi
+
+# POST to /opencode/merge.
+PAYLOAD=$(jq -nc --argjson cfg "$EXISTING" '{config: $cfg}')
+MERGE_URL="$BASE_URL/opencode/merge?api_key=$(printf '%s' "$API_KEY" | jq -sRr @uri)"
+RESP=$(curl -fsSL -X POST "$MERGE_URL" \
+    -H "Content-Type: application/json" \
+    -d "$PAYLOAD") || {
+    echo "Failed to fetch config from ModelGate." >&2
+    exit 1
+}
+
+# Save merged config.
+mkdir -p "$CONFIG_DIR"
+printf '%s\n' "$RESP" | jq '.' > "$CONFIG_FILE"
+
+echo ""
+echo "ModelGate provider configured."
+echo "Config file: $CONFIG_FILE"
+echo "Available models:"
+printf '%s\n' "$RESP" | jq -r '.provider.modelgate.models | keys[]' | sort | sed 's/^/  - /'
+echo ""
+echo "Restart opencode if it is running."
+'''
+
+
+def _render_setup_script(template: str, base_url: str, api_key: str) -> str:
+    return (
+        template
+        .replace("__BASE_URL__", base_url)
+        .replace("__API_KEY__", api_key or "")
+    )
+
+
+@router.get("/opencode/setup.ps1")
+async def get_opencode_setup_ps1(request: Request, key: Optional[str] = None):
+    base = build_app_base_url(request)
+    script = _render_setup_script(_POWERSHELL_SCRIPT, base, key or "")
+    return PlainTextResponse(
+        content=script,
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": 'inline; filename="modelgate-setup.ps1"'},
+    )
+
+
+@router.get("/opencode/setup.sh")
+async def get_opencode_setup_sh(request: Request, key: Optional[str] = None):
+    base = build_app_base_url(request)
+    script = _render_setup_script(_BASH_SCRIPT, base, key or "")
+    return PlainTextResponse(
+        content=script,
+        media_type="text/x-shellscript; charset=utf-8",
+        headers={"Content-Disposition": 'inline; filename="modelgate-setup.sh"'},
+    )

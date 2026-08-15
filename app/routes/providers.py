@@ -98,6 +98,9 @@ async def update_provider(
 
 @router.delete("/providers/{provider_id}")
 async def delete_provider(provider_id: int, _: bool = Depends(permission_required("provider.delete"))):
+    from app.core.database import ProviderModel, Model
+    from sqlalchemy import func
+
     async with async_session_maker() as session:
         result = await session.execute(
             select(Provider).where(Provider.id == provider_id)
@@ -105,13 +108,62 @@ async def delete_provider(provider_id: int, _: bool = Depends(permission_require
         provider = result.scalar_one_or_none()
         if not provider:
             return JSONResponse({"error": "Provider not found"}, status_code=404)
+
+        bound_result = await session.execute(
+            select(Model.name)
+            .select_from(ProviderModel)
+            .join(Model, Model.id == ProviderModel.model_id)
+            .where(ProviderModel.provider_id == provider_id)
+            .order_by(Model.name)
+            .limit(10)
+        )
+        bound_models = [row[0] for row in bound_result.fetchall()]
+        if bound_models:
+            total_result = await session.execute(
+                select(func.count()).select_from(ProviderModel).where(
+                    ProviderModel.provider_id == provider_id
+                )
+            )
+            total = total_result.scalar() or len(bound_models)
+            more = f" 等 {total} 个模型" if total > len(bound_models) else ""
+            return JSONResponse(
+                {
+                    "error": (
+                        f"无法删除供应商「{provider.name}」：仍有 {total} 个模型绑定"
+                        f"（{'、'.join(bound_models)}{more}）。"
+                        f"请先在「供应商与模型」中解除这些绑定后再删除。"
+                    )
+                },
+                status_code=409,
+            )
+
+        pk_result = await session.execute(
+            select(func.count()).select_from(ProviderKey).where(
+                ProviderKey.provider_id == provider_id
+            )
+        )
+        pk_count = pk_result.scalar() or 0
+        if pk_count > 0:
+            return JSONResponse(
+                {
+                    "error": (
+                        f"无法删除供应商「{provider.name}」：名下仍有 {pk_count} 个供应商 Key，"
+                        f"删除会连同这些 Key 一起丢失。请先在「供应商 Key」中处理后再删除。"
+                    )
+                },
+                status_code=409,
+            )
+
         try:
             await session.delete(provider)
             await session.commit()
         except IntegrityError:
-            await session.rollback()
+            try:
+                await session.rollback()
+            except Exception:
+                pass
             return JSONResponse(
-                {"error": "Cannot delete: provider has bound models. Remove all model bindings first."},
+                {"error": f"无法删除供应商「{provider.name}」：仍有关联数据引用它，请先解除相关绑定。"},
                 status_code=409,
             )
         await load_providers()

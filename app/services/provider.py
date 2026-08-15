@@ -518,6 +518,10 @@ def get_auto_model_provider_candidates(
     allowed_provider_model_ids = set(auto_config.get("provider_model_ids") or [])
     pool_config = get_pool_config(model_name)
     pool_map: dict[int, dict] = {item["id"]: item for item in pool_config}
+    pool_order: list[int] = [item["id"] for item in pool_config]
+    pool_priority: dict[int, int] = {
+        pm_id: len(pool_order) - idx for idx, pm_id in enumerate(pool_order)
+    }
     candidates: list[tuple[str, dict, str, int]] = []
     excluded: list[tuple[str, dict, str, int]] = []
     seen: set[int] = set()
@@ -546,7 +550,8 @@ def get_auto_model_provider_candidates(
                 continue
             pm_dict["_auto_min_ctx"] = min_ctx
             pm_dict["_auto_max_ctx"] = max_ctx
-            candidates.append((provider_name, pm_dict, model_tags, priority))
+            auto_priority = pool_priority.get(provider_model_id, 0)
+            candidates.append((provider_name, pm_dict, model_tags, auto_priority))
     if return_excluded:
         return candidates, excluded
     return candidates
