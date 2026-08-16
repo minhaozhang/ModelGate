@@ -1430,22 +1430,22 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                             )
                             model_bucket["requests"] += 1
                             model_bucket["tokens"] += tokens
-                    key_label = row.provider_key_label
-                    if row.provider_key_id is not None:
-                        key_label = pk_label_map.get(row.provider_key_id, row.provider_key_label)
-                    if key_label:
-                        key_bucket = provider_bucket["keys"].setdefault(
-                            key_label,
-                            {"requests": 0, "tokens": 0, "models": {}},
-                        )
-                        key_bucket["requests"] += 1
-                        key_bucket["tokens"] += tokens
-                        if row.model:
-                            km = key_bucket["models"].setdefault(
-                                row.model, {"requests": 0, "tokens": 0}
+                        key_label = row.provider_key_label
+                        if row.provider_key_id is not None:
+                            key_label = pk_label_map.get(row.provider_key_id, row.provider_key_label)
+                        if key_label:
+                            key_bucket = provider_bucket["keys"].setdefault(
+                                key_label,
+                                {"requests": 0, "tokens": 0, "models": {}},
                             )
-                            km["requests"] += 1
-                            km["tokens"] += tokens
+                            key_bucket["requests"] += 1
+                            key_bucket["tokens"] += tokens
+                            if row.model:
+                                km = key_bucket["models"].setdefault(
+                                    row.model, {"requests": 0, "tokens": 0}
+                                )
+                                km["requests"] += 1
+                                km["tokens"] += tokens
 
                     api_key_name = api_keys_map.get(row.api_key_id)
                     if api_key_name:
