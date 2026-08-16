@@ -363,7 +363,6 @@ class RequestLog(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_request_logs_created_at", "created_at"),
         Index("idx_request_logs_api_key_id", "api_key_id"),
         Index("idx_request_logs_provider_id", "provider_id"),
         Index("idx_request_logs_status", "status"),
@@ -400,9 +399,7 @@ class RequestLogHistory(Base):
     archived_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     __table_args__ = (
-        Index("idx_request_logs_history_created_at", "created_at"),
         Index("idx_request_logs_history_api_key_id", "api_key_id"),
-        Index("idx_request_logs_history_provider_id", "provider_id"),
         Index("idx_request_logs_history_status", "status"),
         Index("idx_request_logs_history_archive_month", "archive_month"),
     )
@@ -549,8 +546,6 @@ class AnalysisRecord(Base):
             "scope_key",
             unique=True,
         ),
-        Index("idx_analysis_records_status", "status"),
-        Index("idx_analysis_records_expires_at", "expires_at"),
     )
 
 
@@ -816,7 +811,6 @@ class SchedulerTaskLog(Base):
     result_summary = Column(Text, nullable=True)
 
     __table_args__ = (
-        Index("idx_task_logs_task", "task_id"),
         Index("idx_task_logs_started", "started_at"),
     )
 
@@ -1094,7 +1088,13 @@ async def init_db():
         await conn.execute(text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS archive_month VARCHAR(7)"))
         await conn.execute(text("ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP DEFAULT now()"))
         await conn.execute(text("UPDATE request_logs_history SET archive_month = to_char(created_at, 'YYYY-MM') WHERE archive_month IS NULL"))
-        await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_request_logs_history_id ON request_logs_history (id)"))
+        await conn.execute(text("DROP INDEX IF EXISTS uq_request_logs_history_id"))
+        await conn.execute(text("DROP INDEX IF EXISTS idx_request_logs_created_at"))
+        await conn.execute(text("DROP INDEX IF EXISTS idx_request_logs_history_created_at"))
+        await conn.execute(text("DROP INDEX IF EXISTS idx_request_logs_history_provider_id"))
+        await conn.execute(text("DROP INDEX IF EXISTS idx_task_logs_task"))
+        await conn.execute(text("DROP INDEX IF EXISTS idx_analysis_records_status"))
+        await conn.execute(text("DROP INDEX IF EXISTS idx_analysis_records_expires_at"))
         await conn.execute(
             text(
                 "ALTER TABLE provider_daily_stats "
@@ -1567,21 +1567,9 @@ async def init_db():
                 ")"
             )
         )
-        await conn.execute(
-            text(
-                "CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs (user_id)"
-            )
-        )
-        await conn.execute(
-            text(
-                "CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs (resource)"
-            )
-        )
-        await conn.execute(
-            text(
-                "CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs (action)"
-            )
-        )
+        await conn.execute(text("DROP INDEX IF EXISTS idx_audit_logs_user_id"))
+        await conn.execute(text("DROP INDEX IF EXISTS idx_audit_logs_resource"))
+        await conn.execute(text("DROP INDEX IF EXISTS idx_audit_logs_action"))
         await conn.execute(
             text(
                 "CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at)"
@@ -1851,11 +1839,7 @@ async def init_db():
                 ")"
             )
         )
-        await conn.execute(
-            text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_request_contents_log_id ON request_contents (log_id)"
-            )
-        )
+        await conn.execute(text("DROP INDEX IF EXISTS idx_request_contents_log_id"))
 
 
 # ==================== RBAC Models ====================
@@ -1967,9 +1951,6 @@ class AuditLog(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
-        Index("idx_audit_logs_user_id", "user_id"),
-        Index("idx_audit_logs_resource", "resource"),
-        Index("idx_audit_logs_action", "action"),
         Index("idx_audit_logs_created_at", "created_at"),
     )
 
