@@ -220,6 +220,7 @@
     <script>
         let currentPeriod = 'day';
         let trendChart = null;
+        let trendLayoutRaf = null;
         let liveStatsSocket = null;
         let liveStatsReconnectTimer = null;
         let adminAuthRedirecting = false;
@@ -815,6 +816,19 @@
         connectLiveStats();
         loadSlowRequests();
         loadBusyness();
+
+        function ensureTrendChartSize() {
+            if (trendChart) trendChart.resize();
+        }
+        window.addEventListener('load', ensureTrendChartSize);
+        requestAnimationFrame(() => requestAnimationFrame(ensureTrendChartSize));
+        setTimeout(ensureTrendChartSize, 300);
+        setTimeout(ensureTrendChartSize, 1000);
+        window.addEventListener('orientationchange', () => setTimeout(ensureTrendChartSize, 250));
+        window.addEventListener('resize', () => {
+            if (trendLayoutRaf) cancelAnimationFrame(trendLayoutRaf);
+            trendLayoutRaf = requestAnimationFrame(ensureTrendChartSize);
+        });
 
         setInterval(loadData, MOBILE_HOME_OVERVIEW_REFRESH_MS);
         setInterval(loadSlowRequests, MOBILE_HOME_SLOW_REFRESH_MS);
