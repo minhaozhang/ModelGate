@@ -47,6 +47,7 @@ LOCAL_RATE_LIMITED_STATUS = "local_rate_limited"
 RATE_LIMITED_STATUSES = {RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}
 ERROR_STATUSES = (ERROR_STATUS, TIMEOUT_STATUS)
 AGGREGATED_PERIODS = {"month", "year"}
+TOTALS_AGGREGATED_PERIODS = {"week", "month", "year"}
 WEEK_BUCKET_HOURS = 4
 WEEK_BUCKET_COUNT = 42
 TOKEN_COUNT_EXPR = func.coalesce(
@@ -196,6 +197,34 @@ def get_aggregate_window_bounds(
 ) -> tuple[datetime, datetime]:
     today_start = get_day_start(now)
     return min(today_start, now), max(start, today_start)
+
+
+def get_first_midnight(start: datetime) -> datetime:
+    day_start = get_day_start(start)
+    if start == day_start:
+        return start
+    return day_start + timedelta(days=1)
+
+
+def get_totals_aggregate_bounds(
+    start: datetime, now: datetime
+) -> tuple[datetime, datetime, list[tuple[datetime, datetime]]]:
+    """Daily aggregates cover full calendar days only.
+
+    Returns (aggregate_start, aggregate_end, raw_ranges): aggregates cover
+    [aggregate_start, aggregate_end); raw scans must cover the window head
+    before the first full day plus today after the last aggregated day.
+    """
+    today_start = get_day_start(now)
+    aggregate_end = min(today_start, now)
+    aggregate_start = get_first_midnight(start)
+    raw_ranges: list[tuple[datetime, datetime]] = []
+    if start < aggregate_start:
+        raw_ranges.append((start, aggregate_start))
+    tail_start = max(start, today_start)
+    if tail_start < now:
+        raw_ranges.append((tail_start, now))
+    return aggregate_start, aggregate_end, raw_ranges
 
 
 def get_period_start(period: str, now: datetime) -> datetime:
@@ -614,20 +643,24 @@ async def get_aggregate_stats(
     start = get_period_start(period, now)
 
     async with async_session_maker() as session:
-        if use_daily_aggregates(period):
-            aggregate_end, raw_start = get_aggregate_window_bounds(start, now)
+        if period in TOTALS_AGGREGATED_PERIODS:
+            aggregate_start, aggregate_end, raw_ranges = (
+                get_totals_aggregate_bounds(start, now)
+            )
             stats_data = {}
-            if start < aggregate_end:
+            if aggregate_start < aggregate_end:
                 merge_named_stats(
                     stats_data,
                     await get_daily_aggregated_stats(
-                        session, dimension, start, aggregate_end
+                        session, dimension, aggregate_start, aggregate_end
                     ),
                 )
-            if raw_start < now:
+            for raw_lo, raw_hi in raw_ranges:
                 merge_named_stats(
                     stats_data,
-                    await get_raw_grouped_stats(session, dimension, raw_start),
+                    await get_raw_grouped_stats(
+                        session, dimension, raw_lo, end=raw_hi
+                    ),
                 )
         else:
             stats_data = await get_raw_grouped_stats(session, dimension, start)
@@ -1215,12 +1248,16 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
         total_timeouts = 0
         total_rate_limited = 0
 
-        if use_daily_aggregates(period):
-            aggregate_end, raw_start = get_aggregate_window_bounds(start, now)
-            start_str = start.strftime("%Y-%m-%d")
+        if period in TOTALS_AGGREGATED_PERIODS:
+            (
+                aggregate_start,
+                aggregate_end,
+                raw_ranges,
+            ) = get_totals_aggregate_bounds(start, now)
+            start_str = aggregate_start.strftime("%Y-%m-%d")
             aggregate_end_str = aggregate_end.strftime("%Y-%m-%d")
 
-            if start < aggregate_end:
+            if aggregate_start < aggregate_end:
                 model_rows_result = await session.execute(
                     select(
                         ModelDailyStat.model_name,
@@ -1269,6 +1306,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         "tokens": int(row.tokens or 0),
                         "rate_limited": int(row.rate_limited or 0),
                         "models": {},
+                        "keys": {},
                     }
 
                 provider_model_rows_result = await session.execute(
@@ -1291,7 +1329,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         continue
                     provider_bucket = provider_stats.setdefault(
                         row.provider_name,
-                        {"requests": 0, "tokens": 0, "models": {}},
+                        {"requests": 0, "tokens": 0, "models": {}, "keys": {}},
                     )
                     provider_bucket["models"][row.model_name] = {
                         "requests": int(row.requests or 0),
@@ -1368,7 +1406,10 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         "rate_limited": int(row.rate_limited or 0),
                     }
 
-            if raw_start < now:
+            async def accumulate_raw_range(
+                raw_lo: datetime, raw_hi: datetime
+            ) -> None:
+                nonlocal total_requests, total_tokens, total_errors, total_timeouts, total_rate_limited
                 raw_result = await session.execute(
                     select(
                         RequestLog.api_key_id,
@@ -1378,7 +1419,10 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         RequestLog.status,
                         RequestLog.provider_key_id,
                         RequestLog.provider_key_label,
-                    ).where(RequestLog.created_at >= raw_start)
+                    ).where(
+                        RequestLog.created_at >= raw_lo,
+                        RequestLog.created_at < raw_hi,
+                    )
                 )
                 raw_rows = raw_result.fetchall()
                 providers_map = await get_provider_name_map(
@@ -1461,6 +1505,9 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                             )
                             model_bucket["requests"] += 1
                             model_bucket["tokens"] += tokens
+
+            for raw_lo, raw_hi in raw_ranges:
+                await accumulate_raw_range(raw_lo, raw_hi)
         else:
             total_result = await session.execute(
                 select(func.count(RequestLog.id)).where(
@@ -1571,7 +1618,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         model_bucket["requests"] += 1
                         model_bucket["tokens"] += tokens
 
-        if use_daily_aggregates(period):
+        if period in TOTALS_AGGREGATED_PERIODS:
             errors_result = await session.execute(
                 select(func.count(RequestLog.id)).where(
                     RequestLog.created_at >= start,
