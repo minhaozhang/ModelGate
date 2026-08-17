@@ -341,7 +341,7 @@ class RequestLog(Base):
     provider_key_id = Column(Integer, nullable=True)
     provider_key_label = Column(String(50), nullable=True)
     routing_decision = Column(JSONB, nullable=True)
-    created_at = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, index=True, server_default=func.now())
     updated_at = Column(DateTime, nullable=True)
 
     __table_args__ = (
@@ -375,7 +375,7 @@ class RequestLogHistory(Base):
     provider_key_id = Column(Integer, nullable=True)
     provider_key_label = Column(String(50), nullable=True)
     routing_decision = Column(JSONB, nullable=True)
-    created_at = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, index=True, server_default=func.now())
     updated_at = Column(DateTime, nullable=True)
     archive_month = Column(String(7), nullable=False)
     archived_at = Column(DateTime, server_default=func.now(), nullable=False)

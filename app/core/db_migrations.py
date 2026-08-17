@@ -305,7 +305,7 @@ _DDL: list[str] = [
     "provider_key_id INTEGER, "
     "provider_key_label VARCHAR(50), "
     "routing_decision JSONB, "
-    "created_at TIMESTAMP NOT NULL, "
+    "created_at TIMESTAMP NOT NULL DEFAULT now(), "
     "updated_at TIMESTAMP"
     ")",
     "CREATE INDEX IF NOT EXISTS ix_request_logs_created_at ON request_logs (created_at)",
@@ -335,7 +335,7 @@ _DDL: list[str] = [
     "provider_key_id INTEGER, "
     "provider_key_label VARCHAR(50), "
     "routing_decision JSONB, "
-    "created_at TIMESTAMP NOT NULL, "
+    "created_at TIMESTAMP NOT NULL DEFAULT now(), "
     "updated_at TIMESTAMP, "
     "archive_month VARCHAR(7) NOT NULL, "
     "archived_at TIMESTAMP NOT NULL DEFAULT now()"
