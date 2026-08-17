@@ -4,11 +4,650 @@ Every statement is idempotent and runs on each boot inside one transaction.
 Grouped by domain; init_db() calls them in dependency-safe order.
 """
 
-import app.core.db_models  # noqa: F401  (registers all tables on Base.metadata)
-from app.core.db_engine import Base, engine
+from app.core.db_engine import engine
 from sqlalchemy import text
 
 REQUEST_LOG_TABLES = ("request_logs", "request_logs_history")
+
+_DDL: list[str] = [
+    "CREATE TABLE IF NOT EXISTS providers ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "name VARCHAR(50) NOT NULL UNIQUE, "
+    "base_url VARCHAR(255) NOT NULL, "
+    "api_key VARCHAR(255), "
+    "protocol VARCHAR(20), "
+    "merge_consecutive_messages BOOLEAN, "
+    "is_active BOOLEAN, "
+    "disabled_reason VARCHAR(255), "
+    "disabled_at TIMESTAMP, "
+    "reset_at TIMESTAMP, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+
+    "CREATE TABLE IF NOT EXISTS models ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "name VARCHAR(100) NOT NULL UNIQUE, "
+    "display_name VARCHAR(100), "
+    "max_tokens INTEGER, "
+    "context_length INTEGER, "
+    "thinking_enabled BOOLEAN, "
+    "thinking_budget INTEGER, "
+    "reasoning_effort TEXT, "
+    "is_multimodal BOOLEAN, "
+    "is_active BOOLEAN, "
+    "is_virtual BOOLEAN, "
+    "estimated_price DOUBLE PRECISION DEFAULT '0', "
+    "tags TEXT, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+
+    "CREATE TABLE IF NOT EXISTS api_keys ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "name VARCHAR(100) NOT NULL, "
+    "key VARCHAR(64) NOT NULL UNIQUE, "
+    "email VARCHAR(255), "
+    "expires_at TIMESTAMP, "
+    "is_active BOOLEAN, "
+    "bypass_busyness BOOLEAN, "
+    "preferred_tags TEXT, "
+    "last_used_at TIMESTAMP, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+
+    "CREATE TABLE IF NOT EXISTS mcp_servers ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "name VARCHAR(100) NOT NULL, "
+    "url VARCHAR(500) NOT NULL, "
+    "auth_type VARCHAR(20), "
+    "auth_token TEXT, "
+    "auth_header VARCHAR(100), "
+    "is_active BOOLEAN, "
+    "tool_prefix VARCHAR(50), "
+    "last_sync_at TIMESTAMP, "
+    "last_sync_error TEXT, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+
+    "CREATE TABLE IF NOT EXISTS users ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "username VARCHAR(50) NOT NULL UNIQUE, "
+    "password_hash VARCHAR(255) NOT NULL, "
+    "email VARCHAR(100), "
+    "full_name VARCHAR(100), "
+    "is_active BOOLEAN, "
+    "is_superuser BOOLEAN, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now(), "
+    "last_login TIMESTAMP"
+    ")",
+
+    "CREATE TABLE IF NOT EXISTS roles ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "name VARCHAR(50) NOT NULL UNIQUE, "
+    "display_name VARCHAR(100), "
+    "description TEXT, "
+    "is_system BOOLEAN, "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+
+    "CREATE TABLE IF NOT EXISTS menus ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "parent_id INTEGER REFERENCES menus(id) ON DELETE CASCADE, "
+    "name VARCHAR(50) NOT NULL, "
+    "display_name VARCHAR(100), "
+    "icon VARCHAR(50), "
+    "path VARCHAR(200), "
+    "component VARCHAR(200), "
+    "permission_code VARCHAR(100), "
+    "sort_order INTEGER, "
+    "is_visible BOOLEAN, "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+
+    "CREATE TABLE IF NOT EXISTS weixin_accounts ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER REFERENCES api_keys(id), "
+    "bot_token VARCHAR(512), "
+    "ilink_bot_id VARCHAR(128), "
+    "ilink_user_id VARCHAR(128), "
+    "get_updates_buf TEXT, "
+    "is_active BOOLEAN, "
+    "reply_mode VARCHAR(10), "
+    "system_prompt TEXT, "
+    "model_name VARCHAR(100), "
+    "login_at TIMESTAMP, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+
+    "CREATE TABLE IF NOT EXISTS provider_keys ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE, "
+    "api_key VARCHAR(255) NOT NULL, "
+    "label VARCHAR(50), "
+    "max_concurrent INTEGER, "
+    "is_active BOOLEAN, "
+    "priority INTEGER, "
+    "cost_role VARCHAR(40), "
+    "disabled_reason VARCHAR(255), "
+    "disabled_at TIMESTAMP, "
+    "reset_at TIMESTAMP, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now(), "
+    "CONSTRAINT uq_provider_key UNIQUE (provider_id, api_key)"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_provider_keys_provider ON provider_keys (provider_id)",
+
+    "CREATE TABLE IF NOT EXISTS provider_models ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "provider_id INTEGER NOT NULL REFERENCES providers(id), "
+    "model_id INTEGER NOT NULL REFERENCES models(id), "
+    "model_name_override VARCHAR(100), "
+    "upstream_model_name VARCHAR(100), "
+    "is_active BOOLEAN, "
+    "max_busyness_level INTEGER, "
+    "alias VARCHAR(100), "
+    "priority INTEGER, "
+    "input_price_cny_per_million DOUBLE PRECISION, "
+    "output_price_cny_per_million DOUBLE PRECISION, "
+    "cached_input_price_cny_per_million DOUBLE PRECISION, "
+    "default_cache_hit_ratio DOUBLE PRECISION DEFAULT '0', "
+    "pricing_tiers JSONB, "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_model ON provider_models (provider_id, model_id)",
+
+    "CREATE TABLE IF NOT EXISTS provider_key_strategy_templates ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "name VARCHAR(100) NOT NULL, "
+    "template_key VARCHAR(80) NOT NULL UNIQUE, "
+    "description TEXT, "
+    "is_builtin BOOLEAN, "
+    "is_active BOOLEAN, "
+    "config_schema JSONB NOT NULL DEFAULT '{}'::jsonb, "
+    "rule_blueprint JSONB NOT NULL DEFAULT '{}'::jsonb, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_key_strategy_templates_key ON provider_key_strategy_templates (template_key)",
+
+    "CREATE TABLE IF NOT EXISTS provider_key_strategy_assignments ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "provider_key_id INTEGER NOT NULL REFERENCES provider_keys(id) ON DELETE CASCADE, "
+    "template_id INTEGER NOT NULL REFERENCES provider_key_strategy_templates(id), "
+    "enabled BOOLEAN, "
+    "params JSONB NOT NULL DEFAULT '{}'::jsonb, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_provider_key_strategy_assignments_key ON provider_key_strategy_assignments (provider_key_id)",
+
+    "CREATE TABLE IF NOT EXISTS provider_key_routing_rules ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "provider_key_id INTEGER NOT NULL REFERENCES provider_keys(id) ON DELETE CASCADE, "
+    "template_assignment_id INTEGER REFERENCES provider_key_strategy_assignments(id) ON DELETE CASCADE, "
+    "name VARCHAR(100), "
+    "rule_type VARCHAR(30) NOT NULL, "
+    "enabled BOOLEAN, "
+    "priority INTEGER, "
+    "start_time TIME, "
+    "end_time TIME, "
+    "start_date DATE, "
+    "end_date DATE, "
+    "weekdays VARCHAR(20), "
+    "min_context_tokens INTEGER, "
+    "max_context_tokens INTEGER, "
+    "action VARCHAR(20) NOT NULL, "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_provider_key_routing_rules_key ON provider_key_routing_rules (provider_key_id)",
+
+    "CREATE TABLE IF NOT EXISTS provider_model_routing_rules ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "provider_model_id INTEGER NOT NULL REFERENCES provider_models(id) ON DELETE CASCADE, "
+    "name VARCHAR(100), "
+    "rule_type VARCHAR(30) NOT NULL, "
+    "enabled BOOLEAN, "
+    "priority INTEGER, "
+    "start_time TIME, "
+    "end_time TIME, "
+    "start_date DATE, "
+    "end_date DATE, "
+    "weekdays VARCHAR(20), "
+    "min_context_tokens INTEGER, "
+    "max_context_tokens INTEGER, "
+    "provider_key_ids JSONB, "
+    "action VARCHAR(20) NOT NULL, "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_provider_model_routing_rules_pm ON provider_model_routing_rules (provider_model_id)",
+
+    "CREATE TABLE IF NOT EXISTS auto_model_routes ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "virtual_model_id INTEGER NOT NULL UNIQUE REFERENCES models(id) ON DELETE CASCADE, "
+    "enabled BOOLEAN, "
+    "model_ids JSONB NOT NULL DEFAULT '[]', "
+    "provider_model_ids JSONB NOT NULL DEFAULT '[]', "
+    "route_policy JSONB NOT NULL DEFAULT '{}', "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_auto_model_routes_virtual_model ON auto_model_routes (virtual_model_id)",
+
+    "CREATE TABLE IF NOT EXISTS api_key_models ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER NOT NULL REFERENCES api_keys(id), "
+    "provider_model_id INTEGER NOT NULL REFERENCES provider_models(id)"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_api_key_model ON api_key_models (api_key_id, provider_model_id)",
+
+    "CREATE TABLE IF NOT EXISTS api_key_model_access ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER NOT NULL REFERENCES api_keys(id), "
+    "model_id INTEGER NOT NULL REFERENCES models(id)"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_api_key_model_access ON api_key_model_access (api_key_id, model_id)",
+    "CREATE INDEX IF NOT EXISTS idx_api_key_model_access_api_key_id ON api_key_model_access (api_key_id)",
+    "CREATE INDEX IF NOT EXISTS idx_api_key_model_access_model_id ON api_key_model_access (model_id)",
+
+    "CREATE TABLE IF NOT EXISTS api_key_tags ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE, "
+    "tag VARCHAR(50) NOT NULL, "
+    "CONSTRAINT uq_api_key_tag UNIQUE (api_key_id, tag)"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_api_key_tags_key ON api_key_tags (api_key_id)",
+
+    "CREATE TABLE IF NOT EXISTS api_key_mcp_servers ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE, "
+    "mcp_server_id INTEGER NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_ak_mcp_unique ON api_key_mcp_servers (api_key_id, mcp_server_id)",
+
+    "CREATE TABLE IF NOT EXISTS api_key_time_rules ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE, "
+    "rule_type VARCHAR(20) NOT NULL, "
+    "allowed BOOLEAN, "
+    "start_time TIME, "
+    "end_time TIME, "
+    "start_date DATE, "
+    "end_date DATE, "
+    "weekdays VARCHAR(20), "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_api_key_time_rules_key ON api_key_time_rules (api_key_id)",
+
+    "CREATE TABLE IF NOT EXISTS request_logs ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER REFERENCES api_keys(id), "
+    "provider_id INTEGER, "
+    "model VARCHAR(100) NOT NULL, "
+    "response TEXT, "
+    "tokens JSONB, "
+    "latency_ms DOUBLE PRECISION, "
+    "request_context_tokens INTEGER, "
+    "status VARCHAR(20) NOT NULL, "
+    "upstream_status_code INTEGER, "
+    "downstream_status_code INTEGER, "
+    "client_ip VARCHAR(64), "
+    "user_agent VARCHAR(1024), "
+    "inbound_protocol VARCHAR(20), "
+    "error TEXT, "
+    "intent VARCHAR(20), "
+    "requested_model VARCHAR(100), "
+    "actual_model VARCHAR(100), "
+    "provider_key_id INTEGER, "
+    "provider_key_label VARCHAR(50), "
+    "routing_decision JSONB, "
+    "created_at TIMESTAMP NOT NULL, "
+    "updated_at TIMESTAMP"
+    ")",
+    "CREATE INDEX IF NOT EXISTS ix_request_logs_created_at ON request_logs (created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_request_logs_api_key_id ON request_logs (api_key_id)",
+    "CREATE INDEX IF NOT EXISTS idx_request_logs_provider_id ON request_logs (provider_id)",
+    "CREATE INDEX IF NOT EXISTS idx_request_logs_status ON request_logs (status)",
+
+    "CREATE TABLE IF NOT EXISTS request_logs_history ("
+    "id INTEGER NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER, "
+    "provider_id INTEGER, "
+    "model VARCHAR(100) NOT NULL, "
+    "response TEXT, "
+    "tokens JSONB, "
+    "latency_ms DOUBLE PRECISION, "
+    "request_context_tokens INTEGER, "
+    "status VARCHAR(20) NOT NULL, "
+    "upstream_status_code INTEGER, "
+    "downstream_status_code INTEGER, "
+    "client_ip VARCHAR(64), "
+    "user_agent VARCHAR(1024), "
+    "inbound_protocol VARCHAR(20), "
+    "error TEXT, "
+    "intent VARCHAR(20), "
+    "requested_model VARCHAR(100), "
+    "actual_model VARCHAR(100), "
+    "provider_key_id INTEGER, "
+    "provider_key_label VARCHAR(50), "
+    "routing_decision JSONB, "
+    "created_at TIMESTAMP NOT NULL, "
+    "updated_at TIMESTAMP, "
+    "archive_month VARCHAR(7) NOT NULL, "
+    "archived_at TIMESTAMP NOT NULL DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS ix_request_logs_history_created_at ON request_logs_history (created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_request_logs_history_api_key_id ON request_logs_history (api_key_id)",
+    "CREATE INDEX IF NOT EXISTS idx_request_logs_history_status ON request_logs_history (status)",
+    "CREATE INDEX IF NOT EXISTS idx_request_logs_history_archive_month ON request_logs_history (archive_month)",
+
+    "CREATE TABLE IF NOT EXISTS request_contents ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "log_id INTEGER NOT NULL UNIQUE REFERENCES request_logs(id) ON DELETE CASCADE, "
+    "request_messages JSONB, "
+    "response_content TEXT, "
+    "response_tool_calls JSONB, "
+    "response_thinking TEXT, "
+    "response_raw JSONB, "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+
+    "CREATE TABLE IF NOT EXISTS provider_daily_stats ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "provider_name VARCHAR(50) NOT NULL, "
+    "date VARCHAR(10) NOT NULL, "
+    "hour INTEGER, "
+    "requests INTEGER, "
+    "tokens INTEGER, "
+    "errors INTEGER, "
+    "rate_limited INTEGER"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_provider_stats_date ON provider_daily_stats (date)",
+
+    "CREATE TABLE IF NOT EXISTS api_key_daily_stats ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER NOT NULL REFERENCES api_keys(id), "
+    "date VARCHAR(10) NOT NULL, "
+    "hour INTEGER, "
+    "requests INTEGER, "
+    "tokens INTEGER, "
+    "errors INTEGER, "
+    "rate_limited INTEGER"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_apikey_stats_date ON api_key_daily_stats (date)",
+
+    "CREATE TABLE IF NOT EXISTS api_key_model_daily_stats ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER NOT NULL REFERENCES api_keys(id), "
+    "model_name VARCHAR(100) NOT NULL, "
+    "date VARCHAR(10) NOT NULL, "
+    "requests INTEGER, "
+    "tokens INTEGER, "
+    "errors INTEGER, "
+    "rate_limited INTEGER"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_apikey_model_stats_date ON api_key_model_daily_stats (date)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_apikey_model_stats_unique ON api_key_model_daily_stats (api_key_id, model_name, date)",
+
+    "CREATE TABLE IF NOT EXISTS model_daily_stats ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "model_name VARCHAR(100) NOT NULL, "
+    "provider_name VARCHAR(50), "
+    "date VARCHAR(10) NOT NULL, "
+    "requests INTEGER, "
+    "tokens INTEGER, "
+    "errors INTEGER, "
+    "rate_limited INTEGER"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_model_stats_date ON model_daily_stats (date)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_model_stats_unique ON model_daily_stats (model_name, provider_name, date)",
+
+    "CREATE TABLE IF NOT EXISTS analysis_records ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "analysis_type VARCHAR(50) NOT NULL, "
+    "scope_key VARCHAR(255) NOT NULL, "
+    "status VARCHAR(20) NOT NULL, "
+    "language VARCHAR(10), "
+    "model_used VARCHAR(150), "
+    "template_id VARCHAR(100), "
+    "template_version VARCHAR(50), "
+    "params_json JSONB, "
+    "content TEXT, "
+    "error TEXT, "
+    "expires_at TIMESTAMP, "
+    "progress VARCHAR(200), "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_analysis_records_type_scope ON analysis_records (analysis_type, scope_key)",
+
+    "CREATE TABLE IF NOT EXISTS analysis_subtasks ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "analysis_record_id INTEGER NOT NULL REFERENCES analysis_records(id) ON DELETE CASCADE, "
+    "step_key VARCHAR(100) NOT NULL, "
+    "step_label VARCHAR(150) NOT NULL, "
+    "status VARCHAR(20) NOT NULL, "
+    "sort_order INTEGER, "
+    "attempt_count INTEGER, "
+    "max_attempts INTEGER, "
+    "output JSONB, "
+    "error TEXT, "
+    "started_at TIMESTAMP, "
+    "finished_at TIMESTAMP, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_analysis_subtasks_record_step ON analysis_subtasks (analysis_record_id, step_key)",
+    "CREATE INDEX IF NOT EXISTS idx_analysis_subtasks_status ON analysis_subtasks (status)",
+
+    "CREATE TABLE IF NOT EXISTS analysis_artifacts ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "analysis_record_id INTEGER NOT NULL REFERENCES analysis_records(id) ON DELETE CASCADE, "
+    "subtask_id INTEGER REFERENCES analysis_subtasks(id) ON DELETE SET NULL, "
+    "artifact_key VARCHAR(100) NOT NULL, "
+    "artifact_type VARCHAR(50) NOT NULL, "
+    "title VARCHAR(150), "
+    "path TEXT, "
+    "status VARCHAR(20) NOT NULL, "
+    "meta JSONB, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_analysis_artifacts_record_key ON analysis_artifacts (analysis_record_id, artifact_key)",
+    "CREATE INDEX IF NOT EXISTS idx_analysis_artifacts_status ON analysis_artifacts (status)",
+
+    "CREATE TABLE IF NOT EXISTS documents ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "title VARCHAR(200) NOT NULL, "
+    "slug VARCHAR(200) NOT NULL UNIQUE, "
+    "content TEXT NOT NULL, "
+    "category VARCHAR(50), "
+    "filename VARCHAR(255), "
+    "is_published BOOLEAN, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_slug ON documents (slug)",
+    "CREATE INDEX IF NOT EXISTS idx_documents_category ON documents (category)",
+
+    "CREATE TABLE IF NOT EXISTS document_files ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE, "
+    "filename VARCHAR(255) NOT NULL, "
+    "object_name VARCHAR(500) NOT NULL, "
+    "file_type VARCHAR(20) NOT NULL, "
+    "file_size INTEGER, "
+    "content_type VARCHAR(100), "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_document_files_doc_id ON document_files (document_id)",
+
+    "CREATE TABLE IF NOT EXISTS weixin_context_tokens ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "account_id INTEGER NOT NULL REFERENCES weixin_accounts(id), "
+    "user_id VARCHAR(128) NOT NULL, "
+    "context_token TEXT, "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_weixin_ctx_account_user ON weixin_context_tokens (account_id, user_id)",
+
+    "CREATE TABLE IF NOT EXISTS weixin_messages ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "account_id INTEGER NOT NULL REFERENCES weixin_accounts(id), "
+    "direction VARCHAR(3) NOT NULL, "
+    "from_user VARCHAR(128) NOT NULL, "
+    "to_user VARCHAR(128) NOT NULL, "
+    "text TEXT, "
+    "context_token TEXT, "
+    "status VARCHAR(20), "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_weixin_msg_account ON weixin_messages (account_id)",
+    "CREATE INDEX IF NOT EXISTS idx_weixin_msg_status ON weixin_messages (status)",
+    "CREATE INDEX IF NOT EXISTS idx_weixin_msg_created ON weixin_messages (created_at)",
+
+    "CREATE TABLE IF NOT EXISTS mcp_call_logs ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER REFERENCES api_keys(id), "
+    "mcp_server_id INTEGER REFERENCES mcp_servers(id), "
+    "tool_name VARCHAR(200) NOT NULL, "
+    "arguments JSONB, "
+    "result TEXT, "
+    "is_error BOOLEAN, "
+    "latency_ms DOUBLE PRECISION, "
+    "client_ip VARCHAR(64), "
+    "user_agent VARCHAR(1024), "
+    "error TEXT, "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_created_at ON mcp_call_logs (created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_server_id ON mcp_call_logs (mcp_server_id)",
+    "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_tool_name ON mcp_call_logs (tool_name)",
+
+    "CREATE TABLE IF NOT EXISTS mcp_call_daily_stats ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "mcp_server_id INTEGER NOT NULL REFERENCES mcp_servers(id), "
+    "date VARCHAR(10) NOT NULL, "
+    "hour INTEGER, "
+    "calls INTEGER, "
+    "errors INTEGER, "
+    "avg_latency_ms DOUBLE PRECISION"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_mcp_stats_date ON mcp_call_daily_stats (date)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_stats_unique ON mcp_call_daily_stats (mcp_server_id, date, hour)",
+
+    "CREATE TABLE IF NOT EXISTS notifications ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "type VARCHAR(20) NOT NULL, "
+    "level VARCHAR(20) NOT NULL, "
+    "title VARCHAR(255) NOT NULL, "
+    "body TEXT, "
+    "target_api_key_id INTEGER, "
+    "is_read_by_admin BOOLEAN, "
+    "read_api_key_ids JSONB, "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications (type)",
+    "CREATE INDEX IF NOT EXISTS idx_notifications_target ON notifications (target_api_key_id)",
+    "CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications (created_at)",
+
+    "CREATE TABLE IF NOT EXISTS scheduler_tasks ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "task_id VARCHAR(100) NOT NULL UNIQUE, "
+    "name VARCHAR(200) NOT NULL, "
+    "description TEXT, "
+    "cron_expression VARCHAR(50) NOT NULL, "
+    "default_cron VARCHAR(50) NOT NULL, "
+    "is_paused BOOLEAN, "
+    "last_run_at TIMESTAMP, "
+    "last_duration_ms INTEGER, "
+    "last_status VARCHAR(20), "
+    "last_error TEXT, "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+
+    "CREATE TABLE IF NOT EXISTS scheduler_task_logs ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "task_id VARCHAR(100) NOT NULL, "
+    "status VARCHAR(20) NOT NULL, "
+    "started_at TIMESTAMP NOT NULL, "
+    "finished_at TIMESTAMP, "
+    "duration_ms INTEGER, "
+    "error TEXT, "
+    "result_summary TEXT"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_task_logs_started ON scheduler_task_logs (started_at)",
+
+    "CREATE TABLE IF NOT EXISTS system_settings ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "category VARCHAR(50) NOT NULL, "
+    "\"key\" VARCHAR(100) NOT NULL UNIQUE, "
+    "\"value\" TEXT, "
+    "description TEXT, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_system_settings_category ON system_settings (category)",
+    "CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings (\"key\")",
+
+    "CREATE TABLE IF NOT EXISTS user_roles ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, "
+    "role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "CONSTRAINT uq_user_role UNIQUE (user_id, role_id)"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON user_roles (user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_user_roles_role_id ON user_roles (role_id)",
+
+    "CREATE TABLE IF NOT EXISTS permissions ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "code VARCHAR(100) NOT NULL UNIQUE, "
+    "name VARCHAR(100), "
+    "type VARCHAR(20) NOT NULL, "
+    "resource VARCHAR(50), "
+    "action VARCHAR(20), "
+    "description TEXT, "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_permissions_code ON permissions (code)",
+    "CREATE INDEX IF NOT EXISTS idx_permissions_resource ON permissions (resource)",
+
+    "CREATE TABLE IF NOT EXISTS role_permissions ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE, "
+    "permission_id INTEGER NOT NULL REFERENCES permissions(id) ON DELETE CASCADE, "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "CONSTRAINT uq_role_permission UNIQUE (role_id, permission_id)"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON role_permissions (role_id)",
+    "CREATE INDEX IF NOT EXISTS idx_role_permissions_permission_id ON role_permissions (permission_id)",
+
+    "CREATE TABLE IF NOT EXISTS audit_logs ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "user_id INTEGER, "
+    "username VARCHAR(50), "
+    "action VARCHAR(20) NOT NULL, "
+    "resource VARCHAR(50) NOT NULL, "
+    "resource_id VARCHAR(100), "
+    "detail TEXT, "
+    "request_body JSONB, "
+    "client_ip VARCHAR(64), "
+    "user_agent VARCHAR(1024), "
+    "status_code INTEGER, "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at)",
+]
+
+
+async def create_tables(conn) -> None:
+    for stmt in _DDL:
+        await conn.execute(text(stmt))
 
 
 async def migrate_request_logs(conn) -> None:
@@ -68,20 +707,6 @@ async def migrate_request_logs(conn) -> None:
     await conn.execute(text("DROP INDEX IF EXISTS idx_request_logs_history_created_at"))
     await conn.execute(text("DROP INDEX IF EXISTS idx_request_logs_history_provider_id"))
 
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS request_contents ("
-            "id SERIAL PRIMARY KEY, "
-            "log_id INTEGER NOT NULL REFERENCES request_logs(id) ON DELETE CASCADE, "
-            "request_messages JSONB, "
-            "response_content TEXT, "
-            "response_tool_calls JSONB, "
-            "response_thinking TEXT, "
-            "response_raw JSONB, "
-            "created_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
     await conn.execute(text("DROP INDEX IF EXISTS idx_request_contents_log_id"))
 
 
@@ -112,52 +737,6 @@ async def migrate_api_keys(conn) -> None:
     )
     await conn.execute(text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS preferred_tags TEXT"))
 
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS api_key_time_rules ("
-            "id SERIAL PRIMARY KEY, "
-            "api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE, "
-            "rule_type VARCHAR(20) NOT NULL, "
-            "allowed BOOLEAN DEFAULT TRUE, "
-            "start_time TIME, "
-            "end_time TIME, "
-            "start_date DATE, "
-            "end_date DATE, "
-            "weekdays VARCHAR(20), "
-            "created_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_api_key_time_rules_key "
-            "ON api_key_time_rules (api_key_id)"
-        )
-    )
-
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS api_key_model_access ("
-            "id SERIAL PRIMARY KEY, "
-            "api_key_id INTEGER NOT NULL REFERENCES api_keys(id), "
-            "model_id INTEGER NOT NULL REFERENCES models(id), "
-            "UNIQUE(api_key_id, model_id)"
-            ")"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_api_key_model_access_api_key_id "
-            "ON api_key_model_access (api_key_id)"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_api_key_model_access_model_id "
-            "ON api_key_model_access (model_id)"
-        )
-    )
-
 
 async def migrate_providers_and_keys(conn) -> None:
     await conn.execute(
@@ -180,22 +759,6 @@ async def migrate_providers_and_keys(conn) -> None:
     )
 
     await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS provider_keys ("
-            "id SERIAL PRIMARY KEY, "
-            "provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE, "
-            "api_key VARCHAR(255) NOT NULL, "
-            "label VARCHAR(50), "
-            "max_concurrent INTEGER, "
-            "is_active BOOLEAN DEFAULT TRUE, "
-            "disabled_reason VARCHAR(255), "
-            "created_at TIMESTAMP DEFAULT NOW(), "
-            "updated_at TIMESTAMP DEFAULT NOW(), "
-            "UNIQUE (provider_id, api_key)"
-            ")"
-        )
-    )
-    await conn.execute(
         text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS max_concurrent INTEGER")
     )
     await conn.execute(
@@ -203,11 +766,6 @@ async def migrate_providers_and_keys(conn) -> None:
     )
     await conn.execute(
         text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS cost_role VARCHAR(40) DEFAULT 'standard'")
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_provider_keys_provider ON provider_keys (provider_id)"
-        )
     )
 
     # Legacy single-key column -> provider_keys row, only for providers that
@@ -224,75 +782,6 @@ async def migrate_providers_and_keys(conn) -> None:
         )
     )
 
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS provider_key_strategy_templates ("
-            "id SERIAL PRIMARY KEY, "
-            "name VARCHAR(100) NOT NULL, "
-            "template_key VARCHAR(80) NOT NULL UNIQUE, "
-            "description TEXT, "
-            "is_builtin BOOLEAN DEFAULT FALSE, "
-            "is_active BOOLEAN DEFAULT TRUE, "
-            "config_schema JSONB NOT NULL DEFAULT '{}'::jsonb, "
-            "rule_blueprint JSONB NOT NULL DEFAULT '{}'::jsonb, "
-            "created_at TIMESTAMP DEFAULT NOW(), "
-            "updated_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_key_strategy_templates_key "
-            "ON provider_key_strategy_templates (template_key)"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS provider_key_strategy_assignments ("
-            "id SERIAL PRIMARY KEY, "
-            "provider_key_id INTEGER NOT NULL REFERENCES provider_keys(id) ON DELETE CASCADE, "
-            "template_id INTEGER NOT NULL REFERENCES provider_key_strategy_templates(id), "
-            "enabled BOOLEAN DEFAULT TRUE, "
-            "params JSONB NOT NULL DEFAULT '{}'::jsonb, "
-            "created_at TIMESTAMP DEFAULT NOW(), "
-            "updated_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_provider_key_strategy_assignments_key "
-            "ON provider_key_strategy_assignments (provider_key_id)"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS provider_key_routing_rules ("
-            "id SERIAL PRIMARY KEY, "
-            "provider_key_id INTEGER NOT NULL REFERENCES provider_keys(id) ON DELETE CASCADE, "
-            "template_assignment_id INTEGER REFERENCES provider_key_strategy_assignments(id) ON DELETE CASCADE, "
-            "name VARCHAR(100), "
-            "rule_type VARCHAR(30) NOT NULL DEFAULT 'custom', "
-            "enabled BOOLEAN DEFAULT TRUE, "
-            "priority INTEGER DEFAULT 0, "
-            "start_time TIME, "
-            "end_time TIME, "
-            "start_date DATE, "
-            "end_date DATE, "
-            "weekdays VARCHAR(20), "
-            "min_context_tokens INTEGER, "
-            "max_context_tokens INTEGER, "
-            "action VARCHAR(20) NOT NULL DEFAULT 'prefer', "
-            "created_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_provider_key_routing_rules_key "
-            "ON provider_key_routing_rules (provider_key_id)"
-        )
-    )
     await conn.execute(
         text(
             "INSERT INTO provider_key_strategy_templates "
@@ -357,36 +846,8 @@ async def migrate_provider_models(conn) -> None:
 
     await conn.execute(
         text(
-            "CREATE TABLE IF NOT EXISTS provider_model_routing_rules ("
-            "id SERIAL PRIMARY KEY, "
-            "provider_model_id INTEGER NOT NULL REFERENCES provider_models(id) ON DELETE CASCADE, "
-            "name VARCHAR(100), "
-            "rule_type VARCHAR(30) NOT NULL DEFAULT 'custom', "
-            "enabled BOOLEAN DEFAULT TRUE, "
-            "priority INTEGER DEFAULT 0, "
-            "start_time TIME, "
-            "end_time TIME, "
-            "start_date DATE, "
-            "end_date DATE, "
-            "weekdays VARCHAR(20), "
-            "min_context_tokens INTEGER, "
-            "max_context_tokens INTEGER, "
-            "provider_key_ids JSONB, "
-            "action VARCHAR(20) NOT NULL DEFAULT 'prefer', "
-            "created_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
-    await conn.execute(
-        text(
             "ALTER TABLE provider_model_routing_rules "
             "ADD COLUMN IF NOT EXISTS provider_key_ids JSONB"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_provider_model_routing_rules_pm "
-            "ON provider_model_routing_rules (provider_model_id)"
         )
     )
 
@@ -422,26 +883,6 @@ async def migrate_documents(conn) -> None:
         )
     )
     await conn.execute(text("ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_type VARCHAR(20)"))
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS document_files ("
-            "id SERIAL PRIMARY KEY, "
-            "document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE, "
-            "filename VARCHAR(255) NOT NULL, "
-            "object_name VARCHAR(500) NOT NULL, "
-            "file_type VARCHAR(20) NOT NULL, "
-            "file_size INTEGER DEFAULT 0, "
-            "content_type VARCHAR(100), "
-            "created_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_document_files_doc_id "
-            "ON document_files (document_id)"
-        )
-    )
 
 
 async def migrate_analysis(conn) -> None:
@@ -454,194 +895,18 @@ async def migrate_analysis(conn) -> None:
         await conn.execute(
             text(f"ALTER TABLE analysis_records ADD COLUMN IF NOT EXISTS {column_sql}")
         )
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS analysis_subtasks ("
-            "id SERIAL PRIMARY KEY, "
-            "analysis_record_id INTEGER NOT NULL REFERENCES analysis_records(id) ON DELETE CASCADE, "
-            "step_key VARCHAR(100) NOT NULL, "
-            "step_label VARCHAR(150) NOT NULL, "
-            "status VARCHAR(20) NOT NULL DEFAULT 'pending', "
-            "sort_order INTEGER DEFAULT 0, "
-            "attempt_count INTEGER DEFAULT 0, "
-            "max_attempts INTEGER DEFAULT 1, "
-            "output JSONB, "
-            "error TEXT, "
-            "started_at TIMESTAMP, "
-            "finished_at TIMESTAMP, "
-            "created_at TIMESTAMP DEFAULT NOW(), "
-            "updated_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_analysis_subtasks_record_step "
-            "ON analysis_subtasks (analysis_record_id, step_key)"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_analysis_subtasks_status "
-            "ON analysis_subtasks (status)"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS analysis_artifacts ("
-            "id SERIAL PRIMARY KEY, "
-            "analysis_record_id INTEGER NOT NULL REFERENCES analysis_records(id) ON DELETE CASCADE, "
-            "subtask_id INTEGER REFERENCES analysis_subtasks(id) ON DELETE SET NULL, "
-            "artifact_key VARCHAR(100) NOT NULL, "
-            "artifact_type VARCHAR(50) NOT NULL, "
-            "title VARCHAR(150), "
-            "path TEXT, "
-            "status VARCHAR(20) NOT NULL DEFAULT 'pending', "
-            "meta JSONB, "
-            "created_at TIMESTAMP DEFAULT NOW(), "
-            "updated_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_analysis_artifacts_record_key "
-            "ON analysis_artifacts (analysis_record_id, artifact_key)"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_analysis_artifacts_status "
-            "ON analysis_artifacts (status)"
-        )
-    )
     await conn.execute(text("DROP INDEX IF EXISTS idx_analysis_records_status"))
     await conn.execute(text("DROP INDEX IF EXISTS idx_analysis_records_expires_at"))
 
 
 async def migrate_mcp(conn) -> None:
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS mcp_servers ("
-            "id SERIAL PRIMARY KEY, "
-            "name VARCHAR(100) NOT NULL, "
-            "url VARCHAR(500) NOT NULL, "
-            "auth_type VARCHAR(20) DEFAULT 'none', "
-            "auth_token TEXT, "
-            "auth_header VARCHAR(100) DEFAULT 'Authorization', "
-            "is_active BOOLEAN DEFAULT TRUE, "
-            "tool_prefix VARCHAR(50), "
-            "last_sync_at TIMESTAMP, "
-            "last_sync_error TEXT, "
-            "created_at TIMESTAMP DEFAULT NOW(), "
-            "updated_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
     await conn.execute(text("ALTER TABLE mcp_servers DROP COLUMN IF EXISTS api_key_id"))
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS api_key_mcp_servers ("
-            "id SERIAL PRIMARY KEY, "
-            "api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE, "
-            "mcp_server_id INTEGER NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE, "
-            "UNIQUE (api_key_id, mcp_server_id)"
-            ")"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_ak_mcp_unique "
-            "ON api_key_mcp_servers (api_key_id, mcp_server_id)"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS mcp_call_logs ("
-            "id SERIAL PRIMARY KEY, "
-            "api_key_id INTEGER REFERENCES api_keys(id), "
-            "mcp_server_id INTEGER REFERENCES mcp_servers(id), "
-            "tool_name VARCHAR(200) NOT NULL, "
-            "arguments JSONB, "
-            "result TEXT, "
-            "is_error BOOLEAN DEFAULT FALSE, "
-            "latency_ms FLOAT, "
-            "client_ip VARCHAR(64), "
-            "user_agent VARCHAR(1024), "
-            "error TEXT, "
-            "created_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_created_at "
-            "ON mcp_call_logs (created_at)"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_server_id "
-            "ON mcp_call_logs (mcp_server_id)"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_mcp_call_logs_tool_name "
-            "ON mcp_call_logs (tool_name)"
-        )
-    )
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS mcp_call_daily_stats ("
-            "id SERIAL PRIMARY KEY, "
-            "mcp_server_id INTEGER NOT NULL REFERENCES mcp_servers(id), "
-            "date VARCHAR(10) NOT NULL, "
-            "hour INTEGER, "
-            "calls INTEGER DEFAULT 0, "
-            "errors INTEGER DEFAULT 0, "
-            "avg_latency_ms FLOAT"
-            ")"
-        )
-    )
-    await conn.execute(
-        text("CREATE INDEX IF NOT EXISTS idx_mcp_stats_date ON mcp_call_daily_stats (date)")
-    )
-    await conn.execute(
-        text(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_stats_unique "
-            "ON mcp_call_daily_stats (mcp_server_id, date, hour)"
-        )
-    )
 
 
 async def migrate_audit_logs(conn) -> None:
-    await conn.execute(
-        text(
-            "CREATE TABLE IF NOT EXISTS audit_logs ("
-            "id SERIAL PRIMARY KEY, "
-            "user_id INTEGER, "
-            "username VARCHAR(50), "
-            "action VARCHAR(20) NOT NULL, "
-            "resource VARCHAR(50) NOT NULL, "
-            "resource_id VARCHAR(100), "
-            "detail TEXT, "
-            "request_body JSONB, "
-            "client_ip VARCHAR(64), "
-            "user_agent VARCHAR(1024), "
-            "status_code INTEGER, "
-            "created_at TIMESTAMP DEFAULT NOW()"
-            ")"
-        )
-    )
     await conn.execute(text("DROP INDEX IF EXISTS idx_audit_logs_user_id"))
     await conn.execute(text("DROP INDEX IF EXISTS idx_audit_logs_resource"))
     await conn.execute(text("DROP INDEX IF EXISTS idx_audit_logs_action"))
-    await conn.execute(
-        text(
-            "CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at)"
-        )
-    )
 
 
 async def migrate_scheduler(conn) -> None:
@@ -799,7 +1064,7 @@ async def seed_rbac_defaults(conn) -> None:
 
 async def init_db():
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await create_tables(conn)
         await seed_rbac_defaults(conn)
         await migrate_request_logs(conn)
         await migrate_daily_stats(conn)
