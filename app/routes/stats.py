@@ -45,7 +45,6 @@ TIMEOUT_STATUS = "timeout"
 RATE_LIMITED_STATUS = "rate_limited"
 LOCAL_RATE_LIMITED_STATUS = "local_rate_limited"
 RATE_LIMITED_STATUSES = {RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}
-ERROR_STATUSES = (ERROR_STATUS, TIMEOUT_STATUS)
 AGGREGATED_PERIODS = {"month", "year"}
 TOTALS_AGGREGATED_PERIODS = {"week", "month", "year"}
 WEEK_BUCKET_HOURS = 4
@@ -272,7 +271,7 @@ async def get_cached_today_stats(start: datetime) -> dict:
         for log in logs:
             is_rate_limited = log.status in RATE_LIMITED_STATUSES
             tokens = 0 if is_rate_limited else get_token_count(log.tokens)
-            is_error = log.status in ERROR_STATUSES
+            is_error = log.status == ERROR_STATUS
             is_timeout = log.status == TIMEOUT_STATUS
 
             provider_name = None
@@ -492,7 +491,10 @@ async def get_daily_aggregated_stats(
             name_col.label("group_key"),
             func.sum(table.requests).label("requests"),
             func.sum(table.tokens).label("tokens"),
+            func.sum(table.prompt_tokens).label("prompt_tokens"),
+            func.sum(table.completion_tokens).label("completion_tokens"),
             func.sum(table.errors).label("errors"),
+            func.sum(table.timeouts).label("timeouts"),
             func.sum(table.rate_limited).label("rate_limited"),
         )
         .where(and_(table.date >= start_str, table.date < end_str))
@@ -505,8 +507,10 @@ async def get_daily_aggregated_stats(
             row.group_key: {
                 "requests": int(row.requests or 0),
                 "tokens": int(row.tokens or 0),
+                "prompt_tokens": int(row.prompt_tokens or 0),
+                "completion_tokens": int(row.completion_tokens or 0),
                 "errors": int(row.errors or 0),
-                "timeouts": 0,
+                "timeouts": int(row.timeouts or 0),
                 "rate_limited": int(row.rate_limited or 0),
             }
             for row in rows
@@ -518,8 +522,10 @@ async def get_daily_aggregated_stats(
             row.group_key: {
                 "requests": int(row.requests or 0),
                 "tokens": int(row.tokens or 0),
+                "prompt_tokens": int(row.prompt_tokens or 0),
+                "completion_tokens": int(row.completion_tokens or 0),
                 "errors": int(row.errors or 0),
-                "timeouts": 0,
+                "timeouts": int(row.timeouts or 0),
                 "rate_limited": int(row.rate_limited or 0),
             }
             for row in rows
@@ -536,8 +542,10 @@ async def get_daily_aggregated_stats(
         stats_data[key] = {
             "requests": int(row.requests or 0),
             "tokens": int(row.tokens or 0),
+            "prompt_tokens": int(row.prompt_tokens or 0),
+            "completion_tokens": int(row.completion_tokens or 0),
             "errors": int(row.errors or 0),
-            "timeouts": 0,
+            "timeouts": int(row.timeouts or 0),
             "rate_limited": int(row.rate_limited or 0),
         }
     return stats_data
@@ -573,7 +581,29 @@ async def get_raw_grouped_stats(
                     else_=0,
                 )
             ).label("tokens"),
-            func.sum(case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)).label(
+            func.sum(
+                case(
+                    (
+                        RequestLog.status.notin_(RATE_LIMITED_STATUSES),
+                        func.coalesce(
+                            RequestLog.tokens["prompt_tokens"].as_integer(), 0
+                        ),
+                    ),
+                    else_=0,
+                )
+            ).label("prompt_tokens"),
+            func.sum(
+                case(
+                    (
+                        RequestLog.status.notin_(RATE_LIMITED_STATUSES),
+                        func.coalesce(
+                            RequestLog.tokens["completion_tokens"].as_integer(), 0
+                        ),
+                    ),
+                    else_=0,
+                )
+            ).label("completion_tokens"),
+            func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label(
                 "errors"
             ),
             func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label(
@@ -596,6 +626,8 @@ async def get_raw_grouped_stats(
             provider_names[row.group_key]: {
                 "requests": int(row.requests or 0),
                 "tokens": int(row.tokens or 0),
+                "prompt_tokens": int(row.prompt_tokens or 0),
+                "completion_tokens": int(row.completion_tokens or 0),
                 "errors": int(row.errors or 0),
                 "timeouts": int(row.timeouts or 0),
                 "rate_limited": int(row.rate_limited or 0),
@@ -609,6 +641,8 @@ async def get_raw_grouped_stats(
             row.group_key: {
                 "requests": int(row.requests or 0),
                 "tokens": int(row.tokens or 0),
+                "prompt_tokens": int(row.prompt_tokens or 0),
+                "completion_tokens": int(row.completion_tokens or 0),
                 "errors": int(row.errors or 0),
                 "timeouts": int(row.timeouts or 0),
                 "rate_limited": int(row.rate_limited or 0),
@@ -624,6 +658,8 @@ async def get_raw_grouped_stats(
         api_key_names.get(row.group_key, f"Deleted Key #{row.group_key}"): {
             "requests": int(row.requests or 0),
             "tokens": int(row.tokens or 0),
+            "prompt_tokens": int(row.prompt_tokens or 0),
+            "completion_tokens": int(row.completion_tokens or 0),
             "errors": int(row.errors or 0),
             "timeouts": int(row.timeouts or 0),
             "rate_limited": int(row.rate_limited or 0),
@@ -667,24 +703,13 @@ async def get_aggregate_stats(
 
     total_requests = sum(d["requests"] for d in stats_data.values())
     total_tokens = sum(d["tokens"] for d in stats_data.values())
+    total_prompt_tokens = sum(d.get("prompt_tokens", 0) for d in stats_data.values())
+    total_completion_tokens = sum(
+        d.get("completion_tokens", 0) for d in stats_data.values()
+    )
     total_errors = sum(d["errors"] for d in stats_data.values())
+    total_timeouts = sum(d.get("timeouts", 0) for d in stats_data.values())
     total_rate_limited = sum(d.get("rate_limited", 0) for d in stats_data.values())
-
-    async with async_session_maker() as session:
-        prompt_result = await session.execute(
-            select(func.sum(RequestLog.tokens["prompt_tokens"].as_integer())).where(
-                RequestLog.created_at >= start,
-                RequestLog.status.notin_(RATE_LIMITED_STATUSES),
-            )
-        )
-        total_prompt_tokens = prompt_result.scalar() or 0
-        completion_result = await session.execute(
-            select(func.sum(RequestLog.tokens["completion_tokens"].as_integer())).where(
-                RequestLog.created_at >= start,
-                RequestLog.status.notin_(RATE_LIMITED_STATUSES),
-            )
-        )
-        total_completion_tokens = completion_result.scalar() or 0
 
     return {
         "dimension": dimension,
@@ -694,6 +719,7 @@ async def get_aggregate_stats(
         "total_prompt_tokens": total_prompt_tokens,
         "total_completion_tokens": total_completion_tokens,
         "total_errors": total_errors,
+        "total_timeouts": total_timeouts,
         "total_rate_limited": total_rate_limited,
         "data": stats_data,
     }
@@ -762,6 +788,7 @@ async def get_trend_data(
                         func.sum(aggregate_table.requests).label("requests"),
                         func.sum(aggregate_table.tokens).label("tokens"),
                         func.sum(aggregate_table.errors).label("errors"),
+                        func.sum(aggregate_table.timeouts).label("timeouts"),
                         func.sum(aggregate_table.rate_limited).label("rate_limited"),
                     )
                     .where(
@@ -781,6 +808,7 @@ async def get_trend_data(
                             row.requests,
                             row.tokens,
                             row.errors,
+                            timeouts=row.timeouts,
                             rate_limited=row.rate_limited,
                         )
 
@@ -840,7 +868,7 @@ async def get_trend_data(
                             )
                         ).label("tokens"),
                         func.sum(
-                            case((RequestLog.status.in_(ERROR_STATUSES), 1), else_=0)
+                            case((RequestLog.status == ERROR_STATUS, 1), else_=0)
                         ).label("errors"),
                         func.sum(
                             case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)
@@ -906,7 +934,7 @@ async def get_trend_data(
                             trend_data[label],
                             1,
                             get_token_count(log.tokens),
-                            1 if log.status in ERROR_STATUSES else 0,
+                            1 if log.status == ERROR_STATUS else 0,
                             1 if log.status == TIMEOUT_STATUS else 0,
                         )
 
@@ -1244,6 +1272,8 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
         api_key_stats = {}
         total_requests = 0
         total_tokens = 0
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
         total_errors = 0
         total_timeouts = 0
         total_rate_limited = 0
@@ -1263,7 +1293,10 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         ModelDailyStat.model_name,
                         func.sum(ModelDailyStat.requests).label("requests"),
                         func.sum(ModelDailyStat.tokens).label("tokens"),
+                        func.sum(ModelDailyStat.prompt_tokens).label("prompt_tokens"),
+                        func.sum(ModelDailyStat.completion_tokens).label("completion_tokens"),
                         func.sum(ModelDailyStat.errors).label("errors"),
+                        func.sum(ModelDailyStat.timeouts).label("timeouts"),
                         func.sum(ModelDailyStat.rate_limited).label("rate_limited"),
                     )
                     .where(
@@ -1282,7 +1315,10 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                     }
                     total_requests += int(row.requests or 0)
                     total_tokens += int(row.tokens or 0)
+                    total_prompt_tokens += int(row.prompt_tokens or 0)
+                    total_completion_tokens += int(row.completion_tokens or 0)
                     total_errors += int(row.errors or 0)
+                    total_timeouts += int(row.timeouts or 0)
                     total_rate_limited += int(row.rate_limited or 0)
 
                 provider_rows_result = await session.execute(
@@ -1409,7 +1445,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
             async def accumulate_raw_range(
                 raw_lo: datetime, raw_hi: datetime
             ) -> None:
-                nonlocal total_requests, total_tokens, total_errors, total_timeouts, total_rate_limited
+                nonlocal total_requests, total_tokens, total_prompt_tokens, total_completion_tokens, total_errors, total_timeouts, total_rate_limited
                 raw_result = await session.execute(
                     select(
                         RequestLog.api_key_id,
@@ -1447,6 +1483,8 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         total_rate_limited += 1
                         continue
                     tokens = get_token_count(row.tokens)
+                    total_prompt_tokens += (row.tokens or {}).get("prompt_tokens") or 0
+                    total_completion_tokens += (row.tokens or {}).get("completion_tokens") or 0
                     if row.model:
                         model_bucket = model_stats.setdefault(
                             row.model, {"requests": 0, "tokens": 0}
@@ -1564,6 +1602,8 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                 if log.status in RATE_LIMITED_STATUSES:
                     continue
                 tokens = get_token_count(log.tokens)
+                total_prompt_tokens += (log.tokens or {}).get("prompt_tokens") or 0
+                total_completion_tokens += (log.tokens or {}).get("completion_tokens") or 0
 
                 if log.model:
                     model_bucket = model_stats.setdefault(
@@ -1618,31 +1658,6 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         model_bucket["requests"] += 1
                         model_bucket["tokens"] += tokens
 
-        if period in TOTALS_AGGREGATED_PERIODS:
-            errors_result = await session.execute(
-                select(func.count(RequestLog.id)).where(
-                    RequestLog.created_at >= start,
-                    RequestLog.status == ERROR_STATUS,
-                )
-            )
-            total_errors = errors_result.scalar() or 0
-
-            timeouts_result = await session.execute(
-                select(func.count(RequestLog.id)).where(
-                    RequestLog.created_at >= start,
-                    RequestLog.status == TIMEOUT_STATUS,
-                )
-            )
-            total_timeouts = timeouts_result.scalar() or 0
-
-            rate_limited_result = await session.execute(
-                select(func.count(RequestLog.id)).where(
-                    RequestLog.created_at >= start,
-                    RequestLog.status.in_(RATE_LIMITED_STATUSES),
-                )
-            )
-            total_rate_limited = rate_limited_result.scalar() or 0
-
         rate_limited_upstream_result = await session.execute(
             select(func.count(RequestLog.id)).where(
                 RequestLog.created_at >= start,
@@ -1672,22 +1687,6 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
             )
         )
         active_1h = active_1h_result.scalar() or 0
-
-        prompt_tokens_result = await session.execute(
-            select(func.sum(RequestLog.tokens["prompt_tokens"].as_integer())).where(
-                RequestLog.created_at >= start,
-                RequestLog.status.notin_(RATE_LIMITED_STATUSES),
-            )
-        )
-        total_prompt_tokens = prompt_tokens_result.scalar() or 0
-
-        completion_tokens_result = await session.execute(
-            select(func.sum(RequestLog.tokens["completion_tokens"].as_integer())).where(
-                RequestLog.created_at >= start,
-                RequestLog.status.notin_(RATE_LIMITED_STATUSES),
-            )
-        )
-        total_completion_tokens = completion_tokens_result.scalar() or 0
 
         return {
             "period": period,
@@ -1739,6 +1738,7 @@ async def get_chart_data(
                         func.sum(ModelDailyStat.requests).label("requests"),
                         func.sum(ModelDailyStat.tokens).label("tokens"),
                         func.sum(ModelDailyStat.errors).label("errors"),
+                        func.sum(ModelDailyStat.timeouts).label("timeouts"),
                         func.sum(ModelDailyStat.rate_limited).label("rate_limited"),
                     )
                     .where(
@@ -1755,6 +1755,7 @@ async def get_chart_data(
                             data[label],
                             row.requests,
                             row.tokens,
+                            timeouts=row.timeouts,
                             rate_limited=row.rate_limited,
                         )
 
@@ -1800,7 +1801,7 @@ async def get_chart_data(
                     continue
                 add_metric_values(
                     data[label],
-                    errors=1 if row.status in ERROR_STATUSES else 0,
+                    errors=1 if row.status == ERROR_STATUS else 0,
                     timeouts=1 if row.status == TIMEOUT_STATUS else 0,
                     rate_limited=1 if row.status in RATE_LIMITED_STATUSES else 0,
                 )
@@ -1854,7 +1855,7 @@ async def get_chart_data(
                             data[label],
                             1,
                             get_token_count(log.tokens),
-                            1 if log.status in ERROR_STATUSES else 0,
+                            1 if log.status == ERROR_STATUS else 0,
                             1 if log.status == TIMEOUT_STATUS else 0,
                         )
 

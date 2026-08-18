@@ -451,7 +451,10 @@ class ProviderDailyStat(Base):
     hour = Column(Integer, nullable=True)
     requests = Column(Integer, default=0)
     tokens = Column(Integer, default=0)
+    prompt_tokens = Column(Integer, default=0)
+    completion_tokens = Column(Integer, default=0)
     errors = Column(Integer, default=0)
+    timeouts = Column(Integer, default=0)
     rate_limited = Column(Integer, default=0)
 
     __table_args__ = (Index("idx_provider_stats_date", "date"),)
@@ -466,7 +469,10 @@ class ApiKeyDailyStat(Base):
     hour = Column(Integer, nullable=True)
     requests = Column(Integer, default=0)
     tokens = Column(Integer, default=0)
+    prompt_tokens = Column(Integer, default=0)
+    completion_tokens = Column(Integer, default=0)
     errors = Column(Integer, default=0)
+    timeouts = Column(Integer, default=0)
     rate_limited = Column(Integer, default=0)
 
     __table_args__ = (Index("idx_apikey_stats_date", "date"),)
@@ -481,7 +487,10 @@ class ApiKeyModelDailyStat(Base):
     date = Column(String(10), nullable=False)
     requests = Column(Integer, default=0)
     tokens = Column(Integer, default=0)
+    prompt_tokens = Column(Integer, default=0)
+    completion_tokens = Column(Integer, default=0)
     errors = Column(Integer, default=0)
+    timeouts = Column(Integer, default=0)
     rate_limited = Column(Integer, default=0)
 
     __table_args__ = (
@@ -505,7 +514,10 @@ class ModelDailyStat(Base):
     date = Column(String(10), nullable=False)
     requests = Column(Integer, default=0)
     tokens = Column(Integer, default=0)
+    prompt_tokens = Column(Integer, default=0)
+    completion_tokens = Column(Integer, default=0)
     errors = Column(Integer, default=0)
+    timeouts = Column(Integer, default=0)
     rate_limited = Column(Integer, default=0)
 
     __table_args__ = (

@@ -361,10 +361,13 @@ _DDL: list[str] = [
     "provider_name VARCHAR(50) NOT NULL, "
     "date VARCHAR(10) NOT NULL, "
     "hour INTEGER, "
-    "requests INTEGER, "
-    "tokens INTEGER, "
-    "errors INTEGER, "
-    "rate_limited INTEGER"
+    "requests INTEGER DEFAULT 0, "
+    "tokens INTEGER DEFAULT 0, "
+    "prompt_tokens INTEGER DEFAULT 0, "
+    "completion_tokens INTEGER DEFAULT 0, "
+    "errors INTEGER DEFAULT 0, "
+    "timeouts INTEGER DEFAULT 0, "
+    "rate_limited INTEGER DEFAULT 0"
     ")",
     "CREATE INDEX IF NOT EXISTS idx_provider_stats_date ON provider_daily_stats (date)",
 
@@ -373,10 +376,13 @@ _DDL: list[str] = [
     "api_key_id INTEGER NOT NULL REFERENCES api_keys(id), "
     "date VARCHAR(10) NOT NULL, "
     "hour INTEGER, "
-    "requests INTEGER, "
-    "tokens INTEGER, "
-    "errors INTEGER, "
-    "rate_limited INTEGER"
+    "requests INTEGER DEFAULT 0, "
+    "tokens INTEGER DEFAULT 0, "
+    "prompt_tokens INTEGER DEFAULT 0, "
+    "completion_tokens INTEGER DEFAULT 0, "
+    "errors INTEGER DEFAULT 0, "
+    "timeouts INTEGER DEFAULT 0, "
+    "rate_limited INTEGER DEFAULT 0"
     ")",
     "CREATE INDEX IF NOT EXISTS idx_apikey_stats_date ON api_key_daily_stats (date)",
 
@@ -385,10 +391,13 @@ _DDL: list[str] = [
     "api_key_id INTEGER NOT NULL REFERENCES api_keys(id), "
     "model_name VARCHAR(100) NOT NULL, "
     "date VARCHAR(10) NOT NULL, "
-    "requests INTEGER, "
-    "tokens INTEGER, "
-    "errors INTEGER, "
-    "rate_limited INTEGER"
+    "requests INTEGER DEFAULT 0, "
+    "tokens INTEGER DEFAULT 0, "
+    "prompt_tokens INTEGER DEFAULT 0, "
+    "completion_tokens INTEGER DEFAULT 0, "
+    "errors INTEGER DEFAULT 0, "
+    "timeouts INTEGER DEFAULT 0, "
+    "rate_limited INTEGER DEFAULT 0"
     ")",
     "CREATE INDEX IF NOT EXISTS idx_apikey_model_stats_date ON api_key_model_daily_stats (date)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_apikey_model_stats_unique ON api_key_model_daily_stats (api_key_id, model_name, date)",
@@ -398,10 +407,13 @@ _DDL: list[str] = [
     "model_name VARCHAR(100) NOT NULL, "
     "provider_name VARCHAR(50), "
     "date VARCHAR(10) NOT NULL, "
-    "requests INTEGER, "
-    "tokens INTEGER, "
-    "errors INTEGER, "
-    "rate_limited INTEGER"
+    "requests INTEGER DEFAULT 0, "
+    "tokens INTEGER DEFAULT 0, "
+    "prompt_tokens INTEGER DEFAULT 0, "
+    "completion_tokens INTEGER DEFAULT 0, "
+    "errors INTEGER DEFAULT 0, "
+    "timeouts INTEGER DEFAULT 0, "
+    "rate_limited INTEGER DEFAULT 0"
     ")",
     "CREATE INDEX IF NOT EXISTS idx_model_stats_date ON model_daily_stats (date)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_model_stats_unique ON model_daily_stats (model_name, provider_name, date)",
@@ -717,10 +729,107 @@ async def migrate_daily_stats(conn) -> None:
         "api_key_model_daily_stats",
         "model_daily_stats",
     ):
+        for column_sql in (
+            "prompt_tokens INTEGER DEFAULT 0",
+            "completion_tokens INTEGER DEFAULT 0",
+            "timeouts INTEGER DEFAULT 0",
+        ):
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    f"ADD COLUMN IF NOT EXISTS {column_sql}"
+                )
+            )
+
+    # One-time split backfill: recompute prompt/completion/timeouts and
+    # error-only errors from the request_logs_all view (live + archived;
+    # rate-limited rows contribute zero to all of these). Guarded by a
+    # system_settings flag so it never runs twice.
+    flag_result = await conn.execute(
+        text(
+            "SELECT 1 FROM system_settings "
+            "WHERE \"key\" = 'daily_stats_split_backfilled' LIMIT 1"
+        )
+    )
+    if flag_result.fetchone() is None:
+        agg_cols = (
+            "SUM(COALESCE((rl.tokens->>'prompt_tokens')::bigint, 0)) AS prompt_tokens, "
+            "SUM(COALESCE((rl.tokens->>'completion_tokens')::bigint, 0)) AS completion_tokens, "
+            "SUM(CASE WHEN rl.status = 'timeout' THEN 1 ELSE 0 END) AS timeouts, "
+            "SUM(CASE WHEN rl.status = 'error' THEN 1 ELSE 0 END) AS errors"
+        )
+        set_clause = (
+            "prompt_tokens = COALESCE(a.prompt_tokens, 0), "
+            "completion_tokens = COALESCE(a.completion_tokens, 0), "
+            "timeouts = COALESCE(a.timeouts, 0), "
+            "errors = COALESCE(a.errors, 0)"
+        )
         await conn.execute(
             text(
-                f"ALTER TABLE {table_name} "
-                "ADD COLUMN IF NOT EXISTS rate_limited INTEGER DEFAULT 0"
+                "UPDATE model_daily_stats mds SET "
+                + set_clause
+                + " FROM ("
+                "SELECT to_char(rl.created_at, 'YYYY-MM-DD') AS d, rl.model, p.name, "
+                + agg_cols
+                + " FROM request_logs_all rl "
+                "LEFT JOIN providers p ON p.id = rl.provider_id "
+                "WHERE rl.status NOT IN ('rate_limited', 'local_rate_limited') "
+                "GROUP BY to_char(rl.created_at, 'YYYY-MM-DD'), rl.model, p.name"
+                ") a "
+                "WHERE mds.date = a.d AND mds.model_name = a.model "
+                "AND mds.provider_name IS NOT DISTINCT FROM a.name"
+            )
+        )
+        await conn.execute(
+            text(
+                "UPDATE provider_daily_stats pds SET "
+                + set_clause
+                + " FROM ("
+                "SELECT to_char(rl.created_at, 'YYYY-MM-DD') AS d, p.name, "
+                + agg_cols
+                + " FROM request_logs_all rl "
+                "JOIN providers p ON p.id = rl.provider_id "
+                "WHERE rl.status NOT IN ('rate_limited', 'local_rate_limited') "
+                "GROUP BY to_char(rl.created_at, 'YYYY-MM-DD'), p.name"
+                ") a "
+                "WHERE pds.date = a.d AND pds.provider_name = a.name"
+            )
+        )
+        await conn.execute(
+            text(
+                "UPDATE api_key_daily_stats akds SET "
+                + set_clause
+                + " FROM ("
+                "SELECT to_char(rl.created_at, 'YYYY-MM-DD') AS d, rl.api_key_id, "
+                + agg_cols
+                + " FROM request_logs_all rl "
+                "WHERE rl.status NOT IN ('rate_limited', 'local_rate_limited') "
+                "GROUP BY to_char(rl.created_at, 'YYYY-MM-DD'), rl.api_key_id"
+                ") a "
+                "WHERE akds.date = a.d AND akds.api_key_id = a.api_key_id"
+            )
+        )
+        await conn.execute(
+            text(
+                "UPDATE api_key_model_daily_stats akmds SET "
+                + set_clause
+                + " FROM ("
+                "SELECT to_char(rl.created_at, 'YYYY-MM-DD') AS d, rl.api_key_id, rl.model, "
+                + agg_cols
+                + " FROM request_logs_all rl "
+                "WHERE rl.status NOT IN ('rate_limited', 'local_rate_limited') "
+                "GROUP BY to_char(rl.created_at, 'YYYY-MM-DD'), rl.api_key_id, rl.model"
+                ") a "
+                "WHERE akmds.date = a.d AND akmds.api_key_id = a.api_key_id "
+                "AND akmds.model_name = a.model"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO system_settings (category, \"key\", \"value\", description) "
+                "VALUES ('migration', 'daily_stats_split_backfilled', 'done', "
+                "'Split prompt/completion/timeouts/error backfill for daily stats tables') "
+                "ON CONFLICT (\"key\") DO NOTHING"
             )
         )
 
