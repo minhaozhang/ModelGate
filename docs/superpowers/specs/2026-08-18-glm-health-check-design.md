@@ -10,7 +10,7 @@
 - 通过网关内部链路调用（与微信自动回复、用量报告同路径），调用真实计入 request_logs 与统计。
 - 成功：任务日志记 success + 耗时，无其他动作。
 - 失败：创建后台 Notification（type=system, level=error，含失败原因），任务日志记 failed。
-- 模型名可配置（系统配置 `scheduler.glm_health_check_model`），默认 `glm-5.3`，生产换模型无需改代码。
+- 模型名可配置（系统配置 `scheduler.glm_health_check_model`），默认 `zhipu/glm-5.3`，生产换模型无需改代码。注意：内部链路要求 `provider/model` 全名格式（与微信自动回复一致），裸模型名（如 `glm-4.5`）无法路由。
 
 ## 方案
 
