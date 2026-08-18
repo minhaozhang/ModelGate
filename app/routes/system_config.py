@@ -26,10 +26,16 @@ async def get_config(_: bool = Depends(permission_required("page.system.config")
 
     ua = await get_setting("proxy", "ua_override", "")
 
+    from app.services.glm_health_check import DEFAULT_HEALTH_CHECK_MODEL
+
+    glm_model = await get_setting("scheduler", "glm_health_check_model", "")
+
     return {
         "ua_override": ua or DEFAULT_OUTBOUND_USER_AGENT,
         "default_ua": DEFAULT_OUTBOUND_USER_AGENT,
         "busyness": busyness_settings,
+        "glm_health_check_model": glm_model,
+        "glm_health_check_model_default": DEFAULT_HEALTH_CHECK_MODEL,
     }
 
 
@@ -44,6 +50,15 @@ async def update_config(body: dict, _: bool = Depends(permission_required("syste
     else:
         await save_setting("proxy", "ua_override", "")
         config.OUTBOUND_USER_AGENT = DEFAULT_OUTBOUND_USER_AGENT
+
+    if "glm_health_check_model" in body:
+        glm_model = str(body.get("glm_health_check_model") or "").strip()
+        await save_setting(
+            "scheduler",
+            "glm_health_check_model",
+            glm_model,
+            "GLM 健康检查使用的模型（provider/model 全名，留空用默认）",
+        )
 
     busyness_updates = body.get("busyness", {})
     valid_busyness_keys = ALL_DEFAULTS.get("busyness", {})
