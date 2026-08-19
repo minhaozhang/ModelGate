@@ -263,8 +263,9 @@
                                     <th class="num">{{ _('Tokens') }}</th>
                                     <th class="num">{{ _('Latency') }}</th>
                                     <th class="num">{{ _('Cost') }}</th>
-                                    <th>{{ _('Client IP') }}</th>
-                                    <th></th>
+                        <th>{{ _('Client IP') }}</th>
+                        <th>{{ _('User Agent') }}</th>
+                        <th></th>
                                 </tr>
                             </thead>
                             <tbody id="logs-tbody"></tbody>
@@ -690,6 +691,7 @@
                         <td class="cell-latency num mono text-gray-700">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="cell-cost num mono text-gray-700">${billingCost !== null ? formatCost(billingCost) : '-'}</td>
                         <td class="cell-ip mono text-xs text-gray-600">${escapeHtml(log.client_ip || '-')}</td>
+                        <td class="cell-ua text-xs text-gray-600"><div class="max-w-[180px] truncate" title="${escapeHtml(log.user_agent || '')}">${escapeHtml(log.user_agent || '-')}</div></td>
                         <td class="cell-actions whitespace-nowrap">
                             ${hasResponse ? `<button class="link-btn" onclick="showResponseDetail(this)">${window.I18N.response}</button>` : ''}
                             <button class="link-btn ml-2" onclick="showContentDetail(${log.id})">Content</button>
