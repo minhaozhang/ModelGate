@@ -3020,6 +3020,40 @@
         loadAutoModelConfig();
         loadProviderModelRoutes();
         loadStrategyTemplates();
+
+        (function() {
+            const TOOLTIP_PAD = 8;
+            document.addEventListener('mouseover', (e) => {
+                const host = e.target.closest && e.target.closest('.warn-icon, .help-tip');
+                if (!host) return;
+                if (e.relatedTarget && host.contains(e.relatedTarget)) return;
+                const tip = host.querySelector('.warn-tip, .help-tip-body');
+                if (!tip) return;
+                tip.style.left = '0px';
+                tip.style.maxWidth = '';
+                const vw = window.innerWidth;
+                let clipRight = vw;
+                let node = host.parentElement;
+                while (node && node !== document.documentElement) {
+                    const s = getComputedStyle(node);
+                    if (s.overflowX !== 'visible' || s.overflowY !== 'visible') {
+                        clipRight = Math.min(clipRight, node.getBoundingClientRect().right);
+                        break;
+                    }
+                    node = node.parentElement;
+                }
+                const rightBound = clipRight - TOOLTIP_PAD;
+                const hostRect = host.getBoundingClientRect();
+                const cssMax = parseFloat(getComputedStyle(tip).maxWidth) || 600;
+                tip.style.maxWidth = Math.max(60, Math.min(cssMax, rightBound - TOOLTIP_PAD)) + 'px';
+                const tipRect = tip.getBoundingClientRect();
+                let left = hostRect.left;
+                if (left + tipRect.width > rightBound) {
+                    left = Math.max(TOOLTIP_PAD, rightBound - tipRect.width);
+                }
+                tip.style.left = Math.max(0, Math.round(left - hostRect.left)) + 'px';
+            });
+        })();
     </script>
 </body>
 </html>
