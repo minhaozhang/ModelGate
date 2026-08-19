@@ -1599,6 +1599,48 @@ async def get_system_active_sessions(
     }
 
 
+@router.get("/user/api/provider-status")
+async def get_user_provider_status(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+
+    now = get_local_now()
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(
+                Provider.name,
+                Provider.disabled_reason,
+                Provider.reset_at,
+            ).where(
+                or_(
+                    Provider.is_active == False,  # noqa: E712
+                    Provider.disabled_reason.is_not(None),
+                )
+            )
+        )
+        rows = result.fetchall()
+
+    disabled_providers = []
+    for name, reason, reset_at in rows:
+        if not reason and reset_at and reset_at <= now:
+            continue
+        disabled_providers.append(
+            {
+                "name": name,
+                "reason": reason or "",
+                "reset_at": reset_at.isoformat() if reset_at and reset_at > now else None,
+            }
+        )
+    disabled_providers.sort(key=lambda item: item["name"])
+
+    return {
+        "disabled_providers": disabled_providers,
+        "server_time": now.isoformat(),
+    }
+
+
 @router.get("/user/api/catalog")
 async def get_user_catalog(
     request: Request, api_key_id: int = Depends(get_user_session)

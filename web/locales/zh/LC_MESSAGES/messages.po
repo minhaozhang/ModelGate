@@ -229,6 +229,15 @@ msgstr "我已保存"
 msgid "Temporarily unavailable"
 msgstr "暂时无法使用"
 
+msgid "Provider unavailable"
+msgstr "供应商暂不可用"
+
+msgid "Provider {name} is unavailable: {reason}"
+msgstr "供应商 {name} 暂不可用：{reason}"
+
+msgid "expected restore at {time}"
+msgstr "预计 {time} 恢复"
+
 #: web/templates/admin/api_keys.html:210 web/templates/admin/config.html:582
 #: web/templates/admin/documents.html:156
 msgid "Delete"

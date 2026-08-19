@@ -298,6 +298,16 @@
             </div>
         </div>
         
+        <div id="provider-status-banner" class="hidden mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 shadow-sm">
+            <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div class="min-w-0 flex-1">
+                    <div class="text-sm font-semibold text-amber-800" id="provider-status-title"></div>
+                    <div id="provider-status-list" class="mt-1 space-y-1"></div>
+                </div>
+            </div>
+        </div>
+
         <div class="bg-white rounded-lg shadow mb-6">
             <div class="flex border-b">
                 <button class="tab-btn active px-6 py-3 font-medium" onclick="showTab('stats')">{{ _('Statistics') }}</button>
@@ -434,6 +444,9 @@
         newKeyIs: {{ _('Your new API Key is:') | tojson }},
         newKeySaveNote: {{ _('Please save it securely. You will need it to log in again.') | tojson }},
         temporarilyUnavailable: {{ _('Temporarily unavailable') | tojson }},
+        providerUnavailable: {{ _('Provider unavailable') | tojson }},
+        providerUnavailableLine: {{ _('Provider {name} is unavailable: {reason}') | tojson }},
+        expectedRestoreAt: {{ _('expected restore at {time}') | tojson }},
     };
     </script>
 
@@ -1739,13 +1752,52 @@
             const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-active');
             renderSystemActiveSessions(data);
         }
-        
+
+        function renderProviderStatusBanner(data) {
+            const banner = document.getElementById('provider-status-banner');
+            const titleEl = document.getElementById('provider-status-title');
+            const listEl = document.getElementById('provider-status-list');
+            const items = (data && data.disabled_providers) || [];
+            if (!items.length) {
+                banner.classList.add('hidden');
+                titleEl.textContent = '';
+                listEl.innerHTML = '';
+                return;
+            }
+            titleEl.textContent = window.I18N.providerUnavailable;
+            const locale = document.documentElement.lang || 'zh';
+            listEl.innerHTML = items.map(p => {
+                let line = window.I18N.providerUnavailableLine
+                    .replace('{name}', p.name)
+                    .replace('{reason}', p.reason || '-');
+                if (p.reset_at) {
+                    const dt = new Date(p.reset_at);
+                    const timeText = isNaN(dt.getTime())
+                        ? p.reset_at
+                        : dt.toLocaleString(locale, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    line += ' (' + window.I18N.expectedRestoreAt.replace('{time}', timeText) + ')';
+                }
+                const safe = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                return '<div class="text-sm text-amber-900 truncate cursor-default" title="' + safe + '">' + safe + '</div>';
+            }).join('');
+            banner.classList.remove('hidden');
+        }
+
+        async function loadProviderStatus() {
+            try {
+                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/provider-status');
+                renderProviderStatusBanner(data);
+            } catch (e) {}
+        }
+
         loadStats();
         loadMyRequests();
         loadSystemActiveSessions();
+        loadProviderStatus();
         setInterval(loadStats, 30000);
         setInterval(loadMyRequests, 10000);
         setInterval(loadSystemActiveSessions, 10000);
+        setInterval(loadProviderStatus, 30000);
 
         let _userNotifPage = 1;
         async function loadUserNotifList(page) {
