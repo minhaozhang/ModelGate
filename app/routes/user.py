@@ -1607,6 +1607,9 @@ async def get_user_provider_status(
         return translated_error(request, "Not authenticated", 401)
 
     now = get_local_now()
+    from app.services.provider_limiter import REENABLE_DELAY_SECONDS
+
+    cutoff = now - timedelta(seconds=REENABLE_DELAY_SECONDS)
     async with async_session_maker() as session:
         result = await session.execute(
             select(
@@ -1624,13 +1627,17 @@ async def get_user_provider_status(
 
     disabled_providers = []
     for name, reason, reset_at in rows:
-        if not reason and reset_at and reset_at <= now:
+        if not reason and reset_at and reset_at <= cutoff:
             continue
         disabled_providers.append(
             {
                 "name": name,
                 "reason": reason or "",
-                "reset_at": reset_at.isoformat() if reset_at and reset_at > now else None,
+                "reset_at": (
+                    reset_at + timedelta(seconds=REENABLE_DELAY_SECONDS)
+                ).isoformat()
+                if reset_at and reset_at > cutoff
+                else None,
             }
         )
     disabled_providers.sort(key=lambda item: item["name"])

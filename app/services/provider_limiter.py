@@ -1,11 +1,13 @@
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import select, update
 
 from app.core.config import logger, provider_key_semaphores, providers_cache
 from app.core.database import Provider, ProviderKey, async_session_maker
 from app.services.key_health import record_key_event, on_key_reenabled
+
+REENABLE_DELAY_SECONDS = 60
 
 
 def parse_reset_time(reason: str) -> datetime | None:
@@ -91,16 +93,20 @@ async def schedule_reenable_job(entity_type: str, entity_id: int, reset_at: date
 
     func = _do_reenable_provider if entity_type == "provider" else _do_reenable_key
 
+    run_date = reset_at + timedelta(seconds=REENABLE_DELAY_SECONDS)
+    if run_date <= datetime.now():
+        run_date = datetime.now()
+
     sched.add_job(
         func,
-        trigger=DateTrigger(run_date=reset_at),
+        trigger=DateTrigger(run_date=run_date),
         args=[entity_id],
         id=job_id,
         replace_existing=True,
     )
     logger.info(
         "[REENABLE-JOB] Scheduled %s id=%d to re-enable at %s",
-        entity_type, entity_id, reset_at.isoformat(),
+        entity_type, entity_id, run_date.isoformat(),
     )
 
 
@@ -293,6 +299,7 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
     from app.core.database import Provider, ProviderKey, async_session_maker
 
     now = datetime.now()
+    cutoff = now - timedelta(seconds=REENABLE_DELAY_SECONDS)
 
     reenabled_keys = []
     reenabled_providers = []
@@ -301,7 +308,7 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
         disabled_keys = await session.execute(
             select(ProviderKey).where(
                 ProviderKey.is_active == False,  # noqa: E712
-                or_(ProviderKey.reset_at == None, ProviderKey.reset_at <= now),  # noqa: E711
+                or_(ProviderKey.reset_at == None, ProviderKey.reset_at <= cutoff),  # noqa: E711
             )
         )
         disabled_key_rows = disabled_keys.scalars().all()
@@ -309,7 +316,7 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
         disabled_providers_q = await session.execute(
             select(Provider).where(
                 Provider.is_active == False,  # noqa: E712
-                or_(Provider.reset_at == None, Provider.reset_at <= now),  # noqa: E711
+                or_(Provider.reset_at == None, Provider.reset_at <= cutoff),  # noqa: E711
             )
         )
         disabled_provider_rows = disabled_providers_q.scalars().all()
@@ -371,6 +378,7 @@ async def restore_pending_reenable_jobs() -> None:
     from app.core.database import Provider, ProviderKey, async_session_maker
 
     now = datetime.now()
+    cutoff = now - timedelta(seconds=REENABLE_DELAY_SECONDS)
     restored = 0
 
     async with async_session_maker() as session:
@@ -378,7 +386,7 @@ async def restore_pending_reenable_jobs() -> None:
             select(Provider.id, Provider.reset_at).where(
                 Provider.is_active == False,  # noqa: E712
                 Provider.reset_at != None,  # noqa: E711
-                Provider.reset_at > now,
+                Provider.reset_at > cutoff,
             )
         )
         for row in result:
@@ -389,7 +397,7 @@ async def restore_pending_reenable_jobs() -> None:
             select(ProviderKey.id, ProviderKey.reset_at).where(
                 ProviderKey.is_active == False,  # noqa: E712
                 ProviderKey.reset_at != None,  # noqa: E711
-                ProviderKey.reset_at > now,
+                ProviderKey.reset_at > cutoff,
             )
         )
         for row in result:
