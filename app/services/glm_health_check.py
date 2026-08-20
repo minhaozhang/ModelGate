@@ -13,12 +13,8 @@ def _extract_reply(payload: dict | None) -> str:
     if not payload:
         return ""
     try:
-        return (
-            payload.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-            or ""
-        )
+        message = payload.get("choices", [{}])[0].get("message", {}) or {}
+        return message.get("content") or message.get("reasoning_content") or ""
     except (IndexError, AttributeError, TypeError):
         return ""
 
@@ -36,7 +32,7 @@ async def run_glm_health_check() -> None:
             {"role": "system", "content": "You are a health check probe."},
             {"role": "user", "content": "ping"},
         ],
-        "max_tokens": 8,
+        "max_tokens": 256,
         "stream": False,
     }
 
