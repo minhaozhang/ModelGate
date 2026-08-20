@@ -1606,46 +1606,9 @@ async def get_user_provider_status(
     if not api_key_id:
         return translated_error(request, "Not authenticated", 401)
 
-    now = get_local_now()
-    from app.services.provider_limiter import REENABLE_DELAY_SECONDS
+    from app.services.provider_limiter import get_disabled_providers_status
 
-    cutoff = now - timedelta(seconds=REENABLE_DELAY_SECONDS)
-    async with async_session_maker() as session:
-        result = await session.execute(
-            select(
-                Provider.name,
-                Provider.disabled_reason,
-                Provider.reset_at,
-            ).where(
-                or_(
-                    Provider.is_active == False,  # noqa: E712
-                    Provider.disabled_reason.is_not(None),
-                )
-            )
-        )
-        rows = result.fetchall()
-
-    disabled_providers = []
-    for name, reason, reset_at in rows:
-        if not reason and reset_at and reset_at <= cutoff:
-            continue
-        disabled_providers.append(
-            {
-                "name": name,
-                "reason": reason or "",
-                "reset_at": (
-                    reset_at + timedelta(seconds=REENABLE_DELAY_SECONDS)
-                ).isoformat()
-                if reset_at and reset_at > cutoff
-                else None,
-            }
-        )
-    disabled_providers.sort(key=lambda item: item["name"])
-
-    return {
-        "disabled_providers": disabled_providers,
-        "server_time": now.isoformat(),
-    }
+    return await get_disabled_providers_status()
 
 
 @router.get("/user/api/catalog")

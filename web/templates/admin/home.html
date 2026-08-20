@@ -92,6 +92,15 @@
                 <option value="year">{{ _('This Year') }}</option>
             </select>
             {% endcall %}
+            <div id="provider-status-banner" class="hidden mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+                <div class="flex items-start gap-2">
+                    <svg class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-sm font-semibold text-amber-800" id="provider-status-title"></div>
+                        <div id="provider-status-list" class="mt-1 space-y-1"></div>
+                    </div>
+                </div>
+            </div>
             <div id="busyness-banner" class="mb-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-50 border border-slate-200">
                 <div id="busyness-dot" class="w-3 h-3 rounded-full bg-slate-400"></div>
                 <span id="busyness-label" class="text-sm font-medium text-slate-600">{{ _('System Status') }}: --</span>
@@ -818,12 +827,57 @@
             renderSlowRequests(data);
         }
 
+        const BANNER_I18N = {
+            title: {{ _('Provider unavailable') | tojson }},
+            line: {{ _('Provider {name} is unavailable: {reason}') | tojson }},
+            restore: {{ _('expected restore at {time}') | tojson }},
+        };
+
+        function renderProviderStatusBanner(data) {
+            const banner = document.getElementById('provider-status-banner');
+            const titleEl = document.getElementById('provider-status-title');
+            const listEl = document.getElementById('provider-status-list');
+            const items = (data && data.disabled_providers) || [];
+            if (!items.length) {
+                banner.classList.add('hidden');
+                titleEl.textContent = '';
+                listEl.innerHTML = '';
+                return;
+            }
+            titleEl.textContent = BANNER_I18N.title;
+            const locale = document.documentElement.lang || 'zh';
+            listEl.innerHTML = items.map(p => {
+                let line = BANNER_I18N.line
+                    .replace('{name}', p.name)
+                    .replace('{reason}', p.reason || '-');
+                if (p.reset_at) {
+                    const dt = new Date(p.reset_at);
+                    const timeText = isNaN(dt.getTime())
+                        ? p.reset_at
+                        : dt.toLocaleString(locale, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    line += ' (' + BANNER_I18N.restore.replace('{time}', timeText) + ')';
+                }
+                const safe = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                return '<div class="text-sm text-amber-900 truncate cursor-default" title="' + safe + '">' + safe + '</div>';
+            }).join('');
+            banner.classList.remove('hidden');
+        }
+
+        async function loadProviderStatus() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-status`);
+                renderProviderStatusBanner(data);
+            } catch (e) {}
+        }
+
         loadData();
         setInterval(loadData, HOME_OVERVIEW_REFRESH_MS);
         loadLiveStatsFallback();
         connectLiveStats();
         loadSlowRequests();
         setInterval(loadSlowRequests, HOME_SLOW_REFRESH_MS);
+        loadProviderStatus();
+        setInterval(loadProviderStatus, 30000);
         setInterval(() => {
             if (latestSlowRequestsData) renderSlowRequests(latestSlowRequestsData);
         }, 1000);

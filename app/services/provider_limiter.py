@@ -10,6 +10,50 @@ from app.services.key_health import record_key_event, on_key_reenabled
 REENABLE_DELAY_SECONDS = 60
 
 
+async def get_disabled_providers_status() -> dict:
+    from sqlalchemy import or_
+
+    now = datetime.now()
+    cutoff = now - timedelta(seconds=REENABLE_DELAY_SECONDS)
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(
+                Provider.name,
+                Provider.disabled_reason,
+                Provider.reset_at,
+            ).where(
+                or_(
+                    Provider.is_active == False,  # noqa: E712
+                    Provider.disabled_reason.is_not(None),
+                )
+            )
+        )
+        rows = result.fetchall()
+
+    disabled_providers = []
+    for name, reason, reset_at in rows:
+        if not reason and reset_at and reset_at <= cutoff:
+            continue
+        disabled_providers.append(
+            {
+                "name": name,
+                "reason": reason or "",
+                "reset_at": (
+                    reset_at + timedelta(seconds=REENABLE_DELAY_SECONDS)
+                ).isoformat()
+                if reset_at and reset_at > cutoff
+                else None,
+            }
+        )
+    disabled_providers.sort(key=lambda item: item["name"])
+
+    return {
+        "disabled_providers": disabled_providers,
+        "server_time": now.isoformat(),
+    }
+
+
 def parse_reset_time(reason: str) -> datetime | None:
     if not reason:
         return None

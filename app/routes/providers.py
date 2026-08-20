@@ -29,6 +29,13 @@ class ProviderUpdate(BaseModel):
     merge_consecutive_messages: Optional[bool] = None
 
 
+@router.get("/provider-status")
+async def get_admin_provider_status(_: bool = Depends(login_required)):
+    from app.services.provider_limiter import get_disabled_providers_status
+
+    return await get_disabled_providers_status()
+
+
 @router.get("/providers")
 async def list_providers(_: bool = Depends(permission_required("page.providers"))):
     async with async_session_maker() as session:
