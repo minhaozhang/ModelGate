@@ -3031,27 +3031,40 @@
                 if (!tip) return;
                 tip.style.left = '0px';
                 tip.style.maxWidth = '';
+                tip.style.top = '';
+                tip.style.bottom = '';
                 const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                let clipLeft = 0;
                 let clipRight = vw;
+                let clipTop = 0;
+                let clipBottom = vh;
                 let node = host.parentElement;
                 while (node && node !== document.documentElement) {
                     const s = getComputedStyle(node);
                     if (s.overflowX !== 'visible' || s.overflowY !== 'visible') {
-                        clipRight = Math.min(clipRight, node.getBoundingClientRect().right);
+                        const rect = node.getBoundingClientRect();
+                        clipLeft = Math.max(clipLeft, rect.left);
+                        clipRight = Math.min(clipRight, rect.right);
+                        clipTop = Math.max(clipTop, rect.top);
+                        clipBottom = Math.min(clipBottom, rect.bottom);
                         break;
                     }
                     node = node.parentElement;
                 }
+                const leftBound = clipLeft + TOOLTIP_PAD;
                 const rightBound = clipRight - TOOLTIP_PAD;
                 const hostRect = host.getBoundingClientRect();
                 const cssMax = parseFloat(getComputedStyle(tip).maxWidth) || 600;
-                tip.style.maxWidth = Math.max(60, Math.min(cssMax, rightBound - TOOLTIP_PAD)) + 'px';
+                tip.style.maxWidth = Math.max(60, Math.min(cssMax, rightBound - leftBound)) + 'px';
                 const tipRect = tip.getBoundingClientRect();
-                let left = hostRect.left;
-                if (left + tipRect.width > rightBound) {
-                    left = Math.max(TOOLTIP_PAD, rightBound - tipRect.width);
+                const left = Math.max(leftBound, Math.min(hostRect.left, rightBound - tipRect.width));
+                tip.style.left = Math.round(left - hostRect.left) + 'px';
+                if (tipRect.top < clipTop + TOOLTIP_PAD
+                    && hostRect.bottom + tipRect.height + TOOLTIP_PAD <= clipBottom) {
+                    tip.style.bottom = 'auto';
+                    tip.style.top = `calc(100% + ${tip.classList.contains('warn-tip') ? 6 : 8}px)`;
                 }
-                tip.style.left = Math.max(0, Math.round(left - hostRect.left)) + 'px';
             });
         })();
     </script>
