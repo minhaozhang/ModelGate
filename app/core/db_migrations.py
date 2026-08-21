@@ -969,6 +969,7 @@ async def migrate_models(conn) -> None:
         "is_virtual BOOLEAN DEFAULT FALSE",
         "reasoning_effort TEXT",
         "tags TEXT",
+        "context_hard_limit INTEGER",
     ):
         await conn.execute(
             text(f"ALTER TABLE models ADD COLUMN IF NOT EXISTS {column_sql}")

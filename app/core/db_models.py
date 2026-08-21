@@ -165,6 +165,7 @@ class Model(Base):
     display_name = Column(String(100), nullable=True)
     max_tokens = Column(Integer, default=131072)
     context_length = Column(Integer, default=204800)
+    context_hard_limit = Column(Integer, nullable=True)
     thinking_enabled = Column(Boolean, default=True)
     thinking_budget = Column(Integer, default=8192)
     reasoning_effort = Column(Text, nullable=True)

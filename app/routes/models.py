@@ -32,6 +32,7 @@ class ModelCreate(BaseModel):
     display_name: Optional[str] = None
     max_tokens: int = 131072
     context_length: int = 204800
+    context_hard_limit: Optional[int] = None
     thinking_enabled: bool = True
     thinking_budget: int = 8192
     reasoning_effort: Optional[str] = None
@@ -44,6 +45,7 @@ class ModelUpdate(BaseModel):
     display_name: Optional[str] = None
     max_tokens: Optional[int] = None
     context_length: Optional[int] = None
+    context_hard_limit: Optional[int] = None
     thinking_enabled: Optional[bool] = None
     thinking_budget: Optional[int] = None
     reasoning_effort: Optional[str] = None
@@ -121,6 +123,7 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
                     "display_name": m.display_name,
                     "max_tokens": m.max_tokens,
                     "context_length": m.context_length,
+                    "context_hard_limit": m.context_hard_limit,
                     "thinking_enabled": m.thinking_enabled,
                     "thinking_budget": m.thinking_budget,
                     "reasoning_effort": m.reasoning_effort,
@@ -141,6 +144,9 @@ async def create_model(data: ModelCreate, _: bool = Depends(permission_required(
         model = Model(**data.model_dump())
         session.add(model)
         await session.commit()
+        from app.services.provider import load_providers
+
+        await load_providers()
         return {"id": model.id, "name": model.name}
 
 
@@ -156,6 +162,9 @@ async def update_model(
         for k, v in data.model_dump(exclude_unset=True).items():
             setattr(model, k, v)
         await session.commit()
+        from app.services.provider import load_providers
+
+        await load_providers()
         return {"id": model.id}
 
 
