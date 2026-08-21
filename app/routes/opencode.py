@@ -139,7 +139,7 @@ async def build_opencode_config(
         if not model:
             continue
 
-        if not provider.is_active or not pm.is_active:
+        if not pm.is_active:
             continue
 
         if auto_enabled and auto_requested_by_key:
@@ -210,7 +210,7 @@ async def build_opencode_config(
             select(Provider).where(Provider.id == pm.provider_id)
         )
         provider = provider_result.scalar_one_or_none()
-        if not provider or not provider.is_active or not pm.is_active:
+        if not provider or not pm.is_active:
             continue
         model_result = await session.execute(
             select(Model).where(Model.id == pm.model_id)
