@@ -507,17 +507,16 @@
                 </div>
                 <div class="flex gap-4">
                     <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Maximum tokens the model can generate in a single response') }}">{{ _('Max Output') }}</label>
+                        <input type="text" id="model-max-tokens" value="131072" placeholder="e.g. 131072 or 128k" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div class="flex-1">
                         <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Total input + output tokens the model can process at once') }}">{{ _('Context Window') }}</label>
                         <input type="text" id="model-context-length" value="204800" placeholder="e.g. 204800 or 200k" class="w-full border rounded px-3 py-2">
                     </div>
                     <div class="flex-1">
                         <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Reject requests whose estimated input tokens exceed this limit. Defaults to the context window value; agents auto-compact when rejected') }}">{{ _('Context Hard Limit') }}</label>
                         <input type="text" id="model-context-hard-limit" value="" placeholder="{{ _('empty = context window, e.g. 120k') }}" class="w-full border rounded px-3 py-2">
-                    </div>
-                </div>
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Total input + output tokens the model can process at once') }}">{{ _('Context Window') }}</label>
-                        <input type="text" id="model-context-length" value="204800" placeholder="e.g. 204800 or 200k" class="w-full border rounded px-3 py-2">
                     </div>
                 </div>
                 <div class="flex gap-4">
