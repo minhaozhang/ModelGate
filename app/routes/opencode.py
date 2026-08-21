@@ -394,7 +394,9 @@ if (Test-Path -LiteralPath $ConfigFile) {
     try {
         $raw = Get-Content -LiteralPath $ConfigFile -Raw
         $stripped = ($raw -split "`n" | Where-Object { $_ -notmatch '^\s*//' -and $_ -notmatch '^\s*\*' }) -join "`n"
-        $stripped = $stripped -replace '(?m)(?<!:)//.*$', ''
+        # Inline-comment stripper: only strip // NOT preceded by : " ' / or a
+        # word char, so URLs like https:// and file:/// inside strings survive.
+        $stripped = $stripped -replace '(?m)(?<![:"''/\w])//.*$', ''
         $stripped = $stripped -replace ',(\s*[}\]])', '$1'
         if (-not $stripped.Trim()) { $stripped = '{}' }
         $Existing = ConvertFrom-Json $stripped
@@ -477,6 +479,14 @@ if [ -f "$CONFIG_FILE" ]; then
                 | tr -d '\n' \
                 | sed -E 's|,([[:space:]]*[]}])|\1|g' \
                 | jq '.' 2>/dev/null)
+    # Fallback: if inline-comment stripping mangled the file (e.g. file:///
+    # URLs), retry parsing the raw file with only whole-line comments stripped.
+    if [ -z "$EXISTING" ] || [ "$EXISTING" = "null" ]; then
+        EXISTING=$(sed -E 's|^[[:space:]]*//.*||g; s|^[[:space:]]*/\*.*||g; s|^[[:space:]]*\*.*||g' "$CONFIG_FILE" \
+                | tr -d '\n' \
+                | sed -E 's|,([[:space:]]*[]}])|\1|g' \
+                | jq '.' 2>/dev/null)
+    fi
     if [ -z "$EXISTING" ] || [ "$EXISTING" = "null" ]; then
         echo "Existing config could not be parsed. A backup was kept next to it." >&2
         echo "Continuing with a fresh config would DROP your existing providers/settings." >&2
