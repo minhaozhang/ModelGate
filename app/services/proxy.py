@@ -47,6 +47,7 @@ from app.services.proxy_runtime import (
     _get_or_create_provider_key_semaphore,
     _get_provider_key_limit,
     _openai_error_response,
+    acquire_scoped_semaphore,
     build_headers,
     call_internal_model_via_proxy as runtime_call_internal_model_via_proxy,
     ensure_internal_api_key_exists as runtime_ensure_internal_api_key_exists,
@@ -492,9 +493,9 @@ async def proxy_request(request: Request, endpoint: str):
                 )
             )
             try:
-                await asyncio.wait_for(
-                    user_api_key_semaphore.acquire(),
-                    timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                await acquire_scoped_semaphore(
+                    user_api_key_semaphore,
+                    USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
                 )
                 user_api_key_acquired = True
             except asyncio.TimeoutError:
@@ -799,9 +800,9 @@ async def proxy_request(request: Request, endpoint: str):
                         _get_provider_key_limit(provider_config, chosen_key_id),
                     )
                     try:
-                        await asyncio.wait_for(
-                            provider_key_semaphore.acquire(),
-                            timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                        await acquire_scoped_semaphore(
+                            provider_key_semaphore,
+                            USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
                         )
                         acquired = True
                     except asyncio.TimeoutError:
@@ -886,9 +887,9 @@ async def proxy_request(request: Request, endpoint: str):
                         )
                     )
                     try:
-                        await asyncio.wait_for(
-                            user_provider_model_semaphore.acquire(),
-                            timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                        await acquire_scoped_semaphore(
+                            user_provider_model_semaphore,
+                            USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
                         )
                         user_provider_model_acquired = True
                     except asyncio.TimeoutError:
