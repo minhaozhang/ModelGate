@@ -1,346 +1,1097 @@
 <!DOCTYPE html>
-<html>
+<html lang="{{ current_locale }}">
 <head>
     <meta charset="utf-8">
     {% include 'components/site_head_meta.html' %}
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
-    <link rel="stylesheet" href="/static/css/output.css">
-    <script src="/static/js/three.min.js"></script>
+    <link rel="stylesheet" href="{{ app_base_path }}/static/css/fonts-d.css">
     <style>
-        #particles-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #09090b;
+            --bg-alt: #f0faf4;
+            --bg-alt-text: #09090b;
+            --bg-alt-muted: #3d5a4a;
+            --accent: #22c55e;
+            --accent-dim: #16a34a;
+            --accent-bright: #4ade80;
+            --accent-subtle: rgba(34, 197, 94, 0.08);
+            --accent-border: rgba(34, 197, 94, 0.15);
+            --text: #fafafa;
+            --text-muted: #a1a1aa;
+            --text-faint: #71717a;
+            --border: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(255, 255, 255, 0.12);
+            --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+            --sans: 'Instrument Sans', system-ui, -apple-system, sans-serif;
         }
-        .glass {
-            background: rgba(10, 10, 20, 0.25);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .mono { font-family: var(--mono); }
+
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            height: 56px;
+            background: rgba(9, 9, 11, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text);
+        }
+
+        .nav-brand span { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+
+        .nav-right { display: flex; align-items: center; gap: 16px; }
+
+        .nav-link {
+            font-size: 14px;
+            color: var(--text-faint);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover { color: var(--text); }
+
+        .lang-select {
+            appearance: none;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 8px;
+            color: var(--text-muted);
+            font-family: var(--mono);
+            font-size: 12px;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .lang-select:hover { border-color: var(--border-hover); }
+        .lang-select option { background: #18181b; color: var(--text); }
+
+        .section-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--accent);
+            margin-bottom: 20px;
+        }
+
+        .section-label-dot {
+            width: 6px; height: 6px;
+            border-radius: 1px;
+            background: var(--accent);
+        }
+
+        .hero {
+            padding: 160px 24px 80px;
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        #hero-canvas {
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 14px;
+            border-radius: 100px;
+            border: 1px solid var(--accent-border);
+            background: var(--accent-subtle);
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--accent);
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            margin-bottom: 32px;
+        }
+
+        .hero-badge-dot {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 72px);
+            line-height: 1.05;
+            font-weight: 500;
+            letter-spacing: -0.035em;
+            max-width: 760px;
+            color: var(--text);
+        }
+
+        .hero h1 .accent { color: var(--accent); }
+
+        .hero-desc {
+            margin-top: 24px;
+            font-size: 17px;
+            line-height: 1.75;
+            color: var(--text-muted);
+            max-width: 560px;
+        }
+
+        .hero-actions {
+            margin-top: 36px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: none;
+            font-family: var(--sans);
+        }
+
+        .btn-primary { background: var(--accent); color: #09090b; }
+        .btn-primary:hover {
+            background: var(--accent-bright);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.25);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border-hover);
+            color: var(--text-muted);
+        }
+        .btn-secondary:hover { border-color: rgba(255, 255, 255, 0.2); color: var(--text); }
+
+        .stats-bar {
+            margin-top: 64px;
+            padding: 32px 0;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stats-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            gap: 0;
+        }
+
+        .stat-item {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 8px 0;
+            position: relative;
+        }
+
+        .stat-item + .stat-item { padding-left: 32px; }
+        .stat-item + .stat-item::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 4px; bottom: 4px;
+            width: 1px;
+            background: var(--border);
+        }
+
+        .flip-container { perspective: 800px; }
+
+        .flip-inner {
+            transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+            transform-style: preserve-3d;
+            position: relative;
+        }
+
+        .flip-inner.flipped { transform: rotateY(180deg); }
+
+        .flip-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+
+        .flip-back {
+            position: absolute;
+            inset: 0;
+            transform: rotateY(180deg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .stat-number {
+            font-family: var(--mono);
+            font-size: clamp(28px, 3vw, 40px);
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-label { font-size: 13px; color: var(--text-faint); margin-top: 4px; }
+
+        .stat-tag {
+            display: inline-block;
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-top: 6px;
+        }
+
+        .stat-tag-total {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        .stat-tag-today {
+            background: var(--accent-subtle);
+            color: var(--accent);
+            border: 1px solid var(--accent-border);
+        }
+
+        .alt-section {
+            background: var(--bg-alt);
+            color: var(--bg-alt-text);
+            padding: 96px 24px;
+        }
+
+        .alt-section .section-label { color: var(--accent-dim); }
+        .alt-section .section-label-dot { background: var(--accent-dim); }
+
+        .section-inner { max-width: 1200px; margin: 0 auto; }
+
+        .section-title {
+            font-size: clamp(28px, 4vw, 44px);
+            font-weight: 500;
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+            max-width: 560px;
+        }
+
+        .section-subtitle {
+            margin-top: 16px;
+            font-size: 16px;
+            line-height: 1.7;
+            color: var(--bg-alt-muted);
+            max-width: 520px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1px;
+            margin-top: 48px;
+            background: rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .feature-card {
+            background: var(--bg-alt);
+            padding: 32px;
+            transition: background 0.2s;
+        }
+
+        .feature-card:hover { background: rgba(255, 255, 255, 0.7); }
+
+        .feature-icon {
+            width: 40px; height: 40px;
+            border-radius: 8px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .feature-card h3 {
+            margin-top: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .feature-card p {
+            margin-top: 8px;
+            font-size: 14px;
+            line-height: 1.65;
+            color: var(--bg-alt-muted);
+        }
+
+        .terminal-section { padding: 96px 24px; }
+
+        .terminal-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: start;
+        }
+
+        .terminal {
+            background: #0c0c0e;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .terminal-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.1); }
+        .terminal-dot:first-child { background: #ef4444; }
+        .terminal-dot:nth-child(2) { background: #eab308; }
+        .terminal-dot:nth-child(3) { background: #22c55e; }
+
+        .terminal-title {
+            margin-left: 8px;
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text-faint);
+        }
+
+        .terminal-body {
+            padding: 20px;
+            font-family: var(--mono);
+            font-size: 13px;
+            line-height: 1.9;
+            min-height: 96px;
+            word-break: break-all;
+        }
+
+        .terminal-body .comment { color: #52525b; }
+        .terminal-body .keyword { color: var(--accent); }
+        .terminal-body .string { color: #fbbf24; }
+        .terminal-body .url { color: #60a5fa; }
+        .terminal-body .caret {
+            display: inline-block;
+            width: 8px; height: 15px;
+            background: var(--accent);
+            vertical-align: text-bottom;
+            animation: blink 1s step-end infinite;
+        }
+
+        .steps-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 32px;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            font-size: 15px;
+            line-height: 1.5;
+            color: var(--text-muted);
+            opacity: 0;
+            transform: translateX(-8px);
+            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .step-item.visible { opacity: 1; transform: translateX(0); }
+
+        .step-num {
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+            background: var(--accent-subtle);
+            border: 1px solid var(--accent-border);
+            border-radius: 6px;
+            min-width: 28px; height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .cta-section {
+            padding: 96px 24px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .cta-section h2 {
+            font-size: clamp(32px, 5vw, 56px);
+            font-weight: 500;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+        }
+
+        .cta-section h2 .accent { color: var(--accent); }
+
+        .cta-actions {
+            margin-top: 36px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .cli-command {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 13px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-muted);
+        }
+
+        .cli-command .prefix { color: var(--accent); }
+
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 24px;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .footer-link {
+            font-size: 13px;
+            color: var(--text-faint);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-link:hover { color: var(--text-muted); }
+
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1), transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .scroll-reveal.visible { opacity: 1; transform: translateY(0); }
+
+        @media (max-width: 768px) {
+            .stats-inner { flex-direction: column; gap: 24px; }
+            .stat-item + .stat-item { padding-left: 0; }
+            .stat-item + .stat-item::before { display: none; }
+            .terminal-layout { grid-template-columns: 1fr; }
+            .features-grid { grid-template-columns: 1fr; }
+            .hero { padding: 120px 24px 60px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .scroll-reveal { opacity: 1; transform: none; transition: none; }
+            .step-item { opacity: 1; transform: none; transition: none; }
+            .flip-inner { transition: none; }
+            .hero-badge-dot, .terminal-body .caret { animation: none; }
         }
     </style>
 </head>
-<body class="min-h-screen text-slate-100">
-    {% set is_zh = current_locale == 'zh' %}
-    <div id="particles-container"></div>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="{{ app_base_path }}/" class="nav-brand">
+                <img src="{{ app_base_path }}/favicon.svg" alt="" style="width: 22px; height: 22px;">
+                <span>ModelGate</span>
+            </a>
+            <div class="nav-right">
+                <a href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" class="nav-link">Gitee</a>
+                <a href="https://atomgit.com/zhangminhao/ModelGate" target="_blank" rel="noreferrer" class="nav-link">AtomGit</a>
+                <select id="lang-select" class="lang-select">
+                    <option value="en">EN</option>
+                    <option value="zh">中文</option>
+                </select>
+            </div>
+        </div>
+    </nav>
 
-    <div class="fixed top-4 right-4 z-50 flex items-center gap-3">
-        <a href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" class="text-white/50 hover:text-white/80 text-sm transition">Gitee</a>
-        <select id="lang-select" onchange="switchLang(this.value)" class="bg-transparent text-white/60 border border-white/20 rounded px-2 py-1 text-sm cursor-pointer focus:outline-none">
-            <option value="en">English</option>
-            <option value="zh">{{ "中文" if is_zh else "Chinese" }}</option>
-        </select>
+    <section class="hero scroll-reveal">
+        <canvas id="hero-canvas"></canvas>
+        <div class="hero-badge">
+            <span class="hero-badge-dot"></span>
+            <span id="badge-text" class="mono"></span>
+        </div>
+
+        <h1>
+            <span id="hero-title-line1"></span><br>
+            <span class="accent" id="hero-title-line2"></span>
+        </h1>
+
+        <p class="hero-desc" id="hero-desc"></p>
+
+        <div class="hero-actions">
+            <a id="user-login-btn" href="{{ app_base_path }}/user/login" class="btn btn-primary"></a>
+            <a id="docs-btn" href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" class="btn btn-secondary"></a>
+        </div>
+    </section>
+
+    <div class="stats-bar scroll-reveal">
+        <div class="stats-inner">
+            <div class="stat-item">
+                <div class="flip-container" id="flip-requests">
+                    <div class="flip-inner">
+                        <div class="flip-face">
+                            <div>
+                                <div class="stat-number" id="stat-requests">--</div>
+                                <div class="stat-label" id="stat-requests-label"></div>
+                                <span class="stat-tag stat-tag-total" id="badge-total-req">TOTAL</span>
+                            </div>
+                        </div>
+                        <div class="flip-face flip-back">
+                            <div>
+                                <div class="stat-number" id="stat-today-requests">--</div>
+                                <div class="stat-label" id="stat-today-requests-label"></div>
+                                <span class="stat-tag stat-tag-today" id="badge-today-req">TODAY</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div class="flip-container" id="flip-tokens">
+                    <div class="flip-inner">
+                        <div class="flip-face">
+                            <div>
+                                <div class="stat-number" id="stat-tokens">--</div>
+                                <div class="stat-label" id="stat-tokens-label"></div>
+                                <span class="stat-tag stat-tag-total" id="badge-total-tok">TOTAL</span>
+                            </div>
+                        </div>
+                        <div class="flip-face flip-back">
+                            <div>
+                                <div class="stat-number" id="stat-today-tokens">--</div>
+                                <div class="stat-label" id="stat-today-tokens-label"></div>
+                                <span class="stat-tag stat-tag-today" id="badge-today-tok">TODAY</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <main class="mx-auto flex min-h-screen max-w-6xl items-center px-6 py-12">
-        <div class="grid w-full gap-8 lg:grid-cols-[1.15fr_0.85fr]">
-            <section class="glass rounded-3xl p-8 lg:p-10">
-                <div class="mb-6 inline-flex items-center gap-3 rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm text-sky-200">
-                    <img src="{{ app_base_path }}/favicon.svg" alt="ModelGate" class="h-5 w-5">
-                    <span>ModelGate</span>
-                </div>
-                <h1 class="max-w-3xl text-4xl font-bold tracking-tight text-white lg:text-5xl">
-                    {{ "赋予每个开发者，驾驭智能的力量。" if is_zh else "Empower every developer to harness the power of AI." }}
-                </h1>
-                <p class="mt-5 max-w-2xl text-base leading-8 text-slate-300 lg:text-lg">
-                    {{ "面向开发者的 LLM 智能路由网关。一个接口，接入全部模型。用代码定义智能，用智能创造世界。" if is_zh else "An LLM intelligent routing gateway for developers. One interface to access all models. Define intelligence with code, create the world with intelligence." }}
-                </p>
-
-                <div class="mt-8 flex flex-wrap gap-3">
-                    <a href="{{ app_base_path }}/user/login" class="rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 px-6 py-3 font-medium text-white transition hover:from-blue-600 hover:to-purple-600 shadow-lg hover:shadow-xl">
-                        {{ "用户登录" if is_zh else "User Login" }}
-                    </a>
-                </div>
-
-                <div class="mt-10 flex flex-wrap gap-3">
-                    <span class="rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm text-sky-200">{{ "多供应商 API 代理" if is_zh else "Multi-provider API proxy" }}</span>
-                    <span class="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200">{{ "使用仪表盘与分析" if is_zh else "Usage dashboard & analytics" }}</span>
-                    <span class="rounded-full border border-purple-400/30 bg-purple-400/10 px-4 py-2 text-sm text-purple-200">{{ "监控与错误分析" if is_zh else "Monitoring & error analysis" }}</span>
-                </div>
-
-                <div class="mt-8 grid grid-cols-2 gap-4">
-                    <div class="rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4 text-center">
-                        <div class="text-2xl font-bold text-white" id="stat-requests">--</div>
-                        <div class="mt-1 text-xs text-slate-400">{{ "总调用量" if is_zh else "Total Requests" }}</div>
+    <section class="alt-section">
+        <div class="section-inner scroll-reveal">
+            <div class="section-label">
+                <span class="section-label-dot"></span>
+                <span id="features-section-label"></span>
+            </div>
+            <h2 class="section-title" id="features-title"></h2>
+            <p class="section-subtitle" id="features-subtitle"></p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
                     </div>
-                    <div class="rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4 text-center">
-                        <div class="text-2xl font-bold text-white" id="stat-tokens">--</div>
-                        <div class="mt-1 text-xs text-slate-400">{{ "总消耗 Tokens" if is_zh else "Total Tokens" }}</div>
+                    <h3 id="feat-1-title"></h3>
+                    <p id="feat-1-desc"></p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.348 14.652a3.75 3.75 0 0 1 0-5.304m5.304 0a3.75 3.75 0 0 1 0 5.304m-7.425 2.121a6.75 6.75 0 0 1 0-9.546m9.546 0a6.75 6.75 0 0 1 0 9.546M5.106 18.894c-3.808-3.807-3.808-9.98 0-13.788m13.788 0c3.808 3.807 3.808 9.98 0 13.788M12 12h.008v.008H12V12Z"/></svg>
                     </div>
+                    <h3 id="feat-2-title"></h3>
+                    <p id="feat-2-desc"></p>
                 </div>
-            </section>
-
-            <aside class="glass rounded-3xl p-8 lg:p-10">
-                <h2 class="text-xl font-semibold text-white">{{ "快速开始" if is_zh else "Quick Start" }}</h2>
-                <ol class="mt-5 space-y-4 text-sm leading-7 text-slate-300">
-                    <li>1. {{ "打开用户登录页，并使用 API Key 登录。" if is_zh else "Open the user login page and sign in with an API key." }}</li>
-                    <li>2. {{ "通过 /v1/models 确认可用模型列表。" if is_zh else "Use /v1/models to confirm which models are available." }} <span class="text-sky-200">({{ app_base_path }}/v1/models)</span></li>
-                    <li>3. {{ "如有需要，可在仪表盘或 API Key 页面生成 OpenCode 配置。" if is_zh else "If needed, generate OpenCode settings from the dashboard or API key page." }}</li>
-                    <li>4. {{ "通过管理面板查看监控、日志和每日报告分析。" if is_zh else "Use the admin panel to review monitoring, logs, and daily analysis reports." }}</li>
-                </ol>
-
-                <div class="mt-8 rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4">
-                    <div class="text-sm text-slate-400">{{ "示例 Base URL" if is_zh else "Example Base URL" }}</div>
-                    <code class="mt-2 block break-all text-sm text-sky-200">{{ base_url }}/v1</code>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>
+                    </div>
+                    <h3 id="feat-3-title"></h3>
+                    <p id="feat-3-desc"></p>
                 </div>
-
-                <div class="mt-4 rounded-2xl border border-slate-600/40 bg-slate-950/45 p-4">
-                    <div class="text-sm text-slate-400">{{ _('OpenCode') }}</div>
-                    <p class="mt-2 text-sm leading-7 text-slate-300">
-                        {{ "获取 API Key 后，你可以在仪表盘或管理端 API Key 页面生成 OpenCode 配置。" if is_zh else "After obtaining an API key, you can generate OpenCode configuration from the dashboard or admin API key page." }}
-                    </p>
-                    <a href="https://opencode.ai/" target="_blank" rel="noreferrer" class="mt-3 inline-flex text-sm font-medium text-emerald-300 hover:text-emerald-200">
-                        {{ "访问 OpenCode" if is_zh else "Visit OpenCode" }}
-                    </a>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg>
+                    </div>
+                    <h3 id="feat-4-title"></h3>
+                    <p id="feat-4-desc"></p>
                 </div>
-            </aside>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
+                    </div>
+                    <h3 id="feat-5-title"></h3>
+                    <p id="feat-5-desc"></p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"/></svg>
+                    </div>
+                    <h3 id="feat-6-title"></h3>
+                    <p id="feat-6-desc"></p>
+                </div>
+            </div>
         </div>
-    </main>
+    </section>
 
-    {% if icp_number %}
-    <footer class="fixed bottom-0 left-0 right-0 py-3 text-center text-sm text-white/40">
-        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" class="hover:text-white/60 transition">{{ icp_number }}</a>
+    <section class="terminal-section">
+        <div class="section-inner scroll-reveal">
+            <div class="section-label">
+                <span class="section-label-dot"></span>
+                <span id="quickstart-section-label"></span>
+            </div>
+            <div class="terminal-layout">
+                <div>
+                    <h2 class="section-title" id="quick-start-title"></h2>
+                    <ol class="steps-list" id="steps-list"></ol>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div class="terminal">
+                        <div class="terminal-header">
+                            <span class="terminal-dot"></span>
+                            <span class="terminal-dot"></span>
+                            <span class="terminal-dot"></span>
+                            <span class="terminal-title">powershell / bash</span>
+                        </div>
+                        <div class="terminal-body" id="setup-terminal"></div>
+                    </div>
+                    <div class="terminal">
+                        <div class="terminal-header">
+                            <span class="terminal-dot"></span>
+                            <span class="terminal-dot"></span>
+                            <span class="terminal-dot"></span>
+                            <span class="terminal-title">base url</span>
+                        </div>
+                        <div class="terminal-body" style="min-height: auto;">
+                            <div><span class="keyword">$</span> <span class="comment" id="base-url-label"></span></div>
+                            <div><span class="url" id="base-url-value"></span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section scroll-reveal">
+        <h2 id="cta-title"></h2>
+        <div class="cta-actions">
+            <a id="cta-btn" href="{{ app_base_path }}/user/login" class="btn btn-primary"></a>
+            <div class="cli-command">
+                <span class="prefix">$</span>
+                <span>curl <span class="url" id="cta-url"></span>/v1/models</span>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        {% if icp_number %}
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" class="footer-link">{{ icp_number }}</a>
+        {% endif %}
+        <span class="footer-link" style="cursor: default;">ModelGate · LLM API Gateway</span>
     </footer>
-    {% endif %}
 
-    {% include 'components/lang_switch.html' %}
     <script>
-        let scene, camera, renderer, particles;
-        let mouseX = 0, mouseY = 0;
-
-        function init() {
-            const container = document.getElementById('particles-container');
-
-            scene = new THREE.Scene();
-
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 50;
-
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.setClearColor(0x0d1117, 1);
-            container.appendChild(renderer.domElement);
-
-            createParticles();
-
-            document.addEventListener('mousemove', onMouseMove);
-            window.addEventListener('resize', onWindowResize);
-
-            animate();
+    var APP_BASE_PATH = {{ app_base_path | tojson }};
+    var SERVER_LOCALE = {{ current_locale | tojson }};
+    var translations = {
+        en: {
+            badge: "Open-source LLM Gateway",
+            heroLine1: "One gateway.",
+            heroLine2: "Every model.",
+            heroDesc: "ModelGate routes LLM traffic across providers with health-aware key selection, layered concurrency control, and full observability — through OpenAI- and Anthropic-compatible endpoints.",
+            userLogin: "Get Started",
+            docsBtn: "View Source",
+            totalRequests: "Total Requests",
+            totalTokens: "Tokens Consumed",
+            todayRequests: "Today Requests",
+            todayTokens: "Today Tokens",
+            badgeTotal: "TOTAL",
+            badgeToday: "TODAY",
+            featuresSectionLabel: "Core Features",
+            featuresTitle: "Built for production LLM traffic",
+            featuresSubtitle: "Routing, resilience, and governance — everything between your clients and the upstream providers.",
+            feat1Title: "Multi-Protocol Access",
+            feat1Desc: "OpenAI-compatible /v1/chat/completions, /v1/embeddings and /v1/models, plus an Anthropic /v1/messages endpoint with full protocol translation.",
+            feat2Title: "Intelligent Routing",
+            feat2Desc: "Address models by name, alias, or the auto virtual model. Context-aware candidate pools and automatic fallback to lower-priority providers on failure.",
+            feat3Title: "Self-Healing Availability",
+            feat3Desc: "Sliding-window key health scores, automatic circuit-breaking on auth errors, scheduled re-enable, and live provider availability banners.",
+            feat4Title: "Concurrency Control",
+            feat4Desc: "Layered semaphores per API key, provider key, and model. Requests queue for a slot instead of failing fast; saturation returns 429 with retry-after.",
+            feat5Title: "Observability",
+            feat5Desc: "Per-request logs with intent classification and token cache breakdown, aggregated daily stats, and AI-generated usage reports.",
+            feat6Title: "Access Governance",
+            feat6Desc: "RBAC with roles and menus, per-key model permissions and expiry, full audit logging, and provider-model pricing management.",
+            quickstartSectionLabel: "Quick Start",
+            quickStart: "Up and running in minutes",
+            step1: "Sign in to the user portal with an API key",
+            step2: "Check /v1/models for the models your key can use",
+            step3: "Run the one-liner to configure OpenCode",
+            step4: "Monitor usage, costs and health in the dashboard",
+            setupComment: "# one-liner OpenCode setup",
+            baseUrl: "# base url",
+            ctaTitle: "Ready to unify\nyour LLM traffic?",
+            ctaBtn: "Get Started"
+        },
+        zh: {
+            badge: "开源 LLM 网关",
+            heroLine1: "一个网关，",
+            heroLine2: "接入所有模型。",
+            heroDesc: "ModelGate 在多供应商之间智能调度 LLM 流量：健康度选 Key、分层并发控制、全链路可观测，同时提供 OpenAI 与 Anthropic 双协议兼容端点。",
+            userLogin: "开始使用",
+            docsBtn: "查看源码",
+            totalRequests: "总调用量",
+            totalTokens: "消耗 Tokens",
+            todayRequests: "今日调用",
+            todayTokens: "今日 Tokens",
+            badgeTotal: "累计",
+            badgeToday: "今日",
+            featuresSectionLabel: "核心功能",
+            featuresTitle: "为生产级 LLM 流量而生",
+            featuresSubtitle: "路由、韧性、治理——客户端与上游供应商之间所需要的一切。",
+            feat1Title: "多协议接入",
+            feat1Desc: "OpenAI 兼容的 /v1/chat/completions、/v1/embeddings、/v1/models，以及 Anthropic /v1/messages 端点，全协议翻译。",
+            feat2Title: "智能路由",
+            feat2Desc: "按模型名、别名或 auto 虚拟模型寻址；上下文感知的候选池过滤，故障时自动降级到低优先级供应商。",
+            feat3Title: "高可用自愈",
+            feat3Desc: "Key 健康度滑动窗口评分，认证错误自动熔断，定时自动恢复，供应商可用性横幅实时可见。",
+            feat4Title: "并发控制",
+            feat4Desc: "API Key、供应商 Key、模型三层信号量；请求排队等待槽位而不是直接失败，队列饱和才返回 429 并携带 retry-after。",
+            feat5Title: "可观测性",
+            feat5Desc: "逐请求日志含意图分类与 Token 缓存分拆，日聚合统计，AI 生成的用量报告（DOCX 导出）。",
+            feat6Title: "权限治理",
+            feat6Desc: "RBAC 角色与菜单权限、Key 级模型授权与过期、全量操作审计、供应商模型定价管理。",
+            quickstartSectionLabel: "快速开始",
+            quickStart: "几分钟即可上手",
+            step1: "使用 API Key 登录用户门户",
+            step2: "通过 /v1/models 确认该 Key 可用模型",
+            step3: "运行一行命令完成 OpenCode 配置",
+            step4: "在仪表盘监控用量、成本与健康度",
+            setupComment: "# 一行命令接入 OpenCode",
+            baseUrl: "# base url",
+            ctaTitle: "准备好统一管理\n你的 LLM 流量了吗？",
+            ctaBtn: "立即开始"
         }
+    };
 
-        function createParticles() {
-            const particleCount = window.innerWidth < 768 ? 600 : 1800;
-            const geometry = new THREE.BufferGeometry();
+    function readCookie(name) {
+        var cookies = document.cookie.split(";").map(function(item) { return item.trim(); });
+        var found = cookies.find(function(item) { return item.startsWith(name + "="); });
+        return found ? decodeURIComponent(found.split("=")[1]) : "";
+    }
 
-            const positions = new Float32Array(particleCount * 3);
-            const colors = new Float32Array(particleCount * 3);
-            const sizes = new Float32Array(particleCount);
-            const rotations = new Float32Array(particleCount);
-            const particleData = [];
+    function getCurrentLang() {
+        var cookieLang = readCookie("lang");
+        if (cookieLang === "zh" || cookieLang === "en") return cookieLang;
+        if (SERVER_LOCALE === "zh" || SERVER_LOCALE === "en") return SERVER_LOCALE;
+        return navigator.language && navigator.language.toLowerCase().indexOf("zh") === 0 ? "zh" : "en";
+    }
 
-            const colorPalette = [
-                [0.26, 0.52, 0.96],
-                [0.96, 0.26, 0.21],
-                [0.98, 0.73, 0.02],
-                [0.13, 0.69, 0.33],
-                [0.55, 0.36, 0.96],
-                [0.0, 0.73, 0.83],
-            ];
-
-            const rings = 10;
-            const particlesPerRing = Math.floor(particleCount / rings);
-
-            for (let ring = 0; ring < rings; ring++) {
-                const ringRadius = 10 + ring * 10;
-                const particlesInThisRing = particlesPerRing + (ring === rings - 1 ? particleCount % rings : 0);
-
-                for (let i = 0; i < particlesInThisRing; i++) {
-                    const idx = ring * particlesPerRing + i;
-                    if (idx >= particleCount) break;
-
-                    const angle = (i / particlesInThisRing) * Math.PI * 2;
-                    const x = Math.cos(angle) * ringRadius;
-                    const y = Math.sin(angle) * ringRadius * 0.6;
-                    const z = (Math.random() - 0.5) * 25;
-
-                    positions[idx * 3] = x;
-                    positions[idx * 3 + 1] = y;
-                    positions[idx * 3 + 2] = z;
-
-                    const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
-                    colors[idx * 3] = color[0] + (Math.random() - 0.5) * 0.1;
-                    colors[idx * 3 + 1] = color[1] + (Math.random() - 0.5) * 0.1;
-                    colors[idx * 3 + 2] = color[2] + (Math.random() - 0.5) * 0.1;
-
-                    const depthFactor = (z + 10) / 20;
-                    sizes[idx] = (2 + Math.random() * 2.5) * (0.7 + depthFactor * 0.3);
-
-                    rotations[idx] = angle + Math.PI / 2;
-
-                    particleData.push({
-                        x: x, y: y, z: z,
-                        ringRadius: ringRadius,
-                        baseAngle: angle,
-                        angularSpeed: 0.0003 + Math.random() * 0.0005,
-                        wobblePhase: Math.random() * Math.PI * 2,
-                        wobbleSpeed: 0.5 + Math.random() * 1,
-                        wobbleAmount: 0.3 + Math.random() * 0.5,
-                        pulsePhase: Math.random() * Math.PI * 2
-                    });
-                }
+    function springCounter(el, target) {
+        if (!target && target !== 0) { el.textContent = "-"; return; }
+        var stiffness = 280, damping = 50, mass = 1, precision = 0.5;
+        var position = 0, velocity = 0, lastTime = null;
+        function step(ts) {
+            if (lastTime === null) lastTime = ts;
+            var dt = Math.min((ts - lastTime) / 1000, 0.064);
+            lastTime = ts;
+            var springForce = -stiffness * (position - target);
+            var dampingForce = -damping * velocity;
+            velocity += (springForce + dampingForce) / mass * dt;
+            position += velocity * dt;
+            el.textContent = Math.round(position).toLocaleString();
+            if (Math.abs(velocity) > precision || Math.abs(position - target) > precision) {
+                requestAnimationFrame(step);
+            } else {
+                el.textContent = target.toLocaleString();
             }
-
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-            geometry.setAttribute('rotation', new THREE.BufferAttribute(rotations, 1));
-
-            geometry.userData.particleData = particleData;
-
-            const vertexShader = `
-                attribute float size;
-                attribute vec3 color;
-                attribute float rotation;
-                varying vec3 vColor;
-                varying float vAlpha;
-                varying float vRotation;
-
-                void main() {
-                    vColor = color;
-                    vRotation = rotation;
-                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                    gl_PointSize = size * (300.0 / -mvPosition.z);
-                    gl_Position = projectionMatrix * mvPosition;
-                    vAlpha = smoothstep(-100.0, -10.0, mvPosition.z);
-                }
-            `;
-
-            const fragmentShader = `
-                varying vec3 vColor;
-                varying float vAlpha;
-                varying float vRotation;
-
-                void main() {
-                    vec2 uv = gl_PointCoord - vec2(0.5);
-                    float c = cos(vRotation);
-                    float s = sin(vRotation);
-                    vec2 rotUV = vec2(uv.x * c - uv.y * s, uv.x * s + uv.y * c);
-
-                    float aspect = 3.0;
-                    rotUV.y *= aspect;
-
-                    float n = 2.2;
-                    float dist = pow(abs(rotUV.x)/0.35, n) + pow(abs(rotUV.y)/0.35, n);
-                    float alpha = 1.0 - smoothstep(0.8, 1.2, dist);
-
-                    if (alpha < 0.01) discard;
-
-                    float shade = 1.0 - abs(rotUV.x) * 0.5 - abs(rotUV.y / aspect) * 0.2;
-                    gl_FragColor = vec4(vColor * shade, alpha * vAlpha * 0.9);
-                }
-            `;
-
-            const material = new THREE.ShaderMaterial({
-                vertexShader: vertexShader,
-                fragmentShader: fragmentShader,
-                transparent: true,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false
-            });
-
-            particles = new THREE.Points(geometry, material);
-            scene.add(particles);
         }
+        requestAnimationFrame(step);
+    }
 
-        function onMouseMove(event) {
-            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+    var currentLang = "en";
+
+    function applyLang(lang) {
+        currentLang = lang;
+        var t = translations[lang] || translations.en;
+        document.documentElement.lang = lang;
+        document.getElementById("lang-select").value = lang;
+        document.getElementById("badge-text").textContent = t.badge;
+        document.getElementById("hero-title-line1").textContent = t.heroLine1;
+        document.getElementById("hero-title-line2").textContent = t.heroLine2;
+        document.getElementById("hero-desc").textContent = t.heroDesc;
+        document.getElementById("user-login-btn").textContent = t.userLogin;
+        document.getElementById("docs-btn").textContent = t.docsBtn;
+        document.getElementById("stat-requests-label").textContent = t.totalRequests;
+        document.getElementById("stat-tokens-label").textContent = t.totalTokens;
+        document.getElementById("stat-today-requests-label").textContent = t.todayRequests;
+        document.getElementById("stat-today-tokens-label").textContent = t.todayTokens;
+        document.getElementById("badge-total-req").textContent = t.badgeTotal;
+        document.getElementById("badge-total-tok").textContent = t.badgeTotal;
+        document.getElementById("badge-today-req").textContent = t.badgeToday;
+        document.getElementById("badge-today-tok").textContent = t.badgeToday;
+        document.getElementById("features-section-label").textContent = t.featuresSectionLabel;
+        document.getElementById("features-title").textContent = t.featuresTitle;
+        document.getElementById("features-subtitle").textContent = t.featuresSubtitle;
+        for (var i = 1; i <= 6; i++) {
+            document.getElementById("feat-" + i + "-title").textContent = t["feat" + i + "Title"];
+            document.getElementById("feat-" + i + "-desc").textContent = t["feat" + i + "Desc"];
         }
+        document.getElementById("quickstart-section-label").textContent = t.quickstartSectionLabel;
+        document.getElementById("quick-start-title").textContent = t.quickStart;
+        var steps = [t.step1, t.step2, t.step3, t.step4];
+        document.getElementById("steps-list").innerHTML = steps.map(function(s, i) {
+            return '<li class="step-item" style="transition-delay:' + (i * 0.1) + 's"><span class="step-num">0' + (i + 1) + '</span><span>' + s + '</span></li>';
+        }).join('');
+        document.getElementById("base-url-label").textContent = t.baseUrl;
+        document.getElementById("base-url-value").textContent = window.location.origin + APP_BASE_PATH + "/v1";
+        document.getElementById("cta-title").innerHTML = t.ctaTitle.replace("\n", "<br>");
+        document.getElementById("cta-btn").textContent = t.ctaBtn;
+        document.getElementById("cta-url").textContent = window.location.origin + APP_BASE_PATH;
+        restartTyping(t);
+    }
 
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+    var typeTimer = null;
+
+    function restartTyping(t) {
+        if (typeTimer) { clearTimeout(typeTimer); typeTimer = null; }
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            renderSetupLines(t, true);
+            return;
         }
+        renderSetupLines(t, false);
+    }
 
-        let time = 0;
-        let centerX = 0, centerY = 0;
-
-        function animate() {
-            requestAnimationFrame(animate);
-            time += 0.016;
-
-            const positions = particles.geometry.attributes.position.array;
-            const rotations = particles.geometry.attributes.rotation.array;
-            const particleData = particles.geometry.userData.particleData;
-            const particleCount = positions.length / 3;
-
-            centerX += (mouseX * 55 - centerX) * 0.002;
-            centerY += (mouseY * 40 - centerY) * 0.002;
-
-            for (let i = 0; i < particleCount; i++) {
-                const data = particleData[i];
-
-                const angle = data.baseAngle + time * data.angularSpeed * (1 + Math.sin(time * 0.5) * 0.3);
-                const pulse = Math.sin(time * 0.8 + data.pulsePhase) * 2;
-                const radius = data.ringRadius + pulse;
-
-                const x = Math.cos(angle) * radius + centerX;
-                const y = Math.sin(angle) * radius * 0.85 + centerY;
-
-                const wobbleX = Math.sin(time * data.wobbleSpeed + data.wobblePhase) * data.wobbleAmount;
-                const wobbleZ = Math.cos(time * data.wobbleSpeed * 0.7 + data.wobblePhase) * data.wobbleAmount * 0.5;
-
-                positions[i * 3] = x + wobbleX;
-                positions[i * 3 + 1] = y;
-                positions[i * 3 + 2] = data.z + wobbleZ;
-
-                rotations[i] = angle;
+    function renderSetupLines(t, instant) {
+        var el = document.getElementById("setup-terminal");
+        var origin = window.location.origin + APP_BASE_PATH;
+        var lines = [
+            { cls: "comment", text: t.setupComment },
+            { cls: "plain", html: '<span class="keyword">PS&gt;</span> <span class="plain">irm </span><span class="string">\'' + origin + '/opencode/setup.ps1?key=sk-...\'</span><span class="plain"> | iex</span>' },
+            { cls: "plain", html: '<span class="keyword">$</span> <span class="plain">curl -fsSL </span><span class="string">\'' + origin + '/opencode/setup.sh?key=sk-...\'</span><span class="plain"> | bash</span>' }
+        ];
+        if (instant) {
+            el.innerHTML = lines.map(function(l) {
+                return '<div>' + (l.html || '<span class="' + l.cls + '">' + l.text + '</span>') + '</div>';
+            }).join('');
+            return;
+        }
+        var li = 0, ci = 0;
+        el.innerHTML = "";
+        var divs = lines.map(function() {
+            var d = document.createElement("div");
+            el.appendChild(d);
+            return d;
+        });
+        var caret = document.createElement("span");
+        caret.className = "caret";
+        function typeNext() {
+            if (li >= lines.length) {
+                divs[divs.length - 1].appendChild(caret);
+                return;
             }
-
-            particles.geometry.attributes.position.needsUpdate = true;
-            particles.geometry.attributes.rotation.needsUpdate = true;
-
-            particles.rotation.x += (mouseY * 0.15 - particles.rotation.x) * 0.02;
-            particles.rotation.y += (mouseX * 0.1 - particles.rotation.y) * 0.02;
-
-            renderer.render(scene, camera);
+            var line = lines[li];
+            if (line.html) {
+                divs[li].innerHTML = line.html;
+                divs[li].appendChild(caret);
+                li++;
+                typeTimer = setTimeout(typeNext, 260);
+                return;
+            }
+            var text = line.text || "";
+            divs[li].innerHTML = '<span class="' + line.cls + '">' + text.slice(0, ci + 1) + '</span>';
+            divs[li].appendChild(caret);
+            ci++;
+            if (ci >= text.length) { li++; ci = 0; }
+            typeTimer = setTimeout(typeNext, 28);
         }
+        typeNext();
+    }
 
-        function formatNumber(n) {
-            if (n == null) return '-';
-            return n.toLocaleString();
-        }
+    var flipInterval = null;
+    var isFlipped = false;
 
-        fetch('{{ app_base_path }}/api/public/stats')
-            .then(r => r.json())
-            .then(data => {
-                document.getElementById('stat-requests').textContent = formatNumber(data.total_requests);
-                document.getElementById('stat-tokens').textContent = formatNumber(data.total_tokens);
+    function startFlipCycle() {
+        if (flipInterval) return;
+        flipInterval = setInterval(function() {
+            var cardReq = document.querySelector("#flip-requests .flip-inner");
+            var cardTok = document.querySelector("#flip-tokens .flip-inner");
+            isFlipped = !isFlipped;
+            if (isFlipped) {
+                cardReq.classList.add("flipped");
+                setTimeout(function() { cardTok.classList.add("flipped"); }, 500);
+            } else {
+                cardReq.classList.remove("flipped");
+                setTimeout(function() { cardTok.classList.remove("flipped"); }, 500);
+            }
+        }, 4000);
+    }
+
+    function refreshStats() {
+        fetch(APP_BASE_PATH + "/api/public/stats")
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                springCounter(document.getElementById("stat-requests"), data.total_requests);
+                springCounter(document.getElementById("stat-tokens"), data.total_tokens);
+                springCounter(document.getElementById("stat-today-requests"), data.today_requests || 0);
+                springCounter(document.getElementById("stat-today-tokens"), data.today_tokens || 0);
+                startFlipCycle();
             })
-            .catch(() => {
-                document.getElementById('stat-requests').textContent = '-';
-                document.getElementById('stat-tokens').textContent = '-';
-            });
-
-        setInterval(function() {
-            fetch('{{ app_base_path }}/api/public/stats')
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    document.getElementById('stat-requests').textContent = formatNumber(data.total_requests);
-                    document.getElementById('stat-tokens').textContent = formatNumber(data.total_tokens);
+            .catch(function() {
+                ["stat-requests", "stat-tokens", "stat-today-requests", "stat-today-tokens"].forEach(function(id) {
+                    document.getElementById(id).textContent = "-";
                 });
-        }, 600000);
+            });
+    }
 
-        init();
+    function initHeroCanvas() {
+        var canvas = document.getElementById("hero-canvas");
+        if (!canvas || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        var ctx = canvas.getContext("2d");
+        var hero = canvas.parentElement;
+        var dots = [];
+        var mouse = { x: -9999, y: -9999 };
+
+        function resize() {
+            var rect = hero.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            var count = Math.min(60, Math.floor(rect.width * rect.height / 22000));
+            dots = [];
+            for (var i = 0; i < count; i++) {
+                dots.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 0.25,
+                    vy: (Math.random() - 0.5) * 0.25,
+                    r: 1 + Math.random() * 1.5
+                });
+            }
+        }
+
+        hero.addEventListener("mousemove", function(e) {
+            var rect = hero.getBoundingClientRect();
+            mouse.x = e.clientX - rect.left;
+            mouse.y = e.clientY - rect.top;
+        });
+        hero.addEventListener("mouseleave", function() { mouse.x = -9999; mouse.y = -9999; });
+        window.addEventListener("resize", resize);
+        resize();
+
+        var linkDist = 110;
+        function frame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (var i = 0; i < dots.length; i++) {
+                var d = dots[i];
+                var dxm = d.x - mouse.x, dym = d.y - mouse.y;
+                var distM = Math.sqrt(dxm * dxm + dym * dym);
+                if (distM < 120 && distM > 0.01) {
+                    d.vx += (dxm / distM) * 0.02;
+                    d.vy += (dym / distM) * 0.02;
+                }
+                d.vx *= 0.99; d.vy *= 0.99;
+                d.x += d.vx; d.y += d.vy;
+                if (d.x < 0 || d.x > canvas.width) d.vx = -d.vx;
+                if (d.y < 0 || d.y > canvas.height) d.vy = -d.vy;
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(34, 197, 94, 0.28)";
+                ctx.fill();
+                for (var j = i + 1; j < dots.length; j++) {
+                    var o = dots[j];
+                    var dx = d.x - o.x, dy = d.y - o.y;
+                    var dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < linkDist) {
+                        ctx.beginPath();
+                        ctx.moveTo(d.x, d.y);
+                        ctx.lineTo(o.x, o.y);
+                        ctx.strokeStyle = "rgba(34, 197, 94, " + (0.1 * (1 - dist / linkDist)) + ")";
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+    }
+
+    document.getElementById("lang-select").addEventListener("change", function(event) {
+        var lang = event.target.value;
+        document.cookie = "lang=" + lang + ";path=/;max-age=31536000";
+        applyLang(lang);
+    });
+
+    var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+                entry.target.querySelectorAll(".step-item").forEach(function(s) { s.classList.add("visible"); });
+            }
+        });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll(".scroll-reveal").forEach(function(el) { observer.observe(el); });
+
+    applyLang(getCurrentLang());
+    refreshStats();
+    setInterval(refreshStats, 600000);
+    initHeroCanvas();
     </script>
 </body>
 </html>
