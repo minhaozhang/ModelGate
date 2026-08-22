@@ -11,31 +11,35 @@ ModelGate is a FastAPI-based LLM gateway for multi-provider routing, API key man
 - Multi-provider routing: Zhipu, DeepSeek, Ollama, Minimax, and any OpenAI-compatible API
 - OpenAI-compatible proxy endpoints: `/v1/chat/completions`, `/v1/embeddings`, `/v1/models`
 - Anthropic-compatible proxy endpoint: `/anthropic/v1/messages` with full protocol translation (streaming, tool calls, thinking, cache_control)
-- Model alias routing: call models by alias (e.g. `gpt-4o`) without provider prefix, auto-select best provider by health + intent + priority
+- Provider-less model access: API keys bind to standard models directly; call by model name, alias, or `provider/model` for explicit routing
+- `auto` virtual model: context-aware pool (per-item min_ctx/max_ctx) with automatic provider selection, fallback on 5xx/network errors, and route preview with exclusion reasons
+- Per-model context hard limit: over-limit requests are rejected up front with a native `context_length_exceeded` error, so agents (OpenCode, Claude Code) auto-compact and retry
 - Intent classification: auto-classify requests as coding/writing/testing/design/chat based on message content, used for smart routing and log analytics
 - Provider key health scoring: sliding-window (5 min) health score (0–100), prioritize healthy keys in routing
 - Provider key priority: manual priority per key for ordered fallback, sorted by (priority DESC, health DESC)
-- Layered concurrency control: non-bypass API key global limit (2) -> API key provider-model limit -> provider key limit
+- Layered concurrency control with queuing: concurrent requests queue up to 10s for a slot instead of failing fast; circuit-breaks to 429 (with `retry-after`) only when the wait queue is saturated
 - Provider multi-key support with sticky routing and key-level disable/reenable
 - Provider key fallback: automatically tries the next API key on 401/403/429 errors
-- Auto-disable provider/key on usage limit errors, auto-reenable on scheduled task
-- API key management with per-key model access control and bypass_busyness option
+- Auto-disable provider/key on usage limit errors; scheduled auto-reenable at `reset_at + 60s` to avoid quota-window edge races
+- API key management with per-key model access control, expiry, regenerate, and bypass_busyness option
+- RBAC: users, roles, menus, and fine-grained permissions with dual auth (JWT + legacy session)
+- Audit logging for all admin write operations
+- Pricing management: per provider-model pricing with filters, batch edit, copy, sync, and CSV export
 - Request content logging: separate `request_contents` table for messages, response, thinking, tool_calls — lazy-loaded via Content button
 - Streaming request lifecycle tracking: `pending` -> `success` / `error` / `timeout`
 - Upstream and downstream status code logging
 - Model tags: assign tags to models (e.g. coding, reasoning, vision) for filtering and intent-based routing
 - MCP proxy: proxy remote MCP servers with API key binding, admin UI, tool sync, logging, and stats
-- AI-powered daily error analysis with persisted reports
 - AI-powered model recommendations and timing advice for users
 - AI-powered usage report generation (DOCX export with stats, trends, and fun awards)
 - API key time-based access rules (time windows, date ranges, weekday restrictions)
 - Document sharing for admin and user portal
-- User portal: personal stats, health score, recommendations, OpenCode config export
-- OpenCode integration: auto-generated config with per-model context/output limits
+- User portal: personal stats, request history, health score, recommendations, provider availability banner, OpenCode config export
+- OpenCode integration: one-liner setup scripts (`irm <url> | iex` / `curl <url> | bash`), key-scoped model config, per-model context/output limits, reasoning-effort variants
 - WeChat iLink Bot integration via MCP (QR login, auto-reply, message persistence)
 - MinIO integration for file storage
 - English / Chinese i18n with Babel
-- Desktop and mobile admin UI with dark/light theme
+- Desktop and mobile admin UI with dark/light/black-gold themes
 - Localized static assets (no CDN dependencies)
 - Reverse proxy support via configurable base path
 - Docker Compose with Nginx reverse proxy and static file serving
@@ -161,23 +165,28 @@ ModelGate translates Anthropic protocol requests to OpenAI format for upstream p
 ### Model Naming
 
 ```text
-provider/model
+model-name            # standard model or alias (auto-select provider)
+provider/model        # explicit provider routing
+auto                  # context-aware virtual model pool
 ```
 
-Examples: `zhipu/glm-4`, `deepseek/chat`, `minimax/MiniMax-M2.5`
+Examples: `glm-5.2`, `zhipu/glm-4`, `deepseek/chat`, `auto`
 
 ## Dashboards
 
 ### Admin
 
-- `/admin/home` - Overview, realtime stats, slow requests, trends
-- `/admin/config` - Provider, model, and binding configuration
-- `/admin/api-keys` - API key management and per-key model access
+- `/admin/home` - Overview, realtime stats, provider availability banner, provider/key usage breakdown, trends
+- `/admin/config` - Providers, keys, models, bindings, routing, pricing, OpenCode setup
+- `/admin/api-keys` - API key management, per-key model access, expiry, regenerate
+- `/admin/request-logs` - Dense request log table with intent badges, content viewer, token cache breakdown
 - `/admin/monitor` - Composition, hotspots, response-time analysis
-- `/admin/errors` - Daily error log viewer with AI-powered analysis reports
 - `/admin/reports` - AI-powered usage report generation and DOCX download
-- `/admin/system-config` - Outbound User-Agent management and UA stats
-- `/admin/usage` - Client configuration examples and setup guides
+- `/admin/system-config` - Outbound User-Agent management, GLM health check model, system settings
+- `/admin/users`, `/admin/roles` - RBAC user/role/menu management
+- `/admin/audit` - Audit log for all admin write operations
+- `/admin/mcp-servers` - MCP server management
+- `/admin/scheduler-tasks` - Scheduled task management with per-task cron overrides
 - `/admin/m` - Mobile admin dashboard
 
 ### User Portal
@@ -185,12 +194,35 @@ Examples: `zhipu/glm-4`, `deepseek/chat`, `minimax/MiniMax-M2.5`
 API key holders log in at `/user/login` to access:
 
 - Personal request and token statistics (day/week/month)
+- My requests history with filters, pagination, and per-request token/cost breakdown
 - 20-minute system health score (error rate, latency, load, active users)
 - AI-powered model recommendations with scored reasons
 - AI-generated timing advice based on hourly usage patterns
 - Active session tracking
-- Model catalog with context/output limits and multimodal info
-- OpenCode configuration export (`/opencode/setup.md?api_key=...`)
+- Model catalog with context/output limits, pricing, and multimodal info
+- Provider availability banner with expected restore time
+- OpenCode one-liner setup and configuration export
+
+## OpenCode Integration
+
+One-liner setup merges the ModelGate provider into an existing `~/.config/opencode/opencode.jsonc` (backs up first, strips JSONC comments, never touches other providers):
+
+```powershell
+# Windows (PowerShell)
+irm '<base-url>/opencode/setup.ps1?key=sk-...' | iex
+```
+
+```bash
+# macOS / Linux
+curl -fsSL '<base-url>/opencode/setup.sh?key=sk-...' | bash
+```
+
+The generated config is scoped to the API key's model permissions and includes
+per-model context/output limits, an optional context hard limit, and
+reasoning-effort variants for thinking models. `GET /v1/models` is also
+key-scoped. Model visibility follows key permissions — a provider being
+temporarily disabled (auto circuit-break) does not remove its models from
+client configs.
 
 ## API Key Time-Based Access Rules
 
@@ -228,7 +260,10 @@ Request messages, response text, thinking/reasoning, and tool calls are stored i
 
 ## Concurrency Control
 
-Four-layer semaphore-based rate control:
+Layered semaphore-based rate control. Instead of failing fast, requests wait in
+queue for a slot (up to 10s by default, `MODELGATE_SEMAPHORE_ACQUIRE_TIMEOUT`);
+when the wait queue is saturated (>= 2x the limit), the request is rejected
+immediately with 429 + `retry-after` to bound queue depth under load.
 
 1. **API key global limit** — non-`bypass_busyness` API keys are capped at 2 concurrent requests total across all providers and models
 2. **API key provider-model limit** — per (api_key, provider_key, model) concurrency cap, adjustable by busyness level; `bypass_busyness` API keys skip user-side busyness concurrency limits
@@ -244,7 +279,7 @@ Each provider key has a real-time health score (0–100) based on a 5-minute sli
 | Event | Score Impact |
 |-------|-------------|
 | Key disabled (invalid / quota exceeded) | Set to 0 |
-| 429/529 rate limited | -15 per event |
+| 429/529 rate limited | -15 per event (score floors at 20 so keys can recover) |
 | 5xx server error | -10 per event |
 | 4xx client error (non-429) | -5 per event |
 | Successful request | +5 per 10 successes |
@@ -257,23 +292,37 @@ Keys are sorted by health score in `pick_api_keys`, so healthier keys are used f
 
 Provider keys support manual priority (`priority` field, default 0). `pick_api_keys` sorts by `(priority DESC, health DESC)`, enabling ordered key fallback (e.g. always try Key A first, then Key B).
 
-## Model Alias Routing
+## Model Routing
 
-Models can be called by alias instead of `provider/model`:
+Models can be addressed in three ways:
 
 ```text
-# Explicit: route to a specific provider
-zhipu/glm-5
+# Standard model name: auto-select provider by priority + health
+glm-5.2
 
-# Alias: auto-select best provider by health + intent + priority
+# Alias: maps to a model, same auto-selection
 gpt-4o
+
+# Explicit: route to a specific provider
+zhipu/glm-4
+
+# Auto virtual model: context-aware pool with fallback
+auto
 ```
 
-When an alias matches multiple providers, the routing sorts candidates by `(tag_match DESC, health DESC, priority DESC)`:
+When a name matches multiple providers, the routing sorts candidates by `(tag_match DESC, health DESC, priority DESC)`:
 
 1. **tag_match**: if the model's tags include the request's intent → 1, else → 0
 2. **health**: provider key health score
 3. **priority**: manual priority on the provider-model binding
+
+If a provider fails with 5xx or a network error, ModelGate automatically falls
+back to the next candidate provider; when all providers fail, a unified
+"no available provider" error is returned.
+
+The `auto` virtual model routes over a configurable candidate pool with
+per-item `min_ctx`/`max_ctx` filtering (candidates whose context window cannot
+fit the request are excluded; the route preview shows exclusion reasons).
 
 ## Intent Classification
 
@@ -287,7 +336,9 @@ Requests are auto-classified by message content into one of five intents:
 | `design` | UI/UX, wireframes, design systems | Purple |
 | `chat` | General conversation (default) | Gray |
 
-Classification uses keyword matching (no LLM call), with `system_hint` weighted 3× higher than user/assistant keywords. The intent is stored in `request_logs.intent` and displayed as a colored badge in the log viewer.
+Classification uses keyword and code-identifier matching (no LLM call),
+rewritten and validated against 25k production logs. The intent is stored in
+`request_logs.intent` and displayed as a colored badge in the log viewer.
 
 ## Model Tags
 
@@ -309,21 +360,27 @@ When a provider has multiple API keys configured, ModelGate automatically falls 
 
 ## Provider Auto-Disable & Reenable
 
-- When a usage limit error is detected (quota exceeded, billing deactivated, etc.), the provider or provider key is automatically disabled with a reason
-- Disabled state is shown in admin dashboard with warning icons and error details returned to the client
-- A scheduled task reenables all disabled providers and keys every 5 minutes
+- When a usage limit or auth error is detected (quota exceeded, invalid key, billing deactivated), the provider or provider key is automatically disabled with a reason
+- Disabled state is shown in the admin dashboard and user portal (availability banner with expected restore time)
+- Provider keys failing auth (401/403) are auto-disabled immediately
+- A scheduled task reenables each disabled provider/key at `reset_at + 60s` — the 60s buffer avoids racing the upstream quota window edge
 - Manual reset available in admin config page
 
 ## Scheduled Tasks
 
-| Task | Schedule | Description |
+Cron expressions are editable per task in `/admin/scheduler-tasks`.
+
+| Task | Default Schedule | Description |
 |------|----------|-------------|
-| Auto-reenable | Every 5 minutes | Reenable disabled provider keys and providers |
-| Timeout cleanup | Every 10 minutes | Mark stale pending requests (>10 min) as `timeout` |
 | Daily aggregation | 00:05 | Aggregate request counts into daily/hourly stats tables |
 | MCP stats aggregation | 00:10 | Aggregate MCP tool usage stats |
 | Log archival | 00:20 | Archive request logs older than 30 days |
-| Recommendation analysis | 08:00 | Daily AI-powered model recommendation analysis |
+| Request content backup | 00:30 | Export yesterday's request_contents to gzip and clean the DB |
+| GLM health check | 05:30 | Daily upstream health probe; notifies admins on failure |
+| Recommendation analysis | 08:00 | Daily model recommendation analysis |
+| Timeout cleanup | Every 10 minutes | Mark stale pending requests (>10 min) as `timeout` |
+| Busyness computation | Every 10 minutes | Compute system busyness level (1-6) |
+| Auto-reenable | Every 30 minutes | Reenable disabled provider keys and providers due for reset |
 
 ## Project Structure
 
@@ -355,6 +412,12 @@ modelgate/
 - Type check: `mypy app --ignore-missing-imports`
 - i18n compile: `pybabel compile -d web/locales`
 - Logs: `logs/proxy.log`, `logs/admin.log`, `logs/error.log`
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history, and
+[docs/CHANGELOG_2026-05_2026-08.md](docs/CHANGELOG_2026-05_2026-08.md) for a
+detailed optimization/bugfix deep-dive (May-Aug 2026).
 
 ## Commercial Support
 
