@@ -1540,10 +1540,13 @@ async def get_system_active_sessions(
             grouped[key] = {
                 "requests": 0,
                 "models": {},
-                "last_activity": log.created_at.isoformat(),
+                "last_activity": log.created_at.isoformat() if log.created_at else None,
             }
         grouped[key]["requests"] += 1
-        if log.created_at.isoformat() > grouped[key]["last_activity"]:
+        if log.created_at and (
+            grouped[key]["last_activity"] is None
+            or log.created_at.isoformat() > grouped[key]["last_activity"]
+        ):
             grouped[key]["last_activity"] = log.created_at.isoformat()
         if log.model:
             grouped[key]["models"][log.model] = (
@@ -1581,19 +1584,31 @@ async def get_system_active_sessions(
             }
         )
 
-    sessions.sort(
-        key=lambda item: (
-            -datetime.fromisoformat(item["last_activity"]).timestamp(),
-            not item["is_self"],
-            -item["requests"],
-            item["name"],
-        )
-    )
+    def _session_sort_key(item):
+        if item["last_activity"]:
+            ts = -datetime.fromisoformat(item["last_activity"]).timestamp()
+        else:
+            ts = 0
+        return (ts, not item["is_self"], -item["requests"], item["name"])
+
+    sessions.sort(key=_session_sort_key)
     return {
         "active_count": len(sessions),
         "request_count": sum(item["requests"] for item in sessions),
         "sessions": sessions,
     }
+
+
+@router.get("/user/api/provider-status")
+async def get_user_provider_status(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+
+    from app.services.provider_limiter import get_disabled_providers_status
+
+    return await get_disabled_providers_status()
 
 
 @router.get("/user/api/catalog")

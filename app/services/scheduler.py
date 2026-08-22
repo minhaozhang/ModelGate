@@ -72,6 +72,12 @@ TASK_REGISTRY = {
         "default_cron": "30 0 * * *",
         "func": backup_request_contents,
     },
+    "glm_health_check": {
+        "name": "GLM 模型健康检查",
+        "description": "每日定时调用 GLM 模型验证 zhipu 供应商链路可用，失败时发送后台通知",
+        "default_cron": "30 5 * * *",
+        "func": None,
+    },
 }
 
 
@@ -232,6 +238,12 @@ async def _task_backup_contents():
     await _run_task_with_logging("backup_request_contents", None, summary)
 
 
+async def _task_glm_health_check():
+    from app.services.glm_health_check import run_glm_health_check
+
+    await _run_task_with_logging("glm_health_check", run_glm_health_check)
+
+
 TASK_HANDLERS = {
     "aggregate_daily_stats": _task_aggregate_daily,
     "aggregate_mcp_daily_stats": _task_aggregate_mcp,
@@ -241,6 +253,7 @@ TASK_HANDLERS = {
     "compute_busyness_level": _task_busyness,
     "daily_recommendation_analysis": _task_recommendation,
     "backup_request_contents": _task_backup_contents,
+    "glm_health_check": _task_glm_health_check,
 }
 
 

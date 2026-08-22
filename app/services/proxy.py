@@ -24,6 +24,7 @@ from app.services.provider import (
     get_provider_and_model,
     get_provider_model_candidates,
     get_model_config,
+    get_cached_context_hard_limit,
     get_disabled_provider_reason,
     pick_api_keys,
 )
@@ -46,6 +47,7 @@ from app.services.proxy_runtime import (
     _get_or_create_provider_key_semaphore,
     _get_provider_key_limit,
     _openai_error_response,
+    acquire_scoped_semaphore,
     build_headers,
     call_internal_model_via_proxy as runtime_call_internal_model_via_proxy,
     ensure_internal_api_key_exists as runtime_ensure_internal_api_key_exists,
@@ -404,6 +406,45 @@ async def proxy_request(request: Request, endpoint: str):
 
     requested_model = model
     request_context_tokens = estimate_request_context_tokens(body_json)
+    from app.services.intent_classifier import classify_intent
+
+    request_intent = classify_intent(body_json.get("messages") or [])
+
+    hard_limit = get_cached_context_hard_limit(requested_model)
+    if hard_limit and request_context_tokens > hard_limit:
+        message = (
+            f"This model's maximum context length is {hard_limit} tokens. "
+            f"However, your messages resulted in ~{request_context_tokens} tokens. "
+            "Please reduce the length of the messages or compact the conversation."
+        )
+        logger.warning(
+            "[CONTEXT HARD LIMIT] model=%s estimated=%s limit=%s key=%s",
+            requested_model,
+            request_context_tokens,
+            hard_limit,
+            api_key_id,
+        )
+        await create_request_log(
+            "",
+            requested_model,
+            status="error",
+            api_key_id=api_key_id,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            request_context_tokens=request_context_tokens,
+            latency_ms=(time.time() - start_time) * 1000,
+            upstream_status_code=400,
+            downstream_status_code=400,
+            error=message,
+            inbound_protocol=inbound_protocol,
+            intent=request_intent,
+            requested_model=requested_model,
+            actual_model=requested_model,
+        )
+        return _openai_error_response(
+            message, 400, "invalid_request_error", "context_length_exceeded"
+        )
+
     try:
         model_explanation = await explain_provider_model_candidates(
             model,
@@ -430,9 +471,6 @@ async def proxy_request(request: Request, endpoint: str):
         )
     ]
     key_info = _get_api_key_info(api_key_id)
-    from app.services.intent_classifier import classify_intent
-
-    request_intent = classify_intent(body_json.get("messages") or [])
     provider_config = None
     provider_name = ""
     actual_model = requested_model
@@ -455,9 +493,9 @@ async def proxy_request(request: Request, endpoint: str):
                 )
             )
             try:
-                await asyncio.wait_for(
-                    user_api_key_semaphore.acquire(),
-                    timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                await acquire_scoped_semaphore(
+                    user_api_key_semaphore,
+                    USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
                 )
                 user_api_key_acquired = True
             except asyncio.TimeoutError:
@@ -762,9 +800,9 @@ async def proxy_request(request: Request, endpoint: str):
                         _get_provider_key_limit(provider_config, chosen_key_id),
                     )
                     try:
-                        await asyncio.wait_for(
-                            provider_key_semaphore.acquire(),
-                            timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                        await acquire_scoped_semaphore(
+                            provider_key_semaphore,
+                            USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
                         )
                         acquired = True
                     except asyncio.TimeoutError:
@@ -849,9 +887,9 @@ async def proxy_request(request: Request, endpoint: str):
                         )
                     )
                     try:
-                        await asyncio.wait_for(
-                            user_provider_model_semaphore.acquire(),
-                            timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                        await acquire_scoped_semaphore(
+                            user_provider_model_semaphore,
+                            USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
                         )
                         user_provider_model_acquired = True
                     except asyncio.TimeoutError:

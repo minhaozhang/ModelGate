@@ -44,6 +44,7 @@ _key_sticky_map: dict[tuple[int, str], tuple[int, float]] = {}
 _alias_index: dict[str, list[tuple[str, dict, str, int]]] = {}
 _model_name_index: dict[str, list[tuple[str, dict, str, int]]] = {}
 _model_id_by_name: dict[str, int] = {}
+_model_hard_limit_by_name: dict[str, int | None] = {}
 
 
 @dataclass
@@ -323,9 +324,15 @@ async def load_providers():
         _alias_index.clear()
         _model_name_index.clear()
         _model_id_by_name.clear()
-        model_id_result = await session.execute(select(Model.id, Model.name))
-        for model_id, model_name in model_id_result.fetchall():
+        _model_hard_limit_by_name.clear()
+        model_id_result = await session.execute(
+            select(Model.id, Model.name, Model.context_hard_limit, Model.context_length)
+        )
+        for model_id, model_name, hard_limit, context_length in model_id_result.fetchall():
             _model_id_by_name[model_name] = model_id
+            _model_hard_limit_by_name[model_name] = (
+                hard_limit if hard_limit is not None else context_length
+            )
         for p in providers:
             pm_result = await session.execute(
                 select(ProviderModel, Model)
@@ -564,6 +571,12 @@ def get_cached_model_id(model_name: str) -> int | None:
         for _provider_name, pm_dict, _model_tags, _priority in model_candidates:
             if pm_dict.get("model_name") == model_name:
                 return pm_dict.get("model_id")
+    return None
+
+
+def get_cached_context_hard_limit(model_name: str) -> int | None:
+    if model_name in _model_hard_limit_by_name:
+        return _model_hard_limit_by_name.get(model_name)
     return None
 
 

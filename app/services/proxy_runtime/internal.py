@@ -36,6 +36,7 @@ from app.services.proxy_runtime.concurrency import (
     _get_or_create_user_provider_model_semaphore,
     _get_or_create_provider_key_semaphore,
     _get_provider_key_limit,
+    acquire_scoped_semaphore,
 )
 from app.services.proxy_runtime.request_builder import build_headers
 from app.services.proxy_runtime.response_handler import (
@@ -143,9 +144,9 @@ async def call_internal_model_via_proxy(
                 )
             )
             try:
-                await asyncio.wait_for(
-                    user_api_key_semaphore.acquire(),
-                    timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                await acquire_scoped_semaphore(
+                    user_api_key_semaphore,
+                    USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
                 )
                 user_api_key_acquired = True
             except asyncio.TimeoutError:
@@ -169,9 +170,9 @@ async def call_internal_model_via_proxy(
                 )
             )
             try:
-                await asyncio.wait_for(
-                    provider_key_semaphore.acquire(),
-                    timeout=SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
+                await acquire_scoped_semaphore(
+                    provider_key_semaphore,
+                    SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
                 )
                 acquired = True
             except asyncio.TimeoutError:
@@ -198,9 +199,9 @@ async def call_internal_model_via_proxy(
                 )
             )
             try:
-                await asyncio.wait_for(
-                    user_provider_model_semaphore.acquire(),
-                    timeout=USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                await acquire_scoped_semaphore(
+                    user_provider_model_semaphore,
+                    USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
                 )
                 user_provider_model_acquired = True
             except asyncio.TimeoutError:

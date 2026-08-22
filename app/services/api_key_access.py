@@ -5,7 +5,6 @@ from app.core.database import (
     ApiKeyModel,
     ApiKeyModelAccess,
     Model,
-    Provider,
     ProviderModel,
     async_session_maker,
 )
@@ -19,6 +18,10 @@ async def resolve_visible_models_for_api_key(api_key: str) -> tuple[set[str] | N
     - Otherwise ApiKeyModelAccess rows (model-level grants).
     - Otherwise full access.
     Adds the `auto` virtual model when enabled and requested by the key.
+
+    Visibility follows grants and binding state, NOT Provider.is_active:
+    providers auto-disabled by the limiter (transient) must not drop
+    models from client configs. Request routing handles availability.
 
     Returns (model_names, None) on success or (None, error_message).
     """
@@ -51,8 +54,7 @@ async def resolve_visible_models_for_api_key(api_key: str) -> tuple[set[str] | N
             select(Model.name.distinct())
             .select_from(ProviderModel)
             .join(Model, Model.id == ProviderModel.model_id)
-            .join(Provider, Provider.id == ProviderModel.provider_id)
-            .where(Provider.is_active == True, ProviderModel.is_active == True)  # noqa: E712
+            .where(ProviderModel.is_active == True)  # noqa: E712
         )
         if allowed_pm_ids:
             query = base_query.where(ProviderModel.id.in_(allowed_pm_ids))

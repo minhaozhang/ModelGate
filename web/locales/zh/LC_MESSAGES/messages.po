@@ -229,6 +229,15 @@ msgstr "我已保存"
 msgid "Temporarily unavailable"
 msgstr "暂时无法使用"
 
+msgid "Provider unavailable"
+msgstr "供应商暂不可用"
+
+msgid "Provider {name} is unavailable: {reason}"
+msgstr "供应商 {name} 暂不可用：{reason}"
+
+msgid "expected restore at {time}"
+msgstr "预计 {time} 恢复"
+
 #: web/templates/admin/api_keys.html:210 web/templates/admin/config.html:582
 #: web/templates/admin/documents.html:156
 msgid "Delete"
@@ -540,6 +549,15 @@ msgstr "模型一次能处理的输入+输出总 Token 数"
 #: web/templates/admin/config.html:494
 msgid "Context Window"
 msgstr "上下文窗口"
+
+msgid "Reject requests whose estimated input tokens exceed this limit. Defaults to the context window value; agents auto-compact when rejected)"
+msgstr "拒绝估算输入 Token 超过此上限的请求，默认使用上下文窗口值；被拒绝的 Agent 会自动压缩上下文"
+
+msgid "Context Hard Limit"
+msgstr "上下文硬上限"
+
+msgid "empty = context window, e.g. 120k"
+msgstr "留空 = 使用上下文窗口值，如 120k"
 
 #: web/templates/admin/config.html:500
 msgid ""

@@ -17,7 +17,8 @@ from app.core.database import (
 )
 
 logger = proxy_logger
-ERROR_STATUSES = {"error", "timeout"}
+ERROR_STATUS = "error"
+TIMEOUT_STATUS = "timeout"
 RATE_LIMITED_STATUS = "rate_limited"
 LOCAL_RATE_LIMITED_STATUS = "local_rate_limited"
 RATE_LIMITED_STATUSES = {RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}
@@ -59,17 +60,26 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 or (log.tokens or {}).get("estimated")
                 or 0
             )
-            is_error = log.status in ERROR_STATUSES
+            is_error = log.status == ERROR_STATUS
+            is_timeout = log.status == TIMEOUT_STATUS
             is_rate_limited = log.status in RATE_LIMITED_STATUSES
             if is_rate_limited:
                 tokens = 0
+                prompt_tokens = 0
+                completion_tokens = 0
+            else:
+                prompt_tokens = (log.tokens or {}).get("prompt_tokens") or 0
+                completion_tokens = (log.tokens or {}).get("completion_tokens") or 0
 
             if provider_name:
                 if provider_name not in provider_stats:
                     provider_stats[provider_name] = {
                         "requests": 0,
                         "tokens": 0,
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
                         "errors": 0,
+                        "timeouts": 0,
                         "rate_limited": 0,
                     }
                 if is_rate_limited:
@@ -77,15 +87,22 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 else:
                     provider_stats[provider_name]["requests"] += 1
                 provider_stats[provider_name]["tokens"] += tokens
+                provider_stats[provider_name]["prompt_tokens"] += prompt_tokens
+                provider_stats[provider_name]["completion_tokens"] += completion_tokens
                 if is_error:
                     provider_stats[provider_name]["errors"] += 1
+                if is_timeout:
+                    provider_stats[provider_name]["timeouts"] += 1
 
             if log.api_key_id:
                 if log.api_key_id not in api_key_stats:
                     api_key_stats[log.api_key_id] = {
                         "requests": 0,
                         "tokens": 0,
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
                         "errors": 0,
+                        "timeouts": 0,
                         "rate_limited": 0,
                     }
                 if is_rate_limited:
@@ -93,15 +110,22 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 else:
                     api_key_stats[log.api_key_id]["requests"] += 1
                 api_key_stats[log.api_key_id]["tokens"] += tokens
+                api_key_stats[log.api_key_id]["prompt_tokens"] += prompt_tokens
+                api_key_stats[log.api_key_id]["completion_tokens"] += completion_tokens
                 if is_error:
                     api_key_stats[log.api_key_id]["errors"] += 1
+                if is_timeout:
+                    api_key_stats[log.api_key_id]["timeouts"] += 1
                 if log.model:
                     api_key_model_key = (log.api_key_id, log.model)
                     if api_key_model_key not in api_key_model_stats:
                         api_key_model_stats[api_key_model_key] = {
                             "requests": 0,
                             "tokens": 0,
+                            "prompt_tokens": 0,
+                            "completion_tokens": 0,
                             "errors": 0,
+                            "timeouts": 0,
                             "rate_limited": 0,
                         }
                     if is_rate_limited:
@@ -109,15 +133,22 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                     else:
                         api_key_model_stats[api_key_model_key]["requests"] += 1
                     api_key_model_stats[api_key_model_key]["tokens"] += tokens
+                    api_key_model_stats[api_key_model_key]["prompt_tokens"] += prompt_tokens
+                    api_key_model_stats[api_key_model_key]["completion_tokens"] += completion_tokens
                     if is_error:
                         api_key_model_stats[api_key_model_key]["errors"] += 1
+                    if is_timeout:
+                        api_key_model_stats[api_key_model_key]["timeouts"] += 1
 
             model_key = (log.model, provider_name)
             if model_key not in model_stats:
                 model_stats[model_key] = {
                     "requests": 0,
                     "tokens": 0,
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
                     "errors": 0,
+                    "timeouts": 0,
                     "rate_limited": 0,
                 }
             if is_rate_limited:
@@ -125,8 +156,12 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
             else:
                 model_stats[model_key]["requests"] += 1
             model_stats[model_key]["tokens"] += tokens
+            model_stats[model_key]["prompt_tokens"] += prompt_tokens
+            model_stats[model_key]["completion_tokens"] += completion_tokens
             if is_error:
                 model_stats[model_key]["errors"] += 1
+            if is_timeout:
+                model_stats[model_key]["timeouts"] += 1
 
         await session.execute(
             delete(ProviderDailyStat).where(ProviderDailyStat.date == date_str)
@@ -147,7 +182,10 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 date=date_str,
                 requests=stats["requests"],
                 tokens=stats["tokens"],
+                prompt_tokens=stats["prompt_tokens"],
+                completion_tokens=stats["completion_tokens"],
                 errors=stats["errors"],
+                timeouts=stats["timeouts"],
                 rate_limited=stats["rate_limited"],
             )
             session.add(stat)
@@ -158,7 +196,10 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 date=date_str,
                 requests=stats["requests"],
                 tokens=stats["tokens"],
+                prompt_tokens=stats["prompt_tokens"],
+                completion_tokens=stats["completion_tokens"],
                 errors=stats["errors"],
+                timeouts=stats["timeouts"],
                 rate_limited=stats["rate_limited"],
             )
             session.add(stat)
@@ -170,7 +211,10 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 date=date_str,
                 requests=stats["requests"],
                 tokens=stats["tokens"],
+                prompt_tokens=stats["prompt_tokens"],
+                completion_tokens=stats["completion_tokens"],
                 errors=stats["errors"],
+                timeouts=stats["timeouts"],
                 rate_limited=stats["rate_limited"],
             )
             session.add(stat)
@@ -182,7 +226,10 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 date=date_str,
                 requests=stats["requests"],
                 tokens=stats["tokens"],
+                prompt_tokens=stats["prompt_tokens"],
+                completion_tokens=stats["completion_tokens"],
                 errors=stats["errors"],
+                timeouts=stats["timeouts"],
                 rate_limited=stats["rate_limited"],
             )
             session.add(stat)

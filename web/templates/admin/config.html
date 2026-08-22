@@ -514,6 +514,10 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Total input + output tokens the model can process at once') }}">{{ _('Context Window') }}</label>
                         <input type="text" id="model-context-length" value="204800" placeholder="e.g. 204800 or 200k" class="w-full border rounded px-3 py-2">
                     </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Reject requests whose estimated input tokens exceed this limit. Defaults to the context window value; agents auto-compact when rejected') }}">{{ _('Context Hard Limit') }}</label>
+                        <input type="text" id="model-context-hard-limit" value="" placeholder="{{ _('empty = context window, e.g. 120k') }}" class="w-full border rounded px-3 py-2">
+                    </div>
                 </div>
                 <div class="flex gap-4">
                     <div class="flex-1 flex flex-col justify-end">
@@ -613,6 +617,7 @@
             deleteFailed: '{{ _("Delete failed") }}',
             modelSaved: '{{ _("Model saved") }}',
             failedToSaveModel: '{{ _("Failed to save model") }}',
+            contextHardLimit: '{{ _("Context hard limit") }}',
             deleteModelConfirm: '{{ _("Delete this model?") }}',
             modelDeleted: '{{ _("Model deleted") }}',
             modelUnbound: '{{ _("Model unbound") }}',
@@ -970,6 +975,7 @@
             document.getElementById('model-display-name').value = '';
             document.getElementById('model-max-tokens').value = '128k';
             document.getElementById('model-context-length').value = '200k';
+            document.getElementById('model-context-hard-limit').value = '';
             document.getElementById('model-thinking-enabled').checked = true;
             document.getElementById('model-reasoning-effort').value = '';
             document.getElementById('model-multimodal').checked = false;
@@ -989,6 +995,7 @@
             document.getElementById('model-display-name').value = m.display_name || '';
             document.getElementById('model-max-tokens').value = formatTokenValue(m.max_tokens);
             document.getElementById('model-context-length').value = formatTokenValue(m.context_length);
+            document.getElementById('model-context-hard-limit').value = m.context_hard_limit ? formatTokenValue(m.context_hard_limit) : '';
             document.getElementById('model-thinking-enabled').checked = m.thinking_enabled;
             document.getElementById('model-reasoning-effort').value = m.reasoning_effort || '';
             document.getElementById('model-multimodal').checked = m.is_multimodal;
@@ -1012,6 +1019,7 @@
                 display_name: document.getElementById('model-display-name').value || null,
                 max_tokens: parseTokenValue(document.getElementById('model-max-tokens').value) || 131072,
                 context_length: parseTokenValue(document.getElementById('model-context-length').value) || 204800,
+                context_hard_limit: parseTokenValue(document.getElementById('model-context-hard-limit').value) || null,
                 thinking_enabled: document.getElementById('model-thinking-enabled').checked,
                 reasoning_effort: document.getElementById('model-reasoning-effort').value.trim() || null,
                 is_multimodal: document.getElementById('model-multimodal').checked,
@@ -1026,6 +1034,7 @@
                             display_name: data.display_name,
                             max_tokens: data.max_tokens,
                             context_length: data.context_length,
+                            context_hard_limit: data.context_hard_limit,
                             thinking_enabled: data.thinking_enabled,
                             reasoning_effort: data.reasoning_effort,
                             is_multimodal: data.is_multimodal,
@@ -1047,10 +1056,32 @@
 
         async function deleteModel(id) {
             if (!confirm(t('deleteModelConfirm', 'Delete this model?'))) return;
+            let resp;
             try {
-                await mgFetch(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'}, {success: t('modelDeleted', 'Model deleted'), error: t('deleteFailed', 'Delete failed')});
+                resp = await fetch(`${APP_BASE_PATH}/admin/api/models/` + id, {method: 'DELETE'});
+            } catch(e) {
+                showToast(t('deleteFailed', 'Delete failed'), 'error');
+                return;
+            }
+            if (resp.status === 401) { window.location.href = APP_BASE_PATH + '/admin/login'; return; }
+            let data = null;
+            try { data = await resp.json(); } catch(e) {}
+            if (resp.ok) {
+                showToast(t('modelDeleted', 'Model deleted'), 'success');
                 loadModels();
-            } catch(e) {}
+                return;
+            }
+            if (data && data.code === 'model_bound_to_providers') {
+                const names = (data.bound_providers || []).join('、');
+                const total = data.total || (data.bound_providers || []).length;
+                if (!confirm(`本模型绑定了 ${total} 个供应商（${names}），需要先解绑这些绑定再删除。是否继续？`)) return;
+                try {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/models/` + id + '?cascade_unbind=1', {method: 'DELETE'}, {success: '已解绑并删除模型', error: t('deleteFailed', 'Delete failed')});
+                    loadModels();
+                } catch(e) {}
+                return;
+            }
+            showToast((data && data.error) || t('deleteFailed', 'Delete failed'), 'error');
         }
 
         let providerKeysTargetId = null;
@@ -1802,7 +1833,7 @@
                                 </td>
                                 <td>${renderAvailabilityPill(m.is_active, m.is_active ? '模型可用' : '模型停用')}</td>
                                 <td>
-                                    <div class="text-xs text-gray-600">context ${formatTokenValue(m.context_length) || '0'}</div>
+                                    <div class="text-xs text-gray-600">context ${formatTokenValue(m.context_length) || '0'}${m.context_hard_limit ? ` <span class="text-amber-600" title="${t('contextHardLimit', 'Context hard limit')}">≤ ${formatTokenValue(m.context_hard_limit)}</span>` : ''}</div>
                                     <div class="text-xs text-gray-400 mt-1">output ${formatTokenValue(m.max_tokens) || '0'}</div>
                                 </td>
                                 <td>
@@ -2998,6 +3029,53 @@
         loadAutoModelConfig();
         loadProviderModelRoutes();
         loadStrategyTemplates();
+
+        (function() {
+            const TOOLTIP_PAD = 8;
+            document.addEventListener('mouseover', (e) => {
+                const host = e.target.closest && e.target.closest('.warn-icon, .help-tip');
+                if (!host) return;
+                if (e.relatedTarget && host.contains(e.relatedTarget)) return;
+                const tip = host.querySelector('.warn-tip, .help-tip-body');
+                if (!tip) return;
+                tip.style.left = '0px';
+                tip.style.maxWidth = '';
+                tip.style.top = '';
+                tip.style.bottom = '';
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                let clipLeft = 0;
+                let clipRight = vw;
+                let clipTop = 0;
+                let clipBottom = vh;
+                let node = host.parentElement;
+                while (node && node !== document.documentElement) {
+                    const s = getComputedStyle(node);
+                    if (s.overflowX !== 'visible' || s.overflowY !== 'visible') {
+                        const rect = node.getBoundingClientRect();
+                        clipLeft = Math.max(clipLeft, rect.left);
+                        clipRight = Math.min(clipRight, rect.right);
+                        clipTop = Math.max(clipTop, rect.top);
+                        clipBottom = Math.min(clipBottom, rect.bottom);
+                        break;
+                    }
+                    node = node.parentElement;
+                }
+                const leftBound = clipLeft + TOOLTIP_PAD;
+                const rightBound = clipRight - TOOLTIP_PAD;
+                const hostRect = host.getBoundingClientRect();
+                const cssMax = parseFloat(getComputedStyle(tip).maxWidth) || 600;
+                tip.style.maxWidth = Math.max(60, Math.min(cssMax, rightBound - leftBound)) + 'px';
+                const tipRect = tip.getBoundingClientRect();
+                const left = Math.max(leftBound, Math.min(hostRect.left, rightBound - tipRect.width));
+                tip.style.left = Math.round(left - hostRect.left) + 'px';
+                if (tipRect.top < clipTop + TOOLTIP_PAD
+                    && hostRect.bottom + tipRect.height + TOOLTIP_PAD <= clipBottom) {
+                    tip.style.bottom = 'auto';
+                    tip.style.top = `calc(100% + ${tip.classList.contains('warn-tip') ? 6 : 8}px)`;
+                }
+            });
+        })();
     </script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from app.core.config import (
     provider_key_model_semaphores,
@@ -8,9 +9,24 @@ from app.core.config import (
 
 DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY = 3
 DEFAULT_USER_API_KEY_MAX_CONCURRENCY = 2
-SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS = 1
 SEMAPHORE_RETRY_AFTER_SECONDS = 5
-USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS = 1
+
+
+def _env_timeout(default: float) -> float:
+    try:
+        return float(os.getenv("MODELGATE_SEMAPHORE_ACQUIRE_TIMEOUT", "") or default)
+    except ValueError:
+        return default
+
+
+# Queue behind in-flight streams instead of fast-failing: thinking-model
+# streams hold concurrency slots for minutes, so a short acquire timeout
+# rejects (and eventually kills) agent retries that would otherwise just wait.
+USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS = _env_timeout(10.0)
+SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS = USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS
+# Cap how many requests may sit in a semaphore queue: once waiters exceed
+# limit * FACTOR, extra requests fail fast instead of piling up connections.
+SEMAPHORE_MAX_WAITERS_FACTOR = 2
 RATE_LIMITED_STATUS = "rate_limited"
 LOCAL_RATE_LIMITED_STATUS = "local_rate_limited"
 RATE_LIMITED_STATUSES = {RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}
@@ -23,6 +39,18 @@ class _ScopedSemaphore(asyncio.Semaphore):
         target_limit = getattr(self, SCOPED_SEMAPHORE_LIMIT_ATTR, None)
         if target_limit is not None and getattr(self, "_value", 0) > target_limit:
             self._value = target_limit
+
+
+async def acquire_scoped_semaphore(semaphore: asyncio.Semaphore, timeout: float) -> None:
+    """Acquire with timeout; raise asyncio.TimeoutError on timeout OR when the
+    queue is already saturated, so callers reuse their existing 429 path."""
+    waiters = getattr(semaphore, "_waiters", None)
+    if waiters:
+        limit = getattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, 0) or 0
+        max_waiters = max(limit, 1) * SEMAPHORE_MAX_WAITERS_FACTOR
+        if len(waiters) >= max_waiters:
+            raise asyncio.TimeoutError
+    await asyncio.wait_for(semaphore.acquire(), timeout=timeout)
 
 
 def _get_or_create_scoped_semaphore(
