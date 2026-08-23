@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- impeccable-disable overused-font: shared brand font with production landing page -->
+<html lang="zh">
 <head>
     <meta charset="utf-8">
     <meta name="baidu-site-verification" content="codeva-0hVPJ6H1HZ" />
@@ -15,7 +16,7 @@
       s.parentNode.insertBefore(hm, s);
     })();
     </script>
-    <link rel="stylesheet" href="/static/css/fonts-c.css">
+    <link rel="stylesheet" href="/static/css/fonts-d.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -25,19 +26,26 @@
             --bg-card-hover: rgba(235, 234, 250, 0.06);
             --border: rgba(235, 234, 250, 0.08);
             --border-hover: rgba(235, 234, 250, 0.18);
+            --accent: #a78bfa;
+            --accent-dim: #818cf8;
             --text-primary: #ededf8;
             --text-secondary: #ededf8b8;
             --text-muted: #ededf8a3;
             --text-faint: #ededf87a;
+            --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg);
             color: var(--text-primary);
             -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
+            font-size: 16px;
+            line-height: 1.6;
         }
+
+        .mono { font-family: var(--mono); }
 
         /* ── Canvas particle background ── */
         #particle-canvas {
@@ -45,19 +53,6 @@
             inset: 0;
             z-index: 0;
             pointer-events: none;
-        }
-
-        /* ── Animated grid ── */
-        .grid-bg {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            background-image:
-                linear-gradient(rgba(235, 234, 250, 0.035) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(235, 234, 250, 0.035) 1px, transparent 1px);
-            background-size: 64px 64px;
-            mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 70%);
-            -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 70%);
         }
 
         /* ── Scanning line ── */
@@ -131,24 +126,9 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        @keyframes shimmer {
-            0% { background-position: -200% center; }
-            100% { background-position: 200% center; }
-        }
-
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 8px rgba(99, 102, 241, 0.4); }
-            50% { box-shadow: 0 0 16px rgba(99, 102, 241, 0.8), 0 0 32px rgba(99, 102, 241, 0.3); }
-        }
-
-        @keyframes borderGlow {
-            0%, 100% { border-color: rgba(129, 140, 248, 0.08); }
-            50% { border-color: rgba(129, 140, 248, 0.25); }
-        }
-
-        @keyframes countUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        @keyframes dotBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
         }
 
         .animate-in {
@@ -161,25 +141,11 @@
         .delay-3 { animation-delay: 0.45s; }
         .delay-4 { animation-delay: 0.6s; }
 
-        .text-gradient {
-            background: linear-gradient(180deg, #ededf8f5, #ededf8c4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .text-gradient-shimmer {
-            background: linear-gradient(90deg, #a78bfa, #818cf8, #c4b5fd, #6366f1, #a78bfa);
-            background-size: 200% 100%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: shimmer 4s linear infinite;
-        }
+        .hero-title .accent-line { color: var(--accent); }
 
         .pulse-dot {
-            width: 6px; height: 6px; border-radius: 50%; background: #6366f1;
-            animation: pulse-glow 2s ease-in-out infinite;
+            width: 6px; height: 6px; border-radius: 50%; background: var(--accent-dim);
+            animation: dotBlink 2s ease-in-out infinite;
         }
 
         /* ── Cards ── */
@@ -187,7 +153,7 @@
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 12px;
-            transition: all 0.3s cubic-bezier(0.6, 0.6, 0, 1);
+            transition: border-color 0.3s cubic-bezier(0.6, 0.6, 0, 1), background 0.3s cubic-bezier(0.6, 0.6, 0, 1), transform 0.3s cubic-bezier(0.6, 0.6, 0, 1);
             position: relative;
             overflow: hidden;
         }
@@ -203,6 +169,56 @@
             transition: opacity 0.4s;
         }
 
+        .card h3, .card p { overflow-wrap: anywhere; }
+
+        .dashboard-frame {
+            border: 1px solid var(--border-hover);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0a0a12;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+        }
+
+        .dashboard-chrome {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(235, 234, 250, 0.04);
+        }
+
+        .chrome-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: rgba(235, 234, 250, 0.14);
+        }
+
+        .chrome-url {
+            margin-left: 10px;
+            font-size: 11px;
+            color: var(--text-faint);
+        }
+
+        .dashboard-img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .eco-chip {
+            display: inline-block;
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-size: 12px;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            transition: border-color 0.25s, color 0.25s;
+        }
+
+        .eco-chip:hover { border-color: var(--border-hover); color: var(--text-primary); }
+
         .card:hover {
             border-color: var(--border-hover);
             background: var(--bg-card-hover);
@@ -210,11 +226,6 @@
         }
 
         .card:hover::before { opacity: 1; }
-
-        /* ── Stats border glow ── */
-        .stats-section {
-            animation: borderGlow 4s ease-in-out infinite;
-        }
 
         /* ── Nav ── */
         .nav {
@@ -239,12 +250,12 @@
         /* ── Buttons ── */
         .btn-primary {
             display: inline-flex; align-items: center; gap: 8px;
-            padding: 10px 22px;
+            padding: 11px 24px;
             background: linear-gradient(180deg, rgba(235, 234, 250, 0.12), rgba(235, 234, 250, 0.06));
             border: 1px solid rgba(235, 234, 250, 0.14);
             border-radius: 10px;
             color: var(--text-primary);
-            font-size: 14px; font-weight: 500;
+            font-size: 15px; font-weight: 500;
             cursor: pointer;
             transition: all 0.25s cubic-bezier(0.6, 0.6, 0, 1);
             text-decoration: none;
@@ -264,18 +275,18 @@
         .btn-primary:hover::before { transform: translateX(100%); }
 
         .btn-primary:hover {
-            border-color: rgba(129, 140, 248, 0.3);
-            box-shadow: 0 0 24px rgba(109, 76, 255, 0.12), 0 0 60px rgba(109, 76, 255, 0.06);
+            border-color: rgba(129, 140, 248, 0.4);
+            background: linear-gradient(180deg, rgba(235, 234, 250, 0.16), rgba(235, 234, 250, 0.09));
         }
 
         .btn-secondary {
             display: inline-flex; align-items: center; gap: 8px;
-            padding: 10px 22px;
+            padding: 11px 24px;
             background: transparent;
             border: 1px solid var(--border);
             border-radius: 10px;
             color: var(--text-muted);
-            font-size: 14px; font-weight: 500;
+            font-size: 15px; font-weight: 500;
             cursor: pointer;
             transition: all 0.25s cubic-bezier(0.6, 0.6, 0, 1);
             text-decoration: none;
@@ -288,6 +299,7 @@
         }
 
         .stat-number {
+            font-family: var(--mono);
             font-variant-numeric: tabular-nums;
             font-size: 28px; font-weight: 600; letter-spacing: -0.02em;
         }
@@ -323,13 +335,10 @@
             display: flex; align-items: center; justify-content: center;
             background: rgba(109, 76, 255, 0.08);
             border: 1px solid rgba(109, 76, 255, 0.12);
-            transition: all 0.3s;
+            transition: background 0.3s;
         }
 
-        .card:hover .feature-icon {
-            background: rgba(109, 76, 255, 0.14);
-            box-shadow: 0 0 20px rgba(109, 76, 255, 0.15);
-        }
+        .card:hover .feature-icon { background: rgba(109, 76, 255, 0.16); }
 
         .lang-select {
             appearance: none;
@@ -338,7 +347,8 @@
             border-radius: 8px;
             padding: 6px 10px;
             color: var(--text-muted);
-            font-size: 13px;
+            font-family: var(--mono);
+            font-size: 12px;
             cursor: pointer;
             outline: none;
             transition: all 0.2s;
@@ -349,18 +359,25 @@
             color: var(--text-primary);
         }
 
+        .lang-select option { background: #131320; color: var(--text-primary); }
+
         .code-block {
             background: rgba(235, 234, 250, 0.03);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 16px;
-            font-family: 'SF Mono', SFMono-Regular, Menlo, monospace;
+            font-family: var(--mono);
             font-size: 13px;
+            line-height: 1.8;
             color: #a5b4fc;
             word-break: break-all;
             position: relative;
             overflow: hidden;
         }
+
+        .code-block .comment { color: var(--text-faint); }
+        .code-block .string { color: #fbbf24; }
+        .code-block .prompt { color: var(--accent-dim); }
 
         .code-block::after {
             content: '';
@@ -396,6 +413,18 @@
         .step-item.visible {
             opacity: 1;
             transform: translateX(0);
+        }
+
+        .step-num {
+            font-family: var(--mono);
+            font-size: 12px; font-weight: 600;
+            color: var(--accent);
+            background: rgba(109, 76, 255, 0.10);
+            border: 1px solid rgba(109, 76, 255, 0.15);
+            border-radius: 6px;
+            min-width: 28px; height: 28px;
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
         }
 
         @media (max-width: 639px) {
@@ -457,11 +486,62 @@
             border: 1px solid rgba(109, 76, 255, 0.15);
             margin-top: 8px;
         }
+
+        .section-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--accent-dim);
+            margin-bottom: 20px;
+        }
+
+        .section-label-dot {
+            width: 6px; height: 6px;
+            border-radius: 1px;
+            background: var(--accent-dim);
+        }
+
+        .cta-section { text-align: center; }
+
+        .cta-section h2 .accent-line { color: var(--accent); }
+
+        .cli-command {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 13px;
+            padding: 10px 18px;
+            background: rgba(235, 234, 250, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-muted);
+        }
+
+        .cli-command .prefix { color: var(--accent-dim); }
+        .cli-command .url { color: #60a5fa; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .scan-line { display: none; }
+            .orb-1, .orb-2, .orb-3 { animation: none; }
+            .divider-line::after, .code-block::after { animation: none; opacity: 0; }
+            .btn-primary::before { display: none; }
+            .pulse-dot { animation: none; }
+            .animate-in { animation: none; opacity: 1; }
+            .scroll-reveal { opacity: 1; transform: none; transition: none; }
+            .step-item { opacity: 1; transform: none; transition: none; }
+            .flip-card-inner { transition: none; }
+            .card, .btn-primary, .btn-secondary { transition: none; }
+        }
     </style>
 </head>
 <body>
     <canvas id="particle-canvas"></canvas>
-    <div class="grid-bg"></div>
     <div class="scan-line"></div>
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
@@ -475,9 +555,11 @@
             </div>
             <div style="display: flex; align-items: center; gap: 20px;">
                 <a href="https://gitee.com/zmh/ModelGate" target="_blank" rel="noreferrer" style="font-size: 13px; color: var(--text-faint); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-faint)'">Gitee</a>
+                <a href="https://atomgit.com/zhangminhao/ModelGate" target="_blank" rel="noreferrer" style="font-size: 13px; color: var(--text-faint); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-faint)'">AtomGit</a>
+                <a id="nav-docs" href="https://gitee.com/zmh/ModelGate/blob/dev/README.md" target="_blank" rel="noreferrer" style="font-size: 13px; color: var(--text-faint); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-faint)'"></a>
                 <select id="lang-select" class="lang-select">
                     <option value="en">EN</option>
-                    <option value="zh">中文</option>
+                    <option value="zh" selected>中文</option>
                 </select>
             </div>
         </div>
@@ -490,12 +572,12 @@
                 <span id="badge-text"></span>
             </div>
 
-            <h1 class="hero-title text-gradient" style="font-size: 56px; line-height: 62px; font-weight: 500; letter-spacing: -0.03em;">
+            <h1 class="hero-title" style="font-size: 56px; line-height: 62px; font-weight: 500; letter-spacing: -0.03em; color: var(--text-primary);">
                 <span id="hero-title-line1"></span><br>
-                <span id="hero-title-line2" class="text-gradient-shimmer"></span>
+                <span id="hero-title-line2" class="accent-line"></span>
             </h1>
 
-            <p id="hero-desc" class="animate-in delay-1" style="margin-top: 20px; font-size: 16px; line-height: 28px; color: var(--text-muted); max-width: 520px; margin-left: auto; margin-right: auto;"></p>
+            <p id="hero-desc" class="animate-in delay-1" style="margin-top: 20px; font-size: 16px; line-height: 28px; color: var(--text-muted); max-width: 560px; margin-left: auto; margin-right: auto;"></p>
 
             <div class="animate-in delay-2" style="margin-top: 32px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
                 <a id="user-login-btn" href="/modelgate/user/login" class="btn-primary"></a>
@@ -510,12 +592,12 @@
                 <div class="flip-card" id="flip-requests">
                     <div class="flip-card-inner">
                         <div class="flip-card-front">
-                            <div class="stat-number text-gradient" id="stat-requests">--</div>
+                            <div class="stat-number" id="stat-requests">--</div>
                             <div style="margin-top: 8px; font-size: 13px; color: var(--text-faint);" id="stat-requests-label"></div>
                             <span class="stat-badge" id="badge-total-req">TOTAL</span>
                         </div>
                         <div class="flip-card-back">
-                            <div class="stat-number text-gradient" id="stat-today-requests">--</div>
+                            <div class="stat-number" id="stat-today-requests">--</div>
                             <div style="margin-top: 8px; font-size: 13px; color: var(--text-faint);" id="stat-today-requests-label"></div>
                             <span class="stat-badge" id="badge-today-req">TODAY</span>
                         </div>
@@ -526,12 +608,12 @@
                 <div class="flip-card" id="flip-tokens">
                     <div class="flip-card-inner">
                         <div class="flip-card-front">
-                            <div class="stat-number text-gradient" id="stat-tokens">--</div>
+                            <div class="stat-number" id="stat-tokens">--</div>
                             <div style="margin-top: 8px; font-size: 13px; color: var(--text-faint);" id="stat-tokens-label"></div>
                             <span class="stat-badge" id="badge-total-tok">TOTAL</span>
                         </div>
                         <div class="flip-card-back">
-                            <div class="stat-number text-gradient" id="stat-today-tokens">--</div>
+                            <div class="stat-number" id="stat-today-tokens">--</div>
                             <div style="margin-top: 8px; font-size: 13px; color: var(--text-faint);" id="stat-today-tokens-label"></div>
                             <span class="stat-badge" id="badge-today-tok">TODAY</span>
                         </div>
@@ -540,36 +622,93 @@
             </div>
         </section>
 
-        <section class="scroll-reveal" style="margin-top: 64px;">
-            <h2 id="features-title" class="text-gradient" style="font-size: 32px; font-weight: 500; letter-spacing: -0.02em; text-align: center;"></h2>
-            <div style="margin-top: 36px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+        <section class="scroll-reveal" style="margin-top: 72px;">
+            <div class="section-label" style="justify-content: center;">
+                <span class="section-label-dot"></span>
+                <span id="preview-section-label"></span>
+            </div>
+            <h2 id="preview-title" style="text-align: center; font-size: 32px; font-weight: 500; letter-spacing: -0.02em;"></h2>
+            <div class="dashboard-frame" style="margin: 36px auto 0; max-width: 960px;">
+                <div class="dashboard-chrome">
+                    <span class="chrome-dot"></span><span class="chrome-dot"></span><span class="chrome-dot"></span>
+                    <span class="chrome-url mono">leturx.cc/modelgate/admin/home</span>
+                </div>
+                <img src="assets/admin-dashboard.png" alt="ModelGate admin dashboard" class="dashboard-img" width="1920" height="937">
+            </div>
+            <div id="ecosystem-strip" style="margin-top: 40px; text-align: center;">
+                <div id="ecosystem-label" style="font-size: 12px; color: var(--text-faint); letter-spacing: 0.04em;"></div>
+                <div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+                    <span class="eco-chip mono">OpenCode</span>
+                    <span class="eco-chip mono">Claude Code</span>
+                    <span class="eco-chip mono">Cursor</span>
+                    <span class="eco-chip mono">Cherry Studio</span>
+                    <span class="eco-chip mono">LobeChat</span>
+                    <span class="eco-chip mono">OpenWebUI</span>
+                    <span class="eco-chip mono">LangChain</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="scroll-reveal" style="margin-top: 72px; text-align: center;">
+            <div class="section-label" style="justify-content: center;">
+                <span class="section-label-dot"></span>
+                <span id="features-section-label"></span>
+            </div>
+            <h2 id="features-title" style="font-size: 32px; font-weight: 500; letter-spacing: -0.02em;"></h2>
+            <p id="features-subtitle" style="margin: 16px auto 0; font-size: 15px; line-height: 26px; color: var(--text-muted); max-width: 520px;"></p>
+            <div style="margin-top: 36px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; text-align: left;">
                 <div class="card" style="padding: 28px;">
                     <div class="feature-icon">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
                     </div>
-                    <h3 id="feat-1-title" style="margin-top: 16px; font-size: 15px; font-weight: 500; color: var(--text-primary);"></h3>
+                    <h3 id="feat-1-title" style="margin-top: 16px; font-size: 15px; font-weight: 600;"></h3>
                     <p id="feat-1-desc" style="margin-top: 8px; font-size: 14px; line-height: 22px; color: var(--text-faint);"></p>
                 </div>
                 <div class="card" style="padding: 28px;">
                     <div class="feature-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.348 14.652a3.75 3.75 0 0 1 0-5.304m5.304 0a3.75 3.75 0 0 1 0 5.304m-7.425 2.121a6.75 6.75 0 0 1 0-9.546m9.546 0a6.75 6.75 0 0 1 0 9.546M5.106 18.894c-3.808-3.807-3.808-9.98 0-13.788m13.788 0c3.808 3.807 3.808 9.98 0 13.788M12 12h.008v.008H12V12Z"/></svg>
                     </div>
-                    <h3 id="feat-2-title" style="margin-top: 16px; font-size: 15px; font-weight: 500; color: var(--text-primary);"></h3>
+                    <h3 id="feat-2-title" style="margin-top: 16px; font-size: 15px; font-weight: 600;"></h3>
                     <p id="feat-2-desc" style="margin-top: 8px; font-size: 14px; line-height: 22px; color: var(--text-faint);"></p>
                 </div>
                 <div class="card" style="padding: 28px;">
                     <div class="feature-icon">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>
                     </div>
-                    <h3 id="feat-3-title" style="margin-top: 16px; font-size: 15px; font-weight: 500; color: var(--text-primary);"></h3>
+                    <h3 id="feat-3-title" style="margin-top: 16px; font-size: 15px; font-weight: 600;"></h3>
                     <p id="feat-3-desc" style="margin-top: 8px; font-size: 14px; line-height: 22px; color: var(--text-faint);"></p>
+                </div>
+                <div class="card" style="padding: 28px;">
+                    <div class="feature-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/></svg>
+                    </div>
+                    <h3 id="feat-4-title" style="margin-top: 16px; font-size: 15px; font-weight: 600;"></h3>
+                    <p id="feat-4-desc" style="margin-top: 8px; font-size: 14px; line-height: 22px; color: var(--text-faint);"></p>
+                </div>
+                <div class="card" style="padding: 28px;">
+                    <div class="feature-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
+                    </div>
+                    <h3 id="feat-5-title" style="margin-top: 16px; font-size: 15px; font-weight: 600;"></h3>
+                    <p id="feat-5-desc" style="margin-top: 8px; font-size: 14px; line-height: 22px; color: var(--text-faint);"></p>
+                </div>
+                <div class="card" style="padding: 28px;">
+                    <div class="feature-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"/></svg>
+                    </div>
+                    <h3 id="feat-6-title" style="margin-top: 16px; font-size: 15px; font-weight: 600;"></h3>
+                    <p id="feat-6-desc" style="margin-top: 8px; font-size: 14px; line-height: 22px; color: var(--text-faint);"></p>
                 </div>
             </div>
         </section>
 
-        <section class="scroll-reveal" style="margin-top: 64px;">
+        <section class="scroll-reveal" style="margin-top: 72px;">
+            <div class="section-label">
+                <span class="section-label-dot"></span>
+                <span id="quickstart-section-label"></span>
+            </div>
             <div class="card" style="padding: 36px;">
-                <h2 id="quick-start-title" class="text-gradient" style="font-size: 20px; font-weight: 500; letter-spacing: -0.01em;"></h2>
+                <h2 id="quick-start-title" style="font-size: 20px; font-weight: 500; letter-spacing: -0.01em;"></h2>
                 <div class="quick-start-grid" style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
                     <ol id="steps-list" style="list-style: none; display: flex; flex-direction: column; gap: 14px; font-size: 14px; line-height: 22px; color: var(--text-muted);"></ol>
                     <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -578,20 +717,33 @@
                             <code id="base-url-value"></code>
                         </div>
                         <div class="code-block">
-                            <div style="font-size: 11px; color: var(--text-faint); margin-bottom: 8px;">OpenCode</div>
-                            <p id="opencode-desc" style="font-family: 'Inter', sans-serif; font-size: 13px; line-height: 20px; color: var(--text-muted);"></p>
-                            <a id="opencode-link" href="https://opencode.ai/" target="_blank" rel="noreferrer" style="display: inline-flex; margin-top: 10px; font-size: 13px; color: #818cf8; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#a5b4fc'" onmouseout="this.style.color='#818cf8'"></a>
+                            <div style="font-size: 11px; color: var(--text-faint); margin-bottom: 8px;" id="opencode-label"></div>
+                            <div><span class="comment" id="setup-comment"></span></div>
+                            <div><span class="prompt">PS&gt;</span> irm <span class="string" id="ps-command"></span> | iex</div>
+                            <div><span class="prompt">$</span> curl -fsSL <span class="string" id="sh-command"></span> | bash</div>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
+
+        <section class="scroll-reveal cta-section" style="margin-top: 96px;">
+            <h2 id="cta-title" style="font-size: clamp(32px, 5vw, 52px); font-weight: 500; letter-spacing: -0.03em; line-height: 1.15;"></h2>
+            <div style="margin-top: 32px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; align-items: center;">
+                <a id="cta-btn" href="/modelgate/user/login" class="btn-primary"></a>
+                <div class="cli-command">
+                    <span class="prefix">$</span>
+                    <span>curl <span class="url" id="cta-url"></span>/v1/models</span>
+                </div>
+            </div>
+        </section>
     </main>
 
-    <footer style="position: relative; z-index: 1; border-top: 1px solid var(--border); padding: 24px; text-align: center; font-size: 13px; color: var(--text-faint);">
+    <footer style="position: relative; z-index: 1; border-top: 1px solid var(--border); padding: 24px; text-align: center; display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; font-size: 13px; color: var(--text-faint);">
         <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" style="color: var(--text-faint); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--text-muted)'" onmouseout="this.style.color='var(--text-faint)'">
             浙ICP备2026019680号-1
         </a>
+        <span style="cursor: default;">ModelGate · LLM API Gateway</span>
     </footer>
 
     <script>
@@ -599,59 +751,67 @@
         var canvas = document.getElementById('particle-canvas');
         var ctx = canvas.getContext('2d');
         var particles = [];
-        var mouseX = 0, mouseY = 0;
+        var mouseX = -9999, mouseY = -9999;
         var width, height;
+        var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        function seed() {
+            particles = [];
+            var count = window.innerWidth < 768 ? 60 : 120;
+            for (var i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    vx: (Math.random() - 0.5) * 0.3,
+                    vy: (Math.random() - 0.5) * 0.3,
+                    size: Math.random() * 1.5 + 0.5,
+                    alpha: Math.random() * 0.3 + 0.1
+                });
+            }
+        }
 
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
+            seed();
         }
 
         resize();
-        window.addEventListener('resize', resize);
-        document.addEventListener('mousemove', function(e) {
-            mouseX = e.clientX;
-            mouseY = e.clientY;
-        });
-
-        var count = window.innerWidth < 768 ? 60 : 120;
-        for (var i = 0; i < count; i++) {
-            particles.push({
-                x: Math.random() * width,
-                y: Math.random() * height,
-                vx: (Math.random() - 0.5) * 0.3,
-                vy: (Math.random() - 0.5) * 0.3,
-                size: Math.random() * 1.5 + 0.5,
-                alpha: Math.random() * 0.3 + 0.1,
-                hue: Math.random() > 0.5 ? 240 : 260
+        window.addEventListener('resize', function() { resize(); if (reduced) draw(); });
+        if (!reduced) {
+            document.addEventListener('mousemove', function(e) {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
             });
         }
 
-        function drawParticles() {
+        function draw() {
             ctx.clearRect(0, 0, width, height);
 
             for (var i = 0; i < particles.length; i++) {
                 var p = particles[i];
 
-                var dx = mouseX - p.x;
-                var dy = mouseY - p.y;
-                var dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 200) {
-                    var force = (200 - dist) / 200 * 0.02;
-                    p.vx += dx * force * 0.01;
-                    p.vy += dy * force * 0.01;
+                if (!reduced) {
+                    var dx = mouseX - p.x;
+                    var dy = mouseY - p.y;
+                    var dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 200 && dist > 0.01) {
+                        var force = (200 - dist) / 200 * 0.02;
+                        p.vx += dx * force * 0.01;
+                        p.vy += dy * force * 0.01;
+                    }
+
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    p.vx *= 0.99;
+                    p.vy *= 0.99;
+
+                    if (p.x < 0) p.x = width;
+                    if (p.x > width) p.x = 0;
+                    if (p.y < 0) p.y = height;
+                    if (p.y > height) p.y = 0;
                 }
-
-                p.x += p.vx;
-                p.y += p.vy;
-
-                p.vx *= 0.99;
-                p.vy *= 0.99;
-
-                if (p.x < 0) p.x = width;
-                if (p.x > width) p.x = 0;
-                if (p.y < 0) p.y = height;
-                if (p.y > height) p.y = 0;
 
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -672,19 +832,19 @@
                 }
             }
 
-            requestAnimationFrame(drawParticles);
+            if (!reduced) requestAnimationFrame(draw);
         }
 
-        drawParticles();
+        draw();
     })();
 
     var APP_BASE_PATH = "/modelgate";
     var translations = {
         en: {
             badge: "Open-source LLM Gateway",
-            heroLine1: "Empower every developer",
-            heroLine2: "with AI power.",
-            heroDesc: "An LLM intelligent routing gateway for developers. One interface to access all models. Define intelligence with code, create the world with intelligence.",
+            heroLine1: "One gateway.",
+            heroLine2: "Every model.",
+            heroDesc: "ModelGate routes LLM traffic across providers with health-aware key selection, layered concurrency control, and full observability — through OpenAI- and Anthropic-compatible endpoints.",
             userLogin: "Get Started",
             docsBtn: "View Source",
             totalRequests: "Total Requests",
@@ -693,50 +853,78 @@
             todayTokens: "Today Tokens",
             badgeTotal: "TOTAL",
             badgeToday: "TODAY",
-            featuresTitle: "Designed for Developers",
-            feat1Title: "Multi-Provider Proxy",
-            feat1Desc: "Route to Zhipu, DeepSeek, Ollama, Minimax and more via a single OpenAI-compatible API.",
-            feat2Title: "Usage Analytics",
-            feat2Desc: "Real-time dashboards with per-provider, per-model, and per-key metrics.",
-            feat3Title: "Access Control",
-            feat3Desc: "API key management with model-level permissions and concurrency limits.",
-            quickStart: "Quick Start",
-            step1: "1. Sign in with an API key",
-            step2: "2. Check /v1/models for available models",
-            step3: "3. Generate OpenCode config if needed",
-            step4: "4. Monitor usage via admin panel",
+            previewSectionLabel: "Product Preview",
+            previewTitle: "Full visibility into every request",
+            ecosystemLabel: "Works with any OpenAI-compatible client",
+            featuresSectionLabel: "Core Features",
+            featuresTitle: "Built for production LLM traffic",
+            featuresSubtitle: "Routing, resilience, and governance — everything between your clients and the upstream providers.",
+            feat1Title: "Multi-Protocol Access",
+            feat1Desc: "OpenAI-compatible /v1/chat/completions, /v1/embeddings and /v1/models, plus an Anthropic /v1/messages endpoint with full protocol translation.",
+            feat2Title: "Intelligent Routing",
+            feat2Desc: "Address models by name, alias, or the auto virtual model. Context-aware candidate pools and automatic fallback to lower-priority providers on failure.",
+            feat3Title: "Self-Healing Availability",
+            feat3Desc: "Sliding-window key health scores, automatic circuit-breaking on auth errors, scheduled re-enable, and live provider availability banners.",
+            feat4Title: "Concurrency Control",
+            feat4Desc: "Layered semaphores per API key, provider key, and model. Requests queue for a slot instead of failing fast; saturation returns 429 with retry-after.",
+            feat5Title: "Observability",
+            feat5Desc: "Per-request logs with intent classification and token cache breakdown, aggregated daily stats, and AI-generated usage reports.",
+            feat6Title: "Access Governance",
+            feat6Desc: "RBAC with roles and menus, per-key model permissions and expiry, full audit logging, and provider-model pricing management.",
+            quickstartSectionLabel: "Quick Start",
+            quickStart: "Up and running in minutes",
+            step1: "Sign in to the user portal with an API key",
+            step2: "Check /v1/models for the models your key can use",
+            step3: "Run the one-liner to configure OpenCode",
+            step4: "Monitor usage, costs and health in the dashboard",
             baseUrl: "Base URL",
-            opencodeDesc: "Generate OpenCode configuration from the dashboard.",
-            visitOpenCode: "Visit OpenCode \u2192"
+            opencodeLabel: "OpenCode",
+            setupComment: "# one-liner OpenCode setup",
+            ctaTitle: "Ready to unify your LLM traffic?",
+            ctaBtn: "Get Started"
         },
         zh: {
-            badge: "\u5F00\u6E90 LLM \u7F51\u5173",
-            heroLine1: "\u8D4B\u4E88\u6BCF\u4E2A\u5F00\u53D1\u8005\uff0c",
-            heroLine2: "\u9A7E\u9A6D\u667A\u80FD\u7684\u529B\u91CF\u3002",
-            heroDesc: "\u9762\u5411\u5F00\u53D1\u8005\u7684 LLM \u667A\u80FD\u8DEF\u7531\u7F51\u5173\u3002\u4E00\u4E2A\u63A5\u53E3\uff0C\u63A5\u5165\u5168\u90E8\u6A21\u578B\u3002\u7528\u4EE3\u7801\u5B9A\u4E49\u667A\u80FD\uff0C\u7528\u667A\u80FD\u521B\u9020\u4E16\u754C\u3002",
-            userLogin: "\u5F00\u59CB\u4F7F\u7528",
-            docsBtn: "\u67E5\u770B\u6E90\u7801",
-            totalRequests: "\u603B\u8C03\u7528\u91CF",
-            totalTokens: "\u6D88\u8017 Tokens",
-            todayRequests: "\u4ECA\u65E5\u8C03\u7528",
-            todayTokens: "\u4ECA\u65E5 Tokens",
-            badgeTotal: "\u7D2F\u8BA1",
-            badgeToday: "\u4ECA\u65E5",
-            featuresTitle: "\u4E3A\u5F00\u53D1\u8005\u800C\u8BBE\u8BA1",
-            feat1Title: "\u591A\u4F9B\u5E94\u5546\u4EE3\u7406",
-            feat1Desc: "\u901A\u8FC7\u5355\u4E2A OpenAI \u517C\u5BB9 API \u8F6C\u53D1\u8BF7\u6C42\u81F3\u667A\u8C31\u3001DeepSeek\u3001Ollama\u3001Minimax \u7B49\u3002",
-            feat2Title: "\u4F7F\u7528\u5206\u6790",
-            feat2Desc: "\u5B9E\u65F6\u4EEA\u8868\u76D8\uFF0C\u6309\u4F9B\u5E94\u5546\u3001\u6A21\u578B\u3001\u5BC6\u94A5\u7EF4\u5EA6\u76D1\u63A7\u3002",
-            feat3Title: "\u8BBF\u95EE\u63A7\u5236",
-            feat3Desc: "API Key \u7BA1\u7406\uFF0C\u7EC6\u7C92\u5EA6\u6A21\u578B\u7EA7\u6743\u9650\u548C\u5E76\u53D1\u9650\u5236\u3002",
-            quickStart: "\u5FEB\u901F\u5F00\u59CB",
-            step1: "1. \u4F7F\u7528 API Key \u767B\u5F55",
-            step2: "2. \u901A\u8FC7 /v1/models \u786E\u8BA4\u53EF\u7528\u6A21\u578B",
-            step3: "3. \u5982\u9700\u8981\uFF0C\u751F\u6210 OpenCode \u914D\u7F6E",
-            step4: "4. \u901A\u8FC7\u7BA1\u7406\u9762\u677F\u67E5\u770B\u76D1\u63A7",
+            badge: "开源 LLM 网关",
+            heroLine1: "一个网关，",
+            heroLine2: "接入所有模型。",
+            heroDesc: "ModelGate 在多供应商之间智能调度 LLM 流量：健康度选 Key、分层并发控制、全链路可观测，同时提供 OpenAI 与 Anthropic 双协议兼容端点。",
+            userLogin: "开始使用",
+            docsBtn: "查看源码",
+            totalRequests: "总调用量",
+            totalTokens: "消耗 Tokens",
+            todayRequests: "今日调用",
+            todayTokens: "今日 Tokens",
+            badgeTotal: "累计",
+            badgeToday: "今日",
+            previewSectionLabel: "产品预览",
+            previewTitle: "每一个请求，尽在掌握",
+            ecosystemLabel: "兼容任何 OpenAI 协议客户端",
+            featuresSectionLabel: "核心功能",
+            featuresTitle: "为生产级 LLM 流量而生",
+            featuresSubtitle: "路由、韧性、治理——客户端与上游供应商之间所需要的一切。",
+            feat1Title: "多协议接入",
+            feat1Desc: "OpenAI 兼容的 /v1/chat/completions、/v1/embeddings、/v1/models，以及 Anthropic /v1/messages 端点，全协议翻译。",
+            feat2Title: "智能路由",
+            feat2Desc: "按模型名、别名或 auto 虚拟模型寻址；上下文感知的候选池过滤，故障时自动降级到低优先级供应商。",
+            feat3Title: "高可用自愈",
+            feat3Desc: "Key 健康度滑动窗口评分，认证错误自动熔断，定时自动恢复，供应商可用性横幅实时可见。",
+            feat4Title: "并发控制",
+            feat4Desc: "API Key、供应商 Key、模型三层信号量；请求排队等待槽位而不是直接失败，队列饱和才返回 429 并携带 retry-after。",
+            feat5Title: "可观测性",
+            feat5Desc: "逐请求日志含意图分类与 Token 缓存分拆，日聚合统计，AI 生成的用量报告（DOCX 导出）。",
+            feat6Title: "权限治理",
+            feat6Desc: "RBAC 角色与菜单权限、Key 级模型授权与过期、全量操作审计、供应商模型定价管理。",
+            quickstartSectionLabel: "快速开始",
+            quickStart: "几分钟即可上手",
+            step1: "使用 API Key 登录用户门户",
+            step2: "通过 /v1/models 确认该 Key 可用模型",
+            step3: "运行一行命令完成 OpenCode 配置",
+            step4: "在仪表盘监控用量、成本与健康度",
             baseUrl: "Base URL",
-            opencodeDesc: "\u4ECE\u4EEA\u8868\u76D8\u751F\u6210 OpenCode \u914D\u7F6E\u3002",
-            visitOpenCode: "\u8BBF\u95EE OpenCode \u2192"
+            opencodeLabel: "OpenCode",
+            setupComment: "# 一行命令接入 OpenCode",
+            ctaTitle: "准备好统一管理你的 LLM 流量了吗？",
+            ctaBtn: "立即开始"
         }
     };
 
@@ -749,16 +937,12 @@
     function getCurrentLang() {
         var cookieLang = readCookie("lang");
         if (cookieLang === "zh" || cookieLang === "en") return cookieLang;
-        return navigator.language && navigator.language.toLowerCase().includes("zh") ? "zh" : "en";
-    }
-
-    function formatNumber(n) {
-        if (n == null) return '-';
-        return n.toLocaleString();
+        return navigator.language && navigator.language.toLowerCase().indexOf("zh") === 0 ? "zh" : "en";
     }
 
     function animateCounter(el, target) {
         if (!target && target !== 0) { el.textContent = '-'; return; }
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = target.toLocaleString(); return; }
         var start = 0;
         var duration = 2000;
         var startTime = null;
@@ -768,12 +952,13 @@
             var eased = 1 - Math.pow(1 - progress, 3);
             el.textContent = Math.floor(eased * target).toLocaleString();
             if (progress < 1) requestAnimationFrame(step);
+            else el.textContent = target.toLocaleString();
         }
         requestAnimationFrame(step);
     }
 
     function applyLang(lang) {
-        var t = translations[lang] || translations.en;
+        var t = translations[lang] || translations.zh;
         document.documentElement.lang = lang;
         document.getElementById("lang-select").value = lang;
         document.getElementById("badge-text").textContent = t.badge;
@@ -790,22 +975,33 @@
         document.getElementById("badge-total-tok").textContent = t.badgeTotal;
         document.getElementById("badge-today-req").textContent = t.badgeToday;
         document.getElementById("badge-today-tok").textContent = t.badgeToday;
+        document.getElementById("nav-docs").textContent = t.docsBtn === "View Source" ? "Docs" : "文档";
+        document.getElementById("preview-section-label").textContent = t.previewSectionLabel;
+        document.getElementById("preview-title").textContent = t.previewTitle;
+        document.getElementById("ecosystem-label").textContent = t.ecosystemLabel;
+        document.getElementById("features-section-label").textContent = t.featuresSectionLabel;
         document.getElementById("features-title").textContent = t.featuresTitle;
-        document.getElementById("feat-1-title").textContent = t.feat1Title;
-        document.getElementById("feat-1-desc").textContent = t.feat1Desc;
-        document.getElementById("feat-2-title").textContent = t.feat2Title;
-        document.getElementById("feat-2-desc").textContent = t.feat2Desc;
-        document.getElementById("feat-3-title").textContent = t.feat3Title;
-        document.getElementById("feat-3-desc").textContent = t.feat3Desc;
+        document.getElementById("features-subtitle").textContent = t.featuresSubtitle;
+        for (var i = 1; i <= 6; i++) {
+            document.getElementById("feat-" + i + "-title").textContent = t["feat" + i + "Title"];
+            document.getElementById("feat-" + i + "-desc").textContent = t["feat" + i + "Desc"];
+        }
+        document.getElementById("quickstart-section-label").textContent = t.quickstartSectionLabel;
         document.getElementById("quick-start-title").textContent = t.quickStart;
         var steps = [t.step1, t.step2, t.step3, t.step4];
         document.getElementById("steps-list").innerHTML = steps.map(function(s, i) {
-            return '<li class="step-item" style="transition-delay:' + (i * 0.12) + 's">' + s + '</li>';
+            return '<li class="step-item" style="transition-delay:' + (i * 0.12) + 's"><span class="step-num">0' + (i + 1) + '</span><span style="margin-left: 12px;">' + s + '</span></li>';
         }).join('');
         document.getElementById("base-url-label").textContent = t.baseUrl;
         document.getElementById("base-url-value").textContent = window.location.origin + APP_BASE_PATH + "/v1";
-        document.getElementById("opencode-desc").textContent = t.opencodeDesc;
-        document.getElementById("opencode-link").textContent = t.visitOpenCode;
+        document.getElementById("opencode-label").textContent = t.opencodeLabel;
+        document.getElementById("setup-comment").textContent = t.setupComment;
+        var origin = window.location.origin + APP_BASE_PATH;
+        document.getElementById("ps-command").textContent = "'" + origin + "/opencode/setup.ps1?key=sk-...'";
+        document.getElementById("sh-command").textContent = "'" + origin + "/opencode/setup.sh?key=sk-...'";
+        document.getElementById("cta-title").textContent = t.ctaTitle;
+        document.getElementById("cta-btn").textContent = t.ctaBtn;
+        document.getElementById("cta-url").textContent = origin;
     }
 
     var flipInterval = null;
@@ -828,7 +1024,7 @@
     }
 
     function refreshStats() {
-        fetch('https://leturx.cc/modelgate/api/public/stats')
+        fetch(APP_BASE_PATH + '/api/public/stats')
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 animateCounter(document.getElementById('stat-requests'), data.total_requests);
