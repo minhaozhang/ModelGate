@@ -31,6 +31,7 @@ from app.core.db_models import (  # noqa: F401
     AutoModelRoute,
     Document,
     DocumentFile,
+    IpLocation,
     McpCallDailyStat,
     McpCallLog,
     McpServer,

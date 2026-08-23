@@ -968,3 +968,24 @@ class AuditLog(Base):
     __table_args__ = (
         Index("idx_audit_logs_created_at", "created_at"),
     )
+
+
+class IpLocation(Base):
+    __tablename__ = "ip_locations"
+
+    id = Column(Integer, primary_key=True)
+    ip = Column(String(64), unique=True, nullable=False)
+    province = Column(String(100), nullable=True)
+    city = Column(String(100), nullable=True)
+    adcode = Column(String(20), nullable=True)
+    rectangle = Column(String(200), nullable=True)
+    loc = Column(String(100), nullable=True)
+    country = Column(String(50), nullable=True)
+    isp = Column(String(200), nullable=True)
+    source = Column(String(20), default="amap")
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_ip_locations_ip", "ip"),
+    )

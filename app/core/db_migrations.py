@@ -654,6 +654,25 @@ _DDL: list[str] = [
     "created_at TIMESTAMP DEFAULT now()"
     ")",
     "CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at)",
+
+    "CREATE TABLE IF NOT EXISTS ip_locations ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "ip VARCHAR(64) NOT NULL UNIQUE, "
+    "province VARCHAR(100), "
+    "city VARCHAR(100), "
+    "adcode VARCHAR(20), "
+    "rectangle VARCHAR(200), "
+    "loc VARCHAR(100), "
+    "country VARCHAR(50), "
+    "isp VARCHAR(200), "
+    "source VARCHAR(20) DEFAULT 'amap', "
+    "created_at TIMESTAMP DEFAULT now(), "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE INDEX IF NOT EXISTS idx_ip_locations_ip ON ip_locations (ip)",
+    "ALTER TABLE ip_locations ADD COLUMN IF NOT EXISTS loc VARCHAR(100)",
+    "ALTER TABLE ip_locations ADD COLUMN IF NOT EXISTS country VARCHAR(50)",
+    "ALTER TABLE ip_locations ADD COLUMN IF NOT EXISTS isp VARCHAR(200)",
 ]
 
 

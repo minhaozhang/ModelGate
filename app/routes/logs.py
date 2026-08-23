@@ -619,6 +619,13 @@ async def query_mcp_logs(
         }
 
 
+@router.get("/ip-location")
+async def get_ip_location(ip: str, _: bool = Depends(permission_required("page.logs.requests"))):
+    from app.services.ip_location import lookup_ip_location
+
+    return await lookup_ip_location(ip)
+
+
 @router.get("/logs/{log_id}/content")
 async def get_log_content(log_id: int, _: bool = Depends(permission_required("page.logs.requests"))):
     async with async_session_maker() as session:

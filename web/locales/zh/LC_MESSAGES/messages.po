@@ -2936,3 +2936,45 @@ msgstr "工具调用 (Function Calling)"
 #~ msgid "Execution Log"
 #~ msgstr "执行日志"
 
+
+msgid "IP Location"
+msgstr "IP 归属地"
+
+msgid "Province"
+msgstr "省份"
+
+msgid "City"
+msgstr "城市"
+
+msgid "Adcode"
+msgstr "区划编码"
+
+msgid "City Rectangle"
+msgstr "城市区域范围"
+
+msgid "DB Cache"
+msgstr "库内缓存"
+
+msgid "AMap Live"
+msgstr "高德实时"
+
+msgid "Lookup failed"
+msgstr "查询失败"
+
+msgid "View on map"
+msgstr "在地图中查看"
+
+msgid "Country"
+msgstr "国家"
+
+msgid "ISP"
+msgstr "运营商"
+
+msgid "Coordinates"
+msgstr "经纬度"
+
+msgid "Live Lookup"
+msgstr "实时查询"
+
+msgid "Retry"
+msgstr "重试"

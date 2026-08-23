@@ -155,6 +155,38 @@
         body.theme-dark .detail-modal-header { border-color: #1f2937; }
         .detail-modal-body { padding: 0; overflow-y: auto; flex: 1; }
         .detail-modal-body pre { white-space: pre-wrap; word-break: break-all; font-size: 0.8125rem; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+
+        .ip-modal { min-width: 320px; max-width: 430px; }
+        .ip-hero { padding: 1.125rem 1.375rem 0.875rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+        .ip-hero-region { font-size: 1.0625rem; font-weight: 600; color: #111827; line-height: 1.35; word-break: break-all; }
+        .ip-hero-meta { margin-top: 0.375rem; font-size: 0.75rem; color: #6b7280; display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
+        .ip-hero-meta .ip-dot { width: 5px; height: 5px; border-radius: 50%; background: #9ca3af; flex: none; }
+        .ip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #f3f4f6; border-top: 1px solid #e5e7eb; }
+        .ip-cell { background: #fff; padding: 0.5625rem 1.375rem; min-width: 0; }
+        .ip-cell-wide { grid-column: 1 / -1; }
+        .ip-cell-label { font-size: 0.6875rem; color: #9ca3af; letter-spacing: 0.02em; }
+        .ip-cell-value { font-size: 0.8125rem; color: #1f2937; font-weight: 500; margin-top: 0.125rem; word-break: break-all; }
+        .ip-footer { padding: 0.8125rem 1.375rem; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; align-items: center; }
+        .ip-map-btn { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.4375rem 0.875rem; border-radius: 0.5rem; background: #3b82f6; color: #fff; font-size: 0.75rem; font-weight: 500; text-decoration: none; transition: background 0.15s; }
+        .ip-map-btn:hover { background: #2563eb; }
+        .ip-map-btn svg { width: 13px; height: 13px; }
+        .ip-fallback { padding: 1.75rem 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; }
+        .ip-fallback-icon { width: 2.25rem; height: 2.25rem; border-radius: 50%; background: rgba(245, 158, 11, 0.12); color: #f59e0b; display: flex; align-items: center; justify-content: center; }
+        .ip-fallback-icon svg { width: 1.125rem; height: 1.125rem; }
+        .ip-fallback-msg { font-size: 0.8125rem; color: #6b7280; max-width: 260px; line-height: 1.5; }
+        .ip-retry-btn { margin-top: 0.25rem; padding: 0.375rem 0.875rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background: transparent; color: #374151; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; }
+        .ip-retry-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+        body.theme-dark .ip-hero-region { color: #f1f5f9; }
+        body.theme-dark .ip-hero-meta { color: #94a3b8; }
+        body.theme-dark .ip-hero-meta .ip-dot { background: #64748b; }
+        body.theme-dark .ip-grid { background: #1e293b; border-color: #1f2937; }
+        body.theme-dark .ip-cell { background: #0f172a; }
+        body.theme-dark .ip-cell-value { color: #e2e8f0; }
+        body.theme-dark .ip-footer { border-color: #1f2937; }
+        body.theme-dark .ip-fallback-icon { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+        body.theme-dark .ip-fallback-msg { color: #94a3b8; }
+        body.theme-dark .ip-retry-btn { border-color: #334155; color: #cbd5e1; }
+        body.theme-dark .ip-retry-btn:hover { border-color: #475569; background: #1e293b; }
         .detail-tabs { display: flex; border-bottom: 1px solid #e5e7eb; padding: 0 1rem; gap: 0; }
         body.theme-dark .detail-tabs { border-color: #1f2937; }
         .detail-tab { padding: 0.625rem 1rem; font-size: 0.8125rem; font-weight: 500; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
@@ -380,7 +412,20 @@
             noLogs: "{{ _('No logs found matching the current filters.') }}",
             loadingFailed: "{{ _('Failed to load data') }}",
             pageOf: "{{ _('Page {page} of {total}') }}",
-            totalRecords: "{{ _('Total: {count} records') }}"
+            totalRecords: "{{ _('Total: {count} records') }}",
+            ipLocation: "{{ _('IP Location') }}",
+            country: "{{ _('Country') }}",
+            province: "{{ _('Province') }}",
+            city: "{{ _('City') }}",
+            isp: "{{ _('ISP') }}",
+            adcode: "{{ _('Adcode') }}",
+            coordinates: "{{ _('Coordinates') }}",
+            rectangle: "{{ _('City Rectangle') }}",
+            cachedInDb: "{{ _('DB Cache') }}",
+            liveLookup: "{{ _('Live Lookup') }}",
+            retry: "{{ _('Retry') }}",
+            lookupFailed: "{{ _('Lookup failed') }}",
+            viewOnMap: "{{ _('View on map') }}"
         };
 
         let currentPage = 1;
@@ -690,7 +735,7 @@
                         <td class="cell-tokens num">${tokensHtml}</td>
                         <td class="cell-latency num mono text-gray-700">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="cell-cost num mono text-gray-700">${billingCost !== null ? formatCost(billingCost) : '-'}</td>
-                        <td class="cell-ip mono text-xs text-gray-600">${escapeHtml(log.client_ip || '-')}</td>
+                        <td class="cell-ip mono text-xs text-gray-600">${log.client_ip ? `<button class="link-btn" onclick="showIpLocation('${escapeHtml(log.client_ip)}')" title="${window.I18N.ipLocation}">${escapeHtml(log.client_ip)}</button>` : '-'}</td>
                         <td class="cell-ua text-xs text-gray-600"><div class="max-w-[180px] truncate" title="${escapeHtml(log.user_agent || '')}">${escapeHtml(log.user_agent || '-')}</div></td>
                         <td class="cell-actions whitespace-nowrap">
                             ${hasResponse ? `<button class="link-btn" onclick="showResponseDetail(this)">${window.I18N.response}</button>` : ''}
@@ -954,6 +999,84 @@
             }
         }
 
+        async function showIpLocation(ip) {
+            document.querySelectorAll('.detail-modal-overlay').forEach(o => o.remove());
+            const overlay = document.createElement('div');
+            overlay.className = 'detail-modal-overlay';
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+            overlay.innerHTML = `<div class="detail-modal ip-modal">
+                <div class="detail-modal-header">
+                    <span class="font-semibold">${window.I18N.ipLocation}<span class="mono ml-2 text-sm font-normal">${escapeHtml(ip)}</span></span>
+                    <button onclick="this.closest('.detail-modal-overlay').remove()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
+                </div>
+                <div class="detail-modal-body"><div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25);margin:2.5rem auto"></div></div>
+            </div>`;
+            document.body.appendChild(overlay);
+            const bodyEl = () => overlay.querySelector('.detail-modal-body');
+
+            const cell = (label, value, wide) => `
+                <div class="ip-cell${wide ? ' ip-cell-wide' : ''}">
+                    <div class="ip-cell-label">${label}</div>
+                    <div class="ip-cell-value">${escapeHtml(value || '-')}</div>
+                </div>`;
+
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/ip-location?ip=${encodeURIComponent(ip)}`);
+                if (!data) { overlay.remove(); return; }
+
+                if (!data.ok) {
+                    bodyEl().innerHTML = `
+                        <div class="ip-fallback">
+                            <div class="ip-fallback-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></div>
+                            <div class="ip-fallback-msg">${escapeHtml(data.message || window.I18N.lookupFailed)}</div>
+                            <button class="ip-retry-btn" onclick="showIpLocation('${escapeHtml(ip)}')">${window.I18N.retry}</button>
+                        </div>`;
+                    return;
+                }
+
+                const badge = data.cached
+                    ? `<span class="cache-badge">${window.I18N.cachedInDb}</span>`
+                    : `<span class="intent-badge intent-coding">${window.I18N.liveLookup}</span>`;
+                const region = [data.country, data.province, data.city].filter(Boolean).join(' · ');
+                const metaBits = [];
+                if (data.isp) metaBits.push(`<span class="ip-dot"></span>${escapeHtml(data.isp)}`);
+                if (data.loc) metaBits.push(`<span class="ip-dot"></span><span class="mono">${escapeHtml(data.loc)}</span>`);
+
+                let mapBtn = '';
+                if (data.loc && data.loc.includes(',')) {
+                    mapBtn = `<a class="ip-map-btn" target="_blank" rel="noreferrer" href="https://uri.amap.com/marker?position=${encodeURIComponent(data.loc)}&name=${encodeURIComponent(region || ip)}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                        ${window.I18N.viewOnMap}</a>`;
+                }
+
+                bodyEl().innerHTML = `
+                    <div class="ip-hero">
+                        <div style="min-width:0">
+                            <div class="ip-hero-region">${escapeHtml(region || '-')}</div>
+                            ${metaBits.length ? `<div class="ip-hero-meta">${metaBits.join('')}</div>` : ''}
+                        </div>
+                        ${badge}
+                    </div>
+                    <div class="ip-grid">
+                        ${cell(window.I18N.country, data.country)}
+                        ${cell(window.I18N.province, data.province)}
+                        ${cell(window.I18N.city, data.city)}
+                        ${cell(window.I18N.isp, data.isp)}
+                        ${cell(window.I18N.adcode, data.adcode)}
+                        ${cell(window.I18N.coordinates, data.loc)}
+                        ${cell(window.I18N.rectangle, data.rectangle, true)}
+                    </div>
+                    ${mapBtn ? `<div class="ip-footer">${mapBtn}</div>` : ''}`;
+            } catch (e) {
+                bodyEl().innerHTML = `
+                    <div class="ip-fallback">
+                        <div class="ip-fallback-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></div>
+                        <div class="ip-fallback-msg">${window.I18N.lookupFailed}</div>
+                        <button class="ip-retry-btn" onclick="showIpLocation('${escapeHtml(ip)}')">${window.I18N.retry}</button>
+                    </div>`;
+            }
+        }
+
         function switchView(view) {
             currentView = view;
             const tabLogs = document.getElementById('tab-logs');
@@ -1043,7 +1166,7 @@
                 </tr>`;
                 tbody.innerHTML = rows.map(r => `
                     <tr class="border-b border-gray-100 hover:bg-gray-50">
-                        <td class="px-6 py-3 font-mono text-xs text-gray-800">${escapeHtml(r.client_ip)}</td>
+                        <td class="px-6 py-3 font-mono text-xs text-gray-800"><button class="link-btn" onclick="showIpLocation('${escapeHtml(r.client_ip)}')" title="${window.I18N.ipLocation}">${escapeHtml(r.client_ip)}</button></td>
                         <td class="px-6 py-3 text-right text-gray-800">${formatNumber(r.request_count)}</td>
                         <td class="px-6 py-3 text-right text-gray-800">${(r.avg_latency_ms / 1000).toFixed(2)} s</td>
                         <td class="px-6 py-3 text-right text-gray-800">${r.total_tokens > 0 ? (r.total_tokens / 1000000).toFixed(2) + 'm' : '-'}</td>
@@ -1060,7 +1183,7 @@
                 tbody.innerHTML = rows.map(r => `
                     <tr class="border-b border-gray-100 hover:bg-gray-50">
                         <td class="px-6 py-3 text-gray-800">${escapeHtml(r.api_key_name)}</td>
-                        <td class="px-6 py-3 font-mono text-xs text-gray-800">${escapeHtml(r.client_ip)}</td>
+                        <td class="px-6 py-3 font-mono text-xs text-gray-800"><button class="link-btn" onclick="showIpLocation('${escapeHtml(r.client_ip)}')" title="${window.I18N.ipLocation}">${escapeHtml(r.client_ip)}</button></td>
                         <td class="px-6 py-3 text-right text-gray-800">${formatNumber(r.request_count)}</td>
                         <td class="px-6 py-3 text-right text-gray-800">${(r.avg_latency_ms / 1000).toFixed(2)} s</td>
                         <td class="px-6 py-3 text-right text-gray-800">${r.total_tokens > 0 ? (r.total_tokens / 1000000).toFixed(2) + 'm' : '-'}</td>
