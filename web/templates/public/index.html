@@ -126,6 +126,18 @@
             position: relative;
         }
 
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -160px;
+            right: -120px;
+            width: 640px;
+            height: 640px;
+            background: radial-gradient(circle, rgba(34, 197, 94, 0.14), transparent 65%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
         #hero-canvas {
             position: absolute;
             inset: 0;
@@ -162,7 +174,7 @@
         }
 
         .hero h1 {
-            font-size: clamp(40px, 6vw, 72px);
+            font-size: clamp(44px, 7vw, 84px);
             line-height: 1.05;
             font-weight: 500;
             letter-spacing: -0.035em;
@@ -191,10 +203,10 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 10px 20px;
+            padding: 11px 22px;
             border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
             text-decoration: none;
             transition: all 0.2s;
@@ -205,7 +217,7 @@
         .btn-primary { background: var(--accent); color: #09090b; }
         .btn-primary:hover {
             background: var(--accent-bright);
-            box-shadow: 0 0 20px rgba(34, 197, 94, 0.25);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
         }
 
         .btn-secondary {
@@ -271,7 +283,7 @@
 
         .stat-number {
             font-family: var(--mono);
-            font-size: clamp(28px, 3vw, 40px);
+            font-size: clamp(32px, 3.5vw, 48px);
             font-weight: 600;
             letter-spacing: -0.02em;
             color: var(--accent);
@@ -345,10 +357,13 @@
         .feature-card {
             background: var(--bg-alt);
             padding: 32px;
-            transition: background 0.2s;
+            transition: background 0.2s, box-shadow 0.2s;
         }
 
-        .feature-card:hover { background: rgba(255, 255, 255, 0.7); }
+        .feature-card:hover {
+            background: rgba(255, 255, 255, 0.7);
+            box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.3);
+        }
 
         .feature-icon {
             width: 40px; height: 40px;
@@ -388,6 +403,7 @@
             border: 1px solid var(--border);
             border-radius: 12px;
             overflow: hidden;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
         }
 
         .terminal-header {
@@ -469,13 +485,28 @@
         }
 
         .cta-section {
-            padding: 96px 24px;
+            padding: 96px 24px 120px;
             border-top: 1px solid var(--border);
             text-align: center;
+            position: relative;
+            overflow: hidden;
         }
 
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 760px;
+            height: 500px;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(ellipse, rgba(34, 197, 94, 0.11), transparent 65%);
+            pointer-events: none;
+        }
+
+        .cta-section > * { position: relative; }
+
         .cta-section h2 {
-            font-size: clamp(32px, 5vw, 56px);
+            font-size: clamp(36px, 5.5vw, 64px);
             font-weight: 500;
             letter-spacing: -0.03em;
             line-height: 1.1;
@@ -1001,27 +1032,64 @@
 
     function initHeroCanvas() {
         var canvas = document.getElementById("hero-canvas");
-        if (!canvas || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        if (!canvas) return;
+        var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         var ctx = canvas.getContext("2d");
         var hero = canvas.parentElement;
         var dots = [];
         var mouse = { x: -9999, y: -9999 };
+        var linkDist = 130;
 
-        function resize() {
-            var rect = hero.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height;
-            var count = Math.min(60, Math.floor(rect.width * rect.height / 22000));
+        function seed() {
+            var count = Math.min(90, Math.floor(canvas.width * canvas.height / 16000));
             dots = [];
             for (var i = 0; i < count; i++) {
                 dots.push({
                     x: Math.random() * canvas.width,
                     y: Math.random() * canvas.height,
-                    vx: (Math.random() - 0.5) * 0.25,
-                    vy: (Math.random() - 0.5) * 0.25,
-                    r: 1 + Math.random() * 1.5
+                    vx: (Math.random() - 0.5) * 0.3,
+                    vy: (Math.random() - 0.5) * 0.3,
+                    r: 1.2 + Math.random() * 1.3
                 });
             }
+        }
+
+        function resize() {
+            var rect = hero.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            seed();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (var i = 0; i < dots.length; i++) {
+                var d = dots[i];
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(34, 197, 94, 0.6)";
+                ctx.fill();
+                for (var j = i + 1; j < dots.length; j++) {
+                    var o = dots[j];
+                    var dx = d.x - o.x, dy = d.y - o.y;
+                    var dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < linkDist) {
+                        ctx.beginPath();
+                        ctx.moveTo(d.x, d.y);
+                        ctx.lineTo(o.x, o.y);
+                        ctx.strokeStyle = "rgba(34, 197, 94, " + (0.22 * (1 - dist / linkDist)).toFixed(3) + ")";
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        if (reduced) {
+            resize();
+            draw();
+            window.addEventListener("resize", function() { resize(); draw(); });
+            return;
         }
 
         hero.addEventListener("mousemove", function(e) {
@@ -1033,39 +1101,21 @@
         window.addEventListener("resize", resize);
         resize();
 
-        var linkDist = 110;
         function frame() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
             for (var i = 0; i < dots.length; i++) {
                 var d = dots[i];
                 var dxm = d.x - mouse.x, dym = d.y - mouse.y;
                 var distM = Math.sqrt(dxm * dxm + dym * dym);
-                if (distM < 120 && distM > 0.01) {
-                    d.vx += (dxm / distM) * 0.02;
-                    d.vy += (dym / distM) * 0.02;
+                if (distM < 150 && distM > 0.01) {
+                    d.vx += (dxm / distM) * 0.03;
+                    d.vy += (dym / distM) * 0.03;
                 }
                 d.vx *= 0.99; d.vy *= 0.99;
                 d.x += d.vx; d.y += d.vy;
                 if (d.x < 0 || d.x > canvas.width) d.vx = -d.vx;
                 if (d.y < 0 || d.y > canvas.height) d.vy = -d.vy;
-                ctx.beginPath();
-                ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-                ctx.fillStyle = "rgba(34, 197, 94, 0.28)";
-                ctx.fill();
-                for (var j = i + 1; j < dots.length; j++) {
-                    var o = dots[j];
-                    var dx = d.x - o.x, dy = d.y - o.y;
-                    var dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < linkDist) {
-                        ctx.beginPath();
-                        ctx.moveTo(d.x, d.y);
-                        ctx.lineTo(o.x, o.y);
-                        ctx.strokeStyle = "rgba(34, 197, 94, " + (0.1 * (1 - dist / linkDist)) + ")";
-                        ctx.lineWidth = 1;
-                        ctx.stroke();
-                    }
-                }
             }
+            draw();
             requestAnimationFrame(frame);
         }
         requestAnimationFrame(frame);
