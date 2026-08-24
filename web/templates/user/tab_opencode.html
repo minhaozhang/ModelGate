@@ -28,7 +28,7 @@
                 </div>
             </div>
         </div>
-        <p class="text-xs text-blue-600 mt-3">{{ _('Requires jq + curl on macOS/Linux. The script prompts for the API key if it is not embedded in the URL.') if current_locale == 'zh' else _('The macOS/Linux script needs jq and curl. If the API key is not embedded in the URL, the script will prompt for it.') }}</p>
+        <p class="text-xs text-blue-600 mt-3">{{ _('Requires only curl on macOS/Linux. The script prompts for the API key if it is not embedded in the URL.') if current_locale == 'zh' else _('The macOS/Linux script only needs curl. If the API key is not embedded in the URL, the script will prompt for it.') }}</p>
     </div>
 
     <details class="border border-gray-200 rounded-lg mb-6" open>

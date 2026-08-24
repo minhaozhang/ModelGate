@@ -2978,3 +2978,9 @@ msgstr "实时查询"
 
 msgid "Retry"
 msgstr "重试"
+
+msgid "Requires only curl on macOS/Linux. The script prompts for the API key if it is not embedded in the URL."
+msgstr "macOS/Linux 脚本仅需 curl。若 URL 中未内置 API Key，脚本会提示输入。"
+
+msgid "The macOS/Linux script only needs curl. If the API key is not embedded in the URL, the script will prompt for it."
+msgstr "macOS/Linux 脚本仅需 curl。若 URL 中未内置 API Key，脚本会提示输入。"

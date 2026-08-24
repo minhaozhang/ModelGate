@@ -1,6 +1,7 @@
 import json
 import re
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request, Body
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -26,6 +27,55 @@ def strip_json_trailing_commas(json_str: str) -> str:
     # Remove trailing commas before } or ]
     json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
     return json_str
+
+
+def parse_jsonc(text: str) -> dict:
+    """Parse a JSONC document (JSON with // and /* */ comments, trailing commas).
+
+    String-aware: comment markers inside quoted strings (e.g. "https://...")
+    are preserved. Raises ValueError on invalid documents.
+    """
+    text = text.lstrip("\ufeff")
+    out = []
+    i, n = 0, len(text)
+    in_str = False
+    quote_char = ""
+    while i < n:
+        c = text[i]
+        if in_str:
+            out.append(c)
+            if c == "\\" and i + 1 < n:
+                out.append(text[i + 1])
+                i += 2
+                continue
+            if c == quote_char:
+                in_str = False
+            i += 1
+            continue
+        if c in ('"', "'"):
+            in_str = True
+            quote_char = c
+            out.append(c)
+            i += 1
+            continue
+        if c == "/" and i + 1 < n and text[i + 1] == "/":
+            j = text.find("\n", i)
+            i = n if j == -1 else j
+            continue
+        if c == "/" and i + 1 < n and text[i + 1] == "*":
+            j = text.find("*/", i + 2)
+            i = n if j == -1 else j + 2
+            continue
+        out.append(c)
+        i += 1
+    stripped = "".join(out).strip()
+    if not stripped:
+        return {}
+    stripped = strip_json_trailing_commas(re.sub(r",\s*,", ",", stripped))
+    parsed = json.loads(stripped)
+    if not isinstance(parsed, dict):
+        raise ValueError("top-level value must be an object")
+    return parsed
 
 
 def build_opencode_base_url(request: Request) -> str:
@@ -341,6 +391,54 @@ async def merge_opencode_config(
         return JSONResponse(user_config)
 
 
+@router.post("/opencode/setup-file")
+async def merge_opencode_config_file(
+    request: Request,
+    api_key: Optional[str] = None,
+    api_key_id: Optional[int] = Depends(get_user_session),
+):
+    """Merge the modelgate provider into a raw opencode.jsonc upload.
+
+    Accepts the config file as-is (comments and trailing commas allowed);
+    all JSON handling happens server-side so setup scripts only need curl.
+    Returns the final config file body, with the model list in X-Models.
+    """
+    if not api_key and not api_key_id:
+        return PlainTextResponse("API Key is required", status_code=400)
+
+    raw = (await request.body()).decode("utf-8", errors="replace").strip()
+    user_config = {}
+    if raw:
+        try:
+            user_config = parse_jsonc(raw)
+        except ValueError as exc:
+            return PlainTextResponse(f"Existing config could not be parsed: {exc}", status_code=422)
+
+    async with async_session_maker() as session:
+        base_url = build_opencode_base_url(request)
+        modelgate_config = await build_opencode_config(
+            session, base_url, api_key=api_key, api_key_id=api_key_id
+        )
+        if not modelgate_config:
+            return PlainTextResponse("Invalid API Key", status_code=401)
+
+        providers = user_config.get("provider", {})
+        if not isinstance(providers, dict):
+            providers = {}
+        providers["modelgate"] = modelgate_config["provider"]["modelgate"]
+        user_config["provider"] = providers
+
+        models = sort_opencode_models(
+            modelgate_config["provider"]["modelgate"].get("models", {})
+        ).keys()
+        merged = json.dumps(user_config, ensure_ascii=False, indent=2)
+        return PlainTextResponse(
+            content=merged + "\n",
+            media_type="application/json",
+            headers={"X-Models": quote(",".join(models), safe=",.-_+/ ")},
+        )
+
+
 # ---------------------------------------------------------------------------
 # One-liner setup scripts (PowerShell for Windows, bash for macOS/Linux).
 # Pattern: `irm <url> | iex` or `curl -fsSL <url> | bash`.
@@ -447,9 +545,8 @@ set -euo pipefail
 BASE_URL="__BASE_URL__"
 PRESET_API_KEY="__API_KEY__"
 
-# Dependencies.
+# Dependencies: curl only — the server does all JSON parsing.
 command -v curl >/dev/null 2>&1 || { echo "curl is required but not installed." >&2; exit 1; }
-command -v jq   >/dev/null 2>&1 || { echo "jq is required but not installed (brew install jq / apt install jq)." >&2; exit 1; }
 
 # Locate opencode config dir.
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
@@ -473,52 +570,55 @@ if [ -f "$CONFIG_FILE" ]; then
     echo "Backed up existing config -> $CONFIG_FILE.bak.$stamp"
 fi
 
-# Load existing config (strip // comments outside URLs, /* */ comment lines, trailing commas).
-if [ -f "$CONFIG_FILE" ]; then
-    EXISTING=$(sed -E 's|^[[:space:]]*//.*||g; s|^[[:space:]]*/\*.*||g; s|^[[:space:]]*\*.*||g; s|([[:space:]])//.*|\1|g' "$CONFIG_FILE" \
-                | tr -d '\n' \
-                | sed -E 's|,([[:space:]]*[]}])|\1|g' \
-                | jq '.' 2>/dev/null)
-    # Fallback: if inline-comment stripping mangled the file (e.g. file:///
-    # URLs), retry parsing the raw file with only whole-line comments stripped.
-    if [ -z "$EXISTING" ] || [ "$EXISTING" = "null" ]; then
-        EXISTING=$(sed -E 's|^[[:space:]]*//.*||g; s|^[[:space:]]*/\*.*||g; s|^[[:space:]]*\*.*||g' "$CONFIG_FILE" \
-                | tr -d '\n' \
-                | sed -E 's|,([[:space:]]*[]}])|\1|g' \
-                | jq '.' 2>/dev/null)
-    fi
-    if [ -z "$EXISTING" ] || [ "$EXISTING" = "null" ]; then
-        echo "Existing config could not be parsed. A backup was kept next to it." >&2
-        echo "Continuing with a fresh config would DROP your existing providers/settings." >&2
-        read -rp "Continue with a fresh config anyway? (y/N) " answer
-        case "$answer" in
-            [yY]*) EXISTING='{}' ;;
-            *) exit 1 ;;
-        esac
-    fi
-else
-    EXISTING='{}'
-fi
+# Upload the existing config as-is (comments/trailing commas are fine):
+# the server parses it, merges the modelgate provider in, and returns the
+# final config file plus the model list in the X-Models response header.
+TMP_HDR=$(mktemp) || exit 1
+TMP_NEW=$(mktemp) || { rm -f "$TMP_HDR"; exit 1; }
+trap 'rm -f "$TMP_HDR" "$TMP_NEW"' EXIT
 
-# POST to /opencode/merge.
-PAYLOAD=$(jq -nc --argjson cfg "$EXISTING" '{config: $cfg}')
-MERGE_URL="$BASE_URL/opencode/merge?api_key=$(printf '%s' "$API_KEY" | jq -sRr @uri)"
-RESP=$(curl -fsSL -X POST "$MERGE_URL" \
-    -H "Content-Type: application/json" \
-    -d "$PAYLOAD") || {
-    echo "Failed to fetch config from ModelGate." >&2
-    exit 1
+post_config() {
+    # $1: file to upload ("$CONFIG_FILE" or /dev/null for a fresh start)
+    curl -sS --max-time 60 -X POST "$BASE_URL/opencode/setup-file?api_key=$API_KEY" \
+        -H "Content-Type: text/plain" \
+        -H "Accept: application/json" \
+        --data-binary "@$1" \
+        -o "$TMP_NEW" -D "$TMP_HDR" -w '%{http_code}'
 }
 
-# Save merged config.
+BODY_FILE=/dev/null
+[ -f "$CONFIG_FILE" ] && BODY_FILE="$CONFIG_FILE"
+STATUS=$(post_config "$BODY_FILE" || echo "000")
+
+if [ "$STATUS" = "422" ]; then
+    echo "Existing config could not be parsed: $(cat "$TMP_NEW")" >&2
+    echo "Continuing with a fresh config would DROP your existing providers/settings." >&2
+    read -rp "Continue with a fresh config anyway? (y/N) " answer
+    case "$answer" in
+        [yY]*) STATUS=$(post_config /dev/null || echo "000") ;;
+        *) exit 1 ;;
+    esac
+fi
+
+if [ "$STATUS" != "200" ]; then
+    echo "Failed to fetch config from ModelGate (HTTP $STATUS): $(cat "$TMP_NEW")" >&2
+    exit 1
+fi
+
+# Save merged config (server output is pretty-printed JSON).
 mkdir -p "$CONFIG_DIR"
-printf '%s\n' "$RESP" | jq '.' > "$CONFIG_FILE"
+mv "$TMP_NEW" "$CONFIG_FILE"
 
 echo ""
 echo "ModelGate provider configured."
 echo "Config file: $CONFIG_FILE"
-echo "Available models:"
-printf '%s\n' "$RESP" | jq -r '.provider.modelgate.models | keys[]' | sort | sed 's/^/  - /'
+MODELS=$(sed -n 's/^[[:space:]]*[xX]-[mM]odels:[[:space:]]*//p' "$TMP_HDR" | tr -d '\r' | tr ',' '\n' | sed '/^$/d')
+if [ -n "$MODELS" ]; then
+    echo "Available models:"
+    printf '%s\n' "$MODELS" | sed 's/^/  - /'
+else
+    echo "No models are currently available for this API key."
+fi
 echo ""
 echo "Restart opencode if it is running."
 '''
