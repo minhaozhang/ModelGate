@@ -207,7 +207,9 @@
         }
 
         .eco-chip {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
             padding: 6px 14px;
             border: 1px solid var(--border);
             border-radius: 100px;
@@ -216,6 +218,8 @@
             background: var(--bg-card);
             transition: border-color 0.25s, color 0.25s;
         }
+
+        .eco-chip img, .eco-chip svg { width: 14px; height: 14px; border-radius: 3px; flex: none; }
 
         .eco-chip:hover { border-color: var(--border-hover); color: var(--text-primary); }
 
@@ -622,13 +626,15 @@
             <div id="ecosystem-strip" style="margin-top: 40px; text-align: center;">
                 <div id="ecosystem-label" style="font-size: 12px; color: var(--text-faint); letter-spacing: 0.04em;"></div>
                 <div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
-                    <span class="eco-chip mono">OpenCode</span>
-                    <span class="eco-chip mono">Claude Code</span>
-                    <span class="eco-chip mono">Cursor</span>
-                    <span class="eco-chip mono">Cherry Studio</span>
-                    <span class="eco-chip mono">LobeChat</span>
-                    <span class="eco-chip mono">OpenWebUI</span>
-                    <span class="eco-chip mono">LangChain</span>
+                    <span class="eco-chip mono"><img src="static/icon/opencode.svg" alt="" width="14" height="14">OpenCode</span>
+                    <span class="eco-chip mono"><img src="static/icon/claude.png" alt="" width="14" height="14">Claude Code</span>
+                    <span class="eco-chip mono"><img src="static/icon/cursor.png" alt="" width="14" height="14">Cursor</span>
+                    <span class="eco-chip mono"><img src="static/icon/openai.svg" alt="" width="14" height="14">Codex</span>
+                    <span class="eco-chip mono"><img src="static/icon/cherry.png" alt="" width="14" height="14">Cherry Studio</span>
+                    <span class="eco-chip mono"><img src="static/icon/lobechat.png" alt="" width="14" height="14">LobeChat</span>
+                    <span class="eco-chip mono"><img src="static/icon/openwebui.png" alt="" width="14" height="14">OpenWebUI</span>
+                    <span class="eco-chip mono"><img src="static/icon/langchain.svg" alt="" width="14" height="14">LangChain</span>
+                    <span class="eco-chip mono"><img src="static/icon/deepseek.png" alt="" width="14" height="14">DeepSeek dsh</span>
                 </div>
             </div>
         </section>
@@ -840,7 +846,7 @@
             featuresTitle: "Built for production LLM traffic",
             featuresSubtitle: "Routing, resilience, and governance — everything between your clients and the upstream providers.",
             feat1Title: "Multi-Protocol Access",
-            feat1Desc: "OpenAI and Anthropic endpoints in one gateway with two-way protocol translation — any client speaks to any upstream. OpenAI Responses API support is coming.",
+            feat1Desc: "OpenAI and Anthropic endpoints in one gateway with two-way protocol translation — any client speaks to any upstream. OpenAI Chat Completions, Responses and Anthropic Messages are all supported.",
             feat2Title: "Intelligent Routing",
             feat2Desc: "Address models by name, alias, or the auto virtual model. Context-aware candidate pools and automatic fallback to lower-priority providers on failure.",
             feat3Title: "Self-Healing Availability",
@@ -883,7 +889,7 @@
             featuresTitle: "为生产级 LLM 流量而生",
             featuresSubtitle: "路由、韧性、治理——客户端与上游供应商之间所需要的一切。",
             feat1Title: "多协议接入",
-            feat1Desc: "同时提供 OpenAI 与 Anthropic 端点，请求双向协议互转——任意客户端对接任意上游模型。OpenAI Responses API 支持即将推出。",
+            feat1Desc: "同时提供 OpenAI 与 Anthropic 端点，请求双向协议互转——任意客户端对接任意上游模型。OpenAI Chat Completions、Responses 与 Anthropic Messages 均支持。",
             feat2Title: "智能路由",
             feat2Desc: "按模型名、别名或 auto 虚拟模型寻址；上下文感知的候选池过滤，故障时自动降级到低优先级供应商。",
             feat3Title: "高可用自愈",
