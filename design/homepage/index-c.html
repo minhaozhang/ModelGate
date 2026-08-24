@@ -510,22 +510,6 @@
 
         .cta-section h2 .accent-line { color: var(--accent); }
 
-        .cli-command {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-family: var(--mono);
-            font-size: 13px;
-            padding: 10px 18px;
-            background: rgba(235, 234, 250, 0.03);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            color: var(--text-muted);
-        }
-
-        .cli-command .prefix { color: var(--accent-dim); }
-        .cli-command .url { color: #60a5fa; }
-
         @media (prefers-reduced-motion: reduce) {
             .scan-line { display: none; }
             .orb-1, .orb-2, .orb-3 { animation: none; }
@@ -633,7 +617,7 @@
                     <span class="chrome-dot"></span><span class="chrome-dot"></span><span class="chrome-dot"></span>
                     <span class="chrome-url mono">leturx.cc/modelgate/admin/home</span>
                 </div>
-                <img src="assets/admin-dashboard.png" alt="ModelGate admin dashboard" class="dashboard-img" width="1920" height="937">
+                <img src="static/img/admin-dashboard.png" alt="ModelGate admin dashboard" class="dashboard-img" width="1920" height="937">
             </div>
             <div id="ecosystem-strip" style="margin-top: 40px; text-align: center;">
                 <div id="ecosystem-label" style="font-size: 12px; color: var(--text-faint); letter-spacing: 0.04em;"></div>
@@ -709,7 +693,7 @@
             </div>
             <div class="card" style="padding: 36px;">
                 <h2 id="quick-start-title" style="font-size: 20px; font-weight: 500; letter-spacing: -0.01em;"></h2>
-                <div class="quick-start-grid" style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+                <div class="quick-start-grid" style="margin-top: 28px; display: grid; grid-template-columns: 1fr 2fr; gap: 32px;">
                     <ol id="steps-list" style="list-style: none; display: flex; flex-direction: column; gap: 14px; font-size: 14px; line-height: 22px; color: var(--text-muted);"></ol>
                     <div style="display: flex; flex-direction: column; gap: 12px;">
                         <div class="code-block">
@@ -731,10 +715,6 @@
             <h2 id="cta-title" style="font-size: clamp(32px, 5vw, 52px); font-weight: 500; letter-spacing: -0.03em; line-height: 1.15;"></h2>
             <div style="margin-top: 32px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; align-items: center;">
                 <a id="cta-btn" href="/modelgate/user/login" class="btn-primary"></a>
-                <div class="cli-command">
-                    <span class="prefix">$</span>
-                    <span>curl <span class="url" id="cta-url"></span>/v1/models</span>
-                </div>
             </div>
         </section>
     </main>
@@ -860,7 +840,7 @@
             featuresTitle: "Built for production LLM traffic",
             featuresSubtitle: "Routing, resilience, and governance — everything between your clients and the upstream providers.",
             feat1Title: "Multi-Protocol Access",
-            feat1Desc: "OpenAI-compatible /v1/chat/completions, /v1/embeddings and /v1/models, plus an Anthropic /v1/messages endpoint with full protocol translation.",
+            feat1Desc: "OpenAI and Anthropic endpoints in one gateway with two-way protocol translation — any client speaks to any upstream. OpenAI Responses API support is coming.",
             feat2Title: "Intelligent Routing",
             feat2Desc: "Address models by name, alias, or the auto virtual model. Context-aware candidate pools and automatic fallback to lower-priority providers on failure.",
             feat3Title: "Self-Healing Availability",
@@ -903,7 +883,7 @@
             featuresTitle: "为生产级 LLM 流量而生",
             featuresSubtitle: "路由、韧性、治理——客户端与上游供应商之间所需要的一切。",
             feat1Title: "多协议接入",
-            feat1Desc: "OpenAI 兼容的 /v1/chat/completions、/v1/embeddings、/v1/models，以及 Anthropic /v1/messages 端点，全协议翻译。",
+            feat1Desc: "同时提供 OpenAI 与 Anthropic 端点，请求双向协议互转——任意客户端对接任意上游模型。OpenAI Responses API 支持即将推出。",
             feat2Title: "智能路由",
             feat2Desc: "按模型名、别名或 auto 虚拟模型寻址；上下文感知的候选池过滤，故障时自动降级到低优先级供应商。",
             feat3Title: "高可用自愈",
@@ -1001,7 +981,6 @@
         document.getElementById("sh-command").textContent = "'" + origin + "/opencode/setup.sh?key=sk-...'";
         document.getElementById("cta-title").textContent = t.ctaTitle;
         document.getElementById("cta-btn").textContent = t.ctaBtn;
-        document.getElementById("cta-url").textContent = origin;
     }
 
     var flipInterval = null;
