@@ -1,4 +1,4 @@
-"""User-facing Anthropic-protocol endpoints.
+﻿"""User-facing Anthropic-protocol endpoints.
 
 These routes accept Anthropic ``/v1/messages`` style requests, convert them to the internal
 OpenAI representation, run them through the existing proxy pipeline, and translate the
@@ -21,49 +21,14 @@ from app.services.anthropic_inbound import (
     openai_to_anthropic_response,
     translate_openai_sse_stream,
 )
+from app.services.inbound_http import (
+    build_inner_request,
+    normalize_auth_header,
+    strip_hop_headers,
+)
 from app.services.proxy import proxy_request
 
 router = APIRouter(tags=["anthropic-proxy"])
-
-
-# ---------------------------------------------------------------------------
-# Request wrapping helpers
-# ---------------------------------------------------------------------------
-
-
-def _normalize_auth_header(headers: dict[str, str]) -> dict[str, str]:
-    """Anthropic clients typically send ``x-api-key``; downstream code wants ``authorization``."""
-    lower = {k.lower(): v for k, v in headers.items()}
-    if "authorization" not in lower:
-        api_key = lower.get("x-api-key")
-        if api_key:
-            lower["authorization"] = f"Bearer {api_key}"
-    return lower
-
-
-def _build_inner_request(
-    original: Request, new_body: bytes, new_headers: dict[str, str]
-) -> StarletteRequest:
-    """Build a Starlette Request that downstream proxy code can consume.
-
-    The body is pre-cached and headers are rewritten via ``scope``. The original receive
-    channel is preserved so ``request.is_disconnected()`` keeps working for streaming.
-    """
-    new_scope = dict(original.scope)
-    new_scope["headers"] = [
-        (key.encode("latin-1"), value.encode("latin-1"))
-        for key, value in new_headers.items()
-    ]
-
-    receive = getattr(original, "_receive", None)
-    if receive is None:
-        async def _empty_receive():
-            return {"type": "http.disconnect"}
-        receive = _empty_receive
-
-    new_request = StarletteRequest(new_scope, receive=receive)
-    new_request._body = new_body  # cache, so .body() returns ours
-    return new_request
 
 
 # ---------------------------------------------------------------------------
@@ -82,11 +47,6 @@ def _anthropic_error_response(
         status_code=status_code,
         headers=headers,
     )
-
-
-def _strip_hop_headers(headers) -> dict[str, str]:
-    skip = {"content-length", "content-encoding", "transfer-encoding"}
-    return {k: v for k, v in headers.items() if k.lower() not in skip}
 
 
 async def _translate_non_streaming_response(
@@ -111,7 +71,7 @@ async def _translate_non_streaming_response(
         anthropic_payload = openai_to_anthropic_response(payload, requested_model=requested_model)
 
     new_body = json.dumps(anthropic_payload, ensure_ascii=False).encode("utf-8")
-    headers = _strip_hop_headers(response.headers)
+    headers = strip_hop_headers(response.headers)
     headers["content-type"] = "application/json"
     return Response(
         content=new_body,
@@ -127,7 +87,7 @@ def _translate_streaming_response(
     estimated_input_tokens: int = 0,
 ) -> StreamingResponse:
     source = response.body_iterator
-    headers = _strip_hop_headers(response.headers)
+    headers = strip_hop_headers(response.headers)
     return StreamingResponse(
         translate_openai_sse_stream(
             source, requested_model, estimated_input_tokens=estimated_input_tokens
@@ -196,13 +156,13 @@ async def anthropic_messages(request: Request):
             estimated_input_tokens = 0
 
     new_body = json.dumps(openai_body, ensure_ascii=False).encode("utf-8")
-    new_headers = _normalize_auth_header(dict(request.headers))
+    new_headers = normalize_auth_header(dict(request.headers))
     # Force content-type / content-length to match new body
     new_headers["content-type"] = "application/json"
     new_headers["content-length"] = str(len(new_body))
     new_headers["x-inbound-protocol"] = "anthropic"
 
-    inner_request = _build_inner_request(request, new_body, new_headers)
+    inner_request = build_inner_request(request, new_body, new_headers)
 
     try:
         proxied = await proxy_request(inner_request, "/chat/completions")
@@ -250,7 +210,7 @@ async def anthropic_count_tokens(request: Request):
 async def anthropic_list_models(request: Request):
     from app.services.api_key_access import resolve_visible_models_for_api_key
 
-    headers = _normalize_auth_header(dict(request.headers))
+    headers = normalize_auth_header(dict(request.headers))
     auth = headers.get("authorization") or ""
     api_key = auth[7:].strip() if auth.lower().startswith("bearer ") else auth.strip()
     model_names, error = await resolve_visible_models_for_api_key(api_key)

@@ -1056,6 +1056,7 @@ async def proxy_request(request: Request, endpoint: str):
                             intent=request_intent,
                             requested_model=requested_model,
                             provider_key_label=_get_key_label(provider_config, chosen_key_id),
+                            inbound_protocol=inbound_protocol,
                             routing_decision=_build_routing_decision(
                                 routing_decision_base,
                                 route_result,
@@ -1320,6 +1321,7 @@ async def handle_normal(
     requested_model=None,
     provider_key_label=None,
     routing_decision=None,
+    inbound_protocol=None,
 ):
     return await runtime_handle_normal(
         client=client,
@@ -1345,6 +1347,7 @@ async def handle_normal(
         requested_model=requested_model,
         provider_key_label=provider_key_label,
         routing_decision=routing_decision,
+        inbound_protocol=inbound_protocol,
     )
 
 

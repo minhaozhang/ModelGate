@@ -58,6 +58,7 @@ async def handle_normal(
     requested_model=None,
     provider_key_label=None,
     routing_decision=None,
+    inbound_protocol=None,
 ):
     logger.debug(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -216,6 +217,7 @@ async def handle_normal(
             provider_key_id=chosen_key_id,
             provider_key_label=provider_key_label,
             routing_decision=routing_decision,
+            inbound_protocol=inbound_protocol,
         )
         if request_status == "success" and normal_log_id:
             try:
