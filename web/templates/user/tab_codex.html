@@ -1,0 +1,95 @@
+<div id="tab-codex" class="tab-content p-6">
+    <h2 class="text-xl font-bold mb-4">{{ _('Codex Configuration') }}</h2>
+
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
+        <h3 class="font-semibold text-blue-800 mb-2">{{ '方式一：一键配置脚本' if current_locale == 'zh' else _('Option 1: one-liner setup script') }} <span class="text-xs font-normal text-blue-600">{{ _('recommended') }}</span></h3>
+        <p class="text-sm text-blue-700 mb-3">{{ 'Codex CLI、ChatGPT 桌面端、VS Code Codex 插件共用同一份配置，配置一次全部生效。脚本会备份现有 config.toml、写入模型目录 models.json、合并 ModelGate 配置（MCP 服务器等原有配置全部保留）。' if current_locale == 'zh' else _('Codex CLI, the ChatGPT desktop app and the VS Code Codex extension share one config. The script backs up config.toml, writes the models.json catalog and merges the ModelGate entries (your MCP servers and other settings are preserved).') }}</p>
+        <div class="mb-4">
+            <div class="text-xs font-medium text-blue-700 mb-1">API Key</div>
+            <div class="flex items-center gap-2 rounded bg-white border border-blue-200 px-3 py-2">
+                <code id="codex-api-key" class="flex-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap select-all">{{ _('Loading...') }}</code>
+                <button type="button" onclick="copyById('codex-api-key')" class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50">{{ _('Copy') }}</button>
+            </div>
+            <p class="text-xs text-blue-600 mt-1">{{ '命令已自动嵌入你的 API Key，无需手动输入。' if current_locale == 'zh' else _('The commands below already embed your API key.') }}</p>
+        </div>
+        <div class="space-y-3">
+            <div>
+                <div class="text-xs font-medium text-blue-700 mb-1">Windows (PowerShell)</div>
+                <div class="flex items-center gap-2 rounded bg-white border border-blue-200 px-3 py-2">
+                    <code id="codex-ps1-cmd" class="flex-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap"></code>
+                    <button type="button" onclick="copyById('codex-ps1-cmd')" class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50 shrink-0">{{ _('Copy') }}</button>
+                </div>
+            </div>
+            <div>
+                <div class="text-xs font-medium text-blue-700 mb-1">macOS / Linux (Bash)</div>
+                <div class="flex items-center gap-2 rounded bg-white border border-blue-200 px-3 py-2">
+                    <code id="codex-sh-cmd" class="flex-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap"></code>
+                    <button type="button" onclick="copyById('codex-sh-cmd')" class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50 shrink-0">{{ _('Copy') }}</button>
+                </div>
+            </div>
+        </div>
+        <p class="text-xs text-blue-600 mt-3">{{ '前提：已安装并至少运行过一次 Codex（~/.codex 目录已存在）。macOS/Linux 只需要 curl。' if current_locale == 'zh' else _('Requires Codex installed and run at least once (the ~/.codex folder exists). macOS/Linux only needs curl.') }}</p>
+    </div>
+
+    <details class="border border-gray-200 rounded-lg mb-6" open>
+        <summary class="px-4 py-3 cursor-pointer text-sm font-medium text-gray-700 select-none">{{ '方式二：手动编辑配置文件' if current_locale == 'zh' else _('Option 2: manual config') }}</summary>
+        <div class="p-4 pt-0">
+            <p class="text-sm text-gray-600 mb-4">{{ '手动方式需要写入两个文件：config.toml（提供方配置）和 models.json（模型目录，向 Codex 声明上下文窗口、推理档位等元数据）。' if current_locale == 'zh' else _('Manual setup writes two files: config.toml (the provider config) and models.json (the model catalog declaring context windows and reasoning levels to Codex).') }}</p>
+
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+                <span class="text-xs font-medium text-gray-600">{{ '默认模型' if current_locale == 'zh' else _('Default model') }}:</span>
+                <select id="codex-model-select" onchange="renderCodexToml()" class="rounded border border-gray-300 bg-white text-xs px-2 py-1"></select>
+                <span class="text-xs text-gray-400">{{ '配置后可用 /model 随时切换' if current_locale == 'zh' else _('Switch anytime with /model inside Codex') }}</span>
+            </div>
+
+            <div class="mb-6">
+                <div class="text-xs font-medium text-gray-600 mb-1">{{ '1. ~/.codex/config.toml' if current_locale == 'zh' else _('1. ~/.codex/config.toml') }}</div>
+                <div class="relative">
+                    <button onclick="copyById('codex-toml')" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
+                    <pre id="codex-toml" class="text-xs sm:text-sm whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded-lg p-4 pr-16 overflow-x-auto"></pre>
+                </div>
+                <div class="mt-2 flex flex-wrap items-center gap-3">
+                    <button type="button" onclick="downloadCodexToml()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ '下载 config.toml' if current_locale == 'zh' else _('Download config.toml') }}</button>
+                    <span class="text-xs text-gray-500">{{ '目标目录' if current_locale == 'zh' else _('Target folder') }}: <code id="codex-config-dir" class="rounded bg-gray-100 px-1 py-0.5"></code></span>
+                    <button type="button" onclick="copyById('codex-config-dir')" class="rounded border px-2 py-1 text-xs text-blue-500 hover:bg-gray-50">{{ '复制目录' if current_locale == 'zh' else _('Copy folder') }}</button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">{{ '已有 config.toml 时只需把上面条目并入（[model_providers.modelgate] 段整体替换），其余配置保留。API Key 已内嵌在 experimental_bearer_token。' if current_locale == 'zh' else _('If config.toml already exists, merge the entries above into it (replace the whole [model_providers.modelgate] section) and keep everything else. The API key is embedded in experimental_bearer_token.') }}</p>
+            </div>
+
+            <div class="mb-6">
+                <div class="text-xs font-medium text-gray-600 mb-1">{{ '2. ~/.codex/models.json' if current_locale == 'zh' else _('2. ~/.codex/models.json') }}</div>
+                <p class="text-xs text-gray-500 mb-2">{{ '按你的 API Key 可用模型生成，放同一目录。' if current_locale == 'zh' else _('Generated from the models available to your API key; place it in the same folder.') }}</p>
+                <button type="button" onclick="downloadCodexModelsJson()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ '下载 models.json' if current_locale == 'zh' else _('Download models.json') }}</button>
+            </div>
+
+            <div class="bg-blue-50 rounded-lg p-4">
+                <h3 class="font-semibold text-blue-800 mb-2">{{ _('How to use') }}</h3>
+                <ol class="list-decimal list-inside text-sm text-blue-700 space-y-1">
+                    <li>{{ '把两个文件放入 ~/.codex/（Windows: %USERPROFILE%\\.codex\\），目录不存在则创建' if current_locale == 'zh' else _('Put both files in ~/.codex/ (Windows: %USERPROFILE%\\.codex\\); create the folder if missing') }}</li>
+                    <li>{{ '重启 Codex（CLI / 桌面端 / IDE 插件共用此配置）' if current_locale == 'zh' else _('Restart Codex (CLI / desktop / IDE extension share this config)') }}</li>
+                    <li>{{ '运行 codex 启动，用 /model 切换模型' if current_locale == 'zh' else _('Run codex to start; use /model to switch models') }}</li>
+                </ol>
+            </div>
+        </div>
+    </details>
+
+    <details class="border border-gray-200 rounded-lg mb-6">
+        <summary class="px-4 py-3 cursor-pointer text-sm font-medium text-gray-700 select-none">{{ '完整配置说明（可发给 Codex 自动配置）' if current_locale == 'zh' else _('Full setup instructions (send to Codex to self-configure)') }}</summary>
+        <div class="p-4 pt-0">
+            <p class="text-gray-600 my-4">{{ '复制下面的说明发给 Codex（或其他 agent），它会按步骤完成配置。' if current_locale == 'zh' else _('Copy the instructions below and send them to Codex (or any agent); they describe every step.') }}</p>
+            <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                <div class="relative">
+                    <button onclick="copyConfig('codex-setup-output')" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
+                    <pre id="codex-setup-output" class="text-sm whitespace-pre-wrap"></pre>
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <script>
+        (function(){
+            const isWin = /Win/i.test(navigator.userAgent);
+            document.getElementById('codex-config-dir').textContent = isWin ? '%USERPROFILE%\\.codex' : '~/.codex';
+        })();
+    </script>
+</div>

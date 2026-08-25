@@ -321,6 +321,7 @@
                 <button class="tab-btn active px-6 py-3 font-medium" onclick="showTab('stats')">{{ _('Statistics') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('catalog')">{{ _('Models') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('opencode')">{{ _('OpenCode Config') }}</button>
+                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('codex')">Codex {{ _('Config') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('documents')">{{ _('Documents') }}</button>
                 <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('mcp')">MCP Tools</button>
@@ -330,6 +331,7 @@
             {% include 'user/tab_stats.html' %}
             {% include 'user/tab_catalog.html' %}
             {% include 'user/tab_opencode.html' %}
+            {% include 'user/tab_codex.html' %}
             {% include 'user/tab_usage.html' %}
             {% include 'user/tab_documents.html' %}
             {% include 'user/tab_mcp.html' %}
@@ -533,6 +535,7 @@
             document.getElementById('tab-' + tab).classList.add('active');
             
             if (tab === 'opencode') loadOpenCodeConfig();
+            if (tab === 'codex') loadCodexConfig();
             if (tab === 'catalog' && !catalogLoaded) loadCatalog();
             if (tab === 'documents') loadDocList();
             if (tab === 'mcp') loadMcpInfo();
@@ -1481,9 +1484,114 @@
             if (shEl) shEl.textContent = `curl -fsSL '${origin}${APP_BASE_PATH}/opencode/setup.sh${keyParam}' | bash`;
         }
         
-        function copyConfig() {
-            const config = document.getElementById('config-output').textContent;
+        function copyConfig(targetId) {
+            const el = document.getElementById(targetId || 'config-output');
+            if (!el) return;
+            const config = el.textContent;
             navigator.clipboard.writeText(config).then(() => alert(window.I18N.copied));
+        }
+
+        let _codexCtx = null;
+        let _codexKey = '';
+
+        function codexTomlText(model) {
+            const baseUrl = _codexCtx ? _codexCtx.base_url : '';
+            const key = _codexKey || 'sk-...';
+            return 'model = "' + model + '"\n'
+                + 'model_provider = "modelgate"\n'
+                + 'preferred_auth_method = "apikey"\n'
+                + 'forced_login_method = "api"\n'
+                + 'model_reasoning_effort = "high"\n'
+                + 'model_catalog_json = "~/.codex/models.json"\n\n'
+                + '[model_providers.modelgate]\n'
+                + 'name = "ModelGate"\n'
+                + 'base_url = "' + baseUrl + '"\n'
+                + 'wire_api = "responses"\n'
+                + 'experimental_bearer_token = "' + key + '"\n';
+        }
+
+        function renderCodexToml() {
+            const select = document.getElementById('codex-model-select');
+            const el = document.getElementById('codex-toml');
+            if (!select || !el) return;
+            if (select.value) el.textContent = codexTomlText(select.value);
+        }
+
+        async function loadCodexConfig() {
+            const tomlEl = document.getElementById('codex-toml');
+            const mdEl = document.getElementById('codex-setup-output');
+            if (tomlEl) tomlEl.textContent = window.I18N.loading || 'Loading...';
+            try {
+                const resp = await fetch(APP_BASE_PATH + '/codex/config');
+                if (resp.ok) {
+                    _codexCtx = await resp.json();
+                    const select = document.getElementById('codex-model-select');
+                    if (select && _codexCtx.models && _codexCtx.models.length) {
+                        select.innerHTML = _codexCtx.models.map(function(m){
+                            const label = (_codexCtx.display_names && _codexCtx.display_names[m]) ? (_codexCtx.display_names[m] + ' (' + m + ')') : m;
+                            return '<option value="' + m.replace(/"/g, '&quot;') + '">' + label.replace(/</g, '&lt;') + '</option>';
+                        }).join('');
+                        const def = _codexCtx.default_model;
+                        if (def) select.value = def;
+                    }
+                    _codexKey = _codexCtx.api_key || '';
+                    const keyEl = document.getElementById('codex-api-key');
+                    if (keyEl && _codexKey) keyEl.textContent = _codexKey;
+                    renderCodexToml();
+                } else if (tomlEl) {
+                    tomlEl.textContent = window.I18N.loadFailed || 'Failed to load';
+                }
+            } catch (e) {
+                if (tomlEl) tomlEl.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
+            }
+            if (mdEl) {
+                try {
+                    const resp = await fetch(APP_BASE_PATH + '/codex/setup.md');
+                    mdEl.textContent = resp.ok ? await resp.text() : (window.I18N.loadFailed || 'Failed to load');
+                } catch (e) {
+                    mdEl.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
+                }
+            }
+            const origin = window.location.origin;
+            const ps1El = document.getElementById('codex-ps1-cmd');
+            const shEl = document.getElementById('codex-sh-cmd');
+            let keyParam = '';
+            if (_codexKey) keyParam = '?key=' + encodeURIComponent(_codexKey);
+            if (ps1El) ps1El.textContent = `irm '${origin}${APP_BASE_PATH}/codex/setup.ps1${keyParam}' | iex`;
+            if (shEl) shEl.textContent = `bash <(curl -fsSL '${origin}${APP_BASE_PATH}/codex/setup.sh${keyParam}')`;
+        }
+
+        function downloadCodexToml() {
+            const select = document.getElementById('codex-model-select');
+            const content = select && select.value ? codexTomlText(select.value) : '';
+            if (!content) return;
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'config.toml';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function downloadCodexModelsJson() {
+            try {
+                const resp = await fetch(APP_BASE_PATH + '/codex/models.json');
+                if (!resp.ok) {
+                    alert(window.I18N.loadFailed || 'Failed to load');
+                    return;
+                }
+                const text = await resp.text();
+                const blob = new Blob([text], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'models.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert((window.I18N.loadFailed || 'Failed to load') + ': ' + e.message);
+            }
         }
 
         function copyById(id) {
