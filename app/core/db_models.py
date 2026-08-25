@@ -238,6 +238,7 @@ class ApiKey(Base):
     is_active = Column(Boolean, default=True)
     bypass_busyness = Column(Boolean, default=False)
     preferred_tags = Column(Text, nullable=True)
+    daily_quota_cny = Column(Float, nullable=True)
     last_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -281,6 +282,24 @@ class ApiKeyTag(Base):
     __table_args__ = (
         Index("idx_api_key_tags_key", "api_key_id"),
         UniqueConstraint("api_key_id", "tag", name="uq_api_key_tag"),
+    )
+
+
+class ApiKeyDailyUsage(Base):
+    __tablename__ = "api_key_daily_usage"
+
+    id = Column(Integer, primary_key=True)
+    api_key_id = Column(
+        Integer, ForeignKey("api_keys.id", ondelete="CASCADE"), nullable=False
+    )
+    date = Column(String(10), nullable=False)
+    charged_cny = Column(Float, default=0)
+    requests_charged = Column(Integer, default=0)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("api_key_id", "date", name="uq_api_key_daily_usage"),
+        Index("idx_api_key_daily_usage_date", "date"),
     )
 
 

@@ -24,6 +24,13 @@ ALL_DEFAULTS = {
     "proxy": {
         "ua_override": "",
     },
+    "billing": {
+        "peak_windows": "09:00-12:00,14:00-18:00",
+        "weekend_offpeak": "true",
+        "peak_multiplier": "1.5",
+        "offpeak_multiplier": "0.8",
+        "default_daily_quota_cny": "",
+    },
 }
 
 _settings_cache: dict[str, tuple[str, float]] = {}

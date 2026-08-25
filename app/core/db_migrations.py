@@ -386,6 +386,17 @@ _DDL: list[str] = [
     ")",
     "CREATE INDEX IF NOT EXISTS idx_apikey_stats_date ON api_key_daily_stats (date)",
 
+    "CREATE TABLE IF NOT EXISTS api_key_daily_usage ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE, "
+    "date VARCHAR(10) NOT NULL, "
+    "charged_cny DOUBLE PRECISION DEFAULT 0, "
+    "requests_charged INTEGER DEFAULT 0, "
+    "updated_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_api_key_daily_usage ON api_key_daily_usage (api_key_id, date)",
+    "CREATE INDEX IF NOT EXISTS idx_api_key_daily_usage_date ON api_key_daily_usage (date)",
+
     "CREATE TABLE IF NOT EXISTS api_key_model_daily_stats ("
     "id SERIAL NOT NULL PRIMARY KEY, "
     "api_key_id INTEGER NOT NULL REFERENCES api_keys(id), "
@@ -864,6 +875,9 @@ async def migrate_api_keys(conn) -> None:
         text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS bypass_busyness BOOLEAN DEFAULT FALSE")
     )
     await conn.execute(text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS preferred_tags TEXT"))
+    await conn.execute(
+        text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS daily_quota_cny DOUBLE PRECISION")
+    )
 
 
 async def migrate_providers_and_keys(conn) -> None:

@@ -389,6 +389,44 @@ async def proxy_request(request: Request, endpoint: str):
 
     client_ip = get_client_ip(request)
     user_agent = request.headers.get("user-agent")
+
+    from app.services.billing_rules import check_daily_quota
+
+    quota_info = await check_daily_quota(api_key_id)
+    if quota_info:
+        message = (
+            f"Daily spending quota exceeded for this API key: "
+            f"{quota_info['charged_cny']:.2f} / {quota_info['quota_cny']:.2f} CNY charged today. "
+            f"Requests resume at {quota_info['reset_at']}."
+        )
+        logger.warning(
+            "[DAILY QUOTA] key=%s charged=%.4f quota=%.2f — rejecting",
+            api_key_id,
+            quota_info["charged_cny"],
+            quota_info["quota_cny"],
+        )
+        await create_request_log(
+            "",
+            model,
+            status=LOCAL_RATE_LIMITED_STATUS,
+            api_key_id=api_key_id,
+            client_ip=client_ip,
+            user_agent=user_agent,
+            latency_ms=(time.time() - start_time) * 1000,
+            downstream_status_code=429,
+            error=message,
+            inbound_protocol=inbound_protocol,
+            requested_model=model,
+            actual_model=model,
+        )
+        return _openai_error_response(
+            message,
+            429,
+            "rate_limit_error",
+            "daily_quota_exceeded",
+            headers={"retry-after": str(quota_info["retry_after"])},
+        )
+
     _schedule_api_key_last_used_update(api_key_id)
 
     bypass_busyness = _api_key_bypasses_busyness(api_key_id)

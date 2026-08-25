@@ -188,6 +188,7 @@ async def _record_stream_result(
         provider_name=provider,
         model=model,
         request_context_tokens=request_context_tokens,
+        api_key_id=api_key_id,
     )
     total_tokens = tokens_record["total_tokens"]
     log_response_meta(provider, model, response_meta)

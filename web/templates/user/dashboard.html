@@ -1199,6 +1199,47 @@
             }
         }
 
+        async function renderDailyQuota() {
+            const panel = document.getElementById('daily-quota-panel');
+            if (!panel) return;
+            let d;
+            try {
+                d = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/billing/usage');
+            } catch (e) { return; }
+            if (!d) return;
+            const quota = d.daily_quota_cny;
+            if (quota === null || quota === undefined) { panel.classList.add('hidden'); return; }
+            panel.classList.remove('hidden');
+            const isZh = {{ 'true' if current_locale == 'zh' else 'false' }};
+            const charged = d.daily_charged_cny || 0;
+            const pct = Math.min(100, quota > 0 ? (charged / quota) * 100 : 0);
+            const bar = document.getElementById('daily-quota-bar');
+            bar.style.width = pct + '%';
+            bar.className = 'h-2.5 rounded-full transition-all duration-500 ' +
+                (pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500');
+            document.getElementById('daily-quota-text').textContent =
+                '¥' + (charged >= 1 ? charged.toFixed(2) : charged.toFixed(4)) + ' / ¥' + quota.toFixed(2);
+            const badge = document.getElementById('billing-period-badge');
+            const peak = d.billing_period === 'peak';
+            badge.textContent = isZh
+                ? (peak ? '高峰 ×' + d.billing_multiplier : '低峰 ×' + d.billing_multiplier)
+                : (peak ? 'Peak ×' + d.billing_multiplier : 'Off-peak ×' + d.billing_multiplier);
+            badge.className = 'rounded-full px-2 py-0.5 text-[10px] font-semibold ' +
+                (peak ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700');
+            const note = document.getElementById('daily-quota-note');
+            if (pct >= 100) {
+                note.textContent = isZh
+                    ? '今日额度已用尽，请求将被拒绝（429），次日零点恢复'
+                    : 'Daily quota exhausted; requests get 429 until midnight';
+                note.className = 'text-[10px] text-red-500 mt-1';
+            } else {
+                note.textContent = isZh
+                    ? '按成本价 × 时段乘数计，达到额度后拒绝请求'
+                    : 'Charged as cost × period multiplier; requests rejected once reached';
+                note.className = 'text-[10px] text-gray-400 mt-1';
+            }
+        }
+
         function renderBusyness(data) {
             if (!data) return;
             const colorMap = {red:'bg-red-500',orange:'bg-orange-500',yellow:'bg-yellow-500',green:'bg-green-500',blue:'bg-blue-500',slate:'bg-slate-400'};
@@ -1263,6 +1304,7 @@
             _cachedSystemModels = systemModels.models || {};
             renderSystemHealth(data.system_health || {});
             renderBusyness(data.busyness || null);
+            renderDailyQuota();
             renderTrendChart(latestTrendData);
             renderOwnModelChart(data.models || {});
             renderSystemModelChart(systemModels.models || {});

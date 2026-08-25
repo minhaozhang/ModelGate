@@ -168,12 +168,19 @@
                             </div>
                         </div>
                     </div>
-                    <div>
-                        <label class="flex items-center gap-2 text-sm text-gray-700">
-                            <input type="checkbox" id="apikey-bypass-busyness" class="rounded">
-                            {{ _('Bypass busyness limit') }}
-                        </label>
-                        <p class="text-xs text-gray-500 mt-1">{{ _('Ignore model busyness availability restrictions') }}</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Daily quota CNY' if current_locale != 'zh' else '每日额度（元）') }}</label>
+                            <input type="number" step="0.01" min="0" id="apikey-daily-quota" class="w-full border rounded px-3 py-2" placeholder="{{ _('empty for default, 0 for unlimited' if current_locale != 'zh' else '留空跟随全局默认；0 = 不限额') }}">
+                            <p class="text-xs text-gray-500 mt-1">{{ _('Daily charged spend, cost times peak/off-peak multiplier; 429 once exceeded until midnight' if current_locale != 'zh' else '按今日扣费（成本价×峰谷乘数）计算，达到后请求返回 429，次日零点恢复') }}</p>
+                        </div>
+                        <div>
+                            <label class="flex items-center gap-2 text-sm text-gray-700 mt-6">
+                                <input type="checkbox" id="apikey-bypass-busyness" class="rounded">
+                                {{ _('Bypass busyness limit') }}
+                            </label>
+                            <p class="text-xs text-gray-500 mt-1">{{ _('Ignore model busyness availability restrictions') }}</p>
+                        </div>
                     </div>
                 </div>
                 <div class="shrink-0 border-t bg-white px-4 py-3 flex justify-end gap-2">
@@ -242,7 +249,8 @@
         copySetup: "{{ _('Copy Setup') }}",
         copyManually: "{{ '浏览器拒绝自动复制，请按 Ctrl+C 手动复制。' if current_locale == 'zh' else 'Browser blocked automatic copy. Press Ctrl+C to copy manually.' }}",
         close: "{{ _('Close') }}",
-        bypassBusyness: "{{ _('Bypass Busyness') }}",
+            bypassBusyness: "{{ _('Bypass Busyness') }}",
+            dailyQuota: "{{ _('Daily quota' if current_locale != 'zh' else '每日额度') }}",
         loginLabel: "{{ _('Login') }}",
         lastUsed: "{{ _('Last Used') }}",
         email: "{{ _('Email') }}",
@@ -806,6 +814,8 @@
                             ` : ''}
                             ${timeRulesDisplay}
                             ${k.bypass_busyness ? '<span class="inline-block text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded mt-1">' + (window.I18N.bypassBusyness || 'Bypass busyness') + '</span>' : ''}
+            ${k.daily_quota_cny !== null && k.daily_quota_cny !== undefined && k.daily_quota_cny > 0 ? '<span class="inline-block text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded mt-1">' + (window.I18N.dailyQuota || 'Daily quota') + ' ¥' + k.daily_quota_cny + '</span>' : ''}
+            ${k.daily_quota_cny === 0 ? '<span class="inline-block text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded mt-1">' + (window.I18N.dailyQuota || 'Daily quota') + ': ∞</span>' : ''}
                             ${(k.tags && k.tags.length > 0) ? '<div class="flex flex-wrap gap-1 mt-1">' + k.tags.map(t => '<span class="inline-block text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">' + t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>').join('') + '</div>' : ''}
                         </div>
                         <div class="flex flex-wrap gap-2 shrink-0">
@@ -1123,6 +1133,7 @@ ${setupMdUrl}`;
             updateSelectedCount();
             prepareApiKeyPickers([]);
             document.getElementById('apikey-bypass-busyness').checked = false;
+            document.getElementById('apikey-daily-quota').value = '';
             currentTags = [];
             renderTags();
             document.getElementById('apikey-modal').classList.remove('hidden');
@@ -1143,6 +1154,8 @@ ${setupMdUrl}`;
             updateSelectedCount();
             prepareApiKeyPickers(key.mcp_server_ids || []);
             document.getElementById('apikey-bypass-busyness').checked = key.bypass_busyness || false;
+            document.getElementById('apikey-daily-quota').value =
+                key.daily_quota_cny === null || key.daily_quota_cny === undefined ? '' : key.daily_quota_cny;
             currentTags = [...(key.tags || [])];
             renderTags();
             document.getElementById('apikey-modal').classList.remove('hidden');
@@ -1165,6 +1178,10 @@ ${setupMdUrl}`;
                 access_mode: 'model',
                 allowed_model_ids: selectedStandardModelIds,
                 bypass_busyness: document.getElementById('apikey-bypass-busyness').checked,
+                daily_quota_cny: (() => {
+                    const v = document.getElementById('apikey-daily-quota').value.trim();
+                    return v === '' ? -1 : (parseFloat(v) || 0);
+                })(),
                 tags: currentTags,
             };
             data.mcp_server_ids = Array.from(document.querySelectorAll('.mcp-server-check:checked')).map(c => parseInt(c.value));

@@ -137,6 +137,38 @@
                 </div>
                 <div id="busyness-msg" class="mt-3 text-sm hidden"></div>
             </div>
+            <div class="mt-6 bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold mb-1">{{ _('Billing Rules: daily quota and peak hours' if current_locale != 'zh' else '计费规则：每日额度与峰谷时段') }}</h2>
+                <p class="text-xs text-gray-500 mb-4">{{ _('Per-key daily spending quota in CNY (upstream cost times period multiplier). Exceeded keys get 429 until midnight. Peak hours charge faster, off-peak slower.' if current_locale != 'zh' else '按 API Key 的每日花费额度（元，成本价 × 时段乘数）。达到额度后返回 429，次日零点恢复。高峰期扣费加速，低峰期减速。') }}</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Peak windows' if current_locale != 'zh' else '高峰时段') }}</label>
+                        <input id="billing-peak_windows" class="w-full border rounded px-3 py-2 text-sm font-mono" placeholder="09:00-12:00,14:00-18:00">
+                        <p class="text-xs text-gray-400 mt-1">{{ _('Comma-separated HH:MM-HH:MM, supports cross-midnight like 22:00-06:00' if current_locale != 'zh' else '逗号分隔 HH:MM-HH:MM，支持跨零点，如 22:00-06:00') }}</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Default daily quota CNY, empty means unlimited' if current_locale != 'zh' else '默认每日额度（元，留空不限）') }}</label>
+                        <input id="billing-default_daily_quota_cny" type="number" step="0.01" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="">
+                        <p class="text-xs text-gray-400 mt-1">{{ _('Applies to keys without their own quota' if current_locale != 'zh' else '对未单独设置额度的 Key 生效') }}</p>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Peak multiplier' if current_locale != 'zh' else '高峰乘数') }}</label>
+                        <input id="billing-peak_multiplier" type="number" step="0.1" min="0.1" class="w-full border rounded px-3 py-2 text-sm" placeholder="1.5">
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Off-peak multiplier' if current_locale != 'zh' else '低峰乘数') }}</label>
+                        <input id="billing-offpeak_multiplier" type="number" step="0.1" min="0.1" class="w-full border rounded px-3 py-2 text-sm" placeholder="0.8">
+                    </div>
+                </div>
+                <label class="flex items-center gap-2 mt-4 text-sm text-gray-700">
+                    <input id="billing-weekend_offpeak" type="checkbox" class="rounded">
+                    {{ _('Weekends count as off-peak all day' if current_locale != 'zh' else '周末全天按低峰计费') }}
+                </label>
+                <div class="mt-4 flex gap-2">
+                    <button onclick="saveBilling()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
+                </div>
+                <div id="billing-msg" class="mt-3 text-sm hidden"></div>
+            </div>
         </main>
     </div>
     <script>
@@ -169,6 +201,20 @@
                 for (const [key, val] of Object.entries(d.busyness)) {
                     const el = document.getElementById('busyness-' + key);
                     if (el) el.value = val;
+                }
+            }
+            if (d.billing) {
+                const b = d.billing;
+                document.getElementById('billing-peak_windows').value = b.peak_windows || '';
+                document.getElementById('billing-default_daily_quota_cny').value = b.default_daily_quota_cny || '';
+                document.getElementById('billing-peak_multiplier').value = b.peak_multiplier || '';
+                document.getElementById('billing-offpeak_multiplier').value = b.offpeak_multiplier || '';
+                document.getElementById('billing-weekend_offpeak').checked = String(b.weekend_offpeak).toLowerCase() !== 'false';
+                if (!b.peak_windows_valid) {
+                    const msg = document.getElementById('billing-msg');
+                    msg.textContent = '{{ _('Stored peak windows are invalid; all day treated as off-peak' if current_locale != 'zh' else '已保存的高峰时段格式非法，当前全天按低峰计费') }}';
+                    msg.className = 'mt-3 text-sm text-red-600';
+                    msg.classList.remove('hidden');
                 }
             }
         }
@@ -223,6 +269,30 @@
                 body: JSON.stringify({ glm_health_check_model: model })
             });
             const msg = document.getElementById('glm-model-msg');
+            if (r.ok) {
+                msg.textContent = '{{ _('Saved') }}';
+                msg.className = 'mt-3 text-sm text-green-600';
+            } else {
+                const d = await r.json();
+                msg.textContent = d.detail || '{{ _('Save failed') }}';
+                msg.className = 'mt-3 text-sm text-red-600';
+            }
+            msg.classList.remove('hidden');
+        }
+        async function saveBilling() {
+            const billing = {
+                peak_windows: document.getElementById('billing-peak_windows').value.trim(),
+                default_daily_quota_cny: document.getElementById('billing-default_daily_quota_cny').value.trim(),
+                peak_multiplier: document.getElementById('billing-peak_multiplier').value.trim(),
+                offpeak_multiplier: document.getElementById('billing-offpeak_multiplier').value.trim(),
+                weekend_offpeak: document.getElementById('billing-weekend_offpeak').checked,
+            };
+            const r = await fetch(APP_BASE_PATH + '/admin/api/system/config', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ billing })
+            });
+            const msg = document.getElementById('billing-msg');
             if (r.ok) {
                 msg.textContent = '{{ _('Saved') }}';
                 msg.className = 'mt-3 text-sm text-green-600';

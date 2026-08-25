@@ -21,6 +21,7 @@ from app.core.db_models import (  # noqa: F401
     AnalysisSubtask,
     ApiKey,
     ApiKeyDailyStat,
+    ApiKeyDailyUsage,
     ApiKeyMcpServer,
     ApiKeyModel,
     ApiKeyModelAccess,

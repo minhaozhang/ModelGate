@@ -150,6 +150,7 @@ async def handle_normal(
             model=model,
             provider_model_id=route_provider_model_id,
             request_context_tokens=request_context_tokens,
+            api_key_id=api_key_id,
         )
         total_tokens = tokens_record["total_tokens"]
 

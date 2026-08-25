@@ -952,6 +952,17 @@ async def get_user_stats(
         return payload
 
 
+@router.get("/user/api/billing/usage")
+async def get_user_billing_usage(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+    from app.services.billing_rules import get_daily_usage_summary
+
+    return await get_daily_usage_summary(api_key_id)
+
+
 @router.get("/user/api/billing-details.csv")
 async def download_user_billing_details(
     request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"

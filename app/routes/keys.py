@@ -34,6 +34,7 @@ class ApiKeyCreate(BaseModel):
     allowed_model_ids: list[int] = Field(default_factory=list)
     mcp_server_ids: list[int] = Field(default_factory=list)
     bypass_busyness: bool = False
+    daily_quota_cny: Optional[float] = None
     tags: list[str] = Field(default_factory=list)
 
 
@@ -46,6 +47,7 @@ class ApiKeyUpdate(BaseModel):
     is_active: Optional[bool] = None
     mcp_server_ids: Optional[list[int]] = None
     bypass_busyness: Optional[bool] = None
+    daily_quota_cny: Optional[float] = None
     tags: Optional[list[str]] = None
 
 
@@ -174,6 +176,7 @@ async def list_api_keys(_: bool = Depends(permission_required("page.api_keys")))
                     "time_rules": time_rules,
                     "is_active": k.is_active,
                     "bypass_busyness": k.bypass_busyness or False,
+                    "daily_quota_cny": k.daily_quota_cny,
                     "mcp_server_ids": mcp_server_map[k.id],
                     "tags": tags_map[k.id],
                     "last_used_at": k.last_used_at.isoformat()
@@ -202,6 +205,7 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_requir
             if data.expires_at and data.expires_at.tzinfo
             else (data.expires_at or (datetime.now() + timedelta(days=365))),
             bypass_busyness=data.bypass_busyness,
+            daily_quota_cny=data.daily_quota_cny,
         )
         session.add(new_key)
         await session.commit()
@@ -247,6 +251,16 @@ async def update_api_key(
             key.is_active = data.is_active
         if data.bypass_busyness is not None:
             key.bypass_busyness = data.bypass_busyness
+        if data.daily_quota_cny is not None:
+            if data.daily_quota_cny < 0:
+                if data.daily_quota_cny == -1:
+                    key.daily_quota_cny = None
+                else:
+                    return JSONResponse(
+                        {"error": "每日额度不能为负数"}, status_code=400
+                    )
+            else:
+                key.daily_quota_cny = data.daily_quota_cny
         if data.mcp_server_ids is not None:
             await session.execute(
                 delete(ApiKeyMcpServer).where(ApiKeyMcpServer.api_key_id == key_id)

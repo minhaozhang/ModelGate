@@ -132,6 +132,7 @@ async def enrich_tokens_with_billing(
     model: str | None = None,
     provider_model_id: int | None = None,
     request_context_tokens: int | None = None,
+    api_key_id: int | None = None,
 ) -> dict[str, Any]:
     from app.core.database import Model, Provider, ProviderModel, async_session_maker
 
@@ -190,4 +191,10 @@ async def enrich_tokens_with_billing(
     )
     enriched = dict(tokens)
     enriched["billing"] = billing
+    if api_key_id:
+        from app.services.billing_rules import charge_daily_usage
+
+        usage = await charge_daily_usage(api_key_id, billing.get("total_cost_cny") or 0)
+        if usage:
+            enriched["daily_usage"] = usage
     return enriched

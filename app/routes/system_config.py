@@ -30,12 +30,24 @@ async def get_config(_: bool = Depends(permission_required("page.system.config")
 
     glm_model = await get_setting("scheduler", "glm_health_check_model", "")
 
+    from app.services.billing_rules import BILLING_DEFAULTS, parse_peak_windows
+
+    billing_settings = {}
+    for key, default in BILLING_DEFAULTS.items():
+        billing_settings[key] = await get_setting("billing", key, default)
+    billing_settings["peak_windows_valid"] = True
+    try:
+        parse_peak_windows(billing_settings["peak_windows"])
+    except ValueError:
+        billing_settings["peak_windows_valid"] = False
+
     return {
         "ua_override": ua or DEFAULT_OUTBOUND_USER_AGENT,
         "default_ua": DEFAULT_OUTBOUND_USER_AGENT,
         "busyness": busyness_settings,
         "glm_health_check_model": glm_model,
         "glm_health_check_model_default": DEFAULT_HEALTH_CHECK_MODEL,
+        "billing": billing_settings,
     }
 
 
@@ -59,6 +71,33 @@ async def update_config(body: dict, _: bool = Depends(permission_required("syste
             glm_model,
             "GLM 健康检查使用的模型（provider/model 全名，留空用默认）",
         )
+
+    billing_updates = body.get("billing", {})
+    if billing_updates:
+        from app.services.billing_rules import parse_peak_windows
+
+        if "peak_windows" in billing_updates:
+            windows_raw = str(billing_updates.get("peak_windows") or "").strip()
+            try:
+                parse_peak_windows(windows_raw)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc))
+            await save_setting(
+                "billing",
+                "peak_windows",
+                windows_raw,
+                "高峰时段，逗号分隔 HH:MM-HH:MM，支持跨零点",
+            )
+        for key in ("peak_multiplier", "offpeak_multiplier", "default_daily_quota_cny"):
+            if key in billing_updates:
+                await save_setting("billing", key, str(billing_updates.get(key) or "").strip())
+        if "weekend_offpeak" in billing_updates:
+            await save_setting(
+                "billing",
+                "weekend_offpeak",
+                "true" if billing_updates.get("weekend_offpeak") else "false",
+                "周六周日全天按低峰计费",
+            )
 
     busyness_updates = body.get("busyness", {})
     valid_busyness_keys = ALL_DEFAULTS.get("busyness", {})
