@@ -11,6 +11,7 @@ This is the inbound counterpart to ``services/proxy_runtime/adapters/anthropic.p
 from __future__ import annotations
 
 import json
+import re
 
 import uuid
 from typing import Any, AsyncIterator
@@ -476,6 +477,31 @@ _ERROR_TYPE_MAP = {
 }
 
 
+_MODELGATE_CONTEXT_OVERFLOW_RE = re.compile(
+    r"maximum context length is\s+(\d[\d,]*)\s*tokens.*?resulted in ~?(\d[\d,]*)\s*tokens",
+    re.IGNORECASE | re.DOTALL,
+)
+
+_OPENAI_CONTEXT_OVERFLOW_RE = re.compile(
+    r"(\d[\d,]*)\s*tokens.*?maximum.*?(\d[\d,]*)\s*tokens",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _rewrite_context_overflow_for_claude(message: str) -> str | None:
+    m = _MODELGATE_CONTEXT_OVERFLOW_RE.search(message)
+    if m:
+        limit = int(m.group(1).replace(",", ""))
+        actual = int(m.group(2).replace(",", ""))
+        return f"prompt is too long: {actual} tokens > {limit} maximum"
+    m = _OPENAI_CONTEXT_OVERFLOW_RE.search(message)
+    if m:
+        actual = int(m.group(1).replace(",", ""))
+        limit = int(m.group(2).replace(",", ""))
+        return f"prompt is too long: {actual} tokens > {limit} maximum"
+    return None
+
+
 def openai_to_anthropic_error(
     payload: dict[str, Any], status_code: int
 ) -> dict[str, Any]:
@@ -487,12 +513,20 @@ def openai_to_anthropic_error(
             or json.dumps(error_obj, ensure_ascii=False)
         )
         raw_type = error_obj.get("type") or ""
+        raw_code = error_obj.get("code") or ""
     elif isinstance(error_obj, str):
         message = error_obj
         raw_type = ""
+        raw_code = ""
     else:
         message = json.dumps(payload, ensure_ascii=False) if payload else f"HTTP {status_code}"
         raw_type = ""
+        raw_code = ""
+
+    if raw_code == "context_length_exceeded" or "context length" in message.lower() and "tokens" in message.lower():
+        rewritten = _rewrite_context_overflow_for_claude(message)
+        if rewritten:
+            message = rewritten
 
     anthropic_type = _ERROR_TYPE_MAP.get(raw_type) or _status_to_anthropic_type(status_code)
     return {
