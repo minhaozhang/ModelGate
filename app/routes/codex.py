@@ -154,12 +154,12 @@ def _codex_model_entry(slug: str, entry: dict) -> dict:
         "additional_speed_tiers": [],
         "supports_reasoning_summaries": True,
     }
+    out["supported_reasoning_levels"] = [
+        {"effort": effort, "description": f"Reasoning effort {effort}"}
+        for effort in efforts
+    ]
     if efforts:
         out["default_reasoning_level"] = default_effort
-        out["supported_reasoning_levels"] = [
-            {"effort": effort, "description": f"Reasoning effort {effort}"}
-            for effort in efforts
-        ]
     return out
 
 

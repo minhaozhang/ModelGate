@@ -154,7 +154,7 @@ class CodexCatalogTests(unittest.TestCase):
         self.assertTrue(entry["supports_reasoning_summaries"])
         self.assertTrue(entry["available_in_plans"])
 
-    def test_model_entry_vision_no_reasoning(self):
+    def test_model_entry_without_variants_has_empty_reasoning_levels(self):
         entry = codex._codex_model_entry(
             "glm-4v",
             {
@@ -166,7 +166,8 @@ class CodexCatalogTests(unittest.TestCase):
         )
         self.assertEqual(entry["input_modalities"], ["text", "image"])
         self.assertTrue(entry["supports_image_detail_original"])
-        self.assertNotIn("supported_reasoning_levels", entry)
+        self.assertEqual(entry["supported_reasoning_levels"], [])
+        self.assertNotIn("default_reasoning_level", entry)
 
     def test_catalog_sorted(self):
         catalog = codex.build_codex_models_catalog(
