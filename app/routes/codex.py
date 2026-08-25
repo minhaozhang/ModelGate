@@ -1,5 +1,6 @@
 import json
 import tomllib
+from pathlib import Path
 from typing import Optional
 from urllib.parse import quote
 
@@ -17,6 +18,28 @@ from app.routes.opencode import (
 from app.routes.user import get_user_session
 
 router = APIRouter(tags=["docs"])
+
+
+# ---------------------------------------------------------------------------
+# Codex catalog boilerplate (instructions template shared by every model).
+#
+# Codex refuses to load a models.json whose entries carry neither
+# ``base_instructions`` nor ``model_messages.instructions_template`` — the
+# agent would run with no system prompt. We mirror the official catalog's
+# agent prompt (Apache-2.0, openai/codex models-manager) so third-party
+# models behave like first-class Codex citizens.
+# ---------------------------------------------------------------------------
+
+_ASSET_DIR = Path(__file__).resolve().parent.parent / "assets" / "codex"
+_CODEX_INSTRUCTIONS = (
+    _ASSET_DIR / "instructions_template.md"
+).read_text(encoding="utf-8")
+_CODEX_TOKEN_BUDGET = json.loads(
+    (_ASSET_DIR / "token_budget.json").read_text(encoding="utf-8")
+)
+_CODEX_AVAILABLE_IN_PLANS = json.loads(
+    (_ASSET_DIR / "available_in_plans.json").read_text(encoding="utf-8")
+)
 
 
 # ---------------------------------------------------------------------------
@@ -66,13 +89,12 @@ def build_codex_toml(base_url: str, model: str, api_key: str, reasoning_effort: 
 def _codex_model_entry(slug: str, entry: dict) -> dict:
     """Map an opencode-style model entry to a Codex models.json entry.
 
-    Boilerplate capability flags mirror the proven third-party catalog
-    values (DeepSeek's); per-model data (context window, modalities,
-    reasoning levels) comes from the platform model metadata.
+    Boilerplate capability flags mirror the official catalog (openai/codex
+    models-manager); per-model data (context window, modalities, reasoning
+    levels) comes from the platform model metadata.
     """
     limit = entry.get("limit", {})
     context_window = limit.get("context", 204800)
-    output_limit = limit.get("output", 131072)
     modalities = entry.get("modalities", {})
     input_modalities = modalities.get("input", ["text"])
     supports_image = "image" in input_modalities
@@ -95,17 +117,42 @@ def _codex_model_entry(slug: str, entry: dict) -> dict:
         "truncation_policy": {"mode": "tokens", "limit": 10000},
         "supports_parallel_tool_calls": True,
         "tool_mode": None,
+        "multi_agent_version": None,
         "use_responses_lite": False,
+        "include_skills_usage_instructions": False,
+        "include_apps_usage_instructions": False,
+        "include_plugin_usage_instructions": False,
+        "auto_review_model_override": None,
+        "model_specialty": None,
         "context_window": context_window,
         "max_context_window": context_window,
-        "effective_context_window_percent": 95,
-        "auto_compact_token_limit": output_limit,
-        "reasoning_summary_format": "experimental",
+        "auto_compact_token_limit": None,
+        "comp_hash": "modelgate",
         "default_reasoning_summary": "none",
-        "shell_type": "shell_command",
+        "supports_reasoning_summary_parameter": True,
+        "shell_type": "unified_exec",
         "visibility": "list",
         "supported_in_api": True,
         "priority": 0,
+        "node_repl_auto_review_required": False,
+        "node_repl_disabled": False,
+        # Legacy instruction field: required by older Codex clients and by
+        # the catalog loader when model_messages has no template.
+        "base_instructions": _CODEX_INSTRUCTIONS,
+        "model_messages": {
+            "instructions_template": _CODEX_INSTRUCTIONS,
+            "token_budget": _CODEX_TOKEN_BUDGET,
+        },
+        "minimal_client_version": "0.0.1",
+        "availability_nux": None,
+        "upgrade": None,
+        "experimental_supported_tools": [],
+        "available_in_plans": _CODEX_AVAILABLE_IN_PLANS,
+        "supports_search_tool": False,
+        "default_service_tier": None,
+        "service_tiers": [],
+        "additional_speed_tiers": [],
+        "supports_reasoning_summaries": True,
     }
     if efforts:
         out["default_reasoning_level"] = default_effort

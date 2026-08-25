@@ -105,7 +105,54 @@ class CodexCatalogTests(unittest.TestCase):
             [lvl["effort"] for lvl in entry["supported_reasoning_levels"]],
             ["high", "max"],
         )
-        self.assertNotIn("instructions_template", entry)
+
+    def test_model_entry_has_mandatory_instructions(self):
+        """Codex rejects catalog entries without any instruction template."""
+        entry = codex._codex_model_entry(
+            "glm-5", {"name": "GLM-5", "limit": {"context": 1, "output": 1}}
+        )
+        self.assertIn("base_instructions", entry)
+        self.assertTrue(entry["base_instructions"])
+        template = entry["model_messages"]["instructions_template"]
+        self.assertEqual(template, entry["base_instructions"])
+        self.assertIn("token_budget", entry["model_messages"])
+
+    def test_model_entry_full_official_field_set(self):
+        entry = codex._codex_model_entry(
+            "glm-5", {"name": "GLM-5", "limit": {"context": 1, "output": 1}}
+        )
+        expected_fields = {
+            "base_instructions",
+            "model_messages",
+            "minimal_client_version",
+            "comp_hash",
+            "multi_agent_version",
+            "include_skills_usage_instructions",
+            "auto_review_model_override",
+            "availability_nux",
+            "upgrade",
+            "experimental_supported_tools",
+            "available_in_plans",
+            "supports_search_tool",
+            "default_service_tier",
+            "service_tiers",
+            "additional_speed_tiers",
+            "supports_reasoning_summaries",
+        }
+        for field in expected_fields:
+            self.assertIn(field, entry)
+        self.assertEqual(entry["minimal_client_version"], "0.0.1")
+        self.assertEqual(entry["comp_hash"], "modelgate")
+        self.assertIsNone(entry["multi_agent_version"])
+        self.assertIsNone(entry["auto_review_model_override"])
+        self.assertIsNone(entry["availability_nux"])
+        self.assertIsNone(entry["upgrade"])
+        self.assertEqual(entry["experimental_supported_tools"], [])
+        self.assertEqual(entry["service_tiers"], [])
+        self.assertEqual(entry["additional_speed_tiers"], [])
+        self.assertFalse(entry["supports_search_tool"])
+        self.assertTrue(entry["supports_reasoning_summaries"])
+        self.assertTrue(entry["available_in_plans"])
 
     def test_model_entry_vision_no_reasoning(self):
         entry = codex._codex_model_entry(
