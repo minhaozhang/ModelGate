@@ -168,107 +168,167 @@ async def update_model(
         return {"id": model.id}
 
 
+async def _delete_standard_model_in_session(
+    session, model_id: int, cascade_unbind: bool
+) -> tuple[int, dict]:
+    """Shared delete logic for single & batch model deletion.
+
+    Returns (status_code, payload). On 200 the payload is {"deleted": True,
+    "id": ..., "unbound_providers": bool}.
+    """
+    from app.core.database import ApiKey, ApiKeyModel, ApiKeyModelAccess, Provider, ProviderModel
+    from sqlalchemy import delete, func
+
+    result = await session.execute(select(Model).where(Model.id == model_id))
+    model = result.scalar_one_or_none()
+    if not model:
+        return 404, {"code": "not_found", "error": "Model not found"}
+
+    pm_key_result = await session.execute(
+        select(ApiKey.name)
+        .select_from(ApiKeyModel)
+        .join(ApiKey, ApiKey.id == ApiKeyModel.api_key_id)
+        .join(ProviderModel, ProviderModel.id == ApiKeyModel.provider_model_id)
+        .where(ProviderModel.model_id == model_id)
+        .order_by(ApiKey.name)
+        .limit(10)
+    )
+    pm_key_names = [row[0] for row in pm_key_result.fetchall()]
+
+    access_result = await session.execute(
+        select(ApiKey.name)
+        .select_from(ApiKeyModelAccess)
+        .join(ApiKey, ApiKey.id == ApiKeyModelAccess.api_key_id)
+        .where(ApiKeyModelAccess.model_id == model_id)
+        .order_by(ApiKey.name)
+        .limit(10)
+    )
+    key_names = pm_key_names + [
+        row[0] for row in access_result.fetchall() if row[0] not in pm_key_names
+    ]
+    if key_names:
+        return (
+            409,
+            {
+                "code": "model_bound_to_keys",
+                "error": (
+                    f"无法删除模型「{model.name}」：仍有 {len(key_names)} 个 API Key 绑定或授权了该模型"
+                    f"（{'、'.join(key_names[:10])}）。"
+                    f"请先在这些 Key 中移除该模型后再删除。"
+                ),
+            },
+        )
+
+    bound_result = await session.execute(
+        select(Provider.name)
+        .select_from(ProviderModel)
+        .join(Provider, Provider.id == ProviderModel.provider_id)
+        .where(ProviderModel.model_id == model_id)
+        .order_by(Provider.name)
+        .limit(10)
+    )
+    bound_providers = [row[0] for row in bound_result.fetchall()]
+    if bound_providers:
+        total_result = await session.execute(
+            select(func.count()).select_from(ProviderModel).where(
+                ProviderModel.model_id == model_id
+            )
+        )
+        total = total_result.scalar() or len(bound_providers)
+        if not cascade_unbind:
+            more = f" 等 {total} 个绑定" if total > len(bound_providers) else ""
+            return (
+                409,
+                {
+                    "code": "model_bound_to_providers",
+                    "error": (
+                        f"无法直接删除模型「{model.name}」：已被 {total} 个供应商绑定"
+                        f"（{'、'.join(bound_providers)}{more}）。"
+                    ),
+                    "bound_providers": bound_providers,
+                    "total": total,
+                },
+            )
+        await session.execute(
+            delete(ProviderModel).where(ProviderModel.model_id == model_id)
+        )
+
+    try:
+        await session.delete(model)
+        await session.commit()
+    except IntegrityError:
+        try:
+            await session.rollback()
+        except Exception:
+            pass
+        return (
+            409,
+            {
+                "code": "integrity_conflict",
+                "error": f"无法删除模型「{model.name}」：仍有关联数据引用它，请先解除相关配置。",
+            },
+        )
+    return 200, {"deleted": True, "id": model_id, "unbound_providers": bool(bound_providers)}
+
+
 @router.delete("/models/{model_id}")
 async def delete_model(
     model_id: int,
     cascade_unbind: bool = False,
     _: bool = Depends(permission_required("model.delete")),
 ):
-    from app.core.database import ApiKey, ApiKeyModel, ApiKeyModelAccess, Provider, ProviderModel
-    from sqlalchemy import delete, func
-
     async with async_session_maker() as session:
-        result = await session.execute(select(Model).where(Model.id == model_id))
-        model = result.scalar_one_or_none()
-        if not model:
-            return JSONResponse({"error": "Model not found"}, status_code=404)
-
-        pm_key_result = await session.execute(
-            select(ApiKey.name)
-            .select_from(ApiKeyModel)
-            .join(ApiKey, ApiKey.id == ApiKeyModel.api_key_id)
-            .join(ProviderModel, ProviderModel.id == ApiKeyModel.provider_model_id)
-            .where(ProviderModel.model_id == model_id)
-            .order_by(ApiKey.name)
-            .limit(10)
+        status, payload = await _delete_standard_model_in_session(
+            session, model_id, cascade_unbind
         )
-        pm_key_names = [row[0] for row in pm_key_result.fetchall()]
+    if status != 200:
+        return JSONResponse(payload, status_code=status)
+    if payload.get("unbound_providers"):
+        from app.services.provider import load_providers
 
-        access_result = await session.execute(
-            select(ApiKey.name)
-            .select_from(ApiKeyModelAccess)
-            .join(ApiKey, ApiKey.id == ApiKeyModelAccess.api_key_id)
-            .where(ApiKeyModelAccess.model_id == model_id)
-            .order_by(ApiKey.name)
-            .limit(10)
-        )
-        key_names = pm_key_names + [
-            row[0] for row in access_result.fetchall() if row[0] not in pm_key_names
-        ]
-        if key_names:
-            return JSONResponse(
-                {
-                    "code": "model_bound_to_keys",
-                    "error": (
-                        f"无法删除模型「{model.name}」：仍有 {len(key_names)} 个 API Key 绑定或授权了该模型"
-                        f"（{'、'.join(key_names[:10])}）。"
-                        f"请先在这些 Key 中移除该模型后再删除。"
-                    ),
-                },
-                status_code=409,
-            )
+        await load_providers()
+    return {"deleted": True}
 
-        bound_result = await session.execute(
-            select(Provider.name)
-            .select_from(ProviderModel)
-            .join(Provider, Provider.id == ProviderModel.provider_id)
-            .where(ProviderModel.model_id == model_id)
-            .order_by(Provider.name)
-            .limit(10)
-        )
-        bound_providers = [row[0] for row in bound_result.fetchall()]
-        if bound_providers:
-            total_result = await session.execute(
-                select(func.count()).select_from(ProviderModel).where(
-                    ProviderModel.model_id == model_id
-                )
-            )
-            total = total_result.scalar() or len(bound_providers)
-            if not cascade_unbind:
-                more = f" 等 {total} 个绑定" if total > len(bound_providers) else ""
-                return JSONResponse(
-                    {
-                        "code": "model_bound_to_providers",
-                        "error": (
-                            f"无法直接删除模型「{model.name}」：已被 {total} 个供应商绑定"
-                            f"（{'、'.join(bound_providers)}{more}）。"
-                        ),
-                        "bound_providers": bound_providers,
-                        "total": total,
-                    },
-                    status_code=409,
-                )
-            await session.execute(
-                delete(ProviderModel).where(ProviderModel.model_id == model_id)
-            )
 
-        try:
-            await session.delete(model)
-            await session.commit()
-        except IntegrityError:
-            try:
-                await session.rollback()
-            except Exception:
-                pass
-            return JSONResponse(
-                {"error": f"无法删除模型「{model.name}」：仍有关联数据引用它，请先解除相关配置。"},
-                status_code=409,
-            )
-        if bound_providers:
-            from app.services.provider import load_providers
+class ModelBatchDeleteRequest(BaseModel):
+    ids: list[int]
+    cascade_unbind: bool = False
 
-            await load_providers()
-        return {"deleted": True}
+
+@router.post("/models/batch-delete")
+async def batch_delete_models(
+    data: ModelBatchDeleteRequest,
+    _: bool = Depends(permission_required("model.delete")),
+):
+    ids = list(dict.fromkeys(int(i) for i in (data.ids or []) if int(i) > 0))[:500]
+    if not ids:
+        return JSONResponse({"error": "请选择要删除的模型"}, status_code=400)
+
+    deleted: list[int] = []
+    failed: list[dict] = []
+    needs_reload = False
+    async with async_session_maker() as session:
+        for model_id in ids:
+            status, payload = await _delete_standard_model_in_session(
+                session, model_id, data.cascade_unbind
+            )
+            if status == 200:
+                deleted.append(model_id)
+                needs_reload = needs_reload or bool(payload.get("unbound_providers"))
+            else:
+                entry = {"id": model_id}
+                entry.update(payload)
+                failed.append(entry)
+
+    if needs_reload:
+        from app.services.provider import load_providers
+
+        await load_providers()
+    return {
+        "deleted": deleted,
+        "deleted_count": len(deleted),
+        "failed": failed,
+    }
 
 
 @router.get("/models/resolve")
