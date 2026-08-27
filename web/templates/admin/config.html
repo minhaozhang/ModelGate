@@ -581,14 +581,16 @@
                     <div class="flex gap-2">
                         <input type="text" id="new-provider-key-value" class="flex-1 border rounded px-3 py-2 text-sm" placeholder="API Key (sk-...)">
                     </div>
-                    <div class="flex gap-2 items-center">
-                        <input type="text" id="new-provider-key-label" class="w-28 border rounded px-3 py-2 text-sm" placeholder="Label">
-                        <span class="text-xs text-gray-500" title="{{ _('Empty = default (3). 0 = key disabled for new requests.') }}">{{ _('Concurrency') }}:</span>
-                        <input type="number" id="new-provider-key-max-concurrent" min="0" class="w-24 border rounded px-3 py-2 text-sm" placeholder="{{ _('Default') }}" title="{{ _('Empty = default (3). 0 = key disabled for new requests.') }}">
-                        <span class="text-xs text-gray-500">Priority:</span>
+                    <div class="flex gap-2 items-center flex-wrap">
+                        <input type="text" id="new-provider-key-label" class="flex-1 min-w-[6rem] border rounded px-3 py-2 text-sm" placeholder="Label">
+                        <span class="text-xs text-gray-500 whitespace-nowrap" title="{{ _('Empty = default (3). 0 = key disabled for new requests.') }}">{{ _('Concurrency') }}:</span>
+                        <input type="number" id="new-provider-key-max-concurrent" min="0" class="w-20 border rounded px-3 py-2 text-sm" placeholder="{{ _('Default') }}" title="{{ _('Empty = default (3). 0 = key disabled for new requests.') }}">
+                        <span class="text-xs text-gray-500 whitespace-nowrap">Priority:</span>
                         <input type="number" id="new-provider-key-priority" min="0" value="0" class="w-20 border rounded px-3 py-2 text-sm" placeholder="0">
-                        <div class="flex-1"></div>
-                        <button onclick="addProviderKey()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">{{ _('Add') }}</button>
+                    </div>
+                    <div class="flex gap-2 pt-1">
+                        <button onclick="addProviderKey()" class="flex-1 bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">{{ _('Add') }}</button>
+                        <button type="button" onclick="closeProviderKeysModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
                     </div>
                 </div>
             </div>
