@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, time as dt_time, date as dt_date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -310,7 +310,9 @@ async def delete_api_key(key_id: int, _: bool = Depends(permission_required("api
 
 
 @router.post("/keys/{key_id}/regenerate")
-async def regenerate_api_key(key_id: int, _: bool = Depends(permission_required("api_key.update"))):
+async def regenerate_api_key(
+    request: Request, key_id: int, _: bool = Depends(permission_required("api_key.update"))
+):
     async with async_session_maker() as session:
         result = await session.execute(select(ApiKey).where(ApiKey.id == key_id))
         key = result.scalar_one_or_none()
@@ -320,6 +322,26 @@ async def regenerate_api_key(key_id: int, _: bool = Depends(permission_required(
         await session.commit()
         await session.refresh(key)
         await load_api_keys()
+
+        from app.routes.user import USER_SESSIONS
+
+        purged_sessions = 0
+        for token, info in list(USER_SESSIONS.items()):
+            if info.get("api_key_id") == key_id:
+                del USER_SESSIONS[token]
+                purged_sessions += 1
+        if purged_sessions:
+            try:
+                from app.services.audit import write_audit_log
+
+                await write_audit_log(
+                    request, "delete", "user_session", str(key_id),
+                    f"管理端重置 API Key，清除 {purged_sessions} 个活跃门户会话",
+                    None, 200, user_id=key_id,
+                )
+            except Exception:
+                pass
+
         return {"id": key.id, "key": key.key}
 
 
