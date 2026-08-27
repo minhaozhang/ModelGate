@@ -1464,6 +1464,7 @@ async def handle_normal(
     provider_key_semaphore,
     user_provider_model_semaphore,
     request_id,
+    model_concurrency_semaphore=None,
     chosen_key_id=None,
     protocol="openai",
     extra_response_headers=None,
@@ -1498,6 +1499,7 @@ async def handle_normal(
         provider_key_label=provider_key_label,
         routing_decision=routing_decision,
         inbound_protocol=inbound_protocol,
+        model_concurrency_semaphore=model_concurrency_semaphore,
     )
 
 
@@ -1520,6 +1522,7 @@ async def handle_streaming(
     request_id,
     log_id,
     request,
+    model_concurrency_semaphore=None,
     chosen_key_id=None,
     protocol="openai",
     extra_response_headers=None,
@@ -1554,4 +1557,5 @@ async def handle_streaming(
         requested_model=requested_model,
         provider_key_label=provider_key_label,
         routing_decision=routing_decision,
+        model_concurrency_semaphore=model_concurrency_semaphore,
     )

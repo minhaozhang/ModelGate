@@ -324,5 +324,144 @@ class StandardModelSchemaTests(unittest.TestCase):
         self.assertIn("model-max-concurrent", template_source)
 
 
+class ProxyWrapperForwardTests(unittest.IsolatedAsyncioTestCase):
+    """Regression: proxy.py's local handle_normal/handle_streaming wrappers must
+    accept and forward model_concurrency_semaphore. A missing parameter made the
+    wrapper raise TypeError before the runtime handler's finally could release
+    the provider-key semaphore, leaking one slot per request until every key
+    semaphore saturated and all traffic returned 429."""
+
+    async def test_handle_normal_wrapper_forwards_model_semaphore(self):
+        from unittest.mock import AsyncMock as _AM
+        from app.services.proxy import handle_normal
+
+        model_semaphore = object()
+        runtime_handle = _AM(return_value=object())
+        with patch("app.services.proxy.runtime_handle_normal", new=runtime_handle):
+            result = await handle_normal(
+                None, "https://example.com", {}, b"{}", "openai", "gpt",
+                [], 0, {}, 1, "127.0.0.1", "test", 0,
+                object(), object(),
+                "req-1",
+                model_concurrency_semaphore=model_semaphore,
+            )
+        self.assertIs(result, runtime_handle.return_value)
+        self.assertIs(
+            runtime_handle.await_args.kwargs["model_concurrency_semaphore"],
+            model_semaphore,
+        )
+
+    async def test_handle_streaming_wrapper_forwards_model_semaphore(self):
+        from unittest.mock import AsyncMock as _AM
+        from app.services.proxy import handle_streaming
+
+        model_semaphore = object()
+        runtime_handle = _AM(return_value=object())
+        with patch("app.services.proxy.runtime_handle_streaming", new=runtime_handle):
+            result = await handle_streaming(
+                "https://example.com", {}, b"{}", "openai", "gpt",
+                [], 0, {}, 1, "127.0.0.1", "test", 0,
+                object(), object(), object(),
+                "req-1", None, None,
+                model_concurrency_semaphore=model_semaphore,
+            )
+        self.assertIs(result, runtime_handle.return_value)
+        self.assertIs(
+            runtime_handle.await_args.kwargs["model_concurrency_semaphore"],
+            model_semaphore,
+        )
+
+    async def test_end_to_end_with_limited_model_releases_all_semaphores(self):
+        """Full proxy_request pass through the REAL wrappers: with a positive
+        model limit the provider-key semaphore must be released, not leaked."""
+        provider_service._model_max_concurrent_by_name.clear()
+        standard_model_semaphores.clear()
+        user_api_key_semaphores.clear()
+        config.api_keys_cache.clear()
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        try:
+            provider_service._model_max_concurrent_by_name["leak-test"] = 2
+            route = proxy_module.RouteResult(
+                provider_config={
+                    "id": 1,
+                    "base_url": "https://primary.example/v1",
+                    "protocol": "openai",
+                    "api_keys": [{"id": 11, "api_key": "sk-a", "max_concurrent": 1}],
+                    "models": [{"id": 91, "model_id": 101, "model_name": "leak-test"}],
+                },
+                provider_name="primary",
+                provider_id=1,
+                provider_model_id=91,
+                model_id=101,
+                requested_model="leak-test",
+                model_name="leak-test",
+                upstream_model_name="leak-test",
+                is_forced_provider=False,
+            )
+            request = Request(
+                {
+                    "type": "http",
+                    "method": "POST",
+                    "path": "/v1/chat/completions",
+                    "headers": [],
+                    "query_string": b"",
+                    "cookies": {},
+                    "root_url": "",
+                    "root_path": "",
+                }
+            )
+            request._body = b'{"model":"leak-test","messages":[]}'
+
+            from app.core.config import provider_key_semaphores
+            from fastapi.responses import Response
+
+            provider_key_semaphores.clear()
+
+            async def fake_runtime_normal(**kwargs):
+                if kwargs.get("provider_key_semaphore") is not None:
+                    kwargs["provider_key_semaphore"].release()
+                if kwargs.get("user_provider_model_semaphore") is not None:
+                    kwargs["user_provider_model_semaphore"].release()
+                if kwargs.get("model_concurrency_semaphore") is not None:
+                    kwargs["model_concurrency_semaphore"].release()
+                return Response(content=b'{"choices":[]}', status_code=200)
+
+            import contextlib
+
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))))
+                stack.enter_context(
+                    patch(
+                        "app.services.proxy.get_provider_model_candidates",
+                        new=AsyncMock(return_value=[route]),
+                    )
+                )
+                stack.enter_context(patch("app.services.proxy.create_request_log", new=AsyncMock()))
+                stack.enter_context(patch("app.services.proxy.update_stats", new=Mock()))
+                stack.enter_context(
+                    patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None)
+                )
+                stack.enter_context(
+                    patch(
+                        "app.services.proxy.runtime_handle_normal",
+                        new=AsyncMock(side_effect=fake_runtime_normal),
+                    )
+                )
+                response = await proxy_request(request, "/chat/completions")
+
+            self.assertEqual(response.status_code, 200)
+            pk_sem = provider_key_semaphores.get("11:primary")
+            self.assertIsNotNone(pk_sem)
+            self.assertEqual(getattr(pk_sem, "_value"), 1)
+            std_sem = standard_model_semaphores.get("stdmodel:leak-test")
+            self.assertIsNotNone(std_sem)
+            self.assertEqual(getattr(std_sem, "_value"), 2)
+        finally:
+            provider_service._model_max_concurrent_by_name.clear()
+            standard_model_semaphores.clear()
+            user_api_key_semaphores.clear()
+            config.api_keys_cache.clear()
+
+
 if __name__ == "__main__":
     unittest.main()
