@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Cookie, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -185,7 +185,7 @@ async def delete_provider(provider_id: int, _: bool = Depends(permission_require
 class ProviderKeyCreate(BaseModel):
     api_key: str
     label: Optional[str] = None
-    max_concurrent: Optional[int] = None
+    max_concurrent: Optional[int] = Field(None, ge=0)
     priority: Optional[int] = 0
     cost_role: Optional[str] = "standard"
 
@@ -193,7 +193,7 @@ class ProviderKeyCreate(BaseModel):
 class ProviderKeyUpdate(BaseModel):
     api_key: Optional[str] = None
     label: Optional[str] = None
-    max_concurrent: Optional[int] = None
+    max_concurrent: Optional[int] = Field(None, ge=0)
     priority: Optional[int] = None
     cost_role: Optional[str] = None
     is_active: Optional[bool] = None

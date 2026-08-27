@@ -1003,6 +1003,7 @@ async def migrate_models(conn) -> None:
         "reasoning_effort TEXT",
         "tags TEXT",
         "context_hard_limit INTEGER",
+        "max_concurrent INTEGER",
     ):
         await conn.execute(
             text(f"ALTER TABLE models ADD COLUMN IF NOT EXISTS {column_sql}")

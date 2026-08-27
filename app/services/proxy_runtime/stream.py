@@ -52,6 +52,7 @@ async def handle_streaming(
     request_id,
     log_id,
     request,
+    model_concurrency_semaphore=None,
     chosen_key_id=None,
     protocol="openai",
     extra_response_headers: dict[str, str] | None = None,
@@ -189,6 +190,8 @@ async def handle_streaming(
                 user_provider_model_semaphore.release()
             if provider_key_semaphore is not None:
                 provider_key_semaphore.release()
+            if model_concurrency_semaphore is not None:
+                model_concurrency_semaphore.release()
             semaphores_released = True
             return response
     except Exception as e:
@@ -199,6 +202,8 @@ async def handle_streaming(
                 provider_key_semaphore.release()
             if user_provider_model_semaphore is not None:
                 user_provider_model_semaphore.release()
+            if model_concurrency_semaphore is not None:
+                model_concurrency_semaphore.release()
         raise e
 
     async def stream_generator():
@@ -456,6 +461,8 @@ async def handle_streaming(
                 provider_key_semaphore.release()
             if user_api_key_semaphore is not None:
                 user_api_key_semaphore.release()
+            if model_concurrency_semaphore is not None:
+                model_concurrency_semaphore.release()
 
     return StreamingResponse(
         stream_generator(),

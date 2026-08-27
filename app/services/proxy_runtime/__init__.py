@@ -16,6 +16,7 @@ __all__ = [
     "_get_or_create_user_api_key_semaphore",
     "_get_or_create_user_provider_model_semaphore",
     "_get_or_create_provider_key_semaphore",
+    "_get_or_create_standard_model_semaphore",
     "_get_provider_key_limit",
     "acquire_scoped_semaphore",
     "call_internal_model_via_proxy",
@@ -60,6 +61,7 @@ from app.services.proxy_runtime.concurrency import (
     _get_or_create_user_api_key_semaphore,
     _get_or_create_user_provider_model_semaphore,
     _get_or_create_provider_key_semaphore,
+    _get_or_create_standard_model_semaphore,
     _get_provider_key_limit,
     acquire_scoped_semaphore,
 )

@@ -45,6 +45,7 @@ from app.services.proxy_runtime import (
     _get_or_create_user_api_key_semaphore,
     _get_or_create_user_provider_model_semaphore,
     _get_or_create_provider_key_semaphore,
+    _get_or_create_standard_model_semaphore,
     _get_provider_key_limit,
     _openai_error_response,
     acquire_scoped_semaphore,
@@ -517,12 +518,113 @@ async def proxy_request(request: Request, endpoint: str):
     provider_key_semaphore = None
     user_api_key_semaphore = None
     user_provider_model_semaphore = None
+    model_concurrency_semaphore = None
     acquired = False
     user_api_key_acquired = False
     user_provider_model_acquired = False
+    model_conc_acquired = False
 
     entered_handler = False
+
+    from app.services.provider import get_cached_model_max_concurrent
+
+    model_conc_limit = get_cached_model_max_concurrent(model)
+    if model_conc_limit is not None:
+        _, model_concurrency_semaphore = _get_or_create_standard_model_semaphore(
+            model, model_conc_limit
+        )
+        if model_conc_limit == 0:
+            message = (
+                f"模型 '{model}' 已被设置为并发 0（停用），无法处理新请求"
+            )
+            logger.warning("[MODEL CONCURRENCY] %s limit=0 — rejecting", model)
+            update_stats(
+                provider_name,
+                actual_model,
+                0,
+                api_key_id=api_key_id,
+                is_rate_limited=True,
+            )
+            await create_request_log(
+                provider_name,
+                actual_model,
+                status=LOCAL_RATE_LIMITED_STATUS,
+                api_key_id=api_key_id,
+                client_ip=client_ip,
+                user_agent=user_agent,
+                request_context_tokens=estimate_request_context_tokens(body_json),
+                latency_ms=(time.time() - start_time) * 1000,
+                upstream_status_code=429,
+                downstream_status_code=429,
+                error=message,
+                inbound_protocol=inbound_protocol,
+                intent=request_intent,
+                requested_model=requested_model,
+                actual_model=actual_model,
+            )
+            return _openai_error_response(
+                message,
+                429,
+                "rate_limit_error",
+                "model_zero_concurrency",
+                headers={
+                    **busyness_headers,
+                    "retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS),
+                },
+            )
+
     try:
+        # Standard-model concurrency cap: acquire a slot once for the whole
+        # request (all route/key fallback attempts). limit==0 was already
+        # rejected above; positive limits queue with the shared timeout.
+        if model_concurrency_semaphore is not None and model_conc_limit > 0:
+            try:
+                await acquire_scoped_semaphore(
+                    model_concurrency_semaphore,
+                    USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                )
+                model_conc_acquired = True
+            except asyncio.TimeoutError:
+                message = (
+                    f"模型 '{model}' 的总并发请求已达上限，请等待当前请求完成后再试"
+                )
+                logger.warning(
+                    "[MODEL CONCURRENCY] %s at max concurrency (%d)", model, model_conc_limit
+                )
+                update_stats(
+                    provider_name,
+                    actual_model,
+                    0,
+                    api_key_id=api_key_id,
+                    is_rate_limited=True,
+                )
+                await create_request_log(
+                    provider_name,
+                    actual_model,
+                    status=LOCAL_RATE_LIMITED_STATUS,
+                    api_key_id=api_key_id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                    request_context_tokens=estimate_request_context_tokens(body_json),
+                    latency_ms=(time.time() - start_time) * 1000,
+                    upstream_status_code=429,
+                    downstream_status_code=429,
+                    error=message,
+                    inbound_protocol=inbound_protocol,
+                    intent=request_intent,
+                    requested_model=requested_model,
+                    actual_model=actual_model,
+                )
+                return _openai_error_response(
+                    message,
+                    429,
+                    "rate_limit_error",
+                    "model_concurrency_reached",
+                    headers={
+                        **busyness_headers,
+                        "retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS),
+                    },
+                )
         if not bypass_busyness:
             user_api_key_sem_key, user_api_key_semaphore = (
                 _get_or_create_user_api_key_semaphore(
@@ -1059,6 +1161,7 @@ async def proxy_request(request: Request, endpoint: str):
                             intent=request_intent,
                             requested_model=requested_model,
                             provider_key_label=_get_key_label(provider_config, chosen_key_id),
+                            model_concurrency_semaphore=model_concurrency_semaphore,
                             routing_decision=_build_routing_decision(
                                 routing_decision_base,
                                 route_result,
@@ -1070,6 +1173,8 @@ async def proxy_request(request: Request, endpoint: str):
                         if isinstance(response, StreamingResponse):
                             user_api_key_acquired = False
                             user_api_key_semaphore = None
+                        model_conc_acquired = False
+                        model_concurrency_semaphore = None
                     else:
                         response = await handle_normal(
                             client,
@@ -1095,6 +1200,7 @@ async def proxy_request(request: Request, endpoint: str):
                             requested_model=requested_model,
                             provider_key_label=_get_key_label(provider_config, chosen_key_id),
                             inbound_protocol=inbound_protocol,
+                            model_concurrency_semaphore=model_concurrency_semaphore,
                             routing_decision=_build_routing_decision(
                                 routing_decision_base,
                                 route_result,
@@ -1114,6 +1220,8 @@ async def proxy_request(request: Request, endpoint: str):
                     user_provider_model_acquired = False
                     provider_key_semaphore = None
                     user_provider_model_semaphore = None
+                    model_conc_acquired = False
+                    model_concurrency_semaphore = None
                     last_response = _openai_error_response(
                         f"供应商 '{provider_name}' 请求异常: {type(handler_exc).__name__}",
                         502,
@@ -1132,6 +1240,8 @@ async def proxy_request(request: Request, endpoint: str):
                 user_provider_model_acquired = False
                 provider_key_semaphore = None
                 user_provider_model_semaphore = None
+                model_conc_acquired = False
+                model_concurrency_semaphore = None
 
                 if isinstance(response, Response) and not isinstance(response, StreamingResponse):
                     last_response = response
@@ -1281,6 +1391,8 @@ async def proxy_request(request: Request, endpoint: str):
     finally:
         if user_api_key_acquired and user_api_key_semaphore is not None:
             user_api_key_semaphore.release()
+        if model_conc_acquired and model_concurrency_semaphore is not None:
+            model_concurrency_semaphore.release()
 
 async def _ensure_internal_api_key_exists(api_key_id: int) -> bool:
     return await runtime_ensure_internal_api_key_exists(api_key_id)

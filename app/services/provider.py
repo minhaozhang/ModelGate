@@ -45,6 +45,7 @@ _alias_index: dict[str, list[tuple[str, dict, str, int]]] = {}
 _model_name_index: dict[str, list[tuple[str, dict, str, int]]] = {}
 _model_id_by_name: dict[str, int] = {}
 _model_hard_limit_by_name: dict[str, int | None] = {}
+_model_max_concurrent_by_name: dict[str, int | None] = {}
 
 
 @dataclass
@@ -325,14 +326,16 @@ async def load_providers():
         _model_name_index.clear()
         _model_id_by_name.clear()
         _model_hard_limit_by_name.clear()
+        _model_max_concurrent_by_name.clear()
         model_id_result = await session.execute(
-            select(Model.id, Model.name, Model.context_hard_limit, Model.context_length)
+            select(Model.id, Model.name, Model.context_hard_limit, Model.context_length, Model.max_concurrent)
         )
-        for model_id, model_name, hard_limit, context_length in model_id_result.fetchall():
+        for model_id, model_name, hard_limit, context_length, max_concurrent in model_id_result.fetchall():
             _model_id_by_name[model_name] = model_id
             _model_hard_limit_by_name[model_name] = (
                 hard_limit if hard_limit is not None else context_length
             )
+            _model_max_concurrent_by_name[model_name] = max_concurrent
         for p in providers:
             pm_result = await session.execute(
                 select(ProviderModel, Model)
@@ -577,6 +580,13 @@ def get_cached_model_id(model_name: str) -> int | None:
 def get_cached_context_hard_limit(model_name: str) -> int | None:
     if model_name in _model_hard_limit_by_name:
         return _model_hard_limit_by_name.get(model_name)
+    return None
+
+
+def get_cached_model_max_concurrent(model_name: str) -> int | None:
+    """Standard-model concurrency cap: None = unlimited, 0 = disabled."""
+    if model_name in _model_max_concurrent_by_name:
+        return _model_max_concurrent_by_name.get(model_name)
     return None
 
 

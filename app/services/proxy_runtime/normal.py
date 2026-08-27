@@ -51,6 +51,7 @@ async def handle_normal(
     provider_key_semaphore,
     user_provider_model_semaphore,
     request_id,
+    model_concurrency_semaphore=None,
     chosen_key_id=None,
     protocol="openai",
     extra_response_headers: dict[str, str] | None = None,
@@ -277,6 +278,8 @@ async def handle_normal(
             user_provider_model_semaphore.release()
         if provider_key_semaphore is not None:
             provider_key_semaphore.release()
+        if model_concurrency_semaphore is not None:
+            model_concurrency_semaphore.release()
         semaphores_released = True
         return response
     finally:
@@ -287,3 +290,5 @@ async def handle_normal(
                 provider_key_semaphore.release()
             if user_provider_model_semaphore is not None:
                 user_provider_model_semaphore.release()
+            if model_concurrency_semaphore is not None:
+                model_concurrency_semaphore.release()

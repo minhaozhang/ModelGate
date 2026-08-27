@@ -33,6 +33,7 @@ class ModelCreate(BaseModel):
     max_tokens: int = 131072
     context_length: int = 204800
     context_hard_limit: Optional[int] = None
+    max_concurrent: Optional[int] = Field(None, ge=0)
     thinking_enabled: bool = True
     thinking_budget: int = 8192
     reasoning_effort: Optional[str] = None
@@ -46,6 +47,7 @@ class ModelUpdate(BaseModel):
     max_tokens: Optional[int] = None
     context_length: Optional[int] = None
     context_hard_limit: Optional[int] = None
+    max_concurrent: Optional[int] = Field(None, ge=0)
     thinking_enabled: Optional[bool] = None
     thinking_budget: Optional[int] = None
     reasoning_effort: Optional[str] = None
@@ -124,6 +126,7 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
                     "max_tokens": m.max_tokens,
                     "context_length": m.context_length,
                     "context_hard_limit": m.context_hard_limit,
+                    "max_concurrent": getattr(m, "max_concurrent", None),
                     "thinking_enabled": m.thinking_enabled,
                     "thinking_budget": m.thinking_budget,
                     "reasoning_effort": m.reasoning_effort,

@@ -83,6 +83,7 @@ api_keys_cache: dict[str, dict] = {}
 provider_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 provider_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 user_api_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
+standard_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 
 DEFAULT_OUTBOUND_USER_AGENT = (
     "opencode/local ai-sdk/provider-utils/4.0.23 runtime/node.js/24"

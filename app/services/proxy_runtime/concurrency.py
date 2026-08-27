@@ -4,6 +4,7 @@ import os
 from app.core.config import (
     provider_key_model_semaphores,
     provider_key_semaphores,
+    standard_model_semaphores,
     user_api_key_semaphores,
 )
 
@@ -44,6 +45,10 @@ class _ScopedSemaphore(asyncio.Semaphore):
 async def acquire_scoped_semaphore(semaphore: asyncio.Semaphore, timeout: float) -> None:
     """Acquire with timeout; raise asyncio.TimeoutError on timeout OR when the
     queue is already saturated, so callers reuse their existing 429 path."""
+    if getattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, None) == 0:
+        # Explicit zero concurrency: reject immediately instead of queueing
+        # behind a slot that can never open.
+        raise asyncio.TimeoutError
     waiters = getattr(semaphore, "_waiters", None)
     if waiters:
         limit = getattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, 0) or 0
@@ -58,8 +63,8 @@ def _get_or_create_scoped_semaphore(
     sem_key: str,
     target_limit: int,
 ) -> tuple[str, asyncio.Semaphore]:
-    if target_limit < 1:
-        target_limit = 1
+    if target_limit < 0:
+        target_limit = 0
     semaphore = semaphore_store.get(sem_key)
     if semaphore is None:
         semaphore = _ScopedSemaphore(target_limit)
@@ -113,10 +118,15 @@ def _get_provider_key_limit(
                 target_limit = provider_key.get("max_concurrent")
                 break
     try:
-        target_limit = int(target_limit or DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY)
+        parsed = int(target_limit)
     except (TypeError, ValueError):
-        target_limit = DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY
-    return max(target_limit, 1)
+        return DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY
+    if parsed < 0:
+        # Negative values are meaningless; treat like unset.
+        return DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY
+    # NULL/invalid -> default; explicit 0 -> zero concurrency (key disabled
+    # for new requests).
+    return parsed
 
 
 def _get_or_create_user_api_key_semaphore(
@@ -134,6 +144,15 @@ def _get_or_create_user_provider_model_semaphore(
     sem_key = f"user:{api_key_id}:pk:{provider_key_id}:model:{provider_model_key}"
     return _get_or_create_scoped_semaphore(
         provider_key_model_semaphores, sem_key, target_limit
+    )
+
+
+def _get_or_create_standard_model_semaphore(
+    model_name: str, target_limit: int
+) -> tuple[str, asyncio.Semaphore]:
+    sem_key = f"stdmodel:{model_name}"
+    return _get_or_create_scoped_semaphore(
+        standard_model_semaphores, sem_key, target_limit
     )
 
 
