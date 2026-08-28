@@ -36,6 +36,9 @@
         body.theme-dark .nav-link { color: #cbd5e1 !important; }
         body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right-color: #60a5fa; }
         body.theme-dark .nav-link:hover { background: rgba(148, 163, 184, 0.12); }
+        body.theme-dark .bg-amber-50 { background: rgba(245, 158, 11, 0.15) !important; }
+        body.theme-dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.4) !important; }
+        body.theme-dark .text-amber-800 { color: #fbbf24 !important; }
         body.theme-dark code { background: #111827 !important; color: #e2e8f0 !important; }
         body.theme-dark .model-item.selected,
         body.theme-dark label.selected { background: rgba(37, 99, 235, 0.18) !important; }
@@ -250,7 +253,8 @@
         iHaveSavedIt: "{{ _('I have saved it') }}",
         query: "{{ _('Query') }}",
         userPage: "{{ _('User Page:') }}",
-        setupDoc: "{{ _('Setup Doc:') }}",
+        cliSetupTitle: "{{ _('CLI Setup:') }}",
+        cliSetupHint: "{{ _('Run one command below in a terminal on the machine where OpenCode is installed; it writes the ModelGate config automatically.') }}",
         copySetup: "{{ _('Copy Setup') }}",
         copyManually: "{{ '浏览器拒绝自动复制，请按 Ctrl+C 手动复制。' if current_locale == 'zh' else 'Browser blocked automatic copy. Press Ctrl+C to copy manually.' }}",
         close: "{{ _('Close') }}",
@@ -268,13 +272,9 @@ maxConcurrent: "{{ _('Max concurrency' if current_locale != 'zh' else '并发上
         apiKeyLabel: "{{ _('API Key:') }}",
         quickStart: "{{ _('Quick Start:') }}",
         openLoginPageAndPasteKey: "{{ _('Open the login page above and paste the API key to sign in.') }}",
-        useSetupDocForOpenCode: "{{ _('For OpenCode setup, open the setup document below or send it directly to your agent.') }}",
         keepApiKeyPrivate: "{{ _('Keep this API key private and do not share it in public chats or repositories.') }}",
-        opencodeSendHint: "{{ _('Please choose a free model in OpenCode first, then send the setup link below directly to OpenCode and press Enter:') }}",
-        followThisDoc: "{{ _('Follow this document.') }}",
         enabledModels: "{{ _('Enabled Models:') }}",
         noModelsAssigned: "{{ _('No specific model restrictions. This API key can use all currently allowed models.') }}",
-        openCodeWebsiteHint: "{{ _('If OpenCode is not installed yet, please download it from the official website below.') }}",
         timeRules: "{{ _('Time Rules') }}",
         addTimeRule: "{{ _('Add Time Rule') }}",
         editTimeRule: "{{ _('Edit Time Rule') }}",
@@ -786,11 +786,9 @@ maxConcurrent: "{{ _('Max concurrency' if current_locale != 'zh' else '并发上
                     `;
                 const timeRulesDisplay = renderTimeRulesBadges(k.time_rules || []);
                 const userPageUrl = `${baseUrl}${APP_BASE_PATH}/user/login`;
-                const setupMdUrl = `${baseUrl}${APP_BASE_PATH}/opencode/setup.md?api_key=${k.key}`;
                 const setupPayload = {
                     key: k.key,
                     userPageUrl,
-                    setupMdUrl,
                     modelNames,
                 };
                 const expired = isApiKeyExpired(k.expires_at);
@@ -1060,10 +1058,12 @@ maxConcurrent: "{{ _('Max concurrency' if current_locale != 'zh' else '并发上
         }
         
         function copyKeyWithInstructions(payload) {
-            const { key, userPageUrl, setupMdUrl, modelNames } = payload;
+            const { key, userPageUrl, modelNames } = payload;
             const enabledModelsText = Array.isArray(modelNames) && modelNames.length > 0
                 ? modelNames.map(name => `- ${name}`).join('\n')
                 : `- ${window.I18N.noModelsAssigned}`;
+            const ps1Cmd = `irm ${window.location.origin}${APP_BASE_PATH}/opencode/setup.ps1?api_key=${key} | iex`;
+            const shCmd = `curl -fsSL ${window.location.origin}${APP_BASE_PATH}/opencode/setup.sh?api_key=${key} | bash`;
             const text = `${window.I18N.accessInfo}
 
 ${window.I18N.loginPage}
@@ -1079,12 +1079,14 @@ ${window.I18N.quickStart}
 ${window.I18N.enabledModels}
 ${enabledModelsText}
 
-${window.I18N.openCodeWebsiteHint}
-https://opencode.ai/
+${window.I18N.cliSetupTitle}
+${window.I18N.cliSetupHint}
 
-${window.I18N.opencodeSendHint}
-${window.I18N.followThisDoc}
-${setupMdUrl}`;
+Windows (PowerShell):
+${ps1Cmd}
+
+macOS / Linux:
+${shCmd}`;
             copyText(text, window.I18N.apiKeyAndUsageCopied);
         }
         
