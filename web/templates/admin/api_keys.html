@@ -175,6 +175,11 @@
                             <p class="text-xs text-gray-500 mt-1">{{ _('Daily charged spend, cost times peak/off-peak multiplier; 429 once exceeded until midnight' if current_locale != 'zh' else '按今日扣费（成本价×峰谷乘数）计算，达到后请求返回 429，次日零点恢复') }}</p>
                         </div>
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Max concurrency' if current_locale != 'zh' else '并发上限') }}</label>
+                            <input type="number" min="0" id="apikey-max-concurrent" class="w-full border rounded px-3 py-2" placeholder="{{ _('empty for default (2), 0 to disable' if current_locale != 'zh' else '留空为默认（2）；0 = 停用') }}">
+                            <p class="text-xs text-gray-500 mt-1">{{ _('Concurrent in-flight requests allowed for this key' if current_locale != 'zh' else '该 Key 同时允许进行的请求数，超出返回 429') }}</p>
+                        </div>
+                        <div>
                             <label class="flex items-center gap-2 text-sm text-gray-700 mt-6">
                                 <input type="checkbox" id="apikey-bypass-busyness" class="rounded">
                                 {{ _('Bypass busyness limit') }}
@@ -250,6 +255,7 @@
         copyManually: "{{ '浏览器拒绝自动复制，请按 Ctrl+C 手动复制。' if current_locale == 'zh' else 'Browser blocked automatic copy. Press Ctrl+C to copy manually.' }}",
         close: "{{ _('Close') }}",
             bypassBusyness: "{{ _('Bypass Busyness') }}",
+maxConcurrent: "{{ _('Max concurrency' if current_locale != 'zh' else '并发上限') }}",
             dailyQuota: "{{ _('Daily quota' if current_locale != 'zh' else '每日额度') }}",
         loginLabel: "{{ _('Login') }}",
         lastUsed: "{{ _('Last Used') }}",
@@ -816,6 +822,7 @@
                             ${k.bypass_busyness ? '<span class="inline-block text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded mt-1">' + (window.I18N.bypassBusyness || 'Bypass busyness') + '</span>' : ''}
             ${k.daily_quota_cny !== null && k.daily_quota_cny !== undefined && k.daily_quota_cny > 0 ? '<span class="inline-block text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded mt-1">' + (window.I18N.dailyQuota || 'Daily quota') + ' ¥' + k.daily_quota_cny + '</span>' : ''}
             ${k.daily_quota_cny === 0 ? '<span class="inline-block text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded mt-1">' + (window.I18N.dailyQuota || 'Daily quota') + ': ∞</span>' : ''}
+            ${k.max_concurrent === 0 ? '<span class="inline-block text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded mt-1">' + (window.I18N.maxConcurrent || 'Max concurrency') + ': 0</span>' : (k.max_concurrent > 0 ? '<span class="inline-block text-xs bg-sky-100 text-sky-700 px-2 py-0.5 rounded mt-1">' + (window.I18N.maxConcurrent || 'Max concurrency') + ': ' + k.max_concurrent + '</span>' : '')}
                             ${(k.tags && k.tags.length > 0) ? '<div class="flex flex-wrap gap-1 mt-1">' + k.tags.map(t => '<span class="inline-block text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">' + t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>').join('') + '</div>' : ''}
                         </div>
                         <div class="flex flex-wrap gap-2 shrink-0">
@@ -1134,6 +1141,7 @@ ${setupMdUrl}`;
             prepareApiKeyPickers([]);
             document.getElementById('apikey-bypass-busyness').checked = false;
             document.getElementById('apikey-daily-quota').value = '';
+            document.getElementById('apikey-max-concurrent').value = '';
             currentTags = [];
             renderTags();
             document.getElementById('apikey-modal').classList.remove('hidden');
@@ -1156,6 +1164,8 @@ ${setupMdUrl}`;
             document.getElementById('apikey-bypass-busyness').checked = key.bypass_busyness || false;
             document.getElementById('apikey-daily-quota').value =
                 key.daily_quota_cny === null || key.daily_quota_cny === undefined ? '' : key.daily_quota_cny;
+            document.getElementById('apikey-max-concurrent').value =
+                key.max_concurrent === 0 || key.max_concurrent ? key.max_concurrent : '';
             currentTags = [...(key.tags || [])];
             renderTags();
             document.getElementById('apikey-modal').classList.remove('hidden');
@@ -1181,6 +1191,12 @@ ${setupMdUrl}`;
                 daily_quota_cny: (() => {
                     const v = document.getElementById('apikey-daily-quota').value.trim();
                     return v === '' ? -1 : (parseFloat(v) || 0);
+                })(),
+                max_concurrent: (() => {
+                    const v = document.getElementById('apikey-max-concurrent').value.trim();
+                    if (v === '') return -1;
+                    const n = parseInt(v, 10);
+                    return isNaN(n) ? -1 : n;
                 })(),
                 tags: currentTags,
             };

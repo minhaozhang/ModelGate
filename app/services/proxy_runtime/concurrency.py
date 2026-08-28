@@ -102,10 +102,21 @@ def _get_user_provider_model_limit(bypass_busyness: bool = False) -> int:
     return max(target_limit, 1)
 
 
-def _get_user_api_key_limit(bypass_busyness: bool = False) -> int:
+def _get_user_api_key_limit(
+    bypass_busyness: bool = False, stored_limit: int | None = None
+) -> int:
     if bypass_busyness:
         return 9999
-    return DEFAULT_USER_API_KEY_MAX_CONCURRENCY
+    try:
+        parsed = int(stored_limit)
+    except (TypeError, ValueError):
+        return DEFAULT_USER_API_KEY_MAX_CONCURRENCY
+    if parsed < 0:
+        # Negative values are meaningless; treat like unset.
+        return DEFAULT_USER_API_KEY_MAX_CONCURRENCY
+    # NULL/invalid -> default; explicit 0 -> zero concurrency (key disabled
+    # for new requests).
+    return parsed
 
 
 def _get_provider_key_limit(

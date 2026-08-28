@@ -51,6 +51,7 @@ _DDL: list[str] = [
     "expires_at TIMESTAMP, "
     "is_active BOOLEAN, "
     "bypass_busyness BOOLEAN, "
+    "max_concurrent INTEGER, "
     "preferred_tags TEXT, "
     "last_used_at TIMESTAMP, "
     "created_at TIMESTAMP DEFAULT now(), "
@@ -867,6 +868,7 @@ async def migrate_daily_stats(conn) -> None:
 async def migrate_api_keys(conn) -> None:
     await conn.execute(text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP"))
     await conn.execute(text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS email VARCHAR(255)"))
+    await conn.execute(text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS max_concurrent INTEGER"))
     await conn.execute(text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP"))
     await conn.execute(
         text("UPDATE api_keys SET expires_at = now() + interval '1 year' WHERE expires_at IS NULL")

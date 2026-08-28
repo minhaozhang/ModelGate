@@ -76,6 +76,17 @@ def _api_key_bypasses_busyness(api_key_id: int | None) -> bool:
     return False
 
 
+def _api_key_max_concurrent(api_key_id: int | None) -> int | None:
+    from app.core.config import api_keys_cache
+
+    if not api_key_id:
+        return None
+    for key_info in api_keys_cache.values():
+        if key_info.get("id") == api_key_id:
+            return key_info.get("max_concurrent")
+    return None
+
+
 def _get_api_key_preferred_tags(api_key_id: int | None) -> str | None:
     from app.core.config import api_keys_cache
 
@@ -629,7 +640,9 @@ async def proxy_request(request: Request, endpoint: str):
             user_api_key_sem_key, user_api_key_semaphore = (
                 _get_or_create_user_api_key_semaphore(
                     api_key_id,
-                    _get_user_api_key_limit(False),
+                    _get_user_api_key_limit(
+                        False, _api_key_max_concurrent(api_key_id)
+                    ),
                 )
             )
             try:
