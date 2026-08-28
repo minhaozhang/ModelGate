@@ -56,27 +56,13 @@ class ApiKeyUpdate(BaseModel):
 def _validate_access_payload(
     access_mode: str | None,
     allowed_model_ids: list[int] | None,
-    *,
-    required: bool,
 ) -> JSONResponse | None:
-    model_ids = allowed_model_ids or []
     if access_mode is None:
-        if not required and allowed_model_ids is None:
+        if allowed_model_ids is None:
             return None
-        if model_ids:
-            access_mode = "model"
-        else:
-            return JSONResponse(
-                {"error": "请选择全部模型，或至少选择一个允许的模型。"},
-                status_code=400,
-            )
+        access_mode = "model"
     if access_mode != "model":
         return JSONResponse({"error": "Invalid access mode"}, status_code=400)
-    if not model_ids:
-        return JSONResponse(
-            {"error": "标准模型模式下请至少选择一个模型。"},
-            status_code=400,
-        )
     return None
 
 
@@ -204,7 +190,6 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_requir
     access_error = _validate_access_payload(
         data.access_mode,
         data.allowed_model_ids,
-        required=True,
     )
     if access_error:
         return access_error
@@ -252,7 +237,6 @@ async def update_api_key(
     access_error = _validate_access_payload(
         data.access_mode,
         data.allowed_model_ids,
-        required=False,
     )
     if access_error:
         return access_error

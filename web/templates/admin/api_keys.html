@@ -149,7 +149,7 @@
                             </div>
                             <div id="standard-models-checkbox-container" class="grid grid-cols-1 sm:grid-cols-2"></div>
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">标准模型表示允许该模型下任意供应商。需要全量时请点击“全选”。</p>
+                        <p class="text-xs text-gray-500 mt-1">标准模型表示允许该模型下任意供应商。需要全量时请点击“全选”；全部清空则该 Key 无任何可用模型。</p>
                         <p id="access-mode-error" class="text-xs text-red-500 mt-1 hidden"></p>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1041,26 +1041,6 @@ maxConcurrent: "{{ _('Max concurrency' if current_locale != 'zh' else '并发上
             document.getElementById('selected-count').textContent = count;
         }
 
-        function validateApiKeyAccessSelection() {
-            const errorEl = document.getElementById('access-mode-error');
-            const showError = (message) => {
-                if (errorEl) {
-                    errorEl.textContent = message;
-                    errorEl.classList.remove('hidden');
-                }
-                showToast(message, 'error');
-                return false;
-            };
-            if (selectedStandardModelIds.length === 0) {
-                return showError('请选择至少一个标准模型；如果要全部模型，请点击标准模型列表里的“全选”。');
-            }
-            if (errorEl) {
-                errorEl.classList.add('hidden');
-                errorEl.textContent = '';
-            }
-            return true;
-        }
-
         async function ensureApiKeyPickerData() {
             standardModelsLoadPromise = standardModelsLoadPromise || loadStandardModels();
             mcpServersLoadPromise = mcpServersLoadPromise || loadMcpServers();
@@ -1179,7 +1159,6 @@ ${setupMdUrl}`;
         
         document.getElementById('apikey-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!validateApiKeyAccessSelection()) return;
             const id = document.getElementById('apikey-id').value;
             const data = {
                 name: document.getElementById('apikey-name').value,

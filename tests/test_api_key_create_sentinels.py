@@ -122,5 +122,62 @@ class CreateApiKeyQuotaSentinelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(captured["max_concurrent"], 0)
 
 
+class ValidateAccessPayloadTests(unittest.TestCase):
+    """Empty allowed_model_ids is a legitimate state: a key with no model
+    bindings can authenticate but has no usable models (check_model_access
+    denies everything). It must not be rejected with 400."""
+
+    def test_explicit_empty_list_allowed(self):
+        from app.routes.keys import _validate_access_payload
+
+        self.assertIsNone(_validate_access_payload("model", []))
+
+    def test_update_without_access_fields_allowed(self):
+        from app.routes.keys import _validate_access_payload
+
+        self.assertIsNone(_validate_access_payload(None, None))
+
+    def test_empty_ids_without_mode_defaults_to_model(self):
+        from app.routes.keys import _validate_access_payload
+
+        self.assertIsNone(_validate_access_payload(None, []))
+
+    def test_invalid_mode_rejected(self):
+        from app.routes.keys import _validate_access_payload
+
+        result = _validate_access_payload("all", [1])
+        self.assertEqual(result.status_code, 400)
+
+
+class CreateApiKeyWithoutModelsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_create_with_empty_model_list_succeeds(self):
+        from app.routes.keys import ApiKeyCreate, create_api_key
+
+        captured = {}
+
+        class _Key:
+            def __init__(self, **kwargs):
+                captured.update(kwargs)
+                self.id = 1
+                self.name = kwargs.get("name")
+                self.key = "sk-x"
+
+        with patch("app.routes.keys.ApiKey", _Key):
+            session_ctx = _make_ctx()
+            session = next(session_ctx)
+            data = ApiKeyCreate(
+                name="k",
+                access_mode="model",
+                allowed_model_ids=[],
+            )
+            response = await create_api_key(data, _=True)
+        self.assertIsInstance(response, dict)
+        self.assertEqual(response["id"], 1)
+        access_rows = [
+            obj for obj in session.added if getattr(obj, "model_id", None) is not None
+        ]
+        self.assertEqual(access_rows, [])
+
+
 if __name__ == "__main__":
     unittest.main()

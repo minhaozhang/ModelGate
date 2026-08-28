@@ -134,12 +134,13 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertNotIn("e.target.id === 'manual-copy-modal'", html)
         self.assertNotIn("if (e.target.id === 'server-modal') closeServerModal();", mcp)
 
-    def test_api_key_model_access_requires_explicit_all_or_non_empty_selection(self):
+    def test_api_key_model_access_allows_empty_selection_for_disabled_keys(self):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
         route = (ROOT / "app" / "routes" / "keys.py").read_text(encoding="utf-8")
 
         self.assertIn("access_mode: 'model'", html)
-        self.assertIn("validateApiKeyAccessSelection()", html)
+        self.assertNotIn("validateApiKeyAccessSelection()", html)
+        self.assertIn("全部清空则该 Key 无任何可用模型", html)
         self.assertNotIn('id="access-mode-all"', html)
         self.assertIn("selectAllStandardModels", html)
         self.assertNotIn("selectAllProviderModels", html)
