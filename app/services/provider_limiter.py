@@ -96,7 +96,7 @@ async def _do_reenable_provider(provider_id: int) -> None:
 async def _do_reenable_key(key_id: int) -> None:
     logger.info("[REENABLE-JOB] Re-enabling key id=%d at %s", key_id, datetime.now())
     async with async_session_maker() as session:
-        await session.execute(
+        result = await session.execute(
             update(ProviderKey)
             .where(
                 ProviderKey.id == key_id,
@@ -109,6 +109,11 @@ async def _do_reenable_key(key_id: int) -> None:
             .values(is_active=True, disabled_by=None, disabled_reason=None, disabled_at=None, reset_at=None)
         )
         await session.commit()
+
+    if not getattr(result, "rowcount", 1):
+        logger.info("[REENABLE-JOB] key id=%d is disabled manually; leaving it off", key_id)
+        _cancel_reenable_job("key", key_id)
+        return
 
     on_key_reenabled(key_id)
 
@@ -218,9 +223,15 @@ async def disable_provider_key(
         reset_at,
     )
     async with async_session_maker() as session:
-        await session.execute(
+        result = await session.execute(
             update(ProviderKey)
-            .where(ProviderKey.id == provider_key_id)
+            .where(
+                ProviderKey.id == provider_key_id,
+                or_(
+                    ProviderKey.disabled_by.is_(None),
+                    ProviderKey.disabled_by != "manual",
+                ),
+            )
             .values(
                 is_active=False,
                 disabled_by="auto",
@@ -230,6 +241,13 @@ async def disable_provider_key(
             )
         )
         await session.commit()
+
+    if not getattr(result, "rowcount", 1):
+        logger.info(
+            "[PROVIDER] key id=%d is disabled manually; auto-disable skipped",
+            provider_key_id,
+        )
+        return
 
     if provider_key_id:
         record_key_event(provider_key_id, "disabled")

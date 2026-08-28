@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Cookie, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -295,9 +297,9 @@ async def update_provider_key(
                 pk.reset_at = None
             else:
                 pk.disabled_by = "manual"
-            from app.services.provider_limiter import cancel_reenable_job
-
-            cancel_reenable_job("key", key_id)
+                pk.disabled_reason = None
+                pk.disabled_at = datetime.now()
+                pk.reset_at = None
         if "disabled_reason" in data.model_fields_set:
             pk.disabled_reason = data.disabled_reason
         if (
@@ -318,6 +320,10 @@ async def update_provider_key(
             return JSONResponse(
                 {"error": "该 API Key 已存在"}, status_code=409
             )
+        if "is_active" in data.model_fields_set and data.is_active is not None:
+            from app.services.provider_limiter import cancel_reenable_job
+
+            cancel_reenable_job("key", key_id)
         await load_providers()
         return {"id": pk.id}
 

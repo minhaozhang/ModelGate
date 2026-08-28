@@ -643,10 +643,7 @@
             boundModels: '{{ _("Bound Models") }}',
             noModelsBound: '{{ _("No models bound") }}',
             selectProviderFirst: '{{ _("Please select a provider first") }}',
-            syncing: '{{ _("Syncing...") }}',
-            sync: '{{ _("Sync") }}',
             syncFailed: '{{ _("Sync failed") }}',
-            syncButtonNotFound: '{{ _("Sync button not found") }}',
             syncedModels: '{{ _("Synced {count} models: {names}") }}',
             providerSaved: '{{ _("Provider saved") }}',
             failedToSaveProvider: '{{ _("Failed to save provider") }}',
@@ -916,19 +913,19 @@
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
             try {
-                const [up, bound] = await Promise.all([
-                    mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/upstream-models', {}, {error: t('failedToLoad', 'Failed to load')}),
-                    mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/models', {}, {error: t('failedToLoad', 'Failed to load')}),
-                ]);
-                if (up.error) {
-                    list.innerHTML = `<div class="text-red-500">${escapeHtml(up.error)}</div>`;
-                    return;
-                }
-                const boundSet = new Set(((bound.models) || []).map(m => m.upstream_model_name));
+                const up = await mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/upstream-models', {}, {error: t('failedToLoad', 'Failed to load')});
+                let boundModels = [];
+                try {
+                    const bound = await mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/models', {}, {error: t('failedToLoad', 'Failed to load')});
+                    boundModels = bound.models || [];
+                } catch (e) {}
+                const boundSet = new Set(boundModels.map(m => m.upstream_model_name));
                 bindDialogModels = (up.models || []).map(n => ({name: n, bound: boundSet.has(n)}));
                 renderBindModelList();
                 bindBtn.disabled = false;
-            } catch (e) {}
+            } catch (e) {
+                list.innerHTML = `<div class="text-red-500 text-center py-4">${t('failedToLoad', 'Failed to load')}</div>`;
+            }
         }
 
         function renderBindModelList() {
