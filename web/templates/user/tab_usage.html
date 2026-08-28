@@ -1,7 +1,7 @@
 <div id="tab-usage" class="tab-content p-6">
-    <h2 class="text-xl font-bold mb-4">{{ _('How to Configure API Clients') }}</h2>
+    <h2 class="text-lg font-semibold tracking-tight mb-4">{{ _('How to Configure API Clients') }}</h2>
 
-    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+    <div class="bg-gray-50 rounded-xl p-5 mb-6">
         <h3 class="font-semibold mb-3">{{ _('Model Name Format') }}</h3>
         <p class="text-gray-600 text-sm mb-3">{{ _('Use <code class="bg-white px-2 py-1 rounded">provider/model</code> format') }}:</p>
         <div class="grid grid-cols-2 gap-4">
@@ -16,7 +16,7 @@
     </div>
 
     <div id="proto-openai">
-        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+        <div class="bg-gray-50 rounded-xl p-5 mb-6">
             <h3 class="font-semibold mb-3">{{ _('Basic Information') }}</h3>
             <div class="space-y-2 text-sm">
                 <div class="flex"><span class="text-gray-500 w-32">{{ _('Proxy URL') }}:</span><code class="bg-white px-2 py-1 rounded" id="proxy-url-openai"></code></div>
@@ -26,7 +26,7 @@
         </div>
 
         <div class="space-y-4">
-            <div class="bg-gray-50 rounded-lg p-4">
+            <div class="bg-gray-50 rounded-xl p-5">
                 <h3 class="font-semibold mb-3 flex items-center">
                     <span class="w-5 h-5 mr-2 bg-green-500 text-white rounded text-xs flex items-center justify-center">Py</span>
                     {{ _('Python (OpenAI SDK)') }}
@@ -48,7 +48,7 @@ print(response.choices[0].message.content)</code></pre>
                 </div>
             </div>
 
-            <div class="bg-gray-50 rounded-lg p-4">
+            <div class="bg-gray-50 rounded-xl p-5">
                 <h3 class="font-semibold mb-3 flex items-center">
                     <span class="w-5 h-5 mr-2 bg-yellow-500 text-white rounded text-xs flex items-center justify-center">JS</span>
                     {{ _('JavaScript') }}
@@ -70,7 +70,7 @@ const data = await response.json();</code></pre>
                 </div>
             </div>
 
-            <div class="bg-gray-50 rounded-lg p-4">
+            <div class="bg-gray-50 rounded-xl p-5">
                 <h3 class="font-semibold mb-3 flex items-center">
                     <span class="w-5 h-5 mr-2 bg-blue-500 text-white rounded text-xs flex items-center justify-center">$</span>
                     cURL
@@ -84,7 +84,7 @@ const data = await response.json();</code></pre>
                 </div>
             </div>
 
-            <div class="bg-gray-50 rounded-lg p-4">
+            <div class="bg-gray-50 rounded-xl p-5">
                 <h3 class="font-semibold mb-3 flex items-center">
                     <span class="w-5 h-5 mr-2 bg-purple-500 text-white rounded text-xs flex items-center justify-center">OC</span>
                     {{ _('OpenCode') }}
@@ -160,7 +160,7 @@ opencode stats --days 7                 {{ _('Token usage stats') }}</code></pre
     </div>
 
     <div id="proto-anthropic" class="hidden">
-        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+        <div class="bg-gray-50 rounded-xl p-5 mb-6">
             <h3 class="font-semibold mb-3">{{ _('Basic Information') }}</h3>
             <div class="space-y-2 text-sm">
                 <div class="flex"><span class="text-gray-500 w-32">{{ _('Base URL') }}:</span><code class="bg-white px-2 py-1 rounded" id="proxy-url-anthropic"></code></div>
@@ -174,7 +174,7 @@ opencode stats --days 7                 {{ _('Token usage stats') }}</code></pre
         </div>
 
         <div class="space-y-4">
-            <div class="bg-gray-50 rounded-lg p-4">
+            <div class="bg-gray-50 rounded-xl p-5">
                 <h3 class="font-semibold mb-3 flex items-center">
                     <span class="w-5 h-5 mr-2 bg-green-500 text-white rounded text-xs flex items-center justify-center">Py</span>
                     {{ _('Python (Anthropic SDK)') }}
@@ -199,7 +199,7 @@ print(message.content[0].text)</code></pre>
                 </div>
             </div>
 
-            <div class="bg-gray-50 rounded-lg p-4">
+            <div class="bg-gray-50 rounded-xl p-5">
                 <h3 class="font-semibold mb-3 flex items-center">
                     <span class="w-5 h-5 mr-2 bg-green-500 text-white rounded text-xs flex items-center justify-center">Py</span>
                     {{ _('Python (Streaming)') }}
@@ -225,7 +225,7 @@ with client.messages.stream(
                 </div>
             </div>
 
-            <div class="bg-gray-50 rounded-lg p-4">
+            <div class="bg-gray-50 rounded-xl p-5">
                 <h3 class="font-semibold mb-3 flex items-center">
                     <span class="w-5 h-5 mr-2 bg-yellow-500 text-white rounded text-xs flex items-center justify-center">JS</span>
                     {{ _('JavaScript') }}
@@ -250,7 +250,7 @@ console.log(data.content[0].text);</code></pre>
                 </div>
             </div>
 
-            <div class="bg-gray-50 rounded-lg p-4">
+            <div class="bg-gray-50 rounded-xl p-5">
                 <h3 class="font-semibold mb-3 flex items-center">
                     <span class="w-5 h-5 mr-2 bg-blue-500 text-white rounded text-xs flex items-center justify-center">$</span>
                     cURL
@@ -269,7 +269,7 @@ console.log(data.content[0].text);</code></pre>
                 </div>
             </div>
 
-            <div class="bg-gray-50 rounded-lg p-4">
+            <div class="bg-gray-50 rounded-xl p-5">
                 <h3 class="font-semibold mb-3 flex items-center">
                     <span class="w-5 h-5 mr-2 bg-green-500 text-white rounded text-xs flex items-center justify-center">Py</span>
                     {{ _('Tool Use (Function Calling)') }}

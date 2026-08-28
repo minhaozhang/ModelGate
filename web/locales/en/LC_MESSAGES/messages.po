@@ -2948,3 +2948,6 @@ msgstr "Uncheck models you do not want; already bound models stay checked"
 
 msgid "Disable Key"
 msgstr "Disable Key"
+
+msgid "Download billing details"
+msgstr "Download billing details"

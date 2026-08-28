@@ -1,8 +1,8 @@
 <div id="tab-codex" class="tab-content p-6">
-    <h2 class="text-xl font-bold mb-4">{{ _('Codex Configuration') }}</h2>
+    <h2 class="text-lg font-semibold tracking-tight mb-4">{{ _('Codex Configuration') }}</h2>
 
     <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
-        <h3 class="font-semibold text-blue-800 mb-2">{{ '方式一：一键配置脚本' if current_locale == 'zh' else _('Option 1: one-liner setup script') }} <span class="text-xs font-normal text-blue-600">{{ _('recommended') }}</span></h3>
+        <h3 class="font-semibold tracking-tight text-gray-800 mb-2">{{ '方式一：一键配置脚本' if current_locale == 'zh' else _('Option 1: one-liner setup script') }} <span class="text-xs font-normal text-blue-600">{{ _('recommended') }}</span></h3>
         <p class="text-sm text-blue-700 mb-3">{{ 'Codex CLI、ChatGPT 桌面端、VS Code Codex 插件共用同一份配置，配置一次全部生效。脚本会备份现有 config.toml、写入模型目录 models.json、合并 ModelGate 配置（MCP 服务器等原有配置全部保留）。' if current_locale == 'zh' else _('Codex CLI, the ChatGPT desktop app and the VS Code Codex extension share one config. The script backs up config.toml, writes the models.json catalog and merges the ModelGate entries (your MCP servers and other settings are preserved).') }}</p>
         <div class="mb-4">
             <div class="text-xs font-medium text-blue-700 mb-1">API Key</div>
@@ -63,7 +63,7 @@
             </div>
 
             <div class="bg-blue-50 rounded-lg p-4">
-                <h3 class="font-semibold text-blue-800 mb-2">{{ _('How to use') }}</h3>
+                <h3 class="font-semibold tracking-tight text-gray-800 mb-2">{{ _('How to use') }}</h3>
                 <ol class="list-decimal list-inside text-sm text-blue-700 space-y-1">
                     <li>{{ '把两个文件放入 ~/.codex/（Windows: %USERPROFILE%\\.codex\\），目录不存在则创建' if current_locale == 'zh' else _('Put both files in ~/.codex/ (Windows: %USERPROFILE%\\.codex\\); create the folder if missing') }}</li>
                     <li>{{ '重启 Codex（CLI / 桌面端 / IDE 插件共用此配置）' if current_locale == 'zh' else _('Restart Codex (CLI / desktop / IDE extension share this config)') }}</li>
@@ -77,7 +77,7 @@
         <summary class="px-4 py-3 cursor-pointer text-sm font-medium text-gray-700 select-none">{{ '完整配置说明（可发给 Codex 自动配置）' if current_locale == 'zh' else _('Full setup instructions (send to Codex to self-configure)') }}</summary>
         <div class="p-4 pt-0">
             <p class="text-gray-600 my-4">{{ '复制下面的说明发给 Codex（或其他 agent），它会按步骤完成配置。' if current_locale == 'zh' else _('Copy the instructions below and send them to Codex (or any agent); they describe every step.') }}</p>
-            <div class="bg-gray-50 rounded-lg p-4 mb-4">
+            <div class="bg-gray-50 rounded-xl p-5 mb-4">
                 <div class="relative">
                     <button onclick="copyConfig('codex-setup-output')" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
                     <pre id="codex-setup-output" class="text-sm whitespace-pre-wrap"></pre>

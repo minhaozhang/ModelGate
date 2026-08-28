@@ -38,7 +38,7 @@
     <div class="container mx-auto px-4 py-8 max-w-5xl">
         <div class="flex justify-between items-center mb-6">
             <div>
-                <h1 class="text-3xl font-bold text-gray-800">{{ _('Documents') }}</h1>
+                <h1 class="text-2xl font-semibold tracking-tight text-gray-800">{{ _('Documents') }}</h1>
                 <p class="text-gray-500 mt-1">{{ _('Shared articles and documents') }}</p>
             </div>
             <div class="flex gap-2">
@@ -55,7 +55,7 @@
             </div>
         </div>
 
-        <div id="doc-empty" class="hidden bg-white rounded-lg shadow p-12 text-center">
+        <div id="doc-empty" class="hidden bg-white rounded-xl shadow-sm p-12 text-center">
             <div class="text-gray-400 text-4xl mb-4">馃搫</div>
             <p class="text-gray-500">{{ _('No documents available') }}</p>
         </div>
@@ -121,7 +121,7 @@
                     : '';
                 const preview = (doc.content || '').substring(0, 120).replace(/[#*_`]/g, '');
                 return `
-                    <div onclick="openDocumentDetail(${doc.id})" class="cursor-pointer bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow border border-transparent hover:border-blue-200">
+                    <div onclick="openDocumentDetail(${doc.id})" class="cursor-pointer bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow border border-transparent hover:border-blue-200">
                         ${categoryBadge}
                         <h3 class="text-base font-semibold text-gray-800 mb-2">${escapeHtml(doc.title)}</h3>
                         <p class="text-sm text-gray-500 line-clamp-2">${escapeHtml(preview)}...</p>

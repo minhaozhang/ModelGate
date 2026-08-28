@@ -3023,3 +3023,6 @@ msgstr "取消勾选不需要的模型；已绑定的模型保持勾选且不可
 
 msgid "Disable Key"
 msgstr "禁用 Key"
+
+msgid "Download billing details"
+msgstr "下载费用明细"

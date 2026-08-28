@@ -9,12 +9,27 @@
     <script src="/static/js/chart.min.js"></script>
     <script src="/static/js/marked.min.js"></script>
     <style>
-        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
+        .tab-nav { display: flex; gap: 0.25rem; padding: 0.25rem; background: #f1f5f9; border: 1px solid rgba(15, 23, 42, 0.06); border-radius: 0.875rem; overflow-x: auto; scrollbar-width: none; }
+        .tab-nav::-webkit-scrollbar { display: none; }
+        .tab-btn { border-radius: 0.625rem; padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; color: #64748b; white-space: nowrap; transition: color 0.15s, background-color 0.15s, box-shadow 0.15s; }
+        .tab-btn:hover { color: #334155; background: rgba(255, 255, 255, 0.7); }
+        .tab-btn.active { background: #ffffff; color: #2563eb; font-weight: 600; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.05); }
+        .seg-nav { display: inline-flex; gap: 0.25rem; padding: 0.25rem; background: rgba(148, 163, 184, 0.12); border-radius: 0.75rem; }
+        .stats-sub-tab { border-radius: 0.5rem; padding: 0.375rem 0.875rem; font-size: 0.8125rem; font-weight: 500; color: #64748b; cursor: pointer; white-space: nowrap; transition: color 0.15s, background-color 0.15s, box-shadow 0.15s; }
+        .stats-sub-tab:hover { color: #334155; }
+        .stats-sub-tab.active { background: #ffffff; color: #2563eb; font-weight: 600; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.05); }
+        .stats-summary-tab { border-radius: 0.5rem; padding: 0.375rem 0.875rem; font-size: 0.8125rem; font-weight: 500; color: #64748b; cursor: pointer; white-space: nowrap; transition: color 0.15s, background-color 0.15s, box-shadow 0.15s; }
+        .stats-summary-tab:hover { color: #334155; }
+        .stats-summary-tab.active { background: #ffffff; color: #2563eb; font-weight: 600; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.05); }
+        .card-shell { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -16px rgba(15, 23, 42, 0.14); border: 1px solid rgba(15, 23, 42, 0.06); }
+        .metric-value { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+        .ctl-select { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.375rem 0.625rem; font-size: 0.8125rem; background: #ffffff; color: #374151; }
+        .ctl-btn-ghost { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #4b5563; background: #ffffff; transition: background-color 0.15s, border-color 0.15s; }
+        .ctl-btn-ghost:hover { background: #f9fafb; }
+        .ctl-btn-amber { border: 1px solid #fcd34d; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #b45309; background: #fffbeb; transition: background-color 0.15s; }
+        .ctl-btn-amber:hover { background: #fef3c7; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .stats-sub-tab { border-bottom: 2px solid transparent; color: #6b7280; cursor: pointer; transition: all 0.15s; }
-        .stats-sub-tab:hover { color: #374151; }
-        .stats-sub-tab.active { border-bottom-color: #3b82f6; color: #3b82f6; }
         .stats-sub-content { display: block; }
         .stats-sub-content.hidden { display: none; }
         pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
@@ -56,14 +71,25 @@
         body.theme-dark button:not(.bg-red-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
         body.theme-dark .shadow,
         body.theme-dark .shadow-sm { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
-        body.theme-dark .tab-btn.active { border-bottom-color: #60a5fa; color: #60a5fa !important; }
+        body.theme-dark .tab-btn.active { border-bottom-color: transparent; color: #93c5fd !important; }
+        body.theme-dark .tab-btn:not(.active) { background: transparent !important; border-color: transparent !important; }
         body.theme-dark .stats-sub-tab { color: #94a3b8; }
-        body.theme-dark .stats-sub-tab.active { border-bottom-color: #60a5fa; color: #60a5fa !important; }
-        .stats-summary-tab { color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
-        .stats-summary-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
-        .stats-summary-tab:hover { color: #3b82f6; }
+        body.theme-dark .stats-sub-tab.active { border-bottom-color: transparent; color: #93c5fd !important; }
+        body.theme-dark .stats-sub-tab:not(.active), body.theme-dark .stats-summary-tab:not(.active) { background: transparent !important; border-color: transparent !important; }
+        body.theme-dark .tab-nav { background: #0b1120; border-color: #1f2937; }
+        body.theme-dark .tab-btn { color: #94a3b8; }
+        body.theme-dark .tab-btn:hover { color: #e2e8f0; background: rgba(148, 163, 184, 0.08) !important; }
+        body.theme-dark .tab-btn.active { background: rgba(96, 165, 250, 0.14) !important; box-shadow: none; }
+        body.theme-dark .seg-nav { background: rgba(148, 163, 184, 0.08); }
+        body.theme-dark .stats-sub-tab:hover, body.theme-dark .stats-summary-tab:hover { color: #e2e8f0; }
+        body.theme-dark .stats-sub-tab.active, body.theme-dark .stats-summary-tab.active { background: rgba(96, 165, 250, 0.14) !important; box-shadow: none; }
+        body.theme-dark button.ctl-btn-ghost { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+        body.theme-dark button.ctl-btn-ghost:hover { background: #1e293b; }
+        body.theme-dark button.ctl-btn-amber { background: rgba(245, 158, 11, 0.10); border-color: rgba(245, 158, 11, 0.35); color: #fbbf24; }
+        body.theme-dark button.ctl-btn-amber:hover { background: rgba(245, 158, 11, 0.18); }
+        body.theme-dark .card-shell { border-color: rgba(71, 85, 105, 0.55); box-shadow: 0 18px 36px rgba(2, 6, 23, 0.34), inset 0 1px 0 rgba(148, 163, 184, 0.08); }
         body.theme-dark .stats-summary-tab { color: #94a3b8; }
-        body.theme-dark .stats-summary-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+        body.theme-dark .stats-summary-tab.active { color: #93c5fd; border-bottom-color: transparent; }
         body.theme-dark .bg-white.rounded,
         body.theme-dark .bg-white.rounded-lg,
         body.theme-dark .bg-white.rounded-xl,
@@ -187,7 +213,21 @@
         body.theme-blackgold button:not(.bg-red-500):not(.bg-blue-600) { background-color: #1a1814; color: #d6d3d1; border-color: rgba(212, 168, 83, 0.30); }
         body.theme-blackgold .shadow,
         body.theme-blackgold .shadow-sm { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55) !important; }
-        body.theme-blackgold .tab-btn.active { border-bottom-color: #d4a853 !important; color: #d4a853 !important; }
+        body.theme-blackgold .tab-nav { background: #141210; border-color: rgba(212, 168, 83, 0.20); }
+        body.theme-blackgold .tab-btn { color: #a8a29e; }
+        body.theme-blackgold .tab-btn:not(.active) { background: transparent !important; border-color: transparent !important; }
+        body.theme-blackgold .tab-btn:hover { color: #fafaf9; background: rgba(212, 168, 83, 0.08) !important; }
+        body.theme-blackgold .tab-btn.active { border-bottom-color: transparent; background: rgba(212, 168, 83, 0.14) !important; color: #d4a853 !important; box-shadow: none; }
+        body.theme-blackgold .seg-nav { background: rgba(212, 168, 83, 0.08); }
+        body.theme-blackgold .stats-sub-tab, body.theme-blackgold .stats-summary-tab { color: #a8a29e; }
+        body.theme-blackgold .stats-sub-tab:not(.active), body.theme-blackgold .stats-summary-tab:not(.active) { background: transparent !important; border-color: transparent !important; }
+        body.theme-blackgold .stats-sub-tab:hover, body.theme-blackgold .stats-summary-tab:hover { color: #fafaf9; }
+        body.theme-blackgold .stats-sub-tab.active, body.theme-blackgold .stats-summary-tab.active { background: rgba(212, 168, 83, 0.14) !important; color: #d4a853; box-shadow: none; border-bottom-color: transparent; }
+        body.theme-blackgold button.ctl-btn-ghost { background: #1a1814; border-color: rgba(212, 168, 83, 0.30); color: #d6d3d1; }
+        body.theme-blackgold button.ctl-btn-ghost:hover { background: #292524; }
+        body.theme-blackgold button.ctl-btn-amber { background: rgba(212, 168, 83, 0.10); border-color: rgba(212, 168, 83, 0.35); color: #d4a853; }
+        body.theme-blackgold button.ctl-btn-amber:hover { background: rgba(212, 168, 83, 0.18); }
+        body.theme-blackgold .card-shell { border-color: rgba(212, 168, 83, 0.25); box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(212, 168, 83, 0.06); }
         body.theme-blackgold .bg-white.rounded,
         body.theme-blackgold .bg-white.rounded-lg,
         body.theme-blackgold .bg-white.rounded-xl,
@@ -277,30 +317,30 @@
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
             <div>
-                <h1 class="text-3xl font-bold text-gray-800">{{ _('ModelGate-dashboard') }}</h1>
-                <p class="text-gray-500">{{ name }}</p>
+                <h1 class="text-2xl font-semibold tracking-tight text-gray-800">{{ _('ModelGate-dashboard') }}</h1>
+                <p class="mt-0.5 text-sm text-gray-500">{{ name }}</p>
             </div>
-            <div class="flex gap-2">
-                <select id="period-select" onchange="loadStats()" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm">
+            <div class="flex flex-wrap items-center gap-2">
+                <select id="period-select" onchange="loadStats()" class="ctl-select">
                     <option value="day">{{ _('Today') }}</option>
                     <option value="week">{{ _('This Week') }}</option>
                     <option value="month">{{ _('This Month') }}</option>
                 </select>
-                <select id="lang-select" onchange="switchLang(this.value)" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm">
+                <select id="lang-select" onchange="switchLang(this.value)" class="ctl-select">
                     <option value="en">English</option>
                     <option value="zh">中文</option>
                 </select>
-                <select id="theme-toggle" onchange="applyTheme(this.value)" class="border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded text-sm cursor-pointer">
+                <select id="theme-toggle" onchange="applyTheme(this.value)" class="ctl-select cursor-pointer">
                     <option value="light">{{ _('Light Mode') }}</option>
                     <option value="dark">{{ _('Dark Mode') }}</option>
                     <option value="blackgold">{{ _('Black Gold') }}</option>
                 </select>
-                <button onclick="regenerateKey()" class="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600">
+                <button onclick="regenerateKey()" class="ctl-btn-amber">
                     {{ _('Reset API Key') }}
                 </button>
-                <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                <button onclick="logout()" class="ctl-btn-ghost">
                     {{ _('Logout') }}
                 </button>
             </div>
@@ -316,18 +356,18 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow mb-6">
-            <div class="flex border-b">
-                <button class="tab-btn active px-6 py-3 font-medium" onclick="showTab('stats')">{{ _('Statistics') }}</button>
-                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('catalog')">{{ _('Models') }}</button>
-                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('opencode')">{{ _('OpenCode Config') }}</button>
-                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('codex')">Codex {{ _('Config') }}</button>
-                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
-                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('documents')">{{ _('Documents') }}</button>
-                <button class="tab-btn px-6 py-3 font-medium" onclick="showTab('mcp')">MCP Tools</button>
-                <button class="tab-btn px-6 py-3 font-medium" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}</button>
-            </div>
-            
+        <div class="tab-nav mb-6" role="tablist">
+            <button class="tab-btn active" onclick="showTab('stats')">{{ _('Statistics') }}</button>
+            <button class="tab-btn" onclick="showTab('catalog')">{{ _('Models') }}</button>
+            <button class="tab-btn" onclick="showTab('opencode')">{{ _('OpenCode Config') }}</button>
+            <button class="tab-btn" onclick="showTab('codex')">Codex {{ _('Config') }}</button>
+            <button class="tab-btn" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
+            <button class="tab-btn" onclick="showTab('documents')">{{ _('Documents') }}</button>
+            <button class="tab-btn" onclick="showTab('mcp')">MCP Tools</button>
+            <button class="tab-btn" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}</button>
+        </div>
+
+        <div class="bg-white rounded-2xl card-shell mb-6">
             {% include 'user/tab_stats.html' %}
             {% include 'user/tab_catalog.html' %}
             {% include 'user/tab_opencode.html' %}
