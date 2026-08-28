@@ -2945,3 +2945,6 @@ msgstr "Please select at least one model"
 
 msgid "Uncheck models you do not want; already bound models stay checked"
 msgstr "Uncheck models you do not want; already bound models stay checked"
+
+msgid "Disable Key"
+msgstr "Disable Key"

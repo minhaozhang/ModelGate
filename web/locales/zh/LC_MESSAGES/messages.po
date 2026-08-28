@@ -3020,3 +3020,6 @@ msgstr "请至少选择一个模型"
 
 msgid "Uncheck models you do not want; already bound models stay checked"
 msgstr "取消勾选不需要的模型；已绑定的模型保持勾选且不可更改"
+
+msgid "Disable Key"
+msgstr "禁用 Key"

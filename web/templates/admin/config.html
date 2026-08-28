@@ -614,6 +614,22 @@
             </div>
         </div>
     </div>
+    <div id="disable-key-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-md w-full mx-4 flex flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h3 class="font-semibold">{{ _('Disable Key') }}</h3>
+                <button onclick="closeDisableKeyDialog()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div class="flex flex-wrap gap-2" id="disable-key-presets"></div>
+                <input type="text" id="disable-key-reason" class="w-full border rounded px-3 py-2 text-sm" placeholder="{{ _('Disable reason (optional, shown to users)') }}">
+            </div>
+            <div class="p-3 border-t flex justify-end gap-2 shrink-0">
+                <button type="button" onclick="closeDisableKeyDialog()" class="px-6 py-2 border rounded text-sm hover:bg-gray-50">{{ _('Cancel') }}</button>
+                <button id="disable-key-confirm" onclick="confirmDisableKey()" class="px-6 py-2 bg-red-500 text-white rounded text-sm hover:bg-red-600">{{ _('Disable') }}</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const APP_BASE_PATH = {{ app_base_path | tojson }};
@@ -683,7 +699,6 @@
             save: '{{ _("Save") }}',
             disable: '{{ _("Disable") }}',
             enable: '{{ _("Enable") }}',
-            disableReasonPrompt: '{{ _("Disable reason (optional, shown to users)") }}',
             keyEnabled: '{{ _("Key enabled") }}',
             keyDisabled: '{{ _("Key disabled") }}',
             failedToUpdateKey: '{{ _("Failed to update key") }}',
@@ -1517,20 +1532,64 @@
             } catch(err) {}
         }
 
-        async function toggleProviderKey(keyId, activate) {
-            if (!providerKeysTargetId) return;
-            let body = {is_active: activate};
-            if (!activate) {
-                const reason = prompt(t('disableReasonPrompt', 'Disable reason (optional, shown to users)'));
-                if (reason === null) return;
-                if (reason.trim()) body.disabled_reason = reason.trim();
-            }
+        const DISABLE_KEY_PRESETS = ['Insufficient Balance', 'Invalid API Key', 'Rate Limited (429)', 'Account Suspended', 'Quota Exceeded'];
+        let disableKeyTargetId = null;
+
+        function openDisableKeyDialog(keyId) {
+            disableKeyTargetId = keyId;
+            const input = document.getElementById('disable-key-reason');
+            input.value = '';
+            document.getElementById('disable-key-presets').innerHTML = DISABLE_KEY_PRESETS.map(r =>
+                `<button type="button" class="preset-reason-btn text-xs border rounded-full px-3 py-1 hover:bg-gray-50" data-reason="${escapeAttr(r)}">${escapeHtml(r)}</button>`).join('');
+            const modal = document.getElementById('disable-key-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            input.focus();
+        }
+
+        function closeDisableKeyDialog() {
+            const modal = document.getElementById('disable-key-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            disableKeyTargetId = null;
+        }
+
+        async function confirmDisableKey() {
+            if (!disableKeyTargetId || !providerKeysTargetId) return;
+            const keyId = disableKeyTargetId;
+            const reason = document.getElementById('disable-key-reason').value.trim();
+            const body = {is_active: false};
+            if (reason) body.disabled_reason = reason;
+            closeDisableKeyDialog();
             try {
                 await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(body)
-                }, {success: activate ? t('keyEnabled', 'Key enabled') : t('keyDisabled', 'Key disabled'), error: t('failedToUpdateKey', 'Failed to update key')});
+                }, {success: t('keyDisabled', 'Key disabled'), error: t('failedToUpdateKey', 'Failed to update key')});
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+                renderProviderKeys(data.keys || []);
+            } catch(err) {}
+        }
+
+        document.getElementById('disable-key-presets').addEventListener('click', e => {
+            const btn = e.target.closest('.preset-reason-btn');
+            if (!btn) return;
+            document.getElementById('disable-key-reason').value = btn.dataset.reason;
+        });
+
+        async function toggleProviderKey(keyId, activate) {
+            if (!providerKeysTargetId) return;
+            if (!activate) {
+                openDisableKeyDialog(keyId);
+                return;
+            }
+            try {
+                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_active: activate})
+                }, {success: t('keyEnabled', 'Key enabled'), error: t('failedToUpdateKey', 'Failed to update key')});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
             } catch(err) {}
