@@ -116,7 +116,7 @@ class ModelConcurrencyProxyGateTests(unittest.IsolatedAsyncioTestCase):
         provider_service._model_max_concurrent_by_name.clear()
         self.original_api_keys_cache = dict(config.api_keys_cache)
         config.api_keys_cache.clear()
-        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
 
     def tearDown(self):
         standard_model_semaphores.clear()
@@ -378,7 +378,7 @@ class ProxyWrapperForwardTests(unittest.IsolatedAsyncioTestCase):
         standard_model_semaphores.clear()
         user_api_key_semaphores.clear()
         config.api_keys_cache.clear()
-        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         try:
             provider_service._model_max_concurrent_by_name["leak-test"] = 2
             route = proxy_module.RouteResult(

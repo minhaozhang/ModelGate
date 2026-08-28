@@ -113,6 +113,7 @@ class UserApiKeyMaxConcurrentEndToEndTests(unittest.IsolatedAsyncioTestCase):
             "id": 1,
             "bypass_busyness": False,
             "max_concurrent": 0,
+            "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000)),
         }
         route = _build_route("any-model")
         request = _build_request("any-model")
@@ -140,6 +141,7 @@ class UserApiKeyMaxConcurrentEndToEndTests(unittest.IsolatedAsyncioTestCase):
             "id": 1,
             "bypass_busyness": False,
             "max_concurrent": 1,
+            "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000)),
         }
         route = _build_route("any-model")
         request = _build_request("any-model")

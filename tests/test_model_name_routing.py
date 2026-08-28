@@ -773,6 +773,28 @@ class ModelNameRoutingTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
+    async def test_key_with_no_model_bindings_denies_everything(self):
+        """Regression: emptying a key's model set (unbinding or deleting every
+        bound model) used to fall through to FULL access."""
+        empty_key = {
+            "allowed_provider_model_ids": [],
+            "allowed_model_ids": [],
+        }
+
+        self.assertFalse(
+            check_model_access(empty_key, provider_model_id=99, model_id=101)
+        )
+        self.assertFalse(
+            check_model_access(
+                empty_key,
+                provider_model_id=99,
+                model_id=101,
+                requested_model_id=101,
+                is_forced_provider=False,
+            )
+        )
+        self.assertFalse(check_model_access(empty_key, provider_model_id=None, model_id=None))
+
     async def test_list_models_returns_deduped_model_names_without_providers(self):
         config.providers_cache.update(
             {

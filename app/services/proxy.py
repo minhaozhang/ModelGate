@@ -125,7 +125,9 @@ def check_model_access(
     allowed_pm_ids = set(key_info.get("allowed_provider_model_ids") or [])
     allowed_model_ids = set(key_info.get("allowed_model_ids") or [])
     if not allowed_pm_ids and not allowed_model_ids:
-        return True
+        # A key with no model bindings left (every bound model unbound or
+        # deleted) must not silently fall back to FULL access.
+        return False
     if is_forced_provider:
         return False
     if requested_model_id is not None and requested_model_id in allowed_model_ids:

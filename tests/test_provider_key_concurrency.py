@@ -445,7 +445,7 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         request._body = b'{"model":"openai/gpt-other","messages":[]}'
-        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": False}
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": False, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         _, user_semaphore = _get_or_create_user_api_key_semaphore(
             api_key_id=1,
             target_limit=2,
@@ -481,6 +481,7 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("user_global_concurrency_reached", body)
 
     async def test_streaming_key_fallback_keeps_global_slot_until_final_response(self):
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         request = Request(
             {
                 "type": "http",
@@ -495,7 +496,7 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         request._body = (
             b'{"model":"openai/gpt-other","messages":[],"stream":true}'
         )
-        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": False}
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": False, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         tracking_semaphore = _TrackingSemaphore()
         provider_config = {
             "base_url": "https://example.com",
@@ -523,6 +524,7 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         stream_handler = AsyncMock(side_effect=fake_handle_streaming)
 
         with (
+            patch("app.services.proxy.check_model_access", return_value=True),
             patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
             patch(
                 "app.services.proxy.get_provider_model_candidates",
@@ -561,7 +563,7 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         request._body = b'{"model":"glm-5.1","messages":[]}'
-        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         primary_config = {
             "id": 1,
             "base_url": "https://primary.example/v1",
@@ -642,7 +644,7 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         request._body = b'{"model":"glm-5.1","messages":[]}'
-        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         routes = [
             proxy_module.RouteResult(
                 provider_config={
@@ -751,7 +753,7 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         request._body = b'{"model":"primary/glm-5.1","messages":[]}'
-        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         primary_config = {
             "id": 1,
             "base_url": "https://primary.example/v1",
@@ -818,6 +820,7 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
 
 class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
     async def test_scoped_provider_key_error_is_model_route_specific(self):
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         request = Request(
             {
                 "type": "http",
@@ -856,6 +859,7 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
             return 0 if key_id == 11 else 100
 
         with (
+            patch("app.services.proxy.check_model_access", return_value=True),
             patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
             patch(
                 "app.services.proxy.get_provider_model_candidates",
@@ -875,6 +879,7 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("供应商 'zhipu' 当前没有可用的 API Key", body)
 
     async def test_no_provider_key_error_is_human_readable(self):
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         request = Request(
             {
                 "type": "http",
@@ -889,6 +894,7 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
         request._body = b'{"model":"zhipu/glm-4.5","messages":[]}'
 
         with (
+            patch("app.services.proxy.check_model_access", return_value=True),
             patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))),
             patch(
                 "app.services.proxy.get_provider_model_candidates",
@@ -911,6 +917,7 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("没有可用的 API Key", body)
 
     async def test_all_candidate_provider_keys_unavailable_does_not_return_model_not_found(self):
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         request = Request(
             {
                 "type": "http",
@@ -977,6 +984,7 @@ class ProviderKeyErrorMessageTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("未找到模型", body)
 
     async def test_all_disabled_provider_keys_reports_highest_priority_key_reason(self):
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         request = Request(
             {
                 "type": "http",
@@ -1120,7 +1128,7 @@ class RouteFallbackOnServerErrorTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         request._body = b'{"model":"glm-5.1","messages":[]}'
-        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
         cm_stack = contextlib.ExitStack()
         cm_stack.enter_context(patch("app.services.proxy.validate_api_key", new=AsyncMock(return_value=(1, None))))
         cm_stack.enter_context(patch("app.services.proxy.get_provider_model_candidates", new=AsyncMock(return_value=routes)))
@@ -1278,9 +1286,10 @@ class RouteFallbackOnServerErrorTests(unittest.IsolatedAsyncioTestCase):
                 user_sem.release()
             return Response(content=b'{"error":"server error"}', status_code=500)
 
-        response = await self._run_proxy_with_routes(
-            routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
-        )
+        with patch("app.services.proxy.check_model_access", return_value=True):
+            response = await self._run_proxy_with_routes(
+                routes, handle_normal_side_effect=AsyncMock(side_effect=fake_handle_normal)
+            )
 
         self.assertEqual(response.status_code, 500)
         self.assertEqual(call_count[0], 1)
@@ -1303,7 +1312,7 @@ class RouteFallbackOnServerErrorTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         request._body = b'{"model":"glm-5.1","messages":[],"stream":true}'
-        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True}
+        config.api_keys_cache["test-key"] = {"id": 1, "bypass_busyness": True, "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000))}
 
         async def fake_handle_streaming(*args, **_kwargs):
             provider_key_semaphore = args[12]
