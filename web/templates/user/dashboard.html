@@ -1769,7 +1769,7 @@
         }
         
         async function loadMyRequests() {
-            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active?limit=50');
+            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active?limit=7');
             const list = data.requests || [];
             const el = document.getElementById('my-requests-list');
             if (!list.length) {
