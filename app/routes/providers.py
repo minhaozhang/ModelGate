@@ -217,6 +217,7 @@ async def list_provider_keys(provider_id: int, _: bool = Depends(permission_requ
                     "label": k.label or "",
                     "max_concurrent": k.max_concurrent,
                     "is_active": k.is_active,
+                    "disabled_by": getattr(k, "disabled_by", None),
                     "disabled_reason": k.disabled_reason,
                     "priority": k.priority if hasattr(k, "priority") else 0,
                     "cost_role": getattr(k, "cost_role", None) or "standard",
@@ -288,9 +289,15 @@ async def update_provider_key(
         if "is_active" in data.model_fields_set and data.is_active is not None:
             pk.is_active = data.is_active
             if data.is_active:
+                pk.disabled_by = None
                 pk.disabled_reason = None
                 pk.disabled_at = None
                 pk.reset_at = None
+            else:
+                pk.disabled_by = "manual"
+            from app.services.provider_limiter import cancel_reenable_job
+
+            cancel_reenable_job("key", key_id)
         if "disabled_reason" in data.model_fields_set:
             pk.disabled_reason = data.disabled_reason
         if (
@@ -373,6 +380,7 @@ async def get_provider_keys_health(provider_id: int, _: bool = Depends(permissio
                 "health_score": score,
                 "health_level": level,
                 "events_5m": events,
+                "disabled_by": getattr(k, "disabled_by", None),
                 "disabled_reason": k.disabled_reason,
             })
         return {"keys": keys_data}

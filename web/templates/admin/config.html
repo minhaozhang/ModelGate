@@ -610,6 +610,8 @@
             noModels: '{{ _("No models") }}',
             active: '{{ _("Active") }}',
             inactive: '{{ _("Inactive") }}',
+            manualDisabled: '{{ _("Manual disabled") }}',
+            autoDisabled: '{{ _("Auto disabled") }}',
             keys: '{{ _("Keys") }}',
             edit: '{{ _("Edit") }}',
             delete: '{{ _("Delete") }}',
@@ -1135,7 +1137,7 @@
                                    id="provider-key-label-${k.id}"
                                    class="w-24 border rounded px-1.5 py-0.5 text-xs">
                             <button onclick="updateProviderKeyLabel(${k.id})" class="pk-action text-blue-500 hover:text-blue-700 text-xs">${t('save', 'Save')}</button>
-                            <span class="text-xs ${k.is_active ? 'text-green-600' : 'text-red-500'}">${k.is_active ? t('active', 'Active') : t('inactive', 'Inactive')}</span>
+                            <span class="text-xs ${k.is_active ? 'text-green-600' : 'text-red-500'}">${k.is_active ? t('active', 'Active') : (k.disabled_by === 'manual' ? t('manualDisabled', 'Manual disabled') : t('autoDisabled', 'Auto disabled'))}</span>
                             ${k.disabled_reason ? '<span class="warn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">' + k.disabled_reason.replace(/</g, '&lt;') + '</span></span>' : ''}
                         </div>
                         <div class="flex items-center gap-1 text-xs text-gray-400 mt-1">

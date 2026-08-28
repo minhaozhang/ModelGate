@@ -2984,3 +2984,9 @@ msgstr "macOS/Linux 脚本仅需 curl。若 URL 中未内置 API Key，脚本会
 
 msgid "The macOS/Linux script only needs curl. If the API key is not embedded in the URL, the script will prompt for it."
 msgstr "macOS/Linux 脚本仅需 curl。若 URL 中未内置 API Key，脚本会提示输入。"
+
+msgid "Manual disabled"
+msgstr "手动禁用"
+
+msgid "Auto disabled"
+msgstr "自动禁用"

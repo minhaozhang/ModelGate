@@ -2910,3 +2910,8 @@ msgstr "Tool Use (Function Calling)"
 #~ msgid "Execution Log"
 #~ msgstr "Execution Log"
 
+msgid "Manual disabled"
+msgstr "Manual disabled"
+
+msgid "Auto disabled"
+msgstr "Auto disabled"

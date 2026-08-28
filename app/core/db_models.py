@@ -53,6 +53,7 @@ class ProviderKey(Base):
     is_active = Column(Boolean, default=True)
     priority = Column(Integer, default=0)
     cost_role = Column(String(40), default="standard")
+    disabled_by = Column(String(20), nullable=True)
     disabled_reason = Column(String(255), nullable=True)
     disabled_at = Column(DateTime, nullable=True)
     reset_at = Column(DateTime, nullable=True)

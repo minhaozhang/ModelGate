@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 
 from app.core.config import logger, provider_key_semaphores, providers_cache
 from app.core.database import Provider, ProviderKey, async_session_maker
@@ -98,8 +98,15 @@ async def _do_reenable_key(key_id: int) -> None:
     async with async_session_maker() as session:
         await session.execute(
             update(ProviderKey)
-            .where(ProviderKey.id == key_id, ProviderKey.is_active == False)  # noqa: E712
-            .values(is_active=True, disabled_reason=None, disabled_at=None, reset_at=None)
+            .where(
+                ProviderKey.id == key_id,
+                ProviderKey.is_active == False,  # noqa: E712
+                or_(
+                    ProviderKey.disabled_by.is_(None),
+                    ProviderKey.disabled_by != "manual",
+                ),
+            )
+            .values(is_active=True, disabled_by=None, disabled_reason=None, disabled_at=None, reset_at=None)
         )
         await session.commit()
 
@@ -124,6 +131,10 @@ def _cancel_reenable_job(entity_type: str, entity_id: int) -> None:
             sched.remove_job(job_id)
     except Exception:
         pass
+
+
+def cancel_reenable_job(entity_type: str, entity_id: int) -> None:
+    _cancel_reenable_job(entity_type, entity_id)
 
 
 async def schedule_reenable_job(entity_type: str, entity_id: int, reset_at: datetime) -> None:
@@ -210,7 +221,13 @@ async def disable_provider_key(
         await session.execute(
             update(ProviderKey)
             .where(ProviderKey.id == provider_key_id)
-            .values(is_active=False, disabled_reason=reason[:255], disabled_at=datetime.now(), reset_at=reset_at)
+            .values(
+                is_active=False,
+                disabled_by="auto",
+                disabled_reason=reason[:255],
+                disabled_at=datetime.now(),
+                reset_at=reset_at,
+            )
         )
         await session.commit()
 
