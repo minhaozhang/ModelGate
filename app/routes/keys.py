@@ -221,7 +221,11 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_requir
             else (data.expires_at or (datetime.now() + timedelta(days=365))),
             bypass_busyness=data.bypass_busyness,
             max_concurrent=normalized_max_concurrent,
-            daily_quota_cny=data.daily_quota_cny,
+            daily_quota_cny=(
+                None
+                if data.daily_quota_cny is None or data.daily_quota_cny == -1
+                else data.daily_quota_cny
+            ),
         )
         session.add(new_key)
         await session.commit()
