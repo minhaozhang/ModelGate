@@ -525,6 +525,67 @@ async def sync_provider_models(
                 return JSONResponse({"error": str(e)}, status_code=500)
 
 
+@router.get("/providers/{provider_id}/upstream-models")
+async def list_upstream_models(
+    provider_id: int,
+    _: bool = Depends(permission_required("provider_model.sync")),
+):
+    """Read-only preview of the provider's upstream /models endpoint."""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Provider).where(Provider.id == provider_id)
+        )
+        provider = result.scalar_one_or_none()
+        if not provider:
+            return JSONResponse({"error": "Provider not found"}, status_code=404)
+
+        headers = {"Accept": "application/json"}
+        pk_result = await session.execute(
+            select(ProviderKey)
+            .where(
+                ProviderKey.provider_id == provider_id,
+                ProviderKey.is_active == True,  # noqa: E712
+            )
+            .limit(1)
+        )
+        active_key = pk_result.scalar_one_or_none()
+        api_key = active_key.api_key if active_key else (provider.api_key or "")
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(f"{provider.base_url}/models", headers=headers)
+        except Exception as e:
+            admin_logger.error(f"[UPSTREAM MODELS ERROR] provider={provider_id} {e}")
+            return JSONResponse({"error": str(e)}, status_code=502)
+
+        if resp.status_code != 200:
+            return JSONResponse(
+                {"error": f"Failed to fetch models: {resp.status_code}"},
+                status_code=502,
+            )
+        try:
+            data = resp.json()
+        except Exception:
+            return JSONResponse({"error": "Invalid JSON from upstream"}, status_code=502)
+
+    models = data.get("data", data.get("models", []))
+    if isinstance(models, dict):
+        models = list(models.values())
+    names = []
+    for model_info in models or []:
+        if isinstance(model_info, str):
+            name = model_info
+        elif isinstance(model_info, dict):
+            name = model_info.get("id") or model_info.get("name") or ""
+        else:
+            name = ""
+        if name:
+            names.append(name)
+    return {"models": names, "total": len(names)}
+
+
 @router.get("/provider-models")
 async def list_all_provider_models(_: bool = Depends(permission_required("page.provider_models"))):
     async with async_session_maker() as session:

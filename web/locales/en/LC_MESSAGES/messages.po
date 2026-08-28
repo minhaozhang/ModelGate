@@ -2915,3 +2915,15 @@ msgstr "Manual disabled"
 
 msgid "Auto disabled"
 msgstr "Auto disabled"
+
+msgid "View Models"
+msgstr "View Models"
+
+msgid "Upstream Models"
+msgstr "Upstream Models"
+
+msgid "No upstream models"
+msgstr "No upstream models"
+
+msgid "Total {count} models"
+msgstr "Total {count} models"

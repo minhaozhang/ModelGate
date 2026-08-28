@@ -2990,3 +2990,15 @@ msgstr "手动禁用"
 
 msgid "Auto disabled"
 msgstr "自动禁用"
+
+msgid "View Models"
+msgstr "查看模型"
+
+msgid "Upstream Models"
+msgstr "上游模型"
+
+msgid "No upstream models"
+msgstr "上游未返回模型"
+
+msgid "Total {count} models"
+msgstr "共 {count} 个模型"

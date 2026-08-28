@@ -292,6 +292,7 @@
                                 <select id="routing-bind-provider" class="border rounded px-3 py-2 text-sm min-w-40"></select>
                                 <select id="routing-bind-model" class="border rounded px-3 py-2 text-sm min-w-48"></select>
                                 <button onclick="bindModelFromRouting()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">添加绑定</button>
+                                <button onclick="viewUpstreamModels()" class="bg-sky-500 text-white px-4 py-2 rounded text-sm hover:bg-sky-600" id="view-models-btn">{{ _('View Models') }}</button>
                                 <button onclick="syncRoutingProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600" id="sync-btn">{{ _('Sync from API') }}</button>
                             </div>
                         </div>
@@ -451,6 +452,15 @@
         </div>
     </div>
 
+    <div id="upstream-models-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 flex min-h-0 flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h3 id="upstream-models-title" class="font-semibold">{{ _('Upstream Models') }}</h3>
+                <button onclick="closeUpstreamModelsModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="upstream-models-list" class="min-h-0 flex-1 overflow-y-auto p-4 text-sm"></div>
+        </div>
+    </div>
     <div id="provider-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
         <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-md w-full mx-4 flex min-h-0 flex-col overflow-hidden">
             <div class="p-4 border-b flex justify-between items-center shrink-0">
@@ -612,6 +622,10 @@
             inactive: '{{ _("Inactive") }}',
             manualDisabled: '{{ _("Manual disabled") }}',
             autoDisabled: '{{ _("Auto disabled") }}',
+            viewModels: '{{ _("View Models") }}',
+            upstreamModels: '{{ _("Upstream Models") }}',
+            noUpstreamModels: '{{ _("No upstream models") }}',
+            syncedCount: '{{ _("Total {count} models") }}',
             keys: '{{ _("Keys") }}',
             edit: '{{ _("Edit") }}',
             delete: '{{ _("Delete") }}',
@@ -898,6 +912,42 @@
             } catch(e) {}
             btn.disabled = false;
             btn.textContent = originalText;
+        }
+
+        async function viewUpstreamModels() {
+            const providerId = parseInt(document.getElementById('routing-bind-provider').value, 10) || selectedProviderId;
+            if (!providerId) {
+                showToast(t('selectProviderFirst', 'Please select a provider first'), 'info');
+                return;
+            }
+            const modal = document.getElementById('upstream-models-modal');
+            const list = document.getElementById('upstream-models-list');
+            document.getElementById('upstream-models-title').textContent = `${t('upstreamModels', 'Upstream Models')} (#${providerId})`;
+            list.innerHTML = `<div class="text-gray-400 text-center py-4">${t('loading', 'Loading...')}</div>`;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            try {
+                const data = await mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/upstream-models', {}, {error: t('failedToLoad', 'Failed to load')});
+                if (data.error) {
+                    list.innerHTML = `<div class="text-red-500">${escapeHtml(data.error)}</div>`;
+                    return;
+                }
+                const names = data.models || [];
+                if (!names.length) {
+                    list.innerHTML = `<div class="text-gray-400 text-center py-4">${t('noUpstreamModels', 'No upstream models')}</div>`;
+                    return;
+                }
+                list.innerHTML = `<div class="text-xs text-gray-500 mb-2">${formatI18n('syncedCount', {count: names.length}, names.length + '')}</div>` +
+                    names.map(n => `<div class="py-1 px-2 border-b border-gray-100 font-mono">${escapeHtml(n)}</div>`).join('');
+            } catch (e) {}
+        }
+
+        function closeUpstreamModelsModal() {
+            const modal = document.getElementById('upstream-models-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
         }
 
         function showAddProvider() {
