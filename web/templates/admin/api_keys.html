@@ -176,7 +176,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Max concurrency' if current_locale != 'zh' else '并发上限') }}</label>
-                            <input type="number" min="0" id="apikey-max-concurrent" class="w-full border rounded px-3 py-2" placeholder="{{ _('empty for default (2), 0 to disable' if current_locale != 'zh' else '留空为默认（2）；0 = 停用') }}">
+                            <input type="number" min="0" id="apikey-max-concurrent" class="w-full border rounded px-3 py-2" placeholder="{{ _('empty for default (1), 0 to disable' if current_locale != 'zh' else '留空为默认（1）；0 = 停用') }}">
                             <p class="text-xs text-gray-500 mt-1">{{ _('Concurrent in-flight requests allowed for this key' if current_locale != 'zh' else '该 Key 同时允许进行的请求数，超出返回 429') }}</p>
                         </div>
                         <div>

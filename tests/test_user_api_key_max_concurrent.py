@@ -16,11 +16,11 @@ from app.services.proxy_runtime import _get_user_api_key_limit
 
 
 class UserApiKeyLimitParsingTests(unittest.TestCase):
-    def test_missing_stored_limit_defaults_to_two(self):
-        self.assertEqual(_get_user_api_key_limit(False), 2)
+    def test_missing_stored_limit_defaults_to_one(self):
+        self.assertEqual(_get_user_api_key_limit(False), 1)
 
-    def test_none_stored_limit_defaults_to_two(self):
-        self.assertEqual(_get_user_api_key_limit(False, None), 2)
+    def test_none_stored_limit_defaults_to_one(self):
+        self.assertEqual(_get_user_api_key_limit(False, None), 1)
 
     def test_explicit_zero_is_zero(self):
         self.assertEqual(_get_user_api_key_limit(False, 0), 0)
@@ -29,7 +29,7 @@ class UserApiKeyLimitParsingTests(unittest.TestCase):
         self.assertEqual(_get_user_api_key_limit(False, 5), 5)
 
     def test_negative_treated_as_default(self):
-        self.assertEqual(_get_user_api_key_limit(False, -7), 2)
+        self.assertEqual(_get_user_api_key_limit(False, -7), 1)
 
     def test_bypass_busyness_still_9999(self):
         self.assertEqual(_get_user_api_key_limit(True, 0), 9999)

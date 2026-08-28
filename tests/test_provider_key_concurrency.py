@@ -107,24 +107,22 @@ class ProviderKeyConcurrencyTests(unittest.TestCase):
     def test_user_api_key_limit_is_shared_across_models_and_providers(self):
         sem_key_a, semaphore_a = _get_or_create_user_api_key_semaphore(
             api_key_id=1,
-            target_limit=2,
+            target_limit=1,
         )
         sem_key_b, semaphore_b = _get_or_create_user_api_key_semaphore(
             api_key_id=1,
-            target_limit=2,
+            target_limit=1,
         )
 
         self.assertEqual(sem_key_a, "user:1")
         self.assertEqual(sem_key_b, "user:1")
         self.assertIs(semaphore_a, semaphore_b)
-        self.assertEqual(_get_user_api_key_limit(False), 2)
+        self.assertEqual(_get_user_api_key_limit(False), 1)
 
         self.assertTrue(asyncio.run(asyncio.wait_for(semaphore_a.acquire(), timeout=0.1)))
-        self.assertTrue(asyncio.run(asyncio.wait_for(semaphore_b.acquire(), timeout=0.1)))
         with self.assertRaises(asyncio.TimeoutError):
             asyncio.run(asyncio.wait_for(semaphore_a.acquire(), timeout=0.01))
 
-        semaphore_a.release()
         semaphore_a.release()
 
     def test_provider_key_limit_prefers_key_override(self):
