@@ -3,12 +3,91 @@ from typing import Optional
 from fastapi import APIRouter, Request, Depends, Cookie
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select, func, and_
-from app.core.database import AuditLog, async_session_maker
+from app.core.database import (
+    AuditLog,
+    ApiKey,
+    Document,
+    McpServer,
+    Menu,
+    Model,
+    Notification,
+    Permission,
+    Provider,
+    ProviderKey,
+    ProviderModel,
+    Role,
+    SchedulerTask,
+    User,
+    async_session_maker,
+)
 from app.core.permissions import login_required
 from app.core.config import validate_session
 from app.core.i18n import render
 
 router = APIRouter(prefix="/admin/api/audit", tags=["audit"])
+
+# resource -> (model class, readable-name attribute)
+_NAME_RESOLVERS = {
+    "api_key": (ApiKey, "name"),
+    # user_session audit entries store the portal api key id in resource_id.
+    "user_session": (ApiKey, "name"),
+    "provider": (Provider, "name"),
+    "provider_key": (ProviderKey, "label"),
+    "model": (Model, "name"),
+    "mcp_server": (McpServer, "name"),
+    "document": (Document, "title"),
+    "notification": (Notification, "title"),
+    "scheduler_task": (SchedulerTask, "name"),
+    "user": (User, "username"),
+    "role": (Role, "name"),
+    "menu": (Menu, "name"),
+    "permission": (Permission, "name"),
+}
+
+
+async def _resolve_resource_names(logs) -> dict:
+    """Batch-resolve {(resource, resource_id): display_name} for one page."""
+    ids_by_resource: dict = {}
+    for log in logs:
+        if not log.resource_id:
+            continue
+        try:
+            rid = int(log.resource_id)
+        except (TypeError, ValueError):
+            continue
+        ids_by_resource.setdefault(log.resource, set()).add(rid)
+
+    if not ids_by_resource:
+        return {}
+
+    names: dict = {}
+    async with async_session_maker() as session:
+        for resource, ids in ids_by_resource.items():
+            id_list = list(ids)[:500]
+            try:
+                resolver = _NAME_RESOLVERS.get(resource)
+                if resolver:
+                    model_cls, attr = resolver
+                    result = await session.execute(
+                        select(model_cls.id, getattr(model_cls, attr)).where(
+                            model_cls.id.in_(id_list)
+                        )
+                    )
+                    for row_id, value in result.fetchall():
+                        if value:
+                            names[(resource, str(row_id))] = str(value)
+                elif resource == "provider_model":
+                    result = await session.execute(
+                        select(ProviderModel.id, Model.name)
+                        .join(Model, Model.id == ProviderModel.model_id)
+                        .where(ProviderModel.id.in_(id_list))
+                    )
+                    for row_id, value in result.fetchall():
+                        if value:
+                            names[(resource, str(row_id))] = str(value)
+            except Exception:
+                continue
+    return names
 
 
 @router.get("/logs")
@@ -52,6 +131,8 @@ async def list_audit_logs(
         result = await session.execute(query)
         logs = result.scalars().all()
 
+        names = await _resolve_resource_names(logs)
+
         items = []
         for log in logs:
             item = {
@@ -61,7 +142,11 @@ async def list_audit_logs(
                 "action": log.action,
                 "resource": log.resource,
                 "resource_id": log.resource_id,
+                "resource_name": names.get((log.resource, log.resource_id))
+                if log.resource_id
+                else None,
                 "detail": log.detail,
+                "request_body": log.request_body,
                 "client_ip": log.client_ip,
                 "status_code": log.status_code,
                 "created_at": log.created_at.isoformat() if log.created_at else None,

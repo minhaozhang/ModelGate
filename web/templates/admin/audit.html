@@ -151,7 +151,8 @@
             role_permission: "{{ '角色权限' if current_locale == 'zh' else 'Role Permission' }}",
             menu: "{{ '菜单' if current_locale == 'zh' else 'Menu' }}",
             permission: "{{ '权限' if current_locale == 'zh' else 'Permission' }}",
-            user_role: "{{ '用户角色' if current_locale == 'zh' else 'User Role' }}"
+            user_role: "{{ '用户角色' if current_locale == 'zh' else 'User Role' }}",
+            user_session: "{{ '门户会话' if current_locale == 'zh' else 'Portal Session' }}"
         };
 
         async function loadResources() {
@@ -199,8 +200,8 @@
                             <td class="px-4 py-2.5 mono text-gray-500">${formatTime(log.created_at)}</td>
                             <td class="px-4 py-2.5 font-medium">${esc(log.username || '-')}</td>
                             <td class="px-4 py-2.5"><span class="badge badge-${log.action}">${actionLabels[log.action] || log.action}</span></td>
-                            <td class="px-4 py-2.5 text-gray-600">${resourceLabels[log.resource] || log.resource}${log.resource_id ? ' <span class="text-gray-400 mono">#' + esc(log.resource_id) + '</span>' : ''}</td>
-                            <td class="px-4 py-2.5 detail-cell text-gray-600" title="${esc(log.detail || '')}">${esc(log.detail || '-')}</td>
+                            <td class="px-4 py-2.5 text-gray-600">${resourceLabels[log.resource] || log.resource}${log.resource_name ? ' <span class="font-medium text-gray-800">' + esc(log.resource_name) + '</span>' : ''}${log.resource_id ? ' <span class="text-gray-400 mono">#' + esc(log.resource_id) + '</span>' : ''}</td>
+                            <td class="px-4 py-2.5 detail-cell text-gray-600" title="${esc((log.detail || '-') + (log.request_body ? '\n' + JSON.stringify(log.request_body) : ''))}">${esc(log.detail || '-')}</td>
                             <td class="px-4 py-2.5 mono text-gray-400">${esc(log.client_ip || '-')}</td>
                             <td class="px-4 py-2.5">${statusBadge(log.status_code)}</td>
                         </tr>
@@ -226,7 +227,7 @@
         function esc(s) {
             const div = document.createElement('div');
             div.textContent = s;
-            return div.innerHTML;
+            return div.innerHTML.replace(/"/g, '&quot;');
         }
 
         function statusBadge(code) {
