@@ -1,6 +1,6 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from app.routes.provider_models import list_upstream_models
 
@@ -125,6 +125,84 @@ class UpstreamModelsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             _FakeAsyncClient.last_call["headers"].get("Authorization"), "Bearer sk-provider"
         )
+
+
+class SyncModelsFilterTests(unittest.IsolatedAsyncioTestCase):
+    def _upstream(self):
+        class _Client:
+            def __init__(self, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+            async def get(self, url, headers=None, **kw):
+                return _FakeResponse(200, {"data": [{"id": "glm-5"}, {"id": "glm-5-air"}, {"id": "glm-4.5"}]})
+
+        return _Client
+
+    async def _run_sync(self, body):
+        from app.routes.provider_models import sync_provider_models
+
+        client_cls = self._upstream()
+        created = []
+
+        class _SyncSession:
+            def __init__(self):
+                self.first = True
+
+            async def execute(self, _stmt):
+                row, self.first = (_provider(), False) if self.first else (None, False)
+                return _FakeResult(row)
+
+            def add(self, obj):
+                created.append(obj)
+
+            async def flush(self):
+                return None
+
+            async def commit(self):
+                return None
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        with patch(
+            "app.routes.provider_models.async_session_maker",
+            return_value=_SyncSession(),
+        ), patch(
+            "app.routes.provider_models.httpx.AsyncClient", client_cls
+        ), patch(
+            "app.routes.provider_models.load_providers", new_callable=AsyncMock
+        ):
+            return await sync_provider_models(3, body, _=True), created
+
+    async def test_only_selected_models_are_bound(self):
+        from app.routes.provider_models import SyncModelsRequest
+
+        data, created = await self._run_sync(SyncModelsRequest(models=["glm-5"]))
+        self.assertEqual(data["synced"], ["glm-5"])
+        self.assertEqual(data["total"], 1)
+        model_names = [c.name for c in created if hasattr(c, "name")]
+        self.assertEqual(model_names, ["glm-5"])
+
+    async def test_no_body_binds_everything(self):
+        data, created = await self._run_sync(None)
+        self.assertEqual(data["total"], 3)
+
+    async def test_filter_with_no_match_binds_nothing(self):
+        from app.routes.provider_models import SyncModelsRequest
+
+        data, created = await self._run_sync(SyncModelsRequest(models=["nonexistent"]))
+        self.assertEqual(data["synced"], [])
+        self.assertEqual(data["total"], 0)
+        self.assertEqual(created, [])
 
 
 if __name__ == "__main__":

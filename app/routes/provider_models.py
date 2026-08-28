@@ -2,7 +2,7 @@ import httpx
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -12,6 +12,10 @@ from app.core.permissions import permission_required
 from app.services.provider import load_providers
 
 router = APIRouter(prefix="/admin/api", tags=["provider-models"])
+
+
+class SyncModelsRequest(BaseModel):
+    models: Optional[List[str]] = None
 
 
 class ProviderModelCreate(BaseModel):
@@ -387,6 +391,7 @@ async def remove_provider_model(
 @router.post("/providers/{provider_id}/sync-models")
 async def sync_provider_models(
     provider_id: int,
+    data: Optional[SyncModelsRequest] = None,
     _: bool = Depends(permission_required("provider_model.sync")),
 ):
     async with async_session_maker() as session:
@@ -412,6 +417,7 @@ async def sync_provider_models(
             headers["Authorization"] = f"Bearer {sync_api_key}"
 
         synced = []
+        models_filter = set(data.models) if data and data.models is not None else None
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 resp = await client.get(f"{provider.base_url}/models", headers=headers)
@@ -472,6 +478,8 @@ async def sync_provider_models(
                         context_length = context_length_map.get(model_name)
 
                     if not model_name:
+                        continue
+                    if models_filter is not None and model_name not in models_filter:
                         continue
 
                     model_result = await session.execute(

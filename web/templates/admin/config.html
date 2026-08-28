@@ -292,8 +292,7 @@
                                 <select id="routing-bind-provider" class="border rounded px-3 py-2 text-sm min-w-40"></select>
                                 <select id="routing-bind-model" class="border rounded px-3 py-2 text-sm min-w-48"></select>
                                 <button onclick="bindModelFromRouting()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">添加绑定</button>
-                                <button onclick="viewUpstreamModels()" class="bg-sky-500 text-white px-4 py-2 rounded text-sm hover:bg-sky-600" id="view-models-btn">{{ _('View Models') }}</button>
-                                <button onclick="syncRoutingProvider()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600" id="sync-btn">{{ _('Sync from API') }}</button>
+                                <button onclick="openBindFromApiDialog()" class="bg-purple-500 text-white px-4 py-2 rounded text-sm hover:bg-purple-600" id="sync-btn">{{ _('Bind from API') }}</button>
                             </div>
                         </div>
                     </div>
@@ -455,10 +454,21 @@
     <div id="upstream-models-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
         <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 flex min-h-0 flex-col overflow-hidden">
             <div class="p-4 border-b flex justify-between items-center shrink-0">
-                <h3 id="upstream-models-title" class="font-semibold">{{ _('Upstream Models') }}</h3>
-                <button onclick="closeUpstreamModelsModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                <h3 id="upstream-models-title" class="font-semibold">{{ _('Bind models from API') }}</h3>
+                <button onclick="closeBindFromApiDialog()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="px-4 pt-3 flex items-center justify-between shrink-0">
+                <div class="text-xs text-gray-500">{{ _('Uncheck models you do not want; already bound models stay checked') }}</div>
+                <div class="flex gap-3 text-xs shrink-0">
+                    <button type="button" onclick="selectAllBindModels(true)" class="text-blue-500 hover:underline">{{ _('Select All') }}</button>
+                    <button type="button" onclick="selectAllBindModels(false)" class="text-gray-500 hover:underline">{{ _('Clear') }}</button>
+                </div>
             </div>
             <div id="upstream-models-list" class="min-h-0 flex-1 overflow-y-auto p-4 text-sm"></div>
+            <div class="p-3 border-t flex justify-end gap-2 shrink-0">
+                <button onclick="closeBindFromApiDialog()" class="px-3 py-2 border rounded text-sm hover:bg-gray-50">{{ _('Cancel') }}</button>
+                <button id="bind-selected-btn" onclick="confirmBindFromApi()" class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600">{{ _('Bind selected') }}</button>
+            </div>
         </div>
     </div>
     <div id="provider-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
@@ -622,10 +632,11 @@
             inactive: '{{ _("Inactive") }}',
             manualDisabled: '{{ _("Manual disabled") }}',
             autoDisabled: '{{ _("Auto disabled") }}',
-            viewModels: '{{ _("View Models") }}',
-            upstreamModels: '{{ _("Upstream Models") }}',
+            bindFromApiTitle: '{{ _("Bind models from API") }}',
+            alreadyBound: '{{ _("Bound") }}',
+            bindSelected: '{{ _("Bind selected") }}',
+            selectModelsFirst: '{{ _("Please select at least one model") }}',
             noUpstreamModels: '{{ _("No upstream models") }}',
-            syncedCount: '{{ _("Total {count} models") }}',
             keys: '{{ _("Keys") }}',
             edit: '{{ _("Edit") }}',
             delete: '{{ _("Delete") }}',
@@ -887,63 +898,103 @@
             } catch(e) {}
         }
 
-        async function syncSelectedProvider() {
-            if (!selectedProviderId) {
-                showToast(t('selectProviderFirst', 'Please select a provider first'), 'info');
-                return;
-            }
-            const btn = document.getElementById('sync-btn') || (window.event ? window.event.target : null);
-            if (!btn) {
-                showToast(t('syncButtonNotFound', 'Sync button not found'), 'error');
-                return;
-            }
-            const originalText = btn.textContent;
-            btn.disabled = true;
-            btn.textContent = t('syncing', 'Syncing...');
-            try {
-                const data = await mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + selectedProviderId + '/sync-models', {method: 'POST'}, {error: t('syncFailed', 'Sync failed')});
-                if (data.synced) {
-                    showToast(formatI18n('syncedModels', {count: data.total, names: data.synced.join(', ')}, `Synced ${data.total} models: ${data.synced.join(', ')}`), 'success');
-                    loadModels();
-                    loadProviderModelRoutes();
-                } else if (data.error) {
-                    showToast(`${t('syncFailed', 'Sync failed')}: ${data.error}`, 'error');
-                }
-            } catch(e) {}
-            btn.disabled = false;
-            btn.textContent = originalText;
-        }
+        let bindDialogProviderId = null;
+        let bindDialogModels = [];
 
-        async function viewUpstreamModels() {
+        async function openBindFromApiDialog() {
             const providerId = parseInt(document.getElementById('routing-bind-provider').value, 10) || selectedProviderId;
             if (!providerId) {
                 showToast(t('selectProviderFirst', 'Please select a provider first'), 'info');
                 return;
             }
+            bindDialogProviderId = providerId;
             const modal = document.getElementById('upstream-models-modal');
             const list = document.getElementById('upstream-models-list');
-            document.getElementById('upstream-models-title').textContent = `${t('upstreamModels', 'Upstream Models')} (#${providerId})`;
+            document.getElementById('upstream-models-title').textContent = `${t('bindFromApiTitle', 'Bind models from API')} (#${providerId})`;
             list.innerHTML = `<div class="text-gray-400 text-center py-4">${t('loading', 'Loading...')}</div>`;
+            const bindBtn = document.getElementById('bind-selected-btn');
+            bindBtn.disabled = true;
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
             try {
-                const data = await mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/upstream-models', {}, {error: t('failedToLoad', 'Failed to load')});
-                if (data.error) {
-                    list.innerHTML = `<div class="text-red-500">${escapeHtml(data.error)}</div>`;
+                const [up, bound] = await Promise.all([
+                    mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/upstream-models', {}, {error: t('failedToLoad', 'Failed to load')}),
+                    mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + providerId + '/models', {}, {error: t('failedToLoad', 'Failed to load')}),
+                ]);
+                if (up.error) {
+                    list.innerHTML = `<div class="text-red-500">${escapeHtml(up.error)}</div>`;
                     return;
                 }
-                const names = data.models || [];
-                if (!names.length) {
-                    list.innerHTML = `<div class="text-gray-400 text-center py-4">${t('noUpstreamModels', 'No upstream models')}</div>`;
-                    return;
-                }
-                list.innerHTML = `<div class="text-xs text-gray-500 mb-2">${formatI18n('syncedCount', {count: names.length}, names.length + '')}</div>` +
-                    names.map(n => `<div class="py-1 px-2 border-b border-gray-100 font-mono">${escapeHtml(n)}</div>`).join('');
+                const boundSet = new Set(((bound.models) || []).map(m => m.upstream_model_name));
+                bindDialogModels = (up.models || []).map(n => ({name: n, bound: boundSet.has(n)}));
+                renderBindModelList();
+                bindBtn.disabled = false;
             } catch (e) {}
         }
 
-        function closeUpstreamModelsModal() {
+        function renderBindModelList() {
+            const list = document.getElementById('upstream-models-list');
+            if (!bindDialogModels.length) {
+                list.innerHTML = `<div class="text-gray-400 text-center py-4">${t('noUpstreamModels', 'No upstream models')}</div>`;
+                updateBindSelectedLabel();
+                return;
+            }
+            list.innerHTML = bindDialogModels.map((m, i) => `
+                <label class="flex items-center gap-2 py-1.5 px-2 border-b border-gray-100 cursor-pointer">
+                    <input type="checkbox" class="bind-model-checkbox accent-blue-500" data-index="${i}" ${m.bound ? 'checked disabled' : 'checked'}>
+                    <span class="font-mono">${escapeHtml(m.name)}</span>
+                    ${m.bound ? `<span class="text-xs text-gray-400">${t('alreadyBound', 'Bound')}</span>` : ''}
+                </label>`).join('');
+            list.querySelectorAll('.bind-model-checkbox').forEach(cb => cb.addEventListener('change', updateBindSelectedLabel));
+            updateBindSelectedLabel();
+        }
+
+        function getSelectedBindModels() {
+            return Array.from(document.querySelectorAll('.bind-model-checkbox'))
+                .filter(cb => cb.checked && !cb.disabled)
+                .map(cb => bindDialogModels[parseInt(cb.dataset.index, 10)].name);
+        }
+
+        function updateBindSelectedLabel() {
+            const btn = document.getElementById('bind-selected-btn');
+            if (btn) btn.textContent = `${t('bindSelected', 'Bind selected')} (${getSelectedBindModels().length})`;
+        }
+
+        function selectAllBindModels(on) {
+            document.querySelectorAll('.bind-model-checkbox').forEach(cb => { if (!cb.disabled) cb.checked = on; });
+            updateBindSelectedLabel();
+        }
+
+        async function confirmBindFromApi() {
+            const names = getSelectedBindModels();
+            if (!names.length) {
+                showToast(t('selectModelsFirst', 'Please select at least one model'), 'info');
+                return;
+            }
+            const btn = document.getElementById('bind-selected-btn');
+            btn.disabled = true;
+            try {
+                const data = await mgFetchJson(`${APP_BASE_PATH}/admin/api/providers/` + bindDialogProviderId + '/sync-models', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({models: names}),
+                }, {error: t('syncFailed', 'Sync failed')});
+                if (data.error) {
+                    showToast(`${t('syncFailed', 'Sync failed')}: ${data.error}`, 'error');
+                    btn.disabled = false;
+                    return;
+                }
+                showToast(formatI18n('syncedModels', {count: data.total, names: (data.synced || []).join(', ')}, `Bound ${data.total} models`), 'success');
+                closeBindFromApiDialog();
+                loadModels();
+                loadProviderModelRoutes();
+            } catch (e) {
+                btn.disabled = false;
+            }
+        }
+
+        function closeBindFromApiDialog() {
             const modal = document.getElementById('upstream-models-modal');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
@@ -3111,20 +3162,9 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({model_id: modelId, is_active: true})
                 }, {success: '绑定已添加', error: '添加绑定失败'});
-                selectedProviderId = providerId;
-                await loadProviderModelRoutes();
-            } catch(e) {}
-        }
-
-        async function syncRoutingProvider() {
-            const providerId = parseInt(document.getElementById('routing-bind-provider').value, 10) || selectedProviderId;
-            if (!providerId) {
-                showToast(t('selectProviderFirst', 'Please select a provider first'), 'info');
-                return;
-            }
             selectedProviderId = providerId;
-            await syncSelectedProvider();
             await loadProviderModelRoutes();
+        } catch(e) {}
         }
 
         async function updateRouteUpstream(providerId, pmId, value) {

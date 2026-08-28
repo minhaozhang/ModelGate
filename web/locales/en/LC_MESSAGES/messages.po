@@ -2927,3 +2927,21 @@ msgstr "No upstream models"
 
 msgid "Total {count} models"
 msgstr "Total {count} models"
+
+msgid "Bind from API"
+msgstr "Bind from API"
+
+msgid "Bind models from API"
+msgstr "Bind models from API"
+
+msgid "Bound"
+msgstr "Bound"
+
+msgid "Bind selected"
+msgstr "Bind selected"
+
+msgid "Please select at least one model"
+msgstr "Please select at least one model"
+
+msgid "Uncheck models you do not want; already bound models stay checked"
+msgstr "Uncheck models you do not want; already bound models stay checked"

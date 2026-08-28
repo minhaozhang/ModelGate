@@ -3002,3 +3002,21 @@ msgstr "上游未返回模型"
 
 msgid "Total {count} models"
 msgstr "共 {count} 个模型"
+
+msgid "Bind from API"
+msgstr "从 API 绑定"
+
+msgid "Bind models from API"
+msgstr "从 API 绑定模型"
+
+msgid "Bound"
+msgstr "已绑定"
+
+msgid "Bind selected"
+msgstr "绑定选中"
+
+msgid "Please select at least one model"
+msgstr "请至少选择一个模型"
+
+msgid "Uncheck models you do not want; already bound models stay checked"
+msgstr "取消勾选不需要的模型；已绑定的模型保持勾选且不可更改"
