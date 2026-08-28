@@ -1769,7 +1769,7 @@
         }
         
         async function loadMyRequests() {
-            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active');
+            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active?limit=50');
             const list = data.requests || [];
             const el = document.getElementById('my-requests-list');
             if (!list.length) {
@@ -1777,6 +1777,15 @@
                 return;
             }
             el.innerHTML = list.map(r => renderRequestRow(r, false)).join('');
+            // Fill the card exactly: drop rows that would overflow, never scroll.
+            const base = el.getBoundingClientRect().top;
+            let visible = 0;
+            for (const row of [...el.children]) {
+                const rect = row.getBoundingClientRect();
+                if (rect.bottom - base <= el.clientHeight + 1) visible++;
+                else break;
+            }
+            [...el.children].slice(visible).forEach(row => row.remove());
         }
 
         function renderRequestRow(r, showProvider) {
@@ -1822,6 +1831,7 @@
             const modal = document.getElementById('my-requests-modal');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
             _myReqOpen = true;
             if (!_myReqInited) initMyRequestsModal();
             loadMyRequestsModal(1);
@@ -1830,6 +1840,7 @@
             const modal = document.getElementById('my-requests-modal');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+            document.body.style.overflow = '';
             _myReqOpen = false;
         }
 

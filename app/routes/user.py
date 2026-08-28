@@ -1045,10 +1045,13 @@ async def mark_all_user_notifications_read(
 
 @router.get("/user/api/active")
 async def get_user_recent_requests(
-    request: Request, api_key_id: int = Depends(get_user_session)
+    request: Request,
+    api_key_id: int = Depends(get_user_session),
+    limit: int = 5,
 ):
     if not api_key_id:
         return translated_error(request, "Not authenticated", 401)
+    limit = max(1, min(limit, 100))
 
     async with async_session_maker() as session:
         result = await session.execute(
@@ -1064,7 +1067,7 @@ async def get_user_recent_requests(
             )
             .where(RequestLog.api_key_id == api_key_id)
             .order_by(RequestLog.created_at.desc())
-            .limit(5)
+            .limit(limit)
         )
         rows = result.fetchall()
 

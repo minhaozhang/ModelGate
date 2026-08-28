@@ -100,12 +100,12 @@
                 </div>
             </div>
         </div>
-        <div class="bg-gray-50 rounded-lg p-4">
-            <div class="flex justify-between items-center mb-3">
+        <div class="bg-gray-50 rounded-lg p-4 flex flex-col max-h-[22rem] xl:max-h-none">
+            <div class="flex justify-between items-center mb-3 shrink-0">
                 <h3 class="text-lg font-semibold">{{ _('My Requests') }}</h3>
                 <button onclick="openMyRequestsModal()" class="text-xs text-blue-600 hover:underline">{{ _('View All') }} &rarr;</button>
             </div>
-            <div id="my-requests-list"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
+            <div id="my-requests-list" class="flex-1 min-h-0 overflow-hidden"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
         </div>
         <div class="bg-gray-50 rounded-lg p-4">
             <div class="flex justify-between items-center mb-3">
