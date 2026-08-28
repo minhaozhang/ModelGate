@@ -106,14 +106,31 @@
         const BASE = {{ app_base_path | tojson }};
         const docId = {{ doc.id }};
         const content = {{ doc.content | tojson }};
-        document.getElementById('doc-content').innerHTML = marked.parse(content);
 
-        function getThemeMode() { return localStorage.getItem('admin_theme') || 'dark'; }
+        function sanitizeHtml(html) {
+            const tpl = document.createElement('template');
+            tpl.innerHTML = html;
+            tpl.content.querySelectorAll('script,iframe,object,embed').forEach(n => n.remove());
+            tpl.content.querySelectorAll('*').forEach(el => {
+                [...el.attributes].forEach(attr => {
+                    const name = attr.name.toLowerCase();
+                    const value = attr.value.trim().toLowerCase().replace(/[\s\x00-\x1f]/g, '');
+                    if (name.startsWith('on')) { el.removeAttribute(attr.name); return; }
+                    if ((name === 'href' || name === 'src' || name === 'xlink:href') && (value.startsWith('javascript:') || value.startsWith('data:text/html') || value.startsWith('vbscript:'))) {
+                        el.removeAttribute(attr.name);
+                    }
+                });
+            });
+            return tpl.innerHTML;
+        }
+        document.getElementById('doc-content').innerHTML = sanitizeHtml(marked.parse(content));
+
+        function getThemeMode() { return localStorage.getItem('dashboard_theme') || 'dark'; }
         function applyTheme(mode) {
             document.body.classList.remove('theme-dark', 'theme-blackgold');
             if (mode === 'dark') document.body.classList.add('theme-dark');
             else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
-            localStorage.setItem('admin_theme', mode);
+            localStorage.setItem('dashboard_theme', mode);
         }
         applyTheme(getThemeMode());
         function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }

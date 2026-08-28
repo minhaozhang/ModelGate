@@ -487,6 +487,27 @@
         document.getElementById('base-js-anthropic').textContent = baseUrl;
         document.getElementById('base-curl-anthropic').textContent = baseUrl;
 
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function sanitizeHtml(html) {
+            const tpl = document.createElement('template');
+            tpl.innerHTML = html;
+            tpl.content.querySelectorAll('script,iframe,object,embed').forEach(n => n.remove());
+            tpl.content.querySelectorAll('*').forEach(el => {
+                [...el.attributes].forEach(attr => {
+                    const name = attr.name.toLowerCase();
+                    const value = attr.value.trim().toLowerCase().replace(/[\s\x00-\x1f]/g, '');
+                    if (name.startsWith('on')) { el.removeAttribute(attr.name); return; }
+                    if ((name === 'href' || name === 'src' || name === 'xlink:href') && (value.startsWith('javascript:') || value.startsWith('data:text/html') || value.startsWith('vbscript:'))) {
+                        el.removeAttribute(attr.name);
+                    }
+                });
+            });
+            return tpl.innerHTML;
+        }
+
         function getThemeMode() {
             return localStorage.getItem('dashboard_theme') || 'dark';
         }
@@ -620,8 +641,8 @@
                     const div = document.createElement('div');
                     div.className = 'bg-white rounded-lg p-3 shadow-sm';
                     div.innerHTML = `
-                        <div class="font-mono text-sm font-semibold text-blue-600 mb-1">${tool.name}</div>
-                        <div class="text-gray-500 text-xs">${tool.description || ''}</div>
+                        <div class="font-mono text-sm font-semibold text-blue-600 mb-1">${escapeHtml(tool.name)}</div>
+                        <div class="text-gray-500 text-xs">${escapeHtml(tool.description || '')}</div>
                     `;
                     toolsList.appendChild(div);
                 });
@@ -662,11 +683,11 @@
             emptyEl.style.display = 'none';
             listEl.innerHTML = docs.map(doc => `
                 <div onclick="openDocDetail(${doc.id})" class="cursor-pointer bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow border border-transparent hover:border-blue-200">
-                    <h3 class="font-semibold text-gray-800 mb-1">${doc.title}</h3>
-                    ${doc.category ? '<span class="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mb-2">' + doc.category + '</span>' : ''}
-                    ${doc.summary ? '<p class="text-sm text-gray-500">' + doc.summary + '</p>' : ''}
+                    <h3 class="font-semibold text-gray-800 mb-1">${escapeHtml(doc.title)}</h3>
+                    ${doc.category ? '<span class="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mb-2">' + escapeHtml(doc.category) + '</span>' : ''}
+                    ${doc.summary ? '<p class="text-sm text-gray-500">' + escapeHtml(doc.summary) + '</p>' : ''}
                     <div class="mt-3 flex items-center justify-between gap-3">
-                        <div class="text-xs text-gray-400">${doc.updated_at || ''}</div>
+                        <div class="text-xs text-gray-400">${escapeHtml(doc.updated_at || '')}</div>
                         <button type="button" onclick="event.stopPropagation();openDocDetail(${doc.id})" class="text-xs text-blue-600 hover:underline">${window.I18N.viewDetails}</button>
                     </div>
                 </div>
@@ -680,9 +701,9 @@
             const doc = await res.json();
             document.getElementById('doc-detail-title').textContent = doc.title || '';
             document.getElementById('doc-detail-meta').innerHTML =
-                (doc.category ? '<span class="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mr-2">' + doc.category + '</span>' : '') +
-                (doc.updated_at || '');
-            document.getElementById('doc-detail-content').innerHTML = marked.parse(doc.content || '');
+                (doc.category ? '<span class="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded mr-2">' + escapeHtml(doc.category) + '</span>' : '') +
+                escapeHtml(doc.updated_at || '');
+            document.getElementById('doc-detail-content').innerHTML = sanitizeHtml(marked.parse(doc.content || ''));
             document.getElementById('doc-list-view').style.display = 'none';
             document.getElementById('doc-detail-view').style.display = '';
             document.getElementById('doc-detail-view').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -729,7 +750,7 @@
                 html += model.tier_samples.map(t => {
                     const lo = t.min_context_tokens != null ? formatCompactTokens(t.min_context_tokens) : '0';
                     const hi = t.max_context_tokens != null ? formatCompactTokens(t.max_context_tokens) : '∞';
-                    return `<div class="flex justify-between text-xs text-gray-500"><span>${lo} - ${hi}</span><span>输入 ¥${t.input_price} / 输出 ¥${t.output_price}</span></div>`;
+                    return `<div class="flex justify-between text-xs text-gray-500"><span>${lo} - ${hi}</span><span>输入 ¥${escapeHtml(t.input_price)} / 输出 ¥${escapeHtml(t.output_price)}</span></div>`;
                 }).join('');
                 html += `</div>`;
             }
@@ -806,15 +827,15 @@
                                 ? `<span class="rounded-full bg-amber-50 px-2 py-1 text-amber-700">¥${model.min_input_price} 起 / 输入</span>`
                                 : `<span class="rounded-full bg-black/5 px-2 py-1 text-gray-400">价格未配置</span>`;
                             const priceBtn = model.min_input_price != null
-                                ? `<button onclick="showPriceDetail('${model.model_name}')" class="rounded-full bg-blue-50 px-2 py-1 text-blue-700 hover:bg-blue-100">查价</button>`
+                                ? `<button data-m="${escapeHtml(model.model_name)}" onclick="showPriceDetail(this.dataset.m)" class="rounded-full bg-blue-50 px-2 py-1 text-blue-700 hover:bg-blue-100">查价</button>`
                                 : '';
                             return `
                                 <div class="relative rounded-2xl border ${tone} px-3 py-3 shadow-sm transition hover:-translate-y-0.5">
                                     ${unavailableBadge}
                                     <div class="flex items-start justify-between gap-2">
                                         <div class="min-w-0">
-                                            <div class="text-sm font-semibold truncate" title="${model.model_name}">${model.display_name}</div>
-                                            <div class="mt-0.5 text-[11px] text-gray-500 truncate">${model.model_name}</div>
+                                            <div class="text-sm font-semibold truncate" title="${escapeHtml(model.model_name)}">${escapeHtml(model.display_name)}</div>
+                                            <div class="mt-0.5 text-[11px] text-gray-500 truncate">${escapeHtml(model.model_name)}</div>
                                         </div>
                                         ${badge}
                                     </div>
@@ -834,7 +855,7 @@
                             <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                                 <div class="flex items-center justify-between gap-3 mb-3">
                                     <div>
-                                        <div class="font-semibold text-sm">${group.name}</div>
+                                        <div class="font-semibold text-sm">${escapeHtml(group.name)}</div>
                                         <div class="mt-1 text-[11px] text-gray-500">${window.I18N.platformProviderCatalog}</div>
                                     </div>
                                     <div class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 shrink-0">${group.model_count} ${window.I18N.models}</div>
@@ -859,15 +880,15 @@
                             ? `<span class="rounded-full bg-amber-50 px-2 py-1 text-amber-700">¥${model.min_input_price} 起 / 输入</span>`
                             : `<span class="rounded-full bg-white/70 px-2 py-1 text-gray-400">价格未配置</span>`;
                         const priceBtn = model.min_input_price != null
-                            ? `<button onclick="showPriceDetail('${model.model_name}')" class="rounded-full bg-white/70 px-2 py-1 text-blue-700 hover:bg-blue-100">查价</button>`
+                            ? `<button data-m="${escapeHtml(model.model_name)}" onclick="showPriceDetail(this.dataset.m)" class="rounded-full bg-white/70 px-2 py-1 text-blue-700 hover:bg-blue-100">查价</button>`
                             : '';
                         return `
                         <div class="relative rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 px-3 py-3 shadow-sm">
                             ${unavailableBadge}
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0">
-                                    <div class="text-sm font-semibold truncate" title="${model.model_name}">${model.display_name}</div>
-                                    <div class="mt-0.5 text-[11px] text-emerald-700/80 truncate">${model.model_name}</div>
+                                    <div class="text-sm font-semibold truncate" title="${escapeHtml(model.model_name)}">${escapeHtml(model.display_name)}</div>
+                                    <div class="mt-0.5 text-[11px] text-emerald-700/80 truncate">${escapeHtml(model.model_name)}</div>
                                 </div>
                                 <span class="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${window.I18N.access}</span>
                             </div>
@@ -885,7 +906,7 @@
                         <div class="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
                             <div class="flex items-center justify-between gap-3 mb-3">
                                 <div>
-                                    <div class="font-semibold text-sm">${group.name}</div>
+                                    <div class="font-semibold text-sm">${escapeHtml(group.name)}</div>
                                     <div class="mt-1 text-[11px] text-gray-500">${window.I18N.modelsThisKeyCanUse}</div>
                                 </div>
                                 <div class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs text-emerald-700 shrink-0">${group.model_count} ${window.I18N.models}</div>
@@ -922,7 +943,7 @@
                 <div class="rounded bg-white p-3 shadow-sm">
                     <div class="flex items-center gap-2 min-w-0">
                         <span class="inline-block h-2.5 w-2.5 rounded-full" style="background:${palette[index % palette.length]}"></span>
-                        <span class="truncate text-sm font-medium" title="${name}">${name}</span>
+                        <span class="truncate text-sm font-medium" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
                     </div>
                     <div class="mt-2 text-xs text-gray-500">${stats.requests.toLocaleString()} ${window.I18N.req} / ${formatCompactTokens(stats.tokens || 0)}</div>
                     ${typeof stats.errors === 'number' ? `<div class="mt-1 text-xs text-gray-400">${window.I18N.err} ${stats.errors}</div>` : ''}
@@ -1094,13 +1115,13 @@
                 const labelClass = session.is_self ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-700';
                 const modelsHtml = Object.entries(session.models || {})
                     .sort((a, b) => b[1] - a[1])
-                    .map(([model, count]) => `<span class="bg-white text-gray-600 text-xs px-2 py-1 rounded">${model} (${count})</span>`)
+                    .map(([model, count]) => `<span class="bg-white text-gray-600 text-xs px-2 py-1 rounded">${escapeHtml(model)} (${count})</span>`)
                     .join(' ');
                 return `
                     <div class="rounded bg-white p-3 shadow-sm">
                         <div class="flex justify-between items-start gap-3">
                             <div class="min-w-0">
-                                <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium ${labelClass}">${session.name}</span>
+                                <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium ${labelClass}">${escapeHtml(session.name)}</span>
                                 <div class="mt-2 text-xs text-gray-500">${modelsHtml || window.I18N.noModels}</div>
                             </div>
                             <div class="text-sm font-medium text-gray-700 shrink-0">${session.requests} ${window.I18N.req}</div>
@@ -1338,7 +1359,7 @@
                 return `
                     <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
                         <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full ${scoreClass} px-1.5 text-[11px] font-semibold text-white">#${item.rank}</span>
-                        <span class="max-w-[13rem] truncate font-medium">${item.display_name || item.actual_model_name}</span>
+                        <span class="max-w-[13rem] truncate font-medium">${escapeHtml(item.display_name || item.actual_model_name)}</span>
                         <span class="text-xs text-gray-400">${item.requests}req · ${errPct}%err · ${latStr}</span>
                     </div>
                 `;
@@ -1795,19 +1816,19 @@
             const latency = r.latency_ms != null ? (r.latency_ms >= 1000 ? (r.latency_ms / 1000).toFixed(1) + 's' : r.latency_ms + 'ms') : '-';
             const tokens = r.tokens > 0 ? formatCompactTokens(r.tokens) : '-';
             const time = r.created_at ? new Date(r.created_at).toLocaleString() : '';
-            const errorHtml = r.error ? `<div class="text-xs text-red-500 mt-1 truncate" title="${r.error}">${r.error}</div>` : '';
+            const errorHtml = r.error ? `<div class="text-xs text-red-500 mt-1 truncate" title="${escapeHtml(r.error)}">${escapeHtml(r.error)}</div>` : '';
             const ctx = r.context_tokens > 0 ? formatCompactTokens(r.context_tokens) : '-';
             const inputT = r.input_tokens > 0 ? formatCompactTokens(r.input_tokens) : '-';
             const outputT = r.output_tokens > 0 ? formatCompactTokens(r.output_tokens) : '-';
             const cachedT = r.cached_tokens > 0 ? formatCompactTokens(r.cached_tokens) : '-';
             const cachePct = r.cache_ratio > 0 ? r.cache_ratio + '%' : '-';
             const cost = r.cost_cny > 0 ? '¥' + (r.cost_cny >= 0.01 ? r.cost_cny.toFixed(4) : r.cost_cny.toFixed(6)) : '-';
-            const providerTag = showProvider && r.provider ? `<span class="text-gray-400">·</span><span>${r.provider}</span>` : '';
+            const providerTag = showProvider && r.provider ? `<span class="text-gray-400">·</span><span>${escapeHtml(r.provider)}</span>` : '';
             return `
                 <div class="rounded bg-gray-50 p-2 mb-1.5 last:mb-0">
                     <div class="flex items-center gap-2 text-sm">
                         ${statusDot}
-                        <span class="font-medium truncate">${r.model}</span>
+                        <span class="font-medium truncate">${escapeHtml(r.model)}</span>
                         <span class="text-gray-400 text-xs ml-auto shrink-0">${time}</span>
                     </div>
                     <div class="flex items-center gap-2.5 mt-0.5 text-xs text-gray-500 flex-wrap">
@@ -1895,7 +1916,7 @@
             const modelSel = document.getElementById('my-requests-model');
             const curModel = modelSel.value;
             modelSel.innerHTML = `<option value="">${window.I18N.allModels || 'All Models'}</option>`
-                + (data.models || []).map(m => `<option value="${m}" ${m === curModel ? 'selected' : ''}>${m}</option>`).join('');
+                + (data.models || []).map(m => `<option value="${escapeHtml(m)}" ${m === curModel ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('');
             const list = data.requests || [];
             if (!list.length) {
                 listEl.innerHTML = `<div class="text-gray-400 text-center py-8">${window.I18N.noRequests || 'No requests'}</div>`;
@@ -1984,8 +2005,8 @@
                     '<div class="flex items-start gap-2">' +
                         '<div class="w-2 h-2 rounded-full ' + ld + ' mt-1.5 shrink-0"></div>' +
                         '<div class="flex-1 min-w-0">' +
-                            '<div class="flex justify-between gap-2"><span class="font-medium text-gray-700 text-sm">' + (n.title||'') + '</span><span class="text-xs text-gray-400 shrink-0">' + new Date(n.created_at).toLocaleString() + '</span></div>' +
-                            (n.body ? '<p class="text-xs text-gray-500 mt-1">' + n.body + '</p>' : '') +
+                            '<div class="flex justify-between gap-2"><span class="font-medium text-gray-700 text-sm">' + escapeHtml(n.title||'') + '</span><span class="text-xs text-gray-400 shrink-0">' + new Date(n.created_at).toLocaleString() + '</span></div>' +
+                            (n.body ? '<p class="text-xs text-gray-500 mt-1">' + escapeHtml(n.body) + '</p>' : '') +
                         '</div>' +
                     '</div>' +
                 '</div>';
