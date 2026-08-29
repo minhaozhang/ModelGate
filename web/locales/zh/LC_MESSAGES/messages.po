@@ -3026,3 +3026,39 @@ msgstr "禁用 Key"
 
 msgid "Download billing details"
 msgstr "下载费用明细"
+
+msgid "Overview"
+msgstr "概览"
+
+msgid "Mark all read"
+msgstr "全部已读"
+
+msgid "Load more"
+msgstr "加载更多"
+
+msgid "No logs in range"
+msgstr "该时间范围内暂无日志"
+
+msgid "Just now"
+msgstr "刚刚"
+
+msgid "{n}m ago"
+msgstr "{n}分钟前"
+
+msgid "{n}h ago"
+msgstr "{n}小时前"
+
+msgid "{n}d ago"
+msgstr "{n}天前"
+
+msgid "No keys"
+msgstr "暂无密钥"
+
+msgid "Disable {name}?"
+msgstr "禁用 {name}？"
+
+msgid "Enable {name}?"
+msgstr "启用 {name}？"
+
+msgid "Disable reason (optional)"
+msgstr "禁用原因（可选）"

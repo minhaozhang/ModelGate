@@ -55,6 +55,23 @@
         .warn-icon { position: relative; display: inline-flex; align-items: center; cursor: pointer; color: #ef4444; vertical-align: middle; }
         .warn-icon .warn-tip { display: none; position: absolute; left: 0; bottom: calc(100% + 6px); background: #1f2937; color: #f9fafb; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; max-width: min(400px, 80vw); z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; }
         .warn-icon:hover .warn-tip { display: block; }
+        .mobile-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: flex; border-top: 1px solid rgba(148,163,184,0.2); padding-bottom: env(safe-area-inset-bottom); }
+        .mobile-tab-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 6px; font-size: 10px; color: #64748b; background: transparent !important; border: none; }
+        .mobile-tab-btn.active { color: #3b82f6; }
+        .mswitch { position: relative; display: inline-block; width: 34px; height: 20px; flex-shrink: 0; }
+        .mswitch input { display: none; }
+        .mswitch .mslider { position: absolute; inset: 0; border-radius: 9999px; background: #475569; transition: background 0.2s; }
+        .mswitch .mslider::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+        .mswitch input:checked + .mslider { background: #22c55e; }
+        .mswitch input:checked + .mslider::after { transform: translateX(14px); }
+        .log-chip { padding: 4px 12px; border-radius: 9999px; font-size: 11px; border: 1px solid rgba(148,163,184,0.3); color: #94a3b8; background: transparent !important; }
+        .log-chip.active { background: #3b82f6 !important; border-color: #3b82f6; color: #fff; }
+        .notif-unread { border-left: 2px solid #3b82f6; }
+        .notif-read { opacity: 0.6; }
+        body.theme-dark .mobile-tab-btn { color: #64748b; border-color: transparent; }
+        body.theme-dark .mobile-tab-btn.active { color: #3b82f6; }
+        body.theme-dark .log-chip { color: #94a3b8; border-color: rgba(148,163,184,0.3); }
+        body.theme-dark .log-chip.active { color: #fff; border-color: #3b82f6; }
     </style>
 </head>
 <body class="theme-dark bg-gray-50 min-h-screen pb-20">
@@ -84,7 +101,7 @@
         </div>
     </nav>
 
-    <div class="px-4 pt-4 space-y-4">
+    <div class="px-4 pt-4 space-y-4" id="tab-overview">
         <div id="provider-status-banner" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5">
             <div class="flex items-start gap-2">
                 <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -216,6 +233,45 @@
         </div>
     </div>
 
+    <div id="tab-notifications" class="px-4 pt-4 space-y-3 hidden">
+        <div class="flex items-center justify-between">
+            <span class="font-medium text-sm text-gray-800">{{ _('Notifications') }}</span>
+            <button onclick="markAllNotificationsRead()" class="text-xs text-blue-400">{{ _('Mark all read') }}</button>
+        </div>
+        <div id="notif-list" class="space-y-2"></div>
+        <div class="text-center">
+            <button id="notif-more" onclick="loadNotifications(true)" class="hidden text-xs text-blue-400 py-2">{{ _('Load more') }}</button>
+        </div>
+    </div>
+
+    <div id="tab-logs" class="px-4 pt-4 space-y-3 hidden">
+        <div class="flex items-center gap-2">
+            <button class="log-chip active" onclick="setLogsStatus('', this)">{{ _('All') }}</button>
+            <button class="log-chip" onclick="setLogsStatus('error', this)">{{ _('Errors') }}</button>
+            <button class="log-chip" onclick="setLogsStatus('timeout', this)">{{ _('Timeouts') }}</button>
+        </div>
+        <div id="logs-list" class="space-y-2"></div>
+        <div class="text-center">
+            <button id="logs-more" onclick="loadLogs(true)" class="hidden text-xs text-blue-400 py-2">{{ _('Load more') }}</button>
+        </div>
+    </div>
+
+    <div id="mobile-tabbar" class="mobile-tabbar bg-white">
+        <button class="mobile-tab-btn active" data-tab="overview" onclick="switchMobileTab('overview')">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            <span>{{ _('Overview') }}</span>
+        </button>
+        <button class="mobile-tab-btn relative" data-tab="notifications" onclick="switchMobileTab('notifications')">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <span>{{ _('Notifications') }}</span>
+            <span id="notif-badge" class="hidden absolute top-0.5 right-6 bg-red-500 text-white text-[9px] rounded-full px-1 min-w-[16px] text-center leading-4">0</span>
+        </button>
+        <button class="mobile-tab-btn" data-tab="logs" onclick="switchMobileTab('logs')">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+            <span>{{ _('Request Logs') }}</span>
+        </button>
+    </div>
+
     {% include 'components/lang_switch.html' %}
     <script>
     window.I18N = {
@@ -232,6 +288,18 @@
         providerUnavailable: "{{ _('Provider unavailable') }}",
         providerUnavailableLine: "{{ _('Provider {name} is unavailable: {reason}') }}",
         expectedRestoreAt: "{{ _('expected restore at {time}') }}",
+        noNotifications: "{{ _('No notifications') }}",
+        noLogs: "{{ _('No logs in range') }}",
+        justNow: "{{ _('Just now') }}",
+        minutesAgo: "{{ _('{n}m ago') }}",
+        hoursAgo: "{{ _('{n}h ago') }}",
+        daysAgo: "{{ _('{n}d ago') }}",
+        keys: "{{ _('Keys') }}",
+        noKeys: "{{ _('No keys') }}",
+        disableConfirm: "{{ _('Disable {name}?') }}",
+        enableConfirm: "{{ _('Enable {name}?') }}",
+        disableReasonPrompt: "{{ _('Disable reason (optional)') }}",
+        opFailed: "{{ _('Operation failed') }}",
     };
     </script>
     <script>
@@ -241,6 +309,15 @@
         let liveStatsSocket = null;
         let liveStatsReconnectTimer = null;
         let adminAuthRedirecting = false;
+        let providersByName = {};
+        let currentTab = 'overview';
+        let notifPage = 1;
+        let notifTotal = 0;
+        let notifLoaded = false;
+        let logsPage = 1;
+        let logsTotal = 0;
+        let logsStatus = '';
+        let logsLoaded = false;
         const MOBILE_HOME_OVERVIEW_REFRESH_MS = 8000;
         const MOBILE_HOME_SLOW_REFRESH_MS = 5000;
 
@@ -315,7 +392,11 @@
         }
 
         function renderProviderBars(providers, disabledProviders) {
-            const entries = Object.entries(providers)
+            const stats = providers || {};
+            for (const name of Object.keys(providersByName)) {
+                if (!(name in stats)) stats[name] = { requests: 0, tokens: 0 };
+            }
+            const entries = Object.entries(stats)
                 .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0));
             const maxTokens = Math.max(...entries.map(([, p]) => p.tokens || 0), 1);
             const disabledCount = Object.keys(disabledProviders || {}).length;
@@ -330,13 +411,21 @@
                 const hasKeys = p.keys && Object.values(p.keys).some(k => (k.requests || 0) > 0);
                 const breakdownHtml = hasKeys ? renderProviderKeyList(p.keys) : renderModelList(p.models);
                 const isDisabled = disabledProviders && disabledProviders[name];
+                const provInfo = providersByName[name];
                 const warnIcon = isDisabled
-                    ? `<span class="warn-icon ml-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${isDisabled}</span></span>`
+                    ? `<span class="warn-icon ml-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${esc(isDisabled)}</span></span>`
                     : '';
-                return `<div class="bg-gray-50 rounded-lg p-3">
-                    <div class="flex justify-between text-xs gap-2"><span class="font-medium truncate">${name}${warnIcon}</span><span class="text-gray-500 shrink-0">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span></div>
+                const switchHtml = provInfo
+                    ? `<label class="mswitch"><input type="checkbox" data-prov-id="${provInfo.id}" ${provInfo.is_active ? 'checked' : ''}><span class="mslider"></span></label>`
+                    : '';
+                const keysExpandHtml = provInfo
+                    ? `<div class="mt-1.5"><button class="text-[10px] text-blue-400" data-expand-keys="${provInfo.id}">${window.I18N.keys} &#9656;</button><div id="prov-keys-${provInfo.id}" class="hidden mt-1.5 space-y-1.5"></div></div>`
+                    : '';
+                return `<div class="bg-gray-50 rounded-lg p-3 ${isDisabled ? 'opacity-70' : ''}">
+                    <div class="flex justify-between items-center text-xs gap-2"><span class="font-medium truncate">${esc(name)}${warnIcon}</span><span class="flex items-center gap-2 shrink-0"><span class="text-gray-500">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span>${switchHtml}</span></div>
                     <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>
                     ${breakdownHtml}
+                    ${keysExpandHtml}
                 </div>`;
             }).join('');
             document.getElementById('provider-bars').innerHTML = html || `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noData}</div>`;
@@ -633,12 +722,17 @@
         async function loadData() {
             const period = document.getElementById('period-select').value;
             try {
-                const [statsResp, chartResp] = await Promise.all([
+                const [statsResp, chartResp, providersResp] = await Promise.all([
                     fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/period?period=` + period),
-                    fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/chart?period=` + period)
+                    fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/chart?period=` + period),
+                    fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers`)
                 ]);
                 const data = statsResp;
                 const chartData = chartResp;
+                providersByName = {};
+                ((providersResp && providersResp.providers) || []).forEach(p => {
+                    providersByName[p.name] = p;
+                });
 
                 flipCounter('total-requests', (data.total_requests || 0).toLocaleString());
                 flipCounter('total-tokens', formatCompactTokens(data.total_tokens || 0));
@@ -836,6 +930,229 @@
             } catch(e) {}
         }
 
+        function esc(s) {
+            return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function relTime(iso) {
+            if (!iso) return '';
+            const diff = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+            if (diff < 60) return window.I18N.justNow;
+            if (diff < 3600) return window.I18N.minutesAgo.replace('{n}', Math.floor(diff / 60));
+            if (diff < 86400) return window.I18N.hoursAgo.replace('{n}', Math.floor(diff / 3600));
+            return window.I18N.daysAgo.replace('{n}', Math.floor(diff / 86400));
+        }
+
+        function switchMobileTab(name) {
+            currentTab = name;
+            ['overview', 'notifications', 'logs'].forEach(t => {
+                document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
+            });
+            document.querySelectorAll('.mobile-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+            if (name === 'notifications') { loadNotifications(false); updateNotifBadge(); }
+            if (name === 'logs' && !logsLoaded) loadLogs(false);
+            window.scrollTo(0, 0);
+        }
+
+        async function loadNotifications(append) {
+            try {
+                if (!append) notifPage = 1;
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/notifications?page=${notifPage}&page_size=20`);
+                notifTotal = data.total || 0;
+                renderNotifications(data.items || [], append);
+                document.getElementById('notif-more').classList.toggle('hidden', notifPage * 20 >= notifTotal);
+                notifPage++;
+                notifLoaded = true;
+            } catch (e) {
+                console.error('Failed to load notifications:', e);
+            }
+        }
+
+        function renderNotifications(items, append) {
+            const levelDots = { info: 'bg-blue-500', warning: 'bg-yellow-500', error: 'bg-red-500' };
+            const html = items.map(n => {
+                const dot = levelDots[n.level] || levelDots.info;
+                return `<div class="bg-white rounded-xl p-3 ${n.is_read ? 'notif-read' : 'notif-unread'}">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full ${dot} shrink-0"></span>
+                        <span class="text-xs font-medium text-gray-800 flex-1 break-words">${esc(n.title)}</span>
+                        <span class="text-[10px] text-gray-400 shrink-0">${relTime(n.created_at)}</span>
+                    </div>
+                    ${n.body ? `<div class="text-[11px] text-gray-500 mt-1 ml-4 break-words">${esc(n.body)}</div>` : ''}
+                </div>`;
+            }).join('');
+            const list = document.getElementById('notif-list');
+            if (append) list.insertAdjacentHTML('beforeend', html);
+            else list.innerHTML = html || `<div class="text-gray-400 text-center py-6 text-xs">${window.I18N.noNotifications}</div>`;
+        }
+
+        async function markAllNotificationsRead() {
+            try {
+                await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/notifications/read-all`, { method: 'PUT' });
+                loadNotifications(false);
+                updateNotifBadge();
+            } catch (e) {}
+        }
+
+        async function updateNotifBadge() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/notifications/unread-count`);
+                const badge = document.getElementById('notif-badge');
+                const c = data.count || 0;
+                badge.textContent = c > 99 ? '99+' : c;
+                badge.classList.toggle('hidden', c === 0);
+            } catch (e) {}
+        }
+
+        function setLogsStatus(status, btn) {
+            logsStatus = status;
+            document.querySelectorAll('.log-chip').forEach(c => c.classList.toggle('active', c === btn));
+            logsPage = 1;
+            loadLogs(false);
+        }
+
+        async function loadLogs(append) {
+            try {
+                if (!append) logsPage = 1;
+                const params = new URLSearchParams({ time_range: '24h', page: logsPage, page_size: 30 });
+                if (logsStatus) params.set('status', logsStatus);
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/query?${params}`);
+                logsTotal = data.total || 0;
+                renderLogs(data.logs || [], append);
+                document.getElementById('logs-more').classList.toggle('hidden', logsPage * 30 >= logsTotal);
+                logsPage++;
+                logsLoaded = true;
+            } catch (e) {
+                console.error('Failed to load logs:', e);
+            }
+        }
+
+        function renderLogs(logs, append) {
+            const statusStyles = {
+                success: 'bg-green-100 text-green-700',
+                error: 'bg-red-100 text-red-600',
+                timeout: 'bg-amber-100 text-amber-700',
+                rate_limited: 'bg-sky-100 text-sky-700'
+            };
+            const html = logs.map(log => {
+                const sc = statusStyles[log.status] || 'bg-gray-200 text-gray-600';
+                const time = (log.created_at || '').slice(11, 19);
+                const code = log.downstream_status_code ?? '-';
+                const errMsg = log.error ? `<div class="text-red-400 break-words">${esc(String(log.error).substring(0, 300))}</div>` : '';
+                return `<div class="bg-white rounded-xl p-3" onclick="var d=this.querySelector('.log-detail');if(d)d.classList.toggle('hidden')">
+                    <div class="flex items-center gap-2 text-[11px]">
+                        <span class="text-gray-400 shrink-0">${time}</span>
+                        <span class="font-medium text-gray-800 truncate flex-1">${esc(log.model || '-')}</span>
+                        <span class="px-1.5 py-0.5 rounded text-[9px] ${sc} shrink-0">${esc(log.status)}</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-[10px] text-gray-500 mt-1">
+                        <span class="truncate">${esc(log.api_key || '-')}</span>
+                        <span class="shrink-0">${code}</span>
+                        <span class="shrink-0 ml-auto">${log.latency_ms ?? '-'}ms</span>
+                    </div>
+                    <div class="log-detail hidden mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-500 space-y-1">
+                        <div>${esc(log.provider || '-')} &middot; tokens: ${log.tokens ?? '-'}</div>
+                        ${errMsg}
+                    </div>
+                </div>`;
+            }).join('');
+            const list = document.getElementById('logs-list');
+            if (append) list.insertAdjacentHTML('beforeend', html);
+            else list.innerHTML = html || `<div class="text-gray-400 text-center py-6 text-xs">${window.I18N.noLogs}</div>`;
+        }
+
+        async function toggleProviderActive(input) {
+            const id = input.dataset.provId;
+            const name = input.dataset.provName;
+            const enable = input.checked;
+            if (!enable) {
+                if (!confirm(window.I18N.disableConfirm.replace('{name}', name))) { input.checked = true; return; }
+            } else if (!confirm(window.I18N.enableConfirm.replace('{name}', name))) {
+                input.checked = false;
+                return;
+            }
+            try {
+                await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: enable })
+                });
+                if (providersByName[name]) providersByName[name].is_active = enable;
+                loadProviderStatus();
+                loadData();
+            } catch (e) {
+                input.checked = !enable;
+                alert(window.I18N.opFailed);
+            }
+        }
+
+        async function toggleProviderKey(input) {
+            const provId = input.dataset.provId;
+            const keyId = input.dataset.keyId;
+            const enable = input.checked;
+            const label = input.dataset.keyLabel || `#${keyId}`;
+            let reason = '';
+            if (!enable) {
+                if (!confirm(window.I18N.disableConfirm.replace('{name}', label))) { input.checked = true; return; }
+                reason = prompt(window.I18N.disableReasonPrompt, '') || '';
+            } else if (!confirm(window.I18N.enableConfirm.replace('{name}', label))) {
+                input.checked = false;
+                return;
+            }
+            try {
+                const body = { is_active: enable };
+                if (!enable && reason) body.disabled_reason = reason;
+                await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/${provId}/keys/${keyId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                loadData();
+            } catch (e) {
+                input.checked = !enable;
+                alert(window.I18N.opFailed);
+            }
+        }
+
+        async function expandProviderKeys(btn) {
+            const provId = btn.dataset.expandKeys;
+            const box = document.getElementById('prov-keys-' + provId);
+            if (!box.classList.contains('hidden')) {
+                box.classList.add('hidden');
+                return;
+            }
+            box.classList.remove('hidden');
+            box.innerHTML = `<div class="text-gray-400 text-[10px] py-1">${window.I18N.noData}...</div>`;
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/${provId}/keys`);
+                const keys = data.keys || data || [];
+                if (!keys.length) {
+                    box.innerHTML = `<div class="text-gray-400 text-[10px] py-1">${window.I18N.noKeys}</div>`;
+                    return;
+                }
+                box.innerHTML = keys.map(k => {
+                    const label = k.label || k.api_key || (`#${k.id}`);
+                    return `<div class="flex items-center justify-between gap-2 text-[11px] bg-gray-100 rounded-lg px-2 py-1.5">
+                        <span class="truncate text-gray-600">${esc(label)}${k.disabled_reason ? `<span class="text-red-400 ml-1">${esc(String(k.disabled_reason).substring(0, 40))}</span>` : ''}</span>
+                        <label class="mswitch"><input type="checkbox" data-key-id="${k.id}" data-prov-id="${provId}" data-key-label="${esc(label)}" ${k.is_active ? 'checked' : ''}><span class="mslider"></span></label>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                box.innerHTML = `<div class="text-red-400 text-[10px] py-1">${window.I18N.opFailed}</div>`;
+            }
+        }
+
+        document.getElementById('provider-bars').addEventListener('change', (e) => {
+            const keyInput = e.target.closest('input[data-key-id]');
+            if (keyInput) { toggleProviderKey(keyInput); return; }
+            const provInput = e.target.closest('input[data-prov-id]');
+            if (provInput) toggleProviderActive(provInput);
+        });
+        document.getElementById('provider-bars').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-expand-keys]');
+            if (btn) expandProviderKeys(btn);
+        });
+
         renderTrendChart(null);
         loadData();
         loadLiveStatsFallback();
@@ -897,6 +1214,8 @@
         setInterval(loadSlowRequests, MOBILE_HOME_SLOW_REFRESH_MS);
         setInterval(loadBusyness, 30000);
         loadProviderStatus();
+        updateNotifBadge();
+        setInterval(updateNotifBadge, 30000);
         setInterval(loadProviderStatus, 30000);
 
         (function() {

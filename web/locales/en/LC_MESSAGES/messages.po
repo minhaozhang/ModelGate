@@ -2951,3 +2951,39 @@ msgstr "Disable Key"
 
 msgid "Download billing details"
 msgstr "Download billing details"
+
+msgid "Overview"
+msgstr "Overview"
+
+msgid "Mark all read"
+msgstr "Mark all read"
+
+msgid "Load more"
+msgstr "Load more"
+
+msgid "No logs in range"
+msgstr "No logs in range"
+
+msgid "Just now"
+msgstr "Just now"
+
+msgid "{n}m ago"
+msgstr "{n}m ago"
+
+msgid "{n}h ago"
+msgstr "{n}h ago"
+
+msgid "{n}d ago"
+msgstr "{n}d ago"
+
+msgid "No keys"
+msgstr "No keys"
+
+msgid "Disable {name}?"
+msgstr "Disable {name}?"
+
+msgid "Enable {name}?"
+msgstr "Enable {name}?"
+
+msgid "Disable reason (optional)"
+msgstr "Disable reason (optional)"
