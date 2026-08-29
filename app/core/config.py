@@ -124,6 +124,8 @@ active_requests_lock = asyncio.Lock()
 busyness_state: dict[str, Any] = {}
 live_stats_subscribers: set[Any] = set()
 live_stats_subscribers_lock = asyncio.Lock()
+user_live_stats_subscribers: set[Any] = set()
+user_live_stats_subscribers_lock = asyncio.Lock()
 
 
 def validate_session(token: Optional[str]) -> bool:
@@ -326,6 +328,23 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
         }
 
 
+async def build_user_live_stats_snapshot() -> dict[str, Any]:
+    await prune_stale_active_requests()
+    async with active_requests_lock:
+        active_requests_count = len(active_requests)
+    disabled_providers = {
+        pname: pconf.get("disabled_reason")
+        for pname, pconf in providers_cache.items()
+        if pconf.get("disabled_reason")
+    }
+    return {
+        "active_requests": active_requests_count,
+        "tokens_per_second": get_avg_tokens_per_second(),
+        "busyness": dict(busyness_state) if busyness_state else None,
+        "disabled_providers": disabled_providers,
+    }
+
+
 async def add_live_stats_subscriber(subscriber: Any) -> None:
     async with live_stats_subscribers_lock:
         live_stats_subscribers.add(subscriber)
@@ -336,17 +355,53 @@ async def remove_live_stats_subscriber(subscriber: Any) -> None:
         live_stats_subscribers.discard(subscriber)
 
 
+async def add_user_live_stats_subscriber(subscriber: Any) -> None:
+    async with user_live_stats_subscribers_lock:
+        user_live_stats_subscribers.add(subscriber)
+
+
+async def remove_user_live_stats_subscriber(subscriber: Any) -> None:
+    async with user_live_stats_subscribers_lock:
+        user_live_stats_subscribers.discard(subscriber)
+
+
+async def _send_payload_to_subscribers(
+    subscribers: list[Any], payload: dict[str, Any]
+) -> list[Any]:
+    stale_subscribers = []
+    for subscriber in subscribers:
+        try:
+            await subscriber.send_json(payload)
+        except Exception:
+            stale_subscribers.append(subscriber)
+    return stale_subscribers
+
+
+async def _discard_stale_subscribers(
+    stale: list[Any], lock: asyncio.Lock, container: set[Any]
+) -> None:
+    async with lock:
+        for subscriber in stale:
+            container.discard(subscriber)
+
+
 async def broadcast_live_stats() -> None:
     snapshot = await build_live_stats_snapshot()
     async with live_stats_subscribers_lock:
         subscribers = list(live_stats_subscribers)
-    stale_subscribers = []
-    for subscriber in subscribers:
-        try:
-            await subscriber.send_json(snapshot)
-        except Exception:
-            stale_subscribers.append(subscriber)
-    if stale_subscribers:
-        async with live_stats_subscribers_lock:
-            for subscriber in stale_subscribers:
-                live_stats_subscribers.discard(subscriber)
+    stale = await _send_payload_to_subscribers(subscribers, snapshot)
+    if stale:
+        await _discard_stale_subscribers(
+            stale, live_stats_subscribers_lock, live_stats_subscribers
+        )
+
+    if not user_live_stats_subscribers:
+        return
+    user_snapshot = await build_user_live_stats_snapshot()
+    async with user_live_stats_subscribers_lock:
+        user_subscribers = list(user_live_stats_subscribers)
+    stale = await _send_payload_to_subscribers(user_subscribers, user_snapshot)
+    if stale:
+        await _discard_stale_subscribers(
+            stale, user_live_stats_subscribers_lock, user_live_stats_subscribers
+        )

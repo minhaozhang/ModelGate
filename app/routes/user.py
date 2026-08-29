@@ -5,13 +5,29 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, Depends, Request, Response
+from fastapi import (
+    APIRouter,
+    Cookie,
+    Depends,
+    Request,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import case, func, or_, select
 
 from app.core.app_paths import build_app_url
-from app.core.config import logger, providers_cache, validate_session, busyness_state
+from app.core.config import (
+    add_user_live_stats_subscriber,
+    build_user_live_stats_snapshot,
+    busyness_state,
+    logger,
+    providers_cache,
+    remove_user_live_stats_subscriber,
+    validate_session,
+)
 from app.core.database import (
     async_session_maker,
     ApiKey,
@@ -1662,6 +1678,27 @@ async def get_system_active_sessions(
         "request_count": sum(item["requests"] for item in sessions),
         "sessions": sessions,
     }
+
+
+@router.websocket("/user/api/live")
+async def user_live_stats_websocket(websocket: WebSocket):
+    token = websocket.cookies.get("user_session")
+    session_data = USER_SESSIONS.get(token) if token else None
+    if not session_data or datetime.now() > session_data["expires"]:
+        await websocket.close(code=4401)
+        return
+
+    await websocket.accept()
+    await add_user_live_stats_subscriber(websocket)
+
+    try:
+        await websocket.send_json(await build_user_live_stats_snapshot())
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await remove_user_live_stats_subscriber(websocket)
 
 
 @router.get("/user/api/provider-status")

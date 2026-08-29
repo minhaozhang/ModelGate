@@ -23,6 +23,11 @@
         .stats-summary-tab.active { background: #ffffff; color: #2563eb; font-weight: 600; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.05); }
         .card-shell { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -16px rgba(15, 23, 42, 0.14); border: 1px solid rgba(15, 23, 42, 0.06); }
         .metric-value { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+        .fd,.fs { display:inline-block; height:1em; line-height:1em; overflow:hidden; vertical-align:bottom; }
+        .fd { font-variant-numeric:tabular-nums; }
+        .fr { display:block; transition:transform .6s cubic-bezier(.25,1,.5,1) !important; }
+        .fc { display:block; height:1em; line-height:1em; text-align:center; }
+        @media(prefers-reduced-motion:reduce){ .fr{transition-duration:.01ms!important;} }
         .ctl-select { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.375rem 0.625rem; font-size: 0.8125rem; background: #ffffff; color: #374151; }
         .ctl-btn-ghost { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #4b5563; background: #ffffff; transition: background-color 0.15s, border-color 0.15s; }
         .ctl-btn-ghost:hover { background: #f9fafb; }
@@ -763,6 +768,50 @@
             return value.toFixed(1).replace(/\.0$/, '');
         }
 
+        function getCounterSkeleton(text) {
+            return String(text ?? '').replace(/\d/g, '#');
+        }
+
+        function flipCounter(elementId, newValue) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const newText = String(newValue);
+            const oldText = el.getAttribute('data-value') || '';
+            if (oldText === newText) return;
+            el.setAttribute('data-value', newText);
+            if (!oldText || getCounterSkeleton(oldText) !== getCounterSkeleton(newText)) {
+                el.textContent = newText;
+                return;
+            }
+            const oldD = oldText.replace(/[^\d]/g, '');
+            const newD = newText.replace(/[^\d]/g, '');
+            const len = Math.max(oldD.length, newD.length);
+            const paddedOld = oldD.padStart(len, 'X');
+            let html = '', dIdx = 0;
+            for (let i = 0; i < newText.length; i++) {
+                const ch = newText[i];
+                if (/\d/.test(ch)) {
+                    const target = parseInt(ch);
+                    const oldCh = paddedOld[dIdx];
+                    const start = (oldCh >= '0' && oldCh <= '9') ? parseInt(oldCh) : 0;
+                    html += '<span class="fd"><span class="fr" data-t="' + target + '" style="transform:translateY(-' + start + '0%)">';
+                    for (let d = 0; d <= 9; d++) html += '<span class="fc">' + d + '</span>';
+                    html += '</span></span>';
+                    dIdx++;
+                } else {
+                    html += '<span class="fs">' + ch + '</span>';
+                }
+            }
+            el.innerHTML = html;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    el.querySelectorAll('.fr').forEach(r => {
+                        r.style.transform = 'translateY(-' + r.dataset.t + '0%)';
+                    });
+                });
+            });
+        }
+
         let _catalogCache = { platform: [], owned: [] };
         function findModelInCache(modelName) {
             for (const group of [..._catalogCache.platform, ..._catalogCache.owned]) {
@@ -1321,7 +1370,7 @@
             if (dot) dot.className = 'w-4 h-4 rounded-full shrink-0 ' + (colorMap[c] || 'bg-slate-400');
             if (badge) { badge.className = 'rounded-full px-2.5 py-1 text-xs font-semibold ' + (badgeBgMap[c] || 'bg-slate-100 text-slate-600'); badge.textContent = busynessLabel; }
             if (levelText) { levelText.className = 'text-2xl font-bold ' + (textMap[c] || 'text-slate-700'); levelText.textContent = busynessLabel; }
-            if (activeUsers) activeUsers.textContent = Number(data.active_users_10min || 0).toLocaleString();
+            if (activeUsers) flipCounter('busyness-active-users', Number(data.active_users_10min || 0).toLocaleString());
             if (ratio429) ratio429.textContent = (Number(data.rate_429_ratio || 0) * 100).toFixed(1) + '%';
         }
 
@@ -1333,18 +1382,17 @@
                 fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-models?period=' + period)
             ]);
              
-            document.getElementById('total-requests').textContent = data.total_requests.toLocaleString();
-            document.getElementById('total-prompt-tokens').textContent = formatCompactTokens(data.total_prompt_tokens || 0);
-            document.getElementById('total-completion-tokens').textContent = formatCompactTokens(data.total_completion_tokens || 0);
-            document.getElementById('personal-errors').textContent = (data.total_errors || 0).toLocaleString();
+            flipCounter('total-requests', data.total_requests.toLocaleString());
+            flipCounter('total-prompt-tokens', formatCompactTokens(data.total_prompt_tokens || 0));
+            flipCounter('total-completion-tokens', formatCompactTokens(data.total_completion_tokens || 0));
+            flipCounter('personal-errors', (data.total_errors || 0).toLocaleString());
             const pCost = data.estimated_cost || 0;
-            const pCostEl = document.getElementById('personal-cost');
             const pCostNote = document.getElementById('personal-cost-note');
             if (pCost > 0) {
-                pCostEl.textContent = pCost >= 1 ? '¥' + pCost.toFixed(2) : '¥' + pCost.toFixed(4);
+                flipCounter('personal-cost', pCost >= 1 ? '¥' + pCost.toFixed(2) : '¥' + pCost.toFixed(4));
                 pCostNote.textContent = '按请求计费快照汇总';
             } else {
-                pCostEl.textContent = '-';
+                flipCounter('personal-cost', '-');
                 pCostNote.textContent = '';
             }
 
@@ -2030,6 +2078,34 @@
         setInterval(loadMyRequests, 10000);
         setInterval(loadSystemActiveSessions, 10000);
         setInterval(loadProviderStatus, 30000);
+
+        let userLiveWs = null;
+        function applyUserLive(data) {
+            if (!data) return;
+            if ('busyness' in data) renderBusyness(data.busyness);
+            if (data.disabled_providers && Object.keys(data.disabled_providers).length) {
+                renderProviderStatusBanner({ disabled_providers: data.disabled_providers });
+            } else {
+                renderProviderStatusBanner({ disabled_providers: [] });
+            }
+        }
+        function connectUserLiveWs() {
+            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            try {
+                userLiveWs = new WebSocket(`${proto}://${location.host}${APP_BASE_PATH}/user/api/live`);
+            } catch (e) {
+                setTimeout(connectUserLiveWs, 15000);
+                return;
+            }
+            userLiveWs.onmessage = (ev) => {
+                let d;
+                try { d = JSON.parse(ev.data); } catch (e) { return; }
+                applyUserLive(d);
+            };
+            userLiveWs.onclose = () => setTimeout(connectUserLiveWs, 15000);
+            userLiveWs.onerror = () => { try { userLiveWs.close(); } catch (e) {} };
+        }
+        connectUserLiveWs();
 
         let _userNotifPage = 1;
         async function loadUserNotifList(page) {
