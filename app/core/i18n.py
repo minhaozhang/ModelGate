@@ -13,6 +13,15 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 WEB_DIR = PROJECT_ROOT / "web"
 TEMPLATES_DIR = str(WEB_DIR / "templates")
 LOCALES_DIR = str(WEB_DIR / "locales")
+CSS_OUTPUT_PATH = WEB_DIR / "static" / "css" / "output.css"
+
+
+def _css_version() -> str:
+    try:
+        stat = CSS_OUTPUT_PATH.stat()
+    except OSError:
+        return "0"
+    return f"{int(stat.st_mtime):x}{stat.st_size:x}"
 
 SUPPORTED_LOCALES = ("en", "zh")
 DEFAULT_LOCALE = "en"
@@ -95,6 +104,7 @@ def render(request, template_name: str, **kwargs) -> str:
         "current_locale": locale,
         "request": request,
         "app_base_path": get_app_base_path(request),
+        "css_version": _css_version(),
         **kwargs,
     }
     return template.render(**context)
