@@ -72,6 +72,8 @@
         body.theme-dark .mobile-tab-btn.active { color: #3b82f6; }
         body.theme-dark .log-chip { color: #94a3b8; border-color: rgba(148,163,184,0.3); }
         body.theme-dark .log-chip.active { color: #fff; border-color: #3b82f6; }
+        body.theme-dark .btn-text { background: transparent; border-color: transparent; color: #60a5fa; }
+        body.pb-20 { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
     </style>
 </head>
 <body class="theme-dark bg-gray-50 min-h-screen pb-20">
@@ -236,11 +238,11 @@
     <div id="tab-notifications" class="px-4 pt-4 space-y-3 hidden">
         <div class="flex items-center justify-between">
             <span class="font-medium text-sm text-gray-800">{{ _('Notifications') }}</span>
-            <button onclick="markAllNotificationsRead()" class="text-xs text-blue-400">{{ _('Mark all read') }}</button>
+            <button onclick="markAllNotificationsRead()" class="btn-text text-xs text-blue-400">{{ _('Mark all read') }}</button>
         </div>
         <div id="notif-list" class="space-y-2"></div>
         <div class="text-center">
-            <button id="notif-more" onclick="loadNotifications(true)" class="hidden text-xs text-blue-400 py-2">{{ _('Load more') }}</button>
+            <button id="notif-more" onclick="loadNotifications(true)" class="btn-text hidden text-xs text-blue-400 py-2">{{ _('Load more') }}</button>
         </div>
     </div>
 
@@ -252,7 +254,7 @@
         </div>
         <div id="logs-list" class="space-y-2"></div>
         <div class="text-center">
-            <button id="logs-more" onclick="loadLogs(true)" class="hidden text-xs text-blue-400 py-2">{{ _('Load more') }}</button>
+            <button id="logs-more" onclick="loadLogs(true)" class="btn-text hidden text-xs text-blue-400 py-2">{{ _('Load more') }}</button>
         </div>
     </div>
 
@@ -310,10 +312,12 @@
         let liveStatsReconnectTimer = null;
         let adminAuthRedirecting = false;
         let providersByName = {};
+        const openProvKeys = new Set();
+        let notifLoading = false;
+        let logsLoading = false;
         let currentTab = 'overview';
         let notifPage = 1;
         let notifTotal = 0;
-        let notifLoaded = false;
         let logsPage = 1;
         let logsTotal = 0;
         let logsStatus = '';
@@ -416,10 +420,10 @@
                     ? `<span class="warn-icon ml-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${esc(isDisabled)}</span></span>`
                     : '';
                 const switchHtml = provInfo
-                    ? `<label class="mswitch"><input type="checkbox" data-prov-id="${provInfo.id}" ${provInfo.is_active ? 'checked' : ''}><span class="mslider"></span></label>`
+                    ? `<label class="mswitch"><input type="checkbox" data-prov-id="${provInfo.id}" data-prov-name="${esc(name)}" ${provInfo.is_active ? 'checked' : ''}><span class="mslider"></span></label>`
                     : '';
                 const keysExpandHtml = provInfo
-                    ? `<div class="mt-1.5"><button class="text-[10px] text-blue-400" data-expand-keys="${provInfo.id}">${window.I18N.keys} &#9656;</button><div id="prov-keys-${provInfo.id}" class="hidden mt-1.5 space-y-1.5"></div></div>`
+                    ? `<div class="mt-1.5"><button class="btn-text text-[10px] text-blue-400" data-expand-keys="${provInfo.id}">${window.I18N.keys} &#9656;</button><div id="prov-keys-${provInfo.id}" class="hidden mt-1.5 space-y-1.5"></div></div>`
                     : '';
                 return `<div class="bg-gray-50 rounded-lg p-3 ${isDisabled ? 'opacity-70' : ''}">
                     <div class="flex justify-between items-center text-xs gap-2"><span class="font-medium truncate">${esc(name)}${warnIcon}</span><span class="flex items-center gap-2 shrink-0"><span class="text-gray-500">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span>${switchHtml}</span></div>
@@ -429,6 +433,9 @@
                 </div>`;
             }).join('');
             document.getElementById('provider-bars').innerHTML = html || `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noData}</div>`;
+            openProvKeys.forEach(id => {
+                if (document.getElementById('prov-keys-' + id)) loadProviderKeysInto(id);
+            });
         }
 
         function renderApiKeyBars(apiKeys) {
@@ -722,17 +729,16 @@
         async function loadData() {
             const period = document.getElementById('period-select').value;
             try {
-                const [statsResp, chartResp, providersResp] = await Promise.all([
+                const providersPromise = fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers`)
+                    .then(r => { providersByName = {}; ((r && r.providers) || []).forEach(p => { providersByName[p.name] = p; }); })
+                    .catch(() => {});
+                const [statsResp, chartResp] = await Promise.all([
                     fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/period?period=` + period),
-                    fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/chart?period=` + period),
-                    fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers`)
+                    fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/chart?period=` + period)
                 ]);
                 const data = statsResp;
                 const chartData = chartResp;
-                providersByName = {};
-                ((providersResp && providersResp.providers) || []).forEach(p => {
-                    providersByName[p.name] = p;
-                });
+                await providersPromise;
 
                 flipCounter('total-requests', (data.total_requests || 0).toLocaleString());
                 flipCounter('total-tokens', formatCompactTokens(data.total_tokens || 0));
@@ -955,6 +961,8 @@
         }
 
         async function loadNotifications(append) {
+            if (notifLoading) return;
+            notifLoading = true;
             try {
                 if (!append) notifPage = 1;
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/notifications?page=${notifPage}&page_size=20`);
@@ -962,9 +970,10 @@
                 renderNotifications(data.items || [], append);
                 document.getElementById('notif-more').classList.toggle('hidden', notifPage * 20 >= notifTotal);
                 notifPage++;
-                notifLoaded = true;
             } catch (e) {
                 console.error('Failed to load notifications:', e);
+            } finally {
+                notifLoading = false;
             }
         }
 
@@ -1012,6 +1021,8 @@
         }
 
         async function loadLogs(append) {
+            if (logsLoading) return;
+            logsLoading = true;
             try {
                 if (!append) logsPage = 1;
                 const params = new URLSearchParams({ time_range: '24h', page: logsPage, page_size: 30 });
@@ -1024,6 +1035,8 @@
                 logsLoaded = true;
             } catch (e) {
                 console.error('Failed to load logs:', e);
+            } finally {
+                logsLoading = false;
             }
         }
 
@@ -1117,10 +1130,18 @@
         async function expandProviderKeys(btn) {
             const provId = btn.dataset.expandKeys;
             const box = document.getElementById('prov-keys-' + provId);
-            if (!box.classList.contains('hidden')) {
+            if (box && !box.classList.contains('hidden')) {
                 box.classList.add('hidden');
+                openProvKeys.delete(provId);
                 return;
             }
+            openProvKeys.add(provId);
+            loadProviderKeysInto(provId);
+        }
+
+        async function loadProviderKeysInto(provId) {
+            const box = document.getElementById('prov-keys-' + provId);
+            if (!box) return;
             box.classList.remove('hidden');
             box.innerHTML = `<div class="text-gray-400 text-[10px] py-1">${window.I18N.noData}...</div>`;
             try {

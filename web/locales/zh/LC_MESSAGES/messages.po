@@ -1105,7 +1105,7 @@ msgstr "错误数"
 #: web/templates/admin/monitor.html:374
 #, fuzzy
 msgid "Timeouts"
-msgstr "时间规则"
+msgstr "超时"
 
 #: web/templates/admin/home.html:130 web/templates/admin/monitor.html:216
 msgid "Error Rate"
@@ -1837,7 +1837,7 @@ msgstr "恢复"
 #: web/templates/admin/scheduler_tasks_tab.html:61
 #, fuzzy
 msgid "Operation failed"
-msgstr "登录失败"
+msgstr "操作失败"
 
 #: web/templates/admin/scheduler_tasks_tab.html:71
 #, fuzzy
