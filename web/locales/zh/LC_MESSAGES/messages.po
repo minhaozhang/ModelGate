@@ -3042,6 +3042,9 @@ msgstr "该时间范围内暂无日志"
 msgid "Just now"
 msgstr "刚刚"
 
+msgid "Yesterday"
+msgstr "昨天"
+
 msgid "{n}m ago"
 msgstr "{n}分钟前"
 

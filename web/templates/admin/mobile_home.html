@@ -296,6 +296,7 @@
         minutesAgo: "{{ _('{n}m ago') }}",
         hoursAgo: "{{ _('{n}h ago') }}",
         daysAgo: "{{ _('{n}d ago') }}",
+        yesterday: "{{ _('Yesterday') }}",
         keys: "{{ _('Keys') }}",
         noKeys: "{{ _('No keys') }}",
         disableConfirm: "{{ _('Disable {name}?') }}",
@@ -946,6 +947,23 @@
             return window.I18N.daysAgo.replace('{n}', Math.floor(diff / 86400));
         }
 
+        function formatLogTime(iso) {
+            if (!iso) return '-';
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return '-';
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const hms = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+            const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+            if (sameDay) return hms;
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
+            const isYesterday = d.getFullYear() === yesterday.getFullYear() && d.getMonth() === yesterday.getMonth() && d.getDate() === yesterday.getDate();
+            if (isYesterday) return `${window.I18N.yesterday} ${hms}`;
+            if (d.getFullYear() === now.getFullYear()) return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hms}`;
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hms}`;
+        }
+
         function switchMobileTab(name) {
             currentTab = name;
             ['overview', 'notifications', 'logs'].forEach(t => {
@@ -1046,7 +1064,7 @@
             };
             const html = logs.map(log => {
                 const sc = statusStyles[log.status] || 'bg-gray-200 text-gray-600';
-                const time = (log.created_at || '').slice(11, 19);
+                const time = formatLogTime(log.created_at);
                 const code = log.downstream_status_code ?? '-';
                 const errMsg = log.error ? `<div class="text-red-400 break-words">${esc(String(log.error).substring(0, 300))}</div>` : '';
                 return `<div class="bg-white rounded-xl p-3" onclick="var d=this.querySelector('.log-detail');if(d)d.classList.toggle('hidden')">
