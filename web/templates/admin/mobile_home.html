@@ -507,8 +507,8 @@
 
         function normalizeTrendChartData(chartData) {
             const labels = chartData?.intervals || [];
-            if (currentPeriod !== 'day' || labels.length !== 48) {
-                return chartData;
+            if (!chartData || currentPeriod !== 'day' || labels.length !== 48) {
+                return chartData || { intervals: [], data: {} };
             }
 
             const mergedIntervals = [];
