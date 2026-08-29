@@ -1,7 +1,16 @@
 import json
+import re
 from typing import Optional
 
 from app.core.config import logger
+
+_IMAGE_TOKEN_ESTIMATE = 1000
+
+_DATA_URL_RE = re.compile(
+    r"data:(?:image|application)/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]{100,}",
+    re.IGNORECASE,
+)
+_BARE_BASE64_RE = re.compile(r'"data":"[A-Za-z0-9+/=]{256,}"')
 
 
 def _coerce_int(value) -> Optional[int]:
@@ -57,7 +66,15 @@ def _estimate_prompt_tokens(req_body: Optional[dict]) -> int:
     except TypeError:
         serialized = str(payload)
 
-    return _estimate_text_tokens(serialized)
+    image_count = len(_DATA_URL_RE.findall(serialized))
+    if image_count:
+        serialized = _DATA_URL_RE.sub("[image]", serialized)
+    else:
+        image_count = len(_BARE_BASE64_RE.findall(serialized))
+        if image_count:
+            serialized = _BARE_BASE64_RE.sub('"data":"[image]"', serialized)
+
+    return _estimate_text_tokens(serialized) + image_count * _IMAGE_TOKEN_ESTIMATE
 
 
 def estimate_request_context_tokens(req_body: Optional[dict]) -> int:
