@@ -9,6 +9,15 @@ from app.services.key_health import record_key_event, on_key_reenabled
 
 REENABLE_DELAY_SECONDS = 60
 
+def _key_display_label(label: str | None, api_key: str | None, key_id: int) -> str:
+    if label:
+        return label
+    k = api_key or ""
+    if len(k) > 12:
+        return k[:8] + "..." + k[-4:]
+    return k or f"#{key_id}"
+
+
 
 async def get_disabled_providers_status() -> dict:
     from sqlalchemy import or_
@@ -120,6 +129,27 @@ async def _do_reenable_key(key_id: int) -> None:
     from app.services.provider import load_providers
     await load_providers()
 
+    try:
+        from app.services.notification import create_notification
+        async with async_session_maker() as session:
+            row = (
+                await session.execute(
+                    select(ProviderKey.label, ProviderKey.api_key, Provider.name)
+                    .join(Provider, Provider.id == ProviderKey.provider_id)
+                    .where(ProviderKey.id == key_id)
+                )
+            ).first()
+        if row:
+            display = _key_display_label(row.label, row.api_key, key_id)
+            await create_notification(
+                "system",
+                "info",
+                f"供应商 '{row.name}' 密钥「{display}」已自动恢复",
+                f"额度重置后自动恢复 (id={key_id})",
+            )
+    except Exception:
+        pass
+
     _cancel_reenable_job("key", key_id)
 
 
@@ -223,6 +253,16 @@ async def disable_provider_key(
         reset_at,
     )
     async with async_session_maker() as session:
+        key_row = (
+            await session.execute(
+                select(ProviderKey.label, ProviderKey.api_key).where(ProviderKey.id == provider_key_id)
+            )
+        ).first()
+        key_display = _key_display_label(
+            key_row.label if key_row else None,
+            key_row.api_key if key_row else None,
+            provider_key_id,
+        )
         result = await session.execute(
             update(ProviderKey)
             .where(
@@ -274,7 +314,7 @@ async def disable_provider_key(
 
     try:
         from app.services.notification import create_notification
-        await create_notification("system", "error", f"供应商 '{provider_name}' Key#{provider_key_id} 已被禁用", reason[:200])
+        await create_notification("system", "error", f"供应商 '{provider_name}' 密钥「{key_display}」已被禁用", reason[:200])
     except Exception:
         pass
 
@@ -446,7 +486,7 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
             from app.services.notification import create_notification
             names = reenabled_providers or []
             if reenabled_keys and not names:
-                names = [f"{len(reenabled_keys)} key(s)"]
+                names = [f"{len(reenabled_keys)} 个密钥"]
             if names:
                 await create_notification("system", "info", f"供应商已自动恢复：{', '.join(names)}", "自动重新启用完成")
         except Exception:

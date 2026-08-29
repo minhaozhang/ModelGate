@@ -645,7 +645,7 @@ async def list_all_provider_models(_: bool = Depends(permission_required("page.p
                 provider_keys = [
                     {
                         "id": key.id,
-                        "label": key.label or f"Key #{key.id}",
+                        "label": key.label or ((key.api_key[:8] + "..." + key.api_key[-4:]) if len(key.api_key) > 12 else key.api_key),
                         "priority": key.priority or 0,
                         "is_active": key.is_active,
                     }

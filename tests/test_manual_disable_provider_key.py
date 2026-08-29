@@ -12,6 +12,9 @@ class _FakeResult:
         self._row = row
         self.rowcount = rowcount
 
+    def first(self):
+        return self._row
+
     def scalar_one_or_none(self):
         return self._row
 
@@ -85,7 +88,10 @@ class AutoDisableMarksDisabledByTests(unittest.IsolatedAsyncioTestCase):
         ):
             await provider_limiter.disable_provider_key("prov", config, 7, "quota exceeded")
 
-        values = session.statements[0].compile(
+        update_stmt = next(
+            s for s in session.statements if 'UPDATE' in _compiled(s)
+        )
+        values = update_stmt.compile(
             dialect=postgresql.dialect()
         ).params
         self.assertEqual(values.get("disabled_by"), "auto")
@@ -115,8 +121,11 @@ class AutoDisableMarksDisabledByTests(unittest.IsolatedAsyncioTestCase):
         record_event.assert_not_called()
         schedule.assert_not_called()
         load.assert_not_called()
-        compiled = session.statements[0].compile(dialect=postgresql.dialect())
-        self.assertIn("disabled_by IS NULL", _compiled(session.statements[0]))
+        update_stmt = next(
+            s for s in session.statements if 'UPDATE' in _compiled(s)
+        )
+        compiled = update_stmt.compile(dialect=postgresql.dialect())
+        self.assertIn("disabled_by IS NULL", _compiled(update_stmt))
         manual_params = [v for v in compiled.params.values() if v == "manual"]
         self.assertTrue(manual_params)
 
