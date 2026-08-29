@@ -1293,11 +1293,15 @@ async def get_system_model_stats(
         return translated_error(request, "Not authenticated", 401)
 
     now = get_local_now()
-    start, _, _ = get_user_period_range(now, period)
+    start, intervals, format_func = get_user_period_range(now, period)
     cache_key = (period, get_cache_bucket(now))
     cached_payload = get_cached_payload(SYSTEM_MODEL_STATS_CACHE, cache_key, now)
     if cached_payload is not None:
         return cached_payload
+
+    trend_data = {
+        label: {"requests": 0, "tokens": 0, "errors": 0} for label in intervals
+    }
 
     async with async_session_maker() as session:
         models = {}
@@ -1323,18 +1327,50 @@ async def get_system_model_stats(
                             "tokens": int(row.tokens or 0),
                         }
 
+                trend_result = await session.execute(
+                    select(
+                        ModelDailyStat.date,
+                        func.sum(ModelDailyStat.requests).label("requests"),
+                        func.sum(ModelDailyStat.tokens).label("tokens"),
+                        func.sum(ModelDailyStat.errors).label("errors"),
+                    )
+                    .where(
+                        ModelDailyStat.date >= start.strftime("%Y-%m-%d"),
+                        ModelDailyStat.date < aggregate_end.strftime("%Y-%m-%d"),
+                    )
+                    .group_by(ModelDailyStat.date)
+                    .order_by(ModelDailyStat.date)
+                )
+                for row in trend_result.fetchall():
+                    label = format_func(datetime.strptime(row.date, "%Y-%m-%d"))
+                    if label in trend_data:
+                        trend_data[label]["requests"] += int(row.requests or 0)
+                        trend_data[label]["tokens"] += int(row.tokens or 0)
+                        trend_data[label]["errors"] += int(row.errors or 0)
+
             if raw_start < now:
                 result = await session.execute(
-                    select(RequestLog.model, RequestLog.tokens).where(
+                    select(
+                        RequestLog.model,
+                        RequestLog.tokens,
+                        RequestLog.created_at,
+                        RequestLog.status,
+                    ).where(
                         RequestLog.created_at >= raw_start
                     )
                 )
                 for row in result.fetchall():
-                    if not row.model:
-                        continue
-                    bucket = models.setdefault(row.model, {"requests": 0, "tokens": 0})
-                    bucket["requests"] += 1
-                    bucket["tokens"] += get_token_count(row.tokens)
+                    tokens = get_token_count(row.tokens)
+                    if row.model:
+                        bucket = models.setdefault(row.model, {"requests": 0, "tokens": 0})
+                        bucket["requests"] += 1
+                        bucket["tokens"] += tokens
+                    label = format_func(row.created_at)
+                    if label in trend_data:
+                        trend_data[label]["requests"] += 1
+                        trend_data[label]["tokens"] += tokens
+                        if row.status in ERROR_STATUSES:
+                            trend_data[label]["errors"] += 1
         else:
             result = await session.execute(
                 select(
@@ -1357,6 +1393,21 @@ async def get_system_model_stats(
                 for row in rows
                 if row.model
             }
+
+            trend_result = await session.execute(
+                select(
+                    RequestLog.tokens,
+                    RequestLog.created_at,
+                    RequestLog.status,
+                ).where(RequestLog.created_at >= start)
+            )
+            for row in trend_result.fetchall():
+                label = format_func(row.created_at)
+                if label in trend_data:
+                    trend_data[label]["requests"] += 1
+                    trend_data[label]["tokens"] += get_token_count(row.tokens)
+                    if row.status in ERROR_STATUSES:
+                        trend_data[label]["errors"] += 1
 
     total_tokens = sum(v["tokens"] for v in models.values())
 
@@ -1381,9 +1432,9 @@ async def get_system_model_stats(
         "total_prompt_tokens": total_prompt_tokens,
         "total_completion_tokens": total_completion_tokens,
         "models": models,
+        "trend": trend_data,
     }
 
-    trend_data = {}
     set_cached_payload(SYSTEM_MODEL_STATS_CACHE, cache_key, payload, now)
     return payload
 

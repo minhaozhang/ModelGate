@@ -606,6 +606,7 @@
         let _cachedSystemModels = {};
         let _cachedPersonalModels = {};
         let _latestTrendData = {};
+        let _latestSystemTrendData = {};
         let _activeSubTab = 'personal';
 
         function showStatsSubTab(sub) {
@@ -617,10 +618,10 @@
             el.classList.remove('hidden');
             setTimeout(() => {
                 if (sub === 'system') {
-                    _renderTrendChartToCanvas(document.getElementById('system-trend-chart').getContext('2d'), _latestTrendData, true);
+                    _renderTrendChartToCanvas(document.getElementById('system-trend-chart').getContext('2d'), _latestSystemTrendData, true);
                 }
                 if (sub === 'personal') {
-                    renderTrendChart(_latestTrendData);
+                    renderTrendChart(_latestTrendData, _latestSystemTrendData);
                 }
             }, 50);
         }
@@ -1361,12 +1362,13 @@
 
             latestTrendData = data.trend || {};
             _latestTrendData = latestTrendData;
+            _latestSystemTrendData = systemModels.trend || {};
             _cachedPersonalModels = data.models || {};
             _cachedSystemModels = systemModels.models || {};
             renderSystemHealth(data.system_health || {});
             renderBusyness(data.busyness || null);
             renderDailyQuota();
-            renderTrendChart(latestTrendData);
+            renderTrendChart(latestTrendData, _latestSystemTrendData);
             renderOwnModelChart(data.models || {});
             renderSystemModelChart(systemModels.models || {});
 
@@ -1414,12 +1416,12 @@
             catalogLoaded = true;
         }
          
-        function renderTrendChart(trendData) {
+        function renderTrendChart(trendData, systemTrendData) {
             const canvas = document.getElementById('trend-chart');
             if (!canvas) return;
             _renderTrendChartToCanvas(canvas.getContext('2d'), trendData, false);
             const sysCtx = document.getElementById('system-trend-chart');
-            if (sysCtx) _renderTrendChartToCanvas(sysCtx.getContext('2d'), trendData, true);
+            if (sysCtx) _renderTrendChartToCanvas(sysCtx.getContext('2d'), systemTrendData || {}, true);
         }
 
         let systemTrendChart = null;
@@ -1549,7 +1551,7 @@
             if (trendLayoutRaf) cancelAnimationFrame(trendLayoutRaf);
             trendLayoutRaf = requestAnimationFrame(() => {
                 if (latestTrendData && Object.keys(latestTrendData).length) {
-                    renderTrendChart(latestTrendData);
+            renderTrendChart(latestTrendData, _latestSystemTrendData);
                 }
             });
         });
