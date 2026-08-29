@@ -32,6 +32,7 @@ from app.services.auth import validate_api_key
 from app.services.logging import create_request_log
 from app.services.tokens import (
     estimate_request_context_tokens,
+    request_has_image_parts,
 )
 from app.services.deepseek_compat import is_deepseek_thinking_active, patch_reasoning_content
 from app.services.busyness import LEVEL_LABELS
@@ -463,7 +464,7 @@ async def proxy_request(request: Request, endpoint: str):
     request_intent = classify_intent(body_json.get("messages") or [])
 
     hard_limit = get_cached_context_hard_limit(requested_model)
-    if hard_limit and request_context_tokens > hard_limit:
+    if hard_limit and not request_has_image_parts(body_json) and request_context_tokens > hard_limit:
         message = (
             f"This model's maximum context length is {hard_limit} tokens. "
             f"However, your messages resulted in ~{request_context_tokens} tokens. "

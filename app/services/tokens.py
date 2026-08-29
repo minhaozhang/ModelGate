@@ -4,8 +4,6 @@ from typing import Optional
 
 from app.core.config import logger
 
-_IMAGE_TOKEN_ESTIMATE = 1000
-
 _DATA_URL_RE = re.compile(
     r"data:(?:image|application)/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]{100,}",
     re.IGNORECASE,
@@ -41,9 +39,9 @@ def _estimate_text_tokens(text: str) -> int:
     return max(len(text) // 4, 1)
 
 
-def _estimate_prompt_tokens(req_body: Optional[dict]) -> int:
+def _analyze_request(req_body: Optional[dict]) -> tuple[int, int]:
     if not req_body:
-        return 0
+        return 0, 0
 
     payload = {}
     for key in (
@@ -74,11 +72,19 @@ def _estimate_prompt_tokens(req_body: Optional[dict]) -> int:
         if image_count:
             serialized = _BARE_BASE64_RE.sub('"data":"[image]"', serialized)
 
-    return _estimate_text_tokens(serialized) + image_count * _IMAGE_TOKEN_ESTIMATE
+    return _estimate_text_tokens(serialized), image_count
+
+
+def _estimate_prompt_tokens(req_body: Optional[dict]) -> int:
+    return _analyze_request(req_body)[0]
 
 
 def estimate_request_context_tokens(req_body: Optional[dict]) -> int:
-    return _estimate_prompt_tokens(req_body)
+    return _analyze_request(req_body)[0]
+
+
+def request_has_image_parts(req_body: Optional[dict]) -> bool:
+    return _analyze_request(req_body)[1] > 0
 
 
 def _tool_call_key(tool_call: dict) -> str:

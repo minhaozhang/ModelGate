@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.tokens import estimate_request_context_tokens
+from app.services.tokens import estimate_request_context_tokens, request_has_image_parts
 
 
 def _multimodal_body(image_chars: int) -> dict:
@@ -28,15 +28,15 @@ def _multimodal_body(image_chars: int) -> dict:
 def test_image_base64_not_counted_as_text_tokens():
     body = _multimodal_body(1_000_000)
     estimate = estimate_request_context_tokens(body)
-    assert estimate < 5000
+    assert estimate < 100
 
 
-def test_image_counted_with_fixed_allowance():
-    small = estimate_request_context_tokens(_multimodal_body(200))
+def test_image_base64_contributes_no_tokens():
+    body = _multimodal_body(200)
     text_only = estimate_request_context_tokens(
         {"messages": [{"role": "user", "content": "这是什么图片？"}]}
     )
-    assert small > text_only
+    assert estimate_request_context_tokens(body) < text_only + 50
 
 
 def test_text_only_estimate_unchanged():
@@ -45,7 +45,16 @@ def test_text_only_estimate_unchanged():
     assert estimate_request_context_tokens(body) == len(serialized) // 4
 
 
-def test_anthropic_native_base64_source_not_counted_as_text():
+def test_has_image_parts_true_for_data_url():
+    assert request_has_image_parts(_multimodal_body(200)) is True
+
+
+def test_has_image_parts_false_for_text_only():
+    body = {"messages": [{"role": "user", "content": "纯文本消息"}]}
+    assert request_has_image_parts(body) is False
+
+
+def test_anthropic_native_base64_source_detected_and_not_counted():
     body = {
         "messages": [
             {
@@ -64,11 +73,13 @@ def test_anthropic_native_base64_source_not_counted_as_text():
             }
         ]
     }
-    assert estimate_request_context_tokens(body) < 2000
+    assert request_has_image_parts(body) is True
+    assert estimate_request_context_tokens(body) < 50
 
 
 def test_short_data_values_untouched():
     body = {"messages": [{"role": "user", "content": 'extra "data":"abc" here'}]}
+    assert request_has_image_parts(body) is False
     estimate = estimate_request_context_tokens(body)
     assert estimate == max(len(
         '{"messages":[{"role":"user","content":"extra \\"data\\":\\"abc\\" here"}]}'
