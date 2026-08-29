@@ -2083,10 +2083,10 @@
         function applyUserLive(data) {
             if (!data) return;
             if ('busyness' in data) renderBusyness(data.busyness);
-            if (data.disabled_providers && Object.keys(data.disabled_providers).length) {
-                renderProviderStatusBanner({ disabled_providers: data.disabled_providers });
-            } else {
-                renderProviderStatusBanner({ disabled_providers: [] });
+            const disabledItems = Object.entries(data.disabled_providers || {})
+                .map(function(entry) { return { name: entry[0], reason: entry[1] }; });
+            if (disabledItems.length) {
+                renderProviderStatusBanner({ disabled_providers: disabledItems });
             }
         }
         function connectUserLiveWs() {
