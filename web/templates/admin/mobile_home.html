@@ -1055,6 +1055,16 @@
             }
         }
 
+        function formatLatency(ms) {
+            if (ms === null || ms === undefined || ms === '') return '-';
+            const v = Number(ms);
+            if (!isFinite(v) || v < 0) return '-';
+            if (v < 1000) return `${Math.round(v)}ms`;
+            const totalSec = v / 1000;
+            if (totalSec < 60) return `${totalSec.toFixed(1)}s`;
+            return `${Math.floor(totalSec / 60)}m${String(Math.round(totalSec % 60)).padStart(2, '0')}s`;
+        }
+
         function renderLogs(logs, append) {
             const statusStyles = {
                 success: 'bg-green-100 text-green-700',
@@ -1076,7 +1086,7 @@
                     <div class="flex items-center gap-3 text-[10px] text-gray-500 mt-1">
                         <span class="truncate">${esc(log.api_key || '-')}</span>
                         <span class="shrink-0">${code}</span>
-                        <span class="shrink-0 ml-auto">${log.latency_ms ?? '-'}ms</span>
+                        <span class="shrink-0 ml-auto">${formatLatency(log.latency_ms)}</span>
                     </div>
                     <div class="log-detail hidden mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-500 space-y-1">
                         <div>${esc(log.provider || '-')} &middot; tokens: ${log.tokens ?? '-'}</div>
