@@ -419,14 +419,11 @@
                 const warnIcon = isDisabled
                     ? `<span class="warn-icon ml-1"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${esc(isDisabled)}</span></span>`
                     : '';
-                const switchHtml = provInfo
-                    ? `<label class="mswitch"><input type="checkbox" data-prov-id="${provInfo.id}" data-prov-name="${esc(name)}" ${provInfo.is_active ? 'checked' : ''}><span class="mslider"></span></label>`
-                    : '';
                 const keysExpandHtml = provInfo
                     ? `<div class="mt-1.5"><button class="btn-text text-[10px] text-blue-400" data-expand-keys="${provInfo.id}">${window.I18N.keys} &#9656;</button><div id="prov-keys-${provInfo.id}" class="hidden mt-1.5 space-y-1.5"></div></div>`
                     : '';
                 return `<div class="bg-gray-50 rounded-lg p-3 ${isDisabled ? 'opacity-70' : ''}">
-                    <div class="flex justify-between items-center text-xs gap-2"><span class="font-medium truncate">${esc(name)}${warnIcon}</span><span class="flex items-center gap-2 shrink-0"><span class="text-gray-500">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span>${switchHtml}</span></div>
+                    <div class="flex justify-between items-center text-xs gap-2"><span class="font-medium truncate">${esc(name)}${warnIcon}</span><span class="flex items-center gap-2 shrink-0"><span class="text-gray-500">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span></span></div>
                     <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>
                     ${breakdownHtml}
                     ${keysExpandHtml}
@@ -1074,31 +1071,6 @@
             else list.innerHTML = html || `<div class="text-gray-400 text-center py-6 text-xs">${window.I18N.noLogs}</div>`;
         }
 
-        async function toggleProviderActive(input) {
-            const id = input.dataset.provId;
-            const name = input.dataset.provName;
-            const enable = input.checked;
-            if (!enable) {
-                if (!confirm(window.I18N.disableConfirm.replace('{name}', name))) { input.checked = true; return; }
-            } else if (!confirm(window.I18N.enableConfirm.replace('{name}', name))) {
-                input.checked = false;
-                return;
-            }
-            try {
-                await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ is_active: enable })
-                });
-                if (providersByName[name]) providersByName[name].is_active = enable;
-                loadProviderStatus();
-                loadData();
-            } catch (e) {
-                input.checked = !enable;
-                alert(window.I18N.opFailed);
-            }
-        }
-
         async function toggleProviderKey(input) {
             const provId = input.dataset.provId;
             const keyId = input.dataset.keyId;
@@ -1166,8 +1138,6 @@
         document.getElementById('provider-bars').addEventListener('change', (e) => {
             const keyInput = e.target.closest('input[data-key-id]');
             if (keyInput) { toggleProviderKey(keyInput); return; }
-            const provInput = e.target.closest('input[data-prov-id]');
-            if (provInput) toggleProviderActive(provInput);
         });
         document.getElementById('provider-bars').addEventListener('click', (e) => {
             const btn = e.target.closest('[data-expand-keys]');
