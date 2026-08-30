@@ -38,6 +38,7 @@ class Provider(Base):
     disabled_reason = Column(String(255), nullable=True)
     disabled_at = Column(DateTime, nullable=True)
     reset_at = Column(DateTime, nullable=True)
+    disabled_by = Column(String(20), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

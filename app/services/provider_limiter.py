@@ -80,8 +80,15 @@ async def _do_reenable_provider(provider_id: int) -> None:
     async with async_session_maker() as session:
         await session.execute(
             update(Provider)
-            .where(Provider.id == provider_id, Provider.is_active == False)  # noqa: E712
-            .values(is_active=True, disabled_reason=None, disabled_at=None, reset_at=None)
+            .where(
+                Provider.id == provider_id,
+                Provider.is_active == False,  # noqa: E712
+                or_(
+                    Provider.disabled_by.is_(None),
+                    Provider.disabled_by != "manual",
+                ),
+            )
+            .values(is_active=True, disabled_by=None, disabled_reason=None, disabled_at=None, reset_at=None)
         )
         await session.commit()
 
@@ -209,7 +216,13 @@ async def disable_provider(provider_name: str, reason: str) -> None:
         result = await session.execute(
             update(Provider)
             .where(Provider.name == provider_name)
-            .values(is_active=False, disabled_reason=reason[:255], disabled_at=datetime.now(), reset_at=reset_at)
+            .values(
+                is_active=False,
+                disabled_by="auto",
+                disabled_reason=reason[:255],
+                disabled_at=datetime.now(),
+                reset_at=reset_at,
+            )
             .returning(Provider.id)
         )
         provider_id = result.scalar()
@@ -413,10 +426,6 @@ def check_invalid_api_key_error(resp_json: dict, status_code: int | None = None)
 
 
 async def auto_reenable_disabled_keys_and_providers() -> None:
-    from sqlalchemy import or_, select
-
-    from app.core.database import Provider, ProviderKey, async_session_maker
-
     now = datetime.now()
     cutoff = now - timedelta(seconds=REENABLE_DELAY_SECONDS)
 
@@ -427,6 +436,10 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
         disabled_keys = await session.execute(
             select(ProviderKey).where(
                 ProviderKey.is_active == False,  # noqa: E712
+                or_(
+                    ProviderKey.disabled_by.is_(None),
+                    ProviderKey.disabled_by != "manual",
+                ),
                 or_(ProviderKey.reset_at == None, ProviderKey.reset_at <= cutoff),  # noqa: E711
             )
         )
@@ -435,6 +448,10 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
         disabled_providers_q = await session.execute(
             select(Provider).where(
                 Provider.is_active == False,  # noqa: E712
+                or_(
+                    Provider.disabled_by.is_(None),
+                    Provider.disabled_by != "manual",
+                ),
                 or_(Provider.reset_at == None, Provider.reset_at <= cutoff),  # noqa: E711
             )
         )
@@ -451,7 +468,7 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
             await session.execute(
                 update(ProviderKey)
                 .where(ProviderKey.id.in_(key_ids))
-                .values(is_active=True, disabled_reason=None, disabled_at=None, reset_at=None)
+                .values(is_active=True, disabled_by=None, disabled_reason=None, disabled_at=None, reset_at=None)
             )
             reenabled_keys = key_ids
 
@@ -460,7 +477,7 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
             await session.execute(
                 update(Provider)
                 .where(Provider.id.in_(provider_ids))
-                .values(is_active=True, disabled_reason=None, disabled_at=None, reset_at=None)
+                .values(is_active=True, disabled_by=None, disabled_reason=None, disabled_at=None, reset_at=None)
             )
             reenabled_providers = [p.name for p in disabled_provider_rows]
 

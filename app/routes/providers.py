@@ -98,9 +98,13 @@ async def update_provider(
         if data.is_active is not None:
             provider.is_active = data.is_active
             if data.is_active:
+                provider.disabled_by = None
                 provider.disabled_reason = None
                 provider.disabled_at = None
                 provider.reset_at = None
+            else:
+                provider.disabled_by = "manual"
+                provider.disabled_at = datetime.now()
         if data.merge_consecutive_messages is not None:
             provider.merge_consecutive_messages = data.merge_consecutive_messages
         if data.protocol is not None:
