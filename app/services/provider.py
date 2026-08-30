@@ -24,6 +24,7 @@ from app.core.database import (
     Model,
 )
 from app.services.key_health import compute_health_score
+from app.services.disable_schedule import schedule_active
 from app.services.provider_key_routing import (
     RoutingContext,
     evaluate_provider_key_candidates,
@@ -103,6 +104,7 @@ async def _load_provider_keys(session, provider_id: int) -> tuple[list[dict], li
             "max_concurrent": pk.max_concurrent,
             "priority": pk.priority if hasattr(pk, "priority") else 0,
             "cost_role": getattr(pk, "cost_role", None) or "standard",
+            "disable_schedule": pk.disable_schedule or [],
         }
         for pk in active_key_rows
     ]
@@ -137,6 +139,7 @@ def pick_api_key(
         key
         for key in (provider_config.get("api_keys") or [])
         if key.get("is_active", True)
+        and not schedule_active(key.get("disable_schedule"))
     ]
     if not keys:
         fallback = provider_config.get("api_key") or ""
@@ -197,10 +200,31 @@ def explain_provider_key_candidates(
         if key_id is not None
     }
     scope_filtered = []
+    schedule_filtered = []
+    for key in (provider_config.get("api_keys") or []):
+        if not key.get("is_active", True):
+            continue
+        if schedule_active(key.get("disable_schedule")):
+            key_id = key.get("id")
+            schedule_filtered.append(
+                {
+                    "key_id": key_id,
+                    "label": key.get("label") or f"Key #{key_id}",
+                    "priority": int(key.get("priority") or 0),
+                    "health": compute_health_score(key_id) if key_id is not None else 100,
+                    "policy_priority": 0,
+                    "sticky": False,
+                    "standby": False,
+                    "matched_rules": [],
+                    "filtered_reasons": ["schedule_blocked"],
+                    "api_key": None,
+                }
+            )
     keys = [
         key
         for key in (provider_config.get("api_keys") or [])
         if key.get("is_active", True)
+        and not schedule_active(key.get("disable_schedule"))
     ]
     if allowed_key_id_set:
         scoped_keys = []
@@ -239,12 +263,12 @@ def explain_provider_key_candidates(
                         "sticky": False,
                         "standby": False,
                         "matched_rules": [],
-                        "filtered_reasons": [],
-                    }
-                ],
-                "filtered": scope_filtered,
+                    "filtered_reasons": [],
+                }
+            ],
+                "filtered": scope_filtered + schedule_filtered,
             }
-        return {"ordered": [], "filtered": scope_filtered}
+        return {"ordered": [], "filtered": scope_filtered + schedule_filtered}
     sticky_key_id = None
     if api_key_id is not None:
         sticky = _key_sticky_map.get((api_key_id, provider_name))
@@ -276,7 +300,7 @@ def explain_provider_key_candidates(
         item = candidate.to_dict()
         item["api_key"] = None
         filtered.append(item)
-    return {"ordered": ordered, "filtered": scope_filtered + filtered}
+    return {"ordered": ordered, "filtered": scope_filtered + schedule_filtered + filtered}
 
 
 async def invalidate_provider_key_sticky_cache(
@@ -410,6 +434,7 @@ async def load_providers():
                 "models": provider_models_data,
                 "merge_consecutive_messages": p.merge_consecutive_messages or False,
                 "disabled_reason": p.disabled_reason,
+                "disable_schedule": p.disable_schedule or [],
                 "api_keys": active_keys,
                 "disabled_key_reasons": disabled_reasons,
                 "disabled_keys": disabled_keys,
@@ -805,6 +830,10 @@ async def explain_provider_model_candidates(
             entry["filtered_reasons"].append("provider_not_found")
             filtered.append(entry)
             continue
+        if schedule_active(pc.get("disable_schedule")):
+            entry["filtered_reasons"].append("schedule_blocked")
+            filtered.append(entry)
+            continue
         if pc.get("disabled_reason"):
             entry["filtered_reasons"].append("provider_disabled")
         keys = pc.get("api_keys") or []
@@ -891,6 +920,12 @@ async def get_provider_model_candidates(
             return [
                 _route_from_provider_model(
                     provider_config, provider_name, None, model, True
+                )
+            ]
+        if schedule_active(provider_config.get("disable_schedule")):
+            return [
+                _route_from_provider_model(
+                    None, provider_name, None, model, True
                 )
             ]
         pm = get_model_config(provider_config, actual_model)

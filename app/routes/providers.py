@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from app.core.database import async_session_maker, Provider, ProviderKey
 from app.core.permissions import permission_required, login_required
 from app.services.provider import load_providers
+from app.services.disable_schedule import normalize_rules, schedule_active
 from app.services.key_health import compute_health_score, get_health_level, get_events_5m
 
 router = APIRouter(prefix="/admin/api", tags=["providers"])
@@ -29,6 +30,7 @@ class ProviderUpdate(BaseModel):
     is_active: Optional[bool] = None
     protocol: Optional[str] = None
     merge_consecutive_messages: Optional[bool] = None
+    disable_schedule: Optional[list] = None
 
 
 @router.get("/provider-status")
@@ -53,6 +55,8 @@ async def list_providers(_: bool = Depends(permission_required("page.providers")
                     "is_active": p.is_active,
                     "merge_consecutive_messages": p.merge_consecutive_messages or False,
                     "disabled_reason": p.disabled_reason,
+                    "disable_schedule": p.disable_schedule or [],
+                    "schedule_active_now": schedule_active(p.disable_schedule),
                 }
                 for p in providers
             ]
@@ -109,6 +113,8 @@ async def update_provider(
             provider.merge_consecutive_messages = data.merge_consecutive_messages
         if data.protocol is not None:
             provider.protocol = data.protocol
+        if "disable_schedule" in data.model_fields_set and data.disable_schedule is not None:
+            provider.disable_schedule = normalize_rules(data.disable_schedule)
         await session.commit()
         await load_providers()
         return {"id": provider.id}
@@ -204,6 +210,7 @@ class ProviderKeyUpdate(BaseModel):
     cost_role: Optional[str] = None
     is_active: Optional[bool] = None
     disabled_reason: Optional[str] = None
+    disable_schedule: Optional[list] = None
 
 
 @router.get("/providers/{provider_id}/keys")
@@ -227,6 +234,8 @@ async def list_provider_keys(provider_id: int, _: bool = Depends(permission_requ
                     "disabled_reason": k.disabled_reason,
                     "priority": k.priority if hasattr(k, "priority") else 0,
                     "cost_role": getattr(k, "cost_role", None) or "standard",
+                    "disable_schedule": k.disable_schedule or [],
+                    "schedule_active_now": schedule_active(k.disable_schedule),
                     "health_score": compute_health_score(k.id, is_active=k.is_active),
                 }
                 for k in keys
@@ -306,6 +315,8 @@ async def update_provider_key(
                 pk.reset_at = None
         if "disabled_reason" in data.model_fields_set:
             pk.disabled_reason = data.disabled_reason
+        if "disable_schedule" in data.model_fields_set and data.disable_schedule is not None:
+            pk.disable_schedule = normalize_rules(data.disable_schedule)
         if (
             "api_key" in data.model_fields_set
             and data.api_key is not None

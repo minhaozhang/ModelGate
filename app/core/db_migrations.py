@@ -902,6 +902,12 @@ async def migrate_providers_and_keys(conn) -> None:
         text("ALTER TABLE providers ADD COLUMN IF NOT EXISTS disabled_by VARCHAR(20)")
     )
     await conn.execute(
+        text("ALTER TABLE providers ADD COLUMN IF NOT EXISTS disable_schedule JSONB")
+    )
+    await conn.execute(
+        text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS disable_schedule JSONB")
+    )
+    await conn.execute(
         text("UPDATE providers SET protocol = 'openai' WHERE protocol IS NULL OR protocol = ''")
     )
     await conn.execute(

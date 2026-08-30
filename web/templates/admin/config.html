@@ -513,6 +513,24 @@
         </div>
     </div>
 
+    <div id="schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 flex min-h-0 flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h3 class="font-semibold">{{ _('Scheduled Disable') }}</h3>
+                <button onclick="closeScheduleModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="min-h-0 flex-1 overflow-y-auto p-4 space-y-3">
+                <p class="text-xs text-gray-400">{{ _('Requests are skipped during the window. Weekly rules repeat every week; one-time rules fire once. End time earlier than or equal to start time crosses into the next day.') }}</p>
+                <div id="schedule-rules" class="space-y-3"></div>
+                <button type="button" onclick="addScheduleRule()" class="text-xs text-blue-500 hover:text-blue-700">+ {{ _('Add rule') }}</button>
+            </div>
+            <div class="flex gap-2 border-t p-4 shrink-0">
+                <button type="button" onclick="saveScheduleModal()" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">{{ _('Save') }}</button>
+                <button type="button" onclick="closeScheduleModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
+            </div>
+        </div>
+    </div>
+
     <div id="model-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
         <div class="admin-modal-card bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 flex min-h-0 flex-col overflow-hidden">
             <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
@@ -707,6 +725,13 @@
             deleteKeyConfirm: '{{ _("Delete this key?") }}',
             keyDeleted: '{{ _("Key deleted") }}',
             failedToDeleteKey: '{{ _("Failed to delete key") }}',
+            scheduledDisable: '{{ _("Scheduled disable") }}',
+            scheduleActiveNow: '{{ _("active now") }}',
+            scheduleSaved: '{{ _("Schedule saved") }}',
+            addRule: '{{ _("Add rule") }}',
+            ruleWeekly: '{{ _("Weekly") }}',
+            ruleOnce: '{{ _("One-time") }}',
+            noScheduleRules: '{{ _("No rules") }}',
             apiKeyRequired: '{{ _("API Key is required") }}',
             keyAdded: '{{ _("Key added") }}',
             failedToAddKey: '{{ _("Failed to add key") }}',
@@ -829,7 +854,7 @@
                         ${providers.map(p => `
                             <tr class="${selectedProviderId === p.id ? 'selected' : ''}" onclick="selectProvider(${p.id})">
                                 <td>
-                                    <div class="font-semibold text-sm text-gray-800">${escapeHtml(p.name)}</div>
+                                    <div class="font-semibold text-sm text-gray-800 flex items-center gap-1">${escapeHtml(p.name)} ${scheduleBadge(p.disable_schedule, p.schedule_active_now)}</div>
                                 </td>
                                 <td>${renderProviderAvailability(p)}</td>
                                 <td><span class="status-pill neutral">${escapeHtml((p.protocol || 'openai').toUpperCase())}</span></td>
@@ -837,6 +862,9 @@
                                 <td><span class="text-xs text-gray-500">${p.merge_consecutive_messages ? '合并连续同角色' : '保持原始消息'}</span></td>
                                 <td>
                                     <div class="flex justify-end gap-1" onclick="event.stopPropagation()">
+                                        <button onclick="openProviderScheduleById(${p.id})" class="icon-btn text-purple-500 hover:text-purple-700" title="${t('scheduledDisable', 'Scheduled disable')}">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                        </button>
                                         <button onclick="openProviderKeys(${p.id}, '${escapeJs(p.name)}')" class="icon-btn text-green-500 hover:text-green-700" title="${t('keys', 'Keys')}">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
                                         </button>
@@ -1215,9 +1243,159 @@
         }
 
         let providerKeysTargetId = null;
+        let providerKeysTargetName = null;
+        let currentProviderKeys = [];
+        let scheduleTarget = null;
+        let scheduleDraft = [];
+        const SCHEDULE_WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
+
+        function scheduleSummary(rules) {
+            const parts = [];
+            (rules || []).forEach(r => {
+                if (!r || typeof r !== 'object') return;
+                if (r.type === 'weekly') {
+                    const days = (r.days || []).slice().sort((a, b) => a - b);
+                    if (!days.length) return;
+                    const dayText = days.length === 7 ? '每天' : days.map(d => '周' + (SCHEDULE_WEEKDAY_LABELS[d] || '?')).join('');
+                    parts.push(`每周${dayText} ${r.start}→${r.end}`);
+                } else if (r.type === 'once') {
+                    parts.push(`${r.start}→${r.end}`);
+                }
+            });
+            return parts.join('；');
+        }
+
+        function scheduleBadge(rules, activeNow) {
+            const text = scheduleSummary(rules);
+            if (!text) return '';
+            const cls = activeNow ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500';
+            return `<span class="schedule-badge ${cls} px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap" title="${escapeAttr(text)}">${t('scheduledDisable', 'Scheduled disable')}${activeNow ? '·' + t('scheduleActiveNow', 'active now') : ''}</span>`;
+        }
+
+        function openProviderScheduleById(id) {
+            const p = allProviders.find(x => x.id === id);
+            if (!p) return;
+            openScheduleModal({type: 'provider', id: id}, p.disable_schedule || []);
+        }
+
+        function openKeySchedule(keyId) {
+            const k = (currentProviderKeys || []).find(x => x.id === keyId);
+            if (!k) return;
+            openScheduleModal({type: 'key', providerId: providerKeysTargetId, keyId: keyId}, k.disable_schedule || []);
+        }
+
+        function openScheduleModal(target, rules) {
+            scheduleTarget = target;
+            scheduleDraft = (rules || []).map(r => JSON.parse(JSON.stringify(r)));
+            renderScheduleRules();
+            const m = document.getElementById('schedule-modal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+
+        function closeScheduleModal() {
+            const m = document.getElementById('schedule-modal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        }
+
+        function addScheduleRule() {
+            scheduleDraft.push({type: 'weekly', days: [], start: '00:00', end: '00:00'});
+            renderScheduleRules();
+        }
+
+        function removeScheduleRule(i) {
+            scheduleDraft.splice(i, 1);
+            renderScheduleRules();
+        }
+
+        function toggleScheduleDay(i, d) {
+            const r = scheduleDraft[i];
+            if (!r) return;
+            const days = r.days || [];
+            const idx = days.indexOf(d);
+            if (idx >= 0) days.splice(idx, 1); else days.push(d);
+            r.days = days;
+            renderScheduleRules();
+        }
+
+        function updateScheduleRule(i, field, value) {
+            if (scheduleDraft[i]) scheduleDraft[i][field] = String(value).replace('T', ' ');
+        }
+
+        function changeScheduleType(i, type) {
+            scheduleDraft[i] = type === 'weekly'
+                ? {type: 'weekly', days: [], start: '00:00', end: '00:00'}
+                : {type: 'once', start: '', end: ''};
+            renderScheduleRules();
+        }
+
+        function renderScheduleRules() {
+            const c = document.getElementById('schedule-rules');
+            if (!scheduleDraft.length) {
+                c.innerHTML = `<div class="text-xs text-gray-400">${t('noScheduleRules', 'No rules')}</div>`;
+                return;
+            }
+            c.innerHTML = scheduleDraft.map((r, i) => {
+                const header = `<div class="flex items-center justify-between">
+                    <select onchange="changeScheduleType(${i}, this.value)" class="border rounded px-1 py-0.5 text-xs">
+                        <option value="weekly" ${r.type === 'weekly' ? 'selected' : ''}>${t('ruleWeekly', 'Weekly')}</option>
+                        <option value="once" ${r.type === 'once' ? 'selected' : ''}>${t('ruleOnce', 'One-time')}</option>
+                    </select>
+                    <button type="button" onclick="removeScheduleRule(${i})" class="text-red-500 hover:text-red-700 text-xs">${t('remove', 'Remove')}</button>
+                </div>`;
+                if (r.type === 'weekly') {
+                    const dayBtns = SCHEDULE_WEEKDAY_LABELS.map((lbl, d) =>
+                        `<button type="button" onclick="toggleScheduleDay(${i}, ${d})" class="px-1.5 py-0.5 border rounded text-xs ${(r.days || []).includes(d) ? 'bg-blue-500 text-white border-blue-500' : 'text-gray-600 hover:bg-gray-50'}">${lbl}</button>`
+                    ).join('');
+                    return `<div class="border rounded p-2 space-y-2">${header}
+                        <div class="flex flex-wrap items-center gap-1">${dayBtns}</div>
+                        <div class="flex items-center gap-1 text-xs">
+                            <input type="time" value="${r.start || '00:00'}" onchange="updateScheduleRule(${i}, 'start', this.value)" class="border rounded px-1 py-0.5 text-xs">
+                            <span>→</span>
+                            <input type="time" value="${r.end || '00:00'}" onchange="updateScheduleRule(${i}, 'end', this.value)" class="border rounded px-1 py-0.5 text-xs">
+                        </div>
+                    </div>`;
+                }
+                return `<div class="border rounded p-2 space-y-2">${header}
+                    <div class="flex items-center gap-1 text-xs">
+                        <input type="datetime-local" value="${(r.start || '').replace(' ', 'T')}" onchange="updateScheduleRule(${i}, 'start', this.value)" class="border rounded px-1 py-0.5 text-xs">
+                        <span>→</span>
+                        <input type="datetime-local" value="${(r.end || '').replace(' ', 'T')}" onchange="updateScheduleRule(${i}, 'end', this.value)" class="border rounded px-1 py-0.5 text-xs">
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function saveScheduleModal() {
+            if (!scheduleTarget) return;
+            const rules = scheduleDraft.filter(r => {
+                if (!r || typeof r !== 'object') return false;
+                if (r.type === 'weekly') return (r.days || []).length > 0 && r.start && r.end;
+                if (r.type === 'once') return r.start && r.end;
+                return false;
+            });
+            const url = scheduleTarget.type === 'provider'
+                ? `${APP_BASE_PATH}/admin/api/providers/${scheduleTarget.id}`
+                : `${APP_BASE_PATH}/admin/api/providers/${scheduleTarget.providerId}/keys/${scheduleTarget.keyId}`;
+            try {
+                await mgFetch(url, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({disable_schedule: rules})
+                }, {success: t('scheduleSaved', 'Schedule saved'), error: t('failedToSave', 'Failed to save')});
+                closeScheduleModal();
+                if (scheduleTarget.type === 'provider') {
+                    await loadProviders();
+                } else if (providerKeysTargetId !== null) {
+                    await openProviderKeys(providerKeysTargetId, providerKeysTargetName || '');
+                }
+            } catch (e) {}
+        }
 
         async function openProviderKeys(providerId, providerName) {
             providerKeysTargetId = providerId;
+            providerKeysTargetName = providerName;
             document.getElementById('provider-keys-title').textContent = providerName + ' - ' + (CONFIG_I18N.providerKeys || 'Provider Keys');
             document.getElementById('provider-keys-content').innerHTML = `<div class="text-center text-gray-400 py-4">${t('loading', 'Loading...')}</div>`;
             document.getElementById('new-provider-key-value').value = '';
@@ -1234,6 +1412,7 @@
         }
 
         function renderProviderKeys(keys) {
+            currentProviderKeys = keys || [];
             const container = document.getElementById('provider-keys-content');
             if (keys.length === 0) {
                 container.innerHTML = '<div class="text-gray-400 text-center py-4">' + (CONFIG_I18N.noKeys || 'No keys') + '</div>';
@@ -1250,6 +1429,7 @@
                             <button onclick="updateProviderKeyLabel(${k.id})" class="pk-action text-blue-500 hover:text-blue-700 text-xs">${t('save', 'Save')}</button>
                             <span class="text-xs ${k.is_active ? 'text-green-600' : 'text-red-500'}">${k.is_active ? t('active', 'Active') : (k.disabled_by === 'manual' ? t('manualDisabled', 'Manual disabled') : t('autoDisabled', 'Auto disabled'))}</span>
                             ${k.disabled_reason ? '<span class="warn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">' + k.disabled_reason.replace(/</g, '&lt;') + '</span></span>' : ''}
+                            ${scheduleBadge(k.disable_schedule, k.schedule_active_now)}
                         </div>
                         <div class="flex items-center gap-1 text-xs text-gray-400 mt-1">
                             <span>${t('concurrency', 'Concurrency')}:</span>
@@ -1266,6 +1446,9 @@
                         </div>
                     </div>
                     <div class="pk-actions">
+                        <button onclick="openKeySchedule(${k.id})" class="icon-btn text-purple-500 hover:text-purple-700" title="${t('scheduledDisable', 'Scheduled disable')}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </button>
                         <button onclick="toggleProviderKey(${k.id}, ${!k.is_active})" class="icon-btn ${k.is_active ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}" title="${k.is_active ? t('disable', 'Disable') : t('enable', 'Enable')}">
                             ${k.is_active ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'}
                         </button>

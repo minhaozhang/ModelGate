@@ -303,6 +303,8 @@
         enableConfirm: "{{ _('Enable {name}?') }}",
         disableReasonPrompt: "{{ _('Disable reason (optional)') }}",
         opFailed: "{{ _('Operation failed') }}",
+        scheduledDisable: "{{ _('Scheduled') }}",
+        scheduleActiveNow: "{{ _('active now') }}",
     };
     </script>
     <script>
@@ -379,6 +381,13 @@
             return items ? `<div class="mt-2 space-y-1 border-l-2 border-gray-100 pl-2">${items}</div>` : '';
         }
 
+        function scheduleBadgeMobile(rules, activeNow) {
+            if (!rules || !rules.length) return '';
+            const cls = activeNow ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-500';
+            const suffix = activeNow ? `·${window.I18N.scheduleActiveNow}` : '';
+            return `<span class="shrink-0 text-[9px] ${cls} px-1 py-0.5 rounded ml-1">${window.I18N.scheduledDisable}${suffix}</span>`;
+        }
+
         function renderProviderKeyList(keys) {
             const items = Object.entries(keys || {})
                 .filter(([, k]) => (k.requests || 0) > 0)
@@ -424,7 +433,7 @@
                     ? `<div class="mt-1.5"><button class="btn-text text-[10px] text-blue-400" data-expand-keys="${provInfo.id}">${window.I18N.keys} &#9656;</button><div id="prov-keys-${provInfo.id}" class="hidden mt-1.5 space-y-1.5"></div></div>`
                     : '';
                 return `<div class="bg-gray-50 rounded-lg p-3 ${isDisabled ? 'opacity-70' : ''}">
-                    <div class="flex justify-between items-center text-xs gap-2"><span class="font-medium truncate">${esc(name)}${warnIcon}</span><span class="flex items-center gap-2 shrink-0"><span class="text-gray-500">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span></span></div>
+                    <div class="flex justify-between items-center text-xs gap-2"><span class="font-medium truncate">${esc(name)}${warnIcon}${scheduleBadgeMobile((provInfo || {}).disable_schedule, (provInfo || {}).schedule_active_now)}</span><span class="flex items-center gap-2 shrink-0"><span class="text-gray-500">${p.requests} ${window.I18N.req} / ${formatCompactTokens(p.tokens || 0)}</span></span></div>
                     <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2"><div class="bg-blue-500 h-1.5 rounded-full" style="width: ${pct}%"></div></div>
                     ${breakdownHtml}
                     ${keysExpandHtml}
@@ -1154,7 +1163,7 @@
                 box.innerHTML = keys.map(k => {
                     const label = k.label || k.api_key || (`#${k.id}`);
                     return `<div class="flex items-center justify-between gap-2 text-[11px] bg-gray-100 rounded-lg px-2 py-1.5">
-                        <span class="truncate text-gray-600">${esc(label)}${k.disabled_reason ? `<span class="text-red-400 ml-1">${esc(String(k.disabled_reason).substring(0, 40))}</span>` : ''}</span>
+                        <span class="truncate text-gray-600">${esc(label)}${k.disabled_reason ? `<span class="text-red-400 ml-1">${esc(String(k.disabled_reason).substring(0, 40))}</span>` : ''}${scheduleBadgeMobile(k.disable_schedule, k.schedule_active_now)}</span>
                         <label class="mswitch"><input type="checkbox" data-key-id="${k.id}" data-prov-id="${provId}" data-key-label="${esc(label)}" ${k.is_active ? 'checked' : ''}><span class="mslider"></span></label>
                     </div>`;
                 }).join('');
