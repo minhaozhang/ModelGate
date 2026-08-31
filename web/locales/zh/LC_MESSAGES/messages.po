@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-30 21:12+0800\n"
+"POT-Creation-Date: 2026-08-31 21:06+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh\n"
@@ -14,85 +14,526 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: web/templates/admin/config.html:6
-msgid "Config"
-msgstr ""
+#: web/templates/admin/api_keys.html:6 web/templates/admin/api_keys.html:93
+#: web/templates/admin/monitor.html:376 web/templates/components/nav.html:20
+msgid "API Keys"
+msgstr "API 瀵嗛挜"
 
-#: web/templates/admin/config.html:144
-msgid "Provider & Model Configuration"
-msgstr ""
+#: web/templates/admin/api_keys.html:94 web/templates/admin/api_keys.html:123
+#: web/templates/admin/api_keys.html:233
+msgid "Add API Key"
+msgstr "娣诲姞 API 瀵嗛挜"
 
-#: web/templates/admin/config.html:198 web/templates/admin/config.html:208
-msgid "+ Add"
-msgstr ""
+#: web/templates/admin/api_keys.html:99
+msgid "Search by name or key..."
+msgstr "鎸夊悕绉版垨瀵嗛挜鎼滅储..."
 
-#: web/templates/admin/config.html:295
-msgid "Bind from API"
-msgstr ""
+#: web/templates/admin/api_keys.html:107
+msgid "keys"
+msgstr "瀵嗛挜"
 
-#: web/templates/admin/config.html:457 web/templates/admin/config.html:667
-msgid "Bind models from API"
-msgstr ""
+#: web/templates/admin/api_keys.html:130 web/templates/admin/config.html:484
+msgid "Name"
+msgstr "鍚嶇О"
 
-#: web/templates/admin/config.html:461
-msgid "Uncheck models you do not want; already bound models stay checked"
-msgstr ""
+#: web/templates/admin/api_keys.html:131
+msgid "e.g., Project A"
+msgstr "渚嬪: 椤圭洰 A"
 
-#: web/templates/admin/config.html:463 web/templates/admin/config.html:697
-msgid "Select All"
-msgstr ""
+#: web/templates/admin/api_keys.html:135 web/templates/admin/api_keys.html:266
+msgid "Email"
+msgstr "邮箱"
 
-#: web/templates/admin/config.html:464 web/templates/admin/config.html:698
-msgid "Clear"
-msgstr ""
+#: web/templates/admin/api_keys.html:139 web/templates/admin/api_keys.html:267
+msgid "Expires At"
+msgstr "过期时间"
 
+#: web/templates/admin/api_keys.html:145
+msgid "Allowed Models"
+msgstr "鍏佽鐨勬ā鍨"
+
+#: web/templates/admin/api_keys.html:145
+msgid "selected"
+msgstr "宸查€夋嫨"
+
+#: web/templates/admin/api_keys.html:160
+#, fuzzy
+msgid "MCP Servers"
+msgstr "渚涘簲鍟"
+
+#: web/templates/admin/api_keys.html:163
+msgid "Select MCP servers this key can access"
+msgstr "选择此 Key 可访问的 MCP 服务器"
+
+#: web/templates/admin/api_keys.html:188
+msgid "Bypass busyness limit"
+msgstr "绕过繁忙限制"
+
+#: web/templates/admin/api_keys.html:190
+msgid "Ignore model busyness availability restrictions"
+msgstr "忽略模型繁忙可用性限制"
+
+#: web/templates/admin/api_keys.html:195 web/templates/admin/api_keys.html:352
 #: web/templates/admin/config.html:469 web/templates/admin/config.html:510
 #: web/templates/admin/config.html:529 web/templates/admin/config.html:600
 #: web/templates/admin/config.html:628 web/templates/admin/config.html:646
+#: web/templates/admin/documents.html:140 web/templates/admin/reports.html:136
 msgid "Cancel"
+msgstr "鍙栨秷"
+
+#: web/templates/admin/api_keys.html:196 web/templates/admin/api_keys.html:353
+#: web/templates/admin/config.html:509 web/templates/admin/config.html:528
+#: web/templates/admin/config.html:599 web/templates/admin/config.html:717
+#: web/templates/admin/documents.html:141
+#: web/templates/admin/documents.html:158
+#: web/templates/admin/system_config.html:70
+#: web/templates/admin/system_config.html:86
+#: web/templates/admin/system_config.html:136
+#: web/templates/admin/system_config.html:168
+msgid "Save"
+msgstr "淇濆瓨"
+
+#: web/templates/admin/api_keys.html:205 web/templates/admin/monitor.html:379
+#: web/templates/admin/request_logs.html:233
+#: web/templates/admin/request_logs.html:291
+#: web/templates/admin/request_logs.html:327
+#: web/templates/admin/request_logs.html:401 web/templates/user/login.html:62
+msgid "API Key"
+msgstr "API 瀵嗛挜"
+
+#: web/templates/admin/api_keys.html:210 web/templates/admin/api_keys.html:252
+msgid ""
+"Copy this key now. For security reasons, it will be masked in the list "
+"afterwards."
+msgstr "璇风珛鍗冲鍒舵瀵嗛挜銆傚嚭浜庡畨鍏ㄨ€冭檻锛屽垪琛ㄤ腑灏嗗彧鏄剧ず鎺╃爜鐗堟湰銆"
+
+#: web/templates/admin/api_keys.html:214 web/templates/admin/api_keys.html:244
+#: web/templates/public/opencode.html:58 web/templates/public/opencode.html:91
+#: web/templates/user/tab_codex.html:11 web/templates/user/tab_codex.html:20
+#: web/templates/user/tab_codex.html:27 web/templates/user/tab_codex.html:48
+#: web/templates/user/tab_codex.html:82 web/templates/user/tab_opencode.html:11
+#: web/templates/user/tab_opencode.html:20
+#: web/templates/user/tab_opencode.html:27
+#: web/templates/user/tab_opencode.html:91 web/templates/user/tab_usage.html:35
+#: web/templates/user/tab_usage.html:57 web/templates/user/tab_usage.html:79
+#: web/templates/user/tab_usage.html:183 web/templates/user/tab_usage.html:208
+#: web/templates/user/tab_usage.html:234 web/templates/user/tab_usage.html:259
+#: web/templates/user/tab_usage.html:278
+msgid "Copy"
+msgstr "澶嶅埗"
+
+#: web/templates/admin/api_keys.html:218 web/templates/admin/api_keys.html:253
+msgid "I have saved it"
+msgstr "鎴戝凡淇濆瓨"
+
+#: web/templates/admin/api_keys.html:225 web/templates/public/opencode.html:90
+#: web/templates/user/dashboard.html:411
+msgid "Copied!"
+msgstr "宸插鍒?"
+
+#: web/templates/admin/api_keys.html:226
+msgid "API Key and usage instructions copied!"
+msgstr "API Key 鍜屼娇鐢ㄨ鏄庡凡澶嶅埗!"
+
+#: web/templates/admin/api_keys.html:227
+msgid "Usage Instructions:"
+msgstr "浣跨敤璇存槑:"
+
+#: web/templates/admin/api_keys.html:228
+msgid "Paste the API Key above to log in on the page"
+msgstr "鍦ㄤ笂鏂圭矘璐?API 瀵嗛挜浠ョ櫥褰曢〉闈"
+
+#: web/templates/admin/api_keys.html:229
+msgid "Configure OpenCode:"
+msgstr "閰嶇疆 OpenCode:"
+
+#: web/templates/admin/api_keys.html:230
+msgid "Let the agent read the configuration document:"
+msgstr "璁╂櫤鑳戒綋璇诲彇閰嶇疆鏂囨。:"
+
+#: web/templates/admin/api_keys.html:231 web/templates/admin/config.html:655
+#: web/templates/admin/documents.html:150 web/templates/admin/home.html:192
+#: web/templates/admin/monitor.html:366 web/templates/admin/reports.html:146
+#: web/templates/admin/request_logs.html:396
+#: web/templates/components/admin_header.html:30
+#: web/templates/user/dashboard.html:341 web/templates/user/dashboard.html:389
+#: web/templates/user/documents.html:70
+msgid "Light Mode"
+msgstr "娴呰壊妯″紡"
+
+#: web/templates/admin/api_keys.html:232 web/templates/admin/config.html:656
+#: web/templates/admin/documents.html:151 web/templates/admin/home.html:193
+#: web/templates/admin/monitor.html:367 web/templates/admin/reports.html:147
+#: web/templates/admin/request_logs.html:397
+#: web/templates/components/admin_header.html:29
+#: web/templates/user/dashboard.html:342 web/templates/user/dashboard.html:390
+#: web/templates/user/documents.html:71
+msgid "Dark Mode"
+msgstr "娣辫壊妯″紡"
+
+#: web/templates/admin/api_keys.html:234
+msgid "Edit API Key"
+msgstr "缂栬緫 API 瀵嗛挜"
+
+#: web/templates/admin/api_keys.html:235
+msgid "All models"
+msgstr "鎵€鏈夋ā鍨"
+
+#: web/templates/admin/api_keys.html:236
+msgid "No API keys found"
+msgstr "鏈壘鍒?API 瀵嗛挜"
+
+#: web/templates/admin/api_keys.html:237 web/templates/admin/config.html:701
+#: web/templates/admin/request_logs.html:310
+msgid "Previous"
+msgstr "涓婁竴椤"
+
+#: web/templates/admin/api_keys.html:238 web/templates/admin/config.html:702
+#: web/templates/admin/request_logs.html:311
+msgid "Next"
+msgstr "涓嬩竴椤"
+
+#: web/templates/admin/api_keys.html:239
+msgid "No models available. Add providers and models in Config first."
+msgstr "鏃犲彲鐢ㄦā鍨嬨€傝鍏堝湪閰嶇疆涓坊鍔犱緵搴斿晢鍜屾ā鍨嬨€"
+
+#: web/templates/admin/api_keys.html:240
+msgid "API Key created:"
+msgstr "API 瀵嗛挜宸插垱寤?"
+
+#: web/templates/admin/api_keys.html:241
+msgid "Please save this key!"
+msgstr "璇蜂繚瀛樻瀵嗛挜!"
+
+#: web/templates/admin/api_keys.html:242
+msgid "Failed to save API key"
+msgstr "淇濆瓨 API 瀵嗛挜澶辫触"
+
+#: web/templates/admin/api_keys.html:243
+msgid "Delete this API key?"
+msgstr "鍒犻櫎姝?API 瀵嗛挜?"
+
+#: web/templates/admin/api_keys.html:245 web/templates/admin/config.html:673
+#: web/templates/admin/documents.html:157
+msgid "Edit"
+msgstr "缂栬緫"
+
+#: web/templates/admin/api_keys.html:246 web/templates/admin/config.html:674
+#: web/templates/admin/documents.html:156
+msgid "Delete"
+msgstr "鍒犻櫎"
+
+#: web/templates/admin/api_keys.html:247
+msgid "Regenerate"
+msgstr "閲嶇疆瀵嗛挜"
+
+#: web/templates/admin/api_keys.html:248
+msgid "Regenerate the API key? The old key will stop working immediately."
+msgstr "纭畾瑕侀噸缃?API 瀵嗛挜鍚楋紵鏃у瘑閽ュ皢绔嬪嵆澶辨晥銆"
+
+#: web/templates/admin/api_keys.html:249
+msgid "New API Key:"
+msgstr "鏂?API 瀵嗛挜:"
+
+#: web/templates/admin/api_keys.html:250
+msgid "API Key Created"
+msgstr "API 瀵嗛挜宸插垱寤"
+
+#: web/templates/admin/api_keys.html:251
+msgid "API Key Regenerated"
+msgstr "API 瀵嗛挜宸查噸缃"
+
+#: web/templates/admin/api_keys.html:254
+#: web/templates/admin/request_logs.html:274
+#: web/templates/admin/request_logs.html:361
+msgid "Query"
+msgstr "鏌ヨ"
+
+#: web/templates/admin/api_keys.html:255
+msgid "User Page:"
+msgstr "鐢ㄦ埛椤甸潰:"
+
+#: web/templates/admin/api_keys.html:256
+#, fuzzy
+msgid "CLI Setup:"
+msgstr "澶嶅埗璁剧疆"
+
+#: web/templates/admin/api_keys.html:257
+msgid ""
+"Run one command below in a terminal on the machine where OpenCode is "
+"installed; it writes the ModelGate config automatically."
 msgstr ""
+
+#: web/templates/admin/api_keys.html:258
+msgid "Copy Setup"
+msgstr "澶嶅埗璁剧疆"
+
+#: web/templates/admin/api_keys.html:260
+#, fuzzy
+msgid "Close"
+msgstr "鏃ュ織"
+
+#: web/templates/admin/api_keys.html:261
+#, fuzzy
+msgid "Bypass Busyness"
+msgstr "绻佸繖绋嬪害"
+
+#: web/templates/admin/api_keys.html:264 web/templates/admin/login.html:6
+#: web/templates/admin/login.html:70 web/templates/admin/mobile_login.html:7
+#: web/templates/user/login.html:73 web/templates/user/login.html:86
+msgid "Login"
+msgstr "鐧诲綍"
+
+#: web/templates/admin/api_keys.html:265
+msgid "Last Used"
+msgstr "鏈€鍚庝娇鐢ㄦ椂闂"
+
+#: web/templates/admin/api_keys.html:268
+msgid "Expired"
+msgstr "已过期"
+
+#: web/templates/admin/api_keys.html:269
+msgid "Never"
+msgstr "浠庢湭浣跨敤"
+
+#: web/templates/admin/api_keys.html:270
+msgid "ModelGate Access"
+msgstr "ModelGate 璁块棶淇℃伅"
+
+#: web/templates/admin/api_keys.html:271
+msgid "Login Page:"
+msgstr "鐧诲綍椤甸潰锛"
+
+#: web/templates/admin/api_keys.html:272
+msgid "API Key:"
+msgstr "API Key锛"
+
+#: web/templates/admin/api_keys.html:273
+msgid "Quick Start:"
+msgstr "蹇€熷紑濮嬶細"
+
+#: web/templates/admin/api_keys.html:274
+msgid "Open the login page above and paste the API key to sign in."
+msgstr "鎵撳紑涓婇潰鐨勭櫥褰曢〉闈紝绮樿创 API Key 瀹屾垚鐧诲綍銆"
+
+#: web/templates/admin/api_keys.html:275
+msgid ""
+"Keep this API key private and do not share it in public chats or "
+"repositories."
+msgstr "璇峰Ε鍠勪繚绠¤繖涓?API Key锛屼笉瑕佸湪鍏紑鑱婂ぉ鎴栦唬鐮佷粨搴撲腑娉勯湶銆"
+
+#: web/templates/admin/api_keys.html:276
+msgid "Enabled Models:"
+msgstr "宸插紑閫氭ā鍨嬶細"
+
+#: web/templates/admin/api_keys.html:277
+msgid ""
+"No specific model restrictions. This API key can use all currently "
+"allowed models."
+msgstr "褰撳墠娌℃湁鍗曠嫭鐨勬ā鍨嬮檺鍒讹紝杩欎釜 API Key 鍙互浣跨敤褰撳墠鍏佽鐨勫叏閮ㄦā鍨嬨€"
+
+#: web/templates/admin/api_keys.html:278 web/templates/admin/api_keys.html:312
+msgid "Time Rules"
+msgstr "鏃堕棿瑙勫垯"
+
+#: web/templates/admin/api_keys.html:279 web/templates/admin/api_keys.html:317
+msgid "Add Time Rule"
+msgstr "娣诲姞鏃堕棿瑙勫垯"
+
+#: web/templates/admin/api_keys.html:280
+msgid "Edit Time Rule"
+msgstr "缂栬緫鏃堕棿瑙勫垯"
+
+#: web/templates/admin/api_keys.html:281 web/templates/admin/api_keys.html:322
+msgid "Rule Type"
+msgstr "瑙勫垯绫诲瀷"
+
+#: web/templates/admin/api_keys.html:282 web/templates/admin/api_keys.html:324
+#: web/templates/admin/request_logs.html:260
+#: web/templates/admin/request_logs.html:348
+#: web/templates/user/dashboard.html:441
+msgid "Time Range"
+msgstr "鏃堕棿娈"
+
+#: web/templates/admin/api_keys.html:283 web/templates/admin/api_keys.html:325
+#: web/templates/admin/api_keys.html:344 web/templates/admin/reports.html:76
+#: web/templates/admin/reports.html:154
+msgid "Date Range"
+msgstr "鏃ユ湡鑼冨洿"
+
+#: web/templates/admin/api_keys.html:284 web/templates/admin/api_keys.html:326
+msgid "Weekday"
+msgstr "鏄熸湡"
+
+#: web/templates/admin/api_keys.html:285 web/templates/admin/api_keys.html:335
+msgid "Start Time"
+msgstr "寮€濮嬫椂闂"
+
+#: web/templates/admin/api_keys.html:286 web/templates/admin/api_keys.html:339
+msgid "End Time"
+msgstr "缁撴潫鏃堕棿"
+
+#: web/templates/admin/api_keys.html:287
+msgid "Start Date"
+msgstr "寮€濮嬫棩鏈"
+
+#: web/templates/admin/api_keys.html:288
+msgid "End Date"
+msgstr "缁撴潫鏃ユ湡"
+
+#: web/templates/admin/api_keys.html:289 web/templates/admin/api_keys.html:348
+msgid "Weekdays"
+msgstr "鏄熸湡"
+
+#: web/templates/admin/api_keys.html:290 web/templates/admin/api_keys.html:330
+msgid "Allowed"
+msgstr "鍏佽"
+
+#: web/templates/admin/api_keys.html:291
+msgid "Blocked"
+msgstr "闃绘"
+
+#: web/templates/admin/api_keys.html:292
+msgid "No time rules"
+msgstr "鏆傛棤鏃堕棿瑙勫垯"
+
+#: web/templates/admin/api_keys.html:293
+msgid "Delete this time rule?"
+msgstr "鍒犻櫎姝ゆ椂闂磋鍒欙紵"
+
+#: web/templates/admin/api_keys.html:294
+msgid "Failed to save time rule"
+msgstr "淇濆瓨鏃堕棿瑙勫垯澶辫触"
+
+#: web/templates/admin/api_keys.html:295
+msgid "Time rule created"
+msgstr "鏃堕棿瑙勫垯宸插垱寤"
+
+#: web/templates/admin/api_keys.html:296 web/templates/admin/api_keys.html:336
+#: web/templates/admin/api_keys.html:340
+msgid "HH:MM"
+msgstr "HH:MM"
+
+#: web/templates/admin/api_keys.html:297
+msgid "YYYY-MM-DD"
+msgstr "YYYY-MM-DD"
+
+#: web/templates/admin/api_keys.html:298
+msgid "Mon"
+msgstr "鍛ㄤ竴"
+
+#: web/templates/admin/api_keys.html:299
+msgid "Tue"
+msgstr "鍛ㄤ簩"
+
+#: web/templates/admin/api_keys.html:300
+msgid "Wed"
+msgstr "鍛ㄤ笁"
+
+#: web/templates/admin/api_keys.html:301
+msgid "Thu"
+msgstr "鍛ㄥ洓"
+
+#: web/templates/admin/api_keys.html:302
+msgid "Fri"
+msgstr "鍛ㄤ簲"
+
+#: web/templates/admin/api_keys.html:303
+msgid "Sat"
+msgstr "鍛ㄥ叚"
+
+#: web/templates/admin/api_keys.html:304
+msgid "Sun"
+msgstr "鍛ㄦ棩"
+
+#: web/templates/admin/api_keys.html:305
+msgid "Control when this API key can be used"
+msgstr "鎺у埗姝?API 瀵嗛挜浣曟椂鍙敤"
+
+#: web/templates/admin/api_keys.html:446 web/templates/admin/reports.html:607
+#: web/templates/admin/request_logs.html:494
+#: web/templates/admin/request_logs.html:514
+#, fuzzy
+msgid "Select date range"
+msgstr "鏃ユ湡鑼冨洿"
+
+#: web/templates/admin/api_keys.html:633 web/templates/admin/config.html:705
+#: web/templates/admin/mobile_home.html:251
+#: web/templates/admin/request_logs.html:243
+#: web/templates/admin/request_logs.html:249
+#: web/templates/admin/request_logs.html:323
+#: web/templates/admin/request_logs.html:337
+msgid "All"
+msgstr "鍏ㄩ儴"
+
+#: web/templates/admin/config.html:6 web/templates/user/dashboard.html:368
+msgid "Config"
+msgstr "閰嶇疆"
+
+#: web/templates/admin/config.html:144
+msgid "Provider & Model Configuration"
+msgstr "渚涘簲鍟嗗拰妯″瀷閰嶇疆"
+
+#: web/templates/admin/config.html:198 web/templates/admin/config.html:208
+msgid "+ Add"
+msgstr "+ 娣诲姞"
+
+#: web/templates/admin/config.html:295
+msgid "Bind from API"
+msgstr "浠?API 缁戝畾"
+
+#: web/templates/admin/config.html:457 web/templates/admin/config.html:667
+msgid "Bind models from API"
+msgstr "浠?API 缁戝畾妯″瀷"
+
+#: web/templates/admin/config.html:461
+msgid "Uncheck models you do not want; already bound models stay checked"
+msgstr "鍙栨秷鍕鹃€変笉闇€瑕佺殑妯″瀷锛涘凡缁戝畾鐨勬ā鍨嬩繚鎸佸嬀閫変笖涓嶅彲鏇存敼"
+
+#: web/templates/admin/config.html:463 web/templates/admin/config.html:697
+#, fuzzy
+msgid "Select All"
+msgstr "宸查€夋嫨"
+
+#: web/templates/admin/config.html:464 web/templates/admin/config.html:698
+#, fuzzy
+msgid "Clear"
+msgstr "骞"
 
 #: web/templates/admin/config.html:470 web/templates/admin/config.html:669
 msgid "Bind selected"
-msgstr ""
+msgstr "缁戝畾閫変腑"
 
 #: web/templates/admin/config.html:477 web/templates/admin/config.html:706
 msgid "Add Provider"
-msgstr ""
+msgstr "娣诲姞渚涘簲鍟"
 
-#: web/templates/admin/config.html:484
-msgid "Name"
-msgstr ""
-
-#: web/templates/admin/config.html:488
+#: web/templates/admin/config.html:488 web/templates/user/tab_usage.html:166
 msgid "Base URL"
-msgstr ""
+msgstr "鍩虹 URL"
 
 #: web/templates/admin/config.html:492
+#, fuzzy
 msgid "Protocol"
-msgstr ""
+msgstr "OpenAI 鍗忚"
 
 #: web/templates/admin/config.html:500 web/templates/admin/config.html:590
 #: web/templates/admin/config.html:663
 msgid "Active"
-msgstr ""
+msgstr "鍚敤"
 
 #: web/templates/admin/config.html:505
 msgid "Merge consecutive same-role messages"
-msgstr ""
+msgstr "鍚堝苟杩炵画鐩稿悓瑙掕壊娑堟伅"
 
 #: web/templates/admin/config.html:505
 msgid "For providers like MiniMax requiring role alternation"
-msgstr ""
-
-#: web/templates/admin/config.html:509 web/templates/admin/config.html:528
-#: web/templates/admin/config.html:599 web/templates/admin/config.html:717
-msgid "Save"
-msgstr ""
+msgstr "閫傜敤浜?MiniMax 绛夐渶瑕佽鑹蹭氦鏇跨殑渚涘簲鍟"
 
 #: web/templates/admin/config.html:519
+#, fuzzy
 msgid "Scheduled Disable"
-msgstr "定时禁用"
+msgstr "鎵嬪姩绂佺敤"
 
 #: web/templates/admin/config.html:523
 msgid ""
@@ -102,50 +543,52 @@ msgid ""
 msgstr ""
 
 #: web/templates/admin/config.html:525 web/templates/admin/config.html:731
+#, fuzzy
 msgid "Add rule"
-msgstr "添加规则"
+msgstr "娣诲姞鏃堕棿瑙勫垯"
 
 #: web/templates/admin/config.html:537 web/templates/admin/config.html:709
 msgid "Add Model"
-msgstr ""
+msgstr "娣诲姞妯″瀷"
 
 #: web/templates/admin/config.html:544
 msgid "Model Name (ID)"
-msgstr ""
+msgstr "妯″瀷鍚嶇О (ID)"
 
 #: web/templates/admin/config.html:548
 msgid "Display Name"
-msgstr ""
+msgstr "鏄剧ず鍚嶇О"
 
 #: web/templates/admin/config.html:553
 msgid "Maximum tokens the model can generate in a single response"
-msgstr ""
+msgstr "妯″瀷鍗曟鍥炲鑳界敓鎴愮殑鏈€澶?Token 鏁"
 
 #: web/templates/admin/config.html:553
 msgid "Max Output"
-msgstr ""
+msgstr "鏈€澶ц緭鍑"
 
 #: web/templates/admin/config.html:557
 msgid "Total input + output tokens the model can process at once"
-msgstr ""
+msgstr "妯″瀷涓€娆¤兘澶勭悊鐨勮緭鍏?杈撳嚭鎬?Token 鏁"
 
 #: web/templates/admin/config.html:557
 msgid "Context Window"
-msgstr ""
+msgstr "涓婁笅鏂囩獥鍙"
 
 #: web/templates/admin/config.html:561
+#, fuzzy
 msgid ""
 "Reject requests whose estimated input tokens exceed this limit. Defaults "
 "to the context window value; agents auto-compact when rejected"
-msgstr ""
+msgstr "鎷掔粷浼扮畻杈撳叆 Token 瓒呰繃姝や笂闄愮殑璇锋眰锛岄粯璁や娇鐢ㄤ笂涓嬫枃绐楀彛鍊硷紱琚嫆缁濈殑 Agent 浼氳嚜鍔ㄥ帇缂╀笂涓嬫枃"
 
 #: web/templates/admin/config.html:561
 msgid "Context Hard Limit"
-msgstr ""
+msgstr "涓婁笅鏂囩‖涓婇檺"
 
 #: web/templates/admin/config.html:562
 msgid "empty = context window, e.g. 120k"
-msgstr ""
+msgstr "鐣欑┖ = 浣跨敤涓婁笅鏂囩獥鍙ｅ€硷紝濡?120k"
 
 #: web/templates/admin/config.html:567
 msgid ""
@@ -154,560 +597,845 @@ msgid ""
 msgstr ""
 
 #: web/templates/admin/config.html:567
+#, fuzzy
 msgid "Max Concurrent"
-msgstr ""
+msgstr "骞跺彂"
 
 #: web/templates/admin/config.html:568
 msgid "empty = unlimited, 0 = disabled, e.g. 3"
-msgstr ""
+msgstr "留空=不限制，0=禁用，例如 3"
 
 #: web/templates/admin/config.html:573
 msgid "Enable extended reasoning / chain-of-thought for this model"
-msgstr ""
+msgstr "鍚敤璇ユā鍨嬬殑娣卞害鎺ㄧ悊/鎬濈淮閾捐兘鍔"
 
 #: web/templates/admin/config.html:575
 msgid "Reasoning"
-msgstr ""
+msgstr "鎺ㄧ悊"
 
 #: web/templates/admin/config.html:580
+#, fuzzy
 msgid ""
 "Comma-separated reasoning effort levels exposed as switchable variants in"
 " opencode (e.g. high,max). Leave empty to use provider defaults (Zhipu "
 "GLM-5.2+: high,max; others: low,high,max)."
-msgstr ""
+msgstr "閫楀彿鍒嗛殧鐨勬帹鐞嗗己搴︾骇鍒紝鍦?opencode 涓綔涓哄彲鍒囨崲鍙樹綋鏆撮湶锛堝 high,max锛夈€傜暀绌哄垯涓嶇敓鎴愬彉浣撱€"
 
 #: web/templates/admin/config.html:580
 msgid "Reasoning Effort Variants"
-msgstr ""
+msgstr "鎺ㄧ悊寮哄害鍙樹綋"
 
 #: web/templates/admin/config.html:581
 msgid "empty = provider default (Zhipu: high,max)"
-msgstr ""
+msgstr "留空=使用供应商默认（智谱： high,max）"
 
 #: web/templates/admin/config.html:586
 msgid "Multimodal"
-msgstr ""
+msgstr "澶氭ā鎬"
 
 #: web/templates/admin/config.html:609 web/templates/admin/config.html:657
+#, fuzzy
 msgid "Provider Keys"
-msgstr ""
+msgstr "渚涘簲鍟"
 
 #: web/templates/admin/config.html:624 web/templates/admin/config.html:715
 msgid "Concurrency"
-msgstr ""
+msgstr "骞跺彂"
 
 #: web/templates/admin/config.html:624
 msgid "Empty = default (3). 0 = key disabled for new requests."
-msgstr ""
+msgstr "留空=默认（3）。0=该 Key 不再接受新请求。"
 
 #: web/templates/admin/config.html:629
+#, fuzzy
 msgid "Add"
-msgstr ""
+msgstr "+ 娣诲姞"
 
 #: web/templates/admin/config.html:638
 msgid "Disable Key"
-msgstr ""
+msgstr "绂佺敤 Key"
 
 #: web/templates/admin/config.html:643
 msgid "Disable reason (optional, shown to users)"
-msgstr ""
+msgstr "禁用原因（可选，会展示给用户）"
 
 #: web/templates/admin/config.html:647 web/templates/admin/config.html:718
+#, fuzzy
 msgid "Disable"
-msgstr ""
-
-#: web/templates/admin/config.html:655
-msgid "Light Mode"
-msgstr ""
-
-#: web/templates/admin/config.html:656
-msgid "Dark Mode"
-msgstr ""
+msgstr "宸茬鐢"
 
 #: web/templates/admin/config.html:658
+#, fuzzy
 msgid "No keys configured"
-msgstr ""
+msgstr "鏈厤缃鍒"
 
 #: web/templates/admin/config.html:659 web/templates/admin/mobile_home.html:165
+#: web/templates/admin/notifications.html:31
+#: web/templates/admin/request_logs.html:283
+#: web/templates/admin/request_logs.html:379
+#: web/templates/admin/scheduler_logs_tab.html:9
+#: web/templates/admin/scheduler_tasks_tab.html:1
+#: web/templates/user/dashboard.html:476 web/templates/user/tab_codex.html:10
+#: web/templates/user/tab_notifications.html:8
+#: web/templates/user/tab_opencode.html:10
+#: web/templates/user/tab_stats.html:108
+#, fuzzy
 msgid "Loading..."
-msgstr ""
+msgstr "鍔犺浇鏉冮檺涓?.."
 
-#: web/templates/admin/config.html:660
+#: web/templates/admin/config.html:660 web/templates/user/dashboard.html:477
+#, fuzzy
 msgid "Failed to load"
-msgstr ""
+msgstr "淇濆瓨 API 瀵嗛挜澶辫触"
 
 #: web/templates/admin/config.html:661
+#, fuzzy
 msgid "No providers"
-msgstr ""
+msgstr "渚涘簲鍟"
 
-#: web/templates/admin/config.html:662
+#: web/templates/admin/config.html:662 web/templates/user/dashboard.html:410
+#, fuzzy
 msgid "No models"
-msgstr ""
+msgstr "妯″瀷"
 
 #: web/templates/admin/config.html:664
+#, fuzzy
 msgid "Inactive"
-msgstr ""
+msgstr "娲昏穬"
 
 #: web/templates/admin/config.html:665
 msgid "Manual disabled"
-msgstr ""
+msgstr "鎵嬪姩绂佺敤"
 
 #: web/templates/admin/config.html:666
 msgid "Auto disabled"
-msgstr ""
+msgstr "鑷姩绂佺敤"
 
 #: web/templates/admin/config.html:668
 msgid "Bound"
-msgstr ""
+msgstr "宸茬粦瀹"
 
 #: web/templates/admin/config.html:670
 msgid "Please select at least one model"
-msgstr ""
+msgstr "璇疯嚦灏戦€夋嫨涓€涓ā鍨"
 
 #: web/templates/admin/config.html:671
 msgid "No upstream models"
-msgstr ""
+msgstr "涓婃父鏈繑鍥炴ā鍨"
 
 #: web/templates/admin/config.html:672 web/templates/admin/mobile_home.html:300
+#, fuzzy
 msgid "Keys"
-msgstr ""
-
-#: web/templates/admin/config.html:673
-msgid "Edit"
-msgstr ""
-
-#: web/templates/admin/config.html:674
-msgid "Delete"
-msgstr ""
+msgstr "瀵嗛挜"
 
 #: web/templates/admin/config.html:675
+#, fuzzy
 msgid "Remove"
-msgstr ""
+msgstr "鎭㈠"
 
 #: web/templates/admin/config.html:676
 msgid "Bind"
-msgstr ""
+msgstr "绑定"
 
 #: web/templates/admin/config.html:677
+#, fuzzy
 msgid "Bound Models"
-msgstr ""
+msgstr "鍏佽鐨勬ā鍨"
 
 #: web/templates/admin/config.html:678
+#, fuzzy
 msgid "No models bound"
-msgstr ""
+msgstr "浣跨敤妯″瀷鏁"
 
 #: web/templates/admin/config.html:679
 msgid "Please select a provider first"
-msgstr ""
+msgstr "请先选择供应商"
 
 #: web/templates/admin/config.html:680
+#, fuzzy
 msgid "Sync failed"
-msgstr ""
+msgstr "澶辫触"
 
 #: web/templates/admin/config.html:681
 #, python-brace-format
 msgid "Synced {count} models: {names}"
-msgstr ""
+msgstr "已同步 {count} 个模型：{names}"
 
 #: web/templates/admin/config.html:682
+#, fuzzy
 msgid "Provider saved"
-msgstr ""
+msgstr "渚涘簲鍟嗕娇鐢"
 
 #: web/templates/admin/config.html:683
+#, fuzzy
 msgid "Failed to save provider"
-msgstr ""
+msgstr "淇濆瓨 API 瀵嗛挜澶辫触"
 
 #: web/templates/admin/config.html:684
+#, fuzzy
 msgid "Delete this provider?"
-msgstr ""
+msgstr "纭畾鍒犻櫎姝ゆ枃浠讹紵"
 
 #: web/templates/admin/config.html:685
+#, fuzzy
 msgid "Provider deleted"
-msgstr ""
+msgstr "瀹朵緵搴斿晢琚檺娴"
 
-#: web/templates/admin/config.html:686
+#: web/templates/admin/config.html:686 web/templates/admin/documents.html:164
+#, fuzzy
 msgid "Delete failed"
-msgstr ""
+msgstr "纭畾鍒犻櫎姝ゆ枃浠讹紵"
 
 #: web/templates/admin/config.html:687
+#, fuzzy
 msgid "Model saved"
-msgstr ""
+msgstr "浣跨敤妯″瀷"
 
 #: web/templates/admin/config.html:688
+#, fuzzy
 msgid "Failed to save model"
-msgstr ""
+msgstr "淇濆瓨鏃堕棿瑙勫垯澶辫触"
 
 #: web/templates/admin/config.html:689
+#, fuzzy
 msgid "Context hard limit"
-msgstr ""
+msgstr "涓婁笅鏂囩‖涓婇檺"
 
 #: web/templates/admin/config.html:690
+#, fuzzy
 msgid "Delete this model?"
-msgstr ""
+msgstr "鍒犻櫎姝ゆ椂闂磋鍒欙紵"
 
 #: web/templates/admin/config.html:691
+#, fuzzy
 msgid "Model deleted"
-msgstr ""
+msgstr "浣跨敤妯″瀷"
 
 #: web/templates/admin/config.html:692
+#, fuzzy
 msgid "Model unbound"
-msgstr ""
+msgstr "浣跨敤妯″瀷"
 
 #: web/templates/admin/config.html:693
+#, fuzzy
 msgid "Unbind failed"
-msgstr ""
+msgstr "鐧诲綍澶辫触"
 
 #: web/templates/admin/config.html:694
 msgid "Key access saved"
-msgstr ""
+msgstr "Key 权限已保存"
 
 #: web/templates/admin/config.html:695
+#, fuzzy
 msgid "Failed to save key access"
-msgstr ""
+msgstr "淇濆瓨 API 瀵嗛挜澶辫触"
 
 #: web/templates/admin/config.html:696
 msgid "No provider bindings. Bind this model to a provider first."
-msgstr ""
+msgstr "暂无供应商绑定，请先将该模型绑定到供应商。"
 
 #: web/templates/admin/config.html:699
-#, python-brace-format
+#, fuzzy, python-brace-format
 msgid "{count} selected"
-msgstr ""
+msgstr "{count} 涓牱鏈"
 
 #: web/templates/admin/config.html:700
-#, python-brace-format
+#, fuzzy, python-brace-format
 msgid "Page {current} / {total}"
-msgstr ""
-
-#: web/templates/admin/config.html:701
-msgid "Previous"
-msgstr ""
-
-#: web/templates/admin/config.html:702
-msgid "Next"
-msgstr ""
+msgstr "绗?{page} 椤?/ 鍏?{total} 椤"
 
 #: web/templates/admin/config.html:703
+#, fuzzy
 msgid " - API Key Access"
-msgstr ""
+msgstr "API 瀵嗛挜"
 
-#: web/templates/admin/config.html:704
+#: web/templates/admin/config.html:704 web/templates/admin/monitor.html:380
+#: web/templates/admin/request_logs.html:237
+#: web/templates/admin/request_logs.html:293
+#: web/templates/admin/request_logs.html:399
 msgid "Model"
-msgstr ""
-
-#: web/templates/admin/config.html:705 web/templates/admin/mobile_home.html:251
-msgid "All"
-msgstr ""
+msgstr "妯″瀷"
 
 #: web/templates/admin/config.html:707
+#, fuzzy
 msgid "Edit Provider"
-msgstr ""
+msgstr "甯︿緵搴斿晢"
 
 #: web/templates/admin/config.html:708
+#, fuzzy
 msgid "Disabled:"
-msgstr ""
+msgstr "宸茬鐢"
 
 #: web/templates/admin/config.html:710
+#, fuzzy
 msgid "Edit Model"
-msgstr ""
+msgstr "娣诲姞妯″瀷"
 
 #: web/templates/admin/config.html:711
 msgid "off"
-msgstr ""
+msgstr "关闭"
 
-#: web/templates/admin/config.html:712
+#: web/templates/admin/config.html:712 web/templates/user/dashboard.html:428
 msgid "multimodal"
-msgstr ""
+msgstr "澶氭ā鎬"
 
 #: web/templates/admin/config.html:713
-#, python-brace-format
+#, fuzzy, python-brace-format
 msgid "{count} key(s)"
-msgstr ""
+msgstr "{count} 涓牱鏈"
 
 #: web/templates/admin/config.html:714
 msgid "Access is configured on the bound provider-model, not on the model itself."
-msgstr ""
+msgstr "访问控制在绑定的供应商模型上配置，而非模型本身。"
 
 #: web/templates/admin/config.html:716
+#: web/templates/admin/system_config.html:195
+#: web/templates/admin/system_config.html:199
+#: web/templates/admin/system_config.html:261
+#, fuzzy
 msgid "Default"
-msgstr ""
+msgstr "缁撴灉"
 
 #: web/templates/admin/config.html:719
+#, fuzzy
 msgid "Enable"
-msgstr ""
+msgstr "鍚嶇О"
 
 #: web/templates/admin/config.html:720
+#, fuzzy
 msgid "Key enabled"
-msgstr ""
+msgstr "Key 鍚嶇О"
 
 #: web/templates/admin/config.html:721
+#, fuzzy
 msgid "Key disabled"
-msgstr ""
+msgstr "宸茬鐢"
 
 #: web/templates/admin/config.html:722
+#, fuzzy
 msgid "Failed to update key"
-msgstr ""
+msgstr "淇濆瓨 API 瀵嗛挜澶辫触"
 
 #: web/templates/admin/config.html:723
+#, fuzzy
 msgid "Concurrency saved"
-msgstr ""
+msgstr "骞跺彂"
 
 #: web/templates/admin/config.html:724
+#, fuzzy
 msgid "Failed to save"
-msgstr ""
+msgstr "淇濆瓨 API 瀵嗛挜澶辫触"
 
 #: web/templates/admin/config.html:725
+#, fuzzy
 msgid "Delete this key?"
-msgstr ""
+msgstr "鍒犻櫎姝?API 瀵嗛挜?"
 
 #: web/templates/admin/config.html:726
+#, fuzzy
 msgid "Key deleted"
-msgstr ""
+msgstr "鍒犻櫎"
 
 #: web/templates/admin/config.html:727
+#, fuzzy
 msgid "Failed to delete key"
-msgstr ""
+msgstr "淇濆瓨 API 瀵嗛挜澶辫触"
 
 #: web/templates/admin/config.html:728
+#, fuzzy
 msgid "Scheduled disable"
-msgstr ""
+msgstr "鎵嬪姩绂佺敤"
 
 #: web/templates/admin/config.html:729 web/templates/admin/mobile_home.html:307
+#, fuzzy
 msgid "active now"
-msgstr "生效中"
+msgstr "娲昏穬"
 
 #: web/templates/admin/config.html:730
+#, fuzzy
 msgid "Schedule saved"
-msgstr "定时已保存"
+msgstr "浣跨敤妯″瀷"
 
 #: web/templates/admin/config.html:732
+#, fuzzy
 msgid "Weekly"
-msgstr "每周重复"
+msgstr "鍛"
 
 #: web/templates/admin/config.html:733
+#, fuzzy
 msgid "One-time"
-msgstr "单次"
+msgstr "鏃堕棿"
 
 #: web/templates/admin/config.html:734
+#, fuzzy
 msgid "No rules"
-msgstr "暂无规则"
+msgstr "鏆傛棤鏃堕棿瑙勫垯"
 
 #: web/templates/admin/config.html:735
+#, fuzzy
 msgid "API Key is required"
-msgstr ""
+msgstr "API 瀵嗛挜宸插垱寤?"
 
 #: web/templates/admin/config.html:736
+#, fuzzy
 msgid "Key added"
-msgstr ""
+msgstr "Key 鍚嶇О"
 
 #: web/templates/admin/config.html:737
+#, fuzzy
 msgid "Failed to add key"
-msgstr ""
+msgstr "淇濆瓨 API 瀵嗛挜澶辫触"
 
 #: web/templates/admin/config.html:1118
 msgid "Select a provider to view bindings"
-msgstr ""
+msgstr "閫夋嫨渚涘簲鍟嗘煡鐪嬬粦瀹"
 
+#: web/templates/admin/documents.html:7 web/templates/admin/documents.html:65
+#: web/templates/user/dashboard.html:370 web/templates/user/documents.html:6
+#: web/templates/user/documents.html:41 web/templates/user/tab_documents.html:4
+#, fuzzy
+msgid "Documents"
+msgstr "闄勪欢"
+
+#: web/templates/admin/documents.html:65
+msgid "Write and manage Markdown documents for users"
+msgstr "撰写并管理面向用户的 Markdown 文档"
+
+#: web/templates/admin/documents.html:70
+msgid "Document List"
+msgstr "文档列表"
+
+#: web/templates/admin/documents.html:73 web/templates/public/opencode.html:79
+msgid "Create"
+msgstr "鍒涘缓"
+
+#: web/templates/admin/documents.html:76 web/templates/admin/documents.html:152
+#, fuzzy
+msgid "No documents yet"
+msgstr "鏆傛棤鎶ュ憡"
+
+#: web/templates/admin/documents.html:81 web/templates/admin/documents.html:131
+#, fuzzy
+msgid "Preview"
+msgstr "渚涘簲鍟"
+
+#: web/templates/admin/documents.html:82 web/templates/admin/documents.html:165
+#, fuzzy
+msgid "Select a document to preview"
+msgstr "閫夋嫨渚涘簲鍟嗘煡鐪嬬粦瀹"
+
+#: web/templates/admin/documents.html:91 web/templates/admin/documents.html:159
+msgid "Create Document"
+msgstr "创建文档"
+
+#: web/templates/admin/documents.html:96
+#, fuzzy
+msgid "Title"
+msgstr "鏃堕棿"
+
+#: web/templates/admin/documents.html:101
+msgid "Category"
+msgstr "分类"
+
+#: web/templates/admin/documents.html:107
+#: web/templates/admin/documents.html:153
+#, fuzzy
+msgid "Published"
+msgstr "宸叉殏鍋"
+
+#: web/templates/admin/documents.html:114
+#, fuzzy
+msgid "Content (Markdown)"
+msgstr "涓婁笅鏂囩獥鍙"
+
+#: web/templates/admin/documents.html:118
+#: web/templates/admin/documents.html:173
+msgid "Insert Image"
+msgstr "鎻掑叆鍥剧墖"
+
+#: web/templates/admin/documents.html:123
+#, fuzzy
+msgid "Upload File"
+msgstr "涓婁紶澶辫触"
+
+#: web/templates/admin/documents.html:154
+#, fuzzy
+msgid "Draft"
+msgstr "鑰楁椂"
+
+#: web/templates/admin/documents.html:155 web/templates/admin/reports.html:172
+#: web/templates/user/dashboard.html:407 web/templates/user/documents.html:74
+msgid "View Details"
+msgstr "查看详情"
+
+#: web/templates/admin/documents.html:160
+msgid "Edit Document"
+msgstr "编辑文档"
+
+#: web/templates/admin/documents.html:161
+msgid "Title is required"
+msgstr "标题不能为空"
+
+#: web/templates/admin/documents.html:162
+#: web/templates/admin/system_config.html:234
+#: web/templates/admin/system_config.html:256
+#: web/templates/admin/system_config.html:277
+#: web/templates/admin/system_config.html:301
+#, fuzzy
+msgid "Save failed"
+msgstr "澶辫触"
+
+#: web/templates/admin/documents.html:163
+msgid "Are you sure you want to delete this document?"
+msgstr "确定要删除该文档吗？"
+
+#: web/templates/admin/documents.html:166
+#, fuzzy
+msgid "Created"
+msgstr "鍒涘缓"
+
+#: web/templates/admin/documents.html:167
+msgid "Start writing Markdown here..."
+msgstr "在此开始编写 Markdown..."
+
+#: web/templates/admin/documents.html:168
+#: web/templates/user/document_detail.html:98
+msgid "Attachments"
+msgstr "闄勪欢"
+
+#: web/templates/admin/documents.html:169
+msgid "Drop files here or click to upload"
+msgstr "鎷栨嫿鏂囦欢鍒版澶勬垨鐐瑰嚮涓婁紶"
+
+#: web/templates/admin/documents.html:170
+msgid "Upload failed"
+msgstr "涓婁紶澶辫触"
+
+#: web/templates/admin/documents.html:171
+msgid "Delete this file?"
+msgstr "纭畾鍒犻櫎姝ゆ枃浠讹紵"
+
+#: web/templates/admin/documents.html:172
+msgid "Files"
+msgstr "鏂囦欢"
+
+#: web/templates/admin/documents.html:174
+msgid "Image uploaded"
+msgstr "鍥剧墖宸蹭笂浼"
+
+#: web/templates/admin/documents.html:175
+msgid "Please save the document first"
+msgstr "璇峰厛淇濆瓨鏂囨。"
+
+#: web/templates/admin/home.html:6 web/templates/admin/home.html:91
 #: web/templates/admin/mobile_home.html:7
 msgid "Dashboard"
-msgstr ""
+msgstr "浠〃鐩"
+
+#: web/templates/admin/home.html:93 web/templates/admin/mobile_home.html:92
+#: web/templates/user/dashboard.html:332
+msgid "Today"
+msgstr "浠婂ぉ"
+
+#: web/templates/admin/home.html:94 web/templates/user/dashboard.html:333
+msgid "This Week"
+msgstr "鏈懆"
+
+#: web/templates/admin/home.html:95 web/templates/user/dashboard.html:334
+msgid "This Month"
+msgstr "鏈湀"
+
+#: web/templates/admin/home.html:96
+msgid "This Year"
+msgstr "浠婂勾"
+
+#: web/templates/admin/home.html:110 web/templates/user/tab_stats.html:83
+msgid "System Status"
+msgstr "绯荤粺鐘舵€"
+
+#: web/templates/admin/home.html:115 web/templates/admin/monitor.html:196
+#: web/templates/public/query.html:35 web/templates/user/tab_stats.html:10
+#: web/templates/user/tab_stats.html:50
+msgid "Total Requests"
+msgstr "鎬昏姹傛暟"
+
+#: web/templates/admin/home.html:119 web/templates/admin/monitor.html:200
+#: web/templates/public/query.html:39 web/templates/user/tab_stats.html:14
+#: web/templates/user/tab_stats.html:54
+msgid "Total Tokens"
+msgstr "鎬?Token 鏁"
+
+#: web/templates/admin/home.html:123 web/templates/admin/mobile_home.html:140
+msgid "Active Requests"
+msgstr "娲昏穬璇锋眰"
+
+#: web/templates/admin/home.html:127 web/templates/admin/mobile_home.html:146
+msgid "Tokens/s"
+msgstr "Tokens/s"
+
+#: web/templates/admin/home.html:131 web/templates/admin/mobile_home.html:126
+#: web/templates/admin/mobile_home.html:252
+#: web/templates/admin/mobile_home.html:282
+#: web/templates/admin/monitor.html:204 web/templates/admin/monitor.html:283
+#: web/templates/admin/monitor.html:392 web/templates/public/query.html:43
+#: web/templates/user/dashboard.html:431 web/templates/user/tab_stats.html:18
+msgid "Errors"
+msgstr "閿欒鏁"
+
+#: web/templates/admin/home.html:135 web/templates/admin/mobile_home.html:132
+#: web/templates/admin/mobile_home.html:253
+#: web/templates/admin/monitor.html:208 web/templates/admin/monitor.html:283
+#: web/templates/admin/monitor.html:374
+#, fuzzy
+msgid "Timeouts"
+msgstr "瓒呮椂"
+
+#: web/templates/admin/home.html:143 web/templates/admin/monitor.html:216
+msgid "Error Rate"
+msgstr "閿欒鐜"
+
+#: web/templates/admin/home.html:150 web/templates/admin/mobile_home.html:173
+msgid "Active Users"
+msgstr "娲昏穬鐢ㄦ埛"
+
+#: web/templates/admin/home.html:153 web/templates/admin/home.html:188
+#: web/templates/admin/mobile_home.html:284
+msgid "No active users"
+msgstr "鏃犳椿璺冪敤鎴"
+
+#: web/templates/admin/home.html:157
+msgid "Slow Requests (>60s)"
+msgstr "鎱㈣姹?(>60绉?"
+
+#: web/templates/admin/home.html:160 web/templates/admin/home.html:187
+#: web/templates/admin/mobile_home.html:285
+msgid "No slow requests"
+msgstr "鏃犳參璇锋眰"
+
+#: web/templates/admin/home.html:163 web/templates/admin/mobile_home.html:209
+#: web/templates/admin/mobile_home.html:420
+#: web/templates/admin/monitor.html:290
+msgid "Provider Usage"
+msgstr "渚涘簲鍟嗕娇鐢"
+
+#: web/templates/admin/home.html:167 web/templates/admin/mobile_home.html:226
+#: web/templates/admin/monitor.html:295 web/templates/public/query.html:6
+#: web/templates/public/query.html:25
+msgid "API Key Usage"
+msgstr "API 瀵嗛挜鐢ㄩ噺"
+
+#: web/templates/admin/home.html:172 web/templates/admin/mobile_home.html:161
+#: web/templates/admin/monitor.html:282 web/templates/user/tab_stats.html:127
+msgid "Request Trend"
+msgstr "璇锋眰瓒嬪娍"
+
+#: web/templates/admin/home.html:189 web/templates/admin/mobile_home.html:287
+#: web/templates/admin/reports.html:171
+msgid "pending"
+msgstr "杩涜涓"
+
+#: web/templates/admin/home.html:190 web/templates/admin/mobile_home.html:286
+#: web/templates/admin/monitor.html:370 web/templates/user/dashboard.html:422
+msgid "req"
+msgstr "璇锋眰"
+
+#: web/templates/admin/home.html:191 web/templates/admin/mobile_home.html:122
+#: web/templates/admin/mobile_home.html:281
+#: web/templates/admin/monitor.html:283 web/templates/admin/monitor.html:391
+#: web/templates/admin/request_logs.html:295
+#: web/templates/admin/request_logs.html:405
+#: web/templates/user/dashboard.html:432
+msgid "Tokens"
+msgstr "Token 鏁"
+
+#: web/templates/admin/home.html:330
+#, fuzzy
+msgid "User Concurrency Limit"
+msgstr "骞跺彂"
+
+#: web/templates/admin/home.html:331
+msgid "providers limited"
+msgstr "瀹朵緵搴斿晢琚檺娴"
+
+#: web/templates/admin/home.html:332
+msgid "active users"
+msgstr "娲昏穬鐢ㄦ埛"
+
+#: web/templates/admin/home.html:835 web/templates/admin/mobile_home.html:290
+#: web/templates/user/dashboard.html:502
+msgid "Provider unavailable"
+msgstr "渚涘簲鍟嗘殏涓嶅彲鐢"
+
+#: web/templates/admin/home.html:836 web/templates/admin/mobile_home.html:291
+#: web/templates/user/dashboard.html:503
+#, python-brace-format
+msgid "Provider {name} is unavailable: {reason}"
+msgstr "渚涘簲鍟?{name} 鏆備笉鍙敤锛歿reason}"
+
+#: web/templates/admin/home.html:837 web/templates/admin/mobile_home.html:292
+#: web/templates/user/dashboard.html:504
+#, python-brace-format
+msgid "expected restore at {time}"
+msgstr "棰勮 {time} 鎭㈠"
+
+#: web/templates/admin/login.html:54 web/templates/admin/mobile_login.html:50
+#: web/templates/user/login.html:58
+msgid "Empower every developer to harness the power of AI."
+msgstr "璧嬩簣姣忎釜寮€鍙戣€咃紝椹鹃┉鏅鸿兘鐨勫姏閲忋€"
+
+#: web/templates/admin/login.html:57 web/templates/admin/mobile_login.html:54
+msgid "Username"
+msgstr "鐢ㄦ埛鍚"
+
+#: web/templates/admin/login.html:60
+msgid "Enter username"
+msgstr "杈撳叆鐢ㄦ埛鍚"
+
+#: web/templates/admin/login.html:63 web/templates/admin/mobile_login.html:57
+msgid "Password"
+msgstr "瀵嗙爜"
+
+#: web/templates/admin/login.html:66
+msgid "Enter admin password"
+msgstr "杈撳叆绠＄悊鍛樺瘑鐮"
 
 #: web/templates/admin/mobile_home.html:84
 msgid "Admin Dashboard"
-msgstr ""
+msgstr "绠＄悊鍚庡彴"
 
-#: web/templates/admin/mobile_home.html:92
-msgid "Today"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:93
+#: web/templates/admin/mobile_home.html:93 web/templates/admin/monitor.html:188
 msgid "Week"
-msgstr ""
+msgstr "鍛"
 
-#: web/templates/admin/mobile_home.html:94
+#: web/templates/admin/mobile_home.html:94 web/templates/admin/monitor.html:189
 msgid "Month"
-msgstr ""
+msgstr "鏈"
 
-#: web/templates/admin/mobile_home.html:95
+#: web/templates/admin/mobile_home.html:95 web/templates/admin/monitor.html:190
 msgid "Year"
-msgstr ""
+msgstr "骞"
 
 #: web/templates/admin/mobile_home.html:118
 #: web/templates/admin/mobile_home.html:280
+#: web/templates/admin/monitor.html:283 web/templates/admin/monitor.html:390
+#: web/templates/user/dashboard.html:430
 msgid "Requests"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:122
-#: web/templates/admin/mobile_home.html:281
-msgid "Tokens"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:126
-#: web/templates/admin/mobile_home.html:252
-#: web/templates/admin/mobile_home.html:282
-msgid "Errors"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:132
-#: web/templates/admin/mobile_home.html:253
-msgid "Timeouts"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:140
-msgid "Active Requests"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:146
-msgid "Tokens/s"
-msgstr ""
+msgstr "璇锋眰鏁"
 
 #: web/templates/admin/mobile_home.html:150
 msgid "Err Rate"
-msgstr ""
+msgstr "閿欒鐜"
 
 #: web/templates/admin/mobile_home.html:154
 msgid "Busyness"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:161
-msgid "Request Trend"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:173
-msgid "Active Users"
-msgstr ""
+msgstr "绻佸繖绋嬪害"
 
 #: web/templates/admin/mobile_home.html:191
 msgid "Slow Requests"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:209
-#: web/templates/admin/mobile_home.html:420
-msgid "Provider Usage"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:226
-msgid "API Key Usage"
-msgstr ""
+msgstr "鎱㈣姹"
 
 #: web/templates/admin/mobile_home.html:240
 #: web/templates/admin/mobile_home.html:268
+#: web/templates/admin/notifications.html:30
+#: web/templates/components/admin_header.html:25
+#: web/templates/user/dashboard.html:372
+#: web/templates/user/tab_notifications.html:4
 msgid "Notifications"
-msgstr ""
+msgstr "娑堟伅涓績"
 
 #: web/templates/admin/mobile_home.html:241
 msgid "Mark all read"
-msgstr ""
+msgstr "鍏ㄩ儴宸茶"
 
 #: web/templates/admin/mobile_home.html:245
 #: web/templates/admin/mobile_home.html:257
 msgid "Load more"
-msgstr ""
+msgstr "鍔犺浇鏇村"
 
 #: web/templates/admin/mobile_home.html:264
 msgid "Overview"
-msgstr ""
+msgstr "姒傝"
 
 #: web/templates/admin/mobile_home.html:273
+#: web/templates/admin/request_logs.html:7
+#: web/templates/admin/request_logs.html:218
+#: web/templates/admin/request_logs.html:225
 msgid "Request Logs"
-msgstr ""
+msgstr "璇锋眰鏃ュ織"
 
 #: web/templates/admin/mobile_home.html:283
+#: web/templates/admin/monitor.html:369 web/templates/public/query.html:69
+#: web/templates/user/dashboard.html:404
 msgid "No data"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:284
-msgid "No active users"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:285
-msgid "No slow requests"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:286
-msgid "req"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:287
-msgid "pending"
-msgstr ""
+msgstr "鏆傛棤鏁版嵁"
 
 #: web/templates/admin/mobile_home.html:288
 #, python-brace-format
 msgid "{seconds}s elapsed"
-msgstr ""
+msgstr "宸茶€楁椂 {seconds} 绉"
 
 #: web/templates/admin/mobile_home.html:289
+#: web/templates/admin/monitor.html:394
 #, python-brace-format
 msgid "{label} on right axis"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:290
-msgid "Provider unavailable"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:291
-#, python-brace-format
-msgid "Provider {name} is unavailable: {reason}"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:292
-#, python-brace-format
-msgid "expected restore at {time}"
-msgstr ""
+msgstr "鍙充晶杞? {label}"
 
 #: web/templates/admin/mobile_home.html:293
+#: web/templates/admin/notifications.html:50
 msgid "No notifications"
-msgstr ""
+msgstr "鏆傛棤閫氱煡"
 
 #: web/templates/admin/mobile_home.html:294
 msgid "No logs in range"
-msgstr ""
+msgstr "璇ユ椂闂磋寖鍥村唴鏆傛棤鏃ュ織"
 
 #: web/templates/admin/mobile_home.html:295
 msgid "Just now"
-msgstr ""
+msgstr "鍒氬垰"
 
 #: web/templates/admin/mobile_home.html:296
 #, python-brace-format
 msgid "{n}m ago"
-msgstr ""
+msgstr "{n}鍒嗛挓鍓"
 
 #: web/templates/admin/mobile_home.html:297
 #, python-brace-format
 msgid "{n}h ago"
-msgstr ""
+msgstr "{n}灏忔椂鍓"
 
 #: web/templates/admin/mobile_home.html:298
 #, python-brace-format
 msgid "{n}d ago"
-msgstr ""
+msgstr "{n}澶╁墠"
 
 #: web/templates/admin/mobile_home.html:299
 msgid "Yesterday"
-msgstr ""
+msgstr "鏄ㄥぉ"
 
 #: web/templates/admin/mobile_home.html:301
 msgid "No keys"
-msgstr ""
+msgstr "鏆傛棤瀵嗛挜"
 
 #: web/templates/admin/mobile_home.html:302
 #, python-brace-format
 msgid "Disable {name}?"
-msgstr ""
+msgstr "绂佺敤 {name}锛"
 
 #: web/templates/admin/mobile_home.html:303
 #, python-brace-format
 msgid "Enable {name}?"
-msgstr ""
+msgstr "鍚敤 {name}锛"
 
 #: web/templates/admin/mobile_home.html:304
 msgid "Disable reason (optional)"
-msgstr ""
+msgstr "绂佺敤鍘熷洜锛堝彲閫夛級"
 
 #: web/templates/admin/mobile_home.html:305
+#: web/templates/admin/scheduler_tasks_tab.html:60
+#: web/templates/admin/scheduler_tasks_tab.html:61
+#, fuzzy
 msgid "Operation failed"
-msgstr ""
+msgstr "鎿嶄綔澶辫触"
 
 #: web/templates/admin/mobile_home.html:306
 msgid "Scheduled"
@@ -715,7 +1443,1627 @@ msgstr "定时"
 
 #: web/templates/admin/mobile_home.html:417
 msgid "disabled"
+msgstr "宸茬鐢"
+
+#: web/templates/admin/mobile_login.html:60
+msgid "Using admin account"
+msgstr "使用管理员账号"
+
+#: web/templates/admin/mobile_login.html:64
+#: web/templates/admin/mobile_login.html:79
+msgid "Sign In"
+msgstr "鐧诲綍"
+
+#: web/templates/admin/mobile_login.html:78
+msgid "Signing in..."
+msgstr "鐧诲綍涓?.."
+
+#: web/templates/admin/mobile_login.html:80 web/templates/user/login.html:87
+msgid "Login failed"
+msgstr "鐧诲綍澶辫触"
+
+#: web/templates/admin/mobile_login.html:81 web/templates/user/login.html:88
+msgid "Network error"
+msgstr "缃戠粶閿欒"
+
+#: web/templates/admin/monitor.html:6
+msgid "Monitor"
+msgstr "鐩戞帶"
+
+#: web/templates/admin/monitor.html:185
+msgid "Statistics Monitor"
+msgstr "缁熻鐩戞帶"
+
+#: web/templates/admin/monitor.html:185
+msgid "Composition, concentration, hotspots, and trend behavior"
+msgstr "娴侀噺鏋勬垚銆侀泦涓害銆佺儹鐐瑰拰瓒嬪娍琛屼负"
+
+#: web/templates/admin/monitor.html:187
+msgid "Day"
+msgstr "澶"
+
+#: web/templates/admin/monitor.html:212
+msgid "429"
+msgstr "429"
+
+#: web/templates/admin/monitor.html:300 web/templates/public/query.html:53
+#: web/templates/user/tab_stats.html:151
+msgid "Model Usage"
+msgstr "妯″瀷浣跨敤"
+
+#: web/templates/admin/monitor.html:308
+msgid "Traffic Concentration"
+msgstr "娴侀噺闆嗕腑搴"
+
+#: web/templates/admin/monitor.html:312
+msgid "Error Hotspots"
+msgstr "閿欒鐑偣"
+
+#: web/templates/admin/monitor.html:316
+#, fuzzy
+msgid "Timeout Hotspots"
+msgstr "鏃犵儹鐐"
+
+#: web/templates/admin/monitor.html:320
+msgid "Active Footprint"
+msgstr "娲昏穬瓒宠抗"
+
+#: web/templates/admin/monitor.html:327
+#, fuzzy
+msgid "Model Response Time"
+msgstr "鎸夊皬鏃剁粺璁＄殑妯″瀷 P95 鍝嶅簲鏃堕棿"
+
+#: web/templates/admin/monitor.html:328 web/templates/admin/monitor.html:396
+msgid "Hourly average response time by model"
+msgstr "鎸夊皬鏃剁粺璁＄殑妯″瀷骞冲潎鍝嶅簲鏃堕棿"
+
+#: web/templates/admin/monitor.html:331 web/templates/admin/monitor.html:402
+msgid "Average"
+msgstr "骞冲潎鍊"
+
+#: web/templates/admin/monitor.html:332 web/templates/admin/monitor.html:403
+msgid "P95"
+msgstr "P95"
+
+#: web/templates/admin/monitor.html:333 web/templates/admin/monitor.html:404
+msgid "Range"
+msgstr "鍖洪棿"
+
+#: web/templates/admin/monitor.html:334 web/templates/admin/monitor.html:405
+msgid "Heatmap"
+msgstr "鐑姏鍥"
+
+#: web/templates/admin/monitor.html:343
+#, fuzzy
+msgid "Provider / Key / Model Status"
+msgstr "渚涘簲鍟嗗拰妯″瀷閰嶇疆"
+
+#: web/templates/admin/monitor.html:368 web/templates/user/dashboard.html:393
+msgid "Others"
+msgstr "鍏朵粬"
+
+#: web/templates/admin/monitor.html:371
+msgid "tok"
+msgstr "Token"
+
+#: web/templates/admin/monitor.html:372 web/templates/user/dashboard.html:423
+msgid "err"
+msgstr "閿欒"
+
+#: web/templates/admin/monitor.html:373
+#, fuzzy
+msgid "Timeout"
+msgstr "鏃堕棿"
+
+#: web/templates/admin/monitor.html:375
+msgid "Providers"
+msgstr "渚涘簲鍟"
+
+#: web/templates/admin/monitor.html:377 web/templates/user/dashboard.html:366
+msgid "Models"
+msgstr "妯″瀷"
+
+#: web/templates/admin/monitor.html:378
+#: web/templates/admin/request_logs.html:241
+#: web/templates/admin/request_logs.html:292
+#: web/templates/admin/request_logs.html:321
+#: web/templates/admin/request_logs.html:398
+msgid "Provider"
+msgstr "渚涘簲鍟"
+
+#: web/templates/admin/monitor.html:381
+msgid "Top 1 share"
+msgstr "Top 1 鍗犳瘮"
+
+#: web/templates/admin/monitor.html:382
+msgid "Top 3 combined"
+msgstr "Top 3 鍚堣"
+
+#: web/templates/admin/monitor.html:383
+msgid "No hotspots"
+msgstr "鏃犵儹鐐"
+
+#: web/templates/admin/monitor.html:384
+#, fuzzy
+msgid "No latency data"
+msgstr "鏆傛棤鐑姏鍥炬暟鎹"
+
+#: web/templates/admin/monitor.html:385
+msgid "Active Providers"
+msgstr "娲昏穬渚涘簲鍟"
+
+#: web/templates/admin/monitor.html:386
+msgid "Active API Keys"
+msgstr "娲昏穬 API 瀵嗛挜"
+
+#: web/templates/admin/monitor.html:387
+msgid "Active Models"
+msgstr "娲昏穬妯″瀷"
+
+#: web/templates/admin/monitor.html:388
+msgid "Top:"
+msgstr "鎺掑悕:"
+
+#: web/templates/admin/monitor.html:389
+msgid "No traffic"
+msgstr "鏃犳祦閲"
+
+#: web/templates/admin/monitor.html:393
+#, fuzzy
+msgid "Requests / Errors / Timeouts"
+msgstr "璇锋眰鏁?/ 閿欒鏁"
+
+#: web/templates/admin/monitor.html:395
+msgid "Response Time (s)"
+msgstr "响应时间（秒）"
+
+#: web/templates/admin/monitor.html:397
+msgid "Hourly P95 response time by model"
+msgstr "鎸夊皬鏃剁粺璁＄殑妯″瀷 P95 鍝嶅簲鏃堕棿"
+
+#: web/templates/admin/monitor.html:398
+msgid "Hourly response time range by model"
+msgstr "鎸夊皬鏃剁粺璁＄殑妯″瀷鍝嶅簲鏃堕棿鍖洪棿"
+
+#: web/templates/admin/monitor.html:399
+msgid "Response time heatmap by model and hour"
+msgstr "鎸夋ā鍨嬩笌灏忔椂灞曠ず鐨勫搷搴旀椂闂寸儹鍔涘浘"
+
+#: web/templates/admin/monitor.html:400
+msgid "Hour of day"
+msgstr "灏忔椂"
+
+#: web/templates/admin/monitor.html:401
+#, python-brace-format
+msgid "{count} samples"
+msgstr "{count} 涓牱鏈"
+
+#: web/templates/admin/monitor.html:406
+msgid "Min"
+msgstr "鏈€灏忓€"
+
+#: web/templates/admin/monitor.html:407
+msgid "Max"
+msgstr "鏈€澶у€"
+
+#: web/templates/admin/monitor.html:408
+msgid "Avg"
+msgstr "鍧囧€"
+
+#: web/templates/admin/monitor.html:409
+msgid "No heatmap data"
+msgstr "鏆傛棤鐑姏鍥炬暟鎹"
+
+#: web/templates/admin/reports.html:7 web/templates/admin/reports.html:69
+#: web/templates/components/nav.html:28
+msgid "Usage Report"
+msgstr "浣跨敤鎶ュ憡"
+
+#: web/templates/admin/reports.html:69
+msgid ""
+"Generate usage reports as reusable task pipelines with CSV, Markdown, and"
+" DOCX outputs"
+msgstr "灏嗕娇鐢ㄦ姤鍛婄敓鎴愪负鍙鐢ㄧ殑浠诲姟娴佹按绾匡紝鍏堜骇鍑?CSV銆丮arkdown锛屽啀瑁呴厤 DOCX"
+
+#: web/templates/admin/reports.html:73
+msgid "Create Report Task"
+msgstr "鍒涘缓鎶ュ憡浠诲姟"
+
+#: web/templates/admin/reports.html:81
+msgid "Exclude Keys"
+msgstr "鎺掗櫎 Key"
+
+#: web/templates/admin/reports.html:88 web/templates/admin/reports.html:148
+#: web/templates/public/opencode.html:48
+msgid "Generate"
+msgstr "鐢熸垚"
+
+#: web/templates/admin/reports.html:93
+msgid "Task orchestration mode"
+msgstr "浠诲姟缂栨帓妯″紡"
+
+#: web/templates/admin/reports.html:94
+msgid ""
+"Each report now runs as subtasks with retries, self-checks, and reusable "
+"artifacts before DOCX assembly."
+msgstr "姣忎唤鎶ュ憡閮戒細鍏堟媶鎴愬彲閲嶈瘯銆佸彲鑷銆佸彲澶嶇敤浜х墿鐨勫瓙浠诲姟锛屽啀瑁呴厤鎴愭渶缁?DOCX銆"
+
+#: web/templates/admin/reports.html:99 web/templates/admin/reports.html:164
+msgid "Template Preview"
+msgstr "妯℃澘棰勮"
+
+#: web/templates/admin/reports.html:100 web/templates/admin/reports.html:133
+#: web/templates/admin/reports.html:165
+msgid "Loading template..."
+msgstr "姝ｅ湪鍔犺浇妯℃澘..."
+
+#: web/templates/admin/reports.html:107 web/templates/admin/reports.html:163
+msgid "Current Task"
+msgstr "褰撳墠浠诲姟"
+
+#: web/templates/admin/reports.html:114 web/templates/admin/reports.html:158
+msgid "Artifacts"
+msgstr "浜х墿"
+
+#: web/templates/admin/reports.html:120
+msgid "Report History"
+msgstr "鎶ュ憡鍘嗗彶"
+
+#: web/templates/admin/reports.html:121 web/templates/admin/reports.html:151
+msgid "No reports yet"
+msgstr "鏆傛棤鎶ュ憡"
+
+#: web/templates/admin/reports.html:130
+msgid "Select API Keys to Exclude"
+msgstr "閫夋嫨瑕佹帓闄ょ殑 API Key"
+
+#: web/templates/admin/reports.html:137
+msgid "Confirm"
+msgstr "纭"
+
+#: web/templates/admin/reports.html:149
+msgid "A report is already being generated. Please wait."
+msgstr "报告正在生成中，请稍候。"
+
+#: web/templates/admin/reports.html:150
+#, fuzzy
+msgid "Failed to generate report"
+msgstr "鐢熸垚鎶ュ憡"
+
+#: web/templates/admin/reports.html:152 web/templates/user/tab_stats.html:26
+msgid "Download"
+msgstr "涓嬭浇"
+
+#: web/templates/admin/reports.html:153
+#: web/templates/admin/request_logs.html:289
+#: web/templates/admin/request_logs.html:410
+#, fuzzy
+msgid "Created At"
+msgstr "鍒涘缓"
+
+#: web/templates/admin/reports.html:155
+#: web/templates/admin/request_logs.html:247
+#: web/templates/admin/request_logs.html:290
+#: web/templates/admin/request_logs.html:335
+#: web/templates/admin/request_logs.html:400
+#: web/templates/admin/scheduler_logs_tab.html:42
+msgid "Status"
+msgstr "鐘舵€"
+
+#: web/templates/admin/reports.html:156
+msgid "Task ID"
+msgstr "浠诲姟 ID"
+
+#: web/templates/admin/reports.html:157
+msgid "Attempts"
+msgstr "灏濊瘯娆℃暟"
+
+#: web/templates/admin/reports.html:159
+msgid "No artifacts yet"
+msgstr "鏆傛棤浜х墿"
+
+#: web/templates/admin/reports.html:160
+msgid "No API Keys found"
+msgstr "鏈壘鍒?API 瀵嗛挜"
+
+#: web/templates/admin/reports.html:161
+msgid "Please select start and end dates"
+msgstr "请选择起止日期"
+
+#: web/templates/admin/reports.html:162
+msgid "Existing running task loaded"
+msgstr "已载入正在运行的任务"
+
+#: web/templates/admin/reports.html:166
+#, fuzzy
+msgid "Step Outputs"
+msgstr "璁″垝浜х墿"
+
+#: web/templates/admin/reports.html:167
+msgid ""
+"Reusable outputs are generated first, then assembled into the final "
+"report."
+msgstr "绯荤粺浼氬厛鐢熸垚鍙鐢ㄤ骇鐗╋紝鍐嶈閰嶆垚鏈€缁堟姤鍛娿€"
+
+#: web/templates/admin/reports.html:168
+msgid "completed"
+msgstr "宸插畬鎴"
+
+#: web/templates/admin/reports.html:169
+msgid "running"
+msgstr "杩涜涓"
+
+#: web/templates/admin/reports.html:170
+msgid "failed"
+msgstr "澶辫触"
+
+#: web/templates/admin/reports.html:257 web/templates/admin/reports.html:441
+#: web/templates/admin/reports.html:577 web/templates/admin/reports.html:581
+msgid "Subtasks"
+msgstr "瀛愪换鍔"
+
+#: web/templates/admin/reports.html:261
+msgid "Planned Outputs"
+msgstr "璁″垝浜х墿"
+
+#: web/templates/admin/request_logs.html:218
+msgid ""
+"Query and filter proxy request logs by API key, model, status, and time "
+"range"
+msgstr "鎸?API Key銆佹ā鍨嬨€佺姸鎬佸拰鏃堕棿鑼冨洿鏌ヨ鍜岀瓫閫変唬鐞嗚姹傛棩蹇"
+
+#: web/templates/admin/request_logs.html:220 web/templates/public/query.html:60
+#: web/templates/user/dashboard.html:478
+msgid "Refresh"
+msgstr "鍒锋柊"
+
+#: web/templates/admin/request_logs.html:226
+msgid "Aggregate Stats"
+msgstr "汇总统计"
+
+#: web/templates/admin/request_logs.html:234
+#: web/templates/admin/request_logs.html:328
+msgid "Key name"
+msgstr "Key 鍚嶇О"
+
+#: web/templates/admin/request_logs.html:266
+#: web/templates/admin/request_logs.html:353
+msgid "Custom"
+msgstr "鑷畾涔"
+
+#: web/templates/admin/request_logs.html:270
+#: web/templates/admin/request_logs.html:357
+#, fuzzy
+msgid "Custom Range"
+msgstr "鏃堕棿娈"
+
+#: web/templates/admin/request_logs.html:280
+#: web/templates/admin/request_logs.html:412
+msgid "No logs found matching the current filters."
+msgstr "鏈壘鍒板尮閰嶅綋鍓嶇瓫閫夋潯浠剁殑鏃ュ織璁板綍銆"
+
+#: web/templates/admin/request_logs.html:294
+#: web/templates/admin/request_logs.html:402
+msgid "Upstream"
+msgstr "涓婃父"
+
+#: web/templates/admin/request_logs.html:294
+#: web/templates/admin/request_logs.html:403
+msgid "Downstream"
+msgstr "涓嬫父"
+
+#: web/templates/admin/request_logs.html:296
+#: web/templates/admin/request_logs.html:404
+#, fuzzy
+msgid "Latency"
+msgstr "骞冲潎鑰楁椂"
+
+#: web/templates/admin/request_logs.html:297
+#: web/templates/user/dashboard.html:437
+msgid "Cost"
+msgstr "鎴愭湰"
+
+#: web/templates/admin/request_logs.html:298
+#: web/templates/admin/request_logs.html:331
+#: web/templates/admin/request_logs.html:372
+#: web/templates/admin/request_logs.html:406
+msgid "Client IP"
+msgstr "瀹㈡埛绔?IP"
+
+#: web/templates/admin/request_logs.html:299
+#: web/templates/admin/request_logs.html:407
+msgid "User Agent"
+msgstr "鐢ㄦ埛浠ｇ悊"
+
+#: web/templates/admin/request_logs.html:364
+msgid "Export CSV"
+msgstr "导出 CSV"
+
+#: web/templates/admin/request_logs.html:370
+#, fuzzy
+msgid "Provider/Model"
+msgstr "渚涘簲鍟"
+
+#: web/templates/admin/request_logs.html:371
+#, fuzzy
+msgid "User"
+msgstr "浣跨敤"
+
+#: web/templates/admin/request_logs.html:373
+#, fuzzy
+msgid "User + IP"
+msgstr "鐢ㄦ埛椤甸潰:"
+
+#: web/templates/admin/request_logs.html:381
+msgid "No data found for the selected time range."
+msgstr "所选时间范围内没有数据。"
+
+#: web/templates/admin/request_logs.html:408
+#, fuzzy
+msgid "Error Detail"
+msgstr "閿欒鐜"
+
+#: web/templates/admin/request_logs.html:409
+msgid "Response"
+msgstr "响应内容"
+
+#: web/templates/admin/request_logs.html:411
+msgid "Query Results"
+msgstr "鏌ヨ缁撴灉"
+
+#: web/templates/admin/request_logs.html:413
+#, fuzzy
+msgid "Failed to load data"
+msgstr "淇濆瓨 API 瀵嗛挜澶辫触"
+
+#: web/templates/admin/request_logs.html:414
+#, python-brace-format
+msgid "Page {page} of {total}"
+msgstr "绗?{page} 椤?/ 鍏?{total} 椤"
+
+#: web/templates/admin/request_logs.html:415
+#, python-brace-format
+msgid "Total: {count} records"
+msgstr "鍏?{count} 鏉¤褰"
+
+#: web/templates/admin/request_logs.html:416
+msgid "IP Location"
+msgstr "IP 褰掑睘鍦"
+
+#: web/templates/admin/request_logs.html:417
+msgid "Country"
+msgstr "鍥藉"
+
+#: web/templates/admin/request_logs.html:418
+msgid "Province"
+msgstr "鐪佷唤"
+
+#: web/templates/admin/request_logs.html:419
+msgid "City"
+msgstr "鍩庡競"
+
+#: web/templates/admin/request_logs.html:420
+msgid "ISP"
+msgstr "杩愯惀鍟"
+
+#: web/templates/admin/request_logs.html:421
+msgid "Adcode"
+msgstr "鍖哄垝缂栫爜"
+
+#: web/templates/admin/request_logs.html:422
+msgid "Coordinates"
+msgstr "缁忕含搴"
+
+#: web/templates/admin/request_logs.html:423
+msgid "City Rectangle"
+msgstr "鍩庡競鍖哄煙鑼冨洿"
+
+#: web/templates/admin/request_logs.html:424
+msgid "DB Cache"
+msgstr "搴撳唴缂撳瓨"
+
+#: web/templates/admin/request_logs.html:425
+msgid "Live Lookup"
+msgstr "瀹炴椂鏌ヨ"
+
+#: web/templates/admin/request_logs.html:426
+msgid "Retry"
+msgstr "閲嶈瘯"
+
+#: web/templates/admin/request_logs.html:427
+msgid "Lookup failed"
+msgstr "鏌ヨ澶辫触"
+
+#: web/templates/admin/request_logs.html:428
+msgid "View on map"
+msgstr "鍦ㄥ湴鍥句腑鏌ョ湅"
+
+#: web/templates/admin/request_logs.html:1198
+msgid "No data to export"
+msgstr "没有可导出的数据"
+
+#: web/templates/admin/scheduler_logs_tab.html:3
+msgid "Filter by task"
+msgstr "按任务筛选"
+
+#: web/templates/admin/scheduler_logs_tab.html:5
+#, fuzzy
+msgid "All tasks"
+msgstr "鏆傛棤浠诲姟"
+
+#: web/templates/admin/scheduler_logs_tab.html:38
+#: web/templates/public/query.html:70
+msgid "No logs"
+msgstr "鏆傛棤鏃ュ織"
+
+#: web/templates/admin/scheduler_logs_tab.html:42
+msgid "Time"
+msgstr "鏃堕棿"
+
+#: web/templates/admin/scheduler_logs_tab.html:42
+#, fuzzy
+msgid "Task"
+msgstr "浠诲姟 ID"
+
+#: web/templates/admin/scheduler_logs_tab.html:42
+#: web/templates/admin/scheduler_tasks_tab.html:34
+msgid "Duration"
+msgstr "鑰楁椂"
+
+#: web/templates/admin/scheduler_logs_tab.html:42
+msgid "Result"
+msgstr "缁撴灉"
+
+#: web/templates/admin/scheduler_tasks_tab.html:14
+msgid "No tasks"
+msgstr "鏆傛棤浠诲姟"
+
+#: web/templates/admin/scheduler_tasks_tab.html:24
+msgid "Paused"
+msgstr "宸叉殏鍋"
+
+#: web/templates/admin/scheduler_tasks_tab.html:26
+#: web/templates/admin/scheduler_tasks_tab.html:49
+msgid "Run Now"
+msgstr "绔嬪嵆鎵ц"
+
+#: web/templates/admin/scheduler_tasks_tab.html:27
+msgid "Resume"
+msgstr "鎭㈠"
+
+#: web/templates/admin/scheduler_tasks_tab.html:27
+msgid "Pause"
+msgstr "鏆傚仠"
+
+#: web/templates/admin/scheduler_tasks_tab.html:33
+msgid "Last run"
+msgstr "涓婃鎵ц"
+
+#: web/templates/admin/scheduler_tasks_tab.html:35
+msgid "Next run"
+msgstr "涓嬫鎵ц"
+
+#: web/templates/admin/scheduler_tasks_tab.html:47
+#, fuzzy
+msgid "Task triggered"
+msgstr "浠诲姟 ID"
+
+#: web/templates/admin/scheduler_tasks_tab.html:47
+#: web/templates/admin/scheduler_tasks_tab.html:48
+#, fuzzy
+msgid "Trigger failed"
+msgstr "鐧诲綍澶辫触"
+
+#: web/templates/admin/scheduler_tasks_tab.html:60
+#, fuzzy
+msgid "Task paused"
+msgstr "宸叉殏鍋"
+
+#: web/templates/admin/scheduler_tasks_tab.html:60
+#, fuzzy
+msgid "Task resumed"
+msgstr "鎭㈠"
+
+#: web/templates/admin/scheduler_tasks_tab.html:71
+#, fuzzy
+msgid "Cron updated"
+msgstr "缁撴潫鏃ユ湡"
+
+#: web/templates/admin/scheduler_tasks_tab.html:71
+#: web/templates/admin/scheduler_tasks_tab.html:72
+#, fuzzy
+msgid "Update failed"
+msgstr "涓婁紶澶辫触"
+
+#: web/templates/admin/system_config.html:65
+#, fuzzy
+msgid "Proxy User-Agent"
+msgstr "鐢ㄦ埛浠ｇ悊"
+
+#: web/templates/admin/system_config.html:66
+msgid "Current outbound UA (used for all proxy requests)"
+msgstr "当前出口 UA（用于所有代理请求）"
+
+#: web/templates/admin/system_config.html:71
+msgid "Reset to Default"
+msgstr "恢复默认"
+
+#: web/templates/admin/system_config.html:76
+msgid "Today's Client UA"
+msgstr "今日客户端 UA"
+
+#: web/templates/admin/system_config.html:77
+msgid "Top user agents making requests today"
+msgstr "今日发起请求最多的客户端"
+
+#: web/templates/admin/system_config.html:231
+#: web/templates/admin/system_config.html:252
+#: web/templates/admin/system_config.html:273
+#: web/templates/admin/system_config.html:297
+#, fuzzy
+msgid "Saved"
+msgstr "淇濆瓨"
+
+#: web/templates/admin/system_config.html:312
+#, fuzzy
+msgid "No data today"
+msgstr "鏆傛棤鏁版嵁"
+
+#: web/templates/components/nav.html:93 web/templates/user/dashboard.html:349
+msgid "Logout"
+msgstr "閫€鍑虹櫥褰"
+
+#: web/templates/public/opencode.html:6 web/templates/public/opencode.html:39
+#: web/templates/user/tab_opencode.html:2
+msgid "OpenCode Configuration"
+msgstr "OpenCode 閰嶇疆"
+
+#: web/templates/public/opencode.html:40
+msgid "Generate opencode.jsonc config for this proxy"
+msgstr "为此代理生成 opencode.jsonc 配置"
+
+#: web/templates/public/opencode.html:43
+msgid "Enter your API Key to generate config"
+msgstr "杈撳叆 API 瀵嗛挜浠ョ敓鎴愰厤缃"
+
+#: web/templates/public/opencode.html:65
+msgid "Available Models"
+msgstr "鍙敤妯″瀷"
+
+#: web/templates/public/opencode.html:75 web/templates/user/tab_codex.html:66
+#: web/templates/user/tab_opencode.html:97
+msgid "How to use"
+msgstr "濡備綍浣跨敤"
+
+#: web/templates/public/opencode.html:77
+msgid "Enter your API Key and click Generate"
+msgstr "杈撳叆 API 瀵嗛挜骞剁偣鍑荤敓鎴"
+
+#: web/templates/public/opencode.html:78
+msgid "Copy the generated"
+msgstr "澶嶅埗鐢熸垚鐨"
+
+#: web/templates/public/opencode.html:79 web/templates/user/tab_usage.html:95
+msgid "in your project root"
+msgstr "鍦ㄤ綘鐨勯」鐩牴鐩綍"
+
+#: web/templates/public/opencode.html:80
+msgid "Paste the configuration and save"
+msgstr "绮樿创閰嶇疆骞朵繚瀛"
+
+#: web/templates/public/opencode.html:81
+msgid "OpenCode will now use this proxy for API requests"
+msgstr "OpenCode 鐜板湪灏嗕娇鐢ㄦ浠ｇ悊杩涜 API 璇锋眰"
+
+#: web/templates/public/opencode.html:89
+#, fuzzy
+msgid "Please enter an API Key"
+msgstr "娓呴櫎宸蹭繚瀛樼殑 API Key锛"
+
+#: web/templates/public/opencode.html:92
+#, fuzzy
+msgid "Failed to generate config"
+msgstr "杈撳叆 API 瀵嗛挜浠ョ敓鎴愰厤缃"
+
+#: web/templates/public/opencode.html:93
+#, fuzzy
+msgid ""
+"# Please add the following provider config to "
+"~/.config/opencode/opencode.jsonc. If that file does not exist, create it"
+" first. You can also place opencode.jsonc in the current project root. "
+"Keep existing providers and settings, only add or update the modelgate "
+"provider."
 msgstr ""
+"璇峰府鎴戞妸涓嬮潰鐨?provider 閰嶇疆鍔犲叆 "
+"~/.config/opencode/opencode.jsonc銆?濡傛灉杩欎釜鏂囦欢涓嶅瓨鍦紝璇峰厛鍒涘缓瀹冦€備綘涔熷彲浠ュ湪褰撳墠椤圭洰鏍圭洰褰曟斁缃?opencode.jsonc銆備繚鐣欑幇鏈?providers"
+" 鍜屽叾浠栬缃紝鍙坊鍔犳垨鏇存柊 modelgate provider銆"
+
+#: web/templates/public/opencode.html:94
+#, fuzzy
+msgid "context"
+msgstr "涓婁笅鏂"
+
+#: web/templates/public/opencode.html:95
+#, fuzzy
+msgid "output"
+msgstr "杈撳嚭"
+
+#: web/templates/public/query.html:47 web/templates/user/tab_stats.html:58
+msgid "Models Used"
+msgstr "浣跨敤妯″瀷鏁"
+
+#: web/templates/public/query.html:59
+msgid "Recent Requests"
+msgstr "鏈€杩戣姹"
+
+#: web/templates/user/dashboard.html:327
+msgid "ModelGate-dashboard"
+msgstr "ModelGate-浠〃鐩"
+
+#: web/templates/user/dashboard.html:343
+#, fuzzy
+msgid "Black Gold"
+msgstr "榛戦噾妯″紡"
+
+#: web/templates/user/dashboard.html:346
+msgid "Reset API Key"
+msgstr "閲嶇疆 API 瀵嗛挜"
+
+#: web/templates/user/dashboard.html:365
+msgid "Statistics"
+msgstr "缁熻"
+
+#: web/templates/user/dashboard.html:367
+msgid "OpenCode Config"
+msgstr "OpenCode 閰嶇疆"
+
+#: web/templates/user/dashboard.html:369
+msgid "Usage Guide"
+msgstr "浣跨敤鎸囧崡"
+
+#: web/templates/user/dashboard.html:391
+msgid "Black Gold Mode"
+msgstr "榛戦噾妯″紡"
+
+#: web/templates/user/dashboard.html:392
+msgid "Unauthorized"
+msgstr "鏈巿鏉"
+
+#: web/templates/user/dashboard.html:394
+msgid "Owned"
+msgstr "宸叉嫢鏈"
+
+#: web/templates/user/dashboard.html:395
+msgid "Available"
+msgstr "鍙敤"
+
+#: web/templates/user/dashboard.html:396
+msgid "Access"
+msgstr "鏉冮檺"
+
+#: web/templates/user/dashboard.html:397
+msgid "No active providers or models"
+msgstr "鏆傛棤娲昏穬鎻愪緵鍟嗘垨妯″瀷"
+
+#: web/templates/user/dashboard.html:398
+msgid "No accessible models"
+msgstr "鏆傛棤鍙闂ā鍨"
+
+#: web/templates/user/dashboard.html:399
+msgid "This API key currently has access to all active models on the platform."
+msgstr "姝?API Key 褰撳墠鍙闂钩鍙颁笂鐨勫叏閮ㄦ椿璺冩ā鍨嬨€"
+
+#: web/templates/user/dashboard.html:400
+msgid "Models explicitly available to this API key."
+msgstr "鏄庣‘鎺堟潈缁欐 API Key 鐨勬ā鍨嬨€"
+
+#: web/templates/user/dashboard.html:401 web/templates/user/tab_catalog.html:17
+msgid "Models available to this API key."
+msgstr "姝?API 瀵嗛挜鍙敤鐨勬ā鍨嬨€"
+
+#: web/templates/user/dashboard.html:402
+msgid "Platform provider catalog"
+msgstr "骞冲彴鎻愪緵鍟嗙洰褰"
+
+#: web/templates/user/dashboard.html:403
+msgid "Models this key can use"
+msgstr "姝ゅ瘑閽ュ彲鐢ㄦā鍨"
+
+#: web/templates/user/dashboard.html:405 web/templates/user/documents.html:46
+#: web/templates/user/tab_documents.html:6
+#, fuzzy
+msgid "All Categories"
+msgstr "鎵€鏈?API 瀵嗛挜"
+
+#: web/templates/user/dashboard.html:406 web/templates/user/documents.html:60
+#: web/templates/user/documents.html:72
+#: web/templates/user/tab_documents.html:10
+msgid "No documents available"
+msgstr "暂无文档"
+
+#: web/templates/user/dashboard.html:408
+msgid "No active sessions"
+msgstr "鏃犳椿璺冧細璇"
+
+#: web/templates/user/dashboard.html:409
+msgid "No requests yet"
+msgstr "鏆傛棤璇锋眰"
+
+#: web/templates/user/dashboard.html:412
+#: web/templates/user/tab_opencode.html:79
+msgid "Upload opencode.jsonc"
+msgstr "上传 opencode.jsonc"
+
+#: web/templates/user/dashboard.html:413
+msgid "Download Merged Config"
+msgstr "下载合并配置"
+
+#: web/templates/user/dashboard.html:414
+msgid "Merged config downloaded!"
+msgstr "合并配置已下载！"
+
+#: web/templates/user/dashboard.html:415
+#, fuzzy
+msgid "Merge failed"
+msgstr "鐧诲綍澶辫触"
+
+#: web/templates/user/dashboard.html:416
+#, fuzzy
+msgid "Invalid JSON file"
+msgstr "鏃犳晥鐨?API Key"
+
+#: web/templates/user/dashboard.html:417
+msgid "Disabled Providers"
+msgstr "宸茬鐢ㄤ緵搴斿晢"
+
+#: web/templates/user/dashboard.html:418 web/templates/user/tab_stats.html:4
+#: web/templates/user/tab_stats.html:120
+msgid "Personal"
+msgstr "涓汉"
+
+#: web/templates/user/dashboard.html:419 web/templates/user/tab_stats.html:5
+#: web/templates/user/tab_stats.html:121
+#, fuzzy
+msgid "System"
+msgstr "绯荤粺鐘舵€"
+
+#: web/templates/user/dashboard.html:420
+msgid "Clear saved API Key?"
+msgstr "娓呴櫎宸蹭繚瀛樼殑 API Key锛"
+
+#: web/templates/user/dashboard.html:421 web/templates/user/tab_stats.html:113
+msgid "active"
+msgstr "娲昏穬"
+
+#: web/templates/user/dashboard.html:424 web/templates/user/tab_catalog.html:6
+#: web/templates/user/tab_catalog.html:15
+msgid "models"
+msgstr "妯″瀷"
+
+#: web/templates/user/dashboard.html:425 web/templates/user/tab_catalog.html:6
+#: web/templates/user/tab_catalog.html:15
+msgid "providers"
+msgstr "渚涘簲鍟"
+
+#: web/templates/user/dashboard.html:426
+msgid "ctx"
+msgstr "涓婁笅鏂"
+
+#: web/templates/user/dashboard.html:427
+msgid "out"
+msgstr "杈撳嚭"
+
+#: web/templates/user/dashboard.html:429
+msgid "alias"
+msgstr "鍒悕"
+
+#: web/templates/user/dashboard.html:433
+msgid "Context"
+msgstr "涓婁笅鏂"
+
+#: web/templates/user/dashboard.html:434
+msgid "Input"
+msgstr "杈撳叆"
+
+#: web/templates/user/dashboard.html:435
+msgid "Output"
+msgstr "杈撳嚭"
+
+#: web/templates/user/dashboard.html:436
+msgid "Cache"
+msgstr "缂撳瓨"
+
+#: web/templates/user/dashboard.html:438
+msgid "Requests / Errors"
+msgstr "璇锋眰鏁?/ 閿欒鏁"
+
+#: web/templates/user/dashboard.html:439 web/templates/user/tab_stats.html:106
+msgid "View All"
+msgstr "鏌ョ湅鍏ㄩ儴"
+
+#: web/templates/user/dashboard.html:440
+msgid "My Request History"
+msgstr "鎴戠殑璇锋眰鍘嗗彶"
+
+#: web/templates/user/dashboard.html:442
+msgid "All Models"
+msgstr "鍏ㄩ儴妯″瀷"
+
+#: web/templates/user/dashboard.html:443
+msgid "All Statuses"
+msgstr "鍏ㄩ儴鐘舵€"
+
+#: web/templates/user/dashboard.html:444
+msgid "Last 1h"
+msgstr "杩?灏忔椂"
+
+#: web/templates/user/dashboard.html:445
+msgid "Last 6h"
+msgstr "杩?灏忔椂"
+
+#: web/templates/user/dashboard.html:446
+msgid "Last 24h"
+msgstr "杩?4灏忔椂"
+
+#: web/templates/user/dashboard.html:447
+msgid "Last 7d"
+msgstr "杩?澶"
+
+#: web/templates/user/dashboard.html:448
+msgid "Last 30d"
+msgstr "杩?0澶"
+
+#: web/templates/user/dashboard.html:449
+msgid "Last 90d"
+msgstr "杩?0澶"
+
+#: web/templates/user/dashboard.html:450
+msgid "All Time"
+msgstr "鍏ㄩ儴鏃堕棿"
+
+#: web/templates/user/dashboard.html:451 web/templates/user/tab_stats.html:71
+msgid "Recommended Models"
+msgstr "鎺ㄨ崘妯″瀷"
+
+#: web/templates/user/dashboard.html:452
+msgid "Recommendation score"
+msgstr "鎺ㄨ崘鍒"
+
+#: web/templates/user/dashboard.html:453
+msgid "Avg latency"
+msgstr "骞冲潎鑰楁椂"
+
+#: web/templates/user/dashboard.html:454
+msgid "Error rate"
+msgstr "閿欒鐜"
+
+#: web/templates/user/dashboard.html:455
+msgid "System Health"
+msgstr "绯荤粺鍋ュ悍搴"
+
+#: web/templates/user/dashboard.html:456
+msgid "Last 20 minutes"
+msgstr "鏈€杩?20 鍒嗛挓"
+
+#: web/templates/user/dashboard.html:457
+msgid "Based on recent load, error rate, and latency"
+msgstr "鍩轰簬杩戞湡璐熻浇銆侀敊璇巼鍜屽搷搴旈€熷害缁煎悎璇勫垎"
+
+#: web/templates/user/dashboard.html:458
+msgid "No recent traffic in the last 20 minutes"
+msgstr "鏈€杩?20 鍒嗛挓鏆傛棤璇锋眰娴侀噺"
+
+#: web/templates/user/dashboard.html:459
+msgid "Active users"
+msgstr "娲昏穬鐢ㄦ埛"
+
+#: web/templates/user/dashboard.html:460
+msgid "Pending"
+msgstr "澶勭悊涓"
+
+#: web/templates/user/dashboard.html:461
+msgid "Excellent"
+msgstr "浼樼"
+
+#: web/templates/user/dashboard.html:462
+msgid "Healthy"
+msgstr "鍋ュ悍"
+
+#: web/templates/user/dashboard.html:463
+msgid "Busy"
+msgstr "绻佸繖"
+
+#: web/templates/user/dashboard.html:464
+msgid "Degraded"
+msgstr "涓嬮檷"
+
+#: web/templates/user/dashboard.html:465
+msgid "Idle"
+msgstr "绌洪棽"
+
+#: web/templates/user/dashboard.html:466
+msgid "Ranked by stability, response time, and sample size"
+msgstr "鎸夌ǔ瀹氭€с€佸搷搴旈€熷害鍜屾牱鏈噺缁煎悎鎺掑簭"
+
+#: web/templates/user/dashboard.html:467
+msgid "Based on the current period and accessible models"
+msgstr "鍩轰簬褰撳墠鏃堕棿鑼冨洿鍜屾 Key 鍙闂ā鍨"
+
+#: web/templates/user/dashboard.html:468
+msgid "No recommendation data yet"
+msgstr "鏆傛棤鎺ㄨ崘鏁版嵁"
+
+#: web/templates/user/dashboard.html:469 web/templates/user/tab_stats.html:75
+msgid "Loading recommendations..."
+msgstr "鎺ㄨ崘妯″瀷鍔犺浇涓?.."
+
+#: web/templates/user/dashboard.html:470
+msgid "Analyzing the best daily time windows..."
+msgstr "姝ｅ湪鍒嗘瀽姣忓ぉ鏇撮€傚悎浣跨敤鐨勬椂闂存..."
+
+#: web/templates/user/dashboard.html:471
+msgid "Model Used"
+msgstr "浣跨敤妯″瀷"
+
+#: web/templates/user/dashboard.html:472
+msgid "AI Generated"
+msgstr "AI 鐢熸垚"
+
+#: web/templates/user/dashboard.html:473
+msgid "AI analysis unavailable"
+msgstr "AI 鍒嗘瀽涓嶅彲鐢"
+
+#: web/templates/user/dashboard.html:474
+msgid "samples"
+msgstr "鏍锋湰"
+
+#: web/templates/user/dashboard.html:475
+msgid ""
+"Please help me add the following provider configuration to "
+"~/.config/opencode/opencode.jsonc. If that file does not exist, create it"
+" first. You can also place opencode.jsonc in the current project root. "
+"Keep existing providers and other settings, only add or update the "
+"modelgate provider."
+msgstr ""
+"璇峰府鎴戞妸涓嬮潰鐨?provider 閰嶇疆鍔犲叆 "
+"~/.config/opencode/opencode.jsonc銆?濡傛灉杩欎釜鏂囦欢涓嶅瓨鍦紝璇峰厛鍒涘缓瀹冦€備綘涔熷彲浠ュ湪褰撳墠椤圭洰鏍圭洰褰曟斁缃?opencode.jsonc銆備繚鐣欑幇鏈?providers"
+" 鍜屽叾浠栬缃紝鍙坊鍔犳垨鏇存柊 modelgate provider銆"
+
+#: web/templates/user/dashboard.html:479
+msgid "top share"
+msgstr "澶撮儴鍗犳瘮"
+
+#: web/templates/user/dashboard.html:480
+msgid "on right axis"
+msgstr "鍦ㄥ彸杞"
+
+#: web/templates/user/dashboard.html:481 web/templates/user/tab_stats.html:128
+#: web/templates/user/tab_stats.html:152
+msgid "Your API key"
+msgstr "浣犵殑 API 瀵嗛挜"
+
+#: web/templates/user/dashboard.html:482 web/templates/user/tab_stats.html:140
+#: web/templates/user/tab_stats.html:160
+msgid "All API keys"
+msgstr "鎵€鏈?API 瀵嗛挜"
+
+#: web/templates/user/dashboard.html:483 web/templates/user/tab_stats.html:115
+msgid "So empty..."
+msgstr "绌虹┖濡備篃"
+
+#: web/templates/user/dashboard.html:484
+msgid "Estimated cost based on token usage and model pricing"
+msgstr "鍩轰簬 Token 鐢ㄩ噺鍜屾ā鍨嬪畾浠风殑浼扮畻璐圭敤"
+
+#: web/templates/user/dashboard.html:486
+msgid "Online Users"
+msgstr "浠婂ぉ鏈夌偣鍐锋竻"
+
+#: web/templates/user/dashboard.html:487
+msgid "Only You Online"
+msgstr "涓€涓汉鐨勮垶鍙"
+
+#: web/templates/user/dashboard.html:488
+#, fuzzy
+msgid "Night Owl — Just You"
+msgstr "澶滅尗瀛愶紝鍙湁浣"
+
+#: web/templates/user/dashboard.html:489
+#, fuzzy
+msgid "Early Bird — Just You"
+msgstr "鏃╄捣鐨勯笩鍎"
+
+#: web/templates/user/dashboard.html:490
+msgid "Companions at Work"
+msgstr "闄即浣犵殑鐗涢┈"
+
+#: web/templates/user/dashboard.html:491
+msgid "Night Owls Club"
+msgstr "淇粰灏忓垎闃"
+
+#: web/templates/user/dashboard.html:492
+msgid "Early Birds"
+msgstr "鏃╄捣鐨勯笩鍎夸滑"
+
+#: web/templates/user/dashboard.html:493
+msgid "Token Rivals"
+msgstr "鍜屼綘鎶?Token 鐨勪汉"
+
+#: web/templates/user/dashboard.html:494
+msgid "Peak Hours"
+msgstr "楂樺嘲鏃跺埢锛孴oken 澶ф垬"
+
+#: web/templates/user/dashboard.html:495
+msgid "Shouldn't You Be Asleep?"
+msgstr "閮借繖涓偣浜嗭紝璇ョ潯瑙変簡"
+
+#: web/templates/user/dashboard.html:497
+msgid ""
+"Regenerate the API key? The old key will stop working immediately, and "
+"you will be logged out."
+msgstr "纭畾瑕侀噸缃?API 瀵嗛挜鍚楋紵鏃у瘑閽ュ皢绔嬪嵆澶辨晥锛屾偍灏嗚閫€鍑虹櫥褰曘€"
+
+#: web/templates/user/dashboard.html:498
+msgid "Failed to regenerate API key"
+msgstr "閲嶇疆 API 瀵嗛挜澶辫触"
+
+#: web/templates/user/dashboard.html:499
+msgid "Your new API Key is:"
+msgstr "鎮ㄧ殑鏂?API 瀵嗛挜鏄?"
+
+#: web/templates/user/dashboard.html:500
+msgid "Please save it securely. You will need it to log in again."
+msgstr "璇峰Ε鍠勪繚瀛橈紝鎮ㄩ渶瑕佷娇鐢ㄦ柊瀵嗛挜閲嶆柊鐧诲綍銆"
+
+#: web/templates/user/dashboard.html:501
+msgid "Temporarily unavailable"
+msgstr "鏆傛椂鏃犳硶浣跨敤"
+
+#: web/templates/user/document_detail.html:77
+#: web/templates/user/tab_documents.html:13
+msgid "Back to Documents"
+msgstr "返回文档"
+
+#: web/templates/user/document_detail.html:169
+msgid "Images"
+msgstr "鍥剧墖"
+
+#: web/templates/user/documents.html:42
+msgid "Shared articles and documents"
+msgstr "共享文章与文档"
+
+#: web/templates/user/documents.html:49
+#, fuzzy
+msgid "Back to Dashboard"
+msgstr "API 瀵嗛挜浠〃鐩"
+
+#: web/templates/user/documents.html:73
+#, fuzzy
+msgid "Read More"
+msgstr "娣诲姞妯″瀷"
+
+#: web/templates/user/login.html:6
+msgid "API Key Login"
+msgstr "API 瀵嗛挜鐧诲綍"
+
+#: web/templates/user/login.html:69
+msgid "Remember API Key"
+msgstr "璁颁綇 API 瀵嗛挜"
+
+#: web/templates/user/login.html:78
+msgid "Enter your API Key to view usage statistics"
+msgstr "杈撳叆 API 瀵嗛挜鏌ョ湅浣跨敤缁熻"
+
+#: web/templates/user/login.html:85
+#, fuzzy
+msgid "Logging in..."
+msgstr "鐧诲綍涓?.."
+
+#: web/templates/user/tab_catalog.html:5
+msgid "Platform Providers & Models"
+msgstr "骞冲彴渚涘簲鍟嗗拰妯″瀷"
+
+#: web/templates/user/tab_catalog.html:9
+msgid "Loading catalog..."
+msgstr "鍔犺浇鐩綍涓?.."
+
+#: web/templates/user/tab_catalog.html:14
+msgid "Your Access"
+msgstr "浣犵殑鏉冮檺"
+
+#: web/templates/user/tab_catalog.html:19
+msgid "Loading access..."
+msgstr "鍔犺浇鏉冮檺涓?.."
+
+#: web/templates/user/tab_codex.html:2
+#, fuzzy
+msgid "Codex Configuration"
+msgstr "OpenCode 閰嶇疆"
+
+#: web/templates/user/tab_codex.html:5
+msgid "Option 1: one-liner setup script"
+msgstr "方式一：一键安装脚本"
+
+#: web/templates/user/tab_codex.html:5 web/templates/user/tab_opencode.html:5
+#, fuzzy
+msgid "recommended"
+msgstr "鎺ㄨ崘妯″瀷"
+
+#: web/templates/user/tab_codex.html:6
+msgid ""
+"Codex CLI, the ChatGPT desktop app and the VS Code Codex extension share "
+"one config. The script backs up config.toml, writes the models.json "
+"catalog and merges the ModelGate entries (your MCP servers and other "
+"settings are preserved)."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:13 web/templates/user/tab_opencode.html:13
+msgid "The commands below already embed your API key."
+msgstr "以下命令已内嵌你的 API Key。"
+
+#: web/templates/user/tab_codex.html:31
+msgid ""
+"Requires Codex installed and run at least once (the ~/.codex folder "
+"exists). macOS/Linux only needs curl."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:35
+msgid "Option 2: manual config"
+msgstr "方式二：手动配置"
+
+#: web/templates/user/tab_codex.html:37
+msgid ""
+"Manual setup writes two files: config.toml (the provider config) and "
+"models.json (the model catalog declaring context windows and reasoning "
+"levels to Codex)."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:40
+#, fuzzy
+msgid "Default model"
+msgstr "缁撴灉"
+
+#: web/templates/user/tab_codex.html:42
+msgid "Switch anytime with /model inside Codex"
+msgstr "在 Codex 中随时用 /model 切换模型"
+
+#: web/templates/user/tab_codex.html:46
+msgid "1. ~/.codex/config.toml"
+msgstr "1. ~/.codex/config.toml"
+
+#: web/templates/user/tab_codex.html:52
+#, fuzzy
+msgid "Download config.toml"
+msgstr "OpenCode 閰嶇疆"
+
+#: web/templates/user/tab_codex.html:53
+#, fuzzy
+msgid "Target folder"
+msgstr "寮€濮嬫棩鏈"
+
+#: web/templates/user/tab_codex.html:54
+msgid "Copy folder"
+msgstr "复制目录"
+
+#: web/templates/user/tab_codex.html:56
+msgid ""
+"If config.toml already exists, merge the entries above into it (replace "
+"the whole [model_providers.modelgate] section) and keep everything else. "
+"The API key is embedded in experimental_bearer_token."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:60
+msgid "2. ~/.codex/models.json"
+msgstr "2. ~/.codex/models.json"
+
+#: web/templates/user/tab_codex.html:61
+msgid ""
+"Generated from the models available to your API key; place it in the same"
+" folder."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:62
+#, fuzzy
+msgid "Download models.json"
+msgstr "浣跨敤妯″瀷鏁"
+
+#: web/templates/user/tab_codex.html:68
+msgid ""
+"Put both files in ~/.codex/ (Windows: %USERPROFILE%\\.codex\\); create "
+"the folder if missing"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:69
+msgid "Restart Codex (CLI / desktop / IDE extension share this config)"
+msgstr "重启 Codex（CLI / 桌面版 / IDE 插件共用此配置）"
+
+#: web/templates/user/tab_codex.html:70
+msgid "Run codex to start; use /model to switch models"
+msgstr "运行 codex 启动；用 /model 切换模型"
+
+#: web/templates/user/tab_codex.html:77
+msgid "Full setup instructions (send to Codex to self-configure)"
+msgstr "完整安装说明（发给 Codex 自行配置）"
+
+#: web/templates/user/tab_codex.html:79
+msgid ""
+"Copy the instructions below and send them to Codex (or any agent); they "
+"describe every step."
+msgstr ""
+
+#: web/templates/user/tab_notifications.html:5
+msgid "Mark All Read"
+msgstr "鍏ㄩ儴宸茶"
+
+#: web/templates/user/tab_opencode.html:5
+#, fuzzy
+msgid "One-liner setup"
+msgstr "浠婂ぉ鏈夌偣鍐锋竻"
+
+#: web/templates/user/tab_opencode.html:6
+msgid ""
+"Run the command below in a terminal on the machine where OpenCode is "
+"installed. It backs up your current config, fetches the latest ModelGate "
+"models, and writes them into your opencode.jsonc automatically."
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:31
+msgid ""
+"Requires only curl on macOS/Linux. The script prompts for the API key if "
+"it is not embedded in the URL."
+msgstr "macOS/Linux 鑴氭湰浠呴渶 curl銆傝嫢 URL 涓湭鍐呯疆 API Key锛岃剼鏈細鎻愮ず杈撳叆銆"
+
+#: web/templates/user/tab_opencode.html:31
+msgid ""
+"The macOS/Linux script only needs curl. If the API key is not embedded in"
+" the URL, the script will prompt for it."
+msgstr "macOS/Linux 鑴氭湰浠呴渶 curl銆傝嫢 URL 涓湭鍐呯疆 API Key锛岃剼鏈細鎻愮ず杈撳叆銆"
+
+#: web/templates/user/tab_opencode.html:35
+msgid "Manual setup (copy markdown)"
+msgstr "手动配置（复制 Markdown）"
+
+#: web/templates/user/tab_opencode.html:38
+msgid "Merge with existing config"
+msgstr "与现有配置合并"
+
+#: web/templates/user/tab_opencode.html:39
+msgid ""
+"Upload your existing opencode.jsonc to merge the latest ModelGate config "
+"into it"
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:71
+#, fuzzy
+msgid "Config path: %USERPROFILE%\\\\.config\\\\opencode\\\\opencode.jsonc"
+msgstr "閰嶇疆璺緞锛?USERPROFILE%\\\\.config\\\\opencode\\\\opencode.jsonc"
+
+#: web/templates/user/tab_opencode.html:71
+msgid "Config path: ~/.config/opencode/opencode.jsonc"
+msgstr "閰嶇疆璺緞锛殈/.config/opencode/opencode.jsonc"
+
+#: web/templates/user/tab_opencode.html:87
+msgid "Copy the text below and send it to OpenCode for configuration"
+msgstr "澶嶅埗涓嬮潰鐨勬枃鏈粰 opencode 璁╀粬閰嶇疆"
+
+#: web/templates/user/tab_opencode.html:99
+#, fuzzy
+msgid "Copy the content above and send it to OpenCode"
+msgstr "澶嶅埗涓嬮潰鐨勬枃鏈粰 opencode 璁╀粬閰嶇疆"
+
+#: web/templates/user/tab_opencode.html:100
+msgid "OpenCode will automatically configure the provider"
+msgstr "OpenCode 将自动配置该供应商"
+
+#: web/templates/user/tab_stats.html:23
+msgid "Est. Cost"
+msgstr "浼扮畻璐圭敤"
+
+#: web/templates/user/tab_stats.html:24
+msgid "Download billing details"
+msgstr "涓嬭浇璐圭敤鏄庣粏"
+
+#: web/templates/user/tab_stats.html:62
+msgid "Avg Requests/Model"
+msgstr "骞冲潎璇锋眰鏁?妯″瀷"
+
+#: web/templates/user/tab_stats.html:72
+msgid "Based on 7-day usage stats"
+msgstr "基于近 7 天用量统计"
+
+#: web/templates/user/tab_stats.html:84
+msgid "Real-time busyness level"
+msgstr "瀹炴椂绻佸繖绋嬪害"
+
+#: web/templates/user/tab_stats.html:94
+msgid "Active users (10min)"
+msgstr "娲昏穬鐢ㄦ埛锛?0鍒嗛挓锛"
+
+#: web/templates/user/tab_stats.html:98
+msgid "ratio"
+msgstr "鍗犳瘮"
+
+#: web/templates/user/tab_stats.html:105
+msgid "My Requests"
+msgstr "鎴戠殑璇锋眰"
+
+#: web/templates/user/tab_stats.html:112
+msgid "System Active Requests"
+msgstr "绯荤粺娲昏穬璇锋眰"
+
+#: web/templates/user/tab_stats.html:139
+msgid "System Request Trend"
+msgstr "绯荤粺璇锋眰瓒嬪娍"
+
+#: web/templates/user/tab_stats.html:159
+msgid "System Model Usage"
+msgstr "绯荤粺妯″瀷浣跨敤"
+
+#: web/templates/user/tab_usage.html:2
+msgid "How to Configure API Clients"
+msgstr "濡備綍閰嶇疆 API 瀹㈡埛绔"
+
+#: web/templates/user/tab_usage.html:5
+msgid "Model Name Format"
+msgstr "妯″瀷鍚嶇О鏍煎紡"
+
+#: web/templates/user/tab_usage.html:6
+msgid ""
+"Use <code class=\"bg-white px-2 py-1 rounded\">provider/model</code> "
+"format"
+msgstr "浣跨敤 provider/model 鏍煎紡"
+
+#: web/templates/user/tab_usage.html:8
+msgid "With Provider"
+msgstr "甯︿緵搴斿晢"
+
+#: web/templates/user/tab_usage.html:9
+msgid "Without Prefix"
+msgstr "涓嶅甫鍓嶇紑"
+
+#: web/templates/user/tab_usage.html:14
+msgid "OpenAI Protocol"
+msgstr "OpenAI 鍗忚"
+
+#: web/templates/user/tab_usage.html:15
+msgid "Anthropic Protocol"
+msgstr "Anthropic 鍗忚"
+
+#: web/templates/user/tab_usage.html:20 web/templates/user/tab_usage.html:164
+msgid "Basic Information"
+msgstr "鍩烘湰淇℃伅"
+
+#: web/templates/user/tab_usage.html:22
+msgid "Proxy URL"
+msgstr "浠ｇ悊 URL"
+
+#: web/templates/user/tab_usage.html:23 web/templates/user/tab_usage.html:167
+msgid "API Endpoint"
+msgstr "API 绔偣"
+
+#: web/templates/user/tab_usage.html:24 web/templates/user/tab_usage.html:168
+msgid "Auth Header"
+msgstr "璁よ瘉澶"
+
+#: web/templates/user/tab_usage.html:32
+msgid "Python (OpenAI SDK)"
+msgstr "Python (OpenAI SDK)"
+
+#: web/templates/user/tab_usage.html:54 web/templates/user/tab_usage.html:231
+msgid "JavaScript"
+msgstr "JavaScript"
+
+#: web/templates/user/tab_usage.html:90
+#, fuzzy
+msgid "OpenCode"
+msgstr "OpenCode 璁剧疆"
+
+#: web/templates/user/tab_usage.html:92
+msgid ""
+"Install OpenCode from <a href=\"https://opencode.ai/\" target=\"_blank\" "
+"class=\"text-blue-500 hover:underline\">opencode.ai</a>, then go to the "
+"OpenCode Config tab to get your configuration."
+msgstr ""
+
+#: web/templates/user/tab_usage.html:94
+msgid "Config file location"
+msgstr "配置文件位置"
+
+#: web/templates/user/tab_usage.html:95
+#, fuzzy
+msgid "Or place"
+msgstr "浣犵殑鏉冮檺"
+
+#: web/templates/user/tab_usage.html:98
+msgid "Common commands"
+msgstr "常用命令"
+
+#: web/templates/user/tab_usage.html:99
+#, fuzzy
+msgid "Start TUI"
+msgstr "寮€濮嬫椂闂"
+
+#: web/templates/user/tab_usage.html:100
+#, fuzzy
+msgid "Continue last session"
+msgstr "娲昏穬浼氳瘽"
+
+#: web/templates/user/tab_usage.html:101
+#, fuzzy
+msgid "Continue specific session"
+msgstr "娲昏穬浼氳瘽"
+
+#: web/templates/user/tab_usage.html:102
+msgid "Use specific model"
+msgstr "使用指定模型"
+
+#: web/templates/user/tab_usage.html:103
+#, fuzzy
+msgid "Non-interactive mode"
+msgstr "娲昏穬妯″瀷"
+
+#: web/templates/user/tab_usage.html:104
+#, fuzzy
+msgid "List available models"
+msgstr "鍙敤妯″瀷"
+
+#: web/templates/user/tab_usage.html:105
+#, fuzzy
+msgid "List all sessions"
+msgstr "鏃犳椿璺冧細璇"
+
+#: web/templates/user/tab_usage.html:106
+msgid "Token usage stats"
+msgstr "Token 用量统计"
+
+#: web/templates/user/tab_usage.html:108
+msgid "Complete opencode.jsonc example"
+msgstr "完整 opencode.jsonc 示例"
+
+#: web/templates/user/tab_usage.html:153
+msgid ""
+"<code>threshold</code>: 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 "
+"表示占用 50% 时开始压缩。"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:154
+msgid "<code>strategy</code>: summarize（摘要）/ truncate（截断）/ archive（归档）"
+msgstr "<code>strategy</code>: summarize（摘要）/ truncate（截断）/ archive（归档）"
+
+#: web/templates/user/tab_usage.html:155
+msgid "<code>preserveRecentMessages</code>: 压缩时保留最近 N 条消息不参与压缩（默认 10）"
+msgstr "<code>preserveRecentMessages</code>: 压缩时保留最近 N 条消息不参与压缩（默认 10 条）"
+
+#: web/templates/user/tab_usage.html:156
+msgid "<code>preserveSystemPrompt</code>: 压缩时始终保留系统提示词（默认 true）"
+msgstr "<code>preserveSystemPrompt</code>: 压缩时始终保留系统提示词（默认 true）"
+
+#: web/templates/user/tab_usage.html:169
+msgid "Required Header"
+msgstr "蹇呭～ Header"
+
+#: web/templates/user/tab_usage.html:172
+msgid ""
+"The Anthropic endpoint translates requests to OpenAI format internally. "
+"All models registered in ModelGate can be used, just use <code class"
+"=\"bg-white px-1 py-0.5 rounded\">provider/model</code> as the model "
+"name."
+msgstr ""
+"Anthropic 绔偣浼氬湪鍐呴儴灏嗚姹傝浆鎹负 OpenAI 鏍煎紡銆侻odelGate "
+"涓敞鍐岀殑鎵€鏈夋ā鍨嬪潎鍙娇鐢紝鍙渶鐢?<code class=\"bg-white px-1 py-0.5 "
+"rounded\">provider/model</code> 浣滀负妯″瀷鍚嶇О鍗冲彲銆"
+
+#: web/templates/user/tab_usage.html:180
+msgid "Python (Anthropic SDK)"
+msgstr "Python (Anthropic SDK)"
+
+#: web/templates/user/tab_usage.html:205
+msgid "Python (Streaming)"
+msgstr "Python (娴佸紡)"
+
+#: web/templates/user/tab_usage.html:275
+msgid "Tool Use (Function Calling)"
+msgstr "宸ュ叿璋冪敤 (Function Calling)"
 
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
@@ -727,46 +3075,46 @@ msgstr ""
 #~ msgstr "TPS"
 
 #~ msgid "Avg Tokens"
-#~ msgstr "平均 Tokens"
+#~ msgstr "骞冲潎 Tokens"
 
 #~ msgid "Req/sec"
-#~ msgstr "请求/秒"
+#~ msgstr "璇锋眰/绉"
 
 #~ msgid "Tokens/sec"
-#~ msgstr "Token/秒"
+#~ msgstr "Token/绉"
 
 #~ msgid "API Proxy Login"
-#~ msgstr "ModelGate 登录"
+#~ msgstr "ModelGate 鐧诲綍"
 
 #~ msgid "Provider-Model Bindings"
-#~ msgstr "供应商-模型绑定"
+#~ msgstr "渚涘簲鍟?妯″瀷缁戝畾"
 
 #~ msgid "Proxy URL:"
-#~ msgstr "代理 URL:"
+#~ msgstr "浠ｇ悊 URL:"
 
 #~ msgid "API Endpoint:"
-#~ msgstr "API 端点:"
+#~ msgstr "API 绔偣:"
 
 #~ msgid "Auth Header:"
-#~ msgstr "认证头:"
+#~ msgstr "璁よ瘉澶?"
 
 #~ msgid "format to specify provider:"
-#~ msgstr "格式指定供应商:"
+#~ msgstr "鏍煎紡鎸囧畾渚涘簲鍟?"
 
 #~ msgid "With Provider Prefix"
-#~ msgstr "带供应商前缀"
+#~ msgstr "甯︿緵搴斿晢鍓嶇紑"
 
 #~ msgid "Routes to Zhipu provider"
-#~ msgstr "路由到智谱供应商"
+#~ msgstr "璺敱鍒版櫤璋变緵搴斿晢"
 
 #~ msgid "Uses default provider"
-#~ msgstr "使用默认供应商"
+#~ msgstr "浣跨敤榛樿渚涘簲鍟"
 
 #~ msgid "ChatGPT-Next-Web / LobeChat"
 #~ msgstr "ChatGPT-Next-Web / LobeChat"
 
 #~ msgid "Go to Settings and configure:"
-#~ msgstr "前往设置并配置:"
+#~ msgstr "鍓嶅線璁剧疆骞堕厤缃?"
 
 #~ msgid "JavaScript / Node.js"
 #~ msgstr "JavaScript / Node.js"
@@ -778,56 +3126,56 @@ msgstr ""
 #~ msgstr "VS Code (Continue / Cline)"
 
 #~ msgid "Add to your config.json:"
-#~ msgstr "添加到 config.json:"
+#~ msgstr "娣诲姞鍒?config.json:"
 
 #~ msgid "Tips"
-#~ msgstr "提示"
+#~ msgstr "鎻愮ず"
 
 #~ msgid "Get your API key from"
-#~ msgstr "从以下页面获取 API 密钥:"
+#~ msgstr "浠庝互涓嬮〉闈㈣幏鍙?API 瀵嗛挜:"
 
 #~ msgid "page"
-#~ msgstr "页面"
+#~ msgstr "椤甸潰"
 
 #~ msgid "Check available models in"
-#~ msgstr "在"
+#~ msgstr "鍦"
 
 #~ msgid "Monitor usage in"
-#~ msgstr "在"
+#~ msgstr "鍦"
 
 #~ msgid "Each provider has its own concurrency limit"
-#~ msgstr "每个供应商有自己的并发限制"
+#~ msgstr "姣忎釜渚涘簲鍟嗘湁鑷繁鐨勫苟鍙戦檺鍒"
 
 #~ msgid "Leave empty to allow all models"
-#~ msgstr "留空以允许所有模型"
+#~ msgstr "鐣欑┖浠ュ厑璁告墍鏈夋ā鍨"
 
 #~ msgid "Active Sessions (Last 1 Minute)"
-#~ msgstr "活跃会话 (最近 1 分钟)"
+#~ msgstr "娲昏穬浼氳瘽 (鏈€杩?1 鍒嗛挓)"
 
 #~ msgid "System Active Requests (Last 1 Minute)"
-#~ msgstr "系统活跃请求 (最近 1 分钟)"
+#~ msgstr "绯荤粺娲昏穬璇锋眰 (鏈€杩?1 鍒嗛挓)"
 
 #~ msgid ""
 #~ "Anonymized across all API keys. Your "
 #~ "own traffic is labeled as Yourself."
-#~ msgstr "所有 API 密钥的流量已匿名化。您自己的流量标记为\"您自己\"。"
+#~ msgstr "鎵€鏈?API 瀵嗛挜鐨勬祦閲忓凡鍖垮悕鍖栥€傛偍鑷繁鐨勬祦閲忔爣璁颁负\"鎮ㄨ嚜宸盶\"銆"
 
 #~ msgid "Requests / Tokens / Errors"
-#~ msgstr "请求数 / Token 数 / 错误数"
+#~ msgstr "璇锋眰鏁?/ Token 鏁?/ 閿欒鏁"
 
 #~ msgid ""
 #~ "Copy the generated <code class=\"bg-"
 #~ "blue-100 px-1 rounded\">opencode.jsonc</code>"
-#~ msgstr "复制生成的 opencode.jsonc"
+#~ msgstr "澶嶅埗鐢熸垚鐨?opencode.jsonc"
 
 #~ msgid ""
 #~ "Create <code class=\"bg-blue-100 px-1 "
 #~ "rounded\">opencode.jsonc</code> in your project "
 #~ "root"
-#~ msgstr "在项目根目录创建 opencode.jsonc"
+#~ msgstr "鍦ㄩ」鐩牴鐩綍鍒涘缓 opencode.jsonc"
 
 #~ msgid "Home"
-#~ msgstr "首页"
+#~ msgstr "棣栭〉"
 
 #~ msgid ""
 #~ "Please help me add the following "
@@ -836,62 +3184,62 @@ msgstr ""
 #~ " and other settings, only add or "
 #~ "update the model-token-plan provider."
 #~ msgstr ""
-#~ "请帮我把下面的 provider 配置加入 "
-#~ "~/.opencode/opencode.jsonc。保留现有 providers 和其他设置，只添加或更新 "
-#~ "model-token-plan provider。"
+#~ "璇峰府鎴戞妸涓嬮潰鐨?provider 閰嶇疆鍔犲叆 "
+#~ "~/.opencode/opencode.jsonc銆備繚鐣欑幇鏈?providers 鍜屽叾浠栬缃紝鍙坊鍔犳垨鏇存柊"
+#~ " model-token-plan provider銆"
 
 #~ msgid "Yourself"
-#~ msgstr "你自己"
+#~ msgstr "浣犺嚜宸"
 
 #~ msgid "Anonymous"
-#~ msgstr "匿名"
+#~ msgstr "鍖垮悕"
 
 #~ msgid "Other {index}"
-#~ msgstr "其他 {index}"
+#~ msgstr "鍏朵粬 {index}"
 
 #~ msgid "Not authenticated"
-#~ msgstr "未认证"
+#~ msgstr "鏈璇"
 
 #~ msgid "API key not found"
-#~ msgstr "未找到 API Key"
+#~ msgstr "鏈壘鍒?API Key"
 
 #~ msgid "API Key not found"
-#~ msgstr "未找到 API Key"
+#~ msgstr "鏈壘鍒?API Key"
 
 #~ msgid "No recent errors, fast responses, and enough usage samples"
-#~ msgstr "最近几乎无报错，响应快，且样本量足够"
+#~ msgstr "鏈€杩戝嚑涔庢棤鎶ラ敊锛屽搷搴斿揩锛屼笖鏍锋湰閲忚冻澶"
 
 #~ msgid "Low error rate and stable recent performance"
-#~ msgstr "近期错误率低，整体表现稳定"
+#~ msgstr "杩戞湡閿欒鐜囦綆锛屾暣浣撹〃鐜扮ǔ瀹"
 
 #~ msgid "Fast recent responses and smooth overall performance"
-#~ msgstr "近期响应较快，整体体验流畅"
+#~ msgstr "杩戞湡鍝嶅簲杈冨揩锛屾暣浣撲綋楠屾祦鐣"
 
 #~ msgid "Frequently used recently with relatively stable quality"
-#~ msgstr "近期使用频繁，质量相对稳定"
+#~ msgstr "杩戞湡浣跨敤棰戠箒锛岃川閲忕浉瀵圭ǔ瀹"
 
 #~ msgid "Balanced recent stability, speed, and sample size"
-#~ msgstr "近期稳定性、速度和样本量较均衡"
+#~ msgstr "杩戞湡绋冲畾鎬с€侀€熷害鍜屾牱鏈噺杈冨潎琛"
 
 #~ msgid ""
 #~ "Recent data is limited. Try quieter "
 #~ "periods and check system health first"
-#~ msgstr "最近数据样本还不够多，建议优先选择相对空闲的时段，并先关注系统健康度。"
+#~ msgstr "鏈€杩戞暟鎹牱鏈繕涓嶅澶氾紝寤鸿浼樺厛閫夋嫨鐩稿绌洪棽鐨勬椂娈碉紝骞跺厛鍏虫敞绯荤粺鍋ュ悍搴︺€"
 
 #~ msgid ""
 #~ "Based on recent daily patterns, {ranges}"
 #~ " tends to be smoother with lower "
 #~ "errors and faster responses"
-#~ msgstr "按近期每天的分布看，{ranges} 往往更顺畅，错误更少、响应也更快。"
+#~ msgstr "鎸夎繎鏈熸瘡澶╃殑鍒嗗竷鐪嬶紝{ranges} 寰€寰€鏇撮『鐣咃紝閿欒鏇村皯銆佸搷搴斾篃鏇村揩銆"
 
 #~ msgid ""
 #~ "Based on recent daily patterns, {ranges}"
 #~ " tend to be smoother with lower "
 #~ "errors and faster responses"
-#~ msgstr "按近期每天的分布看，{ranges} 往往更顺畅，错误更少、响应也更快。"
+#~ msgstr "鎸夎繎鏈熸瘡澶╃殑鍒嗗竷鐪嬶紝{ranges} 寰€寰€鏇撮『鐣咃紝閿欒鏇村皯銆佸搷搴斾篃鏇村揩銆"
 
 #~ msgid "Suggested Prompt for OpenCode:"
-#~ msgstr "可直接发给 OpenCode："
+#~ msgstr "鍙洿鎺ュ彂缁?OpenCode锛"
 
 #~ msgid ""
 #~ "Please open and follow this setup "
@@ -901,8 +3249,9 @@ msgstr ""
 #~ "and only add or update the "
 #~ "required provider entry."
 #~ msgstr ""
-#~ "请打开并按照下面的安装文档，为这台机器添加或更新 OpenCode 配置。保留现有 providers"
-#~ " 和其他设置，只新增或更新需要的 provider 条目。"
+#~ "璇锋墦寮€骞舵寜鐓т笅闈㈢殑瀹夎鏂囨。锛屼负杩欏彴鏈哄櫒娣诲姞鎴栨洿鏂?OpenCode "
+#~ "閰嶇疆銆備繚鐣欑幇鏈?providers 鍜屽叾浠栬缃紝鍙柊澧炴垨鏇存柊闇€瑕佺殑 provider "
+#~ "鏉＄洰銆"
 
 #~ msgid ""
 #~ "Please choose a free model in "
@@ -910,509 +3259,124 @@ msgstr ""
 #~ "link below directly to OpenCode and "
 #~ "press Enter. Ask OpenCode to follow "
 #~ "this document:"
-#~ msgstr "请在 OpenCode 中先选择一个免费模型，再将下面的安装链接直接发给 OpenCode 并回车，让它按这个文档执行："
+#~ msgstr ""
+#~ "璇峰湪 OpenCode 涓厛閫夋嫨涓€涓厤璐规ā鍨嬶紝鍐嶅皢涓嬮潰鐨勫畨瑁呴摼鎺ョ洿鎺ュ彂缁?OpenCode"
+#~ " 骞跺洖杞︼紝璁╁畠鎸夎繖涓枃妗ｆ墽琛岋細"
 
 #~ msgid ""
 #~ "Please choose a free model in "
 #~ "OpenCode first, then send the setup "
 #~ "link below directly to OpenCode and "
 #~ "press Enter: Follow this document."
-#~ msgstr "请在 OpenCode 中先选择一个免费模型，再将下面的安装链接直接发给 OpenCode 并回车：按这个文档执行。"
+#~ msgstr ""
+#~ "璇峰湪 OpenCode 涓厛閫夋嫨涓€涓厤璐规ā鍨嬶紝鍐嶅皢涓嬮潰鐨勫畨瑁呴摼鎺ョ洿鎺ュ彂缁?OpenCode"
+#~ " 骞跺洖杞︼細鎸夎繖涓枃妗ｆ墽琛屻€"
 
 #~ msgid "Error Analysis"
-#~ msgstr "错误分析"
+#~ msgstr "閿欒鍒嗘瀽"
 
 #~ msgid "Generating report..."
-#~ msgstr "正在生成报告..."
+#~ msgstr "姝ｅ湪鐢熸垚鎶ュ憡..."
 
 #~ msgid "Completed"
-#~ msgstr "已完成"
+#~ msgstr "宸插畬鎴"
 
 #~ msgid "Running"
-#~ msgstr "生成中"
+#~ msgstr "鐢熸垚涓"
 
 #~ msgid "Active 1h"
-#~ msgstr "活跃(1h)"
+#~ msgstr "娲昏穬(1h)"
 
 #~ msgid "Limited providers"
-#~ msgstr "被限流供应商"
+#~ msgstr "琚檺娴佷緵搴斿晢"
 
 #~ msgid "Busyness Control Rules"
-#~ msgstr "繁忙控制规则"
+#~ msgstr "绻佸繖鎺у埗瑙勫垯"
 
 #~ msgid ""
 #~ "Auto downgrade, suggest, or block models"
 #~ " based on system busyness level "
 #~ "(1=extremely busy ~ 6=quiet)"
-#~ msgstr "根据系统繁忙程度自动降级、建议或阻止模型（1=极度繁忙 ~ 6=无人问津）"
+#~ msgstr "鏍规嵁绯荤粺绻佸繖绋嬪害鑷姩闄嶇骇銆佸缓璁垨闃绘妯″瀷锛?=鏋佸害绻佸繖 ~ 6=鏃犱汉闂触锛"
 
 #~ msgid "Add Rule"
-#~ msgstr "添加规则"
+#~ msgstr "娣诲姞瑙勫垯"
 
 #~ msgid "Save Rules"
-#~ msgstr "保存规则"
+#~ msgstr "淇濆瓨瑙勫垯"
 
 #~ msgid "Level"
-#~ msgstr "级别"
+#~ msgstr "绾у埆"
 
 #~ msgid "Action"
-#~ msgstr "动作"
+#~ msgstr "鍔ㄤ綔"
 
 #~ msgid "Downgrade"
-#~ msgstr "降级"
+#~ msgstr "闄嶇骇"
 
 #~ msgid "Suggest"
-#~ msgstr "建议"
+#~ msgstr "寤鸿"
 
 #~ msgid "Block"
-#~ msgstr "阻止"
+#~ msgstr "闃绘"
 
 #~ msgid "Redirect to"
-#~ msgstr "重定向到"
+#~ msgstr "閲嶅畾鍚戝埌"
 
 #~ msgid "Message"
-#~ msgstr "消息"
+#~ msgstr "娑堟伅"
 
 #~ msgid "Optional message"
-#~ msgstr "可选消息"
+#~ msgstr "鍙€夋秷鎭"
 
 #~ msgid "Rules saved"
-#~ msgstr "规则已保存"
+#~ msgstr "瑙勫垯宸蹭繚瀛"
 
 #~ msgid "Read"
-#~ msgstr "已读"
+#~ msgstr "宸茶"
 
 #~ msgid "Scheduled Tasks"
-#~ msgstr "定时任务"
+#~ msgstr "瀹氭椂浠诲姟"
 
 #~ msgid "Execution Log"
-#~ msgstr "执行日志"
-
-#~ msgid "API Keys"
-#~ msgstr "API 密钥"
-
-#~ msgid "Add API Key"
-#~ msgstr "添加 API 密钥"
-
-#~ msgid "Search by name or key..."
-#~ msgstr "按名称或密钥搜索..."
-
-#~ msgid "keys"
-#~ msgstr "密钥"
-
-#~ msgid "Name"
-#~ msgstr "名称"
-
-#~ msgid "e.g., Project A"
-#~ msgstr "例如: 项目 A"
-
-#~ msgid "Email"
-#~ msgstr ""
-
-#~ msgid "Expires At"
-#~ msgstr ""
-
-#~ msgid "Allowed Models"
-#~ msgstr "允许的模型"
-
-#~ msgid "selected"
-#~ msgstr "已选择"
-
-#~ msgid "MCP Servers"
-#~ msgstr "供应商"
-
-#~ msgid "Select MCP servers this key can access"
-#~ msgstr ""
-
-#~ msgid "Bypass busyness limit"
-#~ msgstr ""
-
-#~ msgid "Ignore model busyness availability restrictions"
-#~ msgstr ""
-
-#~ msgid "Cancel"
-#~ msgstr "取消"
-
-#~ msgid "Save"
-#~ msgstr "保存"
-
-#~ msgid "Copied!"
-#~ msgstr "已复制!"
-
-#~ msgid "API Key and usage instructions copied!"
-#~ msgstr "API Key 和使用说明已复制!"
-
-#~ msgid "Usage Instructions:"
-#~ msgstr "使用说明:"
-
-#~ msgid "Paste the API Key above to log in on the page"
-#~ msgstr "在上方粘贴 API 密钥以登录页面"
-
-#~ msgid "Configure OpenCode:"
-#~ msgstr "配置 OpenCode:"
-
-#~ msgid "Let the agent read the configuration document:"
-#~ msgstr "让智能体读取配置文档:"
-
-#~ msgid "Light Mode"
-#~ msgstr "浅色模式"
-
-#~ msgid "Dark Mode"
-#~ msgstr "深色模式"
-
-#~ msgid "Edit API Key"
-#~ msgstr "编辑 API 密钥"
-
-#~ msgid "All models"
-#~ msgstr "所有模型"
-
-#~ msgid "No API keys found"
-#~ msgstr "未找到 API 密钥"
-
-#~ msgid "Previous"
-#~ msgstr "上一页"
-
-#~ msgid "Next"
-#~ msgstr "下一页"
-
-#~ msgid "No models available. Add providers and models in Config first."
-#~ msgstr "无可用模型。请先在配置中添加供应商和模型。"
-
-#~ msgid "API Key created:"
-#~ msgstr "API 密钥已创建:"
-
-#~ msgid "Please save this key!"
-#~ msgstr "请保存此密钥!"
-
-#~ msgid "Failed to save API key"
-#~ msgstr "保存 API 密钥失败"
-
-#~ msgid "Delete this API key?"
-#~ msgstr "删除此 API 密钥?"
-
-#~ msgid "Copy"
-#~ msgstr "复制"
-
-#~ msgid "Edit"
-#~ msgstr "编辑"
-
-#~ msgid "Regenerate"
-#~ msgstr "重置密钥"
-
-#~ msgid "Regenerate the API key? The old key will stop working immediately."
-#~ msgstr "确定要重置 API 密钥吗？旧密钥将立即失效。"
-
-#~ msgid "New API Key:"
-#~ msgstr "新 API 密钥:"
-
-#~ msgid "Reset API Key"
-#~ msgstr "重置 API 密钥"
-
-#~ msgid ""
-#~ "Regenerate the API key? The old "
-#~ "key will stop working immediately, and"
-#~ " you will be logged out."
-#~ msgstr "确定要重置 API 密钥吗？旧密钥将立即失效，您将被退出登录。"
-
-#~ msgid "Failed to regenerate API key"
-#~ msgstr "重置 API 密钥失败"
-
-#~ msgid "Your new API Key is:"
-#~ msgstr "您的新 API 密钥是:"
-
-#~ msgid "Please save it securely. You will need it to log in again."
-#~ msgstr "请妥善保存，您需要使用新密钥重新登录。"
-
-#~ msgid "API Key Created"
-#~ msgstr "API 密钥已创建"
-
-#~ msgid "API Key Regenerated"
-#~ msgstr "API 密钥已重置"
-
-#~ msgid ""
-#~ "Copy this key now. For security "
-#~ "reasons, it will be masked in the"
-#~ " list afterwards."
-#~ msgstr "请立即复制此密钥。出于安全考虑，列表中将只显示掩码版本。"
-
-#~ msgid "I have saved it"
-#~ msgstr "我已保存"
-
-#~ msgid "Temporarily unavailable"
-#~ msgstr "暂时无法使用"
-
-#~ msgid "Provider unavailable"
-#~ msgstr "供应商暂不可用"
-
-#~ msgid "Provider {name} is unavailable: {reason}"
-#~ msgstr "供应商 {name} 暂不可用：{reason}"
-
-#~ msgid "expected restore at {time}"
-#~ msgstr "预计 {time} 恢复"
-
-#~ msgid "Delete"
-#~ msgstr "删除"
-
-#~ msgid "Query"
-#~ msgstr "查询"
-
-#~ msgid "User Page:"
-#~ msgstr "用户页面:"
+#~ msgstr "鎵ц鏃ュ織"
 
 #~ msgid "Setup Doc:"
-#~ msgstr "安装文档:"
-
-#~ msgid "Copy Setup"
-#~ msgstr "复制设置"
-
-#~ msgid "Close"
-#~ msgstr "日志"
-
-#~ msgid "Bypass Busyness"
-#~ msgstr "繁忙程度"
-
-#~ msgid "Login"
-#~ msgstr "登录"
-
-#~ msgid "Last Used"
-#~ msgstr "最后使用时间"
-
-#~ msgid "Expired"
-#~ msgstr ""
-
-#~ msgid "Never"
-#~ msgstr "从未使用"
-
-#~ msgid "ModelGate Access"
-#~ msgstr "ModelGate 访问信息"
-
-#~ msgid "Login Page:"
-#~ msgstr "登录页面："
-
-#~ msgid "API Key:"
-#~ msgstr "API Key："
-
-#~ msgid "Quick Start:"
-#~ msgstr "快速开始："
-
-#~ msgid "Open the login page above and paste the API key to sign in."
-#~ msgstr "打开上面的登录页面，粘贴 API Key 完成登录。"
+#~ msgstr "瀹夎鏂囨。:"
 
 #~ msgid ""
 #~ "For OpenCode setup, open the setup "
 #~ "document below or send it directly "
 #~ "to your agent."
-#~ msgstr "如果要配置 OpenCode，打开下面的安装文档，或者直接把文档链接发给 OpenCode。"
-
-#~ msgid ""
-#~ "Keep this API key private and do"
-#~ " not share it in public chats "
-#~ "or repositories."
-#~ msgstr "请妥善保管这个 API Key，不要在公开聊天或代码仓库中泄露。"
+#~ msgstr "濡傛灉瑕侀厤缃?OpenCode锛屾墦寮€涓嬮潰鐨勫畨瑁呮枃妗ｏ紝鎴栬€呯洿鎺ユ妸鏂囨。閾炬帴鍙戠粰 OpenCode銆"
 
 #~ msgid ""
 #~ "Please choose a free model in "
 #~ "OpenCode first, then send the setup "
 #~ "link below directly to OpenCode and "
 #~ "press Enter:"
-#~ msgstr "请在 OpenCode 中先选择一个免费模型，再将下面的安装链接直接发给 OpenCode 并回车："
+#~ msgstr "璇峰湪 OpenCode 涓厛閫夋嫨涓€涓厤璐规ā鍨嬶紝鍐嶅皢涓嬮潰鐨勫畨瑁呴摼鎺ョ洿鎺ュ彂缁?OpenCode 骞跺洖杞︼細"
 
 #~ msgid "Follow this document."
-#~ msgstr "按这个文档执行。"
-
-#~ msgid "Enabled Models:"
-#~ msgstr "已开通模型："
-
-#~ msgid ""
-#~ "No specific model restrictions. This API"
-#~ " key can use all currently allowed"
-#~ " models."
-#~ msgstr "当前没有单独的模型限制，这个 API Key 可以使用当前允许的全部模型。"
+#~ msgstr "鎸夎繖涓枃妗ｆ墽琛屻€"
 
 #~ msgid ""
 #~ "If OpenCode is not installed yet, "
 #~ "please download it from the official "
 #~ "website below."
-#~ msgstr "如果还没有安装 OpenCode，请先通过下面的官网地址下载安装。"
-
-#~ msgid "Time Rules"
-#~ msgstr "时间规则"
-
-#~ msgid "Add Time Rule"
-#~ msgstr "添加时间规则"
-
-#~ msgid "Edit Time Rule"
-#~ msgstr "编辑时间规则"
-
-#~ msgid "Rule Type"
-#~ msgstr "规则类型"
-
-#~ msgid "Time Range"
-#~ msgstr "时间段"
-
-#~ msgid "Date Range"
-#~ msgstr "日期范围"
-
-#~ msgid "Weekday"
-#~ msgstr "星期"
-
-#~ msgid "Start Time"
-#~ msgstr "开始时间"
-
-#~ msgid "End Time"
-#~ msgstr "结束时间"
-
-#~ msgid "Start Date"
-#~ msgstr "开始日期"
-
-#~ msgid "End Date"
-#~ msgstr "结束日期"
-
-#~ msgid "Weekdays"
-#~ msgstr "星期"
-
-#~ msgid "Allowed"
-#~ msgstr "允许"
-
-#~ msgid "Blocked"
-#~ msgstr "阻止"
-
-#~ msgid "No time rules"
-#~ msgstr "暂无时间规则"
-
-#~ msgid "Delete this time rule?"
-#~ msgstr "删除此时间规则？"
-
-#~ msgid "Failed to save time rule"
-#~ msgstr "保存时间规则失败"
-
-#~ msgid "Time rule created"
-#~ msgstr "时间规则已创建"
-
-#~ msgid "HH:MM"
-#~ msgstr "HH:MM"
-
-#~ msgid "YYYY-MM-DD"
-#~ msgstr "YYYY-MM-DD"
-
-#~ msgid "Mon"
-#~ msgstr "周一"
-
-#~ msgid "Tue"
-#~ msgstr "周二"
-
-#~ msgid "Wed"
-#~ msgstr "周三"
-
-#~ msgid "Thu"
-#~ msgstr "周四"
-
-#~ msgid "Fri"
-#~ msgstr "周五"
-
-#~ msgid "Sat"
-#~ msgstr "周六"
-
-#~ msgid "Sun"
-#~ msgstr "周日"
-
-#~ msgid "Control when this API key can be used"
-#~ msgstr "控制此 API 密钥何时可用"
-
-#~ msgid "Select date range"
-#~ msgstr "日期范围"
-
-#~ msgid "All"
-#~ msgstr "全部"
-
-#~ msgid "Config"
-#~ msgstr "配置"
-
-#~ msgid "Provider & Model Configuration"
-#~ msgstr "供应商和模型配置"
-
-#~ msgid "+ Add"
-#~ msgstr "+ 添加"
+#~ msgstr "濡傛灉杩樻病鏈夊畨瑁?OpenCode锛岃鍏堥€氳繃涓嬮潰鐨勫畼缃戝湴鍧€涓嬭浇瀹夎銆"
 
 #~ msgid "Sync from API"
-#~ msgstr "从 API 同步"
-
-#~ msgid "Add Provider"
-#~ msgstr "添加供应商"
-
-#~ msgid "Base URL"
-#~ msgstr "基础 URL"
-
-#~ msgid "Protocol"
-#~ msgstr "OpenAI 协议"
-
-#~ msgid "Active"
-#~ msgstr "启用"
-
-#~ msgid "Merge consecutive same-role messages"
-#~ msgstr "合并连续相同角色消息"
-
-#~ msgid "For providers like MiniMax requiring role alternation"
-#~ msgstr "适用于 MiniMax 等需要角色交替的供应商"
-
-#~ msgid "Add Model"
-#~ msgstr "添加模型"
-
-#~ msgid "Model Name (ID)"
-#~ msgstr "模型名称 (ID)"
-
-#~ msgid "Display Name"
-#~ msgstr "显示名称"
-
-#~ msgid "Maximum tokens the model can generate in a single response"
-#~ msgstr "模型单次回复能生成的最大 Token 数"
-
-#~ msgid "Max Output"
-#~ msgstr "最大输出"
-
-#~ msgid "Total input + output tokens the model can process at once"
-#~ msgstr "模型一次能处理的输入+输出总 Token 数"
-
-#~ msgid "Context Window"
-#~ msgstr "上下文窗口"
-
-#~ msgid ""
-#~ "Reject requests whose estimated input "
-#~ "tokens exceed this limit. Defaults to"
-#~ " the context window value; agents "
-#~ "auto-compact when rejected)"
-#~ msgstr "拒绝估算输入 Token 超过此上限的请求，默认使用上下文窗口值；被拒绝的 Agent 会自动压缩上下文"
-
-#~ msgid "Context Hard Limit"
-#~ msgstr "上下文硬上限"
-
-#~ msgid "empty = context window, e.g. 120k"
-#~ msgstr "留空 = 使用上下文窗口值，如 120k"
+#~ msgstr "浠?API 鍚屾"
 
 #~ msgid ""
 #~ "Maximum tokens for the reasoning/thinking "
 #~ "process. Only applies when reasoning is"
 #~ " enabled"
-#~ msgstr "推理/思考过程的最大 Token 数，仅在启用推理时生效"
+#~ msgstr "鎺ㄧ悊/鎬濊€冭繃绋嬬殑鏈€澶?Token 鏁帮紝浠呭湪鍚敤鎺ㄧ悊鏃剁敓鏁"
 
 #~ msgid "Reasoning Budget"
-#~ msgstr "推理预算"
-
-#~ msgid "Reasoning Effort Variants"
-#~ msgstr "推理强度变体"
-
-#~ msgid ""
-#~ "Comma-separated reasoning effort levels "
-#~ "exposed as switchable variants in "
-#~ "opencode (e.g. high,max). Leave empty to"
-#~ " disable effort variants."
-#~ msgstr "逗号分隔的推理强度级别，在 opencode 中作为可切换变体暴露（如 high,max）。留空则不生成变体。"
-
-#~ msgid "Enable extended reasoning / chain-of-thought for this model"
-#~ msgstr "启用该模型的深度推理/思维链能力"
-
-#~ msgid "Reasoning"
-#~ msgstr "推理"
+#~ msgstr "鎺ㄧ悊棰勭畻"
 
 #~ msgid ""
 #~ "Estimated blended price per 1M tokens"
@@ -1423,1558 +3387,39 @@ msgstr ""
 #~ msgid "Est. Price $/1M tokens"
 #~ msgstr ""
 
-#~ msgid "Multimodal"
-#~ msgstr "多模态"
-
-#~ msgid "Provider Keys"
-#~ msgstr "供应商"
-
-#~ msgid "Concurrency"
-#~ msgstr "并发"
-
-#~ msgid "Default"
-#~ msgstr "结果"
-
-#~ msgid "Add"
-#~ msgstr "+ 添加"
-
-#~ msgid "No keys configured"
-#~ msgstr "未配置规则"
-
-#~ msgid "Loading..."
-#~ msgstr "加载权限中..."
-
-#~ msgid "Failed to load"
-#~ msgstr "保存 API 密钥失败"
-
-#~ msgid "No providers"
-#~ msgstr "供应商"
-
-#~ msgid "No models"
-#~ msgstr "模型"
-
-#~ msgid "Inactive"
-#~ msgstr "活跃"
-
-#~ msgid "Keys"
-#~ msgstr "密钥"
-
-#~ msgid "Remove"
-#~ msgstr "恢复"
-
-#~ msgid "Bind"
-#~ msgstr ""
-
-#~ msgid "Bound Models"
-#~ msgstr "允许的模型"
-
-#~ msgid "No models bound"
-#~ msgstr "使用模型数"
-
-#~ msgid "Please select a provider first"
-#~ msgstr ""
-
 #~ msgid "Syncing..."
-#~ msgstr "登录中..."
+#~ msgstr "鐧诲綍涓?.."
 
 #~ msgid "Sync"
-#~ msgstr "同步"
-
-#~ msgid "Sync failed"
-#~ msgstr "失败"
+#~ msgstr "鍚屾"
 
 #~ msgid "Sync button not found"
 #~ msgstr ""
 
-#~ msgid "Synced {count} models: {names}"
-#~ msgstr ""
-
-#~ msgid "Provider saved"
-#~ msgstr "供应商使用"
-
-#~ msgid "Failed to save provider"
-#~ msgstr "保存 API 密钥失败"
-
-#~ msgid "Delete this provider?"
-#~ msgstr "确定删除此文件？"
-
-#~ msgid "Provider deleted"
-#~ msgstr "家供应商被限流"
-
-#~ msgid "Delete failed"
-#~ msgstr "确定删除此文件？"
-
-#~ msgid "Model saved"
-#~ msgstr "使用模型"
-
-#~ msgid "Failed to save model"
-#~ msgstr "保存时间规则失败"
-
-#~ msgid "Delete this model?"
-#~ msgstr "删除此时间规则？"
-
-#~ msgid "Model deleted"
-#~ msgstr "使用模型"
-
-#~ msgid "Model unbound"
-#~ msgstr "使用模型"
-
-#~ msgid "Unbind failed"
-#~ msgstr "登录失败"
-
-#~ msgid "Key access saved"
-#~ msgstr ""
-
-#~ msgid "Failed to save key access"
-#~ msgstr "保存 API 密钥失败"
-
-#~ msgid "No provider bindings. Bind this model to a provider first."
-#~ msgstr ""
-
-#~ msgid "Select All"
-#~ msgstr "已选择"
-
-#~ msgid "Clear"
-#~ msgstr "年"
-
-#~ msgid "{count} selected"
-#~ msgstr "{count} 个样本"
-
-#~ msgid "Page {current} / {total}"
-#~ msgstr "第 {page} 页 / 共 {total} 页"
-
-#~ msgid " - API Key Access"
-#~ msgstr "API 密钥"
-
-#~ msgid "Model"
-#~ msgstr "模型"
-
-#~ msgid "Edit Provider"
-#~ msgstr "带供应商"
-
-#~ msgid "Disabled:"
-#~ msgstr "已禁用"
-
-#~ msgid "Edit Model"
-#~ msgstr "添加模型"
-
-#~ msgid "off"
-#~ msgstr ""
-
-#~ msgid "multimodal"
-#~ msgstr "多模态"
-
-#~ msgid "{count} key(s)"
-#~ msgstr "{count} 个样本"
-
-#~ msgid ""
-#~ "Access is configured on the bound "
-#~ "provider-model, not on the model "
-#~ "itself."
-#~ msgstr ""
-
-#~ msgid "Disable"
-#~ msgstr "已禁用"
-
-#~ msgid "Enable"
-#~ msgstr "名称"
-
-#~ msgid "Disable reason (optional, shown to users)"
-#~ msgstr ""
-
-#~ msgid "Key enabled"
-#~ msgstr "Key 名称"
-
-#~ msgid "Key disabled"
-#~ msgstr "已禁用"
-
-#~ msgid "Failed to update key"
-#~ msgstr "保存 API 密钥失败"
-
-#~ msgid "Concurrency saved"
-#~ msgstr "并发"
-
-#~ msgid "Failed to save"
-#~ msgstr "保存 API 密钥失败"
-
-#~ msgid "Delete this key?"
-#~ msgstr "删除此 API 密钥?"
-
-#~ msgid "Key deleted"
-#~ msgstr "删除"
-
-#~ msgid "Failed to delete key"
-#~ msgstr "保存 API 密钥失败"
-
-#~ msgid "API Key is required"
-#~ msgstr "API 密钥已创建:"
-
-#~ msgid "Key added"
-#~ msgstr "Key 名称"
-
-#~ msgid "Failed to add key"
-#~ msgstr "保存 API 密钥失败"
-
-#~ msgid "Select a provider to view bindings"
-#~ msgstr "选择供应商查看绑定"
-
-#~ msgid "Documents"
-#~ msgstr "附件"
-
-#~ msgid "Write and manage Markdown documents for users"
-#~ msgstr ""
-
-#~ msgid "Document List"
-#~ msgstr ""
-
-#~ msgid "Create"
-#~ msgstr "创建"
-
-#~ msgid "No documents yet"
-#~ msgstr "暂无报告"
-
-#~ msgid "Preview"
-#~ msgstr "供应商"
-
-#~ msgid "Select a document to preview"
-#~ msgstr "选择供应商查看绑定"
-
-#~ msgid "Create Document"
-#~ msgstr ""
-
-#~ msgid "Title"
-#~ msgstr "时间"
-
-#~ msgid "Category"
-#~ msgstr ""
-
-#~ msgid "Published"
-#~ msgstr "已暂停"
-
-#~ msgid "Content (Markdown)"
-#~ msgstr "上下文窗口"
-
-#~ msgid "Insert Image"
-#~ msgstr "插入图片"
-
-#~ msgid "Upload File"
-#~ msgstr "上传失败"
-
-#~ msgid "Draft"
-#~ msgstr "耗时"
-
-#~ msgid "View Details"
-#~ msgstr ""
-
-#~ msgid "Edit Document"
-#~ msgstr ""
-
-#~ msgid "Title is required"
-#~ msgstr ""
-
-#~ msgid "Save failed"
-#~ msgstr "失败"
-
-#~ msgid "Are you sure you want to delete this document?"
-#~ msgstr ""
-
-#~ msgid "Created"
-#~ msgstr "创建"
-
-#~ msgid "Start writing Markdown here..."
-#~ msgstr ""
-
-#~ msgid "Attachments"
-#~ msgstr "附件"
-
-#~ msgid "Drop files here or click to upload"
-#~ msgstr "拖拽文件到此处或点击上传"
-
-#~ msgid "Upload failed"
-#~ msgstr "上传失败"
-
-#~ msgid "Delete this file?"
-#~ msgstr "确定删除此文件？"
-
-#~ msgid "Files"
-#~ msgstr "文件"
-
-#~ msgid "Image uploaded"
-#~ msgstr "图片已上传"
-
-#~ msgid "Please save the document first"
-#~ msgstr "请先保存文档"
-
-#~ msgid "Dashboard"
-#~ msgstr "仪表盘"
-
-#~ msgid "Today"
-#~ msgstr "今天"
-
-#~ msgid "This Week"
-#~ msgstr "本周"
-
-#~ msgid "This Month"
-#~ msgstr "本月"
-
-#~ msgid "This Year"
-#~ msgstr "今年"
-
-#~ msgid "System Status"
-#~ msgstr "系统状态"
-
-#~ msgid "Total Requests"
-#~ msgstr "总请求数"
-
-#~ msgid "Total Tokens"
-#~ msgstr "总 Token 数"
-
-#~ msgid "Active Requests"
-#~ msgstr "活跃请求"
-
-#~ msgid "Tokens/s"
-#~ msgstr "Tokens/s"
-
-#~ msgid "Errors"
-#~ msgstr "错误数"
-
-#~ msgid "Timeouts"
-#~ msgstr "超时"
-
-#~ msgid "Error Rate"
-#~ msgstr "错误率"
-
-#~ msgid "Active Users"
-#~ msgstr "活跃用户"
-
-#~ msgid "No active users"
-#~ msgstr "无活跃用户"
-
-#~ msgid "Slow Requests (>60s)"
-#~ msgstr "慢请求 (>60秒)"
-
-#~ msgid "No slow requests"
-#~ msgstr "无慢请求"
-
-#~ msgid "Provider Usage"
-#~ msgstr "供应商使用"
-
-#~ msgid "API Key Usage"
-#~ msgstr "API 密钥用量"
-
-#~ msgid "Request Trend"
-#~ msgstr "请求趋势"
-
-#~ msgid "pending"
-#~ msgstr "进行中"
-
-#~ msgid "req"
-#~ msgstr "请求"
-
-#~ msgid "Tokens"
-#~ msgstr "Token 数"
-
-#~ msgid "User Concurrency Limit"
-#~ msgstr "并发"
-
-#~ msgid "providers limited"
-#~ msgstr "家供应商被限流"
-
-#~ msgid "active users"
-#~ msgstr "活跃用户"
-
-#~ msgid "Empower every developer to harness the power of AI."
-#~ msgstr "赋予每个开发者，驾驭智能的力量。"
-
-#~ msgid "Username"
-#~ msgstr "用户名"
-
-#~ msgid "Enter username"
-#~ msgstr "输入用户名"
-
-#~ msgid "Password"
-#~ msgstr "密码"
-
-#~ msgid "Enter admin password"
-#~ msgstr "输入管理员密码"
-
-#~ msgid "Admin Dashboard"
-#~ msgstr "管理后台"
-
-#~ msgid "Week"
-#~ msgstr "周"
-
-#~ msgid "Month"
-#~ msgstr "月"
-
-#~ msgid "Year"
-#~ msgstr "年"
-
-#~ msgid "Requests"
-#~ msgstr "请求数"
-
-#~ msgid "Err Rate"
-#~ msgstr "错误率"
-
-#~ msgid "Busyness"
-#~ msgstr "繁忙程度"
-
-#~ msgid "Slow Requests"
-#~ msgstr "慢请求"
-
-#~ msgid "No data"
-#~ msgstr "暂无数据"
-
-#~ msgid "{seconds}s elapsed"
-#~ msgstr "已耗时 {seconds} 秒"
-
-#~ msgid "{label} on right axis"
-#~ msgstr "右侧轴: {label}"
-
-#~ msgid "disabled"
-#~ msgstr "已禁用"
-
-#~ msgid "Using admin account"
-#~ msgstr ""
-
-#~ msgid "Sign In"
-#~ msgstr "登录"
-
-#~ msgid "Signing in..."
-#~ msgstr "登录中..."
-
-#~ msgid "Login failed"
-#~ msgstr "登录失败"
-
-#~ msgid "Network error"
-#~ msgstr "网络错误"
-
-#~ msgid "Monitor"
-#~ msgstr "监控"
-
-#~ msgid "Statistics Monitor"
-#~ msgstr "统计监控"
-
-#~ msgid "Composition, concentration, hotspots, and trend behavior"
-#~ msgstr "流量构成、集中度、热点和趋势行为"
-
-#~ msgid "Day"
-#~ msgstr "天"
-
-#~ msgid "429"
-#~ msgstr ""
-
-#~ msgid "Model Usage"
-#~ msgstr "模型使用"
-
-#~ msgid "Traffic Concentration"
-#~ msgstr "流量集中度"
-
-#~ msgid "Error Hotspots"
-#~ msgstr "错误热点"
-
-#~ msgid "Timeout Hotspots"
-#~ msgstr "无热点"
-
-#~ msgid "Active Footprint"
-#~ msgstr "活跃足迹"
-
-#~ msgid "Model Response Time"
-#~ msgstr "按小时统计的模型 P95 响应时间"
-
-#~ msgid "Hourly average response time by model"
-#~ msgstr "按小时统计的模型平均响应时间"
-
-#~ msgid "Average"
-#~ msgstr "平均值"
-
-#~ msgid "P95"
-#~ msgstr "P95"
-
-#~ msgid "Range"
-#~ msgstr "区间"
-
-#~ msgid "Heatmap"
-#~ msgstr "热力图"
-
-#~ msgid "Provider / Key / Model Status"
-#~ msgstr "供应商和模型配置"
-
-#~ msgid "Others"
-#~ msgstr "其他"
-
-#~ msgid "tok"
-#~ msgstr "Token"
-
-#~ msgid "err"
-#~ msgstr "错误"
-
-#~ msgid "Timeout"
-#~ msgstr "时间"
-
-#~ msgid "Providers"
-#~ msgstr "供应商"
-
-#~ msgid "Models"
-#~ msgstr "模型"
-
-#~ msgid "Provider"
-#~ msgstr "供应商"
-
-#~ msgid "API Key"
-#~ msgstr "API 密钥"
-
-#~ msgid "Top 1 share"
-#~ msgstr "Top 1 占比"
-
-#~ msgid "Top 3 combined"
-#~ msgstr "Top 3 合计"
-
-#~ msgid "No hotspots"
-#~ msgstr "无热点"
-
-#~ msgid "No latency data"
-#~ msgstr "暂无热力图数据"
-
-#~ msgid "Active Providers"
-#~ msgstr "活跃供应商"
-
-#~ msgid "Active API Keys"
-#~ msgstr "活跃 API 密钥"
-
-#~ msgid "Active Models"
-#~ msgstr "活跃模型"
-
-#~ msgid "Top:"
-#~ msgstr "排名:"
-
-#~ msgid "No traffic"
-#~ msgstr "无流量"
-
-#~ msgid "Requests / Errors / Timeouts"
-#~ msgstr "请求数 / 错误数"
-
-#~ msgid "Response Time (s)"
-#~ msgstr ""
-
-#~ msgid "Hourly P95 response time by model"
-#~ msgstr "按小时统计的模型 P95 响应时间"
-
-#~ msgid "Hourly response time range by model"
-#~ msgstr "按小时统计的模型响应时间区间"
-
-#~ msgid "Response time heatmap by model and hour"
-#~ msgstr "按模型与小时展示的响应时间热力图"
-
-#~ msgid "Hour of day"
-#~ msgstr "小时"
-
-#~ msgid "{count} samples"
-#~ msgstr "{count} 个样本"
-
-#~ msgid "Min"
-#~ msgstr "最小值"
-
-#~ msgid "Max"
-#~ msgstr "最大值"
-
-#~ msgid "Avg"
-#~ msgstr "均值"
-
-#~ msgid "No heatmap data"
-#~ msgstr "暂无热力图数据"
-
-#~ msgid "Notifications"
-#~ msgstr "消息中心"
-
-#~ msgid "No notifications"
-#~ msgstr "暂无通知"
-
-#~ msgid "Usage Report"
-#~ msgstr "使用报告"
-
-#~ msgid ""
-#~ "Generate usage reports as reusable task"
-#~ " pipelines with CSV, Markdown, and "
-#~ "DOCX outputs"
-#~ msgstr "将使用报告生成为可复用的任务流水线，先产出 CSV、Markdown，再装配 DOCX"
-
-#~ msgid "Create Report Task"
-#~ msgstr "创建报告任务"
-
-#~ msgid "Exclude Keys"
-#~ msgstr "排除 Key"
-
-#~ msgid "Generate"
-#~ msgstr "生成"
-
-#~ msgid "Task orchestration mode"
-#~ msgstr "任务编排模式"
-
-#~ msgid ""
-#~ "Each report now runs as subtasks "
-#~ "with retries, self-checks, and reusable"
-#~ " artifacts before DOCX assembly."
-#~ msgstr "每份报告都会先拆成可重试、可自检、可复用产物的子任务，再装配成最终 DOCX。"
-
-#~ msgid "Template Preview"
-#~ msgstr "模板预览"
-
-#~ msgid "Loading template..."
-#~ msgstr "正在加载模板..."
-
-#~ msgid "Current Task"
-#~ msgstr "当前任务"
-
-#~ msgid "Artifacts"
-#~ msgstr "产物"
-
-#~ msgid "Report History"
-#~ msgstr "报告历史"
-
-#~ msgid "No reports yet"
-#~ msgstr "暂无报告"
-
-#~ msgid "Select API Keys to Exclude"
-#~ msgstr "选择要排除的 API Key"
-
-#~ msgid "Confirm"
-#~ msgstr "确认"
-
-#~ msgid "A report is already being generated. Please wait."
-#~ msgstr ""
-
-#~ msgid "Failed to generate report"
-#~ msgstr "生成报告"
-
-#~ msgid "Download"
-#~ msgstr "下载"
-
-#~ msgid "Created At"
-#~ msgstr "创建"
-
-#~ msgid "Status"
-#~ msgstr "状态"
-
-#~ msgid "Task ID"
-#~ msgstr "任务 ID"
-
-#~ msgid "Attempts"
-#~ msgstr "尝试次数"
-
-#~ msgid "No artifacts yet"
-#~ msgstr "暂无产物"
-
-#~ msgid "No API Keys found"
-#~ msgstr "未找到 API 密钥"
-
-#~ msgid "Please select start and end dates"
-#~ msgstr ""
-
-#~ msgid "Existing running task loaded"
-#~ msgstr ""
-
-#~ msgid "Step Outputs"
-#~ msgstr "计划产物"
-
-#~ msgid ""
-#~ "Reusable outputs are generated first, "
-#~ "then assembled into the final report."
-#~ msgstr "系统会先生成可复用产物，再装配成最终报告。"
-
-#~ msgid "completed"
-#~ msgstr "已完成"
-
-#~ msgid "running"
-#~ msgstr "进行中"
-
-#~ msgid "failed"
-#~ msgstr "失败"
-
-#~ msgid "Subtasks"
-#~ msgstr "子任务"
-
-#~ msgid "Planned Outputs"
-#~ msgstr "计划产物"
-
-#~ msgid "Request Logs"
-#~ msgstr "请求日志"
-
-#~ msgid ""
-#~ "Query and filter proxy request logs "
-#~ "by API key, model, status, and "
-#~ "time range"
-#~ msgstr "按 API Key、模型、状态和时间范围查询和筛选代理请求日志"
-
-#~ msgid "Refresh"
-#~ msgstr "刷新"
-
-#~ msgid "Aggregate Stats"
-#~ msgstr ""
-
-#~ msgid "Key name"
-#~ msgstr "Key 名称"
-
-#~ msgid "Custom"
-#~ msgstr "自定义"
-
-#~ msgid "Custom Range"
-#~ msgstr "时间段"
-
-#~ msgid "Query Results"
-#~ msgstr "查询结果"
-
-#~ msgid "No logs found matching the current filters."
-#~ msgstr "未找到匹配当前筛选条件的日志记录。"
-
-#~ msgid "Client IP"
-#~ msgstr "客户端 IP"
-
-#~ msgid "Export CSV"
-#~ msgstr ""
-
-#~ msgid "Provider/Model"
-#~ msgstr "供应商"
-
-#~ msgid "User"
-#~ msgstr "使用"
-
-#~ msgid "User + IP"
-#~ msgstr "用户页面:"
-
-#~ msgid "No data found for the selected time range."
-#~ msgstr ""
-
-#~ msgid "Upstream"
-#~ msgstr "上游"
-
-#~ msgid "Downstream"
-#~ msgstr "下游"
-
-#~ msgid "Latency"
-#~ msgstr "平均耗时"
-
-#~ msgid "User Agent"
-#~ msgstr "用户代理"
-
-#~ msgid "Error Detail"
-#~ msgstr "错误率"
-
-#~ msgid "Response"
-#~ msgstr ""
-
-#~ msgid "Failed to load data"
-#~ msgstr "保存 API 密钥失败"
-
-#~ msgid "Page {page} of {total}"
-#~ msgstr "第 {page} 页 / 共 {total} 页"
-
-#~ msgid "Total: {count} records"
-#~ msgstr "共 {count} 条记录"
-
-#~ msgid "No data to export"
-#~ msgstr ""
-
-#~ msgid "Filter by task"
-#~ msgstr ""
-
-#~ msgid "All tasks"
-#~ msgstr "暂无任务"
-
-#~ msgid "No logs"
-#~ msgstr "暂无日志"
-
-#~ msgid "Time"
-#~ msgstr "时间"
-
-#~ msgid "Task"
-#~ msgstr "任务 ID"
-
-#~ msgid "Duration"
-#~ msgstr "耗时"
-
-#~ msgid "Result"
-#~ msgstr "结果"
-
-#~ msgid "No tasks"
-#~ msgstr "暂无任务"
-
-#~ msgid "Paused"
-#~ msgstr "已暂停"
-
-#~ msgid "Run Now"
-#~ msgstr "立即执行"
-
-#~ msgid "Resume"
-#~ msgstr "恢复"
-
-#~ msgid "Pause"
-#~ msgstr "暂停"
-
-#~ msgid "Last run"
-#~ msgstr "上次执行"
-
-#~ msgid "Next run"
-#~ msgstr "下次执行"
-
-#~ msgid "Task triggered"
-#~ msgstr "任务 ID"
-
-#~ msgid "Trigger failed"
-#~ msgstr "登录失败"
-
-#~ msgid "Task paused"
-#~ msgstr "已暂停"
-
-#~ msgid "Task resumed"
-#~ msgstr "恢复"
-
-#~ msgid "Operation failed"
-#~ msgstr "操作失败"
-
-#~ msgid "Cron updated"
-#~ msgstr "结束日期"
-
-#~ msgid "Update failed"
-#~ msgstr "上传失败"
-
-#~ msgid "Proxy User-Agent"
-#~ msgstr "用户代理"
-
-#~ msgid "Current outbound UA (used for all proxy requests)"
-#~ msgstr ""
-
-#~ msgid "Reset to Default"
-#~ msgstr ""
-
-#~ msgid "Today's Client UA"
-#~ msgstr ""
-
-#~ msgid "Top user agents making requests today"
-#~ msgstr ""
-
-#~ msgid "Saved"
-#~ msgstr "保存"
-
-#~ msgid "No data today"
-#~ msgstr "暂无数据"
-
-#~ msgid "Logout"
-#~ msgstr "退出登录"
-
-#~ msgid "OpenCode"
-#~ msgstr "OpenCode 设置"
-
-#~ msgid "OpenCode Configuration"
-#~ msgstr "OpenCode 配置"
-
-#~ msgid "Generate opencode.jsonc config for this proxy"
-#~ msgstr ""
-
-#~ msgid "Enter your API Key to generate config"
-#~ msgstr "输入 API 密钥以生成配置"
-
-#~ msgid "Available Models"
-#~ msgstr "可用模型"
-
-#~ msgid "How to use"
-#~ msgstr "如何使用"
-
-#~ msgid "Enter your API Key and click Generate"
-#~ msgstr "输入 API 密钥并点击生成"
-
-#~ msgid "Copy the generated"
-#~ msgstr "复制生成的"
-
-#~ msgid "in your project root"
-#~ msgstr "在你的项目根目录"
-
-#~ msgid "Paste the configuration and save"
-#~ msgstr "粘贴配置并保存"
-
-#~ msgid "OpenCode will now use this proxy for API requests"
-#~ msgstr "OpenCode 现在将使用此代理进行 API 请求"
-
-#~ msgid "Please enter an API Key"
-#~ msgstr "清除已保存的 API Key？"
-
-#~ msgid "Failed to generate config"
-#~ msgstr "输入 API 密钥以生成配置"
-
-#~ msgid ""
-#~ "# Please add the following provider "
-#~ "config to ~/.config/opencode/opencode.jsonc. If "
-#~ "that file does not exist, create "
-#~ "it first. You can also place "
-#~ "opencode.jsonc in the current project "
-#~ "root. Keep existing providers and "
-#~ "settings, only add or update the "
-#~ "modelgate provider."
-#~ msgstr ""
-#~ "请帮我把下面的 provider 配置加入 "
-#~ "~/.config/opencode/opencode.jsonc。 "
-#~ "如果这个文件不存在，请先创建它。你也可以在当前项目根目录放置 opencode.jsonc。保留现有 "
-#~ "providers 和其他设置，只添加或更新 modelgate provider。"
-
-#~ msgid "context"
-#~ msgstr "上下文"
-
-#~ msgid "output"
-#~ msgstr "输出"
-
-#~ msgid "Models Used"
-#~ msgstr "使用模型数"
-
-#~ msgid "Recent Requests"
-#~ msgstr "最近请求"
-
-#~ msgid "ModelGate-dashboard"
-#~ msgstr "ModelGate-仪表盘"
-
-#~ msgid "Black Gold"
-#~ msgstr "黑金模式"
-
-#~ msgid "Statistics"
-#~ msgstr "统计"
-
-#~ msgid "OpenCode Config"
-#~ msgstr "OpenCode 配置"
-
-#~ msgid "Usage Guide"
-#~ msgstr "使用指南"
-
-#~ msgid "Black Gold Mode"
-#~ msgstr "黑金模式"
-
-#~ msgid "Unauthorized"
-#~ msgstr "未授权"
-
-#~ msgid "Owned"
-#~ msgstr "已拥有"
-
-#~ msgid "Available"
-#~ msgstr "可用"
-
-#~ msgid "Access"
-#~ msgstr "权限"
-
-#~ msgid "No active providers or models"
-#~ msgstr "暂无活跃提供商或模型"
-
-#~ msgid "No accessible models"
-#~ msgstr "暂无可访问模型"
-
-#~ msgid "This API key currently has access to all active models on the platform."
-#~ msgstr "此 API Key 当前可访问平台上的全部活跃模型。"
-
-#~ msgid "Models explicitly available to this API key."
-#~ msgstr "明确授权给此 API Key 的模型。"
-
-#~ msgid "Models available to this API key."
-#~ msgstr "此 API 密钥可用的模型。"
-
-#~ msgid "Platform provider catalog"
-#~ msgstr "平台提供商目录"
-
-#~ msgid "Models this key can use"
-#~ msgstr "此密钥可用模型"
-
-#~ msgid "All Categories"
-#~ msgstr "所有 API 密钥"
-
-#~ msgid "No documents available"
-#~ msgstr ""
-
-#~ msgid "No active sessions"
-#~ msgstr "无活跃会话"
-
-#~ msgid "No requests yet"
-#~ msgstr "暂无请求"
-
-#~ msgid "Upload opencode.jsonc"
-#~ msgstr ""
-
-#~ msgid "Download Merged Config"
-#~ msgstr ""
-
-#~ msgid "Merged config downloaded!"
-#~ msgstr ""
-
-#~ msgid "Merge failed"
-#~ msgstr "登录失败"
-
-#~ msgid "Invalid JSON file"
-#~ msgstr "无效的 API Key"
-
-#~ msgid "Disabled Providers"
-#~ msgstr "已禁用供应商"
-
-#~ msgid "Personal"
-#~ msgstr "个人"
-
-#~ msgid "System"
-#~ msgstr "系统状态"
-
-#~ msgid "Clear saved API Key?"
-#~ msgstr "清除已保存的 API Key？"
-
-#~ msgid "active"
-#~ msgstr "活跃"
-
-#~ msgid "models"
-#~ msgstr "模型"
-
-#~ msgid "providers"
-#~ msgstr "供应商"
-
-#~ msgid "ctx"
-#~ msgstr "上下文"
-
-#~ msgid "out"
-#~ msgstr "输出"
-
-#~ msgid "alias"
-#~ msgstr "别名"
-
-#~ msgid "Context"
-#~ msgstr "上下文"
-
-#~ msgid "Input"
-#~ msgstr "输入"
-
-#~ msgid "Output"
-#~ msgstr "输出"
-
-#~ msgid "Cache"
-#~ msgstr "缓存"
-
-#~ msgid "Cost"
-#~ msgstr "成本"
-
-#~ msgid "Requests / Errors"
-#~ msgstr "请求数 / 错误数"
-
-#~ msgid "View All"
-#~ msgstr "查看全部"
-
-#~ msgid "My Request History"
-#~ msgstr "我的请求历史"
-
-#~ msgid "All Models"
-#~ msgstr "全部模型"
-
-#~ msgid "All Statuses"
-#~ msgstr "全部状态"
-
-#~ msgid "Last 1h"
-#~ msgstr "近1小时"
-
-#~ msgid "Last 6h"
-#~ msgstr "近6小时"
-
-#~ msgid "Last 24h"
-#~ msgstr "近24小时"
-
-#~ msgid "Last 7d"
-#~ msgstr "近7天"
-
-#~ msgid "Last 30d"
-#~ msgstr "近30天"
-
-#~ msgid "Last 90d"
-#~ msgstr "近90天"
-
-#~ msgid "All Time"
-#~ msgstr "全部时间"
-
-#~ msgid "Recommended Models"
-#~ msgstr "推荐模型"
-
-#~ msgid "Recommendation score"
-#~ msgstr "推荐分"
-
-#~ msgid "Avg latency"
-#~ msgstr "平均耗时"
-
-#~ msgid "Error rate"
-#~ msgstr "错误率"
-
-#~ msgid "System Health"
-#~ msgstr "系统健康度"
-
-#~ msgid "Last 20 minutes"
-#~ msgstr "最近 20 分钟"
-
-#~ msgid "Based on recent load, error rate, and latency"
-#~ msgstr "基于近期负载、错误率和响应速度综合评分"
-
-#~ msgid "No recent traffic in the last 20 minutes"
-#~ msgstr "最近 20 分钟暂无请求流量"
-
-#~ msgid "Active users"
-#~ msgstr "活跃用户"
-
-#~ msgid "Pending"
-#~ msgstr "处理中"
-
-#~ msgid "Excellent"
-#~ msgstr "优秀"
-
-#~ msgid "Healthy"
-#~ msgstr "健康"
-
-#~ msgid "Busy"
-#~ msgstr "繁忙"
-
-#~ msgid "Degraded"
-#~ msgstr "下降"
-
-#~ msgid "Idle"
-#~ msgstr "空闲"
-
-#~ msgid "Ranked by stability, response time, and sample size"
-#~ msgstr "按稳定性、响应速度和样本量综合排序"
-
-#~ msgid "Based on the current period and accessible models"
-#~ msgstr "基于当前时间范围和此 Key 可访问模型"
-
-#~ msgid "No recommendation data yet"
-#~ msgstr "暂无推荐数据"
-
-#~ msgid "Loading recommendations..."
-#~ msgstr "推荐模型加载中..."
-
-#~ msgid "Analyzing the best daily time windows..."
-#~ msgstr "正在分析每天更适合使用的时间段..."
-
-#~ msgid "Model Used"
-#~ msgstr "使用模型"
-
-#~ msgid "AI Generated"
-#~ msgstr "AI 生成"
-
-#~ msgid "AI analysis unavailable"
-#~ msgstr "AI 分析不可用"
-
-#~ msgid "samples"
-#~ msgstr "样本"
-
-#~ msgid ""
-#~ "Please help me add the following "
-#~ "provider configuration to "
-#~ "~/.config/opencode/opencode.jsonc. If that file "
-#~ "does not exist, create it first. "
-#~ "You can also place opencode.jsonc in "
-#~ "the current project root. Keep existing"
-#~ " providers and other settings, only "
-#~ "add or update the modelgate provider."
-#~ msgstr ""
-#~ "请帮我把下面的 provider 配置加入 "
-#~ "~/.config/opencode/opencode.jsonc。 "
-#~ "如果这个文件不存在，请先创建它。你也可以在当前项目根目录放置 opencode.jsonc。保留现有 "
-#~ "providers 和其他设置，只添加或更新 modelgate provider。"
-
-#~ msgid "top share"
-#~ msgstr "头部占比"
-
-#~ msgid "on right axis"
-#~ msgstr "在右轴"
-
-#~ msgid "Your API key"
-#~ msgstr "你的 API 密钥"
-
-#~ msgid "All API keys"
-#~ msgstr "所有 API 密钥"
-
-#~ msgid "So empty..."
-#~ msgstr "空空如也"
-
-#~ msgid "Estimated cost based on token usage and model pricing"
-#~ msgstr "基于 Token 用量和模型定价的估算费用"
-
-#~ msgid "Online Users"
-#~ msgstr "今天有点冷清"
-
-#~ msgid "Only You Online"
-#~ msgstr "一个人的舞台"
-
-#~ msgid "Night Owl — Just You"
-#~ msgstr "夜猫子，只有你"
-
-#~ msgid "Early Bird — Just You"
-#~ msgstr "早起的鸟儿"
-
-#~ msgid "Companions at Work"
-#~ msgstr "陪伴你的牛马"
-
-#~ msgid "Night Owls Club"
-#~ msgstr "修仙小分队"
-
-#~ msgid "Early Birds"
-#~ msgstr "早起的鸟儿们"
-
-#~ msgid "Token Rivals"
-#~ msgstr "和你抢 Token 的人"
-
-#~ msgid "Peak Hours"
-#~ msgstr "高峰时刻，Token 大战"
-
-#~ msgid "Shouldn't You Be Asleep?"
-#~ msgstr "都这个点了，该睡觉了"
-
-#~ msgid "Back to Documents"
-#~ msgstr ""
-
-#~ msgid "Images"
-#~ msgstr "图片"
-
-#~ msgid "Shared articles and documents"
-#~ msgstr ""
-
-#~ msgid "Back to Dashboard"
-#~ msgstr "API 密钥仪表盘"
-
-#~ msgid "Read More"
-#~ msgstr "添加模型"
-
-#~ msgid "API Key Login"
-#~ msgstr "API 密钥登录"
-
-#~ msgid "Remember API Key"
-#~ msgstr "记住 API 密钥"
-
-#~ msgid "Enter your API Key to view usage statistics"
-#~ msgstr "输入 API 密钥查看使用统计"
-
-#~ msgid "Logging in..."
-#~ msgstr "登录中..."
-
-#~ msgid "Platform Providers & Models"
-#~ msgstr "平台供应商和模型"
-
-#~ msgid "Loading catalog..."
-#~ msgstr "加载目录中..."
-
-#~ msgid "Your Access"
-#~ msgstr "你的权限"
-
-#~ msgid "Loading access..."
-#~ msgstr "加载权限中..."
-
-#~ msgid "Mark All Read"
-#~ msgstr "全部已读"
-
-#~ msgid "Merge with existing config"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Upload your existing opencode.jsonc to "
-#~ "merge the latest ModelGate config into"
-#~ " it"
-#~ msgstr ""
-
-#~ msgid "Config path: %USERPROFILE%\\\\.config\\\\opencode\\\\opencode.jsonc"
-#~ msgstr "配置路径：%USERPROFILE%\\\\.config\\\\opencode\\\\opencode.jsonc"
-
-#~ msgid "Config path: ~/.config/opencode/opencode.jsonc"
-#~ msgstr "配置路径：~/.config/opencode/opencode.jsonc"
-
-#~ msgid "Copy the text below and send it to OpenCode for configuration"
-#~ msgstr "复制下面的文本给 opencode 让他配置"
-
-#~ msgid "Copy the content above and send it to OpenCode"
-#~ msgstr "复制下面的文本给 opencode 让他配置"
-
-#~ msgid "OpenCode will automatically configure the provider"
-#~ msgstr ""
-
-#~ msgid "Est. Cost"
-#~ msgstr "估算费用"
-
-#~ msgid "Avg Requests/Model"
-#~ msgstr "平均请求数/模型"
-
-#~ msgid "Based on 7-day usage stats"
-#~ msgstr ""
-
-#~ msgid "Real-time busyness level"
-#~ msgstr "实时繁忙程度"
-
-#~ msgid "Active users (10min)"
-#~ msgstr "活跃用户（10分钟）"
-
-#~ msgid "ratio"
-#~ msgstr "占比"
-
-#~ msgid "My Requests"
-#~ msgstr "我的请求"
-
-#~ msgid "System Active Requests"
-#~ msgstr "系统活跃请求"
-
-#~ msgid "System Request Trend"
-#~ msgstr "系统请求趋势"
-
-#~ msgid "System Model Usage"
-#~ msgstr "系统模型使用"
-
-#~ msgid "How to Configure API Clients"
-#~ msgstr "如何配置 API 客户端"
-
-#~ msgid "Model Name Format"
-#~ msgstr "模型名称格式"
-
-#~ msgid ""
-#~ "Use <code class=\"bg-white px-2 py-1 "
-#~ "rounded\">provider/model</code> format"
-#~ msgstr "使用 provider/model 格式"
-
-#~ msgid "With Provider"
-#~ msgstr "带供应商"
-
-#~ msgid "Without Prefix"
-#~ msgstr "不带前缀"
-
-#~ msgid "OpenAI Protocol"
-#~ msgstr "OpenAI 协议"
-
-#~ msgid "Anthropic Protocol"
-#~ msgstr "Anthropic 协议"
-
-#~ msgid "Basic Information"
-#~ msgstr "基本信息"
-
-#~ msgid "Proxy URL"
-#~ msgstr "代理 URL"
-
-#~ msgid "API Endpoint"
-#~ msgstr "API 端点"
-
-#~ msgid "Auth Header"
-#~ msgstr "认证头"
-
-#~ msgid "Python (OpenAI SDK)"
-#~ msgstr "Python (OpenAI SDK)"
-
-#~ msgid "JavaScript"
-#~ msgstr "JavaScript"
-
-#~ msgid ""
-#~ "Install OpenCode from <a "
-#~ "href=\"https://opencode.ai/\" target=\"_blank\" class"
-#~ "=\"text-blue-500 hover:underline\">opencode.ai</a>, "
-#~ "then go to the OpenCode Config tab"
-#~ " to get your configuration."
-#~ msgstr ""
-
-#~ msgid "Config file location"
-#~ msgstr ""
-
-#~ msgid "Or place"
-#~ msgstr "你的权限"
-
-#~ msgid "Common commands"
-#~ msgstr ""
-
-#~ msgid "Start TUI"
-#~ msgstr "开始时间"
-
-#~ msgid "Continue last session"
-#~ msgstr "活跃会话"
-
-#~ msgid "Continue specific session"
-#~ msgstr "活跃会话"
-
-#~ msgid "Use specific model"
-#~ msgstr ""
-
-#~ msgid "Non-interactive mode"
-#~ msgstr "活跃模型"
-
-#~ msgid "List available models"
-#~ msgstr "可用模型"
-
-#~ msgid "List all sessions"
-#~ msgstr "无活跃会话"
-
-#~ msgid "Token usage stats"
-#~ msgstr ""
-
-#~ msgid "Complete opencode.jsonc example"
-#~ msgstr ""
-
 #~ msgid ""
 #~ "<code>threshold</code>: 0.0~1.0, default 0.75. "
-#~ "上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 50% 时开始压缩。"
+#~ "涓婁笅鏂囧崰鐢ㄦ瘮渚嬭揪鍒拌鍊兼椂瑙﹀彂鍘嬬缉銆傝涓?0.5 琛ㄧず鍗犵敤 50% "
+#~ "鏃跺紑濮嬪帇缂┿€"
 #~ msgstr ""
 
-#~ msgid "<code>strategy</code>: summarize（摘要）/ truncate（截断）/ archive（归档）"
+#~ msgid "<code>strategy</code>: summarize锛堟憳瑕侊級/ truncate锛堟埅鏂級/ archive锛堝綊妗ｏ級"
 #~ msgstr ""
 
-#~ msgid "<code>preserveRecentMessages</code>: 压缩时保留最近 N 条消息不参与压缩（默认 10）"
+#~ msgid "<code>preserveRecentMessages</code>: 鍘嬬缉鏃朵繚鐣欐渶杩?N 鏉℃秷鎭笉鍙備笌鍘嬬缉锛堥粯璁?10锛"
 #~ msgstr ""
 
-#~ msgid "<code>preserveSystemPrompt</code>: 压缩时始终保留系统提示词（默认 true）"
+#~ msgid "<code>preserveSystemPrompt</code>: 鍘嬬缉鏃跺缁堜繚鐣欑郴缁熸彁绀鸿瘝锛堥粯璁?true锛"
 #~ msgstr ""
-
-#~ msgid "Required Header"
-#~ msgstr "必填 Header"
-
-#~ msgid ""
-#~ "The Anthropic endpoint translates requests "
-#~ "to OpenAI format internally. All models"
-#~ " registered in ModelGate can be used,"
-#~ " just use <code class=\"bg-white px-1"
-#~ " py-0.5 rounded\">provider/model</code> as the"
-#~ " model name."
-#~ msgstr ""
-#~ "Anthropic 端点会在内部将请求转换为 OpenAI 格式。ModelGate "
-#~ "中注册的所有模型均可使用，只需用 <code class=\"bg-white px-1"
-#~ " py-0.5 rounded\">provider/model</code> 作为模型名称即可。"
-
-#~ msgid "Python (Anthropic SDK)"
-#~ msgstr "Python (Anthropic SDK)"
-
-#~ msgid "Python (Streaming)"
-#~ msgstr "Python (流式)"
-
-#~ msgid "Tool Use (Function Calling)"
-#~ msgstr "工具调用 (Function Calling)"
-
-#~ msgid "IP Location"
-#~ msgstr "IP 归属地"
-
-#~ msgid "Province"
-#~ msgstr "省份"
-
-#~ msgid "City"
-#~ msgstr "城市"
-
-#~ msgid "Adcode"
-#~ msgstr "区划编码"
-
-#~ msgid "City Rectangle"
-#~ msgstr "城市区域范围"
-
-#~ msgid "DB Cache"
-#~ msgstr "库内缓存"
 
 #~ msgid "AMap Live"
-#~ msgstr "高德实时"
-
-#~ msgid "Lookup failed"
-#~ msgstr "查询失败"
-
-#~ msgid "View on map"
-#~ msgstr "在地图中查看"
-
-#~ msgid "Country"
-#~ msgstr "国家"
-
-#~ msgid "ISP"
-#~ msgstr "运营商"
-
-#~ msgid "Coordinates"
-#~ msgstr "经纬度"
-
-#~ msgid "Live Lookup"
-#~ msgstr "实时查询"
-
-#~ msgid "Retry"
-#~ msgstr "重试"
-
-#~ msgid ""
-#~ "Requires only curl on macOS/Linux. The"
-#~ " script prompts for the API key "
-#~ "if it is not embedded in the "
-#~ "URL."
-#~ msgstr "macOS/Linux 脚本仅需 curl。若 URL 中未内置 API Key，脚本会提示输入。"
-
-#~ msgid ""
-#~ "The macOS/Linux script only needs curl."
-#~ " If the API key is not embedded"
-#~ " in the URL, the script will "
-#~ "prompt for it."
-#~ msgstr "macOS/Linux 脚本仅需 curl。若 URL 中未内置 API Key，脚本会提示输入。"
-
-#~ msgid "Manual disabled"
-#~ msgstr "手动禁用"
-
-#~ msgid "Auto disabled"
-#~ msgstr "自动禁用"
+#~ msgstr "楂樺痉瀹炴椂"
 
 #~ msgid "View Models"
-#~ msgstr "查看模型"
+#~ msgstr "鏌ョ湅妯″瀷"
 
 #~ msgid "Upstream Models"
-#~ msgstr "上游模型"
-
-#~ msgid "No upstream models"
-#~ msgstr "上游未返回模型"
+#~ msgstr "涓婃父妯″瀷"
 
 #~ msgid "Total {count} models"
-#~ msgstr "共 {count} 个模型"
-
-#~ msgid "Bind from API"
-#~ msgstr "从 API 绑定"
-
-#~ msgid "Bind models from API"
-#~ msgstr "从 API 绑定模型"
-
-#~ msgid "Bound"
-#~ msgstr "已绑定"
-
-#~ msgid "Bind selected"
-#~ msgstr "绑定选中"
-
-#~ msgid "Please select at least one model"
-#~ msgstr "请至少选择一个模型"
-
-#~ msgid "Uncheck models you do not want; already bound models stay checked"
-#~ msgstr "取消勾选不需要的模型；已绑定的模型保持勾选且不可更改"
-
-#~ msgid "Disable Key"
-#~ msgstr "禁用 Key"
-
-#~ msgid "Download billing details"
-#~ msgstr "下载费用明细"
-
-#~ msgid "Overview"
-#~ msgstr "概览"
-
-#~ msgid "Mark all read"
-#~ msgstr "全部已读"
-
-#~ msgid "Load more"
-#~ msgstr "加载更多"
-
-#~ msgid "No logs in range"
-#~ msgstr "该时间范围内暂无日志"
-
-#~ msgid "Just now"
-#~ msgstr "刚刚"
-
-#~ msgid "Yesterday"
-#~ msgstr "昨天"
-
-#~ msgid "{n}m ago"
-#~ msgstr "{n}分钟前"
-
-#~ msgid "{n}h ago"
-#~ msgstr "{n}小时前"
-
-#~ msgid "{n}d ago"
-#~ msgstr "{n}天前"
-
-#~ msgid "No keys"
-#~ msgstr "暂无密钥"
-
-#~ msgid "Disable {name}?"
-#~ msgstr "禁用 {name}？"
-
-#~ msgid "Enable {name}?"
-#~ msgstr "启用 {name}？"
-
-#~ msgid "Disable reason (optional)"
-#~ msgstr "禁用原因（可选）"
+#~ msgstr "鍏?{count} 涓ā鍨"
 

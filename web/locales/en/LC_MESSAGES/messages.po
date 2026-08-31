@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-30 21:12+0800\n"
+"POT-Creation-Date: 2026-08-31 21:06+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -14,7 +14,454 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: web/templates/admin/config.html:6
+#: web/templates/admin/api_keys.html:6 web/templates/admin/api_keys.html:93
+#: web/templates/admin/monitor.html:376 web/templates/components/nav.html:20
+msgid "API Keys"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:94 web/templates/admin/api_keys.html:123
+#: web/templates/admin/api_keys.html:233
+msgid "Add API Key"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:99
+msgid "Search by name or key..."
+msgstr ""
+
+#: web/templates/admin/api_keys.html:107
+msgid "keys"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:130 web/templates/admin/config.html:484
+msgid "Name"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:131
+msgid "e.g., Project A"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:135 web/templates/admin/api_keys.html:266
+msgid "Email"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:139 web/templates/admin/api_keys.html:267
+msgid "Expires At"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:145
+msgid "Allowed Models"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:145
+msgid "selected"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:160
+msgid "MCP Servers"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:163
+msgid "Select MCP servers this key can access"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:188
+msgid "Bypass busyness limit"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:190
+msgid "Ignore model busyness availability restrictions"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:195 web/templates/admin/api_keys.html:352
+#: web/templates/admin/config.html:469 web/templates/admin/config.html:510
+#: web/templates/admin/config.html:529 web/templates/admin/config.html:600
+#: web/templates/admin/config.html:628 web/templates/admin/config.html:646
+#: web/templates/admin/documents.html:140 web/templates/admin/reports.html:136
+msgid "Cancel"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:196 web/templates/admin/api_keys.html:353
+#: web/templates/admin/config.html:509 web/templates/admin/config.html:528
+#: web/templates/admin/config.html:599 web/templates/admin/config.html:717
+#: web/templates/admin/documents.html:141
+#: web/templates/admin/documents.html:158
+#: web/templates/admin/system_config.html:70
+#: web/templates/admin/system_config.html:86
+#: web/templates/admin/system_config.html:136
+#: web/templates/admin/system_config.html:168
+msgid "Save"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:205 web/templates/admin/monitor.html:379
+#: web/templates/admin/request_logs.html:233
+#: web/templates/admin/request_logs.html:291
+#: web/templates/admin/request_logs.html:327
+#: web/templates/admin/request_logs.html:401 web/templates/user/login.html:62
+msgid "API Key"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:210 web/templates/admin/api_keys.html:252
+msgid ""
+"Copy this key now. For security reasons, it will be masked in the list "
+"afterwards."
+msgstr ""
+
+#: web/templates/admin/api_keys.html:214 web/templates/admin/api_keys.html:244
+#: web/templates/public/opencode.html:58 web/templates/public/opencode.html:91
+#: web/templates/user/tab_codex.html:11 web/templates/user/tab_codex.html:20
+#: web/templates/user/tab_codex.html:27 web/templates/user/tab_codex.html:48
+#: web/templates/user/tab_codex.html:82 web/templates/user/tab_opencode.html:11
+#: web/templates/user/tab_opencode.html:20
+#: web/templates/user/tab_opencode.html:27
+#: web/templates/user/tab_opencode.html:91 web/templates/user/tab_usage.html:35
+#: web/templates/user/tab_usage.html:57 web/templates/user/tab_usage.html:79
+#: web/templates/user/tab_usage.html:183 web/templates/user/tab_usage.html:208
+#: web/templates/user/tab_usage.html:234 web/templates/user/tab_usage.html:259
+#: web/templates/user/tab_usage.html:278
+msgid "Copy"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:218 web/templates/admin/api_keys.html:253
+msgid "I have saved it"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:225 web/templates/public/opencode.html:90
+#: web/templates/user/dashboard.html:411
+msgid "Copied!"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:226
+msgid "API Key and usage instructions copied!"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:227
+msgid "Usage Instructions:"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:228
+msgid "Paste the API Key above to log in on the page"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:229
+msgid "Configure OpenCode:"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:230
+msgid "Let the agent read the configuration document:"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:231 web/templates/admin/config.html:655
+#: web/templates/admin/documents.html:150 web/templates/admin/home.html:192
+#: web/templates/admin/monitor.html:366 web/templates/admin/reports.html:146
+#: web/templates/admin/request_logs.html:396
+#: web/templates/components/admin_header.html:30
+#: web/templates/user/dashboard.html:341 web/templates/user/dashboard.html:389
+#: web/templates/user/documents.html:70
+msgid "Light Mode"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:232 web/templates/admin/config.html:656
+#: web/templates/admin/documents.html:151 web/templates/admin/home.html:193
+#: web/templates/admin/monitor.html:367 web/templates/admin/reports.html:147
+#: web/templates/admin/request_logs.html:397
+#: web/templates/components/admin_header.html:29
+#: web/templates/user/dashboard.html:342 web/templates/user/dashboard.html:390
+#: web/templates/user/documents.html:71
+msgid "Dark Mode"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:234
+msgid "Edit API Key"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:235
+msgid "All models"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:236
+msgid "No API keys found"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:237 web/templates/admin/config.html:701
+#: web/templates/admin/request_logs.html:310
+msgid "Previous"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:238 web/templates/admin/config.html:702
+#: web/templates/admin/request_logs.html:311
+msgid "Next"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:239
+msgid "No models available. Add providers and models in Config first."
+msgstr ""
+
+#: web/templates/admin/api_keys.html:240
+msgid "API Key created:"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:241
+msgid "Please save this key!"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:242
+msgid "Failed to save API key"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:243
+msgid "Delete this API key?"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:245 web/templates/admin/config.html:673
+#: web/templates/admin/documents.html:157
+msgid "Edit"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:246 web/templates/admin/config.html:674
+#: web/templates/admin/documents.html:156
+msgid "Delete"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:247
+msgid "Regenerate"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:248
+msgid "Regenerate the API key? The old key will stop working immediately."
+msgstr ""
+
+#: web/templates/admin/api_keys.html:249
+msgid "New API Key:"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:250
+msgid "API Key Created"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:251
+msgid "API Key Regenerated"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:254
+#: web/templates/admin/request_logs.html:274
+#: web/templates/admin/request_logs.html:361
+msgid "Query"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:255
+msgid "User Page:"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:256
+msgid "CLI Setup:"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:257
+msgid ""
+"Run one command below in a terminal on the machine where OpenCode is "
+"installed; it writes the ModelGate config automatically."
+msgstr ""
+
+#: web/templates/admin/api_keys.html:258
+msgid "Copy Setup"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:260
+msgid "Close"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:261
+msgid "Bypass Busyness"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:264 web/templates/admin/login.html:6
+#: web/templates/admin/login.html:70 web/templates/admin/mobile_login.html:7
+#: web/templates/user/login.html:73 web/templates/user/login.html:86
+msgid "Login"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:265
+msgid "Last Used"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:268
+msgid "Expired"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:269
+msgid "Never"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:270
+msgid "ModelGate Access"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:271
+msgid "Login Page:"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:272
+msgid "API Key:"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:273
+msgid "Quick Start:"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:274
+msgid "Open the login page above and paste the API key to sign in."
+msgstr ""
+
+#: web/templates/admin/api_keys.html:275
+msgid ""
+"Keep this API key private and do not share it in public chats or "
+"repositories."
+msgstr ""
+
+#: web/templates/admin/api_keys.html:276
+msgid "Enabled Models:"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:277
+msgid ""
+"No specific model restrictions. This API key can use all currently "
+"allowed models."
+msgstr ""
+
+#: web/templates/admin/api_keys.html:278 web/templates/admin/api_keys.html:312
+msgid "Time Rules"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:279 web/templates/admin/api_keys.html:317
+msgid "Add Time Rule"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:280
+msgid "Edit Time Rule"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:281 web/templates/admin/api_keys.html:322
+msgid "Rule Type"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:282 web/templates/admin/api_keys.html:324
+#: web/templates/admin/request_logs.html:260
+#: web/templates/admin/request_logs.html:348
+#: web/templates/user/dashboard.html:441
+msgid "Time Range"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:283 web/templates/admin/api_keys.html:325
+#: web/templates/admin/api_keys.html:344 web/templates/admin/reports.html:76
+#: web/templates/admin/reports.html:154
+msgid "Date Range"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:284 web/templates/admin/api_keys.html:326
+msgid "Weekday"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:285 web/templates/admin/api_keys.html:335
+msgid "Start Time"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:286 web/templates/admin/api_keys.html:339
+msgid "End Time"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:287
+msgid "Start Date"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:288
+msgid "End Date"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:289 web/templates/admin/api_keys.html:348
+msgid "Weekdays"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:290 web/templates/admin/api_keys.html:330
+msgid "Allowed"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:291
+msgid "Blocked"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:292
+msgid "No time rules"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:293
+msgid "Delete this time rule?"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:294
+msgid "Failed to save time rule"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:295
+msgid "Time rule created"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:296 web/templates/admin/api_keys.html:336
+#: web/templates/admin/api_keys.html:340
+msgid "HH:MM"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:297
+msgid "YYYY-MM-DD"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:298
+msgid "Mon"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:299
+msgid "Tue"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:300
+msgid "Wed"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:301
+msgid "Thu"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:302
+msgid "Fri"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:303
+msgid "Sat"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:304
+msgid "Sun"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:305
+msgid "Control when this API key can be used"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:446 web/templates/admin/reports.html:607
+#: web/templates/admin/request_logs.html:494
+#: web/templates/admin/request_logs.html:514
+msgid "Select date range"
+msgstr ""
+
+#: web/templates/admin/api_keys.html:633 web/templates/admin/config.html:705
+#: web/templates/admin/mobile_home.html:251
+#: web/templates/admin/request_logs.html:243
+#: web/templates/admin/request_logs.html:249
+#: web/templates/admin/request_logs.html:323
+#: web/templates/admin/request_logs.html:337
+msgid "All"
+msgstr ""
+
+#: web/templates/admin/config.html:6 web/templates/user/dashboard.html:368
 msgid "Config"
 msgstr ""
 
@@ -46,12 +493,6 @@ msgstr ""
 msgid "Clear"
 msgstr ""
 
-#: web/templates/admin/config.html:469 web/templates/admin/config.html:510
-#: web/templates/admin/config.html:529 web/templates/admin/config.html:600
-#: web/templates/admin/config.html:628 web/templates/admin/config.html:646
-msgid "Cancel"
-msgstr ""
-
 #: web/templates/admin/config.html:470 web/templates/admin/config.html:669
 msgid "Bind selected"
 msgstr ""
@@ -60,11 +501,7 @@ msgstr ""
 msgid "Add Provider"
 msgstr ""
 
-#: web/templates/admin/config.html:484
-msgid "Name"
-msgstr ""
-
-#: web/templates/admin/config.html:488
+#: web/templates/admin/config.html:488 web/templates/user/tab_usage.html:166
 msgid "Base URL"
 msgstr ""
 
@@ -83,11 +520,6 @@ msgstr ""
 
 #: web/templates/admin/config.html:505
 msgid "For providers like MiniMax requiring role alternation"
-msgstr ""
-
-#: web/templates/admin/config.html:509 web/templates/admin/config.html:528
-#: web/templates/admin/config.html:599 web/templates/admin/config.html:717
-msgid "Save"
 msgstr ""
 
 #: web/templates/admin/config.html:519
@@ -216,23 +648,24 @@ msgstr ""
 msgid "Disable"
 msgstr ""
 
-#: web/templates/admin/config.html:655
-msgid "Light Mode"
-msgstr ""
-
-#: web/templates/admin/config.html:656
-msgid "Dark Mode"
-msgstr ""
-
 #: web/templates/admin/config.html:658
 msgid "No keys configured"
 msgstr ""
 
 #: web/templates/admin/config.html:659 web/templates/admin/mobile_home.html:165
+#: web/templates/admin/notifications.html:31
+#: web/templates/admin/request_logs.html:283
+#: web/templates/admin/request_logs.html:379
+#: web/templates/admin/scheduler_logs_tab.html:9
+#: web/templates/admin/scheduler_tasks_tab.html:1
+#: web/templates/user/dashboard.html:476 web/templates/user/tab_codex.html:10
+#: web/templates/user/tab_notifications.html:8
+#: web/templates/user/tab_opencode.html:10
+#: web/templates/user/tab_stats.html:108
 msgid "Loading..."
 msgstr ""
 
-#: web/templates/admin/config.html:660
+#: web/templates/admin/config.html:660 web/templates/user/dashboard.html:477
 msgid "Failed to load"
 msgstr ""
 
@@ -240,7 +673,7 @@ msgstr ""
 msgid "No providers"
 msgstr ""
 
-#: web/templates/admin/config.html:662
+#: web/templates/admin/config.html:662 web/templates/user/dashboard.html:410
 msgid "No models"
 msgstr ""
 
@@ -270,14 +703,6 @@ msgstr ""
 
 #: web/templates/admin/config.html:672 web/templates/admin/mobile_home.html:300
 msgid "Keys"
-msgstr ""
-
-#: web/templates/admin/config.html:673
-msgid "Edit"
-msgstr ""
-
-#: web/templates/admin/config.html:674
-msgid "Delete"
 msgstr ""
 
 #: web/templates/admin/config.html:675
@@ -325,7 +750,7 @@ msgstr ""
 msgid "Provider deleted"
 msgstr ""
 
-#: web/templates/admin/config.html:686
+#: web/templates/admin/config.html:686 web/templates/admin/documents.html:164
 msgid "Delete failed"
 msgstr ""
 
@@ -379,24 +804,15 @@ msgstr ""
 msgid "Page {current} / {total}"
 msgstr ""
 
-#: web/templates/admin/config.html:701
-msgid "Previous"
-msgstr ""
-
-#: web/templates/admin/config.html:702
-msgid "Next"
-msgstr ""
-
 #: web/templates/admin/config.html:703
 msgid " - API Key Access"
 msgstr ""
 
-#: web/templates/admin/config.html:704
+#: web/templates/admin/config.html:704 web/templates/admin/monitor.html:380
+#: web/templates/admin/request_logs.html:237
+#: web/templates/admin/request_logs.html:293
+#: web/templates/admin/request_logs.html:399
 msgid "Model"
-msgstr ""
-
-#: web/templates/admin/config.html:705 web/templates/admin/mobile_home.html:251
-msgid "All"
 msgstr ""
 
 #: web/templates/admin/config.html:707
@@ -415,7 +831,7 @@ msgstr ""
 msgid "off"
 msgstr ""
 
-#: web/templates/admin/config.html:712
+#: web/templates/admin/config.html:712 web/templates/user/dashboard.html:428
 msgid "multimodal"
 msgstr ""
 
@@ -429,6 +845,9 @@ msgid "Access is configured on the bound provider-model, not on the model itself
 msgstr ""
 
 #: web/templates/admin/config.html:716
+#: web/templates/admin/system_config.html:195
+#: web/templates/admin/system_config.html:199
+#: web/templates/admin/system_config.html:261
 msgid "Default"
 msgstr ""
 
@@ -508,57 +927,323 @@ msgstr ""
 msgid "Select a provider to view bindings"
 msgstr ""
 
+#: web/templates/admin/documents.html:7 web/templates/admin/documents.html:65
+#: web/templates/user/dashboard.html:370 web/templates/user/documents.html:6
+#: web/templates/user/documents.html:41 web/templates/user/tab_documents.html:4
+msgid "Documents"
+msgstr ""
+
+#: web/templates/admin/documents.html:65
+msgid "Write and manage Markdown documents for users"
+msgstr ""
+
+#: web/templates/admin/documents.html:70
+msgid "Document List"
+msgstr ""
+
+#: web/templates/admin/documents.html:73 web/templates/public/opencode.html:79
+msgid "Create"
+msgstr ""
+
+#: web/templates/admin/documents.html:76 web/templates/admin/documents.html:152
+msgid "No documents yet"
+msgstr ""
+
+#: web/templates/admin/documents.html:81 web/templates/admin/documents.html:131
+msgid "Preview"
+msgstr ""
+
+#: web/templates/admin/documents.html:82 web/templates/admin/documents.html:165
+msgid "Select a document to preview"
+msgstr ""
+
+#: web/templates/admin/documents.html:91 web/templates/admin/documents.html:159
+msgid "Create Document"
+msgstr ""
+
+#: web/templates/admin/documents.html:96
+msgid "Title"
+msgstr ""
+
+#: web/templates/admin/documents.html:101
+msgid "Category"
+msgstr ""
+
+#: web/templates/admin/documents.html:107
+#: web/templates/admin/documents.html:153
+msgid "Published"
+msgstr ""
+
+#: web/templates/admin/documents.html:114
+msgid "Content (Markdown)"
+msgstr ""
+
+#: web/templates/admin/documents.html:118
+#: web/templates/admin/documents.html:173
+msgid "Insert Image"
+msgstr ""
+
+#: web/templates/admin/documents.html:123
+msgid "Upload File"
+msgstr ""
+
+#: web/templates/admin/documents.html:154
+msgid "Draft"
+msgstr ""
+
+#: web/templates/admin/documents.html:155 web/templates/admin/reports.html:172
+#: web/templates/user/dashboard.html:407 web/templates/user/documents.html:74
+msgid "View Details"
+msgstr ""
+
+#: web/templates/admin/documents.html:160
+msgid "Edit Document"
+msgstr ""
+
+#: web/templates/admin/documents.html:161
+msgid "Title is required"
+msgstr ""
+
+#: web/templates/admin/documents.html:162
+#: web/templates/admin/system_config.html:234
+#: web/templates/admin/system_config.html:256
+#: web/templates/admin/system_config.html:277
+#: web/templates/admin/system_config.html:301
+msgid "Save failed"
+msgstr ""
+
+#: web/templates/admin/documents.html:163
+msgid "Are you sure you want to delete this document?"
+msgstr ""
+
+#: web/templates/admin/documents.html:166
+msgid "Created"
+msgstr ""
+
+#: web/templates/admin/documents.html:167
+msgid "Start writing Markdown here..."
+msgstr ""
+
+#: web/templates/admin/documents.html:168
+#: web/templates/user/document_detail.html:98
+msgid "Attachments"
+msgstr ""
+
+#: web/templates/admin/documents.html:169
+msgid "Drop files here or click to upload"
+msgstr ""
+
+#: web/templates/admin/documents.html:170
+msgid "Upload failed"
+msgstr ""
+
+#: web/templates/admin/documents.html:171
+msgid "Delete this file?"
+msgstr ""
+
+#: web/templates/admin/documents.html:172
+msgid "Files"
+msgstr ""
+
+#: web/templates/admin/documents.html:174
+msgid "Image uploaded"
+msgstr ""
+
+#: web/templates/admin/documents.html:175
+msgid "Please save the document first"
+msgstr ""
+
+#: web/templates/admin/home.html:6 web/templates/admin/home.html:91
 #: web/templates/admin/mobile_home.html:7
 msgid "Dashboard"
+msgstr ""
+
+#: web/templates/admin/home.html:93 web/templates/admin/mobile_home.html:92
+#: web/templates/user/dashboard.html:332
+msgid "Today"
+msgstr ""
+
+#: web/templates/admin/home.html:94 web/templates/user/dashboard.html:333
+msgid "This Week"
+msgstr ""
+
+#: web/templates/admin/home.html:95 web/templates/user/dashboard.html:334
+msgid "This Month"
+msgstr ""
+
+#: web/templates/admin/home.html:96
+msgid "This Year"
+msgstr ""
+
+#: web/templates/admin/home.html:110 web/templates/user/tab_stats.html:83
+msgid "System Status"
+msgstr ""
+
+#: web/templates/admin/home.html:115 web/templates/admin/monitor.html:196
+#: web/templates/public/query.html:35 web/templates/user/tab_stats.html:10
+#: web/templates/user/tab_stats.html:50
+msgid "Total Requests"
+msgstr ""
+
+#: web/templates/admin/home.html:119 web/templates/admin/monitor.html:200
+#: web/templates/public/query.html:39 web/templates/user/tab_stats.html:14
+#: web/templates/user/tab_stats.html:54
+msgid "Total Tokens"
+msgstr ""
+
+#: web/templates/admin/home.html:123 web/templates/admin/mobile_home.html:140
+msgid "Active Requests"
+msgstr ""
+
+#: web/templates/admin/home.html:127 web/templates/admin/mobile_home.html:146
+msgid "Tokens/s"
+msgstr ""
+
+#: web/templates/admin/home.html:131 web/templates/admin/mobile_home.html:126
+#: web/templates/admin/mobile_home.html:252
+#: web/templates/admin/mobile_home.html:282
+#: web/templates/admin/monitor.html:204 web/templates/admin/monitor.html:283
+#: web/templates/admin/monitor.html:392 web/templates/public/query.html:43
+#: web/templates/user/dashboard.html:431 web/templates/user/tab_stats.html:18
+msgid "Errors"
+msgstr ""
+
+#: web/templates/admin/home.html:135 web/templates/admin/mobile_home.html:132
+#: web/templates/admin/mobile_home.html:253
+#: web/templates/admin/monitor.html:208 web/templates/admin/monitor.html:283
+#: web/templates/admin/monitor.html:374
+msgid "Timeouts"
+msgstr ""
+
+#: web/templates/admin/home.html:143 web/templates/admin/monitor.html:216
+msgid "Error Rate"
+msgstr ""
+
+#: web/templates/admin/home.html:150 web/templates/admin/mobile_home.html:173
+msgid "Active Users"
+msgstr ""
+
+#: web/templates/admin/home.html:153 web/templates/admin/home.html:188
+#: web/templates/admin/mobile_home.html:284
+msgid "No active users"
+msgstr ""
+
+#: web/templates/admin/home.html:157
+msgid "Slow Requests (>60s)"
+msgstr ""
+
+#: web/templates/admin/home.html:160 web/templates/admin/home.html:187
+#: web/templates/admin/mobile_home.html:285
+msgid "No slow requests"
+msgstr ""
+
+#: web/templates/admin/home.html:163 web/templates/admin/mobile_home.html:209
+#: web/templates/admin/mobile_home.html:420
+#: web/templates/admin/monitor.html:290
+msgid "Provider Usage"
+msgstr ""
+
+#: web/templates/admin/home.html:167 web/templates/admin/mobile_home.html:226
+#: web/templates/admin/monitor.html:295 web/templates/public/query.html:6
+#: web/templates/public/query.html:25
+msgid "API Key Usage"
+msgstr ""
+
+#: web/templates/admin/home.html:172 web/templates/admin/mobile_home.html:161
+#: web/templates/admin/monitor.html:282 web/templates/user/tab_stats.html:127
+msgid "Request Trend"
+msgstr ""
+
+#: web/templates/admin/home.html:189 web/templates/admin/mobile_home.html:287
+#: web/templates/admin/reports.html:171
+msgid "pending"
+msgstr ""
+
+#: web/templates/admin/home.html:190 web/templates/admin/mobile_home.html:286
+#: web/templates/admin/monitor.html:370 web/templates/user/dashboard.html:422
+msgid "req"
+msgstr ""
+
+#: web/templates/admin/home.html:191 web/templates/admin/mobile_home.html:122
+#: web/templates/admin/mobile_home.html:281
+#: web/templates/admin/monitor.html:283 web/templates/admin/monitor.html:391
+#: web/templates/admin/request_logs.html:295
+#: web/templates/admin/request_logs.html:405
+#: web/templates/user/dashboard.html:432
+msgid "Tokens"
+msgstr ""
+
+#: web/templates/admin/home.html:330
+msgid "User Concurrency Limit"
+msgstr ""
+
+#: web/templates/admin/home.html:331
+msgid "providers limited"
+msgstr ""
+
+#: web/templates/admin/home.html:332
+msgid "active users"
+msgstr ""
+
+#: web/templates/admin/home.html:835 web/templates/admin/mobile_home.html:290
+#: web/templates/user/dashboard.html:502
+msgid "Provider unavailable"
+msgstr ""
+
+#: web/templates/admin/home.html:836 web/templates/admin/mobile_home.html:291
+#: web/templates/user/dashboard.html:503
+#, python-brace-format
+msgid "Provider {name} is unavailable: {reason}"
+msgstr ""
+
+#: web/templates/admin/home.html:837 web/templates/admin/mobile_home.html:292
+#: web/templates/user/dashboard.html:504
+#, python-brace-format
+msgid "expected restore at {time}"
+msgstr ""
+
+#: web/templates/admin/login.html:54 web/templates/admin/mobile_login.html:50
+#: web/templates/user/login.html:58
+msgid "Empower every developer to harness the power of AI."
+msgstr ""
+
+#: web/templates/admin/login.html:57 web/templates/admin/mobile_login.html:54
+msgid "Username"
+msgstr ""
+
+#: web/templates/admin/login.html:60
+msgid "Enter username"
+msgstr ""
+
+#: web/templates/admin/login.html:63 web/templates/admin/mobile_login.html:57
+msgid "Password"
+msgstr ""
+
+#: web/templates/admin/login.html:66
+msgid "Enter admin password"
 msgstr ""
 
 #: web/templates/admin/mobile_home.html:84
 msgid "Admin Dashboard"
 msgstr ""
 
-#: web/templates/admin/mobile_home.html:92
-msgid "Today"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:93
+#: web/templates/admin/mobile_home.html:93 web/templates/admin/monitor.html:188
 msgid "Week"
 msgstr ""
 
-#: web/templates/admin/mobile_home.html:94
+#: web/templates/admin/mobile_home.html:94 web/templates/admin/monitor.html:189
 msgid "Month"
 msgstr ""
 
-#: web/templates/admin/mobile_home.html:95
+#: web/templates/admin/mobile_home.html:95 web/templates/admin/monitor.html:190
 msgid "Year"
 msgstr ""
 
 #: web/templates/admin/mobile_home.html:118
 #: web/templates/admin/mobile_home.html:280
+#: web/templates/admin/monitor.html:283 web/templates/admin/monitor.html:390
+#: web/templates/user/dashboard.html:430
 msgid "Requests"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:122
-#: web/templates/admin/mobile_home.html:281
-msgid "Tokens"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:126
-#: web/templates/admin/mobile_home.html:252
-#: web/templates/admin/mobile_home.html:282
-msgid "Errors"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:132
-#: web/templates/admin/mobile_home.html:253
-msgid "Timeouts"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:140
-msgid "Active Requests"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:146
-msgid "Tokens/s"
 msgstr ""
 
 #: web/templates/admin/mobile_home.html:150
@@ -569,29 +1254,16 @@ msgstr ""
 msgid "Busyness"
 msgstr ""
 
-#: web/templates/admin/mobile_home.html:161
-msgid "Request Trend"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:173
-msgid "Active Users"
-msgstr ""
-
 #: web/templates/admin/mobile_home.html:191
 msgid "Slow Requests"
 msgstr ""
 
-#: web/templates/admin/mobile_home.html:209
-#: web/templates/admin/mobile_home.html:420
-msgid "Provider Usage"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:226
-msgid "API Key Usage"
-msgstr ""
-
 #: web/templates/admin/mobile_home.html:240
 #: web/templates/admin/mobile_home.html:268
+#: web/templates/admin/notifications.html:30
+#: web/templates/components/admin_header.html:25
+#: web/templates/user/dashboard.html:372
+#: web/templates/user/tab_notifications.html:4
 msgid "Notifications"
 msgstr ""
 
@@ -609,27 +1281,16 @@ msgid "Overview"
 msgstr ""
 
 #: web/templates/admin/mobile_home.html:273
+#: web/templates/admin/request_logs.html:7
+#: web/templates/admin/request_logs.html:218
+#: web/templates/admin/request_logs.html:225
 msgid "Request Logs"
 msgstr ""
 
 #: web/templates/admin/mobile_home.html:283
+#: web/templates/admin/monitor.html:369 web/templates/public/query.html:69
+#: web/templates/user/dashboard.html:404
 msgid "No data"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:284
-msgid "No active users"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:285
-msgid "No slow requests"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:286
-msgid "req"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:287
-msgid "pending"
 msgstr ""
 
 #: web/templates/admin/mobile_home.html:288
@@ -638,25 +1299,13 @@ msgid "{seconds}s elapsed"
 msgstr ""
 
 #: web/templates/admin/mobile_home.html:289
+#: web/templates/admin/monitor.html:394
 #, python-brace-format
 msgid "{label} on right axis"
 msgstr ""
 
-#: web/templates/admin/mobile_home.html:290
-msgid "Provider unavailable"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:291
-#, python-brace-format
-msgid "Provider {name} is unavailable: {reason}"
-msgstr ""
-
-#: web/templates/admin/mobile_home.html:292
-#, python-brace-format
-msgid "expected restore at {time}"
-msgstr ""
-
 #: web/templates/admin/mobile_home.html:293
+#: web/templates/admin/notifications.html:50
 msgid "No notifications"
 msgstr ""
 
@@ -706,6 +1355,8 @@ msgid "Disable reason (optional)"
 msgstr ""
 
 #: web/templates/admin/mobile_home.html:305
+#: web/templates/admin/scheduler_tasks_tab.html:60
+#: web/templates/admin/scheduler_tasks_tab.html:61
 msgid "Operation failed"
 msgstr ""
 
@@ -715,6 +1366,1558 @@ msgstr ""
 
 #: web/templates/admin/mobile_home.html:417
 msgid "disabled"
+msgstr ""
+
+#: web/templates/admin/mobile_login.html:60
+msgid "Using admin account"
+msgstr ""
+
+#: web/templates/admin/mobile_login.html:64
+#: web/templates/admin/mobile_login.html:79
+msgid "Sign In"
+msgstr ""
+
+#: web/templates/admin/mobile_login.html:78
+msgid "Signing in..."
+msgstr ""
+
+#: web/templates/admin/mobile_login.html:80 web/templates/user/login.html:87
+msgid "Login failed"
+msgstr ""
+
+#: web/templates/admin/mobile_login.html:81 web/templates/user/login.html:88
+msgid "Network error"
+msgstr ""
+
+#: web/templates/admin/monitor.html:6
+msgid "Monitor"
+msgstr ""
+
+#: web/templates/admin/monitor.html:185
+msgid "Statistics Monitor"
+msgstr ""
+
+#: web/templates/admin/monitor.html:185
+msgid "Composition, concentration, hotspots, and trend behavior"
+msgstr ""
+
+#: web/templates/admin/monitor.html:187
+msgid "Day"
+msgstr ""
+
+#: web/templates/admin/monitor.html:212
+msgid "429"
+msgstr ""
+
+#: web/templates/admin/monitor.html:300 web/templates/public/query.html:53
+#: web/templates/user/tab_stats.html:151
+msgid "Model Usage"
+msgstr ""
+
+#: web/templates/admin/monitor.html:308
+msgid "Traffic Concentration"
+msgstr ""
+
+#: web/templates/admin/monitor.html:312
+msgid "Error Hotspots"
+msgstr ""
+
+#: web/templates/admin/monitor.html:316
+msgid "Timeout Hotspots"
+msgstr ""
+
+#: web/templates/admin/monitor.html:320
+msgid "Active Footprint"
+msgstr ""
+
+#: web/templates/admin/monitor.html:327
+msgid "Model Response Time"
+msgstr ""
+
+#: web/templates/admin/monitor.html:328 web/templates/admin/monitor.html:396
+msgid "Hourly average response time by model"
+msgstr ""
+
+#: web/templates/admin/monitor.html:331 web/templates/admin/monitor.html:402
+msgid "Average"
+msgstr ""
+
+#: web/templates/admin/monitor.html:332 web/templates/admin/monitor.html:403
+msgid "P95"
+msgstr ""
+
+#: web/templates/admin/monitor.html:333 web/templates/admin/monitor.html:404
+msgid "Range"
+msgstr ""
+
+#: web/templates/admin/monitor.html:334 web/templates/admin/monitor.html:405
+msgid "Heatmap"
+msgstr ""
+
+#: web/templates/admin/monitor.html:343
+msgid "Provider / Key / Model Status"
+msgstr ""
+
+#: web/templates/admin/monitor.html:368 web/templates/user/dashboard.html:393
+msgid "Others"
+msgstr ""
+
+#: web/templates/admin/monitor.html:371
+msgid "tok"
+msgstr ""
+
+#: web/templates/admin/monitor.html:372 web/templates/user/dashboard.html:423
+msgid "err"
+msgstr ""
+
+#: web/templates/admin/monitor.html:373
+msgid "Timeout"
+msgstr ""
+
+#: web/templates/admin/monitor.html:375
+msgid "Providers"
+msgstr ""
+
+#: web/templates/admin/monitor.html:377 web/templates/user/dashboard.html:366
+msgid "Models"
+msgstr ""
+
+#: web/templates/admin/monitor.html:378
+#: web/templates/admin/request_logs.html:241
+#: web/templates/admin/request_logs.html:292
+#: web/templates/admin/request_logs.html:321
+#: web/templates/admin/request_logs.html:398
+msgid "Provider"
+msgstr ""
+
+#: web/templates/admin/monitor.html:381
+msgid "Top 1 share"
+msgstr ""
+
+#: web/templates/admin/monitor.html:382
+msgid "Top 3 combined"
+msgstr ""
+
+#: web/templates/admin/monitor.html:383
+msgid "No hotspots"
+msgstr ""
+
+#: web/templates/admin/monitor.html:384
+msgid "No latency data"
+msgstr ""
+
+#: web/templates/admin/monitor.html:385
+msgid "Active Providers"
+msgstr ""
+
+#: web/templates/admin/monitor.html:386
+msgid "Active API Keys"
+msgstr ""
+
+#: web/templates/admin/monitor.html:387
+msgid "Active Models"
+msgstr ""
+
+#: web/templates/admin/monitor.html:388
+msgid "Top:"
+msgstr ""
+
+#: web/templates/admin/monitor.html:389
+msgid "No traffic"
+msgstr ""
+
+#: web/templates/admin/monitor.html:393
+msgid "Requests / Errors / Timeouts"
+msgstr ""
+
+#: web/templates/admin/monitor.html:395
+msgid "Response Time (s)"
+msgstr ""
+
+#: web/templates/admin/monitor.html:397
+msgid "Hourly P95 response time by model"
+msgstr ""
+
+#: web/templates/admin/monitor.html:398
+msgid "Hourly response time range by model"
+msgstr ""
+
+#: web/templates/admin/monitor.html:399
+msgid "Response time heatmap by model and hour"
+msgstr ""
+
+#: web/templates/admin/monitor.html:400
+msgid "Hour of day"
+msgstr ""
+
+#: web/templates/admin/monitor.html:401
+#, python-brace-format
+msgid "{count} samples"
+msgstr ""
+
+#: web/templates/admin/monitor.html:406
+msgid "Min"
+msgstr ""
+
+#: web/templates/admin/monitor.html:407
+msgid "Max"
+msgstr ""
+
+#: web/templates/admin/monitor.html:408
+msgid "Avg"
+msgstr ""
+
+#: web/templates/admin/monitor.html:409
+msgid "No heatmap data"
+msgstr ""
+
+#: web/templates/admin/reports.html:7 web/templates/admin/reports.html:69
+#: web/templates/components/nav.html:28
+msgid "Usage Report"
+msgstr ""
+
+#: web/templates/admin/reports.html:69
+msgid ""
+"Generate usage reports as reusable task pipelines with CSV, Markdown, and"
+" DOCX outputs"
+msgstr ""
+
+#: web/templates/admin/reports.html:73
+msgid "Create Report Task"
+msgstr ""
+
+#: web/templates/admin/reports.html:81
+msgid "Exclude Keys"
+msgstr ""
+
+#: web/templates/admin/reports.html:88 web/templates/admin/reports.html:148
+#: web/templates/public/opencode.html:48
+msgid "Generate"
+msgstr ""
+
+#: web/templates/admin/reports.html:93
+msgid "Task orchestration mode"
+msgstr ""
+
+#: web/templates/admin/reports.html:94
+msgid ""
+"Each report now runs as subtasks with retries, self-checks, and reusable "
+"artifacts before DOCX assembly."
+msgstr ""
+
+#: web/templates/admin/reports.html:99 web/templates/admin/reports.html:164
+msgid "Template Preview"
+msgstr ""
+
+#: web/templates/admin/reports.html:100 web/templates/admin/reports.html:133
+#: web/templates/admin/reports.html:165
+msgid "Loading template..."
+msgstr ""
+
+#: web/templates/admin/reports.html:107 web/templates/admin/reports.html:163
+msgid "Current Task"
+msgstr ""
+
+#: web/templates/admin/reports.html:114 web/templates/admin/reports.html:158
+msgid "Artifacts"
+msgstr ""
+
+#: web/templates/admin/reports.html:120
+msgid "Report History"
+msgstr ""
+
+#: web/templates/admin/reports.html:121 web/templates/admin/reports.html:151
+msgid "No reports yet"
+msgstr ""
+
+#: web/templates/admin/reports.html:130
+msgid "Select API Keys to Exclude"
+msgstr ""
+
+#: web/templates/admin/reports.html:137
+msgid "Confirm"
+msgstr ""
+
+#: web/templates/admin/reports.html:149
+msgid "A report is already being generated. Please wait."
+msgstr ""
+
+#: web/templates/admin/reports.html:150
+msgid "Failed to generate report"
+msgstr ""
+
+#: web/templates/admin/reports.html:152 web/templates/user/tab_stats.html:26
+msgid "Download"
+msgstr ""
+
+#: web/templates/admin/reports.html:153
+#: web/templates/admin/request_logs.html:289
+#: web/templates/admin/request_logs.html:410
+msgid "Created At"
+msgstr ""
+
+#: web/templates/admin/reports.html:155
+#: web/templates/admin/request_logs.html:247
+#: web/templates/admin/request_logs.html:290
+#: web/templates/admin/request_logs.html:335
+#: web/templates/admin/request_logs.html:400
+#: web/templates/admin/scheduler_logs_tab.html:42
+msgid "Status"
+msgstr ""
+
+#: web/templates/admin/reports.html:156
+msgid "Task ID"
+msgstr ""
+
+#: web/templates/admin/reports.html:157
+msgid "Attempts"
+msgstr ""
+
+#: web/templates/admin/reports.html:159
+msgid "No artifacts yet"
+msgstr ""
+
+#: web/templates/admin/reports.html:160
+msgid "No API Keys found"
+msgstr ""
+
+#: web/templates/admin/reports.html:161
+msgid "Please select start and end dates"
+msgstr ""
+
+#: web/templates/admin/reports.html:162
+msgid "Existing running task loaded"
+msgstr ""
+
+#: web/templates/admin/reports.html:166
+msgid "Step Outputs"
+msgstr ""
+
+#: web/templates/admin/reports.html:167
+msgid ""
+"Reusable outputs are generated first, then assembled into the final "
+"report."
+msgstr ""
+
+#: web/templates/admin/reports.html:168
+msgid "completed"
+msgstr ""
+
+#: web/templates/admin/reports.html:169
+msgid "running"
+msgstr ""
+
+#: web/templates/admin/reports.html:170
+msgid "failed"
+msgstr ""
+
+#: web/templates/admin/reports.html:257 web/templates/admin/reports.html:441
+#: web/templates/admin/reports.html:577 web/templates/admin/reports.html:581
+msgid "Subtasks"
+msgstr ""
+
+#: web/templates/admin/reports.html:261
+msgid "Planned Outputs"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:218
+msgid ""
+"Query and filter proxy request logs by API key, model, status, and time "
+"range"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:220 web/templates/public/query.html:60
+#: web/templates/user/dashboard.html:478
+msgid "Refresh"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:226
+msgid "Aggregate Stats"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:234
+#: web/templates/admin/request_logs.html:328
+msgid "Key name"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:266
+#: web/templates/admin/request_logs.html:353
+msgid "Custom"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:270
+#: web/templates/admin/request_logs.html:357
+msgid "Custom Range"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:280
+#: web/templates/admin/request_logs.html:412
+msgid "No logs found matching the current filters."
+msgstr ""
+
+#: web/templates/admin/request_logs.html:294
+#: web/templates/admin/request_logs.html:402
+msgid "Upstream"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:294
+#: web/templates/admin/request_logs.html:403
+msgid "Downstream"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:296
+#: web/templates/admin/request_logs.html:404
+msgid "Latency"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:297
+#: web/templates/user/dashboard.html:437
+msgid "Cost"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:298
+#: web/templates/admin/request_logs.html:331
+#: web/templates/admin/request_logs.html:372
+#: web/templates/admin/request_logs.html:406
+msgid "Client IP"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:299
+#: web/templates/admin/request_logs.html:407
+msgid "User Agent"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:364
+msgid "Export CSV"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:370
+msgid "Provider/Model"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:371
+msgid "User"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:373
+msgid "User + IP"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:381
+msgid "No data found for the selected time range."
+msgstr ""
+
+#: web/templates/admin/request_logs.html:408
+msgid "Error Detail"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:409
+msgid "Response"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:411
+msgid "Query Results"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:413
+msgid "Failed to load data"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:414
+#, python-brace-format
+msgid "Page {page} of {total}"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:415
+#, python-brace-format
+msgid "Total: {count} records"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:416
+msgid "IP Location"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:417
+msgid "Country"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:418
+msgid "Province"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:419
+msgid "City"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:420
+msgid "ISP"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:421
+msgid "Adcode"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:422
+msgid "Coordinates"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:423
+msgid "City Rectangle"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:424
+msgid "DB Cache"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:425
+msgid "Live Lookup"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:426
+msgid "Retry"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:427
+msgid "Lookup failed"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:428
+msgid "View on map"
+msgstr ""
+
+#: web/templates/admin/request_logs.html:1198
+msgid "No data to export"
+msgstr ""
+
+#: web/templates/admin/scheduler_logs_tab.html:3
+msgid "Filter by task"
+msgstr ""
+
+#: web/templates/admin/scheduler_logs_tab.html:5
+msgid "All tasks"
+msgstr ""
+
+#: web/templates/admin/scheduler_logs_tab.html:38
+#: web/templates/public/query.html:70
+msgid "No logs"
+msgstr ""
+
+#: web/templates/admin/scheduler_logs_tab.html:42
+msgid "Time"
+msgstr ""
+
+#: web/templates/admin/scheduler_logs_tab.html:42
+msgid "Task"
+msgstr ""
+
+#: web/templates/admin/scheduler_logs_tab.html:42
+#: web/templates/admin/scheduler_tasks_tab.html:34
+msgid "Duration"
+msgstr ""
+
+#: web/templates/admin/scheduler_logs_tab.html:42
+msgid "Result"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:14
+msgid "No tasks"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:24
+msgid "Paused"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:26
+#: web/templates/admin/scheduler_tasks_tab.html:49
+msgid "Run Now"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:27
+msgid "Resume"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:27
+msgid "Pause"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:33
+msgid "Last run"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:35
+msgid "Next run"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:47
+msgid "Task triggered"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:47
+#: web/templates/admin/scheduler_tasks_tab.html:48
+msgid "Trigger failed"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:60
+msgid "Task paused"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:60
+msgid "Task resumed"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:71
+msgid "Cron updated"
+msgstr ""
+
+#: web/templates/admin/scheduler_tasks_tab.html:71
+#: web/templates/admin/scheduler_tasks_tab.html:72
+msgid "Update failed"
+msgstr ""
+
+#: web/templates/admin/system_config.html:65
+msgid "Proxy User-Agent"
+msgstr ""
+
+#: web/templates/admin/system_config.html:66
+msgid "Current outbound UA (used for all proxy requests)"
+msgstr ""
+
+#: web/templates/admin/system_config.html:71
+msgid "Reset to Default"
+msgstr ""
+
+#: web/templates/admin/system_config.html:76
+msgid "Today's Client UA"
+msgstr ""
+
+#: web/templates/admin/system_config.html:77
+msgid "Top user agents making requests today"
+msgstr ""
+
+#: web/templates/admin/system_config.html:231
+#: web/templates/admin/system_config.html:252
+#: web/templates/admin/system_config.html:273
+#: web/templates/admin/system_config.html:297
+msgid "Saved"
+msgstr ""
+
+#: web/templates/admin/system_config.html:312
+msgid "No data today"
+msgstr ""
+
+#: web/templates/components/nav.html:93 web/templates/user/dashboard.html:349
+msgid "Logout"
+msgstr ""
+
+#: web/templates/public/opencode.html:6 web/templates/public/opencode.html:39
+#: web/templates/user/tab_opencode.html:2
+msgid "OpenCode Configuration"
+msgstr ""
+
+#: web/templates/public/opencode.html:40
+msgid "Generate opencode.jsonc config for this proxy"
+msgstr ""
+
+#: web/templates/public/opencode.html:43
+msgid "Enter your API Key to generate config"
+msgstr ""
+
+#: web/templates/public/opencode.html:65
+msgid "Available Models"
+msgstr ""
+
+#: web/templates/public/opencode.html:75 web/templates/user/tab_codex.html:66
+#: web/templates/user/tab_opencode.html:97
+msgid "How to use"
+msgstr ""
+
+#: web/templates/public/opencode.html:77
+msgid "Enter your API Key and click Generate"
+msgstr ""
+
+#: web/templates/public/opencode.html:78
+msgid "Copy the generated"
+msgstr ""
+
+#: web/templates/public/opencode.html:79 web/templates/user/tab_usage.html:95
+msgid "in your project root"
+msgstr ""
+
+#: web/templates/public/opencode.html:80
+msgid "Paste the configuration and save"
+msgstr ""
+
+#: web/templates/public/opencode.html:81
+msgid "OpenCode will now use this proxy for API requests"
+msgstr ""
+
+#: web/templates/public/opencode.html:89
+msgid "Please enter an API Key"
+msgstr ""
+
+#: web/templates/public/opencode.html:92
+msgid "Failed to generate config"
+msgstr ""
+
+#: web/templates/public/opencode.html:93
+msgid ""
+"# Please add the following provider config to "
+"~/.config/opencode/opencode.jsonc. If that file does not exist, create it"
+" first. You can also place opencode.jsonc in the current project root. "
+"Keep existing providers and settings, only add or update the modelgate "
+"provider."
+msgstr ""
+
+#: web/templates/public/opencode.html:94
+msgid "context"
+msgstr ""
+
+#: web/templates/public/opencode.html:95
+msgid "output"
+msgstr ""
+
+#: web/templates/public/query.html:47 web/templates/user/tab_stats.html:58
+msgid "Models Used"
+msgstr ""
+
+#: web/templates/public/query.html:59
+msgid "Recent Requests"
+msgstr ""
+
+#: web/templates/user/dashboard.html:327
+msgid "ModelGate-dashboard"
+msgstr ""
+
+#: web/templates/user/dashboard.html:343
+msgid "Black Gold"
+msgstr ""
+
+#: web/templates/user/dashboard.html:346
+msgid "Reset API Key"
+msgstr ""
+
+#: web/templates/user/dashboard.html:365
+msgid "Statistics"
+msgstr ""
+
+#: web/templates/user/dashboard.html:367
+msgid "OpenCode Config"
+msgstr ""
+
+#: web/templates/user/dashboard.html:369
+msgid "Usage Guide"
+msgstr ""
+
+#: web/templates/user/dashboard.html:391
+msgid "Black Gold Mode"
+msgstr ""
+
+#: web/templates/user/dashboard.html:392
+msgid "Unauthorized"
+msgstr ""
+
+#: web/templates/user/dashboard.html:394
+msgid "Owned"
+msgstr ""
+
+#: web/templates/user/dashboard.html:395
+msgid "Available"
+msgstr ""
+
+#: web/templates/user/dashboard.html:396
+msgid "Access"
+msgstr ""
+
+#: web/templates/user/dashboard.html:397
+msgid "No active providers or models"
+msgstr ""
+
+#: web/templates/user/dashboard.html:398
+msgid "No accessible models"
+msgstr ""
+
+#: web/templates/user/dashboard.html:399
+msgid "This API key currently has access to all active models on the platform."
+msgstr ""
+
+#: web/templates/user/dashboard.html:400
+msgid "Models explicitly available to this API key."
+msgstr ""
+
+#: web/templates/user/dashboard.html:401 web/templates/user/tab_catalog.html:17
+msgid "Models available to this API key."
+msgstr ""
+
+#: web/templates/user/dashboard.html:402
+msgid "Platform provider catalog"
+msgstr ""
+
+#: web/templates/user/dashboard.html:403
+msgid "Models this key can use"
+msgstr ""
+
+#: web/templates/user/dashboard.html:405 web/templates/user/documents.html:46
+#: web/templates/user/tab_documents.html:6
+msgid "All Categories"
+msgstr ""
+
+#: web/templates/user/dashboard.html:406 web/templates/user/documents.html:60
+#: web/templates/user/documents.html:72
+#: web/templates/user/tab_documents.html:10
+msgid "No documents available"
+msgstr ""
+
+#: web/templates/user/dashboard.html:408
+msgid "No active sessions"
+msgstr ""
+
+#: web/templates/user/dashboard.html:409
+msgid "No requests yet"
+msgstr ""
+
+#: web/templates/user/dashboard.html:412
+#: web/templates/user/tab_opencode.html:79
+msgid "Upload opencode.jsonc"
+msgstr ""
+
+#: web/templates/user/dashboard.html:413
+msgid "Download Merged Config"
+msgstr ""
+
+#: web/templates/user/dashboard.html:414
+msgid "Merged config downloaded!"
+msgstr ""
+
+#: web/templates/user/dashboard.html:415
+msgid "Merge failed"
+msgstr ""
+
+#: web/templates/user/dashboard.html:416
+msgid "Invalid JSON file"
+msgstr ""
+
+#: web/templates/user/dashboard.html:417
+msgid "Disabled Providers"
+msgstr ""
+
+#: web/templates/user/dashboard.html:418 web/templates/user/tab_stats.html:4
+#: web/templates/user/tab_stats.html:120
+msgid "Personal"
+msgstr ""
+
+#: web/templates/user/dashboard.html:419 web/templates/user/tab_stats.html:5
+#: web/templates/user/tab_stats.html:121
+msgid "System"
+msgstr ""
+
+#: web/templates/user/dashboard.html:420
+msgid "Clear saved API Key?"
+msgstr ""
+
+#: web/templates/user/dashboard.html:421 web/templates/user/tab_stats.html:113
+msgid "active"
+msgstr ""
+
+#: web/templates/user/dashboard.html:424 web/templates/user/tab_catalog.html:6
+#: web/templates/user/tab_catalog.html:15
+msgid "models"
+msgstr ""
+
+#: web/templates/user/dashboard.html:425 web/templates/user/tab_catalog.html:6
+#: web/templates/user/tab_catalog.html:15
+msgid "providers"
+msgstr ""
+
+#: web/templates/user/dashboard.html:426
+msgid "ctx"
+msgstr ""
+
+#: web/templates/user/dashboard.html:427
+msgid "out"
+msgstr ""
+
+#: web/templates/user/dashboard.html:429
+msgid "alias"
+msgstr ""
+
+#: web/templates/user/dashboard.html:433
+msgid "Context"
+msgstr ""
+
+#: web/templates/user/dashboard.html:434
+msgid "Input"
+msgstr ""
+
+#: web/templates/user/dashboard.html:435
+msgid "Output"
+msgstr ""
+
+#: web/templates/user/dashboard.html:436
+msgid "Cache"
+msgstr ""
+
+#: web/templates/user/dashboard.html:438
+msgid "Requests / Errors"
+msgstr ""
+
+#: web/templates/user/dashboard.html:439 web/templates/user/tab_stats.html:106
+msgid "View All"
+msgstr ""
+
+#: web/templates/user/dashboard.html:440
+msgid "My Request History"
+msgstr ""
+
+#: web/templates/user/dashboard.html:442
+msgid "All Models"
+msgstr ""
+
+#: web/templates/user/dashboard.html:443
+msgid "All Statuses"
+msgstr ""
+
+#: web/templates/user/dashboard.html:444
+msgid "Last 1h"
+msgstr ""
+
+#: web/templates/user/dashboard.html:445
+msgid "Last 6h"
+msgstr ""
+
+#: web/templates/user/dashboard.html:446
+msgid "Last 24h"
+msgstr ""
+
+#: web/templates/user/dashboard.html:447
+msgid "Last 7d"
+msgstr ""
+
+#: web/templates/user/dashboard.html:448
+msgid "Last 30d"
+msgstr ""
+
+#: web/templates/user/dashboard.html:449
+msgid "Last 90d"
+msgstr ""
+
+#: web/templates/user/dashboard.html:450
+msgid "All Time"
+msgstr ""
+
+#: web/templates/user/dashboard.html:451 web/templates/user/tab_stats.html:71
+msgid "Recommended Models"
+msgstr ""
+
+#: web/templates/user/dashboard.html:452
+msgid "Recommendation score"
+msgstr ""
+
+#: web/templates/user/dashboard.html:453
+msgid "Avg latency"
+msgstr ""
+
+#: web/templates/user/dashboard.html:454
+msgid "Error rate"
+msgstr ""
+
+#: web/templates/user/dashboard.html:455
+msgid "System Health"
+msgstr ""
+
+#: web/templates/user/dashboard.html:456
+msgid "Last 20 minutes"
+msgstr ""
+
+#: web/templates/user/dashboard.html:457
+msgid "Based on recent load, error rate, and latency"
+msgstr ""
+
+#: web/templates/user/dashboard.html:458
+msgid "No recent traffic in the last 20 minutes"
+msgstr ""
+
+#: web/templates/user/dashboard.html:459
+msgid "Active users"
+msgstr ""
+
+#: web/templates/user/dashboard.html:460
+msgid "Pending"
+msgstr ""
+
+#: web/templates/user/dashboard.html:461
+msgid "Excellent"
+msgstr ""
+
+#: web/templates/user/dashboard.html:462
+msgid "Healthy"
+msgstr ""
+
+#: web/templates/user/dashboard.html:463
+msgid "Busy"
+msgstr ""
+
+#: web/templates/user/dashboard.html:464
+msgid "Degraded"
+msgstr ""
+
+#: web/templates/user/dashboard.html:465
+msgid "Idle"
+msgstr ""
+
+#: web/templates/user/dashboard.html:466
+msgid "Ranked by stability, response time, and sample size"
+msgstr ""
+
+#: web/templates/user/dashboard.html:467
+msgid "Based on the current period and accessible models"
+msgstr ""
+
+#: web/templates/user/dashboard.html:468
+msgid "No recommendation data yet"
+msgstr ""
+
+#: web/templates/user/dashboard.html:469 web/templates/user/tab_stats.html:75
+msgid "Loading recommendations..."
+msgstr ""
+
+#: web/templates/user/dashboard.html:470
+msgid "Analyzing the best daily time windows..."
+msgstr ""
+
+#: web/templates/user/dashboard.html:471
+msgid "Model Used"
+msgstr ""
+
+#: web/templates/user/dashboard.html:472
+msgid "AI Generated"
+msgstr ""
+
+#: web/templates/user/dashboard.html:473
+msgid "AI analysis unavailable"
+msgstr ""
+
+#: web/templates/user/dashboard.html:474
+msgid "samples"
+msgstr ""
+
+#: web/templates/user/dashboard.html:475
+msgid ""
+"Please help me add the following provider configuration to "
+"~/.config/opencode/opencode.jsonc. If that file does not exist, create it"
+" first. You can also place opencode.jsonc in the current project root. "
+"Keep existing providers and other settings, only add or update the "
+"modelgate provider."
+msgstr ""
+
+#: web/templates/user/dashboard.html:479
+msgid "top share"
+msgstr ""
+
+#: web/templates/user/dashboard.html:480
+msgid "on right axis"
+msgstr ""
+
+#: web/templates/user/dashboard.html:481 web/templates/user/tab_stats.html:128
+#: web/templates/user/tab_stats.html:152
+msgid "Your API key"
+msgstr ""
+
+#: web/templates/user/dashboard.html:482 web/templates/user/tab_stats.html:140
+#: web/templates/user/tab_stats.html:160
+msgid "All API keys"
+msgstr ""
+
+#: web/templates/user/dashboard.html:483 web/templates/user/tab_stats.html:115
+msgid "So empty..."
+msgstr ""
+
+#: web/templates/user/dashboard.html:484
+msgid "Estimated cost based on token usage and model pricing"
+msgstr ""
+
+#: web/templates/user/dashboard.html:486
+msgid "Online Users"
+msgstr ""
+
+#: web/templates/user/dashboard.html:487
+msgid "Only You Online"
+msgstr ""
+
+#: web/templates/user/dashboard.html:488
+msgid "Night Owl — Just You"
+msgstr ""
+
+#: web/templates/user/dashboard.html:489
+msgid "Early Bird — Just You"
+msgstr ""
+
+#: web/templates/user/dashboard.html:490
+msgid "Companions at Work"
+msgstr ""
+
+#: web/templates/user/dashboard.html:491
+msgid "Night Owls Club"
+msgstr ""
+
+#: web/templates/user/dashboard.html:492
+msgid "Early Birds"
+msgstr ""
+
+#: web/templates/user/dashboard.html:493
+msgid "Token Rivals"
+msgstr ""
+
+#: web/templates/user/dashboard.html:494
+msgid "Peak Hours"
+msgstr ""
+
+#: web/templates/user/dashboard.html:495
+msgid "Shouldn't You Be Asleep?"
+msgstr ""
+
+#: web/templates/user/dashboard.html:497
+msgid ""
+"Regenerate the API key? The old key will stop working immediately, and "
+"you will be logged out."
+msgstr ""
+
+#: web/templates/user/dashboard.html:498
+msgid "Failed to regenerate API key"
+msgstr ""
+
+#: web/templates/user/dashboard.html:499
+msgid "Your new API Key is:"
+msgstr ""
+
+#: web/templates/user/dashboard.html:500
+msgid "Please save it securely. You will need it to log in again."
+msgstr ""
+
+#: web/templates/user/dashboard.html:501
+msgid "Temporarily unavailable"
+msgstr ""
+
+#: web/templates/user/document_detail.html:77
+#: web/templates/user/tab_documents.html:13
+msgid "Back to Documents"
+msgstr ""
+
+#: web/templates/user/document_detail.html:169
+msgid "Images"
+msgstr ""
+
+#: web/templates/user/documents.html:42
+msgid "Shared articles and documents"
+msgstr ""
+
+#: web/templates/user/documents.html:49
+msgid "Back to Dashboard"
+msgstr ""
+
+#: web/templates/user/documents.html:73
+msgid "Read More"
+msgstr ""
+
+#: web/templates/user/login.html:6
+msgid "API Key Login"
+msgstr ""
+
+#: web/templates/user/login.html:69
+msgid "Remember API Key"
+msgstr ""
+
+#: web/templates/user/login.html:78
+msgid "Enter your API Key to view usage statistics"
+msgstr ""
+
+#: web/templates/user/login.html:85
+msgid "Logging in..."
+msgstr ""
+
+#: web/templates/user/tab_catalog.html:5
+msgid "Platform Providers & Models"
+msgstr ""
+
+#: web/templates/user/tab_catalog.html:9
+msgid "Loading catalog..."
+msgstr ""
+
+#: web/templates/user/tab_catalog.html:14
+msgid "Your Access"
+msgstr ""
+
+#: web/templates/user/tab_catalog.html:19
+msgid "Loading access..."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:2
+msgid "Codex Configuration"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:5
+msgid "Option 1: one-liner setup script"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:5 web/templates/user/tab_opencode.html:5
+msgid "recommended"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:6
+msgid ""
+"Codex CLI, the ChatGPT desktop app and the VS Code Codex extension share "
+"one config. The script backs up config.toml, writes the models.json "
+"catalog and merges the ModelGate entries (your MCP servers and other "
+"settings are preserved)."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:13 web/templates/user/tab_opencode.html:13
+msgid "The commands below already embed your API key."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:31
+msgid ""
+"Requires Codex installed and run at least once (the ~/.codex folder "
+"exists). macOS/Linux only needs curl."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:35
+msgid "Option 2: manual config"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:37
+msgid ""
+"Manual setup writes two files: config.toml (the provider config) and "
+"models.json (the model catalog declaring context windows and reasoning "
+"levels to Codex)."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:40
+msgid "Default model"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:42
+msgid "Switch anytime with /model inside Codex"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:46
+msgid "1. ~/.codex/config.toml"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:52
+msgid "Download config.toml"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:53
+msgid "Target folder"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:54
+msgid "Copy folder"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:56
+msgid ""
+"If config.toml already exists, merge the entries above into it (replace "
+"the whole [model_providers.modelgate] section) and keep everything else. "
+"The API key is embedded in experimental_bearer_token."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:60
+msgid "2. ~/.codex/models.json"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:61
+msgid ""
+"Generated from the models available to your API key; place it in the same"
+" folder."
+msgstr ""
+
+#: web/templates/user/tab_codex.html:62
+msgid "Download models.json"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:68
+msgid ""
+"Put both files in ~/.codex/ (Windows: %USERPROFILE%\\.codex\\); create "
+"the folder if missing"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:69
+msgid "Restart Codex (CLI / desktop / IDE extension share this config)"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:70
+msgid "Run codex to start; use /model to switch models"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:77
+msgid "Full setup instructions (send to Codex to self-configure)"
+msgstr ""
+
+#: web/templates/user/tab_codex.html:79
+msgid ""
+"Copy the instructions below and send them to Codex (or any agent); they "
+"describe every step."
+msgstr ""
+
+#: web/templates/user/tab_notifications.html:5
+msgid "Mark All Read"
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:5
+msgid "One-liner setup"
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:6
+msgid ""
+"Run the command below in a terminal on the machine where OpenCode is "
+"installed. It backs up your current config, fetches the latest ModelGate "
+"models, and writes them into your opencode.jsonc automatically."
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:31
+msgid ""
+"Requires only curl on macOS/Linux. The script prompts for the API key if "
+"it is not embedded in the URL."
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:31
+msgid ""
+"The macOS/Linux script only needs curl. If the API key is not embedded in"
+" the URL, the script will prompt for it."
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:35
+msgid "Manual setup (copy markdown)"
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:38
+msgid "Merge with existing config"
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:39
+msgid ""
+"Upload your existing opencode.jsonc to merge the latest ModelGate config "
+"into it"
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:71
+msgid "Config path: %USERPROFILE%\\\\.config\\\\opencode\\\\opencode.jsonc"
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:71
+msgid "Config path: ~/.config/opencode/opencode.jsonc"
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:87
+msgid "Copy the text below and send it to OpenCode for configuration"
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:99
+msgid "Copy the content above and send it to OpenCode"
+msgstr ""
+
+#: web/templates/user/tab_opencode.html:100
+msgid "OpenCode will automatically configure the provider"
+msgstr ""
+
+#: web/templates/user/tab_stats.html:23
+msgid "Est. Cost"
+msgstr ""
+
+#: web/templates/user/tab_stats.html:24
+msgid "Download billing details"
+msgstr ""
+
+#: web/templates/user/tab_stats.html:62
+msgid "Avg Requests/Model"
+msgstr ""
+
+#: web/templates/user/tab_stats.html:72
+msgid "Based on 7-day usage stats"
+msgstr ""
+
+#: web/templates/user/tab_stats.html:84
+msgid "Real-time busyness level"
+msgstr ""
+
+#: web/templates/user/tab_stats.html:94
+msgid "Active users (10min)"
+msgstr ""
+
+#: web/templates/user/tab_stats.html:98
+msgid "ratio"
+msgstr ""
+
+#: web/templates/user/tab_stats.html:105
+msgid "My Requests"
+msgstr ""
+
+#: web/templates/user/tab_stats.html:112
+msgid "System Active Requests"
+msgstr ""
+
+#: web/templates/user/tab_stats.html:139
+msgid "System Request Trend"
+msgstr ""
+
+#: web/templates/user/tab_stats.html:159
+msgid "System Model Usage"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:2
+msgid "How to Configure API Clients"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:5
+msgid "Model Name Format"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:6
+msgid ""
+"Use <code class=\"bg-white px-2 py-1 rounded\">provider/model</code> "
+"format"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:8
+msgid "With Provider"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:9
+msgid "Without Prefix"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:14
+msgid "OpenAI Protocol"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:15
+msgid "Anthropic Protocol"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:20 web/templates/user/tab_usage.html:164
+msgid "Basic Information"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:22
+msgid "Proxy URL"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:23 web/templates/user/tab_usage.html:167
+msgid "API Endpoint"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:24 web/templates/user/tab_usage.html:168
+msgid "Auth Header"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:32
+msgid "Python (OpenAI SDK)"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:54 web/templates/user/tab_usage.html:231
+msgid "JavaScript"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:90
+msgid "OpenCode"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:92
+msgid ""
+"Install OpenCode from <a href=\"https://opencode.ai/\" target=\"_blank\" "
+"class=\"text-blue-500 hover:underline\">opencode.ai</a>, then go to the "
+"OpenCode Config tab to get your configuration."
+msgstr ""
+
+#: web/templates/user/tab_usage.html:94
+msgid "Config file location"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:95
+msgid "Or place"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:98
+msgid "Common commands"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:99
+msgid "Start TUI"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:100
+msgid "Continue last session"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:101
+msgid "Continue specific session"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:102
+msgid "Use specific model"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:103
+msgid "Non-interactive mode"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:104
+msgid "List available models"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:105
+msgid "List all sessions"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:106
+msgid "Token usage stats"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:108
+msgid "Complete opencode.jsonc example"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:153
+msgid ""
+"<code>threshold</code>: 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 "
+"表示占用 50% 时开始压缩。"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:154
+msgid "<code>strategy</code>: summarize（摘要）/ truncate（截断）/ archive（归档）"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:155
+msgid "<code>preserveRecentMessages</code>: 压缩时保留最近 N 条消息不参与压缩（默认 10）"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:156
+msgid "<code>preserveSystemPrompt</code>: 压缩时始终保留系统提示词（默认 true）"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:169
+msgid "Required Header"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:172
+msgid ""
+"The Anthropic endpoint translates requests to OpenAI format internally. "
+"All models registered in ModelGate can be used, just use <code class"
+"=\"bg-white px-1 py-0.5 rounded\">provider/model</code> as the model "
+"name."
+msgstr ""
+
+#: web/templates/user/tab_usage.html:180
+msgid "Python (Anthropic SDK)"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:205
+msgid "Python (Streaming)"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:275
+msgid "Tool Use (Function Calling)"
 msgstr ""
 
 #~ msgid "API Proxy"
