@@ -854,7 +854,7 @@
                         ${providers.map(p => `
                             <tr class="${selectedProviderId === p.id ? 'selected' : ''}" onclick="selectProvider(${p.id})">
                                 <td>
-                                    <div class="font-semibold text-sm text-gray-800 flex items-center gap-1">${escapeHtml(p.name)} ${scheduleBadge(p.disable_schedule, p.schedule_active_now)}</div>
+                                    <div class="font-semibold text-sm text-gray-800 flex items-center gap-1">${renderProviderLight(p)}${escapeHtml(p.name)} ${scheduleBadge(p.disable_schedule, p.schedule_active_now)}</div>
                                 </td>
                                 <td>${renderProviderAvailability(p)}</td>
                                 <td><span class="status-pill neutral">${escapeHtml((p.protocol || 'openai').toUpperCase())}</span></td>
@@ -1584,6 +1584,24 @@
         function renderAvailabilityPill(isAvailable, title = '') {
             const label = isAvailable ? '可用' : '不可用';
             return `<span class="status-pill ${isAvailable ? 'ok' : 'off'}" title="${escapeAttr(title || label)}">${escapeHtml(label)}</span>`;
+        }
+
+        function renderProviderLight(p) {
+            const total = p.keys_total || 0;
+            const active = p.keys_active || 0;
+            let color, title;
+            if (!p.is_active) {
+                color = 'bg-red-500'; title = '供应商停用';
+            } else if (total === 0) {
+                color = 'bg-gray-300'; title = '无 Provider Key';
+            } else if (active === 0) {
+                color = 'bg-red-500'; title = `全部 Key 已禁用 (0/${total})`;
+            } else if (active < total) {
+                color = 'bg-yellow-400'; title = `部分 Key 已禁用 (${active}/${total} 可用)`;
+            } else {
+                color = 'bg-green-500'; title = `全部 Key 可用 (${total}/${total})`;
+            }
+            return `<span class="inline-block w-2.5 h-2.5 rounded-full shrink-0 ${color}" title="${title}"></span>`;
         }
 
         function renderProviderAvailability(provider) {

@@ -1628,28 +1628,31 @@
                     const data = await resp.json();
                     if (data && data.key) {
                         keyParam = '?key=' + encodeURIComponent(data.key);
-                        const keyEl = document.getElementById('opencode-api-key');
-                        if (keyEl) keyEl.textContent = data.key;
+                        setMaskedText('opencode-api-key', data.key);
+                        const realPs1 = `irm '${origin}${APP_BASE_PATH}/opencode/setup.ps1${keyParam}' | iex`;
+                        const realSh = `curl -fsSL '${origin}${APP_BASE_PATH}/opencode/setup.sh${keyParam}' | bash`;
+                        setMaskedCommand('ps1-cmd', realPs1, keyParam);
+                        setMaskedCommand('sh-cmd', realSh, keyParam);
                     }
                 }
             } catch (e) { /* key stays masked out of commands */ }
-            if (ps1El) ps1El.textContent = `irm '${origin}${APP_BASE_PATH}/opencode/setup.ps1${keyParam}' | iex`;
-            if (shEl) shEl.textContent = `curl -fsSL '${origin}${APP_BASE_PATH}/opencode/setup.sh${keyParam}' | bash`;
+            if (ps1El && !REAL_TEXT_OVERRIDES['ps1-cmd']) ps1El.textContent = `irm '${origin}${APP_BASE_PATH}/opencode/setup.ps1${keyParam}' | iex`;
+            if (shEl && !REAL_TEXT_OVERRIDES['sh-cmd']) shEl.textContent = `curl -fsSL '${origin}${APP_BASE_PATH}/opencode/setup.sh${keyParam}' | bash`;
         }
         
         function copyConfig(targetId) {
             const el = document.getElementById(targetId || 'config-output');
             if (!el) return;
-            const config = el.textContent;
+            const config = REAL_TEXT_OVERRIDES[targetId] || el.textContent;
             navigator.clipboard.writeText(config).then(() => alert(window.I18N.copied));
         }
 
         let _codexCtx = null;
         let _codexKey = '';
 
-        function codexTomlText(model) {
+        function codexTomlText(model, masked) {
             const baseUrl = _codexCtx ? _codexCtx.base_url : '';
-            const key = _codexKey || 'sk-...';
+            const key = _codexKey ? (masked ? maskKey(_codexKey) : _codexKey) : 'sk-...';
             return 'model = "' + model + '"\n'
                 + 'model_provider = "modelgate"\n'
                 + 'preferred_auth_method = "apikey"\n'
@@ -1667,7 +1670,10 @@
             const select = document.getElementById('codex-model-select');
             const el = document.getElementById('codex-toml');
             if (!select || !el) return;
-            if (select.value) el.textContent = codexTomlText(select.value);
+            if (select.value) {
+                el.textContent = codexTomlText(select.value, true);
+                REAL_TEXT_OVERRIDES['codex-toml'] = codexTomlText(select.value, false);
+            }
         }
 
         async function loadCodexConfig() {
@@ -1688,8 +1694,7 @@
                         if (def) select.value = def;
                     }
                     _codexKey = _codexCtx.api_key || '';
-                    const keyEl = document.getElementById('codex-api-key');
-                    if (keyEl && _codexKey) keyEl.textContent = _codexKey;
+                    setMaskedText('codex-api-key', _codexKey);
                     renderCodexToml();
                 } else if (tomlEl) {
                     tomlEl.textContent = window.I18N.loadFailed || 'Failed to load';
@@ -1710,8 +1715,10 @@
             const shEl = document.getElementById('codex-sh-cmd');
             let keyParam = '';
             if (_codexKey) keyParam = '?key=' + encodeURIComponent(_codexKey);
-            if (ps1El) ps1El.textContent = `irm '${origin}${APP_BASE_PATH}/codex/setup.ps1${keyParam}' | iex`;
-            if (shEl) shEl.textContent = `bash <(curl -fsSL '${origin}${APP_BASE_PATH}/codex/setup.sh${keyParam}')`;
+            const realPs1 = `irm '${origin}${APP_BASE_PATH}/codex/setup.ps1${keyParam}' | iex`;
+            const realSh = `bash <(curl -fsSL '${origin}${APP_BASE_PATH}/codex/setup.sh${keyParam}')`;
+            setMaskedCommand('codex-ps1-cmd', realPs1, keyParam);
+            setMaskedCommand('codex-sh-cmd', realSh, keyParam);
         }
 
         function downloadCodexToml() {
@@ -1747,10 +1754,35 @@
             }
         }
 
+        const REAL_TEXT_OVERRIDES = {};
+
+        function maskKey(key) {
+            if (!key) return key;
+            if (key.length <= 14) return key.slice(0, 4) + '****';
+            return key.slice(0, 8) + '...' + key.slice(-4);
+        }
+
+        function setMaskedText(elId, realText) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            el.textContent = maskKey(realText || '');
+            if (realText) REAL_TEXT_OVERRIDES[elId] = realText;
+            else delete REAL_TEXT_OVERRIDES[elId];
+        }
+
+        function setMaskedCommand(elId, realCommand, keyParam) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            const maskedParam = '?key=' + encodeURIComponent(maskKey(decodeURIComponent(keyParam.replace('?key=', '')) || ''));
+            el.textContent = realCommand.replace(keyParam, maskedParam);
+            if (realCommand) REAL_TEXT_OVERRIDES[elId] = realCommand;
+            else delete REAL_TEXT_OVERRIDES[elId];
+        }
+
         function copyById(id) {
             const el = document.getElementById(id);
             if (!el) return;
-            const text = el.textContent || '';
+            const text = REAL_TEXT_OVERRIDES[id] || el.textContent || '';
             navigator.clipboard.writeText(text).then(() => alert(window.I18N.copied));
         }
 

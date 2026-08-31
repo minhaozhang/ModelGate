@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Cookie, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import async_session_maker, Provider, ProviderKey
@@ -45,6 +45,17 @@ async def list_providers(_: bool = Depends(permission_required("page.providers")
     async with async_session_maker() as session:
         result = await session.execute(select(Provider))
         providers = result.scalars().all()
+        stats_result = await session.execute(
+            select(
+                ProviderKey.provider_id,
+                func.count(ProviderKey.id).label("total"),
+                func.sum(case((ProviderKey.is_active == True, 1), else_=0)).label("active"),  # noqa: E712
+            ).group_by(ProviderKey.provider_id)
+        )
+        key_stats = {
+            row.provider_id: (int(row.total), int(row.active or 0))
+            for row in stats_result
+        }
         return {
             "providers": [
                 {
@@ -57,6 +68,8 @@ async def list_providers(_: bool = Depends(permission_required("page.providers")
                     "disabled_reason": p.disabled_reason,
                     "disable_schedule": p.disable_schedule or [],
                     "schedule_active_now": schedule_active(p.disable_schedule),
+                    "keys_total": key_stats.get(p.id, (0, 0))[0],
+                    "keys_active": key_stats.get(p.id, (0, 0))[1],
                 }
                 for p in providers
             ]

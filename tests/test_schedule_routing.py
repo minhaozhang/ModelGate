@@ -7,6 +7,8 @@ from app.services import provider
 from app.services.disable_schedule import normalize_rules
 
 WEEKEND_RULE = {"type": "weekly", "days": [5, 6], "start": "00:00", "end": "00:00"}
+# 全周全天规则,任何时刻都处于禁用窗口,避免测试结果依赖运行日期
+ALWAYS_RULE = {"type": "weekly", "days": [0, 1, 2, 3, 4, 5, 6], "start": "00:00", "end": "00:00"}
 PAST_ONCE_RULE = {"type": "once", "start": "2000-01-01 00:00", "end": "2000-01-02 00:00"}
 
 
@@ -74,19 +76,19 @@ class PickApiKeyScheduleTests(unittest.TestCase):
         provider._key_sticky_map.clear()
 
     def test_scheduled_key_skipped(self):
-        pc = _provider_config([_key(1, [WEEKEND_RULE]), _key(2)])
+        pc = _provider_config([_key(1, [ALWAYS_RULE]), _key(2)])
         _, key_id = provider.pick_api_key(pc, None, "prov-x")
         self.assertEqual(key_id, 2)
 
     def test_sticky_scheduled_key_skipped(self):
-        pc = _provider_config([_key(1, [WEEKEND_RULE]), _key(2)])
+        pc = _provider_config([_key(1, [ALWAYS_RULE]), _key(2)])
         provider._key_sticky_map[(42, "prov-x")] = (1, time.monotonic())
         _, key_id = provider.pick_api_key(pc, 42, "prov-x")
         self.assertEqual(key_id, 2)
         self.assertEqual(provider._key_sticky_map[(42, "prov-x")][0], 2)
 
     def test_all_scheduled_falls_back_to_legacy(self):
-        pc = _provider_config([_key(1, [WEEKEND_RULE])], legacy="sk-legacy")
+        pc = _provider_config([_key(1, [ALWAYS_RULE])], legacy="sk-legacy")
         api_key, key_id = provider.pick_api_key(pc, None, "prov-x")
         self.assertEqual(api_key, "sk-legacy")
         self.assertIsNone(key_id)
@@ -98,7 +100,7 @@ class PickApiKeyScheduleTests(unittest.TestCase):
         self.assertIn(key_id, (1, 2))
 
     def test_explain_marks_schedule_blocked(self):
-        pc = _provider_config([_key(1, [WEEKEND_RULE]), _key(2)])
+        pc = _provider_config([_key(1, [ALWAYS_RULE]), _key(2)])
         explanation = provider.explain_provider_key_candidates(pc, None, "prov-x")
         ordered_ids = [item["key_id"] for item in explanation["ordered"]]
         self.assertEqual(ordered_ids, [2])
@@ -131,7 +133,7 @@ class ProviderScheduleRoutingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_forced_provider_blocked_returns_unroutable(self):
         cfg = _provider_config([_key(1)])
-        cfg["disable_schedule"] = [WEEKEND_RULE]
+        cfg["disable_schedule"] = [ALWAYS_RULE]
         provider.providers_cache["prov-x"] = cfg
         with patch.object(provider, "_model_name_index", {}), patch.object(
             provider, "_alias_index", {}
@@ -152,7 +154,7 @@ class ProviderScheduleRoutingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_explain_filters_scheduled_provider(self):
         cfg = _provider_config([_key(1)])
-        cfg["disable_schedule"] = [WEEKEND_RULE]
+        cfg["disable_schedule"] = [ALWAYS_RULE]
         provider.providers_cache["prov-x"] = cfg
         pm = {"id": 9, "model_name": "gpt", "model_id": 1, "upstream_model_name": "gpt"}
         with patch.object(
