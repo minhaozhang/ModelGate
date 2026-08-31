@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-31 21:06+0800\n"
+"POT-Creation-Date: 2026-08-31 22:57+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -116,11 +116,11 @@ msgstr ""
 #: web/templates/user/tab_codex.html:82 web/templates/user/tab_opencode.html:11
 #: web/templates/user/tab_opencode.html:20
 #: web/templates/user/tab_opencode.html:27
-#: web/templates/user/tab_opencode.html:91 web/templates/user/tab_usage.html:35
-#: web/templates/user/tab_usage.html:57 web/templates/user/tab_usage.html:79
-#: web/templates/user/tab_usage.html:183 web/templates/user/tab_usage.html:208
-#: web/templates/user/tab_usage.html:234 web/templates/user/tab_usage.html:259
-#: web/templates/user/tab_usage.html:278
+#: web/templates/user/tab_opencode.html:91 web/templates/user/tab_usage.html:36
+#: web/templates/user/tab_usage.html:58 web/templates/user/tab_usage.html:80
+#: web/templates/user/tab_usage.html:172 web/templates/user/tab_usage.html:197
+#: web/templates/user/tab_usage.html:223 web/templates/user/tab_usage.html:248
+#: web/templates/user/tab_usage.html:267
 msgid "Copy"
 msgstr ""
 
@@ -504,7 +504,7 @@ msgstr ""
 msgid "Add Provider"
 msgstr ""
 
-#: web/templates/admin/config.html:488 web/templates/user/tab_usage.html:166
+#: web/templates/admin/config.html:488 web/templates/user/tab_usage.html:155
 msgid "Base URL"
 msgstr ""
 
@@ -2042,7 +2042,7 @@ msgstr ""
 msgid "Copy the generated"
 msgstr ""
 
-#: web/templates/public/opencode.html:79 web/templates/user/tab_usage.html:95
+#: web/templates/public/opencode.html:79 web/templates/user/tab_usage.html:96
 msgid "in your project root"
 msgstr ""
 
@@ -2778,148 +2778,161 @@ msgstr ""
 
 #: web/templates/user/tab_usage.html:6
 msgid ""
-"Use <code class=\"bg-white px-2 py-1 rounded\">provider/model</code> "
-"format"
+"Use the model name directly, same as shown in the model list and <code "
+"class=\"bg-white px-2 py-1 rounded\">/v1/models</code>:"
 msgstr ""
 
 #: web/templates/user/tab_usage.html:8
-msgid "With Provider"
+msgid "Recommended"
 msgstr ""
 
 #: web/templates/user/tab_usage.html:9
-msgid "Without Prefix"
+msgid "Pin a provider (optional)"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:14
-msgid "OpenAI Protocol"
+#: web/templates/user/tab_usage.html:11
+msgid ""
+"A plain model name auto-routes to an available provider. Add the <code "
+"class=\"bg-white px-1 py-0.5 rounded\">provider/</code> prefix only to "
+"force a specific one."
 msgstr ""
 
 #: web/templates/user/tab_usage.html:15
+msgid "OpenAI Protocol"
+msgstr ""
+
+#: web/templates/user/tab_usage.html:16
 msgid "Anthropic Protocol"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:20 web/templates/user/tab_usage.html:164
+#: web/templates/user/tab_usage.html:21 web/templates/user/tab_usage.html:153
 msgid "Basic Information"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:22
+#: web/templates/user/tab_usage.html:23
 msgid "Proxy URL"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:23 web/templates/user/tab_usage.html:167
+#: web/templates/user/tab_usage.html:24 web/templates/user/tab_usage.html:156
 msgid "API Endpoint"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:24 web/templates/user/tab_usage.html:168
+#: web/templates/user/tab_usage.html:25 web/templates/user/tab_usage.html:157
 msgid "Auth Header"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:32
+#: web/templates/user/tab_usage.html:33
 msgid "Python (OpenAI SDK)"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:54 web/templates/user/tab_usage.html:231
+#: web/templates/user/tab_usage.html:55 web/templates/user/tab_usage.html:220
 msgid "JavaScript"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:90
+#: web/templates/user/tab_usage.html:91
 msgid "OpenCode"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:92
+#: web/templates/user/tab_usage.html:93
 msgid ""
 "Install OpenCode from <a href=\"https://opencode.ai/\" target=\"_blank\" "
 "class=\"text-blue-500 hover:underline\">opencode.ai</a>, then go to the "
 "OpenCode Config tab to get your configuration."
 msgstr ""
 
-#: web/templates/user/tab_usage.html:94
+#: web/templates/user/tab_usage.html:95
 msgid "Config file location"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:95
+#: web/templates/user/tab_usage.html:96
 msgid "Or place"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:98
+#: web/templates/user/tab_usage.html:99
 msgid "Common commands"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:99
+#: web/templates/user/tab_usage.html:100
 msgid "Start TUI"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:100
+#: web/templates/user/tab_usage.html:101
 msgid "Continue last session"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:101
+#: web/templates/user/tab_usage.html:102
 msgid "Continue specific session"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:102
+#: web/templates/user/tab_usage.html:103
 msgid "Use specific model"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:103
+#: web/templates/user/tab_usage.html:104
 msgid "Non-interactive mode"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:104
+#: web/templates/user/tab_usage.html:105
 msgid "List available models"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:105
+#: web/templates/user/tab_usage.html:106
 msgid "List all sessions"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:106
+#: web/templates/user/tab_usage.html:107
 msgid "Token usage stats"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:108
+#: web/templates/user/tab_usage.html:109
 msgid "Complete opencode.jsonc example"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:153
+#: web/templates/user/tab_usage.html:110
+msgid ""
+"Tip: the OpenCode Config tab generates this file from your accessible "
+"models — copying from there is recommended."
+msgstr ""
+
+#: web/templates/user/tab_usage.html:142
 msgid ""
 "<code>threshold</code>: 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 "
 "表示占用 50% 时开始压缩。"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:154
+#: web/templates/user/tab_usage.html:143
 msgid "<code>strategy</code>: summarize（摘要）/ truncate（截断）/ archive（归档）"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:155
+#: web/templates/user/tab_usage.html:144
 msgid "<code>preserveRecentMessages</code>: 压缩时保留最近 N 条消息不参与压缩（默认 10）"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:156
+#: web/templates/user/tab_usage.html:145
 msgid "<code>preserveSystemPrompt</code>: 压缩时始终保留系统提示词（默认 true）"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:169
+#: web/templates/user/tab_usage.html:158
 msgid "Required Header"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:172
+#: web/templates/user/tab_usage.html:161
 msgid ""
 "The Anthropic endpoint translates requests to OpenAI format internally. "
-"All models registered in ModelGate can be used, just use <code class"
-"=\"bg-white px-1 py-0.5 rounded\">provider/model</code> as the model "
-"name."
+"All models in your model list can be used — just pass the model name; "
+"<code class=\"bg-white px-1 py-0.5 rounded\">provider/model</code> also "
+"works to pin a specific provider."
 msgstr ""
 
-#: web/templates/user/tab_usage.html:180
+#: web/templates/user/tab_usage.html:169
 msgid "Python (Anthropic SDK)"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:205
+#: web/templates/user/tab_usage.html:194
 msgid "Python (Streaming)"
 msgstr ""
 
-#: web/templates/user/tab_usage.html:275
+#: web/templates/user/tab_usage.html:264
 msgid "Tool Use (Function Calling)"
 msgstr ""
 
