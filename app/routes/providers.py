@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.database import async_session_maker, Provider, ProviderKey
 from app.core.permissions import permission_required, login_required
-from app.services.provider import load_providers
+from app.services.provider import invalidate_provider_sticky_cache, load_providers
 from app.services.disable_schedule import normalize_rules, schedule_active
 from app.services.key_health import compute_health_score, get_health_level, get_events_5m
 
@@ -352,6 +352,21 @@ async def update_provider_key(
             from app.services.provider_limiter import cancel_reenable_job
 
             cancel_reenable_job("key", key_id)
+        ordering_fields = (
+            "priority",
+            "max_concurrent",
+            "cost_role",
+            "is_active",
+            "api_key",
+            "disable_schedule",
+        )
+        if any(field in data.model_fields_set for field in ordering_fields):
+            name_result = await session.execute(
+                select(Provider.name).where(Provider.id == provider_id)
+            )
+            provider_name = name_result.scalar_one_or_none()
+            if provider_name:
+                await invalidate_provider_sticky_cache(provider_name)
         await load_providers()
         return {"id": pk.id}
 

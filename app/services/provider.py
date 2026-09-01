@@ -316,6 +316,14 @@ async def invalidate_provider_key_sticky_cache(
         _key_sticky_map.pop(sticky_key, None)
 
 
+async def invalidate_provider_sticky_cache(provider_name: str) -> None:
+    stale_keys = [
+        sticky_key for sticky_key in _key_sticky_map if sticky_key[1] == provider_name
+    ]
+    for sticky_key in stale_keys:
+        _key_sticky_map.pop(sticky_key, None)
+
+
 def parse_model(model: str) -> tuple[str, str]:
     if "/" in model:
         parts = model.split("/", 1)
