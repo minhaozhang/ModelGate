@@ -8,6 +8,13 @@ import app.core.config as config
 
 from app.services.proxy_runtime.adapters.base import ProviderAdapter
 
+_CONTEXT_OVERFLOW_MARKERS = (
+    "prompt is too long",
+    "exceed context limit",
+    "context length",
+    "context window",
+)
+
 
 ANTHROPIC_VERSION = "2023-06-01"
 
@@ -385,18 +392,29 @@ class AnthropicAdapter(ProviderAdapter):
     def transform_error_response(self, resp_json: dict, status_code: int) -> dict:
         error = resp_json.get("error", {})
         if isinstance(error, dict):
-            return {
-                "error": {
-                    "message": error.get("message", str(resp_json)),
-                    "type": error.get("type", "api_error"),
-                    "code": str(status_code),
-                }
-            }
+            message = error.get("message", str(resp_json))
+            err_type = error.get("type", "api_error")
+        else:
+            message = str(resp_json)
+            err_type = "api_error"
+        code = str(status_code)
+        if (
+            status_code == 400
+            and isinstance(message, str)
+            and any(
+                marker in message.lower()
+                for marker in _CONTEXT_OVERFLOW_MARKERS
+            )
+        ):
+            # Anthropic overflow errors carry no machine-readable code. Restore
+            # the OpenAI-style signature so downstream agents (Codex, opencode)
+            # still trigger auto-compaction after protocol conversion.
+            code = "context_length_exceeded"
         return {
             "error": {
-                "message": str(resp_json),
-                "type": "api_error",
-                "code": str(status_code),
+                "message": message,
+                "type": err_type if isinstance(err_type, str) and err_type else "api_error",
+                "code": code,
             }
         }
 
