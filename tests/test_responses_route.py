@@ -205,6 +205,88 @@ class ResponsesRouteTests(unittest.TestCase):
         resp = self.client.options("/v1/responses")
         self.assertEqual(resp.status_code, 200)
 
+    def test_p10_stream_hard_limit_becomes_failed_event(self):
+        """Streaming clients get a response.failed SSE event, not HTTP 400 JSON.
+
+        Codex only triggers auto-compaction when it sees context_length_exceeded
+        inside a response.failed stream event.
+        """
+        error_payload = {
+            "error": {
+                "message": (
+                    "This model's maximum context length is 128000 tokens. "
+                    "However, your messages resulted in ~200000 tokens. "
+                    "Please reduce the length of the messages or compact the conversation."
+                ),
+                "type": "invalid_request_error",
+                "code": "context_length_exceeded",
+            }
+        }
+        capture = self._capture(
+            Response(
+                json.dumps(error_payload), status_code=400, media_type="application/json"
+            )
+        )
+        body = {
+            "model": "m",
+            "input": "hi",
+            "stream": True,
+        }
+        with patch.object(responses_proxy, "proxy_request", capture):
+            resp = self.client.post(
+                "/v1/responses", json=body, headers={"Authorization": "Bearer sk-test"}
+            )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.headers["content-type"].startswith("text/event-stream"))
+        self.assertIn("event: response.failed", resp.text)
+        data_line = next(
+            line for line in resp.text.splitlines() if line.startswith("data: ")
+        )
+        event = json.loads(data_line[len("data: "):])
+        self.assertEqual(event["type"], "response.failed")
+        self.assertEqual(event["response"]["status"], "failed")
+        self.assertEqual(
+            event["response"]["error"]["code"], "context_length_exceeded"
+        )
+        self.assertIn("maximum context length", event["response"]["error"]["message"])
+
+    def test_p11_non_stream_hard_limit_stays_http_400(self):
+        error_payload = {
+            "error": {
+                "message": "This model's maximum context length is 128000 tokens.",
+                "type": "invalid_request_error",
+                "code": "context_length_exceeded",
+            }
+        }
+        capture = self._capture(
+            Response(
+                json.dumps(error_payload), status_code=400, media_type="application/json"
+            )
+        )
+        with patch.object(responses_proxy, "proxy_request", capture):
+            resp = self.client.post(
+                "/v1/responses", json={"model": "m", "input": "hi"}, headers={"Authorization": "Bearer sk-test"}
+            )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()["error"]["code"], "context_length_exceeded")
+
+    def test_p12_stream_other_400_stays_http_400(self):
+        error_payload = {
+            "error": {"message": "Bad param", "type": "invalid_request_error", "code": None}
+        }
+        capture = self._capture(
+            Response(
+                json.dumps(error_payload), status_code=400, media_type="application/json"
+            )
+        )
+        body = {"model": "m", "input": "hi", "stream": True}
+        with patch.object(responses_proxy, "proxy_request", capture):
+            resp = self.client.post(
+                "/v1/responses", json=body, headers={"Authorization": "Bearer sk-test"}
+            )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.json())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,6 +11,8 @@ The gateway is stateless: ``GET/DELETE /v1/responses/{id}``` always 404s and
 from __future__ import annotations
 
 import json
+import time
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -48,6 +50,65 @@ def _responses_error_response(
     return JSONResponse(
         content=build_responses_error(message, status_code, error_type, code),
         status_code=status_code,
+    )
+
+
+def _is_context_length_error(response: Response) -> bool:
+    """True when the proxied response is the chat-path hard-limit 400."""
+    if (response.status_code or 200) != 400:
+        return False
+    body_bytes = getattr(response, "body", None)
+    if not body_bytes:
+        return False
+    try:
+        payload = json.loads(body_bytes)
+    except json.JSONDecodeError:
+        return False
+    error = payload.get("error") if isinstance(payload, dict) else None
+    return isinstance(error, dict) and error.get("code") == "context_length_exceeded"
+
+
+def _context_length_failed_stream(response: Response) -> Response:
+    """Wrap the hard-limit 400 as a ``response.failed`` SSE stream.
+
+    Codex-class clients only recognise context-window exhaustion from a
+    ``response.failed`` stream event carrying ``error.code =
+    "context_length_exceeded"`` (codex-rs sse/responses.rs); an HTTP 400 JSON
+    body is treated as a generic request failure and never triggers
+    auto-compaction. Emit the same shape OpenAI produces for stream requests.
+    """
+    body_bytes = getattr(response, "body", None)
+    try:
+        payload = json.loads(body_bytes) if body_bytes else {}
+    except json.JSONDecodeError:
+        payload = {}
+    error = payload.get("error") if isinstance(payload, dict) else None
+    message = str(error.get("message") or "") if isinstance(error, dict) else ""
+    if not message:
+        message = "Your input exceeds the context window of this model. Please adjust your input and try again."
+    failed_event = {
+        "type": "response.failed",
+        "sequence_number": 1,
+        "response": {
+            "id": "resp_" + uuid.uuid4().hex[:24],
+            "object": "response",
+            "created_at": int(time.time()),
+            "status": "failed",
+            "background": False,
+            "error": {"code": "context_length_exceeded", "message": message},
+            "usage": None,
+            "user": None,
+            "metadata": {},
+        },
+    }
+    sse_body = (
+        "event: response.failed\n"
+        f"data: {json.dumps(failed_event, ensure_ascii=False)}\n\n"
+    )
+    return Response(
+        content=sse_body.encode("utf-8"),
+        status_code=200,
+        media_type="text/event-stream",
     )
 
 
@@ -154,6 +215,8 @@ async def create_response(request: Request):
 
     if isinstance(proxied, StreamingResponse):
         return _translate_streaming_response(proxied, requested_model)
+    if responses_body.get("stream") and _is_context_length_error(proxied):
+        return _context_length_failed_stream(proxied)
     return await _translate_non_streaming_response(proxied, requested_model)
 
 
