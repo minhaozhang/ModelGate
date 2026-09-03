@@ -207,7 +207,11 @@ async def build_opencode_config(
 
         display_name = model.display_name or model.name
         max_output = model.max_tokens or 131072
-        context_window = model.context_length or 204800
+        context_window = (
+            getattr(model, "context_hard_limit", None)
+            or model.context_length
+            or 204800
+        )
 
         input_modalities = ["text"]
         if model.is_multimodal:
@@ -272,7 +276,12 @@ async def build_opencode_config(
 
     if auto_enabled and accessible_auto_candidates:
         auto_context = max(
-            (model.context_length or 204800) for _pm, model in accessible_auto_candidates
+            (
+                getattr(model, "context_hard_limit", None)
+                or model.context_length
+                or 204800
+            )
+            for _pm, model in accessible_auto_candidates
         )
         auto_output = max(
             (model.max_tokens or 131072) for _pm, model in accessible_auto_candidates

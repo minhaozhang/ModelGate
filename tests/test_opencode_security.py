@@ -335,6 +335,147 @@ class OpenCodeAutoModelTests(unittest.IsolatedAsyncioTestCase):
         models = config["provider"]["modelgate"]["models"]
         self.assertNotIn("auto", models)
 
+    async def test_opencode_config_context_hard_limit_wins(self):
+        """Client config context_window = hard_limit ?? context_length ?? default.
+
+        Agents compact proactively at context_window - margin; without this the
+        hard-limit backstop (400 context_length_exceeded) fires on every turn
+        once past the hard limit.
+        """
+        key = SimpleNamespace(id=7, key="sk-test")
+        provider = SimpleNamespace(id=1, is_active=True)
+        model_hard = SimpleNamespace(
+            id=101,
+            name="glm-5",
+            display_name="GLM 5",
+            is_multimodal=False,
+            max_tokens=8192,
+            context_length=200000,
+            context_hard_limit=100000,
+            thinking_enabled=False,
+            reasoning_effort=None,
+        )
+        model_plain = SimpleNamespace(
+            id=102,
+            name="glm-5-air",
+            display_name="GLM 5 Air",
+            is_multimodal=False,
+            max_tokens=8192,
+            context_length=128000,
+            context_hard_limit=None,
+            thinking_enabled=False,
+            reasoning_effort=None,
+        )
+        pm_hard = SimpleNamespace(
+            id=11, provider_id=1, model_id=101, priority=1, is_active=True
+        )
+        pm_plain = SimpleNamespace(
+            id=12, provider_id=1, model_id=102, priority=1, is_active=True
+        )
+        auto_model = SimpleNamespace(
+            id=16,
+            name="auto",
+            display_name="auto",
+            is_multimodal=False,
+            context_length=204800,
+            max_tokens=131072,
+        )
+        auto_route = SimpleNamespace(
+            enabled=False,
+            model_ids=[],
+            provider_model_ids=[],
+            route_policy={},
+        )
+        session = _SequencedSession(
+            [
+                _FakeScalarResult(one=key),
+                _FakeScalarResult(values=[]),
+                _FakeScalarResult(rows=[]),
+                _FakeScalarResult(rows=[(auto_model, auto_route)]),
+                _FakeScalarResult(values=[pm_hard, pm_plain]),
+                _FakeScalarResult(one=provider),
+                _FakeScalarResult(one=model_hard),
+                _FakeScalarResult(one=provider),
+                _FakeScalarResult(one=model_plain),
+            ]
+        )
+
+        config = await opencode.build_opencode_config(
+            session, "https://leturx.cc/modelgate/v1", api_key_id=7
+        )
+
+        models = config["provider"]["modelgate"]["models"]
+        self.assertEqual(models["glm-5"]["limit"]["context"], 100000)
+        self.assertEqual(models["glm-5-air"]["limit"]["context"], 128000)
+
+    async def test_opencode_config_auto_uses_hard_limit_for_candidates(self):
+        key = SimpleNamespace(id=7, key="sk-test")
+        provider = SimpleNamespace(id=1, is_active=True)
+        model_hard = SimpleNamespace(
+            id=101,
+            name="glm-5",
+            display_name="GLM 5",
+            is_multimodal=False,
+            max_tokens=8192,
+            context_length=200000,
+            context_hard_limit=100000,
+            thinking_enabled=False,
+            reasoning_effort=None,
+        )
+        model_plain = SimpleNamespace(
+            id=102,
+            name="glm-5-air",
+            display_name="GLM 5 Air",
+            is_multimodal=False,
+            max_tokens=8192,
+            context_length=128000,
+            context_hard_limit=None,
+            thinking_enabled=False,
+            reasoning_effort=None,
+        )
+        pm_hard = SimpleNamespace(
+            id=11, provider_id=1, model_id=101, priority=1, is_active=True
+        )
+        pm_plain = SimpleNamespace(
+            id=12, provider_id=1, model_id=102, priority=1, is_active=True
+        )
+        auto_model = SimpleNamespace(
+            id=16,
+            name="auto",
+            display_name="auto",
+            is_multimodal=False,
+            context_length=204800,
+            max_tokens=131072,
+        )
+        auto_route = SimpleNamespace(
+            enabled=True,
+            model_ids=[101, 102],
+            provider_model_ids=[],
+            route_policy={},
+        )
+        session = _SequencedSession(
+            [
+                _FakeScalarResult(one=key),
+                _FakeScalarResult(values=[]),
+                _FakeScalarResult(rows=[]),
+                _FakeScalarResult(rows=[(auto_model, auto_route)]),
+                _FakeScalarResult(values=[pm_hard, pm_plain]),
+                _FakeScalarResult(values=[pm_hard, pm_plain]),
+                _FakeScalarResult(one=provider),
+                _FakeScalarResult(one=model_hard),
+                _FakeScalarResult(one=provider),
+                _FakeScalarResult(one=model_plain),
+            ]
+        )
+
+        config = await opencode.build_opencode_config(
+            session, "https://leturx.cc/modelgate/v1", api_key_id=7
+        )
+
+        models = config["provider"]["modelgate"]["models"]
+        # max over per-model effective limits (100000, 128000)
+        self.assertEqual(models["auto"]["limit"]["context"], 128000)
+
 
 if __name__ == "__main__":
     unittest.main()
