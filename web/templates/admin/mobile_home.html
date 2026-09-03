@@ -21,6 +21,8 @@
         body.theme-dark .bg-green-100 { background: rgba(34, 197, 94, 0.18) !important; }
         body.theme-dark .bg-red-100 { background: rgba(239, 68, 68, 0.18) !important; }
         body.theme-dark .bg-amber-50 { background: rgba(245, 158, 11, 0.10) !important; }
+body.theme-dark .bg-indigo-100 { background: rgba(99, 102, 241, 0.18) !important; }
+body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         body.theme-dark .border-amber-300 { border-color: rgba(245, 158, 11, 0.25) !important; }
         body.theme-dark .text-amber-800 { color: #fde68a !important; }
         body.theme-dark .text-amber-900 { color: #fef3c7 !important; }
@@ -1085,11 +1087,15 @@
                 const sc = statusStyles[log.status] || 'bg-gray-200 text-gray-600';
                 const time = formatLogTime(log.created_at);
                 const code = log.downstream_status_code ?? '-';
+                const proto = (log.inbound_protocol && log.inbound_protocol !== 'openai')
+                    ? `<span class="px-1.5 py-0.5 rounded text-[9px] bg-indigo-100 text-indigo-700 shrink-0">${esc(log.inbound_protocol)}</span>`
+                    : '';
                 const errMsg = log.error ? `<div class="text-red-400 break-words">${esc(String(log.error).substring(0, 300))}</div>` : '';
                 return `<div class="bg-white rounded-xl p-3" onclick="var d=this.querySelector('.log-detail');if(d)d.classList.toggle('hidden')">
                     <div class="flex items-center gap-2 text-[11px]">
                         <span class="text-gray-400 shrink-0">${time}</span>
                         <span class="font-medium text-gray-800 truncate flex-1">${esc(log.model || '-')}</span>
+                        ${proto}
                         <span class="px-1.5 py-0.5 rounded text-[9px] ${sc} shrink-0">${esc(log.status)}</span>
                     </div>
                     <div class="flex items-center gap-3 text-[10px] text-gray-500 mt-1">
@@ -1098,7 +1104,9 @@
                         <span class="shrink-0 ml-auto">${formatLatency(log.latency_ms)}</span>
                     </div>
                     <div class="log-detail hidden mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-500 space-y-1">
-                        <div>${esc(log.provider || '-')} &middot; tokens: ${log.tokens ?? '-'}</div>
+                        <div>${esc(log.provider || '-')} &middot; ${esc(log.inbound_protocol || 'openai')} &middot; tokens: ${log.tokens ?? '-'}</div>
+                        <div class="font-mono break-all">${esc(log.client_ip || '-')}</div>
+                        <div class="break-all">${esc(String(log.user_agent || '-').substring(0, 300))}</div>
                         ${errMsg}
                     </div>
                 </div>`;
