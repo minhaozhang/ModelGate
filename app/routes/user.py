@@ -848,11 +848,12 @@ async def get_user_stats(
             )
             total_errors = errors_result.scalar() or 0
 
+            model_group_expr = user_stats_model_expr(
+                RequestLog.model, RequestLog.requested_model
+            )
             model_stats_result = await session.execute(
                 select(
-                    user_stats_model_expr(
-                        RequestLog.model, RequestLog.requested_model
-                    ).label("model_name"),
+                    model_group_expr.label("model_name"),
                     func.count(RequestLog.id).label("count"),
                     func.sum(
                         func.coalesce(
@@ -868,11 +869,7 @@ async def get_user_stats(
                 .where(
                     RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
                 )
-                .group_by(
-                    user_stats_model_expr(
-                        RequestLog.model, RequestLog.requested_model
-                    )
-                )
+                .group_by(model_group_expr)
             )
             model_stats_rows = model_stats_result.fetchall()
             model_stats = {
@@ -1406,11 +1403,12 @@ async def get_system_model_stats(
                         if row.status in ERROR_STATUSES:
                             trend_data[label]["errors"] += 1
         else:
+            user_model_group_expr = provider_stats_model_expr(
+                RequestLog.model, RequestLog.actual_model
+            )
             result = await session.execute(
                 select(
-                    provider_stats_model_expr(
-                        RequestLog.model, RequestLog.actual_model
-                    ).label("model_name"),
+                    user_model_group_expr.label("model_name"),
                     func.count(RequestLog.id).label("count"),
                     func.sum(
                         func.coalesce(
@@ -1421,11 +1419,7 @@ async def get_system_model_stats(
                     ).label("tokens"),
                 )
                 .where(RequestLog.created_at >= start)
-                .group_by(
-                    provider_stats_model_expr(
-                        RequestLog.model, RequestLog.actual_model
-                    )
-                )
+                .group_by(user_model_group_expr)
             )
             rows = result.fetchall()
             models = {

@@ -398,11 +398,12 @@ async def get_api_key_stats(
         )
         total_errors = errors_result.scalar() or 0
 
+        key_model_group_expr = user_stats_model_expr(
+            RequestLog.model, RequestLog.requested_model
+        )
         model_stats_result = await session.execute(
             select(
-                user_stats_model_expr(
-                    RequestLog.model, RequestLog.requested_model
-                ).label("model_name"),
+                key_model_group_expr.label("model_name"),
                 func.count(RequestLog.id).label("count"),
                 func.sum(RequestLog.tokens["total_tokens"].as_integer()).label(
                     "tokens"
@@ -412,9 +413,7 @@ async def get_api_key_stats(
                 RequestLog.api_key_id == key_id,
                 RequestLog.created_at >= cutoff,
             )
-            .group_by(
-                user_stats_model_expr(RequestLog.model, RequestLog.requested_model)
-            )
+            .group_by(key_model_group_expr)
         )
         model_stats = {
             row.model_name: {"requests": row.count, "tokens": row.tokens or 0}

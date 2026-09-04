@@ -1039,11 +1039,12 @@ async def get_monitor_details(
         )
         api_key_rows = api_key_rows_result.fetchall()
 
+        model_group_expr = provider_stats_model_expr(
+            RequestLog.model, RequestLog.actual_model
+        )
         model_rows_result = await session.execute(
             select(
-                provider_stats_model_expr(
-                    RequestLog.model, RequestLog.actual_model
-                ).label("group_key"),
+                model_group_expr.label("group_key"),
                 func.count(RequestLog.id).label("requests"),
                 func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label(
                     "errors"
@@ -1056,9 +1057,7 @@ async def get_monitor_details(
                 ).label("rate_limited"),
             )
             .where(RequestLog.created_at >= start)
-            .group_by(
-                provider_stats_model_expr(RequestLog.model, RequestLog.actual_model)
-            )
+            .group_by(model_group_expr)
         )
         model_rows = model_rows_result.fetchall()
 
@@ -1110,11 +1109,12 @@ async def get_monitor_details(
             elif log.status == TIMEOUT_STATUS:
                 trend_data[label]["timeouts"] += 1
 
+        top_model_group_expr = provider_stats_model_expr(
+            RequestLog.model, RequestLog.actual_model
+        )
         top_models_result = await session.execute(
             select(
-                provider_stats_model_expr(
-                    RequestLog.model, RequestLog.actual_model
-                ).label("model_name"),
+                top_model_group_expr.label("model_name"),
                 func.count(RequestLog.id).label("requests"),
             )
             .where(
@@ -1123,9 +1123,7 @@ async def get_monitor_details(
                 RequestLog.status != "pending",
                 RequestLog.model.is_not(None),
             )
-            .group_by(
-                provider_stats_model_expr(RequestLog.model, RequestLog.actual_model)
-            )
+            .group_by(top_model_group_expr)
             .order_by(func.count(RequestLog.id).desc())
             .limit(8)
         )
@@ -1146,11 +1144,12 @@ async def get_monitor_details(
                 }
                 for model in top_models
             }
+            latency_group_expr = provider_stats_model_expr(
+                RequestLog.model, RequestLog.actual_model
+            )
             latency_rows_result = await session.execute(
                 select(
-                    provider_stats_model_expr(
-                        RequestLog.model, RequestLog.actual_model
-                    ).label("model_name"),
+                    latency_group_expr.label("model_name"),
                     func.extract("hour", RequestLog.created_at).label("hour_of_day"),
                     func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
                     func.percentile_cont(0.95)
@@ -1162,18 +1161,16 @@ async def get_monitor_details(
                 )
                 .where(
                     RequestLog.created_at >= start,
-                    provider_stats_model_expr(
-                        RequestLog.model, RequestLog.actual_model
-                    ).in_(top_models),
+                    latency_group_expr.in_(top_models),
                     RequestLog.latency_ms.is_not(None),
                     RequestLog.status != "pending",
                 )
                 .group_by(
-                    provider_stats_model_expr(RequestLog.model, RequestLog.actual_model),
+                    latency_group_expr,
                     func.extract("hour", RequestLog.created_at),
                 )
                 .order_by(
-                    provider_stats_model_expr(RequestLog.model, RequestLog.actual_model),
+                    latency_group_expr,
                     func.extract("hour", RequestLog.created_at),
                 )
             )
