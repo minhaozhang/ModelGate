@@ -1,0 +1,40 @@
+/* ModelGate user-side ambient background (dark theme only).
+   Deep-space style adapted from design/homepage/index-c.html. */
+
+#particle-bg-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    display: none;
+}
+
+.particle-scan-line {
+    position: fixed;
+    left: 0;
+    right: 0;
+    height: 1px;
+    z-index: 0;
+    pointer-events: none;
+    display: none;
+    background: linear-gradient(90deg, transparent 0%, rgba(129, 140, 248, 0.15) 30%, rgba(129, 140, 248, 0.3) 50%, rgba(129, 140, 248, 0.15) 70%, transparent 100%);
+    animation: particleScanDown 8s linear infinite;
+}
+
+@keyframes particleScanDown {
+    0% { top: -2px; opacity: 0; }
+    5% { opacity: 1; }
+    95% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+}
+
+body.has-particle-bg #particle-bg-canvas { display: block; }
+body.has-particle-bg .particle-scan-line { display: block; }
+
+/* Keep page content above the ambient layer. */
+body.has-particle-bg .container { position: relative; z-index: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+    #particle-bg-canvas,
+    .particle-scan-line { display: none !important; }
+}

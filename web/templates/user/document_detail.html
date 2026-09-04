@@ -6,6 +6,8 @@
     <title>{{ doc.title }} - ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/output.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/particle-bg.css?v={{ css_version }}">
+    <script src="/static/js/particle-bg.js?v={{ css_version }}"></script>
     <style>
         .markdown-body { line-height: 1.75; font-size: 0.95rem; }
         .markdown-body h1 { font-size: 1.75rem; font-weight: 700; margin: 1.5rem 0 0.75rem; padding-bottom: 0.3rem; border-bottom: 1px solid #e5e7eb; }
@@ -25,23 +27,23 @@
         .markdown-body th { background: #f8fafc; font-weight: 600; }
         .markdown-body img { max-width: 100%; border-radius: 0.5rem; }
         .markdown-body hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
-        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
-        body.theme-dark .bg-white { background: #0f172a !important; }
-        body.theme-dark .bg-gray-100 { background: #020617 !important; }
-        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
-        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
-        body.theme-dark .text-gray-700 { color: #cbd5e1 !important; }
-        body.theme-dark .border-gray-200 { border-color: #243244 !important; }
-        body.theme-dark select, body.theme-dark button:not(.bg-blue-600) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
-        body.theme-dark .shadow { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45) !important; }
-        body.theme-dark .bg-white.rounded-lg { border: 1px solid rgba(71, 85, 105, 0.55) !important; }
-        body.theme-dark .markdown-body h1 { border-bottom-color: #334155; }
-        body.theme-dark .markdown-body blockquote { background: rgba(59, 130, 246, 0.08); color: #94a3b8; }
-        body.theme-dark .markdown-body :not(pre) > code { background: #1e293b; color: #f472b6; }
-        body.theme-dark .markdown-body th { background: #1e293b; }
-        body.theme-dark .markdown-body th, body.theme-dark .markdown-body td { border-color: #334155; }
-        body.theme-dark .markdown-body hr { border-top-color: #334155; }
-        body.theme-dark .markdown-body pre { border: 1px solid rgba(71, 85, 105, 0.6); }
+        body.theme-dark { background: #050508 !important; color: #ededf8; }
+        body.theme-dark .bg-white { background: rgba(235, 234, 250, 0.03) !important; }
+        body.theme-dark .bg-gray-100 { background: #050508 !important; }
+        body.theme-dark .text-gray-800 { color: #ededf8 !important; }
+        body.theme-dark .text-gray-500 { color: #ededf8a3 !important; }
+        body.theme-dark .text-gray-700 { color: #ededf8b8 !important; }
+        body.theme-dark .border-gray-200 { border-color: rgba(235, 234, 250, 0.08) !important; }
+        body.theme-dark select, body.theme-dark button:not(.bg-blue-600) { background-color: #0a0a12; color: #ededf8b8; border-color: rgba(235, 234, 250, 0.14); }
+        body.theme-dark .shadow { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55) !important; }
+        body.theme-dark .bg-white.rounded-lg { border: 1px solid rgba(235, 234, 250, 0.08) !important; box-shadow: 0 18px 36px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(235, 234, 250, 0.06) !important; }
+        body.theme-dark .markdown-body h1 { border-bottom-color: rgba(235, 234, 250, 0.14); }
+        body.theme-dark .markdown-body blockquote { background: rgba(129, 140, 248, 0.08); color: #ededf8a3; }
+        body.theme-dark .markdown-body :not(pre) > code { background: rgba(235, 234, 250, 0.06); color: #c4b5fd; }
+        body.theme-dark .markdown-body th { background: rgba(235, 234, 250, 0.05); }
+        body.theme-dark .markdown-body th, body.theme-dark .markdown-body td { border-color: rgba(235, 234, 250, 0.14); }
+        body.theme-dark .markdown-body hr { border-top-color: rgba(235, 234, 250, 0.14); }
+        body.theme-dark .markdown-body pre { border: 1px solid rgba(235, 234, 250, 0.14); }
 
         body.theme-blackgold { background: #09090b !important; color: #fafaf9; }
         body.theme-blackgold .bg-white { background: #1a1814 !important; }
@@ -61,7 +63,7 @@
         body.theme-blackgold .markdown-body hr { border-top-color: rgba(212, 168, 83, 0.22); }
         body.theme-blackgold .markdown-body pre { border: 1px solid rgba(212, 168, 83, 0.25); }
         .file-card { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 0.5rem; }
-        body.theme-dark .file-card { border-color: #334155; }
+        body.theme-dark .file-card { border-color: rgba(235, 234, 250, 0.14); }
         body.theme-blackgold .file-card { border-color: rgba(212, 168, 83, 0.25); }
         .file-card:hover { border-color: #3b82f6; }
         .file-icon { width: 2.5rem; height: 2.5rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; flex-shrink: 0; }
@@ -131,6 +133,7 @@
             if (mode === 'dark') document.body.classList.add('theme-dark');
             else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
             localStorage.setItem('dashboard_theme', mode);
+            if (window.ParticleBG) ParticleBG.setEnabled(mode === 'dark');
         }
         applyTheme(getThemeMode());
         function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }
