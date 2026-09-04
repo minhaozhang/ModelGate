@@ -209,13 +209,13 @@ def record_request_rate(tokens: int, latency_ms: float) -> None:
     ]
 
 
-def get_avg_tokens_per_second() -> float:
+def get_total_tokens_per_second() -> float:
     now = datetime.now()
     cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
     rates = [v for k, v in completed_request_rates if k >= cutoff]
     if not rates:
         return 0
-    return round(sum(rates) / len(rates), 1)
+    return round(sum(rates), 1)
 
 
 def get_api_key_name(api_key_id: int | None) -> str | None:
@@ -331,7 +331,7 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
         return {
             "active_requests": len(active_requests),
             "active_users": len(grouped_users),
-            "tokens_per_second": get_avg_tokens_per_second(),
+            "tokens_per_second": get_total_tokens_per_second(),
             "sessions": dict(sorted(grouped_users.items(), key=lambda item: item[1]["first_activity"])),
             "disabled_providers": disabled_providers,
         }
@@ -348,7 +348,7 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
     }
     return {
         "active_requests": active_requests_count,
-        "tokens_per_second": get_avg_tokens_per_second(),
+        "tokens_per_second": get_total_tokens_per_second(),
         "busyness": dict(busyness_state) if busyness_state else None,
         "disabled_providers": disabled_providers,
     }

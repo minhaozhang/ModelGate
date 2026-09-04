@@ -35,7 +35,7 @@ from app.core.config import (
     stats,
     TODAY_STATS_CACHE_TTL_SECONDS,
     requests_per_second,
-    get_avg_tokens_per_second,
+    get_total_tokens_per_second,
 )
 
 public_router = APIRouter(prefix="/api/public", tags=["public"])
@@ -2187,7 +2187,7 @@ async def get_realtime_stats(_: bool = Depends(permission_required("page.stats")
 
     return {
         "requests_per_second": round(total_requests / req_active_seconds, 1),
-        "tokens_per_second": get_avg_tokens_per_second(),
+        "tokens_per_second": get_total_tokens_per_second(),
         "active_requests": snapshot["active_requests"],
         "active_users": snapshot["active_users"],
     }
