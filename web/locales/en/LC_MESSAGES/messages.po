@@ -1546,6 +1546,21 @@ msgstr ""
 msgid "Response time heatmap by model and hour"
 msgstr ""
 
+msgid "Hourly average response time by provider"
+msgstr ""
+
+msgid "Hourly P95 response time by provider"
+msgstr ""
+
+msgid "Hourly response time range by provider"
+msgstr ""
+
+msgid "Response time heatmap by provider and hour"
+msgstr ""
+
+msgid "Provider Response Time"
+msgstr ""
+
 #: web/templates/admin/monitor.html:400
 msgid "Hour of day"
 msgstr ""

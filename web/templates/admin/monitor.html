@@ -324,10 +324,14 @@
 
             <div class="bg-white rounded-lg shadow p-5 mt-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold">{{ _('Model Response Time') }}</h3>
+                    <h3 class="text-lg font-semibold"><span id="latency-card-title">{{ _('Model Response Time') }}</span></h3>
                     <div id="latency-meta" class="text-sm text-gray-500">{{ _('Hourly average response time by model') }}</div>
                 </div>
-                <div class="mb-4 flex flex-wrap gap-2">
+                <div class="mb-4 flex flex-wrap items-center gap-2">
+                    <div class="flex flex-wrap gap-2 mr-3 pr-3 border-r border-gray-200">
+                        <button type="button" id="latency-dim-model" onclick="setLatencyDimension('model')" class="latency-tab active rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Model') }}</button>
+                        <button type="button" id="latency-dim-provider" onclick="setLatencyDimension('provider')" class="latency-tab rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Provider') }}</button>
+                    </div>
                     <button type="button" id="latency-tab-average" onclick="setLatencyView('average')" class="latency-tab active rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Average') }}</button>
                     <button type="button" id="latency-tab-p95" onclick="setLatencyView('p95')" class="latency-tab rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('P95') }}</button>
                     <button type="button" id="latency-tab-range" onclick="setLatencyView('range')" class="latency-tab rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Range') }}</button>
@@ -397,6 +401,12 @@
         hourlyP95ResponseTime: "{{ _('Hourly P95 response time by model') }}",
         hourlyResponseTimeRange: "{{ _('Hourly response time range by model') }}",
         responseTimeHeatmap: "{{ _('Response time heatmap by model and hour') }}",
+        hourlyAverageResponseTimeProvider: "{{ _('Hourly average response time by provider') }}",
+        hourlyP95ResponseTimeProvider: "{{ _('Hourly P95 response time by provider') }}",
+        hourlyResponseTimeRangeProvider: "{{ _('Hourly response time range by provider') }}",
+        responseTimeHeatmapProvider: "{{ _('Response time heatmap by provider and hour') }}",
+        modelResponseTime: "{{ _('Model Response Time') }}",
+        providerResponseTime: "{{ _('Provider Response Time') }}",
         hourOfDay: "{{ _('Hour of day') }}",
         sampleCount: "{{ _('{count} samples') }}",
         average: "{{ _('Average') }}",
@@ -413,6 +423,7 @@
         const APP_BASE_PATH = {{ app_base_path | tojson }};
         let currentPeriod = 'day';
         let currentLatencyView = 'average';
+        let currentLatencyDimension = 'model';
         let trendChart = null;
         let providerChart = null;
         let apikeyChart = null;
@@ -481,6 +492,29 @@
                 btn.classList.remove('active');
             });
             document.getElementById('latency-tab-' + view).classList.add('active');
+            if (window.latestMonitorLatencyData) {
+                renderLatencyChart(window.latestMonitorLatencyData);
+            }
+        }
+
+        function heatmapCornerLabel() {
+            return currentLatencyDimension === 'provider'
+                ? window.I18N.provider
+                : window.I18N.model;
+        }
+
+        function setLatencyDimension(dimension) {
+            currentLatencyDimension = dimension;
+            document.querySelectorAll('[id^="latency-dim-"]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById('latency-dim-' + dimension).classList.add('active');
+            const titleEl = document.getElementById('latency-card-title');
+            if (titleEl) {
+                titleEl.textContent = dimension === 'provider'
+                    ? window.I18N.providerResponseTime
+                    : window.I18N.modelResponseTime;
+            }
             if (window.latestMonitorLatencyData) {
                 renderLatencyChart(window.latestMonitorLatencyData);
             }
@@ -759,19 +793,27 @@
             if (latencyChart) latencyChart.destroy();
             window.latestMonitorLatencyData = latencyData;
 
-            const models = latencyData.models || [];
+            const isProviderDim = currentLatencyDimension === 'provider';
+            const models = (isProviderDim ? latencyData.providers : latencyData.models) || [];
             const intervals = latencyData.intervals || Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, '0')}:00`);
-            const series = latencyData.series || {};
+            const series = (isProviderDim ? latencyData.provider_series : latencyData.series) || {};
             const canvas = document.getElementById('latencyChart');
             const heatmap = document.getElementById('latency-heatmap');
-            const metaByView = {
-                average: window.I18N.hourlyAverageResponseTime,
-                p95: window.I18N.hourlyP95ResponseTime,
-                range: window.I18N.hourlyResponseTimeRange,
-                heatmap: window.I18N.responseTimeHeatmap,
-            };
+            const metaByView = isProviderDim
+                ? {
+                    average: window.I18N.hourlyAverageResponseTimeProvider,
+                    p95: window.I18N.hourlyP95ResponseTimeProvider,
+                    range: window.I18N.hourlyResponseTimeRangeProvider,
+                    heatmap: window.I18N.responseTimeHeatmapProvider,
+                }
+                : {
+                    average: window.I18N.hourlyAverageResponseTime,
+                    p95: window.I18N.hourlyP95ResponseTime,
+                    range: window.I18N.hourlyResponseTimeRange,
+                    heatmap: window.I18N.responseTimeHeatmap,
+                };
             document.getElementById('latency-meta').textContent = models.length
-                ? `${metaByView[currentLatencyView]} / ${models.length} ${window.I18N.models}`
+                ? `${metaByView[currentLatencyView]} / ${models.length} ${isProviderDim ? window.I18N.providers : window.I18N.models}`
                 : window.I18N.noLatencyData;
 
             const hasLatencyData = models.some(model => {
@@ -1021,7 +1063,7 @@
             `;
 
             const header = `
-                <div class="heatmap-corner"><strong>${window.I18N.model}</strong><span>${window.I18N.hourOfDay}</span></div>
+                <div class="heatmap-corner"><strong>${heatmapCornerLabel()}</strong><span>${window.I18N.hourOfDay}</span></div>
                 ${visibleIntervals.map(label => `<div class="heatmap-cell text-gray-500">${label.slice(0, 2)}</div>`).join('')}
             `;
             const rows = models.map(model => {

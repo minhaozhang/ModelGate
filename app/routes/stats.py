@@ -1200,6 +1200,94 @@ async def get_monitor_details(
                     row.samples or 0
                 )
 
+        top_providers_result = await session.execute(
+            select(
+                RequestLog.provider_id.label("provider_id"),
+                func.count(RequestLog.id).label("requests"),
+            )
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.latency_ms.is_not(None),
+                RequestLog.status != "pending",
+                RequestLog.provider_id.is_not(None),
+            )
+            .group_by(RequestLog.provider_id)
+            .order_by(func.count(RequestLog.id).desc())
+            .limit(8)
+        )
+        top_provider_ids = [
+            row.provider_id
+            for row in top_providers_result.fetchall()
+            if row.provider_id is not None
+        ]
+        resolved_providers: dict[int, str] = {
+            provider_id: providers_map.get(provider_id)
+            for provider_id in top_provider_ids
+            if providers_map.get(provider_id)
+        }
+        top_providers = list(resolved_providers.values())
+        provider_latency_series: dict[str, dict[str, list]] = {}
+        if top_providers:
+            provider_latency_series = {
+                provider_name: {
+                    "avg_latency_ms": [None] * 24,
+                    "p95_latency_ms": [None] * 24,
+                    "min_latency_ms": [None] * 24,
+                    "max_latency_ms": [None] * 24,
+                    "samples": [0] * 24,
+                }
+                for provider_name in top_providers
+            }
+            provider_latency_rows_result = await session.execute(
+                select(
+                    RequestLog.provider_id.label("provider_id"),
+                    func.extract("hour", RequestLog.created_at).label("hour_of_day"),
+                    func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
+                    func.percentile_cont(0.95)
+                    .within_group(RequestLog.latency_ms)
+                    .label("p95_latency_ms"),
+                    func.min(RequestLog.latency_ms).label("min_latency_ms"),
+                    func.max(RequestLog.latency_ms).label("max_latency_ms"),
+                    func.count(RequestLog.id).label("samples"),
+                )
+                .where(
+                    RequestLog.created_at >= start,
+                    RequestLog.provider_id.in_(list(resolved_providers.keys())),
+                    RequestLog.latency_ms.is_not(None),
+                    RequestLog.status != "pending",
+                )
+                .group_by(
+                    RequestLog.provider_id,
+                    func.extract("hour", RequestLog.created_at),
+                )
+                .order_by(
+                    RequestLog.provider_id,
+                    func.extract("hour", RequestLog.created_at),
+                )
+            )
+            for row in provider_latency_rows_result.fetchall():
+                provider_name = resolved_providers.get(row.provider_id)
+                if not provider_name or provider_name not in provider_latency_series:
+                    continue
+                hour_of_day = int(row.hour_of_day or 0)
+                if hour_of_day < 0 or hour_of_day > 23:
+                    continue
+                provider_latency_series[provider_name]["avg_latency_ms"][hour_of_day] = round(
+                    row.avg_latency_ms or 0, 1
+                )
+                provider_latency_series[provider_name]["p95_latency_ms"][hour_of_day] = round(
+                    row.p95_latency_ms or 0, 1
+                )
+                provider_latency_series[provider_name]["min_latency_ms"][hour_of_day] = round(
+                    row.min_latency_ms or 0, 1
+                )
+                provider_latency_series[provider_name]["max_latency_ms"][hour_of_day] = round(
+                    row.max_latency_ms or 0, 1
+                )
+                provider_latency_series[provider_name]["samples"][hour_of_day] = int(
+                    row.samples or 0
+                )
+
     def build_status_entries(
         rows, scope: str, resolver, masked: bool = False
     ) -> list[dict]:
@@ -1280,6 +1368,8 @@ async def get_monitor_details(
             "models": top_models,
             "intervals": latency_intervals,
             "series": latency_series,
+            "providers": top_providers,
+            "provider_series": provider_latency_series,
         },
     }
 

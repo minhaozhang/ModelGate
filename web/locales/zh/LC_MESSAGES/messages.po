@@ -1642,6 +1642,26 @@ msgstr "按小时统计的模型响应时间区间"
 msgid "Response time heatmap by model and hour"
 msgstr "按模型与小时展示的响应时间热力图"
 
+#: web/templates/admin/monitor.html:403
+msgid "Hourly average response time by provider"
+msgstr "按小时统计的供应商平均响应时间"
+
+#: web/templates/admin/monitor.html:404
+msgid "Hourly P95 response time by provider"
+msgstr "按小时统计的供应商 P95 响应时间"
+
+#: web/templates/admin/monitor.html:405
+msgid "Hourly response time range by provider"
+msgstr "按小时统计的供应商响应时间区间"
+
+#: web/templates/admin/monitor.html:406
+msgid "Response time heatmap by provider and hour"
+msgstr "按供应商与小时展示的响应时间热力图"
+
+#: web/templates/admin/monitor.html:411
+msgid "Provider Response Time"
+msgstr "供应商响应时间"
+
 #: web/templates/admin/monitor.html:400
 msgid "Hour of day"
 msgstr "小时"
