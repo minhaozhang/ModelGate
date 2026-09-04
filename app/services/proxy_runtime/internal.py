@@ -356,6 +356,8 @@ async def call_internal_model_via_proxy(
             api_key_id=api_key_id,
             is_error=is_error,
             is_rate_limited=request_status in RATE_LIMITED_STATUSES,
+            upstream_model=upstream_model,
+            requested_model=requested_model,
         )
         if not is_error and total_tokens > 0:
             record_request_rate(tokens_record.get('completion_tokens', 0), latency)
@@ -373,6 +375,8 @@ async def call_internal_model_via_proxy(
             latency_ms=latency,
             upstream_status_code=resp.status_code,
             downstream_status_code=resp.status_code,
+            requested_model=requested_model,
+            actual_model=upstream_model,
             error=(
                 sanitize_text_for_log(provider_error, limit=2000)
                 if provider_error
@@ -414,7 +418,12 @@ async def call_internal_model_via_proxy(
     except Exception as exc:
         latency = (time.time() - start_time) * 1000
         update_stats(
-            provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True
+            provider_name,
+            actual_model,
+            0,
+            api_key_id=api_key_id,
+            is_error=True,
+            requested_model=requested_model,
         )
         await create_request_log(
             provider_name,
@@ -427,6 +436,7 @@ async def call_internal_model_via_proxy(
             latency_ms=latency,
             downstream_status_code=502,
             error=str(exc),
+            requested_model=requested_model,
         )
         logger.warning(
             "[INTERNAL %s] %s/%s exception: %s",

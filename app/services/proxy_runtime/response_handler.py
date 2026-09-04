@@ -168,6 +168,8 @@ async def _record_stream_result(
     upstream_status_code=None,
     error=None,
     provider_key_id=None,
+    upstream_model=None,
+    requested_model=None,
 ):
     latency = (time.time() - start_time) * 1000
     response_meta = build_response_meta(
@@ -196,7 +198,14 @@ async def _record_stream_result(
     if status == "success":
         if provider_key_id is not None:
             record_key_event(provider_key_id, "success")
-        update_stats(provider, model, total_tokens, api_key_id=api_key_id)
+        update_stats(
+            provider,
+            model,
+            total_tokens,
+            api_key_id=api_key_id,
+            upstream_model=upstream_model,
+            requested_model=requested_model,
+        )
         record_request_rate(tokens_record.get('completion_tokens', 0), latency)
         updated = await update_request_log(
             log_id,
@@ -206,6 +215,7 @@ async def _record_stream_result(
             status="success",
             upstream_status_code=upstream_status_code,
             downstream_status_code=200,
+            actual_model=upstream_model,
         )
         if not updated:
             await create_request_log(
@@ -221,6 +231,8 @@ async def _record_stream_result(
                 latency_ms=latency,
                 upstream_status_code=upstream_status_code,
                 downstream_status_code=200,
+                requested_model=requested_model,
+                actual_model=upstream_model,
             )
         logger.info(
             f"[STREAM COMPLETE] ~{total_tokens} tokens "
@@ -237,6 +249,7 @@ async def _record_stream_result(
             status="cancelled",
             upstream_status_code=upstream_status_code,
             downstream_status_code=200,
+            actual_model=upstream_model,
         )
         if not updated:
             await create_request_log(
@@ -252,6 +265,8 @@ async def _record_stream_result(
                 latency_ms=latency,
                 upstream_status_code=upstream_status_code,
                 downstream_status_code=200,
+                requested_model=requested_model,
+                actual_model=upstream_model,
             )
     elif status in {"error", RATE_LIMITED_STATUS, LOCAL_RATE_LIMITED_STATUS}:
         if provider_key_id is not None:
@@ -268,6 +283,8 @@ async def _record_stream_result(
             api_key_id=api_key_id,
             is_error=status == "error",
             is_rate_limited=status in RATE_LIMITED_STATUSES,
+            upstream_model=upstream_model,
+            requested_model=requested_model,
         )
         updated = await update_request_log(
             log_id,
@@ -278,6 +295,7 @@ async def _record_stream_result(
             upstream_status_code=upstream_status_code,
             downstream_status_code=200,
             error=str(error) if error is not None else None,
+            actual_model=upstream_model,
         )
         if not updated:
             await create_request_log(
@@ -294,6 +312,8 @@ async def _record_stream_result(
                 upstream_status_code=upstream_status_code,
                 downstream_status_code=200,
                 error=str(error) if error is not None else None,
+                requested_model=requested_model,
+                actual_model=upstream_model,
             )
         log_fn = (
             error_logger.warning

@@ -29,6 +29,7 @@ from app.services.analysis_store import (
     upsert_analysis_artifact,
     upsert_analysis_record,
 )
+from app.services.model_naming import user_stats_model_expr
 from app.services.proxy import call_internal_model_via_proxy
 
 ANALYSIS_TYPE_USAGE_REPORT = "usage_report"
@@ -319,16 +320,19 @@ async def query_usage_stats(
                 keys_data[row.api_key_id]["status_distribution"][row.status] = status_row["count"]
 
         model_rows = []
+        user_model_expr = user_stats_model_expr(
+            RequestLog.model, RequestLog.requested_model
+        )
         model_result = await session.execute(
             select(
                 RequestLog.api_key_id,
-                RequestLog.model,
+                user_model_expr.label("model"),
                 func.count().label("count"),
                 func.sum(_TOKEN_EXPR).label("tokens"),
             )
             .where(base_filter)
             .where(RequestLog.api_key_id.isnot(None))
-            .group_by(RequestLog.api_key_id, RequestLog.model)
+            .group_by(RequestLog.api_key_id, user_model_expr)
         )
         raw_model_data: dict[int, list] = defaultdict(list)
         for row in model_result:

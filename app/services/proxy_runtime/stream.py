@@ -58,6 +58,7 @@ async def handle_streaming(
     extra_response_headers: dict[str, str] | None = None,
     intent=None,
     requested_model=None,
+    upstream_model=None,
     provider_key_label=None,
     routing_decision=None,
 ):
@@ -76,6 +77,7 @@ async def handle_streaming(
             api_key_id,
             client_ip=client_ip,
             prompt_tokens=request_context_tokens,
+            requested_model=requested_model,
         )
         is_active_request_registered = True
         req = client.build_request("POST", url, headers=headers, content=body)
@@ -123,6 +125,8 @@ async def handle_streaming(
                 api_key_id=api_key_id,
                 is_error=request_status == "error",
                 is_rate_limited=request_status in RATE_LIMITED_STATUSES,
+                upstream_model=upstream_model,
+                requested_model=requested_model,
             )
             error_detail = sanitize_text_for_log(
                 provider_error or error_text, limit=2000
@@ -136,6 +140,7 @@ async def handle_streaming(
                     upstream_status_code=resp.status_code,
                     downstream_status_code=resp.status_code,
                     error=error_detail,
+                    actual_model=upstream_model,
                 )
             if not log_id or not updated:
                 await create_request_log(
@@ -150,6 +155,8 @@ async def handle_streaming(
                     upstream_status_code=resp.status_code,
                     downstream_status_code=resp.status_code,
                     error=error_detail,
+                    requested_model=requested_model,
+                    actual_model=upstream_model,
                 )
             if is_active_request_registered:
                 await finish_active_request(request_id)
@@ -282,6 +289,8 @@ async def handle_streaming(
                                 request_context_tokens, start_time, log_id, "cancelled",
                                 upstream_status_code=upstream_status_code,
                                 provider_key_id=chosen_key_id,
+                                upstream_model=upstream_model,
+                                requested_model=requested_model,
                             )
                             return
                     continue
@@ -409,6 +418,8 @@ async def handle_streaming(
                             "cancelled",
                             upstream_status_code=upstream_status_code,
                             provider_key_id=chosen_key_id,
+                            upstream_model=upstream_model,
+                            requested_model=requested_model,
                         )
                         return
 
@@ -430,6 +441,8 @@ async def handle_streaming(
                 "success",
                 upstream_status_code=upstream_status_code,
                 provider_key_id=chosen_key_id,
+                upstream_model=upstream_model,
+                requested_model=requested_model,
             )
         except Exception as e:
             await _record_stream_result(
@@ -451,6 +464,8 @@ async def handle_streaming(
                 upstream_status_code=upstream_status_code,
                 error=e,
                 provider_key_id=chosen_key_id,
+                upstream_model=upstream_model,
+                requested_model=requested_model,
             )
             yield f"data: {json.dumps({'error': {'message': '请求处理失败，请稍后重试', 'type': 'api_error'}})}\n\n"
         finally:

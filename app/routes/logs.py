@@ -2,7 +2,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
-from sqlalchemy import select, func, cast, Numeric
+from sqlalchemy import select, func, cast, Numeric, or_
 
 from app.core.database import (
     async_session_maker,
@@ -14,6 +14,7 @@ from app.core.database import (
     McpServer,
 )
 from app.core.permissions import permission_required, login_required
+from app.services.model_naming import provider_stats_model_expr
 
 router = APIRouter(prefix="/admin/api", tags=["logs"])
 ERROR_STATUSES = ("error", "timeout")
@@ -278,8 +279,12 @@ async def query_logs(
             count_q = count_q.where(RequestLog.provider_id == provider)
         if model:
             safe_model = _escape_ilike(model)
-            q = q.where(RequestLog.model.ilike(f"%{safe_model}%"))
-            count_q = count_q.where(RequestLog.model.ilike(f"%{safe_model}%"))
+            model_match = or_(
+                RequestLog.model.ilike(f"%{safe_model}%"),
+                RequestLog.requested_model.ilike(f"%{safe_model}%"),
+            )
+            q = q.where(model_match)
+            count_q = count_q.where(model_match)
         if status:
             q = q.where(RequestLog.status == status)
             count_q = count_q.where(RequestLog.status == status)
@@ -471,10 +476,13 @@ async def aggregate_logs(
             }
 
         else:
+            model_group_expr = provider_stats_model_expr(
+                RequestLog.model, RequestLog.actual_model
+            )
             q = (
                 select(
                     RequestLog.provider_id,
-                    RequestLog.model,
+                    model_group_expr.label("model"),
                     func.count(RequestLog.id).label("request_count"),
                     func.round(cast(func.avg(RequestLog.latency_ms), Numeric), 2).label("avg_latency_ms"),
                     func.round(cast(func.max(RequestLog.latency_ms), Numeric), 2).label("max_latency_ms"),
@@ -489,7 +497,7 @@ async def aggregate_logs(
                     func.sum(token_expr).label("total_tokens"),
                 )
                 .where(*base_where)
-                .group_by(RequestLog.provider_id, RequestLog.model)
+                .group_by(RequestLog.provider_id, model_group_expr)
                 .order_by(func.count(RequestLog.id).desc())
             )
 

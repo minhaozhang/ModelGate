@@ -57,6 +57,7 @@ async def handle_normal(
     extra_response_headers: dict[str, str] | None = None,
     intent=None,
     requested_model=None,
+    upstream_model=None,
     provider_key_label=None,
     routing_decision=None,
     inbound_protocol=None,
@@ -75,6 +76,7 @@ async def handle_normal(
             api_key_id,
             client_ip=client_ip,
             prompt_tokens=request_context_tokens,
+            requested_model=requested_model,
         )
         is_active_request_registered = True
 
@@ -179,6 +181,8 @@ async def handle_normal(
             api_key_id=api_key_id,
             is_error=is_error,
             is_rate_limited=request_status in RATE_LIMITED_STATUSES,
+            upstream_model=upstream_model,
+            requested_model=requested_model,
         )
         if not is_error and total_tokens > 0:
             record_request_rate(tokens_record.get('completion_tokens', 0), latency)
@@ -215,7 +219,8 @@ async def handle_normal(
             request_messages=messages,
             intent=intent,
             requested_model=requested_model,
-            actual_model=model if requested_model and requested_model != model else None,
+            actual_model=upstream_model
+            or (model if requested_model and requested_model != model else None),
             provider_key_id=chosen_key_id,
             provider_key_label=provider_key_label,
             routing_decision=routing_decision,

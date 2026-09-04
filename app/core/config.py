@@ -151,20 +151,26 @@ def update_stats(
     api_key_id: Optional[int] = None,
     is_error: bool = False,
     is_rate_limited: bool = False,
+    upstream_model: Optional[str] = None,
+    requested_model: Optional[str] = None,
 ):
+    from app.services.model_naming import user_stats_model_name
+
     if not is_rate_limited:
         stats["total_requests"] += 1
         stats["total_tokens"] += tokens
         stats["providers"][provider]["requests"] += 1
         stats["providers"][provider]["tokens"] += tokens
-        stats["models"][model]["requests"] += 1
-        stats["models"][model]["tokens"] += tokens
+        provider_model = upstream_model or model
+        stats["models"][provider_model]["requests"] += 1
+        stats["models"][provider_model]["tokens"] += tokens
 
         if api_key_id:
             stats["api_keys"][api_key_id]["requests"] += 1
             stats["api_keys"][api_key_id]["tokens"] += tokens
-            stats["api_keys"][api_key_id]["models"][model]["requests"] += 1
-            stats["api_keys"][api_key_id]["models"][model]["tokens"] += tokens
+            user_model = user_stats_model_name(requested_model, model)
+            stats["api_keys"][api_key_id]["models"][user_model]["requests"] += 1
+            stats["api_keys"][api_key_id]["models"][user_model]["tokens"] += tokens
 
     if is_error:
         stats["providers"][provider]["errors"] += 1
@@ -237,13 +243,18 @@ async def register_active_request(
     api_key_id: int | None,
     client_ip: str | None = None,
     prompt_tokens: int = 0,
+    requested_model: str | None = None,
 ) -> None:
+    from app.services.model_naming import user_stats_model_name
+
     now = datetime.now()
     async with active_requests_lock:
         active_requests[request_id] = {
             "request_id": request_id,
             "provider": provider,
             "model": model,
+            "requested_model": requested_model,
+            "display_model": user_stats_model_name(requested_model, model),
             "api_key_id": api_key_id,
             "client_ip": client_ip,
             "prompt_tokens": prompt_tokens,
@@ -304,12 +315,10 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                 bucket["first_activity"],
                 request_data["started_at"].isoformat(),
             )
-            model_name = request_data.get("model")
-            provider_name = request_data.get("provider", "")
+            model_name = request_data.get("display_model") or request_data.get("model")
             prompt_tokens = request_data.get("prompt_tokens", 0)
             if model_name:
-                display_model = f"{provider_name}/{model_name}" if provider_name else model_name
-                entry = bucket["models"].setdefault(display_model, {"count": 0, "tokens": 0})
+                entry = bucket["models"].setdefault(model_name, {"count": 0, "tokens": 0})
                 entry["count"] += 1
                 entry["tokens"] += prompt_tokens
             bucket["tokens"] += prompt_tokens

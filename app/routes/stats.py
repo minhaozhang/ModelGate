@@ -56,6 +56,12 @@ TOKEN_COUNT_EXPR = func.coalesce(
 )
 
 from app.core.permissions import permission_required
+from app.services.model_naming import (
+    provider_stats_model_expr,
+    provider_stats_model_name,
+    user_stats_model_expr,
+    user_stats_model_name,
+)
 
 historical_stats_cache: dict = {}
 historical_stats_cache_date: Optional[str] = None
@@ -329,8 +335,9 @@ async def get_cached_today_stats(start: datetime) -> dict:
                     api_key_stats[key_name]["timeouts"] += 1
 
             if log.model:
-                if log.model not in model_stats:
-                    model_stats[log.model] = {
+                out_name = provider_stats_model_name(log.actual_model, log.model)
+                if out_name not in model_stats:
+                    model_stats[out_name] = {
                         "requests": 0,
                         "tokens": 0,
                         "errors": 0,
@@ -338,14 +345,14 @@ async def get_cached_today_stats(start: datetime) -> dict:
                         "rate_limited": 0,
                     }
                 if is_rate_limited:
-                    model_stats[log.model]["rate_limited"] += 1
+                    model_stats[out_name]["rate_limited"] += 1
                 else:
-                    model_stats[log.model]["requests"] += 1
-                model_stats[log.model]["tokens"] += tokens
+                    model_stats[out_name]["requests"] += 1
+                model_stats[out_name]["tokens"] += tokens
                 if is_error:
-                    model_stats[log.model]["errors"] += 1
+                    model_stats[out_name]["errors"] += 1
                 if is_timeout:
-                    model_stats[log.model]["timeouts"] += 1
+                    model_stats[out_name]["timeouts"] += 1
 
         cache_data = {
             "date": cache_key,
@@ -567,7 +574,7 @@ async def get_raw_grouped_stats(
     elif dimension == "api_key":
         group_expr = RequestLog.api_key_id
     else:
-        group_expr = RequestLog.model
+        group_expr = provider_stats_model_expr(RequestLog.model, RequestLog.actual_model)
 
     result = await session.execute(
         select(
@@ -848,7 +855,10 @@ async def get_trend_data(
                         }
                     raw_filters.append(RequestLog.api_key_id == api_key_id)
                 elif dimension == "model" and name:
-                    raw_filters.append(RequestLog.model == name)
+                    raw_filters.append(
+                        provider_stats_model_expr(RequestLog.model, RequestLog.actual_model)
+                        == name
+                    )
 
                 result = await session.execute(
                     select(
@@ -1031,7 +1041,9 @@ async def get_monitor_details(
 
         model_rows_result = await session.execute(
             select(
-                RequestLog.model.label("group_key"),
+                provider_stats_model_expr(
+                    RequestLog.model, RequestLog.actual_model
+                ).label("group_key"),
                 func.count(RequestLog.id).label("requests"),
                 func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label(
                     "errors"
@@ -1044,7 +1056,9 @@ async def get_monitor_details(
                 ).label("rate_limited"),
             )
             .where(RequestLog.created_at >= start)
-            .group_by(RequestLog.model)
+            .group_by(
+                provider_stats_model_expr(RequestLog.model, RequestLog.actual_model)
+            )
         )
         model_rows = model_rows_result.fetchall()
 
@@ -1098,7 +1112,9 @@ async def get_monitor_details(
 
         top_models_result = await session.execute(
             select(
-                RequestLog.model,
+                provider_stats_model_expr(
+                    RequestLog.model, RequestLog.actual_model
+                ).label("model_name"),
                 func.count(RequestLog.id).label("requests"),
             )
             .where(
@@ -1107,11 +1123,15 @@ async def get_monitor_details(
                 RequestLog.status != "pending",
                 RequestLog.model.is_not(None),
             )
-            .group_by(RequestLog.model)
+            .group_by(
+                provider_stats_model_expr(RequestLog.model, RequestLog.actual_model)
+            )
             .order_by(func.count(RequestLog.id).desc())
             .limit(8)
         )
-        top_models = [row.model for row in top_models_result.fetchall() if row.model]
+        top_models = [
+            row.model_name for row in top_models_result.fetchall() if row.model_name
+        ]
 
         latency_intervals = [f"{hour:02d}:00" for hour in range(24)]
         latency_series: dict[str, dict[str, list]] = {}
@@ -1128,7 +1148,9 @@ async def get_monitor_details(
             }
             latency_rows_result = await session.execute(
                 select(
-                    RequestLog.model,
+                    provider_stats_model_expr(
+                        RequestLog.model, RequestLog.actual_model
+                    ).label("model_name"),
                     func.extract("hour", RequestLog.created_at).label("hour_of_day"),
                     func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
                     func.percentile_cont(0.95)
@@ -1140,15 +1162,23 @@ async def get_monitor_details(
                 )
                 .where(
                     RequestLog.created_at >= start,
-                    RequestLog.model.in_(top_models),
+                    provider_stats_model_expr(
+                        RequestLog.model, RequestLog.actual_model
+                    ).in_(top_models),
                     RequestLog.latency_ms.is_not(None),
                     RequestLog.status != "pending",
                 )
-                .group_by(RequestLog.model, func.extract("hour", RequestLog.created_at))
-                .order_by(RequestLog.model, func.extract("hour", RequestLog.created_at))
+                .group_by(
+                    provider_stats_model_expr(RequestLog.model, RequestLog.actual_model),
+                    func.extract("hour", RequestLog.created_at),
+                )
+                .order_by(
+                    provider_stats_model_expr(RequestLog.model, RequestLog.actual_model),
+                    func.extract("hour", RequestLog.created_at),
+                )
             )
             for row in latency_rows_result.fetchall():
-                model_name = row.model
+                model_name = row.model_name
                 if not model_name or model_name not in latency_series:
                     continue
                 hour_of_day = int(row.hour_of_day or 0)
@@ -1451,6 +1481,8 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         RequestLog.api_key_id,
                         RequestLog.provider_id,
                         RequestLog.model,
+                        RequestLog.requested_model,
+                        RequestLog.actual_model,
                         RequestLog.tokens,
                         RequestLog.status,
                         RequestLog.provider_key_id,
@@ -1486,8 +1518,9 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                     total_prompt_tokens += (row.tokens or {}).get("prompt_tokens") or 0
                     total_completion_tokens += (row.tokens or {}).get("completion_tokens") or 0
                     if row.model:
+                        out_name = provider_stats_model_name(row.actual_model, row.model)
                         model_bucket = model_stats.setdefault(
-                            row.model, {"requests": 0, "tokens": 0}
+                            out_name, {"requests": 0, "tokens": 0}
                         )
                         model_bucket["requests"] += 1
                         model_bucket["tokens"] += tokens
@@ -1507,8 +1540,11 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         provider_bucket["requests"] += 1
                         provider_bucket["tokens"] += tokens
                         if row.model:
+                            out_name = provider_stats_model_name(
+                                row.actual_model, row.model
+                            )
                             model_bucket = provider_bucket["models"].setdefault(
-                                row.model, {"requests": 0, "tokens": 0}
+                                out_name, {"requests": 0, "tokens": 0}
                             )
                             model_bucket["requests"] += 1
                             model_bucket["tokens"] += tokens
@@ -1524,7 +1560,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                             key_bucket["tokens"] += tokens
                             if row.model:
                                 km = key_bucket["models"].setdefault(
-                                    row.model, {"requests": 0, "tokens": 0}
+                                    out_name, {"requests": 0, "tokens": 0}
                                 )
                                 km["requests"] += 1
                                 km["tokens"] += tokens
@@ -1538,8 +1574,11 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         api_key_bucket["requests"] += 1
                         api_key_bucket["tokens"] += tokens
                         if row.model:
+                            user_model = user_stats_model_name(
+                                row.requested_model, row.model
+                            )
                             model_bucket = api_key_bucket["models"].setdefault(
-                                row.model, {"requests": 0, "tokens": 0}
+                                user_model, {"requests": 0, "tokens": 0}
                             )
                             model_bucket["requests"] += 1
                             model_bucket["tokens"] += tokens
@@ -1606,8 +1645,9 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                 total_completion_tokens += (log.tokens or {}).get("completion_tokens") or 0
 
                 if log.model:
+                    out_name = provider_stats_model_name(log.actual_model, log.model)
                     model_bucket = model_stats.setdefault(
-                        log.model, {"requests": 0, "tokens": 0}
+                        out_name, {"requests": 0, "tokens": 0}
                     )
                     model_bucket["requests"] += 1
                     model_bucket["tokens"] += tokens
@@ -1621,8 +1661,11 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                     provider_bucket["requests"] += 1
                     provider_bucket["tokens"] += tokens
                     if log.model:
+                        out_name = provider_stats_model_name(
+                            log.actual_model, log.model
+                        )
                         model_bucket = provider_bucket["models"].setdefault(
-                            log.model, {"requests": 0, "tokens": 0}
+                            out_name, {"requests": 0, "tokens": 0}
                         )
                         model_bucket["requests"] += 1
                         model_bucket["tokens"] += tokens
@@ -1638,7 +1681,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         key_bucket["tokens"] += tokens
                         if log.model:
                             km = key_bucket["models"].setdefault(
-                                log.model, {"requests": 0, "tokens": 0}
+                                out_name, {"requests": 0, "tokens": 0}
                             )
                             km["requests"] += 1
                             km["tokens"] += tokens
@@ -1652,8 +1695,11 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                     api_key_bucket["requests"] += 1
                     api_key_bucket["tokens"] += tokens
                     if log.model:
+                        user_model = user_stats_model_name(
+                            log.requested_model, log.model
+                        )
                         model_bucket = api_key_bucket["models"].setdefault(
-                            log.model, {"requests": 0, "tokens": 0}
+                            user_model, {"requests": 0, "tokens": 0}
                         )
                         model_bucket["requests"] += 1
                         model_bucket["tokens"] += tokens
@@ -1838,7 +1884,11 @@ async def get_chart_data(
         else:
             query = select(RequestLog).where(RequestLog.created_at >= start)
             if provider:
-                query = query.where(RequestLog.model.ilike(f"%{provider}%"))
+                query = query.where(
+                    provider_stats_model_expr(RequestLog.model, RequestLog.actual_model).ilike(
+                        f"%{provider}%"
+                    )
+                )
             if api_key_id:
                 query = query.where(RequestLog.api_key_id == api_key_id)
 

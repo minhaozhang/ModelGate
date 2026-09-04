@@ -22,6 +22,7 @@ from app.core.database import (
 from app.services.auth import load_api_keys
 from app.routes.user import get_user_session
 from app.core.permissions import permission_required
+from app.services.model_naming import user_stats_model_expr
 
 router = APIRouter(prefix="/admin/api", tags=["api-keys"])
 
@@ -399,7 +400,9 @@ async def get_api_key_stats(
 
         model_stats_result = await session.execute(
             select(
-                RequestLog.model,
+                user_stats_model_expr(
+                    RequestLog.model, RequestLog.requested_model
+                ).label("model_name"),
                 func.count(RequestLog.id).label("count"),
                 func.sum(RequestLog.tokens["total_tokens"].as_integer()).label(
                     "tokens"
@@ -409,11 +412,14 @@ async def get_api_key_stats(
                 RequestLog.api_key_id == key_id,
                 RequestLog.created_at >= cutoff,
             )
-            .group_by(RequestLog.model)
+            .group_by(
+                user_stats_model_expr(RequestLog.model, RequestLog.requested_model)
+            )
         )
         model_stats = {
-            row.model: {"requests": row.count, "tokens": row.tokens or 0}
+            row.model_name: {"requests": row.count, "tokens": row.tokens or 0}
             for row in model_stats_result
+            if row.model_name
         }
 
         return {

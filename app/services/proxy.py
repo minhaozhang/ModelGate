@@ -432,7 +432,6 @@ async def proxy_request(request: Request, endpoint: str):
             error=message,
             inbound_protocol=inbound_protocol,
             requested_model=model,
-            actual_model=model,
         )
         return _openai_error_response(
             message,
@@ -492,7 +491,6 @@ async def proxy_request(request: Request, endpoint: str):
             inbound_protocol=inbound_protocol,
             intent=request_intent,
             requested_model=requested_model,
-            actual_model=requested_model,
         )
         return _openai_error_response(
             message, 400, "invalid_request_error", "context_length_exceeded"
@@ -527,6 +525,7 @@ async def proxy_request(request: Request, endpoint: str):
     provider_config = None
     provider_name = ""
     actual_model = requested_model
+    outbound_model = None
     chosen_key_id = None
 
     provider_key_semaphore = None
@@ -574,7 +573,6 @@ async def proxy_request(request: Request, endpoint: str):
                 inbound_protocol=inbound_protocol,
                 intent=request_intent,
                 requested_model=requested_model,
-                actual_model=actual_model,
             )
             return _openai_error_response(
                 message,
@@ -627,7 +625,6 @@ async def proxy_request(request: Request, endpoint: str):
                     inbound_protocol=inbound_protocol,
                     intent=request_intent,
                     requested_model=requested_model,
-                    actual_model=actual_model,
                 )
                 return _openai_error_response(
                     message,
@@ -681,7 +678,6 @@ async def proxy_request(request: Request, endpoint: str):
                     inbound_protocol=inbound_protocol,
                     intent=request_intent,
                     requested_model=requested_model,
-                    actual_model=actual_model,
                     routing_decision=_build_routing_decision(
                         routing_decision_base,
                         outcome="user_global_concurrency_reached",
@@ -739,6 +735,7 @@ async def proxy_request(request: Request, endpoint: str):
             standard_model = route_result.model_name or requested_model
             upstream_model = route_result.upstream_model_name or standard_model
             actual_model = standard_model
+            outbound_model = upstream_model
             is_last_route = route_idx == len(route_candidates) - 1
 
             if not provider_config:
@@ -827,6 +824,7 @@ async def proxy_request(request: Request, endpoint: str):
                     first_no_key_failure = {
                         "provider_name": provider_name,
                         "actual_model": actual_model,
+                        "outbound_model": outbound_model,
                         "message": msg,
                         "reasons": reasons,
                         "disabled_priority": best_disabled_priority,
@@ -838,6 +836,7 @@ async def proxy_request(request: Request, endpoint: str):
                 reported_failure = first_no_key_failure
                 provider_name = reported_failure["provider_name"]
                 actual_model = reported_failure["actual_model"]
+                outbound_model = reported_failure["outbound_model"]
                 msg = reported_failure["message"]
                 reasons = reported_failure["reasons"]
                 route_result = reported_failure["route_result"]
@@ -865,7 +864,6 @@ async def proxy_request(request: Request, endpoint: str):
                     inbound_protocol=inbound_protocol,
                     intent=request_intent,
                     requested_model=requested_model,
-                    actual_model=actual_model,
                     routing_decision=_build_routing_decision(
                         routing_decision_base,
                         route_result,
@@ -1011,7 +1009,6 @@ async def proxy_request(request: Request, endpoint: str):
                             inbound_protocol=inbound_protocol,
                             intent=request_intent,
                             requested_model=requested_model,
-                            actual_model=actual_model,
                             provider_key_id=chosen_key_id,
                             provider_key_label=_get_key_label(provider_config, chosen_key_id),
                             routing_decision=_build_routing_decision(
@@ -1101,7 +1098,6 @@ async def proxy_request(request: Request, endpoint: str):
                             inbound_protocol=inbound_protocol,
                             intent=request_intent,
                             requested_model=requested_model,
-                            actual_model=actual_model,
                             provider_key_id=chosen_key_id,
                             provider_key_label=_get_key_label(provider_config, chosen_key_id),
                             routing_decision=_build_routing_decision(
@@ -1136,7 +1132,6 @@ async def proxy_request(request: Request, endpoint: str):
                         intent=request_intent,
                         request_messages=messages,
                         requested_model=requested_model,
-                        actual_model=actual_model,
                         provider_key_id=chosen_key_id,
                         provider_key_label=_get_key_label(provider_config, chosen_key_id),
                         routing_decision=_build_routing_decision(
@@ -1176,6 +1171,7 @@ async def proxy_request(request: Request, endpoint: str):
                             extra_response_headers=busyness_headers,
                             intent=request_intent,
                             requested_model=requested_model,
+                            upstream_model=outbound_model,
                             provider_key_label=_get_key_label(provider_config, chosen_key_id),
                             model_concurrency_semaphore=model_concurrency_semaphore,
                             routing_decision=_build_routing_decision(
@@ -1214,6 +1210,7 @@ async def proxy_request(request: Request, endpoint: str):
                             extra_response_headers=busyness_headers,
                             intent=request_intent,
                             requested_model=requested_model,
+                            upstream_model=outbound_model,
                             provider_key_label=_get_key_label(provider_config, chosen_key_id),
                             inbound_protocol=inbound_protocol,
                             model_concurrency_semaphore=model_concurrency_semaphore,
@@ -1375,7 +1372,12 @@ async def proxy_request(request: Request, endpoint: str):
                 provider_key_semaphore.release()
         latency = (time.time() - start_time) * 1000
         update_stats(
-            provider_name, actual_model, 0, api_key_id=api_key_id, is_error=True
+            provider_name,
+            actual_model,
+            0,
+            api_key_id=api_key_id,
+            is_error=True,
+            requested_model=requested_model,
         )
         await create_request_log(
             provider_name,
@@ -1391,7 +1393,6 @@ async def proxy_request(request: Request, endpoint: str):
             inbound_protocol=inbound_protocol,
             intent=request_intent,
             requested_model=requested_model,
-            actual_model=actual_model,
             provider_key_id=chosen_key_id,
             provider_key_label=_get_key_label(provider_config, chosen_key_id),
         )
@@ -1486,6 +1487,7 @@ async def handle_normal(
     extra_response_headers=None,
     intent=None,
     requested_model=None,
+    upstream_model=None,
     provider_key_label=None,
     routing_decision=None,
     inbound_protocol=None,
@@ -1512,6 +1514,7 @@ async def handle_normal(
         extra_response_headers=extra_response_headers,
         intent=intent,
         requested_model=requested_model,
+        upstream_model=upstream_model,
         provider_key_label=provider_key_label,
         routing_decision=routing_decision,
         inbound_protocol=inbound_protocol,
@@ -1544,6 +1547,7 @@ async def handle_streaming(
     extra_response_headers=None,
     intent=None,
     requested_model=None,
+    upstream_model=None,
     provider_key_label=None,
     routing_decision=None,
 ):
@@ -1571,6 +1575,7 @@ async def handle_streaming(
         extra_response_headers=extra_response_headers,
         intent=intent,
         requested_model=requested_model,
+        upstream_model=upstream_model,
         provider_key_label=provider_key_label,
         routing_decision=routing_decision,
         model_concurrency_semaphore=model_concurrency_semaphore,

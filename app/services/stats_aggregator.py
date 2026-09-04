@@ -15,6 +15,10 @@ from app.core.database import (
     McpCallLog,
     McpCallDailyStat,
 )
+from app.services.model_naming import (
+    provider_stats_model_name,
+    user_stats_model_name,
+)
 
 logger = proxy_logger
 ERROR_STATUS = "error"
@@ -117,7 +121,10 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 if is_timeout:
                     api_key_stats[log.api_key_id]["timeouts"] += 1
                 if log.model:
-                    api_key_model_key = (log.api_key_id, log.model)
+                    user_model_name = user_stats_model_name(
+                        log.requested_model, log.model
+                    )
+                    api_key_model_key = (log.api_key_id, user_model_name)
                     if api_key_model_key not in api_key_model_stats:
                         api_key_model_stats[api_key_model_key] = {
                             "requests": 0,
@@ -140,7 +147,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                     if is_timeout:
                         api_key_model_stats[api_key_model_key]["timeouts"] += 1
 
-            model_key = (log.model, provider_name)
+            model_key = (provider_stats_model_name(log.actual_model, log.model), provider_name)
             if model_key not in model_stats:
                 model_stats[model_key] = {
                     "requests": 0,

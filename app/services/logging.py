@@ -98,6 +98,7 @@ async def update_request_log(
     upstream_status_code: Optional[int] = None,
     downstream_status_code: Optional[int] = None,
     error: Optional[str] = None,
+    actual_model: Optional[str] = None,
 ) -> bool:
     async with async_session_maker() as session:
         result = await session.execute(
@@ -111,6 +112,7 @@ async def update_request_log(
                 upstream_status_code=upstream_status_code,
                 downstream_status_code=downstream_status_code,
                 error=_clean_null_bytes(error),
+                actual_model=actual_model,
                 updated_at=func.now(),
             )
         )

@@ -42,6 +42,12 @@ from app.core.database import (
     generate_api_key,
 )
 from app.core.i18n import render, translate
+from app.services.model_naming import (
+    provider_stats_model_expr,
+    provider_stats_model_name,
+    user_stats_model_expr,
+    user_stats_model_name,
+)
 
 router = APIRouter(tags=["user"])
 ERROR_STATUSES = ("error", "timeout")
@@ -792,8 +798,11 @@ async def get_user_stats(
                         total_errors += 1
 
                     if log.model:
+                        user_model = user_stats_model_name(
+                            log.requested_model, log.model
+                        )
                         model_bucket = model_stats.setdefault(
-                            log.model,
+                            user_model,
                             {"requests": 0, "tokens": 0, "errors": 0},
                         )
                         model_bucket["requests"] += 1
@@ -841,7 +850,9 @@ async def get_user_stats(
 
             model_stats_result = await session.execute(
                 select(
-                    RequestLog.model,
+                    user_stats_model_expr(
+                        RequestLog.model, RequestLog.requested_model
+                    ).label("model_name"),
                     func.count(RequestLog.id).label("count"),
                     func.sum(
                         func.coalesce(
@@ -857,16 +868,21 @@ async def get_user_stats(
                 .where(
                     RequestLog.api_key_id == api_key_id, RequestLog.created_at >= start
                 )
-                .group_by(RequestLog.model)
+                .group_by(
+                    user_stats_model_expr(
+                        RequestLog.model, RequestLog.requested_model
+                    )
+                )
             )
             model_stats_rows = model_stats_result.fetchall()
             model_stats = {
-                row.model: {
+                row.model_name: {
                     "requests": row.count,
                     "tokens": row.tokens or 0,
                     "errors": row.errors or 0,
                 }
                 for row in model_stats_rows
+                if row.model_name
             }
 
             trend_query = select(RequestLog).where(
@@ -1368,6 +1384,7 @@ async def get_system_model_stats(
                 result = await session.execute(
                     select(
                         RequestLog.model,
+                        RequestLog.actual_model,
                         RequestLog.tokens,
                         RequestLog.created_at,
                         RequestLog.status,
@@ -1377,8 +1394,9 @@ async def get_system_model_stats(
                 )
                 for row in result.fetchall():
                     tokens = get_token_count(row.tokens)
-                    if row.model:
-                        bucket = models.setdefault(row.model, {"requests": 0, "tokens": 0})
+                    out_name = provider_stats_model_name(row.actual_model, row.model)
+                    if out_name:
+                        bucket = models.setdefault(out_name, {"requests": 0, "tokens": 0})
                         bucket["requests"] += 1
                         bucket["tokens"] += tokens
                     label = format_func(row.created_at)
@@ -1390,7 +1408,9 @@ async def get_system_model_stats(
         else:
             result = await session.execute(
                 select(
-                    RequestLog.model,
+                    provider_stats_model_expr(
+                        RequestLog.model, RequestLog.actual_model
+                    ).label("model_name"),
                     func.count(RequestLog.id).label("count"),
                     func.sum(
                         func.coalesce(
@@ -1401,13 +1421,17 @@ async def get_system_model_stats(
                     ).label("tokens"),
                 )
                 .where(RequestLog.created_at >= start)
-                .group_by(RequestLog.model)
+                .group_by(
+                    provider_stats_model_expr(
+                        RequestLog.model, RequestLog.actual_model
+                    )
+                )
             )
             rows = result.fetchall()
             models = {
-                row.model: {"requests": row.count or 0, "tokens": row.tokens or 0}
+                row.model_name: {"requests": row.count or 0, "tokens": row.tokens or 0}
                 for row in rows
-                if row.model
+                if row.model_name
             }
 
             trend_result = await session.execute(
