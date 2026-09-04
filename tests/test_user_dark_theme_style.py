@@ -67,6 +67,13 @@ class ParticleBackgroundTests(unittest.TestCase):
         self.assertIn("body.has-particle-bg", css)
         self.assertIn("prefers-reduced-motion", css)
 
+    def test_particle_brightness_is_edge_weighted(self):
+        js = _read("web/static/js/particle-bg.js")
+
+        self.assertIn("edgeBoost", js)
+        self.assertIn("0.31 + 0.14", js)
+        self.assertIn("0.09", js)
+
     def test_dark_pages_wire_particle_background(self):
         for rel in (
             "web/templates/user/dashboard.html",
@@ -82,6 +89,30 @@ class ParticleBackgroundTests(unittest.TestCase):
         apply_fn = html[html.index("function applyTheme"):html.index("function applyTheme") + 700]
 
         self.assertIn("ParticleBG.setEnabled(mode === 'dark')", apply_fn)
+
+
+class LoginDeepSpaceThemeTests(unittest.TestCase):
+    def test_login_uses_deep_space_palette(self):
+        html = _read("web/templates/user/login.html")
+
+        self.assertIn("0x050508", html)
+        self.assertIn("rgba(235, 234, 250, 0.03)", html)
+        self.assertIn("rgba(235, 234, 250, 0.08)", html)
+        self.assertIn("linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)", html)
+        self.assertNotIn("from-blue-500 to-purple-500", html)
+
+    def test_login_particle_palette_is_indigo_family(self):
+        html = _read("web/templates/user/login.html")
+        palette = html[html.index("colorPalette") : html.index("rings =")]
+
+        self.assertIn("0.51, 0.55, 0.97", palette)
+        self.assertIn("0.39, 0.43, 0.95", palette)
+        self.assertNotIn("0.96, 0.26, 0.21", palette)
+
+    def test_login_respects_reduced_motion(self):
+        html = _read("web/templates/user/login.html")
+
+        self.assertIn("prefers-reduced-motion", html)
 
 
 if __name__ == "__main__":

@@ -41,9 +41,16 @@
                 vx: (Math.random() - 0.5) * 0.25,
                 vy: (Math.random() - 0.5) * 0.25,
                 size: Math.random() * 1.3 + 0.4,
-                alpha: Math.random() * 0.16 + 0.06
+                alpha: Math.random() * 0.31 + 0.14
             });
         }
+    }
+
+    /* Horizontal brightness weight: bright at the page edges, dimmer in the
+       middle so content stays readable. Returns ~0.35 (center) to 1.0 (edges). */
+    function edgeBoost(x) {
+        var t = Math.min(Math.abs(x / width - 0.5) * 2, 1);
+        return 0.35 + 0.65 * Math.pow(t, 1.2);
     }
 
     function resize() {
@@ -91,7 +98,7 @@
 
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(129, 140, 248, ' + p.alpha + ')';
+            ctx.fillStyle = 'rgba(129, 140, 248, ' + (p.alpha * edgeBoost(p.x)).toFixed(3) + ')';
             ctx.fill();
 
             for (j = i + 1; j < particles.length; j++) {
@@ -100,10 +107,11 @@
                 dy = p.y - p2.y;
                 dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist < 110) {
+                    var boost = (edgeBoost(p.x) + edgeBoost(p2.x)) / 2;
                     ctx.beginPath();
                     ctx.moveTo(p.x, p.y);
                     ctx.lineTo(p2.x, p2.y);
-                    ctx.strokeStyle = 'rgba(129, 140, 248, ' + (1 - dist / 110) * 0.045 + ')';
+                    ctx.strokeStyle = 'rgba(129, 140, 248, ' + ((1 - dist / 110) * 0.09 * boost).toFixed(3) + ')';
                     ctx.lineWidth = 0.5;
                     ctx.stroke();
                 }

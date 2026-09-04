@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/css/output.css?v={{ css_version }}">
     <script src="/static/js/three.min.js"></script>
     <style>
+        body { background: #050508; }
         #particles-container {
             position: fixed;
             top: 0;
@@ -17,64 +18,91 @@
             z-index: -1;
         }
         .login-card {
-            background: rgba(10, 10, 20, 0.2);
-            backdrop-filter: blur(2px);
-            -webkit-backdrop-filter: blur(2px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            background: rgba(235, 234, 250, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(235, 234, 250, 0.08);
+            box-shadow: 0 18px 36px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(235, 234, 250, 0.06);
         }
         .login-card label {
-            color: rgba(255, 255, 255, 0.85);
+            color: rgba(237, 237, 248, 0.85);
         }
         .login-card input[type="password"] {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: #fff;
+            background: rgba(235, 234, 250, 0.05);
+            border: 1px solid rgba(235, 234, 250, 0.14);
+            color: #ededf8;
         }
         .login-card input[type="password"]::placeholder {
-            color: rgba(255, 255, 255, 0.4);
+            color: rgba(237, 237, 248, 0.4);
         }
         .login-card input[type="password"]:focus {
             border-color: rgba(129, 140, 248, 0.6);
-            background: rgba(255, 255, 255, 0.12);
+            background: rgba(235, 234, 250, 0.08);
+            box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.18);
         }
         .login-card input[type="checkbox"] {
             accent-color: #818cf8;
         }
+        #lang-select {
+            background: rgba(235, 234, 250, 0.05);
+            color: #ededf8a3;
+            border: 1px solid rgba(235, 234, 250, 0.14);
+            border-radius: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+        #lang-select:focus { outline: none; border-color: rgba(129, 140, 248, 0.6); }
+        .login-title {
+            color: #ededf8;
+            letter-spacing: 0.02em;
+        }
+        .login-subtitle { color: #ededf8a3; }
+        .login-btn {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: #ededf8;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25), inset 0 1px 0 rgba(235, 234, 250, 0.18);
+            transition: all 0.25s ease;
+        }
+        .login-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+            box-shadow: 0 12px 32px rgba(99, 102, 241, 0.4), inset 0 1px 0 rgba(235, 234, 250, 0.22);
+        }
+        .login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center overflow-hidden">
     <div id="particles-container"></div>
 
     <div class="fixed top-4 right-4 z-50">
-        <select id="lang-select" onchange="switchLang(this.value)" class="bg-transparent text-white/60 border border-white/20 rounded px-2 py-1 text-sm cursor-pointer focus:outline-none">
+        <select id="lang-select" onchange="switchLang(this.value)">
             <option value="en">English</option>
             <option value="zh">中文</option>
         </select>
     </div>
 
-    <div class="login-card rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
-        <h1 class="text-2xl font-bold text-white mb-2 text-center">ModelGate</h1>
-        <p class="text-sm text-white/65 mb-6 text-center">{{ _('Empower every developer to harness the power of AI.') }}</p>
-        
+    <div class="login-card rounded-2xl p-8 w-full max-w-md mx-4">
+        <h1 class="login-title text-2xl font-bold mb-2 text-center">ModelGate</h1>
+        <p class="login-subtitle text-sm mb-6 text-center">{{ _('Empower every developer to harness the power of AI.') }}</p>
+
         <form id="login-form" class="space-y-4">
             <div>
-                <label class="block text-sm font-medium mb-1" style="color: rgba(255,255,255,0.8)">{{ _('API Key') }}</label>
+                <label class="block text-sm font-medium mb-1" style="color: rgba(237,237,248,0.8)">{{ _('API Key') }}</label>
                 <input type="password" id="api-key" required
-                    class="w-full rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    class="w-full rounded-lg px-3 py-2 focus:outline-none"
                     placeholder="sk-...">
             </div>
             <div class="flex items-center">
                 <input type="checkbox" id="remember" class="mr-2" checked>
-                <label for="remember" class="text-sm" style="color: rgba(255,255,255,0.7)">{{ _('Remember API Key') }}</label>
+                <label for="remember" class="text-sm" style="color: rgba(237,237,248,0.7)">{{ _('Remember API Key') }}</label>
             </div>
             <div id="error-msg" class="text-red-400 text-sm hidden"></div>
-            <button type="submit" id="login-btn" class="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-2.5 rounded-lg hover:from-blue-600 hover:to-purple-600 font-medium transition-all shadow-lg hover:shadow-xl">
+            <button type="submit" id="login-btn" class="login-btn w-full py-2.5 rounded-lg font-medium">
                 {{ _('Login') }}
             </button>
         </form>
-        
-        <p class="text-sm text-center mt-4" style="color: rgba(255,255,255,0.5)">
+
+        <p class="text-sm text-center mt-4" style="color: rgba(237,237,248,0.5)">
             {{ _('Enter your API Key to view usage statistics') }}
         </p>
     </div>
@@ -103,7 +131,7 @@
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.setClearColor(0x0d1117, 1);
+            renderer.setClearColor(0x050508, 1);
             container.appendChild(renderer.domElement);
             
             createParticles();
@@ -125,12 +153,12 @@
             const particleData = [];
             
             const colorPalette = [
-                [0.26, 0.52, 0.96],
-                [0.96, 0.26, 0.21],
-                [0.98, 0.73, 0.02],
-                [0.13, 0.69, 0.33],
+                [0.51, 0.55, 0.97],
+                [0.65, 0.55, 0.98],
+                [0.39, 0.43, 0.95],
+                [0.77, 0.71, 0.99],
+                [0.93, 0.93, 0.97],
                 [0.55, 0.36, 0.96],
-                [0.0, 0.73, 0.83],
             ];
             
             const rings = 10;
@@ -253,7 +281,7 @@
         let centerX = 0, centerY = 0;
         
         function animate() {
-            requestAnimationFrame(animate);
+            if (!REDUCE_MOTION) requestAnimationFrame(animate);
             time += 0.016;
             
             const positions = particles.geometry.attributes.position.array;
@@ -263,38 +291,42 @@
             
             centerX += (mouseX * 55 - centerX) * 0.002;
             centerY += (mouseY * 40 - centerY) * 0.002;
-            
-            for (let i = 0; i < particleCount; i++) {
-                const data = particleData[i];
-                
-                const angle = data.baseAngle + time * data.angularSpeed * (1 + Math.sin(time * 0.5) * 0.3);
-                const pulse = Math.sin(time * 0.8 + data.pulsePhase) * 2;
-                const radius = data.ringRadius + pulse;
-                
-                const x = Math.cos(angle) * radius + centerX;
-                const y = Math.sin(angle) * radius * 0.85 + centerY;
-                
-                const wobbleX = Math.sin(time * data.wobbleSpeed + data.wobblePhase) * data.wobbleAmount;
-                const wobbleZ = Math.cos(time * data.wobbleSpeed * 0.7 + data.wobblePhase) * data.wobbleAmount * 0.5;
-                
-                positions[i * 3] = x + wobbleX;
-                positions[i * 3 + 1] = y;
-                positions[i * 3 + 2] = data.z + wobbleZ;
-                
-                rotations[i] = angle;
+
+            if (!REDUCE_MOTION) {
+                for (let i = 0; i < particleCount; i++) {
+                    const data = particleData[i];
+
+                    const angle = data.baseAngle + time * data.angularSpeed * (1 + Math.sin(time * 0.5) * 0.3);
+                    const pulse = Math.sin(time * 0.8 + data.pulsePhase) * 2;
+                    const radius = data.ringRadius + pulse;
+
+                    const x = Math.cos(angle) * radius + centerX;
+                    const y = Math.sin(angle) * radius * 0.85 + centerY;
+
+                    const wobbleX = Math.sin(time * data.wobbleSpeed + data.wobblePhase) * data.wobbleAmount;
+                    const wobbleZ = Math.cos(time * data.wobbleSpeed * 0.7 + data.wobblePhase) * data.wobbleAmount * 0.5;
+
+                    positions[i * 3] = x + wobbleX;
+                    positions[i * 3 + 1] = y;
+                    positions[i * 3 + 2] = data.z + wobbleZ;
+
+                    rotations[i] = angle;
+                }
+
+                particles.geometry.attributes.position.needsUpdate = true;
+                particles.geometry.attributes.rotation.needsUpdate = true;
+
+                particles.rotation.x += (mouseY * 0.15 - particles.rotation.x) * 0.02;
+                particles.rotation.y += (mouseX * 0.1 - particles.rotation.y) * 0.02;
             }
-            
-            particles.geometry.attributes.position.needsUpdate = true;
-            particles.geometry.attributes.rotation.needsUpdate = true;
-            
-            particles.rotation.x += (mouseY * 0.15 - particles.rotation.x) * 0.02;
-            particles.rotation.y += (mouseX * 0.1 - particles.rotation.y) * 0.02;
-            
+
             renderer.render(scene, camera);
         }
         
+        const REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
         init();
-        
+
         // Login form handler
         const STORAGE_KEY = 'user_api_key';
         const APP_BASE_PATH = {{ app_base_path | tojson }};
