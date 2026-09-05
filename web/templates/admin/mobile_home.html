@@ -76,6 +76,20 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         body.theme-dark .log-chip.active { color: #fff; border-color: #3b82f6; }
         body.theme-dark .btn-text { background: transparent; border-color: transparent; color: #60a5fa; }
         body.pb-20 { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+        .health-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; padding: 0.1rem 0.4rem; border-radius: 9999px; font-size: 0.65rem; font-weight: 700; flex-shrink: 0; }
+        .health-excellent { background: #dcfce7; color: #15803d; }
+        .health-good { background: #dbeafe; color: #1d4ed8; }
+        .health-warning { background: #fef3c7; color: #b45309; }
+        .health-critical { background: #fee2e2; color: #b91c1c; }
+        .health-unavailable { background: #f1f5f9; color: #64748b; }
+        body.theme-dark .health-excellent { background: rgba(34,197,94,0.16); color: #86efac; }
+        body.theme-dark .health-good { background: rgba(59,130,246,0.16); color: #93c5fd; }
+        body.theme-dark .health-warning { background: rgba(245,158,11,0.16); color: #fcd34d; }
+        body.theme-dark .health-critical { background: rgba(239,68,68,0.16); color: #fca5a5; }
+        body.theme-dark .health-unavailable { background: rgba(100,116,139,0.16); color: #94a3b8; }
+        .conc-bar-bg { width: 48px; height: 6px; border-radius: 9999px; background: #e5e7eb; overflow: hidden; flex-shrink: 0; }
+        .conc-bar-fill { height: 100%; border-radius: 9999px; transition: width 0.3s; }
+        body.theme-dark .conc-bar-bg { background: #1f2937; }
     </style>
 </head>
 <body class="theme-dark bg-gray-50 min-h-screen pb-20">
@@ -172,7 +186,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             <div class="collapsible-header flex items-center justify-between p-4" onclick="toggleSection('active')">
                 <div class="flex items-center gap-2">
                     <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <span class="font-medium text-sm text-gray-800">{{ _('Active Users') }}</span>
+                    <span class="font-medium text-sm text-gray-800">{{ _('Active Requests' if current_locale != 'zh' else '活跃请求') }}</span>
                     <span id="active-count" class="text-xs text-gray-400">0</span>
                 </div>
                 <svg id="chevron-active" class="chevron w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,20 +199,20 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         </div>
 
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div class="collapsible-header flex items-center justify-between p-4" onclick="toggleSection('slow')">
+            <div class="collapsible-header flex items-center justify-between p-4" onclick="toggleSection('pkeys')">
                 <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                     </svg>
-                    <span class="font-medium text-sm text-gray-800">{{ _('Slow Requests') }}</span>
-                    <span id="slow-count" class="text-xs text-gray-400">0</span>
+                    <span class="font-medium text-sm text-gray-800">{{ _('Provider / Key Status') if current_locale == 'zh' else 'Provider / Key Status' }}</span>
+                    <span id="provider-keys-count" class="text-xs text-gray-400"></span>
                 </div>
-                <svg id="chevron-slow" class="chevron w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg id="chevron-pkeys" class="chevron w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </div>
-            <div id="slow-content" class="collapsible-content">
-                <div id="slow-requests" class="px-4 pb-4 space-y-2"></div>
+            <div id="pkeys-content" class="collapsible-content">
+                <div id="provider-keys-live" class="px-4 pb-4 space-y-2"></div>
             </div>
         </div>
 
@@ -283,11 +297,9 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         tokens: "{{ _('Tokens') }}",
         errors: "{{ _('Errors') }}",
         noData: "{{ _('No data') }}",
-        noActiveUsers: "{{ _('No active users') }}",
-        noSlowRequests: "{{ _('No slow requests') }}",
+        noActiveRequests: "{{ _('No active requests' if current_locale != 'zh' else '暂无活跃请求') }}",
+        noUsageToday: "{{ _('No usage today' if current_locale != 'zh' else '暂无今日用量') }}",
         req: "{{ _('req') }}",
-        pending: "{{ _('pending') }}",
-        elapsed: "{{ _('{seconds}s elapsed') }}",
         onRightAxis: "{{ _('{label} on right axis') }}",
         providerUnavailable: "{{ _('Provider unavailable') }}",
         providerUnavailableLine: "{{ _('Provider {name} is unavailable: {reason}') }}",
@@ -315,6 +327,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         let trendLayoutRaf = null;
         let liveStatsSocket = null;
         let liveStatsReconnectTimer = null;
+        let liveSnapshotRecvAt = 0;
         let adminAuthRedirecting = false;
         let providersByName = {};
         const openProvKeys = new Set();
@@ -328,7 +341,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         let logsStatus = '';
         let logsLoaded = false;
         const MOBILE_HOME_OVERVIEW_REFRESH_MS = 8000;
-        const MOBILE_HOME_SLOW_REFRESH_MS = 5000;
+        const MOBILE_HOME_PKEYS_REFRESH_MS = 5000;
 
         Chart.defaults.color = '#cbd5e1';
         Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.15)';
@@ -546,12 +559,23 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             const errors = labels.map(i => normalizedChartData.data?.[i]?.errors || 0);
             const timeouts = labels.map(i => normalizedChartData.data?.[i]?.timeouts || 0);
             const rateLimited = labels.map(i => normalizedChartData.data?.[i]?.rate_limited || 0);
+            const canvas = document.getElementById('trendChart');
+            const overlay = document.getElementById('trend-chart-loading');
+            const hasData = labels.length > 0 && (requests.some(v => v > 0) || rawTokens.some(v => v > 0) || errors.some(v => v > 0) || timeouts.some(v => v > 0) || rateLimited.some(v => v > 0));
+            if (!hasData) {
+                if (trendChart) { trendChart.destroy(); trendChart = null; }
+                canvas.style.display = 'none';
+                if (overlay) { overlay.textContent = window.I18N.noData; overlay.style.display = 'flex'; }
+                return;
+            }
+            canvas.style.display = '';
+            if (overlay) overlay.style.display = 'none';
             const visibleRange = getTrendVisibleRange([requests, rawTokens], labels.length);
             const tokenScale = getTokenChartScale(requests, rawTokens);
             const tokens = rawTokens.map(v => Number((v / tokenScale.divisor).toFixed(2)));
             const tokenLabel = tokenScale.suffix ? `${window.I18N.tokens} (${tokenScale.suffix})` : window.I18N.tokens;
 
-            if (trendChart) {
+            if (trendChart && trendChart.data.labels.length === labels.length) {
                 trendChart.data.labels = labels;
                 trendChart.data.datasets[0].data = requests;
                 trendChart.data.datasets[1].data = tokens;
@@ -569,13 +593,12 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     }
                     return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
                 };
-                trendChart.update('none');
+                trendChart.update();
                 return;
             }
 
             if (trendChart) trendChart.destroy();
-            const ctx = document.getElementById('trendChart').getContext('2d');
-            trendChart = new Chart(ctx, {
+            trendChart = new Chart(canvas.getContext('2d'), {
                 data: {
                     labels: labels,
                     datasets: [
@@ -653,7 +676,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    animation: false,
+                    animation: { duration: 450, easing: 'easeOutQuart' },
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
@@ -760,58 +783,76 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 renderProviderBars(data.providers || {}, data.disabled_providers || {});
                 renderApiKeyBars(data.api_keys || {});
                 renderTrendChart(chartData);
-                const trendLoading = document.getElementById('trend-chart-loading');
-                if (trendLoading) trendLoading.style.display = 'none';
                 requestAnimationFrame(() => { if (trendChart) trendChart.resize(); });
             } catch (e) {
                 console.error('Failed to load data:', e);
-                const trendLoading = document.getElementById('trend-chart-loading');
-                if (trendLoading) trendLoading.style.display = 'none';
+                if (!trendChart) {
+                    const trendLoading = document.getElementById('trend-chart-loading');
+                    if (trendLoading) { trendLoading.textContent = window.I18N.noData; trendLoading.style.display = 'flex'; }
+                }
             }
         }
 
+        function routeLabel(r) {
+            const req = r.model || '';
+            const actual = r.actual || '';
+            const prov = r.provider || '';
+            if (!prov) return req || actual;
+            if (!req || req === actual) return `${prov}/${actual}`;
+            return `${req} -> ${prov}/${actual}`;
+        }
         function renderLiveStats(data) {
             const activeRequests = data.active_requests || 0;
-            const activeUsers = data.active_count ?? data.active_users ?? 0;
             const tokensPerSecond = Math.round(data.tokens_per_second || 0);
-            const sessions = data.sessions || {};
             flipCounter('rps', activeRequests);
             flipCounter('tps', tokensPerSecond.toLocaleString());
-            flipCounter('active-count', activeUsers);
-            if (activeUsers === 0) {
-                document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noActiveUsers}</div>`;
+            flipCounter('active-count', activeRequests);
+            const rows = data.requests || [];
+            if (rows.length === 0) {
+                document.getElementById('active-sessions').innerHTML = `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noActiveRequests}</div>`;
                 return;
             }
-            const html = Object.entries(sessions)
-                    .sort((a, b) => new Date(b[1].last_activity || 0) - new Date(a[1].last_activity || 0))
-                    .map(([keyName, session]) => {
-                    const disabledProviders = data.disabled_providers || {};
-                    const models = Object.entries(session.models || {})
-                        .sort((a, b) => (b[1].count ?? b[1]) - (a[1].count ?? a[1]))
-                        .map(([m, info]) => {
-                            const c = info.count ?? info;
-                            const modelTokens = info.tokens ?? 0;
-                            const providerName = info.provider || (m.includes('/') ? m.split('/')[0] : '');
-                            const isDisabled = providerName && disabledProviders[providerName];
-                            const warnIcon = isDisabled
-                                ? `<span class="warn-icon ml-0.5"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${disabledProviders[providerName]}</span></span>`
-                                : '';
-                            const td = modelTokens >= 1_000_000_000
-                                ? (modelTokens / 1_000_000_000).toFixed(1) + 'B'
-                                : modelTokens >= 1_000_000
-                                    ? (modelTokens / 1_000_000).toFixed(1) + 'M'
-                                    : modelTokens >= 1_000
-                                        ? (modelTokens / 1_000).toFixed(1) + 'K'
-                                        : String(modelTokens);
-                            return `<div class="flex items-center gap-1 py-0.5"><span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded max-w-[180px] truncate">${m} (${c})${warnIcon}</span><span class="text-[10px] text-gray-400 flex-shrink-0 ml-auto">${td}</span></div>`;
-                        })
-                        .join('');
-                    return `<div class="bg-gray-50 rounded-lg p-3">
-                        <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${keyName}">${keyName}${(session.tags || []).map(t => `<span class="bg-amber-100 text-amber-800 text-[9px] px-1 py-0.5 rounded ml-1 align-middle">${t}</span>`).join('')}</div><div class="mt-1">${models || '<span class="text-[10px] text-gray-400">-</span>'}</div></div>
-                        </div>
-                    </div>`;
+            const disabledProviders = data.disabled_providers || {};
+            liveSnapshotRecvAt = Date.now();
+            const grouped = [];
+            const userIndex = new Map();
+            for (const r of rows) {
+                const k = r.key || 'Unknown';
+                if (!userIndex.has(k)) {
+                    userIndex.set(k, []);
+                    grouped.push([k, userIndex.get(k)]);
+                }
+                userIndex.get(k).push(r);
+            }
+            const html = grouped.map(([keyName, userRows]) => {
+                const tagsHtml = (userRows[0].tags || []).map(t => `<span class="bg-amber-100 text-amber-800 text-[9px] px-1 py-0.5 rounded ml-1 align-middle">${t}</span>`).join('');
+                const reqRows = userRows.map(r => {
+                    const label = routeLabel(r);
+                    const providerName = r.provider || '';
+                    const isDisabled = providerName && disabledProviders[providerName];
+                    const warnIcon = isDisabled
+                        ? `<span class="warn-icon ml-0.5"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${disabledProviders[providerName]}</span></span>`
+                        : '';
+                    const tokensVal = r.tokens || 0;
+                    const td = tokensVal >= 1_000_000_000
+                        ? (tokensVal / 1_000_000_000).toFixed(1) + 'B'
+                        : tokensVal >= 1_000_000
+                            ? (tokensVal / 1_000_000).toFixed(1) + 'M'
+                            : tokensVal >= 1_000
+                                ? (tokensVal / 1_000).toFixed(1) + 'K'
+                                : String(tokensVal);
+                    const elapsed0 = Number(r.elapsed_seconds ?? 0);
+                    const durClass = elapsed0 > 120 ? 'text-red-600' : elapsed0 > 60 ? 'text-orange-500' : 'text-gray-400';
+                    return `<div class="request-row flex items-center gap-1 py-0.5"><span class="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded max-w-[200px] truncate" title="${label}">${label}${warnIcon}</span><span class="live-duration text-[10px] font-medium flex-shrink-0 ml-auto ${durClass}" data-elapsed0="${elapsed0}">${formatDuration(elapsed0)}</span><span class="text-[10px] text-gray-400 flex-shrink-0">${td}</span></div>`;
                 }).join('');
+                return `<div class="bg-gray-50 rounded-lg p-3">
+                    <div class="flex justify-between items-center gap-2">
+                        <div class="text-xs font-medium truncate cursor-default min-w-0" title="${keyName}">${maskName(keyName)}${tagsHtml}</div>
+                        <span class="text-[10px] text-gray-400 flex-shrink-0">${userRows.length} ${window.I18N.req}</span>
+                    </div>
+                    <div class="mt-1">${reqRows}</div>
+                </div>`;
+            }).join('');
             document.getElementById('active-sessions').innerHTML = html;
         }
 
@@ -859,44 +900,68 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             };
         }
 
-        async function loadSlowRequests() {
+        function formatDuration(seconds) {
+            if (seconds >= 60) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}m ${secs}s`;
+            }
+            return `${seconds.toFixed(1)}s`;
+        }
+
+        function tickLiveDurations() {
+            if (!liveSnapshotRecvAt) return;
+            const drift = (Date.now() - liveSnapshotRecvAt) / 1000;
+            document.querySelectorAll('.live-duration').forEach(el => {
+                const base = parseFloat(el.dataset.elapsed0 || '0');
+                const elapsed = Math.max(base + drift, 0);
+                el.textContent = formatDuration(elapsed);
+                el.classList.toggle('text-red-600', elapsed > 120);
+                el.classList.toggle('text-orange-500', elapsed > 60 && elapsed <= 120);
+                el.classList.toggle('text-gray-400', elapsed <= 60);
+            });
+        }
+
+        function renderProviderKeysLive(data) {
+            const rows = (data && data.rows) || [];
+            const container = document.getElementById('provider-keys-live');
+            const countEl = document.getElementById('provider-keys-count');
+            if (countEl) countEl.textContent = rows.length > 0 ? `(${rows.length})` : '';
+            if (rows.length === 0) {
+                container.innerHTML = `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noUsageToday}</div>`;
+                return;
+            }
+            const html = rows.map(r => {
+                const hClass = 'health-' + r.health_level;
+                const hBadge = `<span class="health-badge ${hClass}">${r.health_score}</span>`;
+                let concHtml = '-';
+                if (r.concurrency_limit > 0) {
+                    const pct = Math.min((r.concurrency_in_use / r.concurrency_limit) * 100, 100);
+                    const barColor = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
+                    concHtml = `<div class="conc-bar-bg"><div class="conc-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+                        <span class="text-[10px] text-gray-500">${r.concurrency_in_use}/${r.concurrency_limit}</span>`;
+                }
+                const providerStyle = r.provider_disabled ? 'text-red-500 line-through' : '';
+                const providerTitle = r.provider_disabled ? ` title="${esc(r.provider_disabled_reason || '')}"` : '';
+                const maskedKey = maskName(r.key_label || '');
+                return `<div class="bg-gray-50 rounded-lg p-3 border-l-4 ${r.provider_disabled ? 'border-red-400' : 'border-blue-400'}">
+                    <div class="flex justify-between items-center gap-2">
+                        <div class="text-xs font-medium truncate ${providerStyle}"${providerTitle}>${esc(r.provider)} / <span class="cursor-default" title="${esc(r.key_label || '')}">${maskedKey}</span></div>
+                        ${hBadge}
+                    </div>
+                    <div class="flex items-center gap-2 mt-1.5">
+                        ${concHtml}
+                        <span class="text-[10px] text-gray-400 ml-auto">${r.usage} ${window.I18N.req}</span>
+                    </div>
+                </div>`;
+            }).join('');
+            container.innerHTML = html;
+        }
+
+        async function loadProviderKeysLive() {
             try {
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/slow`);
-                const pending = data.pending || [];
-                const recent = data.recent || [];
-                const count = pending.length + recent.length;
-                document.getElementById('slow-count').textContent = count;
-                if (count === 0) {
-                    document.getElementById('slow-requests').innerHTML = `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noSlowRequests}</div>`;
-                    return;
-                }
-                let html = '';
-                for (const req of pending) {
-                    const elapsed = Number.isFinite(Number(req.elapsed_seconds))
-                        ? Math.max(0, Math.round(Number(req.elapsed_seconds)))
-                        : 0;
-                    const elapsedText = window.I18N.elapsed.replace('{seconds}', elapsed);
-                    const rawKeyName = req.api_key || req.key_name || '-';
-                    const maskedKeyName = maskName(rawKeyName);
-                    html += `<div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                        <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-orange-600 mt-1">${elapsedText}${req.input_tokens ? ' | ' + formatCompactTokens(req.input_tokens) : ''}</div></div>
-                            <span class="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">${window.I18N.pending}</span>
-                        </div>
-                    </div>`;
-                }
-                for (const req of recent.slice(0, 5)) {
-                    const statusClass = req.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
-                    const rawKeyName = req.api_key || req.key_name || '-';
-                    const maskedKeyName = maskName(rawKeyName);
-                    html += `<div class="bg-gray-50 rounded-lg p-3">
-                        <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0"><div class="text-xs font-medium truncate cursor-default" title="${rawKeyName} / ${req.model || '-'}">${maskedKeyName} / ${req.model || '-'}</div><div class="text-[10px] text-gray-500 mt-1">${Math.round(req.latency_ms / 1000)}s${req.input_tokens ? ' | ' + formatCompactTokens(req.input_tokens) : ''}</div></div>
-                            <span class="text-[10px] ${statusClass} px-1.5 py-0.5 rounded">${req.status}</span>
-                        </div>
-                    </div>`;
-                }
-                document.getElementById('slow-requests').innerHTML = html || `<div class="text-gray-400 text-center py-2 text-xs">${window.I18N.noSlowRequests}</div>`;
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/provider-keys-live`);
+                renderProviderKeysLive(data);
             } catch (e) {}
         }
 
@@ -1189,16 +1254,16 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             if (btn) expandProviderKeys(btn);
         });
 
-        renderTrendChart(null);
         loadData();
         loadLiveStatsFallback();
         connectLiveStats();
-        loadSlowRequests();
+        loadProviderKeysLive();
         loadBusyness();
 
         function ensureTrendChartSize() {
             if (trendChart) trendChart.resize();
         }
+        window.addEventListener('pageshow', () => ensureTrendChartSize());
         window.addEventListener('load', ensureTrendChartSize);
         requestAnimationFrame(() => requestAnimationFrame(ensureTrendChartSize));
         setTimeout(ensureTrendChartSize, 300);
@@ -1247,7 +1312,8 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         }
 
         setInterval(loadData, MOBILE_HOME_OVERVIEW_REFRESH_MS);
-        setInterval(loadSlowRequests, MOBILE_HOME_SLOW_REFRESH_MS);
+        setInterval(loadProviderKeysLive, MOBILE_HOME_PKEYS_REFRESH_MS);
+        setInterval(tickLiveDurations, 1000);
         setInterval(loadBusyness, 30000);
         loadProviderStatus();
         updateNotifBadge();

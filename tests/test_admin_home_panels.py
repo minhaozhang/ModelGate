@@ -40,7 +40,69 @@ class AdminHomePanelTests(unittest.TestCase):
     def test_mobile_home_uses_explicit_provider_field(self):
         html = _read("web/templates/admin/mobile_home.html")
 
-        self.assertIn("info.provider", html)
+        self.assertIn("r.provider", html)
+
+
+class AdminMobileHomePanelTests(unittest.TestCase):
+    def test_mobile_slow_requests_replaced_by_provider_keys(self):
+        html = _read("web/templates/admin/mobile_home.html")
+
+        self.assertNotIn("loadSlowRequests", html)
+        self.assertNotIn("stats/slow", html)
+        self.assertIn("provider-keys-live", html)
+        self.assertIn("stats/provider-keys-live", html)
+        self.assertIn("health-badge", html)
+
+    def test_mobile_active_users_have_ticking_duration(self):
+        html = _read("web/templates/admin/mobile_home.html")
+
+        self.assertIn("live-duration", html)
+        self.assertIn("tickLiveDurations", html)
+        self.assertIn("formatDuration", html)
+        self.assertIn("text-orange-500", html)
+        self.assertIn("text-red-600", html)
+
+    def test_mobile_trend_chart_recreates_on_label_count_change(self):
+        html = _read("web/templates/admin/mobile_home.html")
+
+        self.assertIn(
+            "trendChart.data.labels.length === labels.length", html
+        )
+        self.assertNotIn("renderTrendChart(null)", html)
+
+    def test_mobile_trend_chart_has_empty_state(self):
+        html = _read("web/templates/admin/mobile_home.html")
+
+        self.assertIn("window.I18N.noData", html)
+        self.assertIn("pageshow", html)
+
+    def test_mobile_trend_chart_animates_updates(self):
+        html = _read("web/templates/admin/mobile_home.html")
+
+        self.assertNotIn("animation: false", html)
+        self.assertNotIn("trendChart.update('none')", html)
+        self.assertIn("animation: { duration:", html)
+        self.assertIn("easeOutQuart", html)
+
+    def test_active_panel_renamed_to_active_requests(self):
+        home = _read("web/templates/admin/home.html")
+        mobile = _read("web/templates/admin/mobile_home.html")
+
+        for html in (home, mobile):
+            self.assertNotIn("_('Active Users')", html)
+            self.assertIn("活跃请求", html)
+            self.assertIn("noActiveRequests", html)
+            self.assertNotIn("noActiveUsers", html)
+            self.assertIn("flipCounter('active-count', activeRequests)", html)
+
+    def test_active_panel_renders_per_request_rows(self):
+        home = _read("web/templates/admin/home.html")
+        mobile = _read("web/templates/admin/mobile_home.html")
+
+        for html in (home, mobile):
+            self.assertIn("data.requests", html)
+            self.assertIn("routeLabel", html)
+            self.assertIn("request-row", html)
 
 
 class ProviderKeyRowBuilderTests(unittest.TestCase):

@@ -161,17 +161,17 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-sm md:text-base lg:text-lg font-semibold">{{ _('Active Users') }}</h3>
+                        <h3 class="text-sm md:text-base lg:text-lg font-semibold">{{ _('Active Requests' if current_locale != 'zh' else '活跃请求') }}</h3>
                         <span id="active-count" class="text-xs text-gray-500">0</span>
                     </div>
-                    <div id="active-sessions" class="space-y-2 text-sm" style="height: 400px; overflow-y: auto;">{{ _('No active users') }}</div>
+                    <div id="active-sessions" class="space-y-2 text-sm" style="height: 400px; overflow-y: auto;">{{ _('No active requests' if current_locale != 'zh' else '暂无活跃请求') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
                         <h3 class="text-sm md:text-base lg:text-lg font-semibold">{{ _('Provider / Key Status') if current_locale == 'zh' else 'Provider / Key Status' }}</h3>
                         <span id="provider-keys-count" class="text-xs text-gray-500"></span>
                     </div>
-                    <div id="provider-keys-live" class="space-y-2 text-sm" style="height: 400px; overflow-y: auto;">{{ _('No active users') }}</div>
+                    <div id="provider-keys-live" class="space-y-2 text-sm" style="height: 400px; overflow-y: auto;">{{ _('No usage today' if current_locale != 'zh' else '暂无今日用量') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <h3 class="text-sm md:text-base lg:text-lg font-semibold mb-3">{{ _('Provider Usage') }} <span id="provider-usage-count" class="text-sm font-normal text-gray-500"></span></h3>
@@ -198,8 +198,8 @@
         const APP_BASE_PATH = {{ app_base_path | tojson }};
         const HOME_SLOW_REFRESH_MS = 5000;
         const homeI18n = {
-            noActiveUsers: '{{ _("No active users") }}',
-            noUsageToday: '{{ _("No usage today") }}',
+            noActiveRequests: '{{ _("No active requests" if current_locale != 'zh' else '暂无活跃请求') }}',
+            noUsageToday: '{{ _("No usage today" if current_locale != 'zh' else '暂无今日用量') }}',
             req: '{{ _("req") }}',
             tokens: '{{ _("Tokens") }}',
             lightMode: '{{ _("Light Mode") }}',
@@ -639,24 +639,32 @@
             window.scrollTo(0, scrollY);
         }
         let prevSessionKeys = new Set();
+        function routeLabel(r) {
+            const req = r.model || '';
+            const actual = r.actual || '';
+            const prov = r.provider || '';
+            if (!prov) return req || actual;
+            if (!req || req === actual) return `${prov}/${actual}`;
+            return `${req} -> ${prov}/${actual}`;
+        }
         function renderLiveStats(data) {
             const activeRequests = data.active_requests || 0;
             const activeUsers = data.active_count ?? data.active_users ?? 0;
             const tokensPerSecond = Math.round(data.tokens_per_second || 0);
             flipCounter('rps', activeRequests);
             flipCounter('tps', tokensPerSecond.toLocaleString());
-            flipCounter('active-count', activeUsers);
+            flipCounter('active-count', activeRequests);
 
             const container = document.getElementById('active-sessions');
-            const entries = Object.entries(data.sessions || {});
+            const rows = data.requests || [];
 
-            if (activeUsers === 0 || entries.length === 0) {
+            if (rows.length === 0) {
                 if (prevSessionKeys.size > 0) {
                     container.querySelectorAll('.session-item').forEach(el => el.classList.add('session-exit'));
-                    setTimeout(() => { container.innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`; }, 360);
+                    setTimeout(() => { container.innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveRequests}</div>`; }, 360);
                     prevSessionKeys.clear();
                 } else if (!container.querySelector('.session-item')) {
-                    container.innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveUsers}</div>`;
+                    container.innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noActiveRequests}</div>`;
                 }
                 return;
             }
@@ -667,8 +675,18 @@
                 }
             }
 
-            const currentKeys = new Set(entries.map(([n]) => n));
-            const newKeys = new Set([...currentKeys].filter(k => !prevSessionKeys.has(k)));
+            const grouped = [];
+            const userIndex = new Map();
+            for (const r of rows) {
+                const k = r.key || 'Unknown';
+                if (!userIndex.has(k)) {
+                    userIndex.set(k, []);
+                    grouped.push([k, userIndex.get(k)]);
+                }
+                userIndex.get(k).push(r);
+            }
+
+            const currentKeys = new Set(grouped.map(([n]) => n));
             const removedKeys = new Set([...prevSessionKeys].filter(k => !currentKeys.has(k)));
             prevSessionKeys = currentKeys;
 
@@ -682,39 +700,35 @@
             let insertAfter = null;
             const disabledProviders = data.disabled_providers || {};
             liveSnapshotRecvAt = Date.now();
-            for (const [name, session] of entries) {
+            for (const [name, userRows] of grouped) {
                 const maskedName = maskName(name);
-                const modelsHtml = Object.entries(session.models).map(([model, info]) => {
-                    const count = info.count ?? info;
-                    const modelTokens = info.tokens ?? 0;
-                    const providerName = info.provider || (model.includes('/') ? model.split('/')[0] : '');
-                    const elapsed0 = Number(info.elapsed_seconds ?? 0);
+                const tagsHtml = (userRows[0].tags || []).map(t => `<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded ml-1 align-middle">${t}</span>`).join('');
+                const reqHtml = userRows.map(r => {
+                    const label = routeLabel(r);
+                    const providerName = r.provider || '';
                     const isDisabled = providerName && disabledProviders[providerName];
                     const warnIcon = isDisabled
                         ? `<span class="warn-icon ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${disabledProviders[providerName]}</span></span>`
                         : '';
-                    const td = modelTokens >= 1_000_000_000
-                        ? (modelTokens / 1_000_000_000).toFixed(1) + 'B'
-                        : modelTokens >= 1_000_000
-                            ? (modelTokens / 1_000_000).toFixed(1) + 'M'
-                            : modelTokens >= 1_000
-                                ? (modelTokens / 1_000).toFixed(1) + 'K'
-                                : String(modelTokens);
+                    const tokensVal = r.tokens || 0;
+                    const td = tokensVal >= 1_000_000_000
+                        ? (tokensVal / 1_000_000_000).toFixed(1) + 'B'
+                        : tokensVal >= 1_000_000
+                            ? (tokensVal / 1_000_000).toFixed(1) + 'M'
+                            : tokensVal >= 1_000
+                                ? (tokensVal / 1_000).toFixed(1) + 'K'
+                                : String(tokensVal);
+                    const elapsed0 = Number(r.elapsed_seconds ?? 0);
                     const durClass = elapsed0 > 120 ? 'text-red-600' : elapsed0 > 60 ? 'text-orange-500' : 'text-gray-400';
-                    return `<div class="flex items-center gap-2 py-0.5"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded inline-block max-w-[220px] truncate">${model} (${count})${warnIcon}</span><span class="live-duration text-xs font-medium flex-shrink-0 ml-auto ${durClass}" data-elapsed0="${elapsed0}">${formatDuration(elapsed0)}</span><span class="text-xs text-gray-500 flex-shrink-0">${td}</span></div>`;
+                    return `<div class="request-row flex items-center gap-2 py-0.5"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded inline-block max-w-[260px] truncate" title="${label}">${label}${warnIcon}</span><span class="live-duration text-xs font-medium flex-shrink-0 ml-auto ${durClass}" data-elapsed0="${elapsed0}">${formatDuration(elapsed0)}</span><span class="text-xs text-gray-500 flex-shrink-0">${td}</span></div>`;
                 }).join('');
-                const tokensVal = session.tokens || 0;
-                const tokensDisplay = tokensVal >= 1_000_000_000
-                    ? (tokensVal / 1_000_000_000).toFixed(1) + 'B'
-                    : tokensVal >= 1_000_000
-                        ? (tokensVal / 1_000_000).toFixed(1) + 'M'
-                        : tokensVal >= 1_000
-                            ? (tokensVal / 1_000).toFixed(1) + 'K'
-                            : String(tokensVal);
-                const tagsHtml = (session.tags || []).map(t => `<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded ml-1 align-middle">${t}</span>`).join('');
+
                 const innerHtml = `<div class="min-w-0 flex-1">
-                    <div class="font-medium truncate cursor-default" title="${name}">${maskedName}${tagsHtml}</div>
-                    <div class="text-xs text-gray-500 mt-1">${modelsHtml}</div>
+                    <div class="flex items-center gap-1">
+                        <span class="font-medium truncate cursor-default" title="${name}">${maskedName}</span>${tagsHtml}
+                        <span class="text-xs text-gray-400 ml-auto flex-shrink-0">${userRows.length} ${homeI18n.req}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">${reqHtml}</div>
                 </div>`;
 
                 const existing = container.querySelector(`.session-item[data-key="${CSS.escape(name)}"]`);

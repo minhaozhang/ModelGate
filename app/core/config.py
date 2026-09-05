@@ -119,6 +119,7 @@ today_stats_cache: dict = {}
 today_stats_cache_time: Optional[datetime] = None
 TODAY_STATS_CACHE_TTL_SECONDS = 600
 LIVE_REQUEST_STALE_SECONDS = 660
+MAX_LIVE_REQUEST_ROWS = 200
 active_requests: dict[str, dict[str, Any]] = {}
 active_requests_lock = asyncio.Lock()
 busyness_state: dict[str, Any] = {}
@@ -295,6 +296,7 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
     async with active_requests_lock:
         snapshot_now = datetime.now()
         grouped_users: dict[str, dict[str, Any]] = {}
+        request_rows: list[dict[str, Any]] = []
         for request_data in active_requests.values():
             key_name = get_api_key_name(request_data.get("api_key_id")) or "Unknown"
             bucket = grouped_users.setdefault(
@@ -323,13 +325,28 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                 request_data.get("upstream_model") or request_data.get("model")
             )
             provider_name = request_data.get("provider") or ""
+            prompt_tokens = request_data.get("prompt_tokens", 0)
+            request_rows.append(
+                {
+                    "id": request_data.get("request_id"),
+                    "key": key_name,
+                    "tags": bucket["tags"],
+                    "model": requested or actual,
+                    "provider": provider_name,
+                    "actual": actual,
+                    "tokens": prompt_tokens,
+                    "elapsed_seconds": round(
+                        (snapshot_now - request_data["started_at"]).total_seconds(),
+                        1,
+                    ),
+                }
+            )
             if not provider_name:
                 model_key = requested or actual
             elif not requested or requested == actual:
                 model_key = f"{provider_name}/{actual}"
             else:
                 model_key = f"{requested} -> {provider_name}/{actual}"
-            prompt_tokens = request_data.get("prompt_tokens", 0)
             if model_key:
                 entry = bucket["models"].setdefault(
                     model_key,
@@ -345,6 +362,9 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                 if request_data["started_at"] < entry["oldest_started_at"]:
                     entry["oldest_started_at"] = request_data["started_at"]
             bucket["tokens"] += prompt_tokens
+
+        if len(request_rows) > MAX_LIVE_REQUEST_ROWS:
+            request_rows = request_rows[-MAX_LIVE_REQUEST_ROWS:]
 
         for bucket in grouped_users.values():
             for entry in bucket["models"].values():
@@ -365,6 +385,7 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             "active_users": len(grouped_users),
             "tokens_per_second": get_total_tokens_per_second(),
             "sessions": dict(sorted(grouped_users.items(), key=lambda item: item[1]["first_activity"])),
+            "requests": request_rows,
             "disabled_providers": disabled_providers,
         }
 

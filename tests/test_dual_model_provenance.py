@@ -471,6 +471,40 @@ class ActiveRequestRequestedModelTests(unittest.IsolatedAsyncioTestCase):
         entry = snapshot["sessions"]["live-key"]["models"]["prov/std-chat"]
         self.assertGreaterEqual(entry["elapsed_seconds"], 89)
 
+    async def test_live_snapshot_includes_per_request_rows(self):
+        await register_active_request(
+            "rid-a",
+            "deepseek",
+            "deepseek-v4-flash",
+            1,
+            client_ip=None,
+            prompt_tokens=5,
+            requested_model="auto",
+        )
+        await register_active_request(
+            "rid-b",
+            "prov",
+            "glm-x",
+            1,
+            client_ip=None,
+            prompt_tokens=7,
+            requested_model="glm-x",
+        )
+        snapshot = await build_live_stats_snapshot()
+        rows = {r["id"]: r for r in snapshot["requests"]}
+        self.assertEqual(len(rows), 2)
+        row_a = rows["rid-a"]
+        self.assertEqual(row_a["key"], "live-key")
+        self.assertEqual(row_a["model"], "auto")
+        self.assertEqual(row_a["provider"], "deepseek")
+        self.assertEqual(row_a["actual"], "deepseek-v4-flash")
+        self.assertEqual(row_a["tokens"], 5)
+        self.assertGreaterEqual(row_a["elapsed_seconds"], 0)
+        row_b = rows["rid-b"]
+        self.assertEqual(row_b["model"], "glm-x")
+        self.assertEqual(row_b["actual"], "glm-x")
+        self.assertEqual(row_b["provider"], "prov")
+
 
 class UserStatsModelMultiSlashTests(unittest.TestCase):
     def test_python_multi_slash_keeps_remainder(self):
