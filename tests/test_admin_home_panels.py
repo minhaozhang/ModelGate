@@ -104,6 +104,13 @@ class AdminMobileHomePanelTests(unittest.TestCase):
             self.assertIn("routeLabel", html)
             self.assertIn("request-row", html)
 
+    def test_mobile_logs_show_provider_and_requested_model(self):
+        html = _read("web/templates/admin/mobile_home.html")
+
+        self.assertIn("log-provider", html)
+        self.assertIn("requested_model", html)
+        self.assertIn("provider_key_label", html)
+
 
 class ProviderKeyRowBuilderTests(unittest.TestCase):
     def test_rows_filtered_sorted_and_carry_fields(self):

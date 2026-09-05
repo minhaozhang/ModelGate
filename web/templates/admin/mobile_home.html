@@ -1155,6 +1155,9 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 const proto = (log.inbound_protocol && log.inbound_protocol !== 'openai')
                     ? `<span class="px-1.5 py-0.5 rounded text-[9px] bg-indigo-100 text-indigo-700 shrink-0">${esc(log.inbound_protocol)}</span>`
                     : '';
+                const modelExtra = (log.requested_model && log.requested_model !== log.model)
+                    ? `<div class="text-[10px] text-blue-500 mt-0.5">&rarr; ${esc(log.requested_model)}</div>`
+                    : '';
                 const errMsg = log.error ? `<div class="text-red-400 break-words">${esc(String(log.error).substring(0, 300))}</div>` : '';
                 return `<div class="bg-white rounded-xl p-3" onclick="var d=this.querySelector('.log-detail');if(d)d.classList.toggle('hidden')">
                     <div class="flex items-center gap-2 text-[11px]">
@@ -1163,13 +1166,15 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                         ${proto}
                         <span class="px-1.5 py-0.5 rounded text-[9px] ${sc} shrink-0">${esc(log.status)}</span>
                     </div>
-                    <div class="flex items-center gap-3 text-[10px] text-gray-500 mt-1">
+                    ${modelExtra}
+                    <div class="flex items-center gap-2 text-[10px] text-gray-500 mt-1">
                         <span class="truncate">${esc(log.api_key || '-')}</span>
+                        <span class="log-provider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">${esc(log.provider || '-')}</span>
                         <span class="shrink-0">${code}</span>
                         <span class="shrink-0 ml-auto">${formatLatency(log.latency_ms)}</span>
                     </div>
                     <div class="log-detail hidden mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-500 space-y-1">
-                        <div>${esc(log.provider || '-')} &middot; ${esc(log.inbound_protocol || 'openai')} &middot; tokens: ${log.tokens ?? '-'}</div>
+                        <div>${esc(log.provider || '-')} &middot; Key: ${esc(log.provider_key_label || '-')} &middot; ${esc(log.inbound_protocol || 'openai')} &middot; tokens: ${log.tokens ?? '-'}</div>
                         <div class="font-mono break-all">${esc(log.client_ip || '-')}</div>
                         <div class="break-all">${esc(String(log.user_agent || '-').substring(0, 300))}</div>
                         ${errMsg}
