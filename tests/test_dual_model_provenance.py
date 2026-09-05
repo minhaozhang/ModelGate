@@ -401,8 +401,12 @@ class ActiveRequestRequestedModelTests(unittest.IsolatedAsyncioTestCase):
             "requested_model",
             inspect.signature(register_active_request).parameters,
         )
+        self.assertIn(
+            "upstream_model",
+            inspect.signature(register_active_request).parameters,
+        )
 
-    async def test_live_snapshot_groups_by_requested_model(self):
+    async def test_live_snapshot_shows_requested_arrow_provider_actual(self):
         await register_active_request(
             "rid-1",
             "prov",
@@ -414,9 +418,58 @@ class ActiveRequestRequestedModelTests(unittest.IsolatedAsyncioTestCase):
         )
         snapshot = await build_live_stats_snapshot()
         session = snapshot["sessions"]["live-key"]
-        self.assertIn("glm-x", session["models"])
-        self.assertNotIn("std-chat", session["models"])
-        self.assertNotIn("prov/std-chat", session["models"])
+        self.assertIn("glm-x -> prov/std-chat", session["models"])
+        self.assertEqual(
+            session["models"]["glm-x -> prov/std-chat"]["provider"], "prov"
+        )
+
+    async def test_live_snapshot_collapses_when_requested_matches_actual(self):
+        await register_active_request(
+            "rid-2",
+            "prov",
+            "glm-x",
+            1,
+            client_ip=None,
+            prompt_tokens=5,
+            requested_model="glm-x",
+        )
+        snapshot = await build_live_stats_snapshot()
+        session = snapshot["sessions"]["live-key"]
+        self.assertIn("prov/glm-x", session["models"])
+        self.assertNotIn("-> prov/glm-x", " ".join(session["models"]))
+
+    async def test_live_snapshot_collapses_when_no_requested_model(self):
+        await register_active_request(
+            "rid-3",
+            "prov",
+            "std-chat",
+            1,
+            client_ip=None,
+            prompt_tokens=5,
+        )
+        snapshot = await build_live_stats_snapshot()
+        session = snapshot["sessions"]["live-key"]
+        self.assertIn("prov/std-chat", session["models"])
+
+    async def test_live_snapshot_model_entry_tracks_elapsed(self):
+        from datetime import datetime, timedelta
+
+        stale = datetime.now() - timedelta(seconds=90)
+        active_requests["rid-4"] = {
+            "request_id": "rid-4",
+            "provider": "prov",
+            "model": "std-chat",
+            "requested_model": None,
+            "display_model": "std-chat",
+            "upstream_model": None,
+            "api_key_id": 1,
+            "client_ip": None,
+            "prompt_tokens": 0,
+            "started_at": stale,
+        }
+        snapshot = await build_live_stats_snapshot()
+        entry = snapshot["sessions"]["live-key"]["models"]["prov/std-chat"]
+        self.assertGreaterEqual(entry["elapsed_seconds"], 89)
 
 
 class UserStatsModelMultiSlashTests(unittest.TestCase):

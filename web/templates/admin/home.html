@@ -81,6 +81,20 @@
         .session-item { transition: opacity 0.35s ease, transform 0.35s ease, max-height 0.35s ease, margin 0.35s ease, padding 0.35s ease; overflow:hidden; }
         .session-enter { opacity:0; transform:translateY(-8px); max-height:0; margin-top:0; margin-bottom:0; padding-top:0; padding-bottom:0; }
         .session-exit { opacity:0; transform:translateY(8px); max-height:0; margin-top:0; margin-bottom:0; padding-top:0; padding-bottom:0; }
+        .health-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 2.2rem; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+        .health-excellent { background: #dcfce7; color: #15803d; }
+        .health-good { background: #dbeafe; color: #1d4ed8; }
+        .health-warning { background: #fef3c7; color: #b45309; }
+        .health-critical { background: #fee2e2; color: #b91c1c; }
+        .health-unavailable { background: #f1f5f9; color: #64748b; }
+        body.theme-dark .health-excellent { background: rgba(34,197,94,0.16); color: #86efac; }
+        body.theme-dark .health-good { background: rgba(59,130,246,0.16); color: #93c5fd; }
+        body.theme-dark .health-warning { background: rgba(245,158,11,0.16); color: #fcd34d; }
+        body.theme-dark .health-critical { background: rgba(239,68,68,0.16); color: #fca5a5; }
+        body.theme-dark .health-unavailable { background: rgba(100,116,139,0.16); color: #94a3b8; }
+        .conc-bar-bg { width: 60px; height: 8px; border-radius: 9999px; background: #e5e7eb; overflow: hidden; flex-shrink: 0; }
+        .conc-bar-fill { height: 100%; border-radius: 9999px; transition: width 0.3s; }
+        body.theme-dark .conc-bar-bg { background: #1f2937; }
     </style>
 </head>
 <body class="theme-dark bg-gray-100 min-h-screen">
@@ -154,10 +168,10 @@
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-sm md:text-base lg:text-lg font-semibold text-orange-600">{{ _('Slow Requests (>60s)') }}</h3>
-                        <span id="slow-count" class="text-xs text-gray-500">0</span>
+                        <h3 class="text-sm md:text-base lg:text-lg font-semibold">{{ _('Provider / Key Status') if current_locale == 'zh' else 'Provider / Key Status' }}</h3>
+                        <span id="provider-keys-count" class="text-xs text-gray-500"></span>
                     </div>
-                    <div id="slow-requests" class="space-y-2 text-sm" style="height: 400px; overflow-y: auto;">{{ _('No slow requests') }}</div>
+                    <div id="provider-keys-live" class="space-y-2 text-sm" style="height: 400px; overflow-y: auto;">{{ _('No active users') }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <h3 class="text-sm md:text-base lg:text-lg font-semibold mb-3">{{ _('Provider Usage') }} <span id="provider-usage-count" class="text-sm font-normal text-gray-500"></span></h3>
@@ -177,16 +191,15 @@
     <script>
         let currentPeriod = 'day';
         let trendChart = null;
-        let latestSlowRequestsData = null;
         let liveStatsSocket = null;
         let liveStatsReconnectTimer = null;
+        let liveSnapshotRecvAt = 0;
         const HOME_OVERVIEW_REFRESH_MS = 8000;
         const APP_BASE_PATH = {{ app_base_path | tojson }};
         const HOME_SLOW_REFRESH_MS = 5000;
         const homeI18n = {
-            noSlowRequests: '{{ _("No slow requests") }}',
             noActiveUsers: '{{ _("No active users") }}',
-            pending: '{{ _("pending") }}',
+            noUsageToday: '{{ _("No usage today") }}',
             req: '{{ _("req") }}',
             tokens: '{{ _("Tokens") }}',
             lightMode: '{{ _("Light Mode") }}',
@@ -668,12 +681,14 @@
 
             let insertAfter = null;
             const disabledProviders = data.disabled_providers || {};
+            liveSnapshotRecvAt = Date.now();
             for (const [name, session] of entries) {
                 const maskedName = maskName(name);
                 const modelsHtml = Object.entries(session.models).map(([model, info]) => {
                     const count = info.count ?? info;
                     const modelTokens = info.tokens ?? 0;
-                    const providerName = model.includes('/') ? model.split('/')[0] : '';
+                    const providerName = info.provider || (model.includes('/') ? model.split('/')[0] : '');
+                    const elapsed0 = Number(info.elapsed_seconds ?? 0);
                     const isDisabled = providerName && disabledProviders[providerName];
                     const warnIcon = isDisabled
                         ? `<span class="warn-icon ml-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${disabledProviders[providerName]}</span></span>`
@@ -685,7 +700,8 @@
                             : modelTokens >= 1_000
                                 ? (modelTokens / 1_000).toFixed(1) + 'K'
                                 : String(modelTokens);
-                    return `<div class="flex items-center gap-2 py-0.5"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded inline-block max-w-[220px] truncate">${model} (${count})${warnIcon}</span><span class="text-xs text-gray-500 flex-shrink-0 ml-auto">${td}</span></div>`;
+                    const durClass = elapsed0 > 120 ? 'text-red-600' : elapsed0 > 60 ? 'text-orange-500' : 'text-gray-400';
+                    return `<div class="flex items-center gap-2 py-0.5"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded inline-block max-w-[220px] truncate">${model} (${count})${warnIcon}</span><span class="live-duration text-xs font-medium flex-shrink-0 ml-auto ${durClass}" data-elapsed0="${elapsed0}">${formatDuration(elapsed0)}</span><span class="text-xs text-gray-500 flex-shrink-0">${td}</span></div>`;
                 }).join('');
                 const tokensVal = session.tokens || 0;
                 const tokensDisplay = tokensVal >= 1_000_000_000
@@ -776,59 +792,59 @@
             return `${seconds.toFixed(1)}s`;
         }
 
-        function renderSlowRequests(data) {
-            const safeData = data || { pending: [], completed: [] };
-            const pending = safeData.pending || [];
-            const completed = safeData.completed || [];
-            const total = pending.length + completed.length;
-            document.getElementById('slow-count').textContent = total;
-            if (total === 0) {
-                document.getElementById('slow-requests').innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noSlowRequests}</div>`;
-                return;
-            }
-            let html = '';
-            pending.forEach(req => {
-                const startTime = req.start_time ? new Date(req.start_time).toLocaleTimeString() : '';
-                const startedAt = req.start_time ? new Date(req.start_time).getTime() : null;
-                const elapsedSeconds = startedAt ? Math.max((Date.now() - startedAt) / 1000, 0) : Number(req.elapsed_seconds || 0);
-                const maskedKeyName = maskName(req.key_name || 'N/A');
-                html += `
-                    <div class="flex justify-between items-center p-2 bg-orange-50 rounded border-l-4 border-orange-500 mb-2">
-                        <div>
-                            <div class="font-medium text-sm">${req.provider} / ${req.model}</div>
-                            <div class="text-xs text-gray-500 cursor-default" title="${req.key_name || 'N/A'}">${startTime} | ${maskedKeyName}${req.input_tokens ? ' | ' + (req.input_tokens >= 1_000_000_000 ? Math.round(req.input_tokens / 1_000_000_000) + 'B' : req.input_tokens >= 1_000_000 ? Math.round(req.input_tokens / 1_000_000) + 'M' : req.input_tokens >= 1_000 ? Math.round(req.input_tokens / 1_000) + 'K' : req.input_tokens.toLocaleString()) : ''}</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-lg font-bold text-orange-600 sm:text-base">${formatDuration(elapsedSeconds)}</div>
-                            <span class="px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-700">${homeI18n.pending}</span>
-                        </div>
-                    </div>
-                `;
+        function tickLiveDurations() {
+            if (!liveSnapshotRecvAt) return;
+            const drift = (Date.now() - liveSnapshotRecvAt) / 1000;
+            document.querySelectorAll('.live-duration').forEach(el => {
+                const base = parseFloat(el.dataset.elapsed0 || '0');
+                const elapsed = Math.max(base + drift, 0);
+                el.textContent = formatDuration(elapsed);
+                el.classList.toggle('text-red-600', elapsed > 120);
+                el.classList.toggle('text-orange-500', elapsed > 60 && elapsed <= 120);
+                el.classList.toggle('text-gray-400', elapsed <= 60);
             });
-            completed.slice(0, 5).forEach(req => {
-                const statusClass = req.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-                const createdAt = req.created_at ? new Date(req.created_at).toLocaleTimeString() : '';
-                const maskedKeyName = maskName(req.key_name || 'N/A');
-                html += `
-                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded mb-2">
-                        <div>
-                            <div class="font-medium text-sm">${req.provider || 'N/A'} / ${req.model}</div>
-                            <div class="text-xs text-gray-500 cursor-default" title="${req.key_name || 'N/A'}">${createdAt} | ${maskedKeyName}${req.input_tokens ? ' | ' + (req.input_tokens >= 1_000_000_000 ? Math.round(req.input_tokens / 1_000_000_000) + 'B' : req.input_tokens >= 1_000_000 ? Math.round(req.input_tokens / 1_000_000) + 'M' : req.input_tokens >= 1_000 ? Math.round(req.input_tokens / 1_000) + 'K' : req.input_tokens.toLocaleString()) : ''}</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-lg font-bold text-orange-600 sm:text-base">${formatDuration(req.latency_ms / 1000)}</div>
-                            <span class="px-1.5 py-0.5 rounded text-xs ${statusClass}">${req.status}</span>
-                        </div>
-                    </div>
-                `;
-            });
-            document.getElementById('slow-requests').innerHTML = html;
         }
 
-        async function loadSlowRequests() {
-            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/slow`);
-            latestSlowRequestsData = data;
-            renderSlowRequests(data);
+        function renderProviderKeysLive(data) {
+            const rows = (data && data.rows) || [];
+            const container = document.getElementById('provider-keys-live');
+            document.getElementById('provider-keys-count').textContent = rows.length > 0 ? `(${rows.length})` : '';
+            if (rows.length === 0) {
+                container.innerHTML = `<div class="text-gray-400 text-center py-4">${homeI18n.noUsageToday}</div>`;
+                return;
+            }
+            const html = rows.map(r => {
+                const hClass = 'health-' + r.health_level;
+                const hBadge = `<span class="health-badge ${hClass}" title="health">${r.health_score}</span>`;
+                let concHtml = '-';
+                if (r.concurrency_limit > 0) {
+                    const pct = Math.min((r.concurrency_in_use / r.concurrency_limit) * 100, 100);
+                    const barColor = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
+                    concHtml = `<div class="conc-bar-bg"><div class="conc-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+                        <span class="text-xs text-gray-500">${r.concurrency_in_use}/${r.concurrency_limit}</span>`;
+                }
+                const providerStyle = r.provider_disabled ? 'text-red-500 line-through' : '';
+                const providerTitle = r.provider_disabled ? ` title="${(r.provider_disabled_reason || '').replace(/"/g, '&quot;')}"` : '';
+                const maskedKey = maskName(r.key_label || '');
+                return `<div class="p-2 bg-gray-50 rounded border-l-4 ${r.provider_disabled ? 'border-red-400' : 'border-blue-400'}">
+                    <div class="flex justify-between items-center gap-2">
+                        <div class="font-medium text-sm truncate ${providerStyle}"${providerTitle}>${r.provider} / <span class="cursor-default" title="${(r.key_label || '').replace(/"/g, '&quot;')}">${maskedKey}</span></div>
+                        ${hBadge}
+                    </div>
+                    <div class="flex items-center gap-2 mt-1">
+                        ${concHtml}
+                        <span class="text-xs text-gray-400 ml-auto">${r.usage} ${homeI18n.req}</span>
+                    </div>
+                </div>`;
+            }).join('');
+            container.innerHTML = html;
+        }
+
+        async function loadProviderKeysLive() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/provider-keys-live`);
+                renderProviderKeysLive(data);
+            } catch (e) {}
         }
 
         const BANNER_I18N = {
@@ -878,13 +894,11 @@
         setInterval(loadData, HOME_OVERVIEW_REFRESH_MS);
         loadLiveStatsFallback();
         connectLiveStats();
-        loadSlowRequests();
-        setInterval(loadSlowRequests, HOME_SLOW_REFRESH_MS);
+        loadProviderKeysLive();
+        setInterval(loadProviderKeysLive, HOME_SLOW_REFRESH_MS);
         loadProviderStatus();
         setInterval(loadProviderStatus, 30000);
-        setInterval(() => {
-            if (latestSlowRequestsData) renderSlowRequests(latestSlowRequestsData);
-        }, 1000);
+        setInterval(tickLiveDurations, 1000);
 
         (function() {
             const TOOLTIP_PAD = 8;

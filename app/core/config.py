@@ -244,6 +244,7 @@ async def register_active_request(
     client_ip: str | None = None,
     prompt_tokens: int = 0,
     requested_model: str | None = None,
+    upstream_model: str | None = None,
 ) -> None:
     from app.services.model_naming import user_stats_model_name
 
@@ -255,6 +256,7 @@ async def register_active_request(
             "model": model,
             "requested_model": requested_model,
             "display_model": user_stats_model_name(requested_model, model),
+            "upstream_model": upstream_model,
             "api_key_id": api_key_id,
             "client_ip": client_ip,
             "prompt_tokens": prompt_tokens,
@@ -291,6 +293,7 @@ async def prune_stale_active_requests() -> bool:
 async def build_live_stats_snapshot() -> dict[str, Any]:
     await prune_stale_active_requests()
     async with active_requests_lock:
+        snapshot_now = datetime.now()
         grouped_users: dict[str, dict[str, Any]] = {}
         for request_data in active_requests.values():
             key_name = get_api_key_name(request_data.get("api_key_id")) or "Unknown"
@@ -315,13 +318,42 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                 bucket["first_activity"],
                 request_data["started_at"].isoformat(),
             )
-            model_name = request_data.get("display_model") or request_data.get("model")
+            requested = request_data.get("display_model")
+            actual = (
+                request_data.get("upstream_model") or request_data.get("model")
+            )
+            provider_name = request_data.get("provider") or ""
+            if not provider_name:
+                model_key = requested or actual
+            elif not requested or requested == actual:
+                model_key = f"{provider_name}/{actual}"
+            else:
+                model_key = f"{requested} -> {provider_name}/{actual}"
             prompt_tokens = request_data.get("prompt_tokens", 0)
-            if model_name:
-                entry = bucket["models"].setdefault(model_name, {"count": 0, "tokens": 0})
+            if model_key:
+                entry = bucket["models"].setdefault(
+                    model_key,
+                    {
+                        "count": 0,
+                        "tokens": 0,
+                        "provider": provider_name,
+                        "oldest_started_at": request_data["started_at"],
+                    },
+                )
                 entry["count"] += 1
                 entry["tokens"] += prompt_tokens
+                if request_data["started_at"] < entry["oldest_started_at"]:
+                    entry["oldest_started_at"] = request_data["started_at"]
             bucket["tokens"] += prompt_tokens
+
+        for bucket in grouped_users.values():
+            for entry in bucket["models"].values():
+                oldest = entry.pop("oldest_started_at", None)
+                entry["elapsed_seconds"] = (
+                    round((snapshot_now - oldest).total_seconds(), 1)
+                    if oldest is not None
+                    else 0
+                )
 
         disabled_providers = {}
         for pname, pconf in providers_cache.items():

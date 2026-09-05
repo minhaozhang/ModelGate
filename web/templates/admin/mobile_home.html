@@ -791,7 +791,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                         .map(([m, info]) => {
                             const c = info.count ?? info;
                             const modelTokens = info.tokens ?? 0;
-                            const providerName = m.includes('/') ? m.split('/')[0] : '';
+                            const providerName = info.provider || (m.includes('/') ? m.split('/')[0] : '');
                             const isDisabled = providerName && disabledProviders[providerName];
                             const warnIcon = isDisabled
                                 ? `<span class="warn-icon ml-0.5"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">${disabledProviders[providerName]}</span></span>`

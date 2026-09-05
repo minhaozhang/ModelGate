@@ -2167,6 +2167,120 @@ async def get_active_sessions_by_model(_: bool = Depends(permission_required("pa
         }
 
 
+def _build_provider_key_rows(
+    providers_cache: dict,
+    key_usage: dict,
+    provider_usage: dict,
+    key_health: dict,
+    sem_limits: dict,
+) -> list[dict]:
+    """Build provider/key live rows, keeping only entries with usage today,
+    sorted by usage descending."""
+    from app.services.key_health import get_health_level
+
+    rows = []
+    for provider_name, pcfg in providers_cache.items():
+        provider_id = pcfg.get("id")
+        disabled = pcfg.get("disabled_reason")
+        api_keys = pcfg.get("api_keys", [])
+
+        if not api_keys:
+            usage = provider_usage.get(provider_id, 0)
+            if usage <= 0:
+                continue
+            health = 0 if disabled else 100
+            rows.append(
+                {
+                    "provider": provider_name,
+                    "provider_disabled": bool(disabled),
+                    "provider_disabled_reason": disabled or "",
+                    "key_id": None,
+                    "key_label": "(default)",
+                    "health_score": health,
+                    "health_level": get_health_level(health),
+                    "concurrency_limit": 0,
+                    "concurrency_in_use": 0,
+                    "usage": usage,
+                }
+            )
+            continue
+
+        for k in api_keys:
+            key_id = k["id"]
+            usage = key_usage.get(key_id, 0)
+            if usage <= 0:
+                continue
+            label = k.get("label", "") or f"Key #{key_id}"
+            health = key_health.get(key_id, 100)
+            conc_limit = sem_limits.get(f"{key_id}:{provider_name}", (0, 0))[0]
+            conc_in_use = sem_limits.get(f"{key_id}:{provider_name}", (0, 0))[1]
+            rows.append(
+                {
+                    "provider": provider_name,
+                    "provider_disabled": bool(disabled),
+                    "provider_disabled_reason": disabled or "",
+                    "key_id": key_id,
+                    "key_label": label,
+                    "health_score": health,
+                    "health_level": get_health_level(health),
+                    "concurrency_limit": conc_limit,
+                    "concurrency_in_use": conc_in_use,
+                    "usage": usage,
+                }
+            )
+
+    rows.sort(key=lambda r: r["usage"], reverse=True)
+    return rows
+
+
+@router.get("/stats/provider-keys-live")
+async def provider_keys_live(_: bool = Depends(permission_required("page.stats"))):
+    from app.services.key_health import compute_health_score
+
+    now = get_local_now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    providers_cache = config_module.providers_cache
+    key_health = {
+        k["id"]: compute_health_score(k["id"], True)
+        for pcfg in providers_cache.values()
+        for k in pcfg.get("api_keys", [])
+    }
+    sem_limits = {}
+    for sem_key, sem in config_module.provider_key_semaphores.items():
+        limit = getattr(sem, "_modelgate_scoped_limit", getattr(sem, "_value", 0)) or 0
+        available = getattr(sem, "_value", 0)
+        sem_limits[sem_key] = (limit, max(limit - available, 0))
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(RequestLog.provider_key_id, func.count())
+            .where(
+                RequestLog.created_at >= today_start,
+                RequestLog.provider_key_id.isnot(None),
+            )
+            .group_by(RequestLog.provider_key_id)
+        )
+        key_usage = {row[0]: row[1] for row in result.fetchall()}
+
+        result = await session.execute(
+            select(RequestLog.provider_id, func.count())
+            .where(
+                RequestLog.created_at >= today_start,
+                or_(
+                    RequestLog.provider_key_id.is_(None),
+                    RequestLog.provider_key_id == 0,
+                ),
+            )
+            .group_by(RequestLog.provider_id)
+        )
+        provider_usage = {row[0]: row[1] for row in result.fetchall()}
+
+    rows = _build_provider_key_rows(
+        providers_cache, key_usage, provider_usage, key_health, sem_limits
+    )
+    return {"rows": rows}
+
+
 @router.get("/stats/realtime")
 async def get_realtime_stats(_: bool = Depends(permission_required("page.stats"))):
     snapshot = await build_live_stats_snapshot()

@@ -77,6 +77,7 @@ async def handle_normal(
             client_ip=client_ip,
             prompt_tokens=request_context_tokens,
             requested_model=requested_model,
+            upstream_model=upstream_model,
         )
         is_active_request_registered = True
 
