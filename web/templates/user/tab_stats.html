@@ -20,14 +20,13 @@
                 </div>
                 <div class="rounded-xl bg-white/70 p-4">
                     <div class="flex items-center justify-between gap-2">
-                        <div class="text-gray-500 text-xs font-medium">{{ _('Est. Cost') }}</div>
+                        <div class="text-gray-500 text-xs font-medium whitespace-nowrap">{{ _('Est. Cost') }} <span class="text-[10px] text-gray-400 font-normal">({{ _('per-request snapshots' if current_locale != 'zh' else '按请求计费快照汇总') }})</span></div>
                         <button onclick="downloadBillingDetails()" class="inline-flex items-center gap-1 rounded-md border border-amber-200 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50" title="{{ _('Download billing details') }}">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
                             {{ _('Download') }}
                         </button>
                     </div>
                     <div id="personal-cost" class="mt-1 text-2xl font-semibold text-amber-600 metric-value">¥0</div>
-                    <div id="personal-cost-note" class="text-[10px] text-gray-400 mt-0.5"></div>
                 </div>
             </div>
             <div id="daily-quota-panel" class="mt-3 hidden rounded-xl bg-white/70 p-4">

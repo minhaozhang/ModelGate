@@ -193,6 +193,23 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("modelgate_billing_", route)
         self.assertIn("def _build_billing_detail_rows", route)
 
+    def test_user_cost_note_is_inline_parenthetical_not_extra_row(self):
+        tab = (ROOT / "web" / "templates" / "user" / "tab_stats.html").read_text(encoding="utf-8")
+        dashboard = (ROOT / "web" / "templates" / "user" / "dashboard.html").read_text(encoding="utf-8")
+
+        self.assertNotIn("personal-cost-note", tab)
+        self.assertNotIn("personal-cost-note", dashboard)
+        self.assertIn("按请求计费快照汇总", tab)
+
+    def test_user_counters_render_plain_selectable_text(self):
+        dashboard = (ROOT / "web" / "templates" / "user" / "dashboard.html").read_text(encoding="utf-8")
+
+        self.assertNotIn('<span class="fc">', dashboard)
+        self.assertNotIn('.fd,', dashboard)
+        self.assertNotIn("getCounterSkeleton", dashboard)
+        self.assertIn("el.textContent = newText", dashboard)
+        self.assertIn("value-pop", dashboard)
+
     def test_auto_model_picker_uses_compact_modal_not_tall_multiselect(self):
         html = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
 
