@@ -12,6 +12,7 @@ from app.core.config import (
     logger,
     error_logger,
     consume_user_slot_released,
+    COMPACT_HINT_MIN_TOKENS,
 )
 from app.core.log_sanitizer import (
     sanitize_payload_for_log,
@@ -62,6 +63,7 @@ from app.services.proxy_runtime import (
 )
 from app.services.proxy_runtime.response_handler import _is_key_retryable_status, _is_route_fallback_status
 from app.services.proxy_runtime.adapters import get_adapter
+from app.services.proxy_runtime.stream import UpstreamFirstChunkTimeout
 
 
 INTERNAL_ANALYSIS_API_KEY_ID = 1
@@ -701,6 +703,7 @@ async def proxy_request(request: Request, endpoint: str):
         known_model_without_provider_seen = False
         first_no_key_failure = None
         preferred_local_rate_limit_response = None
+        first_chunk_timed_out = False
 
         def remember_local_rate_limit_response(message: str, code: str) -> None:
             nonlocal preferred_local_rate_limit_response
@@ -1225,6 +1228,8 @@ async def proxy_request(request: Request, endpoint: str):
                         user_api_key_semaphore=user_api_key_semaphore,
                     )
                 except Exception as handler_exc:
+                    if isinstance(handler_exc, UpstreamFirstChunkTimeout):
+                        first_chunk_timed_out = True
                     logger.warning(
                         "[ROUTE FALLBACK] Provider %s raised %s: %s, trying next provider",
                         provider_name,
@@ -1315,6 +1320,44 @@ async def proxy_request(request: Request, endpoint: str):
                 continue
 
         if last_response is not None:
+            if (
+                first_chunk_timed_out
+                and request_context_tokens > COMPACT_HINT_MIN_TOKENS
+            ):
+                message = (
+                    f"Request context is ~{request_context_tokens} tokens and "
+                    "upstream did not respond in time after trying all "
+                    "available providers. Please compact the conversation "
+                    "(reduce message history) and retry."
+                )
+                logger.warning(
+                    "[COMPACT HINT] model=%s estimated=%s threshold=%s",
+                    model,
+                    request_context_tokens,
+                    COMPACT_HINT_MIN_TOKENS,
+                )
+                await create_request_log(
+                    "",
+                    requested_model,
+                    status="error",
+                    api_key_id=api_key_id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                    request_context_tokens=request_context_tokens,
+                    latency_ms=(time.time() - start_time) * 1000,
+                    upstream_status_code=400,
+                    downstream_status_code=400,
+                    error=message,
+                    inbound_protocol=inbound_protocol,
+                    intent=request_intent,
+                    requested_model=requested_model,
+                )
+                return _openai_error_response(
+                    message,
+                    400,
+                    "invalid_request_error",
+                    "context_length_exceeded",
+                )
             if (
                 preferred_local_rate_limit_response is not None
                 and _should_prefer_local_rate_limit_response(last_response)

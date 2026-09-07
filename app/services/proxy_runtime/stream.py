@@ -1,9 +1,11 @@
+import asyncio
 import json
 import time
 
 from fastapi.responses import Response, StreamingResponse
 
 from app.core.config import (
+    STREAM_FIRST_CHUNK_TIMEOUT_SECONDS,
     consume_user_slot_released,
     error_logger,
     finish_active_request,
@@ -32,6 +34,10 @@ from app.services.proxy_runtime.response_handler import (
 )
 from app.services.sse import normalize_sse_stream
 from app.services.tokens import _collect_tool_calls
+
+
+class UpstreamFirstChunkTimeout(RuntimeError):
+    """Upstream gave no usable first chunk within the timeout window."""
 
 
 async def handle_streaming(
@@ -84,7 +90,15 @@ async def handle_streaming(
         )
         is_active_request_registered = True
         req = client.build_request("POST", url, headers=headers, content=body)
-        resp = await client.send(req, stream=True)
+        try:
+            resp = await asyncio.wait_for(
+                client.send(req, stream=True),
+                STREAM_FIRST_CHUNK_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            raise UpstreamFirstChunkTimeout(
+                f"upstream did not respond within {STREAM_FIRST_CHUNK_TIMEOUT_SECONDS}s"
+            )
 
         if resp.status_code >= 400:
             error_body = await resp.aread()
@@ -204,6 +218,33 @@ async def handle_streaming(
                 model_concurrency_semaphore.release()
             semaphores_released = True
             return response
+
+        first_line_iter = resp.aiter_lines()
+        try:
+            first_raw_line = await asyncio.wait_for(
+                first_line_iter.__anext__(),
+                STREAM_FIRST_CHUNK_TIMEOUT_SECONDS,
+            )
+        except StopAsyncIteration:
+            first_raw_line = None
+        except asyncio.TimeoutError:
+            await resp.aclose()
+            raise UpstreamFirstChunkTimeout(
+                f"first-chunk timeout after {STREAM_FIRST_CHUNK_TIMEOUT_SECONDS}s"
+            )
+        except Exception:
+            await resp.aclose()
+            raise
+        if first_raw_line is None:
+            await resp.aclose()
+            raise RuntimeError(
+                "upstream closed connection without sending any SSE data"
+            )
+
+        async def _chained_first_line():
+            yield first_raw_line
+            async for line in first_line_iter:
+                yield line
     except Exception as e:
         if is_active_request_registered:
             await finish_active_request(request_id)
@@ -233,7 +274,7 @@ async def handle_streaming(
 
         try:
             chunk_count = 0
-            async for raw_line in normalize_sse_stream(resp.aiter_lines()):
+            async for raw_line in normalize_sse_stream(_chained_first_line()):
                 if chunk_count == 0:
                     logger.debug(
                         "[STREAM DEBUG] %s/%s first_chunk=%s",

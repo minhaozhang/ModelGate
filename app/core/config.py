@@ -137,6 +137,17 @@ USER_SLOT_WATCHDOG_INTERVAL_SECONDS = _env_float(
     "MODELGATE_USER_SLOT_WATCHDOG_INTERVAL", 5.0
 )
 user_slot_released_ids: set[str] = set()
+# Wait at most this long for upstream response headers + first SSE line
+# before treating the attempt as hung and letting route fallback pick
+# another provider/key. Keep above slow-provider first-token latencies.
+STREAM_FIRST_CHUNK_TIMEOUT_SECONDS = _env_float(
+    "STREAM_FIRST_CHUNK_TIMEOUT_SECONDS", 90.0
+)
+# After first-chunk timeouts exhaust all routes, only suggest the client
+# compacts when the context is actually large.
+COMPACT_HINT_MIN_TOKENS = _env_float(
+    "MODELGATE_COMPACT_HINT_MIN_TOKENS", 40000.0
+)
 active_requests: dict[str, dict[str, Any]] = {}
 active_requests_lock = asyncio.Lock()
 busyness_state: dict[str, Any] = {}
