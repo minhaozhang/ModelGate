@@ -290,6 +290,20 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         </button>
     </div>
 
+    <div id="disable-key-sheet" class="hidden fixed inset-0 z-[60]">
+        <div class="absolute inset-0 bg-black/40" onclick="closeDisableKeySheet(false)"></div>
+        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl px-4 pt-4 pb-6 max-h-[80vh] overflow-y-auto">
+            <div class="text-sm font-medium text-gray-800">{{ _('Disable Key' if current_locale != 'zh' else '禁用密钥') }}</div>
+            <div id="disable-key-target-label" class="text-xs text-gray-400 mt-0.5 mb-3 truncate"></div>
+            <div id="disable-key-presets" class="flex flex-wrap gap-2 mb-3"></div>
+            <input type="text" id="disable-key-reason" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="{{ _('Reason (optional)' if current_locale != 'zh' else '禁用原因（可选）') }}">
+            <div class="flex gap-2 mt-4">
+                <button type="button" onclick="closeDisableKeySheet(false)" class="flex-1 py-2.5 rounded-lg bg-gray-100 text-gray-600 text-sm">{{ _('Cancel' if current_locale != 'zh' else '取消') }}</button>
+                <button type="button" onclick="confirmDisableKeyMobile()" class="flex-1 py-2.5 rounded-lg bg-red-500 text-white text-sm">{{ _('Disable' if current_locale != 'zh' else '禁用') }}</button>
+            </div>
+        </div>
+    </div>
+
     {% include 'components/lang_switch.html' %}
     <script>
     window.I18N = {
@@ -313,9 +327,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         yesterday: "{{ _('Yesterday') }}",
         keys: "{{ _('Keys') }}",
         noKeys: "{{ _('No keys') }}",
-        disableConfirm: "{{ _('Disable {name}?') }}",
         enableConfirm: "{{ _('Enable {name}?') }}",
-        disableReasonPrompt: "{{ _('Disable reason (optional)') }}",
         opFailed: "{{ _('Operation failed') }}",
         scheduledDisable: "{{ _('Scheduled') }}",
         scheduleActiveNow: "{{ _('active now') }}",
@@ -1186,30 +1198,75 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             else list.innerHTML = html || `<div class="text-gray-400 text-center py-6 text-xs">${window.I18N.noLogs}</div>`;
         }
 
-        async function toggleProviderKey(input) {
-            const provId = input.dataset.provId;
-            const keyId = input.dataset.keyId;
-            const enable = input.checked;
-            const label = input.dataset.keyLabel || `#${keyId}`;
-            let reason = '';
-            if (!enable) {
-                if (!confirm(window.I18N.disableConfirm.replace('{name}', label))) { input.checked = true; return; }
-                reason = prompt(window.I18N.disableReasonPrompt, '') || '';
-            } else if (!confirm(window.I18N.enableConfirm.replace('{name}', label))) {
-                input.checked = false;
-                return;
-            }
+        const DISABLE_KEY_PRESETS = ['Insufficient Balance', 'Invalid API Key', 'Rate Limited (429)', 'Account Suspended', 'Quota Exceeded'];
+        let disableKeyTarget = null;
+
+        function openDisableKeySheet(input) {
+            disableKeyTarget = input;
+            document.getElementById('disable-key-target-label').textContent = input.dataset.keyLabel || `#${input.dataset.keyId}`;
+            document.getElementById('disable-key-reason').value = '';
+            document.getElementById('disable-key-presets').innerHTML = DISABLE_KEY_PRESETS.map(r =>
+                `<button type="button" class="preset-reason-btn text-xs border border-gray-200 rounded-full px-3 py-1.5 bg-gray-50 active:bg-gray-200" data-reason="${esc(r)}">${esc(r)}</button>`).join('');
+            document.getElementById('disable-key-sheet').classList.remove('hidden');
+        }
+
+        function closeDisableKeySheet(confirmed) {
+            document.getElementById('disable-key-sheet').classList.add('hidden');
+            if (!confirmed && disableKeyTarget) disableKeyTarget.checked = true;
+            disableKeyTarget = null;
+        }
+
+        async function confirmDisableKeyMobile() {
+            if (!disableKeyTarget) return;
+            const input = disableKeyTarget;
+            const reason = document.getElementById('disable-key-reason').value.trim();
+            const body = { is_active: false };
+            if (reason) body.disabled_reason = reason;
+            closeDisableKeySheet(true);
             try {
-                const body = { is_active: enable };
-                if (!enable && reason) body.disabled_reason = reason;
-                await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/${provId}/keys/${keyId}`, {
+                await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/${input.dataset.provId}/keys/${input.dataset.keyId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body)
                 });
-                loadData();
+                const provId = input.dataset.provId;
+                const box = document.getElementById('prov-keys-' + provId);
+                if (box && !box.classList.contains('hidden')) loadProviderKeysInto(provId);
+                loadProviderKeysLive();
             } catch (e) {
-                input.checked = !enable;
+                input.checked = true;
+                alert(window.I18N.opFailed);
+            }
+        }
+
+        document.getElementById('disable-key-presets').addEventListener('click', e => {
+            const btn = e.target.closest('.preset-reason-btn');
+            if (!btn) return;
+            document.getElementById('disable-key-reason').value = btn.dataset.reason;
+        });
+
+        async function toggleProviderKey(input) {
+            const enable = input.checked;
+            const label = input.dataset.keyLabel || `#${input.dataset.keyId}`;
+            if (!enable) {
+                openDisableKeySheet(input);
+                return;
+            }
+            if (!confirm(window.I18N.enableConfirm.replace('{name}', label))) {
+                input.checked = false;
+                return;
+            }
+            try {
+                await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/${input.dataset.provId}/keys/${input.dataset.keyId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: true })
+                });
+                const box = document.getElementById('prov-keys-' + input.dataset.provId);
+                if (box && !box.classList.contains('hidden')) loadProviderKeysInto(input.dataset.provId);
+                loadProviderKeysLive();
+            } catch (e) {
+                input.checked = false;
                 alert(window.I18N.opFailed);
             }
         }

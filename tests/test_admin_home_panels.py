@@ -111,6 +111,15 @@ class AdminMobileHomePanelTests(unittest.TestCase):
         self.assertIn("requested_model", html)
         self.assertIn("provider_key_label", html)
 
+    def test_mobile_disable_key_uses_reason_sheet(self):
+        html = _read("web/templates/admin/mobile_home.html")
+
+        self.assertIn("disable-key-sheet", html)
+        self.assertIn("DISABLE_KEY_PRESETS", html)
+        self.assertIn("Insufficient Balance", html)
+        self.assertIn("confirmDisableKeyMobile", html)
+        self.assertNotIn("prompt(window.I18N.disableReasonPrompt", html)
+
 
 class ProviderKeyRowBuilderTests(unittest.TestCase):
     def test_rows_filtered_sorted_and_carry_fields(self):
