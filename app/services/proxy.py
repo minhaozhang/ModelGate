@@ -11,6 +11,7 @@ from app.core.config import (
     update_stats,
     logger,
     error_logger,
+    consume_user_slot_released,
 )
 from app.core.log_sanitizer import (
     sanitize_payload_for_log,
@@ -1218,10 +1219,11 @@ async def proxy_request(request: Request, endpoint: str):
                                 routing_decision_base,
                                 route_result,
                                 key_explanation,
-                                chosen_key_id,
-                                "normal_started",
-                            ),
-                        )
+                            chosen_key_id,
+                            "normal_started",
+                        ),
+                        user_api_key_semaphore=user_api_key_semaphore,
+                    )
                 except Exception as handler_exc:
                     logger.warning(
                         "[ROUTE FALLBACK] Provider %s raised %s: %s, trying next provider",
@@ -1407,7 +1409,8 @@ async def proxy_request(request: Request, endpoint: str):
         return _openai_error_response(err_msg, 502, "api_error", "proxy_error")
     finally:
         if user_api_key_acquired and user_api_key_semaphore is not None:
-            user_api_key_semaphore.release()
+            if not consume_user_slot_released(request_id):
+                user_api_key_semaphore.release()
         if model_conc_acquired and model_concurrency_semaphore is not None:
             model_concurrency_semaphore.release()
 
@@ -1491,6 +1494,7 @@ async def handle_normal(
     provider_key_label=None,
     routing_decision=None,
     inbound_protocol=None,
+    user_api_key_semaphore=None,
 ):
     return await runtime_handle_normal(
         client=client,
@@ -1519,6 +1523,7 @@ async def handle_normal(
         routing_decision=routing_decision,
         inbound_protocol=inbound_protocol,
         model_concurrency_semaphore=model_concurrency_semaphore,
+        user_api_key_semaphore=user_api_key_semaphore,
     )
 
 

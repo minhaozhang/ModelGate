@@ -61,6 +61,7 @@ async def handle_normal(
     provider_key_label=None,
     routing_decision=None,
     inbound_protocol=None,
+    user_api_key_semaphore=None,
 ):
     logger.debug(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -78,6 +79,7 @@ async def handle_normal(
             prompt_tokens=request_context_tokens,
             requested_model=requested_model,
             upstream_model=upstream_model,
+            user_semaphore=user_api_key_semaphore,
         )
         is_active_request_registered = True
 

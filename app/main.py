@@ -204,6 +204,10 @@ async def startup():
 
     await init_system_config()
 
+    from app.core.config import start_user_slot_watchdog
+
+    start_user_slot_watchdog()
+
     from app.services.proxy import get_http_client
 
     get_http_client()

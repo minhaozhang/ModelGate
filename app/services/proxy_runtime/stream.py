@@ -4,6 +4,7 @@ import time
 from fastapi.responses import Response, StreamingResponse
 
 from app.core.config import (
+    consume_user_slot_released,
     error_logger,
     finish_active_request,
     logger,
@@ -79,6 +80,7 @@ async def handle_streaming(
             prompt_tokens=request_context_tokens,
             requested_model=requested_model,
             upstream_model=upstream_model,
+            user_semaphore=user_api_key_semaphore,
         )
         is_active_request_registered = True
         req = client.build_request("POST", url, headers=headers, content=body)
@@ -470,12 +472,18 @@ async def handle_streaming(
             )
             yield f"data: {json.dumps({'error': {'message': '请求处理失败，请稍后重试', 'type': 'api_error'}})}\n\n"
         finally:
+            try:
+                await resp.aclose()
+            except Exception:
+                pass
             await finish_active_request(request_id)
             if user_provider_model_semaphore is not None:
                 user_provider_model_semaphore.release()
             if provider_key_semaphore is not None:
                 provider_key_semaphore.release()
-            if user_api_key_semaphore is not None:
+            if user_api_key_semaphore is not None and not consume_user_slot_released(
+                request_id
+            ):
                 user_api_key_semaphore.release()
             if model_concurrency_semaphore is not None:
                 model_concurrency_semaphore.release()

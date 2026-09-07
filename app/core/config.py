@@ -120,6 +120,23 @@ today_stats_cache_time: Optional[datetime] = None
 TODAY_STATS_CACHE_TTL_SECONDS = 600
 LIVE_REQUEST_STALE_SECONDS = 660
 MAX_LIVE_REQUEST_ROWS = 200
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, "") or default)
+    except ValueError:
+        return default
+
+
+# User-concurrency slots held longer than this are force-released so a long
+# thinking/streaming request does not lock a user with concurrency=1 out of
+# new requests entirely.
+USER_SLOT_STALE_SECONDS = _env_float("MODELGATE_USER_SLOT_STALE_SECONDS", 60.0)
+USER_SLOT_WATCHDOG_INTERVAL_SECONDS = _env_float(
+    "MODELGATE_USER_SLOT_WATCHDOG_INTERVAL", 5.0
+)
+user_slot_released_ids: set[str] = set()
 active_requests: dict[str, dict[str, Any]] = {}
 active_requests_lock = asyncio.Lock()
 busyness_state: dict[str, Any] = {}
@@ -246,6 +263,7 @@ async def register_active_request(
     prompt_tokens: int = 0,
     requested_model: str | None = None,
     upstream_model: str | None = None,
+    user_semaphore: Any = None,
 ) -> None:
     from app.services.model_naming import user_stats_model_name
 
@@ -262,16 +280,76 @@ async def register_active_request(
             "client_ip": client_ip,
             "prompt_tokens": prompt_tokens,
             "started_at": now,
+            "user_semaphore": user_semaphore,
         }
     asyncio.create_task(broadcast_live_stats())
 
 
 async def finish_active_request(request_id: str) -> None:
-    removed = False
+    entry: dict[str, Any] | None = None
     async with active_requests_lock:
-        removed = active_requests.pop(request_id, None) is not None
-    if removed:
+        entry = active_requests.pop(request_id, None)
+    if entry is not None:
+        if entry.get("user_slot_released"):
+            user_slot_released_ids.add(request_id)
         asyncio.create_task(broadcast_live_stats())
+
+
+async def release_stale_user_slots() -> int:
+    """Force-release user-concurrency slots held beyond USER_SLOT_STALE_SECONDS.
+
+    The owning request still runs to completion; it just no longer blocks the
+    user's semaphore. Its natural release is skipped via the
+    user_slot_released marker so the slot is never released twice.
+    """
+    now = datetime.now()
+    released = 0
+    async with active_requests_lock:
+        for request_id, request_data in list(active_requests.items()):
+            if request_data.get("user_slot_released"):
+                continue
+            semaphore = request_data.get("user_semaphore")
+            started_at = request_data.get("started_at")
+            if semaphore is None or started_at is None:
+                continue
+            age = (now - started_at).total_seconds()
+            if age > USER_SLOT_STALE_SECONDS:
+                request_data["user_slot_released"] = True
+                semaphore.release()
+                released += 1
+                logger.info(
+                    "[USER SLOT] Force-released stale user slot for request %s "
+                    "(held %.0fs > %.0fs)",
+                    request_id,
+                    age,
+                    USER_SLOT_STALE_SECONDS,
+                )
+    return released
+
+
+def consume_user_slot_released(request_id: str) -> bool:
+    """True once if the watchdog already released this request's user slot."""
+    if request_id in user_slot_released_ids:
+        user_slot_released_ids.discard(request_id)
+        return True
+    return False
+
+
+def start_user_slot_watchdog() -> asyncio.Task | None:
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+
+    async def _watchdog_loop() -> None:
+        while True:
+            await asyncio.sleep(USER_SLOT_WATCHDOG_INTERVAL_SECONDS)
+            try:
+                await release_stale_user_slots()
+            except Exception:
+                logger.exception("user slot watchdog iteration failed")
+
+    return loop.create_task(_watchdog_loop())
 
 
 async def prune_stale_active_requests() -> bool:
