@@ -109,6 +109,33 @@ async def _do_reenable_provider(provider_id: int) -> None:
             pass
 
 
+async def _after_key_reenabled(key_id: int) -> None:
+    """Post-reenable linkage: force priority-based key re-selection and
+    recover an auto-disabled provider as soon as any key is usable again."""
+    from app.services.provider import invalidate_provider_sticky_cache
+
+    async with async_session_maker() as session:
+        row = (
+            await session.execute(
+                select(
+                    Provider.id,
+                    Provider.name,
+                    Provider.is_active,
+                    Provider.disabled_by,
+                )
+                .join(ProviderKey, ProviderKey.provider_id == Provider.id)
+                .where(ProviderKey.id == key_id)
+            )
+        ).first()
+    if not row:
+        return
+
+    await invalidate_provider_sticky_cache(row.name)
+
+    if not row.is_active and (row.disabled_by or "") != "manual":
+        await _do_reenable_provider(row.id)
+
+
 async def _do_reenable_key(key_id: int) -> None:
     logger.info("[REENABLE-JOB] Re-enabling key id=%d at %s", key_id, datetime.now())
     async with async_session_maker() as session:
@@ -132,6 +159,10 @@ async def _do_reenable_key(key_id: int) -> None:
         return
 
     on_key_reenabled(key_id)
+    try:
+        await _after_key_reenabled(key_id)
+    except Exception:
+        logger.exception("[REENABLE-JOB] post-reenable linkage failed for key %s", key_id)
 
     from app.services.provider import load_providers
     await load_providers()
@@ -498,6 +529,10 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
 
         for kid in reenabled_keys:
             on_key_reenabled(kid)
+            try:
+                await _after_key_reenabled(kid)
+            except Exception:
+                logger.exception("[AUTO-REENABLE] post-reenable linkage failed for key %s", kid)
 
         try:
             from app.services.notification import create_notification
