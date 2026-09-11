@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 from typing import Any
@@ -188,7 +189,7 @@ def _rule_label(rule: dict[str, Any]) -> str:
     return str(rule.get("name") or rule.get("template_key") or rule.get("id") or rule.get("action") or "rule")
 
 
-def _sort_candidate(candidate: ProviderKeyCandidate) -> tuple[int, int, int, int]:
+def _sort_candidate(candidate: ProviderKeyCandidate) -> tuple[int, int, int, int, float]:
     sticky_bonus = 1 if candidate.sticky else 0
     effective_priority = candidate.priority + candidate.policy_priority
     return (
@@ -196,6 +197,10 @@ def _sort_candidate(candidate: ProviderKeyCandidate) -> tuple[int, int, int, int
         effective_priority,
         candidate.priority,
         candidate.health,
+        # Fully tied candidates (same priority, same health) would
+        # otherwise follow list order forever and pin traffic onto
+        # one key; break ties randomly per evaluation.
+        random.random(),
     )
 
 
