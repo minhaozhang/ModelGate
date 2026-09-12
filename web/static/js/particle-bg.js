@@ -17,6 +17,11 @@
     var mouseX = -9999;
     var mouseY = -9999;
     var resizeRaf = null;
+    /* Must stay in sync with the particleScanDown animation duration in
+       particle-bg.css; the scanline Y is derived from the same clock so the
+       sweep can ripple particles without reading DOM layout each frame. */
+    var SCAN_PERIOD_MS = 8000;
+    var scanStart = 0;
 
     var THEMES = {
         dark: {
@@ -76,16 +81,6 @@
         document.addEventListener('mousemove', onMouseMove);
     }
 
-    /* Edge-weighted horizontal placement: half the particles live in the
-       outer 10% on each side so the busy page center stays clear. */
-    function seedX() {
-        if (Math.random() < 0.5) {
-            var e = Math.random() * 0.1;
-            return (Math.random() < 0.5 ? e : 1 - e) * width;
-        }
-        return (0.1 + Math.random() * 0.8) * width;
-    }
-
     function seed() {
         particles = [];
         var conf = palette();
@@ -93,13 +88,14 @@
         for (var i = 0; i < count; i++) {
             var color = conf.colors[Math.floor(Math.random() * conf.colors.length)];
             particles.push({
-                x: seedX(),
+                x: Math.random() * width,
                 y: Math.random() * height,
                 vx: (Math.random() - 0.5) * 0.5,
                 vy: (Math.random() - 0.5) * 0.5,
                 size: Math.random() * conf.sizeMax + (conf.sizeMin || 0.4),
                 alpha: Math.random() * (conf.alphaMax - conf.alphaMin) + conf.alphaMin,
-                color: color
+                color: color,
+                scanGlow: 0
             });
         }
     }
@@ -135,6 +131,14 @@
         var conf = palette();
         var i, j, p, p2, dx, dy, dist;
 
+        /* current scanline Y from the same 8s cycle the CSS animation runs
+           on; light theme hides the line so there is nothing to ripple */
+        var scanY = -9999;
+        if (theme !== 'light') {
+            var t = (performance.now() - scanStart) % SCAN_PERIOD_MS;
+            scanY = (t / SCAN_PERIOD_MS) * (height + 2) - 2;
+        }
+
         for (i = 0; i < particles.length; i++) {
             p = particles[i];
 
@@ -166,11 +170,15 @@
                 p.vy *= clamp;
             }
 
-            /* soft repulsion from the busy center keeps edges denser */
-            var fromC = p.x - width / 2;
-            var band = width * 0.28;
-            if (Math.abs(fromC) < band) {
-                p.vx += (fromC >= 0 ? 1 : -1) * 0.0025 * (1 - Math.abs(fromC) / band);
+            /* scanline sweep: part the field vertically and glow as it
+               crosses, like a wave rippling through the particles */
+            var sd = p.y - scanY;
+            if (Math.abs(sd) < 28) {
+                var sf = 1 - Math.abs(sd) / 28;
+                p.vy += (sd >= 0 ? 1 : -1) * 0.05 * sf;
+                p.scanGlow = sf;
+            } else if (p.scanGlow) {
+                p.scanGlow = 0;
             }
 
             if (p.x < 0) p.x = width;
@@ -178,9 +186,11 @@
             if (p.y < 0) p.y = height;
             if (p.y > height) p.y = 0;
 
+            var glowAlpha = p.alpha * edgeBoost(p.x);
+            if (p.scanGlow) glowAlpha = Math.min(1, glowAlpha + p.scanGlow * 0.5);
             ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(' + p.color.join(',') + ',' + (p.alpha * edgeBoost(p.x)).toFixed(3) + ')';
+            ctx.arc(p.x, p.y, p.size * (p.scanGlow ? 1 + p.scanGlow * 0.6 : 1), 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(' + p.color.join(',') + ',' + glowAlpha.toFixed(3) + ')';
             ctx.fill();
 
             for (j = i + 1; j < particles.length; j++) {
@@ -207,6 +217,9 @@
         ensureElements();
         if (!running) {
             running = true;
+            /* CSS animation restarts every time the scanline is re-shown
+               (display:none -> block), so resync the sweep clock with it */
+            scanStart = performance.now();
             resize();
             rafId = requestAnimationFrame(draw);
         } else {

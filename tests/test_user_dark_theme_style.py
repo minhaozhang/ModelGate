@@ -74,17 +74,27 @@ class ParticleBackgroundTests(unittest.TestCase):
         self.assertIn("linkAlpha: 0.22", js)
         self.assertIn("centerFloor: 0.55", js)
 
-    def test_particles_drift_forever_and_cluster_at_edges(self):
+    def test_particles_drift_forever(self):
         js = _read("web/static/js/particle-bg.js")
 
-        # edge-biased placement: half the particles in the outer 10% per side
-        self.assertIn("seedX", js)
-        self.assertIn("Math.random() < 0.5", js)
+        # uniform horizontal spread (no edge bias)
+        self.assertIn("x: Math.random() * width", js)
+        self.assertNotIn("seedX", js)
         # damping alone freezes particles; a minimum speed re-energizes them
         self.assertIn("sp2 < 0.01", js)
-        # center repulsion keeps the middle clear over time
-        self.assertIn("fromC", js)
-        self.assertIn("band = width * 0.28", js)
+
+    def test_scan_line_ripples_particles(self):
+        js = _read("web/static/js/particle-bg.js")
+        css = _read("web/static/css/particle-bg.css")
+
+        # JS sweep clock matches the CSS animation duration
+        self.assertIn("SCAN_PERIOD_MS = 8000", js)
+        self.assertIn("particleScanDown 8s", css)
+        # ripple: vertical part force + glow inside the sweep band
+        self.assertIn("Math.abs(sd) < 28", js)
+        self.assertIn("scanGlow", js)
+        # light theme hides the scanline so nothing ripples there
+        self.assertIn("theme !== 'light'", js)
 
     def test_particle_theme_palettes_exist(self):
         js = _read("web/static/js/particle-bg.js")
