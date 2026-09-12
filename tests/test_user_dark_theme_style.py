@@ -59,21 +59,32 @@ class ParticleBackgroundTests(unittest.TestCase):
 
         self.assertIn("ParticleBG", js)
         self.assertIn("setEnabled", js)
-        self.assertIn("prefers-reduced-motion", js)
         self.assertIn("requestAnimationFrame", js)
 
         self.assertIn("particle-bg-canvas", css)
         self.assertIn("particle-scan-line", css)
         self.assertIn("body.has-particle-bg", css)
-        self.assertIn("prefers-reduced-motion", css)
 
     def test_particle_brightness_is_edge_weighted(self):
         js = _read("web/static/js/particle-bg.js")
 
         self.assertIn("edgeBoost", js)
-        self.assertIn("alphaMin: 0.16", js)
-        self.assertIn("alphaMax: 0.50", js)
-        self.assertIn("linkAlpha: 0.12", js)
+        self.assertIn("alphaMin: 0.35", js)
+        self.assertIn("alphaMax: 0.85", js)
+        self.assertIn("linkAlpha: 0.22", js)
+        self.assertIn("centerFloor: 0.55", js)
+
+    def test_particles_drift_forever_and_cluster_at_edges(self):
+        js = _read("web/static/js/particle-bg.js")
+
+        # edge-biased placement: half the particles in the outer 10% per side
+        self.assertIn("seedX", js)
+        self.assertIn("Math.random() < 0.5", js)
+        # damping alone freezes particles; a minimum speed re-energizes them
+        self.assertIn("sp2 < 0.01", js)
+        # center repulsion keeps the middle clear over time
+        self.assertIn("fromC", js)
+        self.assertIn("band = width * 0.28", js)
 
     def test_particle_theme_palettes_exist(self):
         js = _read("web/static/js/particle-bg.js")

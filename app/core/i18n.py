@@ -1,4 +1,6 @@
+import hashlib
 import logging
+import time
 from io import BytesIO
 from pathlib import Path
 
@@ -13,15 +15,32 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 WEB_DIR = PROJECT_ROOT / "web"
 TEMPLATES_DIR = str(WEB_DIR / "templates")
 LOCALES_DIR = str(WEB_DIR / "locales")
-CSS_OUTPUT_PATH = WEB_DIR / "static" / "css" / "output.css"
+STATIC_DIR = WEB_DIR / "static"
+
+_asset_version_cache: list = [0.0, "0"]
 
 
 def _css_version() -> str:
+    """Cache-busting version derived from every static asset's mtime+size.
+
+    Templates reference /static/...?v={{ css_version }}; hashing the whole
+    static tree (not just output.css) means any js/css change busts browser
+    caches for returning visitors."""
+    now = time.monotonic()
+    if now - _asset_version_cache[0] < 5:
+        return _asset_version_cache[1]
+    h = hashlib.sha1()
     try:
-        stat = CSS_OUTPUT_PATH.stat()
+        for p in sorted(STATIC_DIR.rglob("*")):
+            if p.is_file():
+                st = p.stat()
+                h.update(f"{p.name}:{int(st.st_mtime)}:{st.st_size};".encode())
     except OSError:
-        return "0"
-    return f"{int(stat.st_mtime):x}{stat.st_size:x}"
+        pass
+    version = h.hexdigest()[:12]
+    _asset_version_cache[0] = now
+    _asset_version_cache[1] = version
+    return version
 
 SUPPORTED_LOCALES = ("en", "zh")
 DEFAULT_LOCALE = "en"

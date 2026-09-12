@@ -49,9 +49,3 @@ body.has-particle-bg .container { position: relative; z-index: 1; }
     z-index: 9999;
     pointer-events: none;
 }
-
-@media (prefers-reduced-motion: reduce) {
-    #particle-bg-canvas,
-    .particle-scan-line,
-    #particle-burst-canvas { display: none !important; }
-}

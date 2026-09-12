@@ -1,11 +1,9 @@
 /* ModelGate user-side interactive particle bursts.
    Click on interactive elements (buttons/links/selects) spawns a small
    themed burst; hovering dashboard cards lifts a few faint sparks.
-   No dependencies; disabled under prefers-reduced-motion. */
+   No dependencies. */
 (function () {
     'use strict';
-
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     var canvas = null;
     var ctx = null;

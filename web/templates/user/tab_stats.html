@@ -1,26 +1,8 @@
 <div id="tab-stats" class="tab-content active p-6">
-    <div class="bg-gray-50 rounded-xl px-5 py-4 mb-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div class="flex items-center gap-3 min-w-0">
-            <div id="busyness-dot" class="w-3.5 h-3.5 rounded-full bg-slate-400 shrink-0"></div>
-            <div class="min-w-0">
-                <h3 class="text-sm font-semibold tracking-tight whitespace-nowrap">{{ _('System Status') }}</h3>
-                <div class="text-xs text-gray-400 truncate" id="busyness-detail-line">{{ _('Real-time busyness level') }}</div>
-            </div>
-        </div>
-        <div class="flex items-center gap-3">
-            <div id="busyness-level-text" class="text-xl font-semibold text-slate-700 metric-value">--</div>
-            <span id="busyness-badge" class="rounded-full px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-600">--</span>
-        </div>
-        <div class="flex items-center gap-6 ml-auto flex-wrap">
-            <div>
-                <div class="text-xs text-gray-400">{{ _('Active users (10min)') }}</div>
-                <div id="busyness-active-users" class="text-sm font-semibold text-slate-700 metric-value">0</div>
-            </div>
-            <div>
-                <div class="text-xs text-gray-400">429 {{ _('ratio') }}</div>
-                <div id="busyness-429-ratio" class="text-sm font-semibold text-slate-700 metric-value">0.0%</div>
-            </div>
-        </div>
+    <div id="busyness-banner" class="bg-gray-50 rounded-xl px-4 py-3 mb-6 flex items-center gap-3 border border-slate-200">
+        <div id="busyness-dot" class="w-3 h-3 rounded-full bg-slate-400 shrink-0"></div>
+        <span id="busyness-label" class="text-sm font-medium text-slate-600 whitespace-nowrap">{{ _('System Status') }}: --</span>
+        <span id="busyness-detail" class="text-xs text-gray-400 ml-auto truncate"></span>
     </div>
     <div class="bg-gray-50 rounded-xl p-5 mb-6">
         <div class="seg-nav mb-4">

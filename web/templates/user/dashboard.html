@@ -36,6 +36,7 @@
         .ctl-btn-amber:hover { background: #fef3c7; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        html { scrollbar-gutter: stable; }
         .stats-sub-content { display: block; }
         .stats-sub-content.hidden { display: none; }
         pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
@@ -1323,8 +1324,7 @@
         function renderBusyness(data) {
             if (!data) return;
             const colorMap = {red:'bg-red-500',orange:'bg-orange-500',yellow:'bg-yellow-500',green:'bg-green-500',blue:'bg-blue-500',slate:'bg-slate-400'};
-            const badgeBgMap = {red:'bg-red-100 text-red-700',orange:'bg-orange-100 text-orange-700',yellow:'bg-yellow-100 text-yellow-700',green:'bg-green-100 text-green-700',blue:'bg-blue-100 text-blue-700',slate:'bg-slate-100 text-slate-600'};
-            const textMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-700'};
+            const textMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-600'};
             const c = data.color || 'slate';
             const locale = document.documentElement.lang || 'zh';
             const isZh = locale === 'zh' || locale === 'zh-CN' || locale.startsWith('zh');
@@ -1332,15 +1332,19 @@
             const enMap = {extremely_busy:'Overloaded',very_busy:'Crowded',busy:'Active',normal:'Smooth',idle:'Calm',quiet:'Silent'};
             const busynessLabel = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
             const dot = document.getElementById('busyness-dot');
-            const badge = document.getElementById('busyness-badge');
-            const levelText = document.getElementById('busyness-level-text');
-            const activeUsers = document.getElementById('busyness-active-users');
-            const ratio429 = document.getElementById('busyness-429-ratio');
-            if (dot) dot.className = 'w-3.5 h-3.5 rounded-full shrink-0 ' + (colorMap[c] || 'bg-slate-400');
-            if (badge) { badge.className = 'rounded-full px-2.5 py-1 text-xs font-semibold ' + (badgeBgMap[c] || 'bg-slate-100 text-slate-600'); badge.textContent = busynessLabel; }
-            if (levelText) { levelText.className = 'text-xl font-semibold ' + (textMap[c] || 'text-slate-700'); levelText.textContent = busynessLabel; }
-            if (activeUsers) flipCounter('busyness-active-users', Number(data.active_users_10min || 0).toLocaleString());
-            if (ratio429) ratio429.textContent = (Number(data.rate_429_ratio || 0) * 100).toFixed(1) + '%';
+            const label = document.getElementById('busyness-label');
+            const detail = document.getElementById('busyness-detail');
+            if (dot) dot.className = 'w-3 h-3 rounded-full shrink-0 ' + (colorMap[c] || 'bg-slate-400');
+            if (label) {
+                label.className = 'text-sm font-medium whitespace-nowrap ' + (textMap[c] || 'text-slate-600');
+                label.textContent = (isZh ? '系统状态' : 'System Status') + ': ' + busynessLabel;
+            }
+            if (detail) {
+                const parts = [];
+                parts.push(Number(data.active_users_10min || 0).toLocaleString() + ' ' + (isZh ? '活跃用户' : 'active users'));
+                parts.push('429: ' + (Number(data.rate_429_ratio || 0) * 100).toFixed(1) + '%');
+                detail.textContent = parts.join(' · ');
+            }
         }
 
         async function loadStats() {

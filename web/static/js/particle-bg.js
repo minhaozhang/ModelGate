@@ -17,28 +17,31 @@
     var mouseX = -9999;
     var mouseY = -9999;
     var resizeRaf = null;
-    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     var THEMES = {
         dark: {
             colors: [[34, 211, 238], [129, 140, 248], [167, 139, 250]],
             countWide: 72,
             countNarrow: 36,
-            alphaMin: 0.16,
-            alphaMax: 0.50,
-            sizeMax: 1.7,
-            linkAlpha: 0.12,
-            linkDist: 120
+            alphaMin: 0.35,
+            alphaMax: 0.85,
+            sizeMin: 0.7,
+            sizeMax: 2.4,
+            linkAlpha: 0.22,
+            linkDist: 120,
+            centerFloor: 0.55
         },
         blackgold: {
             colors: [[212, 168, 83], [230, 200, 130], [184, 134, 60]],
             countWide: 72,
             countNarrow: 36,
-            alphaMin: 0.16,
-            alphaMax: 0.48,
-            sizeMax: 1.7,
-            linkAlpha: 0.10,
-            linkDist: 120
+            alphaMin: 0.26,
+            alphaMax: 0.62,
+            sizeMin: 0.6,
+            sizeMax: 2.0,
+            linkAlpha: 0.16,
+            linkDist: 120,
+            centerFloor: 0.50
         },
         light: {
             colors: [[99, 102, 241], [129, 140, 248], [56, 189, 248]],
@@ -46,9 +49,11 @@
             countNarrow: 24,
             alphaMin: 0.07,
             alphaMax: 0.18,
+            sizeMin: 0.4,
             sizeMax: 1.1,
             linkAlpha: 0.05,
-            linkDist: 100
+            linkDist: 100,
+            centerFloor: 0.35
         }
     };
 
@@ -71,6 +76,16 @@
         document.addEventListener('mousemove', onMouseMove);
     }
 
+    /* Edge-weighted horizontal placement: half the particles live in the
+       outer 10% on each side so the busy page center stays clear. */
+    function seedX() {
+        if (Math.random() < 0.5) {
+            var e = Math.random() * 0.1;
+            return (Math.random() < 0.5 ? e : 1 - e) * width;
+        }
+        return (0.1 + Math.random() * 0.8) * width;
+    }
+
     function seed() {
         particles = [];
         var conf = palette();
@@ -78,11 +93,11 @@
         for (var i = 0; i < count; i++) {
             var color = conf.colors[Math.floor(Math.random() * conf.colors.length)];
             particles.push({
-                x: Math.random() * width,
+                x: seedX(),
                 y: Math.random() * height,
-                vx: (Math.random() - 0.5) * 0.25,
-                vy: (Math.random() - 0.5) * 0.25,
-                size: Math.random() * conf.sizeMax + 0.4,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: (Math.random() - 0.5) * 0.5,
+                size: Math.random() * conf.sizeMax + (conf.sizeMin || 0.4),
                 alpha: Math.random() * (conf.alphaMax - conf.alphaMin) + conf.alphaMin,
                 color: color
             });
@@ -90,10 +105,12 @@
     }
 
     /* Horizontal brightness weight: bright at the page edges, dimmer in the
-       middle so content stays readable. Returns ~0.35 (center) to 1.0 (edges). */
+       middle so content stays readable. centerFloor is theme-tuned; returns
+       centerFloor (center) to 1.0 (edges). */
     function edgeBoost(x) {
         var t = Math.min(Math.abs(x / width - 0.5) * 2, 1);
-        return 0.35 + 0.65 * Math.pow(t, 1.2);
+        var floor = palette().centerFloor || 0.35;
+        return floor + (1 - floor) * Math.pow(t, 1.2);
     }
 
     function resize() {
@@ -135,6 +152,27 @@
             p.vx *= 0.99;
             p.vy *= 0.99;
 
+            /* keep drifting forever: damping alone freezes particles in
+               seconds, so re-energize below a gentle minimum speed */
+            var sp2 = p.vx * p.vx + p.vy * p.vy;
+            if (sp2 < 0.01) {
+                var ang = Math.random() * Math.PI * 2;
+                var sp = 0.12 + Math.random() * 0.16;
+                p.vx = Math.cos(ang) * sp;
+                p.vy = Math.sin(ang) * sp;
+            } else if (sp2 > 0.36) {
+                var clamp = 0.6 / Math.sqrt(sp2);
+                p.vx *= clamp;
+                p.vy *= clamp;
+            }
+
+            /* soft repulsion from the busy center keeps edges denser */
+            var fromC = p.x - width / 2;
+            var band = width * 0.28;
+            if (Math.abs(fromC) < band) {
+                p.vx += (fromC >= 0 ? 1 : -1) * 0.0025 * (1 - Math.abs(fromC) / band);
+            }
+
             if (p.x < 0) p.x = width;
             if (p.x > width) p.x = 0;
             if (p.y < 0) p.y = height;
@@ -166,7 +204,6 @@
     }
 
     function start() {
-        if (reduced) return;
         ensureElements();
         if (!running) {
             running = true;
@@ -194,7 +231,7 @@
     window.ParticleBG = {
         setTheme: function (mode) {
             theme = THEMES[mode] ? mode : 'dark';
-            var enabled = !!mode && !reduced;
+            var enabled = !!mode;
             if (enabled) start();
             else stop();
             applyBodyClasses(enabled);
