@@ -3069,24 +3069,6 @@ msgid ""
 " — copying from there is recommended."
 msgstr "提示：OpenCode 配置标签页会根据你可用的模型生成此文件，建议直接从那里复制。"
 
-#: web/templates/user/tab_usage.html:142
-msgid ""
-"<code>threshold</code>: 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 "
-"50% 时开始压缩。"
-msgstr ""
-
-#: web/templates/user/tab_usage.html:143
-msgid "<code>strategy</code>: summarize（摘要）/ truncate（截断）/ archive（归档）"
-msgstr "<code>strategy</code>: summarize（摘要）/ truncate（截断）/ archive（归档）"
-
-#: web/templates/user/tab_usage.html:144
-msgid "<code>preserveRecentMessages</code>: 压缩时保留最近 N 条消息不参与压缩（默认 10）"
-msgstr "<code>preserveRecentMessages</code>: 压缩时保留最近 N 条消息不参与压缩（默认 10 条）"
-
-#: web/templates/user/tab_usage.html:145
-msgid "<code>preserveSystemPrompt</code>: 压缩时始终保留系统提示词（默认 true）"
-msgstr "<code>preserveSystemPrompt</code>: 压缩时始终保留系统提示词（默认 true）"
-
 #: web/templates/user/tab_usage.html:158
 msgid "Required Header"
 msgstr "必填 Header"
@@ -3437,3 +3419,34 @@ msgstr "工具调用 (Function Calling)"
 
 #~ msgid "Without Prefix"
 #~ msgstr "不带前缀"
+
+
+msgid "Use the model name directly, same as shown in the model list:"
+msgstr "直接使用模型名即可，与模型目录和下方接口显示的一致："
+
+msgid "A plain model name auto-routes to an available provider. To pin a specific one, add the prefix:"
+msgstr "纯模型名会自动路由到可用供应商。如需锁定特定供应商，添加前缀："
+
+msgid "Install OpenCode from"
+msgstr "从"
+
+msgid ", then go to the OpenCode Config tab to get your configuration."
+msgstr "安装 OpenCode，然后到 OpenCode 配置标签页获取你的配置。"
+
+msgid "The Anthropic endpoint translates requests to OpenAI format internally. All models in your model list can be used — just pass the model name;"
+msgstr "Anthropic 接口内部会将请求转换为 OpenAI 格式。模型列表中的所有模型都可使用——直接传模型名即可；"
+
+msgid "also works to pin a specific provider."
+msgstr "同样可以锁定指定供应商。"
+
+msgid ": 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 50% 时开始压缩。"
+msgstr ": 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 50% 时开始压缩。"
+
+msgid ": summarize（摘要）/ truncate（截断）/ archive（归档）"
+msgstr ": summarize（摘要）/ truncate（截断）/ archive（归档）"
+
+msgid ": 压缩时保留最近 N 条消息不参与压缩（默认 10）"
+msgstr ": 压缩时保留最近 N 条消息不参与压缩（默认 10）"
+
+msgid ": 压缩时始终保留系统提示词（默认 true）"
+msgstr ": 压缩时始终保留系统提示词（默认 true）"
