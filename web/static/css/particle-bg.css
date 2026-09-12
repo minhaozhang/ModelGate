@@ -31,10 +31,27 @@
 body.has-particle-bg #particle-bg-canvas { display: block; }
 body.has-particle-bg .particle-scan-line { display: block; }
 
+/* Gold scan line for the blackgold theme. */
+body.has-particle-bg.particle-bg-blackgold .particle-scan-line {
+    background: linear-gradient(90deg, transparent 0%, rgba(212, 168, 83, 0.15) 30%, rgba(212, 168, 83, 0.32) 50%, rgba(212, 168, 83, 0.15) 70%, transparent 100%);
+}
+
+/* Light theme: no scan line, it muddies white backgrounds. */
+body.has-particle-bg.particle-bg-light .particle-scan-line { display: none; }
+
 /* Keep page content above the ambient layer. */
 body.has-particle-bg .container { position: relative; z-index: 1; }
 
+/* Interactive particle bursts (see particle-burst.js). */
+#particle-burst-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
     #particle-bg-canvas,
-    .particle-scan-line { display: none !important; }
+    .particle-scan-line,
+    #particle-burst-canvas { display: none !important; }
 }

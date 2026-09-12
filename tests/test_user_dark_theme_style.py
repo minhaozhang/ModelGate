@@ -71,8 +71,18 @@ class ParticleBackgroundTests(unittest.TestCase):
         js = _read("web/static/js/particle-bg.js")
 
         self.assertIn("edgeBoost", js)
-        self.assertIn("0.31 + 0.14", js)
-        self.assertIn("0.09", js)
+        self.assertIn("alphaMin: 0.16", js)
+        self.assertIn("alphaMax: 0.50", js)
+        self.assertIn("linkAlpha: 0.12", js)
+
+    def test_particle_theme_palettes_exist(self):
+        js = _read("web/static/js/particle-bg.js")
+
+        self.assertIn("setTheme", js)
+        for theme in ("dark", "blackgold", "light"):
+            self.assertIn(f"{theme}: {{", js)
+        self.assertIn("particle-bg-blackgold", js)
+        self.assertIn("particle-bg-light", js)
 
     def test_dark_pages_wire_particle_background(self):
         for rel in (
@@ -82,13 +92,14 @@ class ParticleBackgroundTests(unittest.TestCase):
         ):
             html = _read(rel)
             self.assertIn("particle-bg.js", html, rel)
-            self.assertIn("ParticleBG.setEnabled", html, rel)
+            self.assertIn("particle-burst.js", html, rel)
+            self.assertIn("ParticleBG.setTheme", html, rel)
 
     def test_theme_switch_toggles_particles(self):
         html = _read("web/templates/user/dashboard.html")
         apply_fn = html[html.index("function applyTheme"):html.index("function applyTheme") + 700]
 
-        self.assertIn("ParticleBG.setEnabled(mode === 'dark')", apply_fn)
+        self.assertIn("ParticleBG.setTheme(mode)", apply_fn)
 
 
 class LoginDeepSpaceThemeTests(unittest.TestCase):

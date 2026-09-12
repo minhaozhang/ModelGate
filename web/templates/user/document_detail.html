@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/css/output.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/css/particle-bg.css?v={{ css_version }}">
     <script src="/static/js/particle-bg.js?v={{ css_version }}"></script>
+ <script src="/static/js/particle-burst.js?v={{ css_version }}"></script>
     <style>
         .markdown-body { line-height: 1.75; font-size: 0.95rem; }
         .markdown-body h1 { font-size: 1.75rem; font-weight: 700; margin: 1.5rem 0 0.75rem; padding-bottom: 0.3rem; border-bottom: 1px solid #e5e7eb; }
@@ -133,7 +134,7 @@
             if (mode === 'dark') document.body.classList.add('theme-dark');
             else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
             localStorage.setItem('dashboard_theme', mode);
-            if (window.ParticleBG) ParticleBG.setEnabled(mode === 'dark');
+            if (window.ParticleBG) ParticleBG.setTheme(mode);
         }
         applyTheme(getThemeMode());
         function switchLang(lang) { document.cookie = "lang=" + lang + ";path=/;max-age=31536000"; window.location.reload(); }

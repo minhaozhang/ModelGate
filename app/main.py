@@ -84,6 +84,16 @@ async def audit_middleware(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def html_no_cache_middleware(request: Request, call_next):
+    """HTML pages must never be heuristically cached — a stale admin/user page
+    runs stale JS (e.g. missing chart self-heal handlers) until a hard refresh."""
+    response = await call_next(request)
+    if response.headers.get("content-type", "").startswith("text/html"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 @app.get("/")
 async def root_page(request: Request):
     base_url = str(request.base_url).rstrip("/")

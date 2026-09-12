@@ -16,14 +16,17 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import case, func, select
 
 from app.core.app_paths import build_app_url
 from app.core.config import (
+    active_requests,
+    active_requests_lock,
     add_user_live_stats_subscriber,
     build_user_live_stats_snapshot,
     busyness_state,
     logger,
+    prune_stale_active_requests,
     providers_cache,
     remove_user_live_stats_subscriber,
     validate_session,
@@ -51,7 +54,6 @@ from app.services.model_naming import (
 
 router = APIRouter(tags=["user"])
 ERROR_STATUSES = ("error", "timeout")
-ACTIVE_WINDOW_SECONDS = 30
 USER_STATS_CACHE_TTL_SECONDS = 60
 USER_RECOMMENDATION_REASON_TTL_SECONDS = 3600
 SYSTEM_HEALTH_WINDOW_MINUTES = 20
@@ -1607,50 +1609,38 @@ async def get_system_active_sessions(
     if not api_key_id:
         return translated_error(request, "Not authenticated", 401)
 
-    cutoff = get_local_now() - timedelta(seconds=ACTIVE_WINDOW_SECONDS)
-    async with async_session_maker() as session:
-        result = await session.execute(
-            select(RequestLog)
-            .where(
-                or_(
-                    RequestLog.status == "pending",
-                    RequestLog.created_at >= cutoff,
-                )
-            )
-            .order_by(RequestLog.created_at.desc())
-        )
-        logs = result.scalars().all()
-        other_key_ids = {
-            log.api_key_id
-            for log in logs
-            if log.api_key_id is not None and log.api_key_id != api_key_id
-        }
-        api_key_names: dict[int, str] = {}
-        if other_key_ids:
+    # Real-time source shared with the admin dashboard: in-flight requests are
+    # registered in memory the moment they start and removed when they finish,
+    # so no DB polling window or pending-status lag here.
+    await prune_stale_active_requests()
+    async with active_requests_lock:
+        live_entries = list(active_requests.values())
+
+    grouped: dict[int | None, dict] = {}
+    for entry in live_entries:
+        key = entry.get("api_key_id")
+        if key not in grouped:
+            grouped[key] = {"requests": 0, "models": {}, "last_activity": None}
+        grouped[key]["requests"] += 1
+        started_at = entry.get("started_at")
+        if started_at is not None:
+            stamp = started_at.isoformat()
+            if grouped[key]["last_activity"] is None or stamp > grouped[key]["last_activity"]:
+                grouped[key]["last_activity"] = stamp
+        model = entry.get("display_model") or entry.get("model")
+        if model:
+            grouped[key]["models"][model] = grouped[key]["models"].get(model, 0) + 1
+
+    other_key_ids = {
+        key for key in grouped if key is not None and key != api_key_id
+    }
+    api_key_names: dict[int, str] = {}
+    if other_key_ids:
+        async with async_session_maker() as session:
             key_result = await session.execute(
                 select(ApiKey.id, ApiKey.name).where(ApiKey.id.in_(other_key_ids))
             )
             api_key_names = {row.id: row.name for row in key_result.fetchall()}
-
-    grouped: dict[int | None, dict] = {}
-    for log in logs:
-        key = log.api_key_id
-        if key not in grouped:
-            grouped[key] = {
-                "requests": 0,
-                "models": {},
-                "last_activity": log.created_at.isoformat() if log.created_at else None,
-            }
-        grouped[key]["requests"] += 1
-        if log.created_at and (
-            grouped[key]["last_activity"] is None
-            or log.created_at.isoformat() > grouped[key]["last_activity"]
-        ):
-            grouped[key]["last_activity"] = log.created_at.isoformat()
-        if log.model:
-            grouped[key]["models"][log.model] = (
-                grouped[key]["models"].get(log.model, 0) + 1
-            )
 
     other_index = 1
     sessions = []

@@ -1,4 +1,27 @@
 <div id="tab-stats" class="tab-content active p-6">
+    <div class="bg-gray-50 rounded-xl px-5 py-4 mb-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div class="flex items-center gap-3 min-w-0">
+            <div id="busyness-dot" class="w-3.5 h-3.5 rounded-full bg-slate-400 shrink-0"></div>
+            <div class="min-w-0">
+                <h3 class="text-sm font-semibold tracking-tight whitespace-nowrap">{{ _('System Status') }}</h3>
+                <div class="text-xs text-gray-400 truncate" id="busyness-detail-line">{{ _('Real-time busyness level') }}</div>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <div id="busyness-level-text" class="text-xl font-semibold text-slate-700 metric-value">--</div>
+            <span id="busyness-badge" class="rounded-full px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-600">--</span>
+        </div>
+        <div class="flex items-center gap-6 ml-auto flex-wrap">
+            <div>
+                <div class="text-xs text-gray-400">{{ _('Active users (10min)') }}</div>
+                <div id="busyness-active-users" class="text-sm font-semibold text-slate-700 metric-value">0</div>
+            </div>
+            <div>
+                <div class="text-xs text-gray-400">429 {{ _('ratio') }}</div>
+                <div id="busyness-429-ratio" class="text-sm font-semibold text-slate-700 metric-value">0.0%</div>
+            </div>
+        </div>
+    </div>
     <div class="bg-gray-50 rounded-xl p-5 mb-6">
         <div class="seg-nav mb-4">
             <button class="stats-summary-tab active" onclick="showStatsSummaryTab('personal', event)">{{ _('Personal') }}</button>
@@ -75,30 +98,7 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-        <div class="bg-gray-50 rounded-xl p-5">
-            <div class="flex justify-between items-start gap-3 mb-3">
-                <div>
-                    <h3 class="text-base font-semibold tracking-tight">{{ _('System Status') }}</h3>
-                    <div class="text-xs text-gray-400" id="busyness-detail-line">{{ _('Real-time busyness level') }}</div>
-                </div>
-                <span id="busyness-badge" class="rounded-full px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-600">--</span>
-            </div>
-            <div class="flex items-center gap-3 mb-4">
-                <div id="busyness-dot" class="w-4 h-4 rounded-full bg-slate-400 shrink-0"></div>
-                <div id="busyness-level-text" class="text-2xl font-semibold text-slate-700 metric-value">--</div>
-            </div>
-            <div id="busyness-metrics" class="grid grid-cols-2 gap-3 text-sm">
-                <div class="rounded-xl bg-white/70 px-3 py-2">
-                    <div class="text-xs text-gray-400">{{ _('Active users (10min)') }}</div>
-                    <div id="busyness-active-users" class="mt-1 font-semibold text-slate-700 metric-value">0</div>
-                </div>
-                <div class="rounded-xl bg-white/70 px-3 py-2">
-                    <div class="text-xs text-gray-400">429 {{ _('ratio') }}</div>
-                    <div id="busyness-429-ratio" class="mt-1 font-semibold text-slate-700 metric-value">0.0%</div>
-                </div>
-            </div>
-        </div>
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
         <div class="bg-gray-50 rounded-xl p-5 flex flex-col max-h-[22rem]">
             <div class="flex justify-between items-center mb-3 shrink-0">
                 <h3 class="text-base font-semibold tracking-tight">{{ _('My Requests') }}</h3>

@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/css/output.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/css/particle-bg.css?v={{ css_version }}">
     <script src="/static/js/particle-bg.js?v={{ css_version }}"></script>
+ <script src="/static/js/particle-burst.js?v={{ css_version }}"></script>
     <style>
         body.theme-dark { background: #050508 !important; color: #ededf8; }
         body.theme-dark .bg-white { background: rgba(235, 234, 250, 0.03) !important; }
@@ -82,7 +83,7 @@
             if (mode === 'dark') document.body.classList.add('theme-dark');
             else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
             localStorage.setItem('admin_theme', mode);
-            if (window.ParticleBG) ParticleBG.setEnabled(mode === 'dark');
+            if (window.ParticleBG) ParticleBG.setTheme(mode);
         }
 
         applyTheme(getThemeMode());

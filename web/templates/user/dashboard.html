@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/css/output.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/css/particle-bg.css?v={{ css_version }}">
     <script src="/static/js/particle-bg.js?v={{ css_version }}"></script>
+ <script src="/static/js/particle-burst.js?v={{ css_version }}"></script>
     <script src="/static/js/chart.min.js"></script>
     <script src="/static/js/marked.min.js"></script>
     <style>
@@ -579,7 +580,7 @@
             else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
             localStorage.setItem('dashboard_theme', mode);
             document.getElementById('theme-toggle').value = mode;
-            if (window.ParticleBG) ParticleBG.setEnabled(mode === 'dark');
+            if (window.ParticleBG) ParticleBG.setTheme(mode);
         }
 
         applyTheme(getThemeMode());
@@ -1175,17 +1176,15 @@
                 const labelClass = session.is_self ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-700';
                 const modelsHtml = Object.entries(session.models || {})
                     .sort((a, b) => b[1] - a[1])
-                    .map(([model, count]) => `<span class="bg-white text-gray-600 text-xs px-2 py-1 rounded">${escapeHtml(model)} (${count})</span>`)
-                    .join(' ');
+                    .map(([model, count]) => `<span class="bg-white text-gray-600 text-xs px-2 py-1 rounded whitespace-nowrap">${escapeHtml(model)} (${count})</span>`)
+                    .join('');
                 return `
                     <div class="rounded bg-white p-3 shadow-sm">
-                        <div class="flex justify-between items-start gap-3">
-                            <div class="min-w-0">
-                                <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium ${labelClass}">${escapeHtml(session.name)}</span>
-                                <div class="mt-2 text-xs text-gray-500">${modelsHtml || window.I18N.noModels}</div>
-                            </div>
-                            <div class="text-sm font-medium text-gray-700 shrink-0">${session.requests} ${window.I18N.req}</div>
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium ${labelClass} whitespace-nowrap">${escapeHtml(session.name)}</span>
+                            <span class="text-sm font-medium text-gray-700 shrink-0">${session.requests} ${window.I18N.req}</span>
                         </div>
+                        <div class="mt-2 flex flex-wrap gap-1 text-xs text-gray-500">${modelsHtml || window.I18N.noModels}</div>
                     </div>
                 `;
             }).join('');
@@ -1337,9 +1336,9 @@
             const levelText = document.getElementById('busyness-level-text');
             const activeUsers = document.getElementById('busyness-active-users');
             const ratio429 = document.getElementById('busyness-429-ratio');
-            if (dot) dot.className = 'w-4 h-4 rounded-full shrink-0 ' + (colorMap[c] || 'bg-slate-400');
+            if (dot) dot.className = 'w-3.5 h-3.5 rounded-full shrink-0 ' + (colorMap[c] || 'bg-slate-400');
             if (badge) { badge.className = 'rounded-full px-2.5 py-1 text-xs font-semibold ' + (badgeBgMap[c] || 'bg-slate-100 text-slate-600'); badge.textContent = busynessLabel; }
-            if (levelText) { levelText.className = 'text-2xl font-bold ' + (textMap[c] || 'text-slate-700'); levelText.textContent = busynessLabel; }
+            if (levelText) { levelText.className = 'text-xl font-semibold ' + (textMap[c] || 'text-slate-700'); levelText.textContent = busynessLabel; }
             if (activeUsers) flipCounter('busyness-active-users', Number(data.active_users_10min || 0).toLocaleString());
             if (ratio429) ratio429.textContent = (Number(data.rate_429_ratio || 0) * 100).toFixed(1) + '%';
         }
@@ -1911,7 +1910,7 @@
             const outputT = r.output_tokens > 0 ? formatCompactTokens(r.output_tokens) : '-';
             const cachedT = r.cached_tokens > 0 ? formatCompactTokens(r.cached_tokens) : '-';
             const cachePct = r.cache_ratio > 0 ? r.cache_ratio + '%' : '-';
-            const cost = r.cost_cny > 0 ? '¥' + (r.cost_cny >= 0.01 ? r.cost_cny.toFixed(4) : r.cost_cny.toFixed(6)) : '-';
+            const cost = r.cost_cny > 0 ? '¥' + r.cost_cny.toFixed(2) : '-';
             const providerTag = showProvider && r.provider ? `<span class="text-gray-400">·</span><span>${escapeHtml(r.provider)}</span>` : '';
             return `
                 <div class="rounded bg-gray-50 p-2 mb-1.5 last:mb-0">
@@ -1920,14 +1919,14 @@
                         <span class="font-medium truncate">${escapeHtml(r.model)}</span>
                         <span class="text-gray-400 text-xs ml-auto shrink-0">${time}</span>
                     </div>
-                    <div class="flex items-center gap-2.5 mt-0.5 text-xs text-gray-500 flex-wrap">
-                        <span>${window.I18N.tokensLabel || 'Tokens'}: ${tokens}</span>
-                        <span>${window.I18N.contextLabel || 'Context'}: ${ctx}</span>
-                        <span>${window.I18N.inputLabel || 'Input'}: ${inputT}</span>
-                        <span>${window.I18N.outputLabel || 'Output'}: ${outputT}</span>
-                        <span>${window.I18N.cacheLabel || 'Cache'}: ${cachedT} <span class="text-gray-400">(${cachePct})</span></span>
-                        <span>${window.I18N.costLabel || 'Cost'}: ${cost}</span>
-                        <span class="ml-auto">${latency}</span>
+                    <div class="flex items-center gap-2.5 mt-0.5 text-xs text-gray-500 flex-nowrap whitespace-nowrap overflow-x-auto">
+                        <span class="shrink-0">${window.I18N.tokensLabel || 'Tokens'}: ${tokens}</span>
+                        <span class="shrink-0">${window.I18N.contextLabel || 'Context'}: ${ctx}</span>
+                        <span class="shrink-0">${window.I18N.inputLabel || 'Input'}: ${inputT}</span>
+                        <span class="shrink-0">${window.I18N.outputLabel || 'Output'}: ${outputT}</span>
+                        <span class="shrink-0">${window.I18N.cacheLabel || 'Cache'}: ${cachedT} <span class="text-gray-400">(${cachePct})</span></span>
+                        <span class="shrink-0">${window.I18N.costLabel || 'Cost'}: ${cost}</span>
+                        <span class="ml-auto shrink-0">${latency}</span>
                     </div>
                     ${errorHtml}
                 </div>
