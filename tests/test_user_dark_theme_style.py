@@ -62,7 +62,6 @@ class ParticleBackgroundTests(unittest.TestCase):
         self.assertIn("requestAnimationFrame", js)
 
         self.assertIn("particle-bg-canvas", css)
-        self.assertIn("particle-scan-line", css)
         self.assertIn("body.has-particle-bg", css)
 
     def test_particle_brightness_is_edge_weighted(self):
@@ -83,17 +82,37 @@ class ParticleBackgroundTests(unittest.TestCase):
         # damping alone freezes particles; a minimum speed re-energizes them
         self.assertIn("sp2 < 0.01", js)
 
-    def test_scan_line_ripples_particles(self):
+    def test_link_pulses_replace_scanline(self):
         js = _read("web/static/js/particle-bg.js")
         css = _read("web/static/css/particle-bg.css")
 
-        # JS sweep clock matches the CSS animation duration
-        self.assertIn("SCAN_PERIOD_MS = 8000", js)
-        self.assertIn("particleScanDown 8s", css)
-        # ripple: vertical part force + glow inside the sweep band
-        self.assertIn("Math.abs(sd) < 28", js)
-        self.assertIn("scanGlow", js)
-        # light theme hides the scanline so nothing ripples there
+        # scanline machinery is fully gone (js + css)
+        for gone in ("SCAN_PERIOD_MS", "scanStart", "scanGlow", "particle-scan-line"):
+            self.assertNotIn(gone, js)
+        self.assertNotIn("particle-scan-line", css)
+        self.assertNotIn("particleScanDown", css)
+
+        # link pulses: hop along links, glow visited particles, fade out
+        self.assertIn("PULSE_SPEED = 0.35", js)
+        self.assertIn("hopsLeft", js)
+        self.assertIn("neighborsOf", js)
+        self.assertIn("pl.to.glow = 1", js)
+        self.assertIn("p.glow *= 0.94", js)
+        # long chains: 8-16 hops per pulse
+        self.assertIn("hopsLeft: 8 + Math.floor(Math.random() * 9)", js)
+        # no retracing ever + progressive far-arc ladder keeps paths moving
+        self.assertIn("pl.seen.indexOf(q) < 0", js)
+        self.assertIn("arcs = [2, 3.5, 5]", js)
+        self.assertIn("conf.linkDist * arcs[ai]", js)
+        self.assertIn("seen: pl.seen.slice()", js)
+        # lightning forks: 35% chance a pulse splits into a second branch
+        self.assertIn("Math.random() < 0.35", js)
+        self.assertIn("hopsLeft: 3 + Math.floor(Math.random() * 4)", js)
+        self.assertIn("width < 768 ? 2 : 3", js)
+        # spawn cadence and concurrency cap
+        self.assertIn("2500 + Math.random() * 3000", js)
+        self.assertIn("pulses.length < pulseMax()", js)
+        # light theme stays pure particles
         self.assertIn("theme !== 'light'", js)
 
     def test_particle_theme_palettes_exist(self):

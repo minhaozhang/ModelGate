@@ -17,11 +17,12 @@
     var mouseX = -9999;
     var mouseY = -9999;
     var resizeRaf = null;
-    /* Must stay in sync with the particleScanDown animation duration in
-       particle-bg.css; the scanline Y is derived from the same clock so the
-       sweep can ripple particles without reading DOM layout each frame. */
-    var SCAN_PERIOD_MS = 8000;
-    var scanStart = 0;
+    /* Link pulses: bright dots hop between linked particles like requests
+       flowing through the gateway (dark themes only). */
+    var PULSE_SPEED = 0.35;
+    var pulses = [];
+    var nextPulseAt = 0;
+    var lastFrame = 0;
 
     var THEMES = {
         dark: {
@@ -71,11 +72,7 @@
         canvas = document.createElement('canvas');
         canvas.id = 'particle-bg-canvas';
         canvas.setAttribute('aria-hidden', 'true');
-        var scan = document.createElement('div');
-        scan.className = 'particle-scan-line';
-        scan.setAttribute('aria-hidden', 'true');
         document.body.insertBefore(canvas, document.body.firstChild);
-        document.body.appendChild(scan);
         ctx = canvas.getContext('2d');
         window.addEventListener('resize', onResize);
         document.addEventListener('mousemove', onMouseMove);
@@ -83,6 +80,7 @@
 
     function seed() {
         particles = [];
+        pulses = [];
         var conf = palette();
         var count = width < 768 ? conf.countNarrow : conf.countWide;
         for (var i = 0; i < count; i++) {
@@ -95,7 +93,7 @@
                 size: Math.random() * conf.sizeMax + (conf.sizeMin || 0.4),
                 alpha: Math.random() * (conf.alphaMax - conf.alphaMin) + conf.alphaMin,
                 color: color,
-                scanGlow: 0
+                glow: 0
             });
         }
     }
@@ -126,18 +124,122 @@
         mouseY = e.clientY;
     }
 
+    function pulseMax() {
+        return width < 768 ? 2 : 3;
+    }
+
+    function neighborsWithin(p, maxDist) {
+        var out = [];
+        var r2 = maxDist * maxDist;
+        for (var k = 0; k < particles.length; k++) {
+            var q = particles[k];
+            if (q === p) continue;
+            var ddx = q.x - p.x;
+            var ddy = q.y - p.y;
+            if (ddx * ddx + ddy * ddy < r2) out.push(q);
+        }
+        return out;
+    }
+
+    function neighborsOf(p, conf) {
+        return neighborsWithin(p, conf.linkDist);
+    }
+
+    function spawnPulse(conf) {
+        if (!particles.length) return;
+        var a = particles[Math.floor(Math.random() * particles.length)];
+        var nb = neighborsOf(a, conf);
+        if (!nb.length) return;
+        var b = nb[Math.floor(Math.random() * nb.length)];
+        a.glow = 1;
+        pulses.push({ from: a, to: b, t: 0, hopsLeft: 8 + Math.floor(Math.random() * 9), seen: [a, b] });
+        nextPulseAt = performance.now() + 2500 + Math.random() * 3000;
+    }
+
+    function updatePulses(dt, conf, now) {
+        var alive = [];
+        var born = [];
+        for (var k = 0; k < pulses.length; k++) {
+            var pl = pulses[k];
+            pl.t += PULSE_SPEED * dt;
+            var dx = pl.to.x - pl.from.x;
+            var dy = pl.to.y - pl.from.y;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > conf.linkDist * 1.5) continue; /* endpoints drifted apart or wrapped: drop */
+            if (pl.t >= dist) {
+                pl.to.glow = 1;
+                pl.hopsLeft--;
+                if (pl.hopsLeft <= 0) continue; /* signal delivered */
+                /* lightning never retraces a visited particle; when the local
+                   mesh runs dry it arcs progressively farther (2x -> 3.5x ->
+                   5x link distance) so the path always keeps moving forward */
+                var fresh = function (q) {
+                    return q !== pl.from && pl.seen.indexOf(q) < 0;
+                };
+                var nb = neighborsOf(pl.to, conf).filter(fresh);
+                if (!nb.length) {
+                    var arcs = [2, 3.5, 5];
+                    for (var ai = 0; ai < arcs.length && !nb.length; ai++) {
+                        nb = neighborsWithin(pl.to, conf.linkDist * arcs[ai]).filter(fresh);
+                    }
+                }
+                if (!nb.length) continue; /* every nearby particle visited: discharge ends */
+                var main = nb[Math.floor(Math.random() * nb.length)];
+                /* lightning fork: sometimes a second pulse splits off and
+                   takes a different branch through the mesh */
+                if (Math.random() < 0.35 && alive.length + born.length + 1 < pulseMax()) {
+                    var forkNbs = nb.filter(function (q) { return q !== main; });
+                    if (forkNbs.length) {
+                        born.push({ from: pl.to, to: forkNbs[Math.floor(Math.random() * forkNbs.length)], t: 0, hopsLeft: 3 + Math.floor(Math.random() * 4), seen: pl.seen.slice() });
+                    }
+                }
+                pl.from = pl.to;
+                pl.to = main;
+                pl.seen.push(main);
+                pl.t = 0;
+            }
+            alive.push(pl);
+        }
+        pulses = alive.concat(born);
+        if (now > nextPulseAt && pulses.length < pulseMax()) spawnPulse(conf);
+    }
+
+    function drawPulses(conf) {
+        var rgb = conf.colors[0].join(',');
+        for (var k = 0; k < pulses.length; k++) {
+            var pl = pulses[k];
+            var dx = pl.to.x - pl.from.x;
+            var dy = pl.to.y - pl.from.y;
+            var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            var f = Math.min(1, pl.t / dist);
+            var px = pl.from.x + dx * f;
+            var py = pl.from.y + dy * f;
+            /* trail along the traversed link */
+            ctx.beginPath();
+            ctx.moveTo(pl.from.x, pl.from.y);
+            ctx.lineTo(px, py);
+            ctx.strokeStyle = 'rgba(' + rgb + ',0.55)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            /* halo + hot core */
+            ctx.beginPath();
+            ctx.arc(px, py, 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(' + rgb + ',0.22)';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(px, py, 1.8, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(' + rgb + ',0.95)';
+            ctx.fill();
+        }
+    }
+
     function draw() {
         ctx.clearRect(0, 0, width, height);
         var conf = palette();
         var i, j, p, p2, dx, dy, dist;
-
-        /* current scanline Y from the same 8s cycle the CSS animation runs
-           on; light theme hides the line so there is nothing to ripple */
-        var scanY = -9999;
-        if (theme !== 'light') {
-            var t = (performance.now() - scanStart) % SCAN_PERIOD_MS;
-            scanY = (t / SCAN_PERIOD_MS) * (height + 2) - 2;
-        }
+        var now = performance.now();
+        var dt = lastFrame ? Math.min(50, now - lastFrame) : 16;
+        lastFrame = now;
 
         for (i = 0; i < particles.length; i++) {
             p = particles[i];
@@ -170,16 +272,8 @@
                 p.vy *= clamp;
             }
 
-            /* scanline sweep: part the field vertically and glow as it
-               crosses, like a wave rippling through the particles */
-            var sd = p.y - scanY;
-            if (Math.abs(sd) < 28) {
-                var sf = 1 - Math.abs(sd) / 28;
-                p.vy += (sd >= 0 ? 1 : -1) * 0.05 * sf;
-                p.scanGlow = sf;
-            } else if (p.scanGlow) {
-                p.scanGlow = 0;
-            }
+            /* pulse-visit glow fades out gradually */
+            if (p.glow > 0.01) p.glow *= 0.94; else p.glow = 0;
 
             if (p.x < 0) p.x = width;
             if (p.x > width) p.x = 0;
@@ -187,9 +281,9 @@
             if (p.y > height) p.y = 0;
 
             var glowAlpha = p.alpha * edgeBoost(p.x);
-            if (p.scanGlow) glowAlpha = Math.min(1, glowAlpha + p.scanGlow * 0.5);
+            if (p.glow) glowAlpha = Math.min(1, glowAlpha + p.glow * 0.5);
             ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size * (p.scanGlow ? 1 + p.scanGlow * 0.6 : 1), 0, Math.PI * 2);
+            ctx.arc(p.x, p.y, p.size * (p.glow ? 1 + p.glow * 0.6 : 1), 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(' + p.color.join(',') + ',' + glowAlpha.toFixed(3) + ')';
             ctx.fill();
 
@@ -210,6 +304,11 @@
             }
         }
 
+        if (theme !== 'light') {
+            updatePulses(dt, conf, now);
+            drawPulses(conf);
+        }
+
         if (running) rafId = requestAnimationFrame(draw);
     }
 
@@ -217,9 +316,9 @@
         ensureElements();
         if (!running) {
             running = true;
-            /* CSS animation restarts every time the scanline is re-shown
-               (display:none -> block), so resync the sweep clock with it */
-            scanStart = performance.now();
+            pulses = [];
+            lastFrame = 0;
+            nextPulseAt = performance.now() + 1200;
             resize();
             rafId = requestAnimationFrame(draw);
         } else {
@@ -229,6 +328,7 @@
 
     function stop() {
         running = false;
+        pulses = [];
         if (rafId) cancelAnimationFrame(rafId);
         rafId = null;
         if (ctx) ctx.clearRect(0, 0, width, height);
