@@ -513,7 +513,7 @@
         </div>
     </div>
 
-    <div id="schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+    <div id="schedule-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-3" style="z-index: 60;">
         <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 flex min-h-0 flex-col overflow-hidden">
             <div class="p-4 border-b flex justify-between items-center shrink-0">
                 <h3 class="font-semibold">{{ _('Scheduled Disable') }}</h3>
@@ -732,6 +732,7 @@
             ruleWeekly: '{{ _("Weekly") }}',
             ruleOnce: '{{ _("One-time") }}',
             noScheduleRules: '{{ _("No rules") }}',
+            everyDay: '{{ _("Every day") }}',
             apiKeyRequired: '{{ _("API Key is required") }}',
             keyAdded: '{{ _("Key added") }}',
             failedToAddKey: '{{ _("Failed to add key") }}',
@@ -1247,7 +1248,11 @@
         let currentProviderKeys = [];
         let scheduleTarget = null;
         let scheduleDraft = [];
-        const SCHEDULE_WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
+        const SCHEDULE_LOCALE = document.documentElement.lang || 'zh';
+        const SCHEDULE_IS_ZH = SCHEDULE_LOCALE.startsWith('zh');
+        const SCHEDULE_WEEKDAY_LABELS = Array.from({length: 7}, (_, d) =>
+            new Intl.DateTimeFormat(SCHEDULE_LOCALE, {weekday: 'narrow'}).format(new Date(2024, 0, d + 1))
+        );
 
         function scheduleSummary(rules) {
             const parts = [];
@@ -1256,8 +1261,10 @@
                 if (r.type === 'weekly') {
                     const days = (r.days || []).slice().sort((a, b) => a - b);
                     if (!days.length) return;
-                    const dayText = days.length === 7 ? '每天' : days.map(d => '周' + (SCHEDULE_WEEKDAY_LABELS[d] || '?')).join('');
-                    parts.push(`每周${dayText} ${r.start}→${r.end}`);
+                    const dayText = days.length === 7
+                        ? t('everyDay', '每天')
+                        : days.map(d => (SCHEDULE_IS_ZH ? '周' : '') + (SCHEDULE_WEEKDAY_LABELS[d] || '?')).join(SCHEDULE_IS_ZH ? '' : ', ');
+                    parts.push(`${SCHEDULE_IS_ZH ? '每周' + dayText : t('ruleWeekly', 'Weekly') + ' ' + dayText} ${r.start}→${r.end}`);
                 } else if (r.type === 'once') {
                     parts.push(`${r.start}→${r.end}`);
                 }
@@ -1730,6 +1737,7 @@
                 document.getElementById('new-provider-key-max-concurrent').value = '';
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
+                loadProviders();
             } catch(err) {}
         }
 
@@ -1770,6 +1778,7 @@
                 }, {success: t('keyDisabled', 'Key disabled'), error: t('failedToUpdateKey', 'Failed to update key')});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
+                loadProviders();
             } catch(err) {}
         }
 
@@ -1793,6 +1802,7 @@
                 }, {success: t('keyEnabled', 'Key enabled'), error: t('failedToUpdateKey', 'Failed to update key')});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
+                loadProviders();
             } catch(err) {}
         }
 
@@ -1850,6 +1860,7 @@
                 }, {success: t('keyDeleted', 'Key deleted'), error: t('failedToDeleteKey', 'Failed to delete key')});
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
+                loadProviders();
             } catch(err) {}
         }
 
