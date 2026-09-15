@@ -43,7 +43,15 @@
         code { font-family: 'Monaco', 'Menlo', monospace; font-size: 0.875rem; }
         body.theme-dark { background: #050508 !important; color: #ededf8; }
         body.theme-dark .bg-white { background: rgba(235, 234, 250, 0.03) !important; }
+        /* modal panels float above a dimmed overlay: keep them fully opaque
+           (the glassy 3%-alpha card treatment must not bleed through) */
+        body.theme-dark #my-requests-modal > div,
+        body.theme-dark #price-detail-modal > div { background: #0a0a12 !important; }
         body.theme-dark .bg-gray-50 { background: rgba(235, 234, 250, 0.05) !important; }
+        body.theme-dark #global-status-strip { background: rgba(235, 234, 250, 0.04) !important; border-color: rgba(235, 234, 250, 0.08) !important; }
+        body.theme-dark #global-status-strip .text-slate-700 { color: #ededf8e6 !important; }
+        body.theme-dark #global-status-strip .text-slate-500 { color: #ededf8b8 !important; }
+        body.theme-dark #global-status-strip .text-slate-400 { color: #ededf87a !important; }
         body.theme-dark .bg-gray-200 { background: rgba(235, 234, 250, 0.09) !important; }
         body.theme-dark .bg-gray-100 { background: #050508 !important; }
         body.theme-dark .bg-blue-50 { background: rgba(129, 140, 248, 0.10) !important; }
@@ -235,6 +243,10 @@
         body.theme-blackgold button.ctl-btn-amber { background: rgba(212, 168, 83, 0.10); border-color: rgba(212, 168, 83, 0.35); color: #d4a853; }
         body.theme-blackgold button.ctl-btn-amber:hover { background: rgba(212, 168, 83, 0.18); }
         body.theme-blackgold .card-shell { border-color: rgba(212, 168, 83, 0.25); box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(212, 168, 83, 0.06); }
+        body.theme-blackgold #global-status-strip { background: #1a1814 !important; border-color: rgba(212, 168, 83, 0.25) !important; }
+        body.theme-blackgold #global-status-strip .text-slate-700 { color: #e8dcc3 !important; }
+        body.theme-blackgold #global-status-strip .text-slate-500 { color: #b8a988e0 !important; }
+        body.theme-blackgold #global-status-strip .text-slate-400 { color: #b8a988a0 !important; }
         body.theme-blackgold .bg-white.rounded,
         body.theme-blackgold .bg-white.rounded-lg,
         body.theme-blackgold .bg-white.rounded-xl,
@@ -361,6 +373,13 @@
                     <div id="provider-status-list" class="mt-1 space-y-1"></div>
                 </div>
             </div>
+        </div>
+
+        <div id="global-status-strip" class="hidden mb-4 rounded-xl border border-slate-200 bg-white/70 px-4 py-2.5 flex items-center gap-3 text-sm shadow-sm">
+            <span id="strip-dot" class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span>
+            <span id="strip-label" class="font-medium text-slate-700 whitespace-nowrap">--</span>
+            <span id="strip-live" class="text-slate-500 whitespace-nowrap"></span>
+            <span id="strip-hint" class="ml-auto text-xs text-slate-400 truncate"></span>
         </div>
 
         <div class="tab-nav mb-6" role="tablist">
@@ -1166,6 +1185,9 @@
 
         function renderSystemActiveSessions(data) {
             const count = data.active_count || 0;
+            lastLiveCounts = { users: count, requests: data.request_count || 0 };
+            if (data.busyness) lastBusyness = data.busyness;
+            renderGlobalStrip();
             document.getElementById('system-active-title').textContent = getDynamicActiveTitle(count);
             document.getElementById('system-active-count').textContent = `${count} ${window.I18N.active} / ${(data.request_count || 0).toLocaleString()} ${window.I18N.req}`;
             if (!count) {
@@ -1321,29 +1343,65 @@
             }
         }
 
-        function renderBusyness(data) {
-            if (!data) return;
-            const colorMap = {red:'bg-red-500',orange:'bg-orange-500',yellow:'bg-yellow-500',green:'bg-green-500',blue:'bg-blue-500',slate:'bg-slate-400'};
-            const textMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-600'};
-            const c = data.color || 'slate';
+        let lastBusyness = null;
+        let lastLiveCounts = null;
+
+        function renderGlobalStrip() {
+            const strip = document.getElementById('global-status-strip');
+            if (!strip) return;
+            const b = lastBusyness;
+            const live = lastLiveCounts;
+            if (!b && !live) return;
+            strip.classList.remove('hidden');
+
             const locale = document.documentElement.lang || 'zh';
             const isZh = locale === 'zh' || locale === 'zh-CN' || locale.startsWith('zh');
+            const colorMap = {red:'bg-red-500',orange:'bg-orange-500',yellow:'bg-yellow-500',green:'bg-green-500',blue:'bg-blue-500',slate:'bg-slate-400'};
+            const textMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-600'};
             const zhMap = {extremely_busy:'过载',very_busy:'拥挤',busy:'活跃',normal:'流畅',idle:'平静',quiet:'寂静'};
             const enMap = {extremely_busy:'Overloaded',very_busy:'Crowded',busy:'Active',normal:'Smooth',idle:'Calm',quiet:'Silent'};
-            const busynessLabel = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
-            const dot = document.getElementById('busyness-dot');
-            const label = document.getElementById('busyness-label');
-            const detail = document.getElementById('busyness-detail');
-            if (dot) dot.className = 'w-3 h-3 rounded-full shrink-0 ' + (colorMap[c] || 'bg-slate-400');
+            const c = (b && b.color) || 'slate';
+            const level = (b && b.level) || 6;
+
+            const dot = document.getElementById('strip-dot');
+            if (dot) dot.className = 'w-2.5 h-2.5 rounded-full shrink-0 ' + (colorMap[c] || 'bg-slate-400');
+
+            const label = document.getElementById('strip-label');
             if (label) {
-                label.className = 'text-sm font-medium whitespace-nowrap ' + (textMap[c] || 'text-slate-600');
-                label.textContent = (isZh ? '系统状态' : 'System Status') + ': ' + busynessLabel;
+                label.className = 'font-medium whitespace-nowrap ' + (textMap[c] || 'text-slate-600');
+                label.textContent = b
+                    ? (isZh ? (zhMap[b.name] || b.label) : (enMap[b.name] || b.name))
+                    : (isZh ? '系统状态' : 'System Status');
             }
-            if (detail) {
-                const parts = [];
-                parts.push(Number(data.active_users_10min || 0).toLocaleString() + ' ' + (isZh ? '活跃用户' : 'active users'));
-                parts.push('429: ' + (Number(data.rate_429_ratio || 0) * 100).toFixed(1) + '%');
-                detail.textContent = parts.join(' · ');
+
+            const liveEl = document.getElementById('strip-live');
+            if (liveEl) {
+                if (live && live.users !== null) {
+                    liveEl.textContent = `${live.users} ${isZh ? '人在线' : 'online'} · ${live.requests} ${isZh ? '个请求进行中' : 'in-flight'}`;
+                } else if (b && b.active_users_10min > 0) {
+                    liveEl.textContent = `~${b.active_users_10min} ${isZh ? '活跃用户' : 'active users'}`;
+                } else {
+                    liveEl.textContent = '';
+                }
+            }
+
+            const hint = document.getElementById('strip-hint');
+            if (hint) {
+                let text;
+                if (level <= 2) text = isZh ? '高峰中 · 错峰使用更快' : 'Peak hours — off-peak is faster';
+                else if (level === 3) text = isZh ? '用的人渐多' : 'Warming up';
+                else if (level === 4) text = isZh ? '一切正常' : 'All smooth';
+                else text = isZh ? '低谷时段 · 现在用更流畅' : 'Off-peak — extra smooth right now';
+                const ratio429 = (b && b.rate_429_ratio) || 0;
+                if (ratio429 > 0.05) text += ` · ${isZh ? '限流' : 'throttled'} ${(ratio429 * 100).toFixed(0)}%`;
+                hint.textContent = text;
+            }
+        }
+
+        function renderBusyness(data) {
+            if (data) {
+                lastBusyness = data;
+                renderGlobalStrip();
             }
         }
 

@@ -141,6 +141,49 @@ class ParticleBackgroundTests(unittest.TestCase):
 
         self.assertIn("ParticleBG.setTheme(mode)", apply_fn)
 
+    def test_dark_modals_are_opaque(self):
+        html = _read("web/templates/user/dashboard.html")
+
+        # the glassy 3%-alpha dark card treatment must not apply to modal
+        # panels: they float over a dimmed overlay and need a solid backdrop
+        self.assertIn("body.theme-dark #my-requests-modal > div", html)
+        self.assertIn("body.theme-dark #price-detail-modal > div", html)
+        self.assertIn("background: #0a0a12 !important", html)
+
+
+class GlobalStatusStripTests(unittest.TestCase):
+    def test_dashboard_has_global_status_strip(self):
+        html = _read("web/templates/user/dashboard.html")
+
+        self.assertIn('id="global-status-strip"', html)
+        self.assertIn("function renderGlobalStrip", html)
+        self.assertIn("lastLiveCounts = { users: count, requests: data.request_count || 0 }", html)
+        self.assertIn("高峰中 · 错峰使用更快", html)
+        self.assertIn("低谷时段 · 现在用更流畅", html)
+        self.assertIn("ratio429 > 0.05", html)
+
+    def test_dashboard_theme_overrides_for_strip(self):
+        html = _read("web/templates/user/dashboard.html")
+
+        self.assertIn("body.theme-dark #global-status-strip", html)
+        self.assertIn("body.theme-blackgold #global-status-strip", html)
+
+    def test_stats_tab_old_busyness_banner_removed(self):
+        html = _read("web/templates/user/tab_stats.html")
+
+        self.assertNotIn("busyness-banner", html)
+        self.assertNotIn("busyness-dot", html)
+        self.assertNotIn("busyness-label", html)
+
+    def test_system_active_api_returns_busyness(self):
+        src = _read("app/routes/user.py")
+        endpoint = src[
+            src.index('"/user/api/system-active"'):src.index("user_live_stats_websocket")
+        ]
+
+        self.assertIn('"sessions": sessions', endpoint)
+        self.assertIn('"busyness": dict(busyness_state)', endpoint)
+
 
 class LoginDeepSpaceThemeTests(unittest.TestCase):
     def test_login_uses_deep_space_palette(self):

@@ -1685,6 +1685,7 @@ async def get_system_active_sessions(
         "active_count": len(sessions),
         "request_count": sum(item["requests"] for item in sessions),
         "sessions": sessions,
+        "busyness": dict(busyness_state) if busyness_state else None,
     }
 
 
