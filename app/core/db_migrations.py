@@ -924,22 +924,8 @@ async def migrate_providers_and_keys(conn) -> None:
         text("ALTER TABLE provider_keys ADD COLUMN IF NOT EXISTS cost_role VARCHAR(40) DEFAULT 'standard'")
     )
 
-    # Legacy single-key column -> provider_keys row, only for providers that
-    # have no key rows yet (first migration); never recreates deleted keys.
-    await conn.execute(
-        text(
-            "INSERT INTO provider_keys (provider_id, api_key, label, is_active) "
-            "SELECT id, api_key, 'default', TRUE "
-            "FROM providers "
-            "WHERE api_key IS NOT NULL AND api_key != '' "
-            "AND NOT EXISTS ("
-            "  SELECT 1 FROM provider_keys pk WHERE pk.provider_id = providers.id"
-            ")"
-        )
-    )
-
     # Legacy fallback column is gone: keys all unavailable means provider
-    # unavailable. Seed above must run first so legacy keys are preserved.
+    # unavailable. Legacy column data is intentionally discarded.
     await conn.execute(
         text("ALTER TABLE providers DROP COLUMN IF EXISTS api_key")
     )
