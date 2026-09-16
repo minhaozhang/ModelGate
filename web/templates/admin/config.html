@@ -1882,7 +1882,8 @@
                 autoModelConfig = {
                     enabled: data.enabled === true,
                     model_ids: data.model_ids || [],
-                    provider_model_ids: data.provider_model_ids || []
+                    provider_model_ids: data.provider_model_ids || [],
+                    pool_config: data.pool_config || []
                 };
                 autoPoolDraft = buildAutoPoolFromConfig();
                 renderAutoTab();
@@ -1907,7 +1908,7 @@
             poolConfig.forEach(item => {
                 if (item && item.id) poolMap[Number(item.id)] = item;
             });
-            const pmIds = Object.keys(poolMap).map(Number);
+            const pmIds = poolConfig.filter(i => i && i.id).map(i => Number(i.id));
             const modelIds = new Set((autoModelConfig.model_ids || []).map(Number).filter(Boolean));
             const allPmIds = new Set((autoModelConfig.provider_model_ids || []).map(Number).filter(Boolean));
             const pool = [];
