@@ -87,10 +87,10 @@ class PickApiKeyScheduleTests(unittest.TestCase):
         self.assertEqual(key_id, 2)
         self.assertEqual(provider._key_sticky_map[(42, "prov-x")][0], 2)
 
-    def test_all_scheduled_falls_back_to_legacy(self):
+    def test_all_scheduled_returns_no_key(self):
         pc = _provider_config([_key(1, [ALWAYS_RULE])], legacy="sk-legacy")
         api_key, key_id = provider.pick_api_key(pc, None, "prov-x")
-        self.assertEqual(api_key, "sk-legacy")
+        self.assertIsNone(api_key)
         self.assertIsNone(key_id)
 
     def test_expired_once_rule_not_blocked(self):

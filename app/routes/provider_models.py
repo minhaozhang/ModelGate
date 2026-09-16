@@ -412,9 +412,8 @@ async def sync_provider_models(
             .limit(1)
         )
         active_key = pk_result.scalar_one_or_none()
-        sync_api_key = active_key.api_key if active_key else (provider.api_key or "")
-        if sync_api_key:
-            headers["Authorization"] = f"Bearer {sync_api_key}"
+        if active_key:
+            headers["Authorization"] = f"Bearer {active_key.api_key}"
 
         synced = []
         models_filter = set(data.models) if data and data.models is not None else None
@@ -557,9 +556,8 @@ async def list_upstream_models(
             .limit(1)
         )
         active_key = pk_result.scalar_one_or_none()
-        api_key = active_key.api_key if active_key else (provider.api_key or "")
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
+        if active_key:
+            headers["Authorization"] = f"Bearer {active_key.api_key}"
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:

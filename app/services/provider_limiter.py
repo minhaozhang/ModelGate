@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, timedelta
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import and_, or_, select, update
 
 from app.core.config import logger, provider_key_semaphores, providers_cache
 from app.core.database import Provider, ProviderKey, async_session_maker
@@ -431,6 +431,10 @@ INVALID_API_KEY_KEYWORDS = [
 ]
 
 
+def _auth_failure_like(column):
+    return or_(*[column.ilike(f"%{keyword}%") for keyword in INVALID_API_KEY_KEYWORDS])
+
+
 def check_invalid_api_key_error(resp_json: dict, status_code: int | None = None) -> str | None:
     if status_code is not None and status_code not in (401, 403):
         return None
@@ -471,7 +475,13 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
                     ProviderKey.disabled_by.is_(None),
                     ProviderKey.disabled_by != "manual",
                 ),
-                or_(ProviderKey.reset_at == None, ProviderKey.reset_at <= cutoff),  # noqa: E711
+                or_(
+                    ProviderKey.reset_at <= cutoff,
+                    and_(
+                        ProviderKey.reset_at == None,  # noqa: E711
+                        ~_auth_failure_like(ProviderKey.disabled_reason),
+                    ),
+                ),
             )
         )
         disabled_key_rows = disabled_keys.scalars().all()
@@ -483,7 +493,13 @@ async def auto_reenable_disabled_keys_and_providers() -> None:
                     Provider.disabled_by.is_(None),
                     Provider.disabled_by != "manual",
                 ),
-                or_(Provider.reset_at == None, Provider.reset_at <= cutoff),  # noqa: E711
+                or_(
+                    Provider.reset_at <= cutoff,
+                    and_(
+                        Provider.reset_at == None,  # noqa: E711
+                        ~_auth_failure_like(Provider.disabled_reason),
+                    ),
+                ),
             )
         )
         disabled_provider_rows = disabled_providers_q.scalars().all()

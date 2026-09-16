@@ -31,7 +31,6 @@ class Provider(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(50), unique=True, nullable=False)
     base_url = Column(String(255), nullable=False)
-    api_key = Column(String(255), nullable=True)
     protocol = Column(String(20), default="openai")
     merge_consecutive_messages = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)

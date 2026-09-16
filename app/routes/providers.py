@@ -19,14 +19,12 @@ router = APIRouter(prefix="/admin/api", tags=["providers"])
 class ProviderCreate(BaseModel):
     name: str
     base_url: str
-    api_key: Optional[str] = None
     protocol: Optional[str] = "openai"
     merge_consecutive_messages: Optional[bool] = False
 
 
 class ProviderUpdate(BaseModel):
     base_url: Optional[str] = None
-    api_key: Optional[str] = None
     is_active: Optional[bool] = None
     protocol: Optional[str] = None
     merge_consecutive_messages: Optional[bool] = None
@@ -82,16 +80,10 @@ async def create_provider(data: ProviderCreate, _: bool = Depends(permission_req
         provider = Provider(
             name=data.name,
             base_url=data.base_url,
-            api_key=data.api_key,
             protocol=data.protocol or "openai",
             merge_consecutive_messages=data.merge_consecutive_messages or False,
         )
         session.add(provider)
-        if data.api_key:
-            await session.flush()
-            session.add(
-                ProviderKey(provider_id=provider.id, api_key=data.api_key, label="default")
-            )
         await session.commit()
         await load_providers()
         return {"id": provider.id, "name": provider.name}
@@ -110,8 +102,6 @@ async def update_provider(
             return JSONResponse({"error": "Provider not found"}, status_code=404)
         if data.base_url is not None:
             provider.base_url = data.base_url
-        if data.api_key is not None:
-            provider.api_key = data.api_key
         if data.is_active is not None:
             provider.is_active = data.is_active
             if data.is_active:
@@ -303,7 +293,6 @@ async def update_provider_key(
         pk = result.scalar_one_or_none()
         if not pk:
             return JSONResponse({"error": "Key not found"}, status_code=404)
-        old_value = pk.api_key
         if "api_key" in data.model_fields_set and data.api_key is not None:
             pk.api_key = data.api_key
         if "label" in data.model_fields_set:
@@ -330,17 +319,6 @@ async def update_provider_key(
             pk.disabled_reason = data.disabled_reason
         if "disable_schedule" in data.model_fields_set and data.disable_schedule is not None:
             pk.disable_schedule = normalize_rules(data.disable_schedule)
-        if (
-            "api_key" in data.model_fields_set
-            and data.api_key is not None
-            and data.api_key != old_value
-        ):
-            provider_result = await session.execute(
-                select(Provider).where(Provider.id == provider_id)
-            )
-            provider = provider_result.scalar_one_or_none()
-            if provider and provider.api_key == old_value:
-                provider.api_key = data.api_key
         try:
             await session.commit()
         except IntegrityError:
@@ -385,24 +363,7 @@ async def delete_provider_key(
         pk = result.scalar_one_or_none()
         if not pk:
             return JSONResponse({"error": "Key not found"}, status_code=404)
-        from sqlalchemy import func
-
-        deleted_value = pk.api_key
         await session.delete(pk)
-        await session.flush()
-        remaining_result = await session.execute(
-            select(func.count()).select_from(ProviderKey).where(
-                ProviderKey.provider_id == provider_id
-            )
-        )
-        remaining = remaining_result.scalar() or 0
-        provider_result = await session.execute(
-            select(Provider).where(Provider.id == provider_id)
-        )
-        provider = provider_result.scalar_one_or_none()
-        if provider and provider.api_key:
-            if provider.api_key == deleted_value or remaining == 0:
-                provider.api_key = None
         await session.commit()
         await load_providers()
         return {"deleted": True}

@@ -142,9 +142,6 @@ def pick_api_key(
         and not schedule_active(key.get("disable_schedule"))
     ]
     if not keys:
-        fallback = provider_config.get("api_key") or ""
-        if fallback:
-            return fallback, None
         return None, None
     if api_key_id is not None:
         sticky = _key_sticky_map.get((api_key_id, provider_name))
@@ -437,7 +434,6 @@ async def load_providers():
             providers_cache[p.name] = {
                 "id": p.id,
                 "base_url": p.base_url,
-                "api_key": p.api_key or "",
                 "protocol": p.protocol or "openai",
                 "models": provider_models_data,
                 "merge_consecutive_messages": p.merge_consecutive_messages or False,

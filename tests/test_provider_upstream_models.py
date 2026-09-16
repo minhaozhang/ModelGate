@@ -118,12 +118,13 @@ class UpstreamModelsTests(unittest.IsolatedAsyncioTestCase):
             _FakeAsyncClient.last_call["headers"].get("Authorization"), "Bearer sk-upstream"
         )
 
-    async def test_falls_back_to_provider_api_key(self):
+    async def test_no_active_key_sends_no_authorization(self):
         prov = SimpleNamespace(id=3, base_url="https://upstream.test/v1", api_key="sk-provider")
         with _session([prov, None]), _FakeAsyncClient.patch(_FakeResponse(200, {"data": []})):
             await list_upstream_models(3, _=True)
-        self.assertEqual(
-            _FakeAsyncClient.last_call["headers"].get("Authorization"), "Bearer sk-provider"
+        self.assertNotIn(
+            "Authorization",
+            _FakeAsyncClient.last_call["headers"],
         )
 
 

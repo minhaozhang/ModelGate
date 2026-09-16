@@ -938,6 +938,12 @@ async def migrate_providers_and_keys(conn) -> None:
         )
     )
 
+    # Legacy fallback column is gone: keys all unavailable means provider
+    # unavailable. Seed above must run first so legacy keys are preserved.
+    await conn.execute(
+        text("ALTER TABLE providers DROP COLUMN IF EXISTS api_key")
+    )
+
     await conn.execute(
         text(
             "INSERT INTO provider_key_strategy_templates "
