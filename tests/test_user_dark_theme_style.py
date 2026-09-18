@@ -189,24 +189,25 @@ class LoginDeepSpaceThemeTests(unittest.TestCase):
     def test_login_uses_deep_space_palette(self):
         html = _read("web/templates/user/login.html")
 
-        self.assertIn("0x050508", html)
+        self.assertIn("background: #050508", html)
         self.assertIn("rgba(235, 234, 250, 0.03)", html)
         self.assertIn("rgba(235, 234, 250, 0.08)", html)
         self.assertIn("linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)", html)
         self.assertNotIn("from-blue-500 to-purple-500", html)
 
     def test_login_particle_palette_is_indigo_family(self):
-        html = _read("web/templates/user/login.html")
-        palette = html[html.index("colorPalette") : html.index("rings =")]
+        bg = _read("web/static/js/particle-bg.js")
 
-        self.assertIn("0.51, 0.55, 0.97", palette)
-        self.assertIn("0.39, 0.43, 0.95", palette)
-        self.assertNotIn("0.96, 0.26, 0.21", palette)
+        self.assertIn("[129, 140, 248]", bg)
+        self.assertIn("[167, 139, 250]", bg)
+        self.assertNotIn("[220, 68, 55]", bg)
+        self.assertIn("ParticleBG.setTheme('dark')", _read("web/templates/user/login.html"))
 
     def test_login_respects_reduced_motion(self):
-        html = _read("web/templates/user/login.html")
+        bg = _read("web/static/js/particle-bg.js")
 
-        self.assertIn("prefers-reduced-motion", html)
+        self.assertIn("prefers-reduced-motion", bg)
+        self.assertIn("REDUCE_MOTION", bg)
 
 
 if __name__ == "__main__":

@@ -114,7 +114,10 @@
     }
 
     function onResize() {
-        if (!running) return;
+        if (!running) {
+            if (REDUCE_MOTION) { resize(); draw(); }
+            return;
+        }
         if (resizeRaf) cancelAnimationFrame(resizeRaf);
         resizeRaf = requestAnimationFrame(resize);
     }
@@ -312,15 +315,22 @@
         if (running) rafId = requestAnimationFrame(draw);
     }
 
+    var REDUCE_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     function start() {
         ensureElements();
         if (!running) {
-            running = true;
+            /* honour prefers-reduced-motion: draw one static frame, no loop */
+            running = !REDUCE_MOTION;
             pulses = [];
             lastFrame = 0;
             nextPulseAt = performance.now() + 1200;
             resize();
-            rafId = requestAnimationFrame(draw);
+            if (running) {
+                rafId = requestAnimationFrame(draw);
+            } else {
+                draw();
+            }
         } else {
             seed();
         }
