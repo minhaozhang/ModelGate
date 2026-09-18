@@ -9,7 +9,8 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from sqlalchemy import select, func, and_, or_, case
+from sqlalchemy import select, func, and_, or_, case, literal, literal_column
+from sqlalchemy.types import Numeric
 
 from app.core.database import (
     async_session_maker,
@@ -265,102 +266,84 @@ async def get_cached_today_stats(start: datetime) -> dict:
     proxy_logger.info("[STATS CACHE] Refreshing today stats cache")
 
     async with async_session_maker() as session:
-        query = select(RequestLog).where(RequestLog.created_at >= start)
-        result = await session.execute(query)
-        logs = result.scalars().all()
+        rate_limited_expr = RequestLog.status.in_(RATE_LIMITED_STATUSES)
 
-        provider_cache = {}
-        provider_stats = {}
+        def _num_tokens(path: str):
+            return func.nullif(RequestLog.tokens.op("->>")(path), "").cast(Numeric)
+
+        def tokens_expr():
+            # Mirrors get_token_count(): total_tokens or estimated or 0,
+            # zeroed for rate-limited rows.
+            return case(
+                (rate_limited_expr, literal(0)),
+                (_num_tokens("total_tokens") != 0, _num_tokens("total_tokens")),
+                (_num_tokens("estimated") != 0, _num_tokens("estimated")),
+                else_=literal(0),
+            )
+
+        def metric_cols():
+            return [
+                func.sum(case((~rate_limited_expr, 1), else_=0)).label("requests"),
+                func.sum(tokens_expr()).label("tokens"),
+                func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label("errors"),
+                func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label("timeouts"),
+                func.sum(case((rate_limited_expr, 1), else_=0)).label("rate_limited"),
+            ]
+
+        def to_metrics(row) -> dict:
+            return {
+                "requests": int(row.requests or 0),
+                "tokens": int(row.tokens or 0),
+                "errors": int(row.errors or 0),
+                "timeouts": int(row.timeouts or 0),
+                "rate_limited": int(row.rate_limited or 0),
+            }
+
+        prov_result = await session.execute(
+            select(Provider.name.label("name"), *metric_cols())
+            .select_from(RequestLog)
+            .join(Provider, Provider.id == RequestLog.provider_id)
+            .where(RequestLog.created_at >= start)
+            .group_by(Provider.name)
+        )
+        provider_stats = {row.name: to_metrics(row) for row in prov_result.fetchall()}
+
+        key_result = await session.execute(
+            select(RequestLog.api_key_id.label("kid"), *metric_cols())
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.api_key_id.isnot(None),
+            )
+            .group_by(RequestLog.api_key_id)
+        )
+        key_name_by_id = {
+            v["id"]: v["name"] for v in api_keys_cache.values() if v.get("id") is not None
+        }
         api_key_stats = {}
-        model_stats = {}
+        for row in key_result.fetchall():
+            key_name = key_name_by_id.get(row.kid) or f"Key-{row.kid}"
+            api_key_stats[key_name] = to_metrics(row)
 
-        for log in logs:
-            is_rate_limited = log.status in RATE_LIMITED_STATUSES
-            tokens = 0 if is_rate_limited else get_token_count(log.tokens)
-            is_error = log.status == ERROR_STATUS
-            is_timeout = log.status == TIMEOUT_STATUS
-
-            provider_name = None
-            if log.provider_id:
-                if log.provider_id not in provider_cache:
-                    prov_result = await session.execute(
-                        select(Provider).where(Provider.id == log.provider_id)
-                    )
-                    prov = prov_result.scalar_one_or_none()
-                    provider_cache[log.provider_id] = prov.name if prov else None
-                provider_name = provider_cache.get(log.provider_id)
-
-            if provider_name:
-                if provider_name not in provider_stats:
-                    provider_stats[provider_name] = {
-                        "requests": 0,
-                        "tokens": 0,
-                        "errors": 0,
-                        "timeouts": 0,
-                        "rate_limited": 0,
-                    }
-                if is_rate_limited:
-                    provider_stats[provider_name]["rate_limited"] += 1
-                else:
-                    provider_stats[provider_name]["requests"] += 1
-                provider_stats[provider_name]["tokens"] += tokens
-                if is_error:
-                    provider_stats[provider_name]["errors"] += 1
-                if is_timeout:
-                    provider_stats[provider_name]["timeouts"] += 1
-
-            if log.api_key_id:
-                key_info = None
-                for k, v in api_keys_cache.items():
-                    if v["id"] == log.api_key_id:
-                        key_info = v
-                        break
-                key_name = key_info["name"] if key_info else f"Key-{log.api_key_id}"
-                if key_name not in api_key_stats:
-                    api_key_stats[key_name] = {
-                        "requests": 0,
-                        "tokens": 0,
-                        "errors": 0,
-                        "timeouts": 0,
-                        "rate_limited": 0,
-                    }
-                if is_rate_limited:
-                    api_key_stats[key_name]["rate_limited"] += 1
-                else:
-                    api_key_stats[key_name]["requests"] += 1
-                api_key_stats[key_name]["tokens"] += tokens
-                if is_error:
-                    api_key_stats[key_name]["errors"] += 1
-                if is_timeout:
-                    api_key_stats[key_name]["timeouts"] += 1
-
-            if log.model:
-                out_name = provider_stats_model_name(log.actual_model, log.model)
-                if out_name not in model_stats:
-                    model_stats[out_name] = {
-                        "requests": 0,
-                        "tokens": 0,
-                        "errors": 0,
-                        "timeouts": 0,
-                        "rate_limited": 0,
-                    }
-                if is_rate_limited:
-                    model_stats[out_name]["rate_limited"] += 1
-                else:
-                    model_stats[out_name]["requests"] += 1
-                model_stats[out_name]["tokens"] += tokens
-                if is_error:
-                    model_stats[out_name]["errors"] += 1
-                if is_timeout:
-                    model_stats[out_name]["timeouts"] += 1
+        model_name_expr = provider_stats_model_expr(RequestLog.model, RequestLog.actual_model)
+        model_result = await session.execute(
+            select(model_name_expr.label("mname"), *metric_cols())
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.model.isnot(None),
+                RequestLog.model != "",
+            )
+            # group by the select alias: the bound empty-string literal inside
+            # the expression gets distinct param positions in SELECT vs GROUP BY,
+            # which Postgres rejects when grouping by the raw expression.
+            .group_by(literal_column("mname"))
+        )
+        model_stats = {row.mname: to_metrics(row) for row in model_result.fetchall()}
 
         cache_data = {
             "date": cache_key,
             "provider": provider_stats,
             "api_key": api_key_stats,
             "model": model_stats,
-            "logs": logs,
-            "provider_cache": provider_cache,
         }
 
         config_module.today_stats_cache = cache_data

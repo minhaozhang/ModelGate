@@ -85,7 +85,6 @@ async def create_request_log(
             session.add(content)
             await session.commit()
 
-        invalidate_today_stats_cache()
         return log.id
 
 
@@ -121,7 +120,6 @@ async def update_request_log(
                 sa_delete(RequestContent).where(RequestContent.log_id == log_id)
             )
         await session.commit()
-        invalidate_today_stats_cache()
         return (result.rowcount or 0) > 0
 
 
