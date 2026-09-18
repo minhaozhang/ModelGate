@@ -59,9 +59,7 @@ TOKEN_COUNT_EXPR = func.coalesce(
 from app.core.permissions import permission_required
 from app.services.model_naming import (
     provider_stats_model_expr,
-    provider_stats_model_name,
     user_stats_model_expr,
-    user_stats_model_name,
 )
 
 historical_stats_cache: dict = {}
@@ -657,6 +655,214 @@ async def get_raw_grouped_stats(
         for row in rows
         if row.group_key is not None
     }
+
+
+async def aggregate_request_logs_range(
+    session,
+    lo: datetime,
+    hi: datetime,
+    pk_label_map: dict[int, Optional[str]],
+) -> dict:
+    """SQL aggregation of request_logs over [lo, hi).
+
+    Mirrors the legacy per-row Python accumulation: rate-limited
+    rows only contribute to the rate_limited counter, tokens use
+    total_tokens-or-estimated, and bucket keys follow the
+    provider/user model naming conventions.
+    """
+    non_rl = RequestLog.status.notin_(RATE_LIMITED_STATUSES)
+    model_expr = provider_stats_model_expr(RequestLog.model, RequestLog.actual_model)
+    window = (RequestLog.created_at >= lo, RequestLog.created_at < hi)
+
+    totals_row = (
+        await session.execute(
+            select(
+                func.sum(case((non_rl, 1), else_=0)).label("requests"),
+                func.sum(case((non_rl, TOKEN_COUNT_EXPR), else_=0)).label("tokens"),
+                func.sum(
+                    case(
+                        (non_rl, func.coalesce(RequestLog.tokens["prompt_tokens"].as_integer(), 0)),
+                        else_=0,
+                    )
+                ).label("prompt_tokens"),
+                func.sum(
+                    case(
+                        (non_rl, func.coalesce(RequestLog.tokens["completion_tokens"].as_integer(), 0)),
+                        else_=0,
+                    )
+                ).label("completion_tokens"),
+                func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label("errors"),
+                func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label("timeouts"),
+                func.sum(
+                    case((RequestLog.status.in_(RATE_LIMITED_STATUSES), 1), else_=0)
+                ).label("rate_limited"),
+            ).where(*window)
+        )
+    ).one()
+
+    prov_rows = (
+        await session.execute(
+            select(
+                RequestLog.provider_id.label("pid"),
+                Provider.name.label("pname"),
+                RequestLog.provider_key_id.label("pk_id"),
+                RequestLog.provider_key_label.label("pk_label"),
+                model_expr.label("mname"),
+                func.count().label("requests"),
+                func.sum(TOKEN_COUNT_EXPR).label("tokens"),
+            )
+            .join(Provider, Provider.id == RequestLog.provider_id)
+            .where(*window, non_rl)
+            .group_by(
+                RequestLog.provider_id,
+                Provider.name,
+                RequestLog.provider_key_id,
+                RequestLog.provider_key_label,
+                model_expr,
+            )
+        )
+    ).fetchall()
+
+    provider_stats: dict[str, dict] = {}
+    for r in prov_rows:
+        if r.pname is None:
+            continue
+        bucket = provider_stats.setdefault(
+            r.pname, {"requests": 0, "tokens": 0, "models": {}, "keys": {}}
+        )
+        bucket["requests"] += int(r.requests or 0)
+        bucket["tokens"] += int(r.tokens or 0)
+        if r.mname:
+            mb = bucket["models"].setdefault(r.mname, {"requests": 0, "tokens": 0})
+            mb["requests"] += int(r.requests or 0)
+            mb["tokens"] += int(r.tokens or 0)
+        key_label = r.pk_label
+        if r.pk_id is not None:
+            key_label = pk_label_map.get(r.pk_id, r.pk_label)
+        if key_label:
+            kb = bucket["keys"].setdefault(
+                key_label, {"requests": 0, "tokens": 0, "models": {}}
+            )
+            kb["requests"] += int(r.requests or 0)
+            kb["tokens"] += int(r.tokens or 0)
+            if r.mname:
+                km = kb["models"].setdefault(r.mname, {"requests": 0, "tokens": 0})
+                km["requests"] += int(r.requests or 0)
+                km["tokens"] += int(r.tokens or 0)
+
+    umname_expr = user_stats_model_expr(RequestLog.model, RequestLog.requested_model)
+    key_rows = (
+        await session.execute(
+            select(
+                RequestLog.api_key_id.label("kid"),
+                umname_expr.label("umname"),
+                func.count().label("requests"),
+                func.sum(TOKEN_COUNT_EXPR).label("tokens"),
+            )
+            .where(*window, non_rl, RequestLog.api_key_id.isnot(None))
+            .group_by(RequestLog.api_key_id, umname_expr)
+        )
+    ).fetchall()
+
+    api_key_names = await get_api_key_name_map(
+        session, {r.kid for r in key_rows if r.kid is not None}
+    )
+    api_key_tags = await get_api_key_tags_map(
+        session, {r.kid for r in key_rows if r.kid is not None}
+    )
+    api_key_stats: dict[str, dict] = {}
+    for r in key_rows:
+        key_name = api_key_names.get(r.kid)
+        if not key_name:
+            continue
+        bucket = api_key_stats.setdefault(
+            key_name,
+            {
+                "requests": 0,
+                "tokens": 0,
+                "models": {},
+                "tags": api_key_tags.get(r.kid, []),
+            },
+        )
+        bucket["requests"] += int(r.requests or 0)
+        bucket["tokens"] += int(r.tokens or 0)
+        if r.umname:
+            mb = bucket["models"].setdefault(r.umname, {"requests": 0, "tokens": 0})
+            mb["requests"] += int(r.requests or 0)
+            mb["tokens"] += int(r.tokens or 0)
+
+    model_rows = (
+        await session.execute(
+            select(
+                model_expr.label("mname"),
+                func.count().label("requests"),
+                func.sum(TOKEN_COUNT_EXPR).label("tokens"),
+            )
+            .where(*window, non_rl)
+            .group_by(model_expr)
+        )
+    ).fetchall()
+    model_stats: dict[str, dict] = {}
+    for r in model_rows:
+        if not r.mname:
+            continue
+        model_stats[r.mname] = {
+            "requests": int(r.requests or 0),
+            "tokens": int(r.tokens or 0),
+        }
+
+    return {
+        "total_requests": int(totals_row.requests or 0),
+        "total_tokens": int(totals_row.tokens or 0),
+        "total_prompt_tokens": int(totals_row.prompt_tokens or 0),
+        "total_completion_tokens": int(totals_row.completion_tokens or 0),
+        "total_errors": int(totals_row.errors or 0),
+        "total_timeouts": int(totals_row.timeouts or 0),
+        "total_rate_limited": int(totals_row.rate_limited or 0),
+        "model_stats": model_stats,
+        "provider_stats": provider_stats,
+        "api_key_stats": api_key_stats,
+    }
+
+
+def merge_range_aggregate(target: dict, raw: dict) -> None:
+    """Add a raw-range aggregate (see aggregate_request_logs_range)
+    into daily-aggregate dicts of the same nested shape."""
+    for name, v in raw["model_stats"].items():
+        bucket = target["models"].setdefault(name, {"requests": 0, "tokens": 0})
+        bucket["requests"] += v["requests"]
+        bucket["tokens"] += v["tokens"]
+    for name, v in raw["provider_stats"].items():
+        bucket = target["providers"].setdefault(
+            name, {"requests": 0, "tokens": 0, "models": {}, "keys": {}}
+        )
+        bucket["requests"] += v["requests"]
+        bucket["tokens"] += v["tokens"]
+        for mname, mv in v["models"].items():
+            mb = bucket["models"].setdefault(mname, {"requests": 0, "tokens": 0})
+            mb["requests"] += mv["requests"]
+            mb["tokens"] += mv["tokens"]
+        for label, kv in v["keys"].items():
+            kb = bucket["keys"].setdefault(
+                label, {"requests": 0, "tokens": 0, "models": {}}
+            )
+            kb["requests"] += kv["requests"]
+            kb["tokens"] += kv["tokens"]
+            for mname, kmv in kv["models"].items():
+                km = kb["models"].setdefault(mname, {"requests": 0, "tokens": 0})
+                km["requests"] += kmv["requests"]
+                km["tokens"] += kmv["tokens"]
+    for name, v in raw["api_key_stats"].items():
+        bucket = target["api_keys"].setdefault(
+            name,
+            {"requests": 0, "tokens": 0, "models": {}, "tags": v.get("tags", [])},
+        )
+        bucket["requests"] += v["requests"]
+        bucket["tokens"] += v["tokens"]
+        for mname, mv in v["models"].items():
+            mb = bucket["models"].setdefault(mname, {"requests": 0, "tokens": 0})
+            mb["requests"] += mv["requests"]
+            mb["tokens"] += mv["tokens"]
 
 
 @router.get("/stats/aggregate")
@@ -1546,233 +1752,41 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                 raw_lo: datetime, raw_hi: datetime
             ) -> None:
                 nonlocal total_requests, total_tokens, total_prompt_tokens, total_completion_tokens, total_errors, total_timeouts, total_rate_limited
-                raw_result = await session.execute(
-                    select(
-                        RequestLog.api_key_id,
-                        RequestLog.provider_id,
-                        RequestLog.model,
-                        RequestLog.requested_model,
-                        RequestLog.actual_model,
-                        RequestLog.tokens,
-                        RequestLog.status,
-                        RequestLog.provider_key_id,
-                        RequestLog.provider_key_label,
-                    ).where(
-                        RequestLog.created_at >= raw_lo,
-                        RequestLog.created_at < raw_hi,
-                    )
+                agg = await aggregate_request_logs_range(
+                    session, raw_lo, raw_hi, pk_label_map
                 )
-                raw_rows = raw_result.fetchall()
-                providers_map = await get_provider_name_map(
-                    session,
+                total_requests += agg["total_requests"]
+                total_tokens += agg["total_tokens"]
+                total_prompt_tokens += agg["total_prompt_tokens"]
+                total_completion_tokens += agg["total_completion_tokens"]
+                total_errors += agg["total_errors"]
+                total_timeouts += agg["total_timeouts"]
+                total_rate_limited += agg["total_rate_limited"]
+                merge_range_aggregate(
                     {
-                        row.provider_id
-                        for row in raw_rows
-                        if row.provider_id is not None
+                        "models": model_stats,
+                        "providers": provider_stats,
+                        "api_keys": api_key_stats,
                     },
+                    agg,
                 )
-                api_keys_map = await get_api_key_name_map(
-                    session,
-                    {row.api_key_id for row in raw_rows if row.api_key_id is not None},
-                )
-                api_keys_tags_map = await get_api_key_tags_map(
-                    session,
-                    {row.api_key_id for row in raw_rows if row.api_key_id is not None},
-                )
-
-                for row in raw_rows:
-                    if row.status in RATE_LIMITED_STATUSES:
-                        total_rate_limited += 1
-                        continue
-                    tokens = get_token_count(row.tokens)
-                    total_prompt_tokens += (row.tokens or {}).get("prompt_tokens") or 0
-                    total_completion_tokens += (row.tokens or {}).get("completion_tokens") or 0
-                    if row.model:
-                        out_name = provider_stats_model_name(row.actual_model, row.model)
-                        model_bucket = model_stats.setdefault(
-                            out_name, {"requests": 0, "tokens": 0}
-                        )
-                        model_bucket["requests"] += 1
-                        model_bucket["tokens"] += tokens
-                    total_requests += 1
-                    total_tokens += tokens
-                    if row.status == ERROR_STATUS:
-                        total_errors += 1
-                    elif row.status == TIMEOUT_STATUS:
-                        total_timeouts += 1
-
-                    provider_name = providers_map.get(row.provider_id)
-                    if provider_name:
-                        provider_bucket = provider_stats.setdefault(
-                            provider_name,
-                            {"requests": 0, "tokens": 0, "models": {}, "keys": {}},
-                        )
-                        provider_bucket["requests"] += 1
-                        provider_bucket["tokens"] += tokens
-                        if row.model:
-                            out_name = provider_stats_model_name(
-                                row.actual_model, row.model
-                            )
-                            model_bucket = provider_bucket["models"].setdefault(
-                                out_name, {"requests": 0, "tokens": 0}
-                            )
-                            model_bucket["requests"] += 1
-                            model_bucket["tokens"] += tokens
-                        key_label = row.provider_key_label
-                        if row.provider_key_id is not None:
-                            key_label = pk_label_map.get(row.provider_key_id, row.provider_key_label)
-                        if key_label:
-                            key_bucket = provider_bucket["keys"].setdefault(
-                                key_label,
-                                {"requests": 0, "tokens": 0, "models": {}},
-                            )
-                            key_bucket["requests"] += 1
-                            key_bucket["tokens"] += tokens
-                            if row.model:
-                                km = key_bucket["models"].setdefault(
-                                    out_name, {"requests": 0, "tokens": 0}
-                                )
-                                km["requests"] += 1
-                                km["tokens"] += tokens
-
-                    api_key_name = api_keys_map.get(row.api_key_id)
-                    if api_key_name:
-                        api_key_bucket = api_key_stats.setdefault(
-                            api_key_name,
-                            {"requests": 0, "tokens": 0, "models": {}, "tags": api_keys_tags_map.get(row.api_key_id, [])},
-                        )
-                        api_key_bucket["requests"] += 1
-                        api_key_bucket["tokens"] += tokens
-                        if row.model:
-                            user_model = user_stats_model_name(
-                                row.requested_model, row.model
-                            )
-                            model_bucket = api_key_bucket["models"].setdefault(
-                                user_model, {"requests": 0, "tokens": 0}
-                            )
-                            model_bucket["requests"] += 1
-                            model_bucket["tokens"] += tokens
 
             for raw_lo, raw_hi in raw_ranges:
                 await accumulate_raw_range(raw_lo, raw_hi)
         else:
-            total_result = await session.execute(
-                select(func.count(RequestLog.id)).where(
-                    RequestLog.created_at >= start,
-                    RequestLog.status.notin_(RATE_LIMITED_STATUSES),
-                )
+            agg = await aggregate_request_logs_range(
+                session, start, now, pk_label_map
             )
-            total_requests = total_result.scalar() or 0
-
-            tokens_result = await session.execute(
-                select(func.sum(TOKEN_COUNT_EXPR)).where(
-                    RequestLog.created_at >= start,
-                    RequestLog.status.notin_(RATE_LIMITED_STATUSES),
-                )
-            )
-            total_tokens = tokens_result.scalar() or 0
-
-            errors_result = await session.execute(
-                select(func.count(RequestLog.id)).where(
-                    RequestLog.created_at >= start,
-                    RequestLog.status == ERROR_STATUS,
-                )
-            )
-            total_errors = errors_result.scalar() or 0
-
-            timeouts_result = await session.execute(
-                select(func.count(RequestLog.id)).where(
-                    RequestLog.created_at >= start,
-                    RequestLog.status == TIMEOUT_STATUS,
-                )
-            )
-            total_timeouts = timeouts_result.scalar() or 0
-
-            rate_limited_result = await session.execute(
-                select(func.count(RequestLog.id)).where(
-                    RequestLog.created_at >= start,
-                    RequestLog.status.in_(RATE_LIMITED_STATUSES),
-                )
-            )
-            total_rate_limited = rate_limited_result.scalar() or 0
-
-            logs_result = await session.execute(
-                select(RequestLog).where(RequestLog.created_at >= start)
-            )
-            logs = logs_result.scalars().all()
-
-            provider_ids = {log.provider_id for log in logs if log.provider_id}
-            api_key_ids = {log.api_key_id for log in logs if log.api_key_id}
-            providers_map = await get_provider_name_map(session, provider_ids)
-            api_keys_map = await get_api_key_name_map(session, api_key_ids)
-            api_keys_tags_map = await get_api_key_tags_map(session, api_key_ids)
-
-            for log in logs:
-                if log.status in RATE_LIMITED_STATUSES:
-                    continue
-                tokens = get_token_count(log.tokens)
-                total_prompt_tokens += (log.tokens or {}).get("prompt_tokens") or 0
-                total_completion_tokens += (log.tokens or {}).get("completion_tokens") or 0
-
-                if log.model:
-                    out_name = provider_stats_model_name(log.actual_model, log.model)
-                    model_bucket = model_stats.setdefault(
-                        out_name, {"requests": 0, "tokens": 0}
-                    )
-                    model_bucket["requests"] += 1
-                    model_bucket["tokens"] += tokens
-
-                provider_name = providers_map.get(log.provider_id)
-                if provider_name:
-                    provider_bucket = provider_stats.setdefault(
-                        provider_name,
-                        {"requests": 0, "tokens": 0, "models": {}, "keys": {}},
-                    )
-                    provider_bucket["requests"] += 1
-                    provider_bucket["tokens"] += tokens
-                    if log.model:
-                        out_name = provider_stats_model_name(
-                            log.actual_model, log.model
-                        )
-                        model_bucket = provider_bucket["models"].setdefault(
-                            out_name, {"requests": 0, "tokens": 0}
-                        )
-                        model_bucket["requests"] += 1
-                        model_bucket["tokens"] += tokens
-                    key_label = log.provider_key_label
-                    if log.provider_key_id is not None:
-                        key_label = pk_label_map.get(log.provider_key_id, log.provider_key_label)
-                    if key_label:
-                        key_bucket = provider_bucket["keys"].setdefault(
-                            key_label,
-                            {"requests": 0, "tokens": 0, "models": {}},
-                        )
-                        key_bucket["requests"] += 1
-                        key_bucket["tokens"] += tokens
-                        if log.model:
-                            km = key_bucket["models"].setdefault(
-                                out_name, {"requests": 0, "tokens": 0}
-                            )
-                            km["requests"] += 1
-                            km["tokens"] += tokens
-
-                api_key_name = api_keys_map.get(log.api_key_id)
-                if api_key_name:
-                    api_key_bucket = api_key_stats.setdefault(
-                        api_key_name,
-                        {"requests": 0, "tokens": 0, "models": {}, "tags": api_keys_tags_map.get(log.api_key_id, [])},
-                    )
-                    api_key_bucket["requests"] += 1
-                    api_key_bucket["tokens"] += tokens
-                    if log.model:
-                        user_model = user_stats_model_name(
-                            log.requested_model, log.model
-                        )
-                        model_bucket = api_key_bucket["models"].setdefault(
-                            user_model, {"requests": 0, "tokens": 0}
-                        )
-                        model_bucket["requests"] += 1
-                        model_bucket["tokens"] += tokens
+            total_requests = agg["total_requests"]
+            total_tokens = agg["total_tokens"]
+            total_prompt_tokens = agg["total_prompt_tokens"]
+            total_completion_tokens = agg["total_completion_tokens"]
+            total_errors = agg["total_errors"]
+            total_timeouts = agg["total_timeouts"]
+            total_rate_limited = agg["total_rate_limited"]
+            model_stats.update(agg["model_stats"])
+            provider_stats.update(agg["provider_stats"])
+            api_key_stats.update(agg["api_key_stats"])
 
         rate_limited_upstream_result = await session.execute(
             select(func.count(RequestLog.id)).where(
@@ -1906,20 +1920,26 @@ async def get_chart_data(
                         row.tokens,
                     )
 
+            day_expr = func.date_trunc("day", RequestLog.created_at)
             status_rows_result = await session.execute(
-                select(RequestLog.created_at, RequestLog.status).where(
-                    RequestLog.created_at >= start
-                )
+                select(
+                    day_expr.label("day"),
+                    func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label("errors"),
+                    func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label("timeouts"),
+                    func.sum(
+                        case((RequestLog.status.in_(RATE_LIMITED_STATUSES), 1), else_=0)
+                    ).label("rate_limited"),
+                ).where(RequestLog.created_at >= start).group_by(day_expr)
             )
             for row in status_rows_result.fetchall():
-                label = format_func(row.created_at)
+                label = format_func(row.day)
                 if label not in data:
                     continue
                 add_metric_values(
                     data[label],
-                    errors=1 if row.status == ERROR_STATUS else 0,
-                    timeouts=1 if row.status == TIMEOUT_STATUS else 0,
-                    rate_limited=1 if row.status in RATE_LIMITED_STATUSES else 0,
+                    errors=row.errors,
+                    timeouts=row.timeouts,
+                    rate_limited=row.rate_limited,
                 )
 
             provider_stats = {}
@@ -1952,66 +1972,91 @@ async def get_chart_data(
                     await get_raw_grouped_stats(session, "api_key", raw_start),
                 )
         else:
-            query = select(RequestLog).where(RequestLog.created_at >= start)
+            non_rl = RequestLog.status.notin_(RATE_LIMITED_STATUSES)
+            chart_filters = [RequestLog.created_at >= start]
             if provider:
-                query = query.where(
-                    provider_stats_model_expr(RequestLog.model, RequestLog.actual_model).ilike(
-                        f"%{provider}%"
-                    )
+                chart_filters.append(
+                    provider_stats_model_expr(
+                        RequestLog.model, RequestLog.actual_model
+                    ).ilike(f"%{provider}%")
                 )
             if api_key_id:
-                query = query.where(RequestLog.api_key_id == api_key_id)
+                chart_filters.append(RequestLog.api_key_id == api_key_id)
 
-            result = await session.execute(query)
-            logs = result.scalars().all()
-
-            for log in logs:
-                label = format_func(log.created_at)
+            hour_expr = func.date_trunc("hour", RequestLog.created_at)
+            half_expr = case(
+                (func.extract("minute", RequestLog.created_at) >= 30, 1), else_=0
+            )
+            bucket_result = await session.execute(
+                select(
+                    hour_expr.label("hbucket"),
+                    half_expr.label("half") if period == "day" else literal(0).label("half"),
+                    func.sum(case((non_rl, 1), else_=0)).label("requests"),
+                    func.sum(case((non_rl, TOKEN_COUNT_EXPR), else_=0)).label("tokens"),
+                    func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label("errors"),
+                    func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label("timeouts"),
+                    func.sum(
+                        case((RequestLog.status.in_(RATE_LIMITED_STATUSES), 1), else_=0)
+                    ).label("rate_limited"),
+                )
+                .where(*chart_filters)
+                .group_by(hour_expr, *( [half_expr] if period == "day" else [] ))
+            )
+            for row in bucket_result.fetchall():
+                d = row.hbucket
+                if period == "day":
+                    d = d.replace(minute=30 if row.half else 0)
+                label = format_func(d)
                 if label in data:
-                    if log.status in RATE_LIMITED_STATUSES:
-                        add_metric_values(data[label], rate_limited=1)
-                    else:
-                        add_metric_values(
-                            data[label],
-                            1,
-                            get_token_count(log.tokens),
-                            1 if log.status == ERROR_STATUS else 0,
-                            1 if log.status == TIMEOUT_STATUS else 0,
-                        )
-
-            provider_stats = {}
-            provider_cache = {}
-            for log in logs:
-                if log.status in RATE_LIMITED_STATUSES:
-                    continue
-                provider_name = None
-                if log.provider_id:
-                    if log.provider_id not in provider_cache:
-                        p_result = await session.execute(
-                            select(Provider).where(Provider.id == log.provider_id)
-                        )
-                        p = p_result.scalar_one_or_none()
-                        provider_cache[log.provider_id] = p.name if p else None
-                    provider_name = provider_cache.get(log.provider_id)
-                if provider_name:
-                    bucket = provider_stats.setdefault(
-                        provider_name, {"requests": 0, "tokens": 0}
+                    add_metric_values(
+                        data[label],
+                        row.requests,
+                        row.tokens,
+                        errors=row.errors,
+                        timeouts=row.timeouts,
+                        rate_limited=row.rate_limited,
                     )
-                    bucket["requests"] += 1
-                    bucket["tokens"] += get_token_count(log.tokens)
 
-            api_key_stats = {}
-            for log in logs:
-                if log.status in RATE_LIMITED_STATUSES:
+            provider_result = await session.execute(
+                select(
+                    RequestLog.provider_id.label("pid"),
+                    Provider.name.label("pname"),
+                    func.sum(case((non_rl, 1), else_=0)).label("requests"),
+                    func.sum(case((non_rl, TOKEN_COUNT_EXPR), else_=0)).label("tokens"),
+                )
+                .join(Provider, Provider.id == RequestLog.provider_id)
+                .where(*chart_filters, non_rl)
+                .group_by(RequestLog.provider_id, Provider.name)
+            )
+            provider_stats = {}
+            for row in provider_result.fetchall():
+                if row.pname is None:
                     continue
-                if log.api_key_id:
-                    name = get_api_key_name_from_cache(log.api_key_id)
-                    if name:
-                        bucket = api_key_stats.setdefault(
-                            name, {"requests": 0, "tokens": 0}
-                        )
-                        bucket["requests"] += 1
-                        bucket["tokens"] += get_token_count(log.tokens)
+                bucket = provider_stats.setdefault(
+                    row.pname, {"requests": 0, "tokens": 0}
+                )
+                bucket["requests"] += int(row.requests or 0)
+                bucket["tokens"] += int(row.tokens or 0)
+
+            key_result = await session.execute(
+                select(
+                    RequestLog.api_key_id.label("kid"),
+                    func.sum(case((non_rl, 1), else_=0)).label("requests"),
+                    func.sum(case((non_rl, TOKEN_COUNT_EXPR), else_=0)).label("tokens"),
+                )
+                .where(*chart_filters, non_rl, RequestLog.api_key_id.isnot(None))
+                .group_by(RequestLog.api_key_id)
+            )
+            api_key_stats = {}
+            for row in key_result.fetchall():
+                name = get_api_key_name_from_cache(row.kid)
+                if not name:
+                    continue
+                bucket = api_key_stats.setdefault(
+                    name, {"requests": 0, "tokens": 0}
+                )
+                bucket["requests"] += int(row.requests or 0)
+                bucket["tokens"] += int(row.tokens or 0)
 
         return {
             "period": period,
