@@ -156,8 +156,7 @@
         #model-concurrency-list .mc-track { stroke: #e5e7eb; }        #model-concurrency-list .mc-tick { stroke: #cbd5e1; }
         #model-concurrency-list .mc-needle-tail { stroke: #475569; }
         #model-concurrency-list .mc-hub { fill: #475569; }
-        #model-concurrency-list .mc-value { transition: stroke-dashoffset .6s ease, stroke .3s ease; }
-        #model-concurrency-list .mc-needle { transition: transform .6s ease; }
+        #model-concurrency-list .mc-value { transition: stroke .3s ease; }
         #model-concurrency-list .mc-needle-shape, #model-concurrency-list .mc-hub-dot { transition: fill .3s ease; }
         body.theme-dark #model-concurrency-list .mc-track { stroke: rgba(235, 234, 250, 0.14); }
         body.theme-dark #model-concurrency-list .mc-tick { stroke: rgba(235, 234, 250, 0.30); }
@@ -2091,7 +2090,7 @@
                 document.getElementById('system-active-count').textContent = `${count} ${window.I18N.active} / ${(data.active_requests || 0).toLocaleString()} ${window.I18N.req}`;
             }
             if (data.model_concurrency) {
-                scheduleModelConcurrencyRender(data.model_concurrency, data.model_requests_today);
+                scheduleModelConcurrencyRender(data.model_concurrency, data.model_requests_24h);
             }
             const disabledItems = Object.entries(data.disabled_providers || {})
                 .map(function(entry) { return { name: entry[0], reason: entry[1] }; });
@@ -2101,13 +2100,13 @@
         }
         let _modelConcRenderTimer = null;
         let _modelConcPendingData = null;
-        function scheduleModelConcurrencyRender(map, requestsToday) {
-            _modelConcPendingData = { map: map, today: requestsToday };
+        function scheduleModelConcurrencyRender(map, counts24h) {
+            _modelConcPendingData = { map: map, counts: counts24h };
             if (_modelConcRenderTimer) return;
             _modelConcRenderTimer = setTimeout(() => {
                 _modelConcRenderTimer = null;
                 if (_modelConcPendingData) {
-                    renderModelConcurrency(_modelConcPendingData.map, _modelConcPendingData.today);
+                    renderModelConcurrency(_modelConcPendingData.map, _modelConcPendingData.counts);
                 }
             }, 500);
         }
@@ -2157,13 +2156,37 @@
                 badgeEl: root.querySelector('.mc-badge'),
             };
         }
+        let _mcAnimTimer = 0;
+        function _mcApplyPct(card, pct) {
+            card.valuePath.style.strokeDashoffset = (_MC_ARC_LEN * (1 - pct)).toFixed(2);
+            card.needle.style.transform = `rotate(${(-90 + 180 * pct).toFixed(1)}deg)`;
+        }
+        function _mcAnimTick() {
+            let any = false;
+            for (const card of _modelConcCards.values()) {
+                const t = card.tgtPct || 0;
+                const c = card.curPct || 0;
+                const d = t - c;
+                if (Math.abs(d) < 0.0015) {
+                    if (c !== t) { _mcApplyPct(card, t); card.curPct = t; }
+                    continue;
+                }
+                card.curPct = c + d * 0.14;
+                _mcApplyPct(card, card.curPct);
+                any = true;
+            }
+            _mcAnimTimer = any ? requestAnimationFrame(_mcAnimTick) : 0;
+        }
+        function _mcStartAnim() {
+            if (!_mcAnimTimer) _mcAnimTimer = requestAnimationFrame(_mcAnimTick);
+        }
         function updateModelConcGauge(card, m) {
             const limit = m.limit || 0;
             const eff = typeof m.effective === 'number' ? m.effective : limit;
             const inUse = m.in_use || 0;
             const pct = eff > 0 ? Math.min(inUse / eff, 1) : (inUse > 0 ? 1 : 0);
-            card.valuePath.style.strokeDashoffset = (_MC_ARC_LEN * (1 - pct)).toFixed(2);
-            card.needle.style.transform = `rotate(${(-90 + 180 * pct).toFixed(1)}deg)`;
+            card.tgtPct = pct;
+            _mcStartAnim();
             let color = card.baseColor;
             if (eff === 0) color = inUse > 0 ? '#ef4444' : '#9ca3af';
             else if (pct >= 0.95) color = '#ef4444';
@@ -2184,22 +2207,22 @@
                 card.badgeEl.classList.add('hidden');
             }
         }
-        function renderModelConcurrency(map, requestsToday) {
+        function renderModelConcurrency(map, counts24h) {
             const container = document.getElementById('model-concurrency-list');
             if (!container) return;
             const entries = Object.entries(map || {});
-            const todayKnown = Array.isArray(requestsToday);
-            const todaySet = todayKnown ? new Set(requestsToday) : null;
+            const countsKnown = counts24h && typeof counts24h === 'object';
+            const countOf = name => (countsKnown ? (counts24h[name] || 0) : 0);
             const visible = entries.filter(([name, m]) => {
                 const limit = m.limit || 0;
                 const eff = typeof m.effective === 'number' ? m.effective : limit;
                 const inUse = m.in_use || 0;
-                if (limit > 0 && eff === 0 && inUse === 0 && todayKnown && !todaySet.has(name)) {
+                if (limit > 0 && eff === 0 && inUse === 0 && countsKnown && countOf(name) === 0) {
                     return false;
                 }
                 return true;
             });
-            visible.sort((a, b) => (b[1].in_use - a[1].in_use) || (b[1].limit - a[1].limit) || a[0].localeCompare(b[0]));
+            visible.sort((a, b) => (countOf(b[0]) - countOf(a[0])) || (b[1].in_use - a[1].in_use) || (b[1].limit - a[1].limit) || a[0].localeCompare(b[0]));
             if (!visible.length) {
                 container.innerHTML = `<div class="w-full text-gray-400 text-center py-3">${window.I18N.modelConcEmpty}</div>`;
                 _modelConcCards.clear();

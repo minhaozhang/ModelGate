@@ -8,7 +8,7 @@ from logging.handlers import RotatingFileHandler
 import sys
 from typing import Any, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 os.makedirs("logs", exist_ok=True)
 
@@ -87,7 +87,7 @@ provider_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 provider_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 user_api_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 standard_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
-_model_requests_today_cache: dict[str, Any] = {"names": None, "at": 0.0}
+_model_requests_24h_cache: dict[str, Any] = {"counts": None, "at": 0.0}
 
 DEFAULT_OUTBOUND_USER_AGENT = (
     "opencode/local ai-sdk/provider-utils/4.0.23 runtime/node.js/24"
@@ -545,32 +545,30 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
             "effective": effective,
         }
 
-    model_requests_today: Optional[list[str]] = None
-    global _model_requests_today_cache
+    model_requests_24h: Optional[dict[str, int]] = None
+    global _model_requests_24h_cache
     now_ts = time.monotonic()
-    if now_ts - _model_requests_today_cache["at"] > 60:
+    if now_ts - _model_requests_24h_cache["at"] > 60:
         try:
             from app.core.database import RequestLog, async_session_maker
 
-            today_start = datetime.now().replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
+            cutoff = datetime.now() - timedelta(hours=24)
             async with async_session_maker() as session:
                 rows = await session.execute(
-                    select(RequestLog.model).where(
-                        RequestLog.created_at >= today_start
-                    ).distinct()
+                    select(RequestLog.model, func.count(RequestLog.id))
+                    .where(RequestLog.created_at >= cutoff)
+                    .group_by(RequestLog.model)
                 )
-                _model_requests_today_cache["names"] = {
-                    r[0] for r in rows.fetchall()
+                _model_requests_24h_cache["counts"] = {
+                    r[0]: int(r[1]) for r in rows.fetchall() if r[0]
                 }
         except Exception:
             logging.getLogger(__name__).warning(
-                "model_requests_today query failed", exc_info=True
+                "model_requests_24h query failed", exc_info=True
             )
-        _model_requests_today_cache["at"] = now_ts
-    if _model_requests_today_cache["names"] is not None:
-        model_requests_today = sorted(_model_requests_today_cache["names"])
+        _model_requests_24h_cache["at"] = now_ts
+    if _model_requests_24h_cache["counts"] is not None:
+        model_requests_24h = _model_requests_24h_cache["counts"]
 
     return {
         "active_requests": active_requests_count,
@@ -579,7 +577,7 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
         "busyness": dict(busyness_state) if busyness_state else None,
         "disabled_providers": disabled_providers,
         "model_concurrency": model_concurrency,
-        "model_requests_today": model_requests_today,
+        "model_requests_24h": model_requests_24h,
     }
 
 
