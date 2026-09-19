@@ -1885,6 +1885,7 @@ async def get_chart_data(
                             data[label],
                             row.requests,
                             row.tokens,
+                            errors=row.errors,
                             timeouts=row.timeouts,
                             rate_limited=row.rate_limited,
                         )
@@ -1929,7 +1930,7 @@ async def get_chart_data(
                     func.sum(
                         case((RequestLog.status.in_(RATE_LIMITED_STATUSES), 1), else_=0)
                     ).label("rate_limited"),
-                ).where(RequestLog.created_at >= start).group_by(day_expr)
+                ).where(RequestLog.created_at >= raw_start).group_by(day_expr)
             )
             for row in status_rows_result.fetchall():
                 label = format_func(row.day)
