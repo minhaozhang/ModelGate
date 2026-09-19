@@ -788,6 +788,7 @@
             };
             liveStatsSocket.onclose = (event) => {
                 liveStatsSocket = null;
+                liveKeyConcurrency = {};
                 if (event.code === 4401) {
                     handleAdminUnauthorized();
                     return;
@@ -837,13 +838,14 @@
                 const hBadge = `<span class="health-badge ${hClass}" title="health">${r.health_score}</span>`;
                 let concHtml = '-';
                 const semKey = r.key_id ? `${r.key_id}:${r.provider}` : '';
+                const semKeyAttr = String(semKey).replace(/"/g, '&quot;');
                 const live = semKey ? liveKeyConcurrency[semKey] : null;
                 const cLimit = live ? live.limit : r.concurrency_limit;
                 const cInUse = live ? live.in_use : r.concurrency_in_use;
                 if (cLimit > 0) {
                     const pct = Math.min((cInUse / cLimit) * 100, 100);
                     const barColor = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
-                    concHtml = `<div class="conc-cell flex items-center gap-2"${semKey ? ` data-semkey="${semKey}"` : ''}><div class="conc-bar-bg"><div class="conc-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+                    concHtml = `<div class="conc-cell flex items-center gap-2"${semKey ? ` data-semkey="${semKeyAttr}"` : ''}><div class="conc-bar-bg"><div class="conc-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
                         <span class="conc-text text-xs text-gray-500">${cInUse}/${cLimit}</span></div>`;
                 }
                 const providerStyle = r.provider_disabled ? 'text-red-500 line-through' : '';

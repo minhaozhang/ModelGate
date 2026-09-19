@@ -2157,13 +2157,25 @@
                 document.getElementById('system-active-count').textContent = `${count} ${window.I18N.active} / ${(data.active_requests || 0).toLocaleString()} ${window.I18N.req}`;
             }
             if (data.model_concurrency) {
-                renderModelConcurrency(data.model_concurrency, data.model_requests_today);
+                scheduleModelConcurrencyRender(data.model_concurrency, data.model_requests_today);
             }
             const disabledItems = Object.entries(data.disabled_providers || {})
                 .map(function(entry) { return { name: entry[0], reason: entry[1] }; });
             if (disabledItems.length) {
                 renderProviderStatusBanner({ disabled_providers: disabledItems });
             }
+        }
+        let _modelConcRenderTimer = null;
+        let _modelConcPendingData = null;
+        function scheduleModelConcurrencyRender(map, requestsToday) {
+            _modelConcPendingData = { map: map, today: requestsToday };
+            if (_modelConcRenderTimer) return;
+            _modelConcRenderTimer = setTimeout(() => {
+                _modelConcRenderTimer = null;
+                if (_modelConcPendingData) {
+                    renderModelConcurrency(_modelConcPendingData.map, _modelConcPendingData.today);
+                }
+            }, 500);
         }
         function renderModelConcurrency(map, requestsToday) {
             const container = document.getElementById('model-concurrency-list');
@@ -2173,12 +2185,13 @@
                 container.innerHTML = `<div class="w-full text-gray-400 text-center py-3">${window.I18N.modelConcEmpty}</div>`;
                 return;
             }
-            const todaySet = new Set(Array.isArray(requestsToday) ? requestsToday : null);
+            const todayKnown = Array.isArray(requestsToday);
+            const todaySet = todayKnown ? new Set(requestsToday) : null;
             const visible = entries.filter(([name, m]) => {
                 const limit = m.limit || 0;
                 const eff = typeof m.effective === 'number' ? m.effective : limit;
                 const inUse = m.in_use || 0;
-                if (limit > 0 && eff === 0 && inUse === 0 && todaySet && !todaySet.has(name)) {
+                if (limit > 0 && eff === 0 && inUse === 0 && todayKnown && !todaySet.has(name)) {
                     return false;
                 }
                 return true;

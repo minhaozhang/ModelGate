@@ -87,7 +87,7 @@ provider_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 provider_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 user_api_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 standard_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
-_model_requests_today_cache: dict[str, Any] = {"names": set(), "at": 0.0}
+_model_requests_today_cache: dict[str, Any] = {"names": None, "at": 0.0}
 
 DEFAULT_OUTBOUND_USER_AGENT = (
     "opencode/local ai-sdk/provider-utils/4.0.23 runtime/node.js/24"
@@ -508,13 +508,11 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
         for pname, pconf in providers_cache.items()
         if pconf.get("disabled_reason")
     }
-    disabled_providers = {
-        pname: pconf.get("disabled_reason")
-        for pname, pconf in providers_cache.items()
-        if pconf.get("disabled_reason")
-    }
 
     from app.services.provider import _model_max_concurrent_by_name
+    from app.services.proxy_runtime.concurrency import (
+        DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY,
+    )
 
     model_concurrency = {}
     for model_name, limit in _model_max_concurrent_by_name.items():
@@ -525,7 +523,6 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
         in_use = max(limit - available, 0) if available is not None else 0
 
         capacity = 0
-        unbounded = False
         for pcfg in providers_cache.values():
             if pcfg.get("disabled_reason"):
                 continue
@@ -537,41 +534,43 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
             for k in pcfg.get("api_keys", []):
                 klimit = k.get("max_concurrent")
                 if klimit is None:
-                    unbounded = True
+                    capacity += DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY
                 else:
                     capacity += klimit
 
-        effective = limit if unbounded else min(limit, capacity)
+        effective = min(limit, capacity)
         model_concurrency[model_name] = {
             "limit": limit,
             "in_use": in_use,
             "effective": effective,
         }
 
-    model_requests_today: list[str] = []
+    model_requests_today: Optional[list[str]] = None
     global _model_requests_today_cache
     now_ts = time.monotonic()
     if now_ts - _model_requests_today_cache["at"] > 60:
         try:
-            from app.core.database import ModelDailyStat
+            from app.core.database import RequestLog, async_session_maker
 
-            today_str = datetime.now().strftime("%Y-%m-%d")
+            today_start = datetime.now().replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
             async with async_session_maker() as session:
                 rows = await session.execute(
-                    select(ModelDailyStat.model_name)
-                    .where(
-                        ModelDailyStat.date == today_str,
-                        ModelDailyStat.requests > 0,
-                    )
-                    .distinct()
+                    select(RequestLog.model).where(
+                        RequestLog.created_at >= today_start
+                    ).distinct()
                 )
                 _model_requests_today_cache["names"] = {
                     r[0] for r in rows.fetchall()
                 }
         except Exception:
-            pass
+            logging.getLogger(__name__).warning(
+                "model_requests_today query failed", exc_info=True
+            )
         _model_requests_today_cache["at"] = now_ts
-    model_requests_today = sorted(_model_requests_today_cache["names"])
+    if _model_requests_today_cache["names"] is not None:
+        model_requests_today = sorted(_model_requests_today_cache["names"])
 
     return {
         "active_requests": active_requests_count,
