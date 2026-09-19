@@ -2214,10 +2214,8 @@
             const countsKnown = counts24h && typeof counts24h === 'object';
             const countOf = name => (countsKnown ? (counts24h[name] || 0) : 0);
             const visible = entries.filter(([name, m]) => {
-                const limit = m.limit || 0;
-                const eff = typeof m.effective === 'number' ? m.effective : limit;
                 const inUse = m.in_use || 0;
-                if (limit > 0 && eff === 0 && inUse === 0 && countsKnown && countOf(name) === 0) {
+                if (countsKnown && countOf(name) === 0 && inUse === 0) {
                     return false;
                 }
                 return true;
