@@ -3011,6 +3011,9 @@ msgstr "无可用供应商"
 msgid "Configured"
 msgstr "配置"
 
+msgid "Model Plaza"
+msgstr "模型广场"
+
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
 

@@ -158,15 +158,22 @@
         }
         #model-concurrency-list .mc-track { stroke: #e5e7eb; }
         #model-concurrency-list .mc-tick { stroke: #cbd5e1; }
+        #model-concurrency-list .mc-needle-tail { stroke: #475569; }
+        #model-concurrency-list .mc-hub { fill: #475569; }
         #model-concurrency-list .mc-value { transition: stroke-dashoffset .6s ease, stroke .3s ease; }
-        #model-concurrency-list .mc-dot { transition: cx .6s ease, cy .6s ease, opacity .3s ease; }
+        #model-concurrency-list .mc-needle { transition: transform .6s ease; }
+        #model-concurrency-list .mc-needle-shape, #model-concurrency-list .mc-hub-dot { transition: fill .3s ease; }
         body.theme-dark #model-concurrency-list .mc-track { stroke: rgba(235, 234, 250, 0.14); }
         body.theme-dark #model-concurrency-list .mc-tick { stroke: rgba(235, 234, 250, 0.30); }
+        body.theme-dark #model-concurrency-list .mc-needle-tail { stroke: #8b8fa8; }
+        body.theme-dark #model-concurrency-list .mc-hub { fill: #8b8fa8; }
         body.theme-dark #model-concurrency-list .mc-name { color: #ededf8b8 !important; }
         body.theme-dark #model-concurrency-list .mc-eff { color: #ededf873 !important; }
         body.theme-dark #model-concurrency-list .model-conc-card { border-color: rgba(235, 234, 250, 0.14) !important; }
         body.theme-blackgold #model-concurrency-list .mc-track { stroke: rgba(212, 168, 83, 0.18); }
         body.theme-blackgold #model-concurrency-list .mc-tick { stroke: rgba(212, 168, 83, 0.38); }
+        body.theme-blackgold #model-concurrency-list .mc-needle-tail { stroke: #d4a853; }
+        body.theme-blackgold #model-concurrency-list .mc-hub { fill: #d4a853; }
         body.theme-blackgold #model-concurrency-list .mc-name { color: #c9b896 !important; }
         body.theme-blackgold #model-concurrency-list .mc-eff { color: #c9b89673 !important; }
         body.theme-blackgold #model-concurrency-list .model-conc-card { border-color: rgba(212, 168, 83, 0.22) !important; }
@@ -397,8 +404,8 @@
         </div>
 
         <div class="tab-nav mb-6" role="tablist">
-            <button class="tab-btn active" onclick="showTab('stats')">{{ _('Statistics') }}</button>
-            <button class="tab-btn" onclick="showTab('catalog')">{{ _('Models') }}</button>
+            <button class="tab-btn active" onclick="showTab('stats')">{{ _('Statistics Monitor') }}</button>
+            <button class="tab-btn" onclick="showTab('catalog')">{{ _('Model Plaza') }}</button>
             <button class="tab-btn" onclick="showTab('opencode')">{{ _('OpenCode Config') }}</button>
             <button class="tab-btn" onclick="showTab('codex')">Codex {{ _('Config') }}</button>
             <button class="tab-btn" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
@@ -2197,24 +2204,33 @@
         function buildModelConcGauge(name) {
             const root = document.createElement('div');
             root.dataset.mcName = name;
-            root.className = 'model-conc-card bg-white border border-gray-200/70 rounded-md px-2.5 py-2 flex flex-col items-center';
+            root.className = 'model-conc-card bg-white border rounded-md flex flex-col items-center';
             root.style.width = '132px';
+            root.style.padding = '8px 10px';
+            root.style.borderColor = '#e5e7eb';
             root.innerHTML = `
-                <svg viewBox="0 0 64 36" style="width:100%;max-width:96px" class="select-none" aria-hidden="true">
+                <svg viewBox="0 0 64 40" style="width:100%;max-width:96px" class="select-none" aria-hidden="true">
                     <path class="mc-track" d="${_MC_ARC_D}" fill="none" stroke-width="2"/>
                     <line class="mc-tick" x1="7" y1="32" x2="10" y2="32" stroke-width="1"/>
                     <line class="mc-tick" x1="32" y1="7" x2="32" y2="10" stroke-width="1"/>
                     <line class="mc-tick" x1="54" y1="32" x2="57" y2="32" stroke-width="1"/>
                     <path class="mc-value" d="${_MC_ARC_D}" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-dasharray="${_MC_ARC_LEN}" stroke-dashoffset="${_MC_ARC_LEN}"/>
-                    <circle class="mc-dot" cx="6" cy="32" r="2" fill="#22d3ee" opacity="0"/>
+                    <g class="mc-needle" style="transform-origin:32px 32px;transform:rotate(-90deg)">
+                        <path class="mc-needle-shape" d="M 31.2 30.5 L 32 10.5 L 32.8 30.5 Z" fill="#06b6d4"/>
+                        <line class="mc-needle-tail" x1="32" y1="33" x2="32" y2="37.5" stroke-width="2" stroke-linecap="round"/>
+                    </g>
+                    <circle class="mc-hub" cx="32" cy="32" r="2.6"/>
+                    <circle class="mc-hub-dot" cx="32" cy="32" r="1" fill="#06b6d4"/>
                 </svg>
                 <div class="mc-name w-full text-center text-xs font-medium text-gray-600 truncate" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
-                <div class="leading-none font-mono"><span class="mc-in text-sm font-semibold" style="color:#06b6d4">0</span><span class="mc-eff text-[11px] text-gray-400">/0</span></div>
-                <div class="mc-badge hidden text-[11px] text-red-500 mt-0.5"></div>`;
+                <div class="leading-none font-mono"><span class="mc-in text-sm font-semibold" style="color:#06b6d4">0</span><span class="mc-eff text-gray-400" style="font-size:11px">/0</span></div>
+                <div class="mc-badge hidden text-red-500" style="font-size:11px;margin-top:2px"></div>`;
             return {
                 root,
                 valuePath: root.querySelector('.mc-value'),
-                dot: root.querySelector('.mc-dot'),
+                needle: root.querySelector('.mc-needle'),
+                needleShape: root.querySelector('.mc-needle-shape'),
+                hubDot: root.querySelector('.mc-hub-dot'),
                 inEl: root.querySelector('.mc-in'),
                 effEl: root.querySelector('.mc-eff'),
                 badgeEl: root.querySelector('.mc-badge'),
@@ -2226,16 +2242,14 @@
             const inUse = m.in_use || 0;
             const pct = eff > 0 ? Math.min(inUse / eff, 1) : (inUse > 0 ? 1 : 0);
             card.valuePath.style.strokeDashoffset = (_MC_ARC_LEN * (1 - pct)).toFixed(2);
-            const angle = Math.PI * (1 - pct);
-            card.dot.setAttribute('cx', (32 + 26 * Math.cos(angle)).toFixed(2));
-            card.dot.setAttribute('cy', (32 - 26 * Math.sin(angle)).toFixed(2));
-            card.dot.setAttribute('opacity', pct > 0 ? '1' : '0');
+            card.needle.style.transform = `rotate(${(-90 + 180 * pct).toFixed(1)}deg)`;
             let color = '#06b6d4';
             if (eff === 0) color = inUse > 0 ? '#ef4444' : '#9ca3af';
             else if (pct >= 0.95) color = '#ef4444';
             else if (pct > 0.8) color = '#f59e0b';
             card.valuePath.style.stroke = color;
-            card.dot.setAttribute('fill', color);
+            card.needleShape.setAttribute('fill', color);
+            card.hubDot.setAttribute('fill', color);
             card.inEl.style.color = color;
             card.inEl.textContent = inUse;
             card.effEl.textContent = '/' + eff;
