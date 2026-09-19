@@ -2147,6 +2147,7 @@ async def get_active_sessions(_: bool = Depends(permission_required("page.stats"
         "tokens_per_second": snapshot.get("tokens_per_second", 0),
         "sessions": snapshot["sessions"],
         "disabled_providers": disabled_providers,
+        "key_concurrency": snapshot.get("key_concurrency", {}),
     }
 
 

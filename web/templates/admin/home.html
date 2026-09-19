@@ -194,6 +194,7 @@
         let liveStatsSocket = null;
         let liveStatsReconnectTimer = null;
         let liveSnapshotRecvAt = 0;
+        let liveKeyConcurrency = {};
         const HOME_OVERVIEW_REFRESH_MS = 8000;
         const APP_BASE_PATH = {{ app_base_path | tojson }};
         const HOME_SLOW_REFRESH_MS = 5000;
@@ -654,6 +655,10 @@
             flipCounter('rps', activeRequests);
             flipCounter('tps', tokensPerSecond.toLocaleString());
             flipCounter('active-count', activeRequests);
+            if (data.key_concurrency) {
+                liveKeyConcurrency = data.key_concurrency;
+                updateKeyConcurrencyCells();
+            }
 
             const container = document.getElementById('active-sessions');
             const rows = data.requests || [];
@@ -831,11 +836,15 @@
                 const hClass = 'health-' + r.health_level;
                 const hBadge = `<span class="health-badge ${hClass}" title="health">${r.health_score}</span>`;
                 let concHtml = '-';
-                if (r.concurrency_limit > 0) {
-                    const pct = Math.min((r.concurrency_in_use / r.concurrency_limit) * 100, 100);
+                const semKey = r.key_id ? `${r.key_id}:${r.provider}` : '';
+                const live = semKey ? liveKeyConcurrency[semKey] : null;
+                const cLimit = live ? live.limit : r.concurrency_limit;
+                const cInUse = live ? live.in_use : r.concurrency_in_use;
+                if (cLimit > 0) {
+                    const pct = Math.min((cInUse / cLimit) * 100, 100);
                     const barColor = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
-                    concHtml = `<div class="conc-bar-bg"><div class="conc-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
-                        <span class="text-xs text-gray-500">${r.concurrency_in_use}/${r.concurrency_limit}</span>`;
+                    concHtml = `<div class="conc-cell flex items-center gap-2"${semKey ? ` data-semkey="${semKey}"` : ''}><div class="conc-bar-bg"><div class="conc-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+                        <span class="conc-text text-xs text-gray-500">${cInUse}/${cLimit}</span></div>`;
                 }
                 const providerStyle = r.provider_disabled ? 'text-red-500 line-through' : '';
                 const providerTitle = r.provider_disabled ? ` title="${(r.provider_disabled_reason || '').replace(/"/g, '&quot;')}"` : '';
@@ -852,6 +861,22 @@
                 </div>`;
             }).join('');
             container.innerHTML = html;
+        }
+
+        function updateKeyConcurrencyCells() {
+            document.querySelectorAll('.conc-cell[data-semkey]').forEach(el => {
+                const live = liveKeyConcurrency[el.dataset.semkey];
+                if (!live || !(live.limit > 0)) return;
+                const pct = Math.min((live.in_use / live.limit) * 100, 100);
+                const barColor = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
+                const fill = el.querySelector('.conc-bar-fill');
+                if (fill) {
+                    fill.style.width = pct + '%';
+                    fill.style.background = barColor;
+                }
+                const txt = el.querySelector('.conc-text');
+                if (txt) txt.textContent = `${live.in_use}/${live.limit}`;
+            });
         }
 
         async function loadProviderKeysLive() {

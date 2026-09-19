@@ -469,6 +469,18 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             if pconf.get("disabled_reason"):
                 disabled_providers[pname] = pconf["disabled_reason"]
 
+        key_concurrency = {}
+        for sem_key, sem in provider_key_semaphores.items():
+            limit = (
+                getattr(sem, "_modelgate_scoped_limit", getattr(sem, "_value", 0))
+                or 0
+            )
+            available = getattr(sem, "_value", 0)
+            key_concurrency[sem_key] = {
+                "limit": limit,
+                "in_use": max(limit - available, 0),
+            }
+
         return {
             "active_requests": len(active_requests),
             "active_users": len(grouped_users),
@@ -476,6 +488,7 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             "sessions": dict(sorted(grouped_users.items(), key=lambda item: item[1]["first_activity"])),
             "requests": request_rows,
             "disabled_providers": disabled_providers,
+            "key_concurrency": key_concurrency,
         }
 
 
