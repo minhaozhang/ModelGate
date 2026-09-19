@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="{{ current_locale }}">
 <head>
     <meta charset="utf-8">
@@ -188,11 +188,20 @@
             <div id="my-requests-list" class="flex-1 min-h-0 overflow-hidden grid grid-cols-1 xl:grid-cols-2 gap-x-4 gap-y-1.5"><div class="text-gray-400 text-center py-2 xl:col-span-2">{{ _('Loading...') }}</div></div>
         </div>
 
-        <div class="v2-card mb-6">
-            <h3>{{ _('Model Usage') }} <span class="meta" id="v2-usage-meta">{{ _('Personal') }} / {{ _('System') }}</span></h3>
-            <div class="flex items-center gap-6 flex-wrap">
-                <div style="height:210px;width:210px;flex-shrink:0"><canvas id="v2-usage-chart"></canvas></div>
-                <div class="flex-1 min-w-[14rem]" id="v2-usage-legend"><div class="text-gray-400 text-center py-3">{{ _('Loading...') }}</div></div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+            <div class="v2-card">
+                <h3>{{ _('Model Usage') }} <span class="meta" id="v2-usage-meta">{{ _('Personal') }}</span></h3>
+                <div class="flex items-center gap-4 flex-wrap">
+                    <div style="height:180px;width:180px;flex-shrink:0"><canvas id="v2-usage-chart"></canvas></div>
+                    <div id="v2-usage-legend" class="flex-1 min-w-[10rem]"><div class="text-gray-400 text-center py-3">{{ _('Loading...') }}</div></div>
+                </div>
+            </div>
+            <div class="v2-card">
+                <h3>{{ _('System Model Usage') }} <span class="meta" id="v2-sys-usage-meta">{{ _('System') }}</span></h3>
+                <div class="flex items-center gap-4 flex-wrap">
+                    <div style="height:180px;width:180px;flex-shrink:0"><canvas id="v2-sys-usage-chart"></canvas></div>
+                    <div id="v2-sys-usage-legend" class="flex-1 min-w-[10rem]"><div class="text-gray-400 text-center py-3">{{ _('Loading...') }}</div></div>
+                </div>
             </div>
         </div>
 
@@ -332,67 +341,62 @@
         }
 
         let v2UsageChart = null;
-        const _V2_USAGE_PALETTE = ['#6366f1', '#0891b2', '#f59e0b', '#10b981', '#ec4899', '#0ea5e9', '#8b5cf6', '#14b8a6'];
-        function renderV2ModelUsage() {
-            const canvas = document.getElementById('v2-usage-chart');
+        let v2SysUsageChart = null;
+        const _V2_USAGE_PALETTE = ['#2563eb', '#0f766e', '#0ea5e9', '#1d4ed8', '#14b8a6', '#0891b2', '#059669', '#0284c7'];
+        const _V2_SYS_PALETTE = ['#6366f1', '#06b6d4', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#f97316', '#14b8a6'];
+        function buildV2Series(models, palette, limit) {
+            const entries = Object.entries(models || {})
+                .sort((a, b) => (b[1].requests || 0) - (a[1].requests || 0))
+                .filter(([, stats]) => (stats.requests || 0) > 0);
+            const top = entries.slice(0, limit);
+            const labels = top.map(([name]) => name);
+            const values = top.map(([, stats]) => stats.requests || 0);
+            const colors = top.map((_, i) => palette[i % palette.length]);
+            const other = entries.slice(limit).reduce((s, [, st]) => s + (st.requests || 0), 0);
+            if (other > 0) { labels.push(T('其他', 'Others')); values.push(other); colors.push('#cbd5e1'); }
+            return { entries, labels, values, colors };
+        }
+        function renderV2Doughnut(canvasId, chartRef, models, palette, legendId, metaId, metaLabel) {
+            const canvas = document.getElementById(canvasId);
             if (!canvas) return;
-            const mine = _v2PersonalModels || {};
-            const sys = _v2SystemModels || {};
+            const series = buildV2Series(models, palette, 6);
             const dark = document.body.classList.contains('theme-dark') || document.body.classList.contains('theme-blackgold');
-            const legendEl = document.getElementById('v2-usage-legend');
-            const names = [...new Set([...Object.keys(mine), ...Object.keys(sys)])]
-                .sort((a, b) => (((sys[b] || {}).requests || 0) + ((mine[b] || {}).requests || 0)) - (((sys[a] || {}).requests || 0) + ((mine[a] || {}).requests || 0)));
-            if (v2UsageChart) { v2UsageChart.destroy(); v2UsageChart = null; }
-            if (!names.length) { legendEl.innerHTML = `<div class="text-gray-400 text-center py-3">${window.I18N.noData}</div>`; return; }
-            const LIMIT = 7;
-            const top = names.slice(0, LIMIT);
-            const rest = names.slice(LIMIT);
-            const labels = [...top];
-            const myVals = top.map(n => (mine[n] || {}).requests || 0);
-            const sysVals = top.map(n => (sys[n] || {}).requests || 0);
-            const otherMy = rest.reduce((s, n) => s + ((mine[n] || {}).requests || 0), 0);
-            const otherSys = rest.reduce((s, n) => s + ((sys[n] || {}).requests || 0), 0);
-            const hasOther = otherMy > 0 || otherSys > 0;
-            if (hasOther) { labels.push(T('其他', 'Others')); myVals.push(otherMy); sysVals.push(otherSys); }
-            const colors = labels.map((_, i) => (hasOther && i === labels.length - 1) ? '#94a3b8' : _V2_USAGE_PALETTE[i % _V2_USAGE_PALETTE.length]);
-            const myTotal = myVals.reduce((s, v) => s + v, 0);
-            const sysTotal = sysVals.reduce((s, v) => s + v, 0);
-            const ring = (label, vals) => ({
-                label,
-                data: vals.map(v => v > 0 ? v : null),
-                backgroundColor: colors.map((c, i) => vals[i] > 0 ? c + 'cc' : 'transparent'),
-                borderColor: colors,
-                borderWidth: 2,
-                hoverOffset: 4,
-                weight: label === T('全站', 'System') ? 1.25 : 1
-            });
+            if (chartRef.chart) chartRef.chart.destroy();
+            const total = series.values.reduce((s, v) => s + v, 0) || 1;
             const centerText = {
                 id: 'centerText',
                 afterDraw(chart) {
-                    const meta = chart.getDatasetMeta(chart.data.datasets.length - 1);
+                    if (!series.values.length) return;
+                    const { ctx } = chart;
+                    const meta = chart.getDatasetMeta(0);
                     if (!meta.data.length) return;
                     const { x, y } = meta.data[0];
-                    const ctx = chart.ctx;
                     ctx.save();
                     ctx.textAlign = 'center';
                     ctx.fillStyle = dark ? '#ededf8' : '#111827';
-                    ctx.font = '700 19px ui-sans-serif, system-ui, sans-serif';
-                    ctx.fillText(formatCompactTokens(myTotal), x, y - 2);
+                    ctx.font = '700 20px ui-sans-serif, system-ui, sans-serif';
+                    ctx.fillText(formatCompactTokens(total), x, y - 2);
                     ctx.fillStyle = dark ? '#ededf8b8' : '#6b7280';
                     ctx.font = '500 10px ui-sans-serif, system-ui, sans-serif';
-                    ctx.fillText(T('我的', 'Mine'), x, y + 14);
+                    ctx.fillText(window.I18N.req, x, y + 14);
                     ctx.restore();
                 }
             };
-            v2UsageChart = new Chart(canvas, {
+            chartRef.chart = new Chart(canvas, {
                 type: 'doughnut',
                 plugins: [centerText],
                 data: {
-                    labels,
-                    datasets: [ring(T('全站', 'System'), sysVals), ring(T('我的', 'Mine'), myVals)]
+                    labels: series.labels,
+                    datasets: [{
+                        data: series.values,
+                        backgroundColor: series.colors.map(c => c + 'cc'),
+                        borderColor: series.colors,
+                        borderWidth: 2,
+                        hoverOffset: 6
+                    }]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false, cutout: '48%',
+                    responsive: true, maintainAspectRatio: false, cutout: '62%',
                     plugins: {
                         legend: { display: false },
                         tooltip: {
@@ -403,36 +407,35 @@
                             borderWidth: 1,
                             callbacks: {
                                 label: function(context) {
-                                    const vals = context.dataset.data;
-                                    const total = vals.reduce((s, v) => s + (v || 0), 0) || 1;
-                                    return ` ${context.dataset.label} · ${context.label}: ${(context.raw || 0).toLocaleString()} ${window.I18N.req} (${((context.raw || 0) / total * 100).toFixed(1)}%)`;
+                                    const total = series.values.reduce((s, v) => s + v, 0) || 1;
+                                    return ` ${context.label}: ${(context.raw || 0).toLocaleString()} ${window.I18N.req} (${((context.raw || 0) / total * 100).toFixed(1)}%)`;
                                 }
                             }
                         }
                     }
                 }
             });
-            legendEl.innerHTML = `<div style="display:flex;justify-content:flex-end;gap:14px;font-size:0.625rem;color:#9ca3af;padding-bottom:2px">
-                    <span>${T('我的', 'Mine')}</span><span>${T('全站', 'System')}</span></div>` +
-                top.map((name, i) => {
-                    const m = myVals[i], s = sysVals[i];
-                    const mp = myTotal ? (m / myTotal * 100).toFixed(0) : 0;
-                    const sp = sysTotal ? (s / sysTotal * 100).toFixed(0) : 0;
-                    return `<div class="v2-reqrow" style="border-bottom:0;padding:0.28rem 0">
+            const legendEl = document.getElementById(legendId);
+            if (!series.entries.length) {
+                legendEl.innerHTML = `<div class="text-gray-400 text-center py-3">${window.I18N.noData}</div>`;
+            } else {
+                legendEl.innerHTML = series.entries.slice(0, 8).map(([name, stats], i) => `
+                    <div class="v2-reqrow" style="border-bottom:0;padding:0.3rem 0">
                         <span class="mname" style="flex:1 1 auto;display:flex;align-items:center;gap:6px" title="${escapeHtml(name)}">
-                            <i style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${colors[i]}"></i>
+                            <i style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${palette[i % palette.length]}"></i>
                             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(name)}</span>
                         </span>
-                        <span class="nums" style="flex:0 0 10.5rem">${m.toLocaleString()} · ${mp}%&ensp;/&ensp;${formatCompactTokens(s)} · ${sp}%</span>
-                    </div>`;
-                }).join('') +
-                (hasOther ? `<div class="v2-reqrow" style="border-bottom:0;padding:0.28rem 0">
-                        <span class="mname" style="flex:1 1 auto;display:flex;align-items:center;gap:6px">
-                            <i style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:#94a3b8"></i>${T('其他', 'Others')}</span>
-                        <span class="nums" style="flex:0 0 10.5rem">${otherMy.toLocaleString()} / ${formatCompactTokens(otherSys)}</span>
-                    </div>` : '');
-            const meta = document.getElementById('v2-usage-meta');
-            if (meta) meta.textContent = `${T('我的', 'Personal')} ${myTotal.toLocaleString()} / ${T('全站', 'System')} ${sysTotal.toLocaleString()} · ${names.length} ${T('模型', 'models')}`;
+                        <span class="nums" style="flex:0 0 auto">${(stats.requests || 0).toLocaleString()} · ${((stats.requests || 0) / total * 100).toFixed(1)}%</span>
+                    </div>`).join('');
+            }
+            if (metaId) {
+                const meta = document.getElementById(metaId);
+                if (meta) meta.textContent = `${metaLabel} / ${Object.keys(models || {}).length} ${T('模型', 'models')} / ${T('Top占比', 'Top share')} ${series.entries[0] ? ((series.entries[0][1].requests || 0) / total * 100).toFixed(1) + '%' : '0%'}`;
+            }
+        }
+        function renderV2ModelUsage() {
+            renderV2Doughnut('v2-usage-chart', { get chart() { return v2UsageChart; }, set chart(v) { v2UsageChart = v; } }, _v2PersonalModels, _V2_USAGE_PALETTE, 'v2-usage-legend', 'v2-usage-meta', T('我的', 'Personal'));
+            renderV2Doughnut('v2-sys-usage-chart', { get chart() { return v2SysUsageChart; }, set chart(v) { v2SysUsageChart = v; } }, _v2SystemModels, _V2_SYS_PALETTE, 'v2-sys-usage-legend', 'v2-sys-usage-meta', T('全站', 'System'));
         }
 
         const _modelConcCards = new Map();
