@@ -532,9 +532,7 @@ msgid ""
 "Requests are skipped during the window. Weekly rules repeat every week; one-"
 "time rules fire once. End time earlier than or equal to start time crosses "
 "into the next day."
-msgstr ""
-"时间窗口内的请求将被跳过。每周规则每周重复；一次性规则仅触发一次。结束时间早于或等于开始时间表示跨到次"
-"日。"
+msgstr "时间窗口内的请求将被跳过。每周规则每周重复；一次性规则仅触发一次。结束时间早于或等于开始时间表示跨到次日。"
 
 #: web/templates/admin/config.html:525 web/templates/admin/config.html:731
 msgid "Add rule"
@@ -2964,6 +2962,49 @@ msgstr "Python (流式)"
 msgid "Tool Use (Function Calling)"
 msgstr "工具调用 (Function Calling)"
 
+msgid "Use the model name directly, same as shown in the model list:"
+msgstr "直接使用模型名即可，与模型目录和下方接口显示的一致："
+
+msgid ""
+"A plain model name auto-routes to an available provider. To pin a specific "
+"one, add the prefix:"
+msgstr "纯模型名会自动路由到可用供应商。如需锁定特定供应商，添加前缀："
+
+msgid "Install OpenCode from"
+msgstr "从"
+
+msgid ", then go to the OpenCode Config tab to get your configuration."
+msgstr "安装 OpenCode，然后到 OpenCode 配置标签页获取你的配置。"
+
+msgid ""
+"The Anthropic endpoint translates requests to OpenAI format internally. All "
+"models in your model list can be used — just pass the model name;"
+msgstr "Anthropic 接口内部会将请求转换为 OpenAI 格式。模型列表中的所有模型都可使用——直接传模型名即可；"
+
+msgid "also works to pin a specific provider."
+msgstr "同样可以锁定指定供应商。"
+
+msgid ": 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 50% 时开始压缩。"
+msgstr ": 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 50% 时开始压缩。"
+
+msgid ": summarize（摘要）/ truncate（截断）/ archive（归档）"
+msgstr ": summarize（摘要）/ truncate（截断）/ archive（归档）"
+
+msgid ": 压缩时保留最近 N 条消息不参与压缩（默认 10）"
+msgstr ": 压缩时保留最近 N 条消息不参与压缩（默认 10）"
+
+msgid ": 压缩时始终保留系统提示词（默认 true）"
+msgstr ": 压缩时始终保留系统提示词（默认 true）"
+
+msgid "Model Concurrency"
+msgstr "模型并发"
+
+msgid "Real-time"
+msgstr "实时"
+
+msgid "No models with concurrency limits"
+msgstr "暂无配置并发上限的模型"
+
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
 
@@ -3288,34 +3329,3 @@ msgstr "工具调用 (Function Calling)"
 
 #~ msgid "Without Prefix"
 #~ msgstr "不带前缀"
-
-
-msgid "Use the model name directly, same as shown in the model list:"
-msgstr "直接使用模型名即可，与模型目录和下方接口显示的一致："
-
-msgid "A plain model name auto-routes to an available provider. To pin a specific one, add the prefix:"
-msgstr "纯模型名会自动路由到可用供应商。如需锁定特定供应商，添加前缀："
-
-msgid "Install OpenCode from"
-msgstr "从"
-
-msgid ", then go to the OpenCode Config tab to get your configuration."
-msgstr "安装 OpenCode，然后到 OpenCode 配置标签页获取你的配置。"
-
-msgid "The Anthropic endpoint translates requests to OpenAI format internally. All models in your model list can be used — just pass the model name;"
-msgstr "Anthropic 接口内部会将请求转换为 OpenAI 格式。模型列表中的所有模型都可使用——直接传模型名即可；"
-
-msgid "also works to pin a specific provider."
-msgstr "同样可以锁定指定供应商。"
-
-msgid ": 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 50% 时开始压缩。"
-msgstr ": 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 50% 时开始压缩。"
-
-msgid ": summarize（摘要）/ truncate（截断）/ archive（归档）"
-msgstr ": summarize（摘要）/ truncate（截断）/ archive（归档）"
-
-msgid ": 压缩时保留最近 N 条消息不参与压缩（默认 10）"
-msgstr ": 压缩时保留最近 N 条消息不参与压缩（默认 10）"
-
-msgid ": 压缩时始终保留系统提示词（默认 true）"
-msgstr ": 压缩时始终保留系统提示词（默认 true）"

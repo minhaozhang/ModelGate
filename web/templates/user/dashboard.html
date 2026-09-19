@@ -441,6 +441,10 @@
         clearSavedApiKey: {{ _('Clear saved API Key?') | tojson }},
         active: {{ _('active') | tojson }},
         req: {{ _('req') | tojson }},
+        modelConcurrency: {{ _('Model Concurrency') | tojson }},
+        modelConcLive: {{ _('Real-time') | tojson }},
+        modelConcEmpty: {{ _('No models with concurrency limits') | tojson }},
+        modelDisabled: {{ _('disabled') | tojson }},
         err: {{ _('err') | tojson }},
         models: {{ _('models') | tojson }},
         providers: {{ _('providers') | tojson }},
@@ -2150,11 +2154,39 @@
                 document.getElementById('system-active-title').textContent = getDynamicActiveTitle(count);
                 document.getElementById('system-active-count').textContent = `${count} ${window.I18N.active} / ${(data.active_requests || 0).toLocaleString()} ${window.I18N.req}`;
             }
+            if (data.model_concurrency) {
+                renderModelConcurrency(data.model_concurrency);
+            }
             const disabledItems = Object.entries(data.disabled_providers || {})
                 .map(function(entry) { return { name: entry[0], reason: entry[1] }; });
             if (disabledItems.length) {
                 renderProviderStatusBanner({ disabled_providers: disabledItems });
             }
+        }
+        function renderModelConcurrency(map) {
+            const container = document.getElementById('model-concurrency-list');
+            if (!container) return;
+            const entries = Object.entries(map || {});
+            if (!entries.length) {
+                container.innerHTML = `<div class="w-full text-gray-400 text-center py-3">${window.I18N.modelConcEmpty}</div>`;
+                return;
+            }
+            entries.sort((a, b) => (b[1].in_use - a[1].in_use) || (b[1].limit - a[1].limit) || a[0].localeCompare(b[0]));
+            container.innerHTML = entries.map(([name, m]) => {
+                const limit = m.limit || 0;
+                const inUse = m.in_use || 0;
+                const pct = limit > 0 ? Math.min((inUse / limit) * 100, 100) : (inUse > 0 ? 100 : 0);
+                const barColor = limit === 0 ? '#ef4444' : pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
+                const badge = limit === 0 ? `<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600 shrink-0">${window.I18N.modelDisabled}</span>` : '';
+                return `<div class="bg-white rounded-lg p-3 shadow-sm">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="text-sm font-medium text-gray-700 truncate" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+                        ${badge}
+                        <span class="text-xs text-gray-500 ml-auto metric-value shrink-0">${inUse}/${limit}</span>
+                    </div>
+                    <div class="mt-2 h-1.5 bg-gray-200 rounded overflow-hidden"><div style="width:${pct}%;height:100%;background:${barColor};border-radius:9999px;transition:width .4s ease"></div></div>
+                </div>`;
+            }).join('');
         }
         function connectUserLiveWs() {
             const proto = location.protocol === 'https:' ? 'wss' : 'ws';

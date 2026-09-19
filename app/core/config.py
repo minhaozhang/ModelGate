@@ -504,12 +504,30 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
         for pname, pconf in providers_cache.items()
         if pconf.get("disabled_reason")
     }
+    disabled_providers = {
+        pname: pconf.get("disabled_reason")
+        for pname, pconf in providers_cache.items()
+        if pconf.get("disabled_reason")
+    }
+
+    from app.services.provider import _model_max_concurrent_by_name
+
+    model_concurrency = {}
+    for model_name, limit in _model_max_concurrent_by_name.items():
+        if limit is None:
+            continue
+        sem = standard_model_semaphores.get(f"stdmodel:{model_name}")
+        available = getattr(sem, "_value", None) if sem else None
+        in_use = max(limit - available, 0) if available is not None else 0
+        model_concurrency[model_name] = {"limit": limit, "in_use": in_use}
+
     return {
         "active_requests": active_requests_count,
         "active_users": active_users_count,
         "tokens_per_second": get_total_tokens_per_second(),
         "busyness": dict(busyness_state) if busyness_state else None,
         "disabled_providers": disabled_providers,
+        "model_concurrency": model_concurrency,
     }
 
 
