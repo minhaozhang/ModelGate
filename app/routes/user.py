@@ -1711,6 +1711,23 @@ async def user_dashboard(request: Request, api_key_id: int = Depends(get_user_se
         return HTMLResponse(content=html)
 
 
+@router.get("/user/stats-v2", response_class=HTMLResponse)
+async def user_stats_v2(request: Request, api_key_id: int = Depends(get_user_session)):
+    if not api_key_id:
+        return RedirectResponse(url=build_app_url(request, "/user/login"))
+
+    async with async_session_maker() as session:
+        result = await session.execute(select(ApiKey).where(ApiKey.id == api_key_id))
+        key = result.scalar_one_or_none()
+        if not key:
+            return RedirectResponse(url=build_app_url(request, "/user/login"))
+
+        html = render(
+            request, "user/stats_v2.html", name=key.name, api_key_id=api_key_id
+        )
+        return HTMLResponse(content=html)
+
+
 @router.get("/user/documents", response_class=HTMLResponse)
 async def user_documents_page(
     request: Request, api_key_id: int = Depends(get_user_session)

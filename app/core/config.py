@@ -8,7 +8,7 @@ from logging.handlers import RotatingFileHandler
 import sys
 from typing import Any, Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 
 os.makedirs("logs", exist_ok=True)
 
@@ -87,7 +87,7 @@ provider_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 provider_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 user_api_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 standard_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
-_model_requests_24h_cache: dict[str, Any] = {"counts": None, "at": 0.0}
+_model_requests_24h_cache: dict[str, Any] = {"counts": None, "series": None, "recent": None, "at": 0.0}
 
 DEFAULT_OUTBOUND_USER_AGENT = (
     "opencode/local ai-sdk/provider-utils/4.0.23 runtime/node.js/24"
@@ -546,22 +546,46 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
         }
 
     model_requests_24h: Optional[dict[str, int]] = None
+    model_hourly_24h: Optional[dict[str, list[int]]] = None
+    model_rate_per_min: Optional[dict[str, int]] = None
     global _model_requests_24h_cache
     now_ts = time.monotonic()
     if now_ts - _model_requests_24h_cache["at"] > 60:
         try:
             from app.core.database import RequestLog, async_session_maker
 
-            cutoff = datetime.now() - timedelta(hours=24)
+            now_dt = datetime.now()
+            cutoff = now_dt - timedelta(hours=24)
             async with async_session_maker() as session:
                 rows = await session.execute(
-                    select(RequestLog.model, func.count(RequestLog.id))
-                    .where(RequestLog.created_at >= cutoff)
-                    .group_by(RequestLog.model)
+                    select(RequestLog.model, RequestLog.created_at).where(
+                        RequestLog.created_at >= cutoff
+                    )
                 )
-                _model_requests_24h_cache["counts"] = {
-                    r[0]: int(r[1]) for r in rows.fetchall() if r[0]
-                }
+                counts: dict[str, int] = {}
+                series: dict[str, list[int]] = {}
+                for name, created_at in rows.fetchall():
+                    if not name:
+                        continue
+                    counts[name] = counts.get(name, 0) + 1
+                    buckets = series.setdefault(name, [0] * 24)
+                    idx = int((created_at - cutoff).total_seconds() // 3600)
+                    if 0 <= idx < 24:
+                        buckets[idx] += 1
+                _model_requests_24h_cache["counts"] = counts
+                _model_requests_24h_cache["series"] = series
+
+                recent_cutoff = now_dt - timedelta(seconds=60)
+                recent_rows = await session.execute(
+                    select(RequestLog.model).where(
+                        RequestLog.created_at >= recent_cutoff
+                    )
+                )
+                recent: dict[str, int] = {}
+                for (name,) in recent_rows.fetchall():
+                    if name:
+                        recent[name] = recent.get(name, 0) + 1
+                _model_requests_24h_cache["recent"] = recent
         except Exception:
             logging.getLogger(__name__).warning(
                 "model_requests_24h query failed", exc_info=True
@@ -569,6 +593,8 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
         _model_requests_24h_cache["at"] = now_ts
     if _model_requests_24h_cache["counts"] is not None:
         model_requests_24h = _model_requests_24h_cache["counts"]
+        model_hourly_24h = _model_requests_24h_cache.get("series")
+        model_rate_per_min = _model_requests_24h_cache.get("recent")
 
     return {
         "active_requests": active_requests_count,
@@ -578,6 +604,8 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
         "disabled_providers": disabled_providers,
         "model_concurrency": model_concurrency,
         "model_requests_24h": model_requests_24h,
+        "model_hourly_24h": model_hourly_24h,
+        "model_rate_per_min": model_rate_per_min,
     }
 
 

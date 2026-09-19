@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="{{ current_locale }}">
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css?v={{ css_version }}">
+    <link rel="stylesheet" href="/static/css/particle-bg.css?v={{ css_version }}">
+    <script src="/static/js/particle-bg.js?v={{ css_version }}"></script>
+    <script src="/static/js/particle-burst.js?v={{ css_version }}"></script>
+    <script src="/static/js/chart.min.js"></script>
+    <style>
+        body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+        .v2-card { background: #f9fafb; border-radius: 1rem; padding: 1.25rem; }
+        .v2-card h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+        .v2-card h3 .meta { font-size: 0.6875rem; color: #9ca3af; font-weight: 400; }
+        .v2-kpi { background: rgba(255,255,255,.7); border-radius: 1rem; padding: 0.875rem 1rem; }
+        .v2-kpi .lbl { font-size: 0.6875rem; color: #6b7280; font-weight: 500; }
+        .v2-kpi .val { font-size: 1.625rem; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+        .v2-kpi .vs { font-size: 0.6875rem; color: #9ca3af; margin-top: 2px; }
+        .v2-kpi .vs b { color: #6b7280; font-weight: 600; }
+        .v2-vsbar { height: 4px; border-radius: 2px; background: #e5e7eb; margin-top: 8px; overflow: hidden; }
+        .v2-vsbar i { display: block; height: 100%; border-radius: 2px; transition: width .6s ease; }
+        .v2-live { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #059669; background: #d1fae5; padding: 4px 12px; border-radius: 999px; font-weight: 600; }
+        .v2-live i { width: 7px; height: 7px; border-radius: 50%; background: #10b981; animation: v2pulse 1.6s infinite; }
+        @keyframes v2pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+        .v2-glow-amber { animation: v2glowA 1.8s ease-in-out infinite; border-color: #f59e0b !important; }
+        @keyframes v2glowA { 0%,100%{ box-shadow:0 0 0 0 rgba(245,158,11,0);} 50%{ box-shadow:0 0 14px 2px rgba(245,158,11,.45);} }
+        .v2-glow-red { animation: v2glowR 1.2s ease-in-out infinite; border-color: #ef4444 !important; }
+        @keyframes v2glowR { 0%,100%{ box-shadow:0 0 0 0 rgba(239,68,68,0);} 50%{ box-shadow:0 0 16px 3px rgba(239,68,68,.5);} }
+        .model-conc-card { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 8px 10px; width: 132px; display: flex; flex-direction: column; align-items: center; background: #ffffff; }
+        .mc-tick { stroke: #cbd5e1; }
+        .mc-hub { fill: #ffffff; stroke: #475569; stroke-width: 1; }
+        .mc-name { font-size: 12px; font-weight: 500; color: #4b5563; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .mc-rate { font-size: 10px; color: #6b7280; margin-top: 1px; }
+        .mc-rate b { color: #059669; }
+        .mc-bars { display: flex; align-items: flex-end; gap: 2px; height: 18px; margin-top: 4px; width: 100%; }
+        .mc-bars i { flex: 1; border-radius: 1px; min-height: 1px; opacity: .6; transition: height .6s ease; }
+        .mc-badge { font-size: 11px; color: #ef4444; margin-top: 2px; }
+        .ctl-select { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.375rem 0.625rem; font-size: 0.8125rem; background: #ffffff; color: #374151; }
+        .ctl-btn-ghost { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #4b5563; background: #ffffff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+        .ctl-btn-ghost:hover { background: #f9fafb; }
+        .ctl-btn-new { border: 1px solid #a5f3fc; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: 0.8125rem; font-weight: 600; color: #0e7490; background: #ecfeff; cursor: pointer; }
+        .ctl-btn-new:hover { background: #cffafe; }
+        .v2-reqrow { display: flex; justify-content: space-between; gap: 8px; font-size: 0.75rem; color: #4b5563; padding: 0.45rem 0; border-bottom: 1px solid #f3f4f6; align-items: center; }
+        .v2-reqrow .bar { height: 5px; border-radius: 3px; background: #e5e7eb; flex: 1; overflow: hidden; max-width: 140px; }
+        .v2-reqrow .bar i { display: block; height: 100%; border-radius: 3px; }
+        .v2-sess { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.75rem; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+        .v2-sess b { color: #2563eb; }
+        .v2-legend { display: flex; gap: 14px; font-size: 0.6875rem; color: #6b7280; }
+        .v2-legend b.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
+        body.theme-dark { background: #0b0d12; }
+        body.theme-dark .v2-card { background: rgba(235, 234, 250, 0.04); }
+        body.theme-dark .v2-kpi { background: rgba(235, 234, 250, 0.06); }
+        body.theme-dark .v2-kpi .lbl, body.theme-dark .mc-rate, body.theme-dark .v2-reqrow { color: #ededf8b8; }
+        body.theme-dark .v2-kpi .vs b, body.theme-dark .v2-kpi .vs { color: #ededf8b8; }
+        body.theme-dark .model-conc-card { background: rgba(235, 234, 250, 0.06); border-color: rgba(235, 234, 250, 0.14); }
+        body.theme-dark .mc-name { color: #ededf8; }
+        body.theme-dark .mc-tick { stroke: #4b5563; }
+        body.theme-dark .mc-track { stroke: rgba(235, 234, 250, 0.14); }
+        body.theme-dark .mc-needle-tail { stroke: #8b8fa8; }
+        body.theme-dark .mc-hub { fill: #1a1d26; stroke: #8b8fa8; }
+        body.theme-dark .v2-sess { background: rgba(235, 234, 250, 0.06); border-color: rgba(235, 234, 250, 0.14); color: #ededf8; }
+        body.theme-dark .ctl-select, body.theme-dark .ctl-btn-ghost { background: rgba(235, 234, 250, 0.06); color: #ededf8; border-color: rgba(235, 234, 250, 0.14); }
+        body.theme-dark .ctl-btn-new { background: rgba(6, 182, 212, 0.12); color: #67e8f9; border-color: rgba(6, 182, 212, 0.3); }
+        body.theme-blackgold { background: #14110c; }
+        body.theme-blackgold .v2-card { background: rgba(212, 168, 83, 0.05); }
+        body.theme-blackgold .v2-kpi { background: rgba(212, 168, 83, 0.07); }
+        body.theme-blackgold .v2-kpi .lbl, body.theme-blackgold .mc-rate, body.theme-blackgold .v2-reqrow { color: #c9b896; }
+        body.theme-blackgold .model-conc-card { background: rgba(212, 168, 83, 0.07); border-color: rgba(212, 168, 83, 0.22); }
+        body.theme-blackgold .mc-name { color: #fafaf9; }
+        body.theme-blackgold .mc-track { stroke: rgba(212, 168, 83, 0.2); }
+        body.theme-blackgold .mc-needle-tail { stroke: #d4a853; }
+        body.theme-blackgold .mc-hub { fill: #1a1712; stroke: #d4a853; }
+        body.theme-blackgold .v2-sess { background: rgba(212, 168, 83, 0.07); border-color: rgba(212, 168, 83, 0.22); color: #fafaf9; }
+        body.theme-blackgold .ctl-select, body.theme-blackgold .ctl-btn-ghost { background: rgba(212, 168, 83, 0.07); color: #fafaf9; border-color: rgba(212, 168, 83, 0.22); }
+        body.theme-blackgold .ctl-btn-new { background: rgba(212, 168, 83, 0.12); color: #e7c67c; border-color: rgba(212, 168, 83, 0.35); }
+    </style>
+    <script>
+        const APP_BASE_PATH = {{ app_base_path | tojson }};
+        function getThemeMode() {
+            try { return localStorage.getItem('dashboard_theme') || 'light'; } catch (e) { return 'light'; }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
+            <div>
+                <h1 class="text-2xl font-semibold tracking-tight text-gray-800">{{ _('Statistics Monitor') }} <span style="font-size:0.6em;color:#06b6d4;vertical-align:super">NEW</span></h1>
+                <p class="mt-0.5 text-sm text-gray-500">{{ name }}</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <select id="period-select" onchange="loadStats()" class="ctl-select">
+                    <option value="day">{{ _('Today') }}</option>
+                    <option value="week">{{ _('This Week') }}</option>
+                    <option value="month">{{ _('This Month') }}</option>
+                </select>
+                <select id="theme-toggle" onchange="applyTheme(this.value)" class="ctl-select cursor-pointer">
+                    <option value="light">{{ _('Light Mode') }}</option>
+                    <option value="dark">{{ _('Dark Mode') }}</option>
+                    <option value="blackgold">{{ _('Black Gold') }}</option>
+                </select>
+                <a href="{{ app_base_path }}/user/dashboard" class="ctl-btn-ghost">&larr; {{ _('Back to Classic') }}</a>
+            </div>
+        </div>
+
+        <div class="v2-card mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div class="v2-kpi">
+                    <div class="lbl">{{ _('Total Requests') }} · {{ _('Personal') }}/{{ _('System') }}</div>
+                    <div class="val" style="color:#2563eb" id="v2-total-requests">-</div>
+                    <div class="vs">{{ _('System') }} <b id="v2-sys-requests">-</b></div>
+                    <div class="v2-vsbar"><i id="v2-bar-requests" style="width:0%;background:#2563eb"></i></div>
+                </div>
+                <div class="v2-kpi">
+                    <div class="lbl">{{ _('Total Tokens') }}</div>
+                    <div class="val" style="color:#059669;font-size:1.25rem" id="v2-total-tokens">-</div>
+                    <div class="vs">{{ _('System') }} <b id="v2-sys-tokens">-</b></div>
+                    <div class="v2-vsbar"><i id="v2-bar-tokens" style="width:0%;background:#059669"></i></div>
+                </div>
+                <div class="v2-kpi">
+                    <div class="lbl">{{ _('Errors') }} · {{ _('Personal') }}</div>
+                    <div class="val" style="color:#dc2626" id="v2-errors">-</div>
+                    <div class="vs">&nbsp;</div>
+                </div>
+                <div class="v2-kpi">
+                    <div class="lbl">{{ _('Est. Cost') }}</div>
+                    <div class="val" style="color:#d97706" id="v2-cost">-</div>
+                    <div class="vs">&nbsp;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="v2-card mb-6">
+            <h3>{{ _('Model Concurrency') }}
+                <span class="flex items-center gap-3">
+                    <span class="v2-live"><i></i><span id="v2-live-text">-</span></span>
+                    <span class="meta">{{ _('Real-time') }}</span>
+                </span>
+            </h3>
+            <div id="model-concurrency-list" class="flex flex-wrap gap-2" style="justify-content: space-evenly">
+                <div class="text-gray-400 text-center py-3 w-full">{{ _('Loading...') }}</div>
+            </div>
+        </div>
+
+        <div class="v2-card mb-6">
+            <h3>{{ _('Request Trend') }} <span class="meta">{{ _('Personal') }} / {{ _('System') }}</span></h3>
+            <div style="height: 260px;"><canvas id="v2-trend-chart"></canvas></div>
+            <div class="v2-legend mt-2">
+                <span><b class="sw" style="background:#3b82f6"></b>{{ _('Personal') }}</span>
+                <span><b class="sw" style="background:#9ca3af"></b>{{ _('System') }}</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+            <div class="v2-card">
+                <h3>{{ _('Model Usage') }} <span class="meta">{{ _('Personal') }} / {{ _('System') }}</span></h3>
+                <div id="v2-model-usage"><div class="text-gray-400 text-center py-3">{{ _('Loading...') }}</div></div>
+            </div>
+            <div class="v2-card">
+                <h3 id="v2-sessions-title">{{ _('System Active Requests') }} <span class="meta">{{ _('Real-time') }}</span></h3>
+                <div id="v2-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-2"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
+            </div>
+        </div>
+    </div>
+
+{% raw %}
+    <script>
+        window.I18N = {
+            unauthorized: 'Unauthorized',
+            loading: document.querySelector('html').getAttribute('lang') === 'zh' ? '加载中...' : 'Loading...',
+            noData: document.querySelector('html').getAttribute('lang') === 'zh' ? '暂无数据' : 'No data',
+            noModels: document.querySelector('html').getAttribute('lang') === 'zh' ? '暂无模型' : 'No models',
+            req: 'req',
+            active: document.querySelector('html').getAttribute('lang') === 'zh' ? '并发' : 'active',
+            concPerMin: 'req/min',
+            modelConcEmpty: document.querySelector('html').getAttribute('lang') === 'zh' ? '暂无配置并发上限的模型' : 'No models with concurrency limits'
+        };
+        const lang = document.querySelector('html').getAttribute('lang');
+        const T = (zh, en) => lang === 'zh' ? zh : en;
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        function applyTheme(mode) {
+            document.body.classList.remove('theme-dark', 'theme-blackgold');
+            if (mode === 'dark') document.body.classList.add('theme-dark');
+            else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
+            localStorage.setItem('dashboard_theme', mode);
+            document.getElementById('theme-toggle').value = mode;
+            if (window.ParticleBG) ParticleBG.setTheme(mode);
+            if (v2TrendChart) { v2TrendChart.destroy(); v2TrendChart = null; renderV2Trend(); }
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = `${APP_BASE_PATH}/user/login`;
+                throw new Error(window.I18N.unauthorized);
+            }
+            return await resp.json();
+        }
+        function formatCompactTokens(tokens) {
+            if (tokens >= 1e9) return (tokens / 1e9).toFixed(2) + 'B';
+            if (tokens >= 1e6) return (tokens / 1e6).toFixed(2) + 'M';
+            if (tokens >= 1e3) return (tokens / 1e3).toFixed(1) + 'K';
+            return String(Math.round(tokens || 0));
+        }
+        function setBar(id, mine, sys) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const pct = sys > 0 ? Math.min(mine / sys * 100, 100) : (mine > 0 ? 100 : 0);
+            el.style.width = pct.toFixed(1) + '%';
+        }
+
+        let v2TrendChart = null;
+        let _v2TrendData = {};
+        let _v2SystemTrendData = {};
+        let _v2PersonalModels = {};
+        let _v2SystemModels = {};
+
+        async function loadStats() {
+            const period = document.getElementById('period-select').value;
+            const [data, systemModels] = await Promise.all([
+                fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/stats?period=' + period),
+                fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-models?period=' + period)
+            ]);
+            const myReq = data.total_requests || 0;
+            const sysReq = systemModels.total_requests || 0;
+            document.getElementById('v2-total-requests').textContent = myReq.toLocaleString();
+            document.getElementById('v2-sys-requests').textContent = sysReq.toLocaleString();
+            setBar('v2-bar-requests', myReq, sysReq);
+
+            const myTok = (data.total_prompt_tokens || 0) + (data.total_completion_tokens || 0);
+            const sysTok = (systemModels.total_tokens || 0);
+            document.getElementById('v2-total-tokens').textContent = '↑' + formatCompactTokens(data.total_prompt_tokens || 0) + ' / ↓' + formatCompactTokens(data.total_completion_tokens || 0);
+            document.getElementById('v2-sys-tokens').textContent = '↑' + formatCompactTokens(systemModels.total_prompt_tokens || 0) + ' / ↓' + formatCompactTokens(systemModels.total_completion_tokens || 0);
+            setBar('v2-bar-tokens', myTok, sysTok);
+
+            document.getElementById('v2-errors').textContent = (data.total_errors || 0).toLocaleString();
+            const cost = data.estimated_cost || 0;
+            document.getElementById('v2-cost').textContent = cost > 0 ? '¥' + (cost >= 1 ? cost.toFixed(2) : cost.toFixed(4)) : '-';
+
+            _v2TrendData = data.trend || {};
+            _v2SystemTrendData = systemModels.trend || {};
+            _v2PersonalModels = data.models || {};
+            _v2SystemModels = systemModels.models || {};
+            renderV2Trend();
+            renderV2ModelUsage();
+        }
+
+        function renderV2Trend() {
+            const canvas = document.getElementById('v2-trend-chart');
+            if (!canvas) return;
+            const labels = Object.keys(_v2TrendData).length ? Object.keys(_v2TrendData) : Object.keys(_v2SystemTrendData);
+            const mine = labels.map(l => (_v2TrendData[l] || {}).requests || 0);
+            const sys = labels.map(l => (_v2SystemTrendData[l] || {}).requests || 0);
+            const dark = document.body.classList.contains('theme-dark') || document.body.classList.contains('theme-blackgold');
+            const gridColor = dark ? 'rgba(235,234,250,0.08)' : 'rgba(15,23,42,0.06)';
+            const textColor = dark ? '#ededf8b8' : '#6b7280';
+            if (v2TrendChart) v2TrendChart.destroy();
+            v2TrendChart = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: T('我的', 'Mine'), data: mine, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.12)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 0, yAxisID: 'yMine' },
+                        { label: T('全站', 'System'), data: sys, borderColor: '#9ca3af', borderDash: [6, 4], fill: false, tension: 0.35, borderWidth: 2, pointRadius: 0, yAxisID: 'ySys' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: gridColor }, ticks: { color: textColor, maxTicksLimit: 12 } },
+                        yMine: { position: 'left', grid: { color: gridColor }, ticks: { color: textColor }, beginAtZero: true },
+                        ySys: { position: 'right', grid: { drawOnChartArea: false }, ticks: { color: textColor }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function renderV2ModelUsage() {
+            const el = document.getElementById('v2-model-usage');
+            if (!el) return;
+            const palette = ['#2563eb', '#0f766e', '#0891b2', '#1d4ed8', '#059669', '#0ea5e9', '#14b8a6', '#0284c7'];
+            const names = [...new Set([...Object.keys(_v2PersonalModels), ...Object.keys(_v2SystemModels)])];
+            const rows = names.map(name => ({
+                name,
+                mine: (_v2PersonalModels[name] || {}).requests || 0,
+                sys: (_v2SystemModels[name] || {}).requests || 0
+            })).sort((a, b) => (b.mine - a.mine) || (b.sys - a.sys));
+            if (!rows.length) { el.innerHTML = `<div class="text-gray-400 text-center py-3">${window.I18N.noData}</div>`; return; }
+            const myTotal = rows.reduce((s, r) => s + r.mine, 0) || 1;
+            const sysTotal = rows.reduce((s, r) => s + r.sys, 0) || 1;
+            el.innerHTML = rows.slice(0, 12).map((r, i) => {
+                const myPct = (r.mine / myTotal * 100);
+                const sysPct = (r.sys / sysTotal * 100);
+                const color = palette[i % palette.length];
+                return `<div class="v2-reqrow">
+                    <span style="max-width:35%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</span>
+                    <span class="bar"><i style="width:${myPct.toFixed(1)}%;background:${color}"></i></span>
+                    <span style="white-space:nowrap"><b>${r.mine.toLocaleString()}</b> · ${T('我', 'me')} ${myPct.toFixed(0)}% / ${T('全站', 'sys')} ${sysPct.toFixed(0)}%</span>
+                </div>`;
+            }).join('');
+        }
+
+        const _modelConcCards = new Map();
+        const _MC_ARC_D = 'M 6 32 A 26 26 0 0 1 58 32';
+        const _MC_ARC_LEN = 81.68;
+        const _MC_PALETTE = ['#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#10b981', '#14b8a6', '#6366f1'];
+        function _mcModelColor(name) {
+            let h = 5381;
+            for (let i = 0; i < name.length; i++) h = ((h << 5) + h + name.charCodeAt(i)) >>> 0;
+            return _MC_PALETTE[h % _MC_PALETTE.length];
+        }
+        function buildModelConcGauge(name) {
+            const baseColor = _mcModelColor(name);
+            const root = document.createElement('div');
+            root.dataset.mcName = name;
+            root.className = 'model-conc-card flex flex-col items-center';
+            root.innerHTML = `
+                <svg viewBox="0 0 64 40" style="width:100%;max-width:96px" class="select-none" aria-hidden="true">
+                    <path class="mc-track" d="${_MC_ARC_D}" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+                    <line class="mc-tick" x1="7" y1="32" x2="10" y2="32" stroke-width="1"/>
+                    <line class="mc-tick" x1="32" y1="7" x2="32" y2="10" stroke-width="1"/>
+                    <line class="mc-tick" x1="54" y1="32" x2="57" y2="32" stroke-width="1"/>
+                    <path class="mc-value" d="${_MC_ARC_D}" fill="none" stroke="${baseColor}" stroke-width="2" stroke-linecap="round" stroke-dasharray="${_MC_ARC_LEN}" stroke-dashoffset="${_MC_ARC_LEN}"/>
+                    <g class="mc-needle" style="transform-origin:32px 32px;transform:rotate(-90deg)">
+                        <path class="mc-needle-shape" d="M 31.2 30.5 L 32 10.5 L 32.8 30.5 Z" fill="${baseColor}"/>
+                        <line class="mc-needle-tail" x1="32" y1="33" x2="32" y2="37.5" stroke-width="2" stroke-linecap="round"/>
+                    </g>
+                    <circle class="mc-hub" cx="32" cy="32" r="2.6"/>
+                    <circle class="mc-hub-dot" cx="32" cy="32" r="1" fill="${baseColor}"/>
+                </svg>
+                <div class="mc-name w-full text-center" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+                <div class="leading-none font-mono"><span class="mc-in text-sm font-semibold" style="color:${baseColor};font-size:14px;font-weight:700">0</span><span class="mc-eff" style="color:#9ca3af;font-size:11px">/0</span></div>
+                <div class="mc-rate"><b>0</b> ${window.I18N.concPerMin}</div>
+                <div class="mc-bars"></div>`;
+            return {
+                root,
+                baseColor,
+                valuePath: root.querySelector('.mc-value'),
+                needle: root.querySelector('.mc-needle'),
+                needleShape: root.querySelector('.mc-needle-shape'),
+                hubDot: root.querySelector('.mc-hub-dot'),
+                inEl: root.querySelector('.mc-in'),
+                effEl: root.querySelector('.mc-eff'),
+                rateEl: root.querySelector('.mc-rate b'),
+                barsEl: root.querySelector('.mc-bars'),
+                curPct: 0,
+                tgtPct: 0
+            };
+        }
+        let _mcAnimTimer = 0;
+        function _mcApplyPct(card, pct) {
+            card.valuePath.style.strokeDashoffset = (_MC_ARC_LEN * (1 - pct)).toFixed(2);
+            card.needle.style.transform = `rotate(${(-90 + 180 * pct).toFixed(1)}deg)`;
+        }
+        function _mcAnimTick() {
+            let any = false;
+            for (const card of _modelConcCards.values()) {
+                const t = card.tgtPct || 0;
+                const c = card.curPct || 0;
+                const d = t - c;
+                if (Math.abs(d) < 0.0015) {
+                    if (c !== t) { _mcApplyPct(card, t); card.curPct = t; }
+                    continue;
+                }
+                card.curPct = c + d * 0.14;
+                _mcApplyPct(card, card.curPct);
+                any = true;
+            }
+            _mcAnimTimer = any ? requestAnimationFrame(_mcAnimTick) : 0;
+        }
+        function _mcStartAnim() {
+            if (!_mcAnimTimer) _mcAnimTimer = requestAnimationFrame(_mcAnimTick);
+        }
+        function updateModelConcGauge(card, m, extras) {
+            const limit = m.limit || 0;
+            const eff = typeof m.effective === 'number' ? m.effective : limit;
+            const inUse = m.in_use || 0;
+            const pct = eff > 0 ? Math.min(inUse / eff, 1) : (inUse > 0 ? 1 : 0);
+            card.tgtPct = pct;
+            _mcStartAnim();
+            let color = card.baseColor;
+            if (eff === 0) color = inUse > 0 ? '#ef4444' : '#9ca3af';
+            else if (pct >= 0.95) color = '#ef4444';
+            else if (pct > 0.8) color = '#f59e0b';
+            card.valuePath.style.stroke = color;
+            card.needleShape.setAttribute('fill', color);
+            card.hubDot.setAttribute('fill', color);
+            card.inEl.style.color = color;
+            card.inEl.textContent = inUse;
+            card.effEl.textContent = '/' + eff;
+            if (card.rateEl) card.rateEl.textContent = (extras && extras.rate != null) ? extras.rate : 0;
+            if (card.barsEl && extras && extras.series) {
+                const s = extras.series;
+                const max = Math.max(...s, 1);
+                if (card.barsEl.childElementCount !== s.length) {
+                    card.barsEl.innerHTML = s.map(() => '<i></i>').join('');
+                }
+                [...card.barsEl.children].forEach((bar, i) => {
+                    bar.style.height = Math.max((s[i] || 0) / max * 100, (s[i] || 0) > 0 ? 8 : 2) + '%';
+                    bar.style.background = color;
+                });
+            }
+            card.root.classList.toggle('v2-glow-red', pct >= 0.95 && eff > 0);
+            card.root.classList.toggle('v2-glow-amber', pct > 0.8 && pct < 0.95 && eff > 0);
+        }
+        function renderModelConcurrency(map, counts24h, series24h, ratesPerMin) {
+            const container = document.getElementById('model-concurrency-list');
+            if (!container) return;
+            const entries = Object.entries(map || {});
+            const countsKnown = counts24h && typeof counts24h === 'object';
+            const countOf = name => (countsKnown ? (counts24h[name] || 0) : 0);
+            const visible = entries.filter(([name, m]) => {
+                const inUse = m.in_use || 0;
+                if (countsKnown && countOf(name) === 0 && inUse === 0) {
+                    return false;
+                }
+                return true;
+            });
+            visible.sort((a, b) => (countOf(b[0]) - countOf(a[0])) || (b[1].in_use - a[1].in_use) || (b[1].limit - a[1].limit) || a[0].localeCompare(b[0]));
+            if (!visible.length) {
+                container.innerHTML = `<div class="w-full text-gray-400 text-center py-3">${window.I18N.modelConcEmpty}</div>`;
+                _modelConcCards.clear();
+                return;
+            }
+            const seen = new Set(visible.map(e => e[0]));
+            for (const [name, card] of _modelConcCards) {
+                if (!seen.has(name)) {
+                    card.root.remove();
+                    _modelConcCards.delete(name);
+                }
+            }
+            visible.forEach(([name, m]) => {
+                let card = _modelConcCards.get(name);
+                if (!card) {
+                    card = buildModelConcGauge(name);
+                    _modelConcCards.set(name, card);
+                }
+                updateModelConcGauge(card, m, {
+                    rate: ratesPerMin ? (ratesPerMin[name] || 0) : 0,
+                    series: series24h ? series24h[name] : null
+                });
+            });
+            const orderWant = visible.map(e => e[0]);
+            const children = [...container.children];
+            const orderNow = children.map(el => el.dataset.mcName).filter(Boolean);
+            if (orderNow.join('|') !== orderWant.join('|') || orderNow.length !== children.length) {
+                container.innerHTML = '';
+                orderWant.forEach(n => container.appendChild(_modelConcCards.get(n).root));
+            }
+        }
+
+        let _modelConcRenderTimer = null;
+        let _modelConcPendingData = null;
+        function scheduleModelConcurrencyRender(map, counts, series, rates) {
+            _modelConcPendingData = { map: map, counts: counts, series: series, rates: rates };
+            if (_modelConcRenderTimer) return;
+            _modelConcRenderTimer = setTimeout(() => {
+                _modelConcRenderTimer = null;
+                if (_modelConcPendingData) {
+                    renderModelConcurrency(_modelConcPendingData.map, _modelConcPendingData.counts, _modelConcPendingData.series, _modelConcPendingData.rates);
+                }
+            }, 500);
+        }
+
+        function renderV2Sessions(data) {
+            const el = document.getElementById('v2-sessions');
+            if (!el) return;
+            const sessions = data.sessions || [];
+            if (!sessions.length) {
+                el.innerHTML = `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${T('现在很安静', 'So empty...')}</div>`;
+                return;
+            }
+            el.innerHTML = sessions.map(session => {
+                const modelsHtml = Object.entries(session.models || {})
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([model, count]) => `<span class="text-xs px-1">${escapeHtml(model)}(${count})</span>`)
+                    .join('');
+                return `<div class="v2-sess">
+                    <span style="${session.is_self ? 'font-weight:600;color:#2563eb' : ''}">${escapeHtml(session.name)}</span>
+                    <span><b>${session.requests}</b> ${window.I18N.active} · <span style="color:#6b7280">${modelsHtml || window.I18N.noModels}</span></span>
+                </div>`;
+            }).join('');
+        }
+        async function loadSessions() {
+            try {
+                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-active');
+                renderV2Sessions(data);
+            } catch (e) {}
+        }
+
+        let userLiveWs = null;
+        function applyUserLive(data) {
+            if (!data) return;
+            if (typeof data.active_users === 'number') {
+                document.getElementById('v2-live-text').textContent =
+                    `${data.active_users} ${window.I18N.active} / ${(data.active_requests || 0).toLocaleString()} ${window.I18N.req}`;
+            }
+            if (data.model_concurrency) {
+                scheduleModelConcurrencyRender(data.model_concurrency, data.model_requests_24h, data.model_hourly_24h, data.model_rate_per_min);
+            }
+        }
+        function connectUserLiveWs() {
+            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            try {
+                userLiveWs = new WebSocket(`${proto}://${location.host}${APP_BASE_PATH}/user/api/live`);
+            } catch (e) {
+                setTimeout(connectUserLiveWs, 15000);
+                return;
+            }
+            userLiveWs.onmessage = (ev) => {
+                let d;
+                try { d = JSON.parse(ev.data); } catch (e) { return; }
+                applyUserLive(d);
+            };
+            userLiveWs.onclose = () => setTimeout(connectUserLiveWs, 15000);
+            userLiveWs.onerror = () => { try { userLiveWs.close(); } catch (e) {} };
+        }
+
+        applyTheme(getThemeMode());
+        loadStats();
+        loadSessions();
+        setInterval(loadSessions, 15000);
+        connectUserLiveWs();
+    </script>
+{% endraw %}
+</body>
+</html>
