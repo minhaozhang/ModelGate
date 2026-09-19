@@ -187,13 +187,14 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-            <div class="v2-card flex flex-col max-h-[22rem]">
-                <h3 class="shrink-0">{{ _('My Requests') }}
-                    <button onclick="openMyRequestsModal()" class="text-xs text-blue-600 hover:underline">{{ _('View All') }} &rarr;</button>
-                </h3>
-                <div id="my-requests-list" class="flex-1 min-h-0 overflow-hidden"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
-            </div>
+        <div class="v2-card mb-6 flex flex-col" style="max-height:24rem">
+            <h3 class="shrink-0">{{ _('My Requests') }}
+                <button onclick="openMyRequestsModal()" class="text-xs text-blue-600 hover:underline">{{ _('View All') }} &rarr;</button>
+            </h3>
+            <div id="my-requests-list" class="flex-1 min-h-0 overflow-hidden grid grid-cols-1 xl:grid-cols-2 gap-x-4 gap-y-1.5"><div class="text-gray-400 text-center py-2 xl:col-span-2">{{ _('Loading...') }}</div></div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
             <div class="v2-card">
                 <h3>{{ _('Model Usage') }} <span class="meta">{{ _('Personal') }} / {{ _('System') }}</span></h3>
                 <div id="v2-model-usage"><div class="text-gray-400 text-center py-3">{{ _('Loading...') }}</div></div>
@@ -560,7 +561,7 @@
         let userLiveWs = null;
 
         async function loadMyRequests() {
-            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active?limit=7');
+            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active?limit=13');
             const list = data.requests || [];
             const el = document.getElementById('my-requests-list');
             if (!el) return;
