@@ -60,12 +60,6 @@ TASK_REGISTRY = {
         "default_cron": "*/10 * * * *",
         "func": compute_busyness_level,
     },
-    "daily_recommendation_analysis": {
-        "name": "每日推荐分析",
-        "description": "基于7天使用统计计算模型推荐排行并缓存到数据库",
-        "default_cron": "0 8 * * *",
-        "func": None,
-    },
     "backup_request_contents": {
         "name": "请求内容备份",
         "description": "导出前一天request_contents到gzip文件并清理数据库",
@@ -227,11 +221,6 @@ async def _task_busyness():
     await _run_task_with_logging("compute_busyness_level", None, summary)
 
 
-async def _task_recommendation():
-    from app.routes.user import scheduled_daily_recommendation_analysis
-    await _run_task_with_logging("daily_recommendation_analysis", scheduled_daily_recommendation_analysis)
-
-
 async def _task_backup_contents():
     result = await backup_request_contents()
     summary = f"date={result.get('date')}, exported={result.get('exported', 0)}, deleted={result.get('deleted', 0)}, file={result.get('file_size_mb', 0)}MB"
@@ -251,7 +240,6 @@ TASK_HANDLERS = {
     "cleanup_stale_pending": _task_cleanup,
     "auto_reenable_disabled": _task_auto_reenable,
     "compute_busyness_level": _task_busyness,
-    "daily_recommendation_analysis": _task_recommendation,
     "backup_request_contents": _task_backup_contents,
     "glm_health_check": _task_glm_health_check,
 }

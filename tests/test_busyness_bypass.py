@@ -26,33 +26,6 @@ def make_request(method: str = "GET", path: str = "/") -> Request:
     )
 
 
-class _FetchAllResult:
-    def __init__(self, rows):
-        self.rows = rows
-
-    def fetchall(self):
-        return self.rows
-
-
-class _FakeRecommendationSession:
-    def __init__(self, results):
-        self.results = list(results)
-
-    async def execute(self, _statement):
-        return self.results.pop(0)
-
-
-class _FakeRecommendationSessionContext:
-    def __init__(self, results):
-        self.results = results
-
-    async def __aenter__(self):
-        return _FakeRecommendationSession(self.results)
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-
 class BusynessBypassProxyTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.original_busyness_state = dict(config.busyness_state)
@@ -107,82 +80,6 @@ class BusynessBypassProxyTests(unittest.IsolatedAsyncioTestCase):
         provider_mock.assert_awaited_once()
         self.assertEqual(response.status_code, 400)
         self.assertNotIn("busyness_block", response.body.decode("utf-8"))
-
-
-class BusynessBypassRecommendationTests(unittest.IsolatedAsyncioTestCase):
-    def setUp(self):
-        self.original_busyness_state = dict(config.busyness_state)
-        self.original_api_keys_cache = dict(config.api_keys_cache)
-        self.original_providers_cache = dict(config.providers_cache)
-        self.original_recommendations_cache = dict(user_routes.USER_RECOMMENDATIONS_CACHE)
-        config.busyness_state.clear()
-        config.api_keys_cache.clear()
-        config.providers_cache.clear()
-        user_routes.USER_RECOMMENDATIONS_CACHE.clear()
-
-    def tearDown(self):
-        config.busyness_state.clear()
-        config.busyness_state.update(self.original_busyness_state)
-        config.api_keys_cache.clear()
-        config.api_keys_cache.update(self.original_api_keys_cache)
-        config.providers_cache.clear()
-        config.providers_cache.update(self.original_providers_cache)
-        user_routes.USER_RECOMMENDATIONS_CACHE.clear()
-        user_routes.USER_RECOMMENDATIONS_CACHE.update(self.original_recommendations_cache)
-
-    async def test_recommendations_cache_is_scoped_by_bypass_visibility(self):
-        config.busyness_state.update({"level": 6, "label": "Quiet"})
-        config.api_keys_cache.update(
-            {
-                "regular-key": {"id": 1, "bypass_busyness": False},
-                "bypass-key": {"id": 2, "bypass_busyness": True},
-            }
-        )
-        config.providers_cache["openai"] = {
-            "id": 10,
-            "name": "openai",
-            "disabled_reason": None,
-            "models": [
-                {
-                    "actual_model_name": "gpt-expensive",
-                    "max_busyness_level": 3,
-                }
-            ],
-        }
-        row = SimpleNamespace(
-            provider_id=10,
-            model="gpt-expensive",
-            requests=25,
-            avg_latency_ms=100,
-            errors=0,
-        )
-
-        def session_factory():
-            return _FakeRecommendationSessionContext(
-                [
-                    _FetchAllResult([row]),
-                    _FetchAllResult([("gpt-expensive", "Expensive")]),
-                ]
-            )
-
-        with (
-            patch("app.routes.user.async_session_maker", side_effect=session_factory),
-            patch(
-                "app.routes.user._get_user_allowed_model_names",
-                new=AsyncMock(return_value=None),
-            ),
-            patch("app.services.analysis_store.get_analysis_record", new=AsyncMock(return_value=None)),
-            patch("app.routes.user.get_local_now", return_value=datetime(2026, 4, 27, 10, 0, 0)),
-        ):
-            regular = await user_routes.get_user_recommendations(
-                make_request(), api_key_id=1, period="day"
-            )
-            bypass = await user_routes.get_user_recommendations(
-                make_request(), api_key_id=2, period="day"
-            )
-
-        self.assertEqual(regular["items"], [])
-        self.assertEqual(bypass["items"][0]["model"], "openai/gpt-expensive")
 
 
 if __name__ == "__main__":

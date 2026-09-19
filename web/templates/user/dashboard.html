@@ -153,11 +153,7 @@
             color: #c7d2fe !important;
             border: 1px solid rgba(235, 234, 250, 0.14);
         }
-        body.theme-dark #recommendation-meta {
-            color: #ededf8b8 !important;
-        }
-        #model-concurrency-list .mc-track { stroke: #e5e7eb; }
-        #model-concurrency-list .mc-tick { stroke: #cbd5e1; }
+        #model-concurrency-list .mc-track { stroke: #e5e7eb; }        #model-concurrency-list .mc-tick { stroke: #cbd5e1; }
         #model-concurrency-list .mc-needle-tail { stroke: #475569; }
         #model-concurrency-list .mc-hub { fill: #475569; }
         #model-concurrency-list .mc-value { transition: stroke-dashoffset .6s ease, stroke .3s ease; }
@@ -177,23 +173,6 @@
         body.theme-blackgold #model-concurrency-list .mc-name { color: #c9b896 !important; }
         body.theme-blackgold #model-concurrency-list .mc-eff { color: #c9b89673 !important; }
         body.theme-blackgold #model-concurrency-list .model-conc-card { border-color: rgba(212, 168, 83, 0.22) !important; }
-        body.theme-dark #recommendation-analysis-meta {
-            color: #a5b4fc !important;
-        }
-        body.theme-dark #recommendation-list > div {
-            color: #ededf8;
-        }
-        body.theme-dark #recommendation-list .text-gray-400 {
-            color: #ededf8b8 !important;
-        }
-        body.theme-dark #recommendation-list .text-slate-700 {
-            color: #ededf8 !important;
-        }
-        body.theme-dark #recommendation-timing-advice {
-            color: #ededf8b8 !important;
-            background: rgba(235, 234, 250, 0.06) !important;
-            border-color: rgba(235, 234, 250, 0.14) !important;
-        }
         body.theme-dark pre {
             border: 1px solid rgba(235, 234, 250, 0.14);
             box-shadow: inset 0 1px 0 rgba(235, 234, 250, 0.06);
@@ -315,26 +294,6 @@
             background: rgba(212, 168, 83, 0.08) !important;
             color: #d4a853 !important;
             border: 1px solid rgba(212, 168, 83, 0.22);
-        }
-        body.theme-blackgold #recommendation-meta {
-            color: #c9b896 !important;
-        }
-        body.theme-blackgold #recommendation-analysis-meta {
-            color: #d4a853 !important;
-        }
-        body.theme-blackgold #recommendation-list > div {
-            color: #fafaf9;
-        }
-        body.theme-blackgold #recommendation-list .text-gray-400 {
-            color: #c9b896 !important;
-        }
-        body.theme-blackgold #recommendation-list .text-slate-700 {
-            color: #fafaf9 !important;
-        }
-        body.theme-blackgold #recommendation-timing-advice {
-            color: #c9b896 !important;
-            background: rgba(212, 168, 83, 0.06) !important;
-            border-color: rgba(212, 168, 83, 0.22) !important;
         }
         body.theme-blackgold pre {
             border: 1px solid rgba(212, 168, 83, 0.25);
@@ -496,8 +455,6 @@
         last30d: {{ _('Last 30d') | tojson }},
         last90d: {{ _('Last 90d') | tojson }},
         allTime: {{ _('All Time') | tojson }},
-        recommendedModels: {{ _('Recommended Models') | tojson }},
-        recommendationScore: {{ _('Recommendation score') | tojson }},
         avgLatency: {{ _('Avg latency') | tojson }},
         errorRate: {{ _('Error rate') | tojson }},
         systemHealth: {{ _('System Health') | tojson }},
@@ -512,13 +469,6 @@
         healthDegraded: {{ _('Degraded') | tojson }},
         healthIdle: {{ _('Idle') | tojson }},
         rankedByStability: {{ _('Ranked by stability, response time, and sample size') | tojson }},
-        basedOnCurrentPeriod: {{ _('Based on the current period and accessible models') | tojson }},
-        noRecommendations: {{ _('No recommendation data yet') | tojson }},
-        loadingRecommendations: {{ _('Loading recommendations...') | tojson }},
-        analyzingBestTimeWindows: {{ _('Analyzing the best daily time windows...') | tojson }},
-        modelUsed: {{ _('Model Used') | tojson }},
-        aiGenerated: {{ _('AI Generated') | tojson }},
-        aiUnavailable: {{ _('AI analysis unavailable') | tojson }},
         samplesLabel: {{ _('samples') | tojson }},
         opencodePrompt: {{ _('Please help me add the following provider configuration to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and other settings, only add or update the modelgate provider.') | tojson }},
         loading: {{ _('Loading...') | tojson }},
@@ -1474,43 +1424,6 @@
             renderTrendChart(latestTrendData, _latestSystemTrendData);
             renderOwnModelChart(data.models || {});
             renderSystemModelChart(systemModels.models || {});
-
-            fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/recommendations?period=' + period)
-                .then(recommendations => {
-                    const activePeriod = document.getElementById('period-select')?.value || 'day';
-                    if (requestVersion !== statsRequestVersion || activePeriod !== period) return;
-                    renderRecommendations(recommendations || {}, period, requestVersion);
-                })
-                .catch(() => {
-                    if (requestVersion !== statsRequestVersion) return;
-                    document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
-                });
-        }
-
-        function renderRecommendations(data, period, requestVersion) {
-            recommendationsInitialized = true;
-            const items = data.items || [];
-            if (!items.length) {
-                document.getElementById('recommendation-list').innerHTML = `<div class="w-full text-gray-500 text-center py-4">${window.I18N.noRecommendations}</div>`;
-                return;
-            }
-
-            const html = items.map(item => {
-                const scoreClass = item.rank <= 3
-                    ? ['bg-emerald-500', 'bg-sky-500', 'bg-amber-500'][item.rank - 1]
-                    : 'bg-slate-400';
-                const errPct = (item.error_rate * 100).toFixed(1);
-                const latStr = item.avg_latency_ms >= 1000 ? (item.avg_latency_ms/1000).toFixed(1)+'s' : Math.round(item.avg_latency_ms)+'ms';
-                return `
-                    <div class="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
-                        <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full ${scoreClass} px-1.5 text-[11px] font-semibold text-white">#${item.rank}</span>
-                        <span class="max-w-[13rem] truncate font-medium">${escapeHtml(item.display_name || item.actual_model_name)}</span>
-                        <span class="text-xs text-gray-400">${item.requests}req · ${errPct}%err · ${latStr}</span>
-                    </div>
-                `;
-            }).join('');
-
-            document.getElementById('recommendation-list').innerHTML = html;
         }
 
         async function loadCatalog() {
