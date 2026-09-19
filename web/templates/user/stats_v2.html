@@ -181,11 +181,17 @@
             </div>
         </div>
 
-        <div class="v2-card mb-6 flex flex-col" style="max-height:24rem">
-            <h3 class="shrink-0">{{ _('My Requests') }}
-                <button onclick="openMyRequestsModal()" class="text-xs text-blue-600 hover:underline">{{ _('View All') }} &rarr;</button>
-            </h3>
-            <div id="my-requests-list" class="flex-1 min-h-0 overflow-hidden grid grid-cols-1 xl:grid-cols-2 gap-x-4 gap-y-1.5"><div class="text-gray-400 text-center py-2 xl:col-span-2">{{ _('Loading...') }}</div></div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+            <div class="v2-card flex flex-col" style="max-height:24rem">
+                <h3 class="shrink-0">{{ _('My Requests') }}
+                    <button onclick="openMyRequestsModal()" class="text-xs text-blue-600 hover:underline">{{ _('View All') }} &rarr;</button>
+                </h3>
+                <div id="my-requests-list" class="flex-1 min-h-0 overflow-hidden grid grid-cols-1 gap-y-1.5"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
+            </div>
+            <div class="v2-card flex flex-col" style="max-height:24rem">
+                <h3 id="v2-sessions-title" class="shrink-0">{{ _('System Active Requests') }} <span class="meta">{{ _('Real-time') }}</span></h3>
+                <div id="v2-sessions" class="flex-1 min-h-0 overflow-y-auto grid grid-cols-1 gap-2"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
@@ -203,11 +209,6 @@
                     <div id="v2-sys-usage-legend" class="flex-1 min-w-[10rem]"><div class="text-gray-400 text-center py-3">{{ _('Loading...') }}</div></div>
                 </div>
             </div>
-        </div>
-
-        <div class="v2-card mb-6">
-            <h3 id="v2-sessions-title">{{ _('System Active Requests') }} <span class="meta">{{ _('Real-time') }}</span></h3>
-            <div id="v2-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-2"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
         </div>
     </div>
 
@@ -604,8 +605,10 @@
             const el = document.getElementById('v2-sessions');
             if (!el) return;
             const sessions = data.sessions || [];
+            const twoCols = sessions.length > 6;
+            el.className = 'flex-1 min-h-0 overflow-y-auto grid gap-2 ' + (twoCols ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1');
             if (!sessions.length) {
-                el.innerHTML = `<div class="text-gray-400 text-center py-2 2xl:col-span-2">${T('现在很安静', 'So empty...')}</div>`;
+                el.innerHTML = `<div class="text-gray-400 text-center py-2">${T('现在很安静', 'So empty...')}</div>`;
                 return;
             }
             el.innerHTML = sessions.map(session => {
