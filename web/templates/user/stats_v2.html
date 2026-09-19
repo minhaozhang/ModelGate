@@ -13,7 +13,7 @@
     <style>
         body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
         .v2-card { background: #f9fafb; border-radius: 1rem; padding: 1.25rem; }
-        .v2-card h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+        .v2-card h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; color: #1f2937; }
         .v2-card h3 .meta { font-size: 0.6875rem; color: #9ca3af; font-weight: 400; }
         .v2-kpi { background: rgba(255,255,255,.7); border-radius: 1rem; padding: 0.875rem 1rem; }
         .v2-kpi .lbl { font-size: 0.6875rem; color: #6b7280; font-weight: 500; }
@@ -50,7 +50,15 @@
         .v2-sess b { color: #2563eb; }
         .v2-legend { display: flex; gap: 14px; font-size: 0.6875rem; color: #6b7280; }
         .v2-legend b.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
+        .v2-reqrow-card { background: #ffffff; }
+        .v2-req-title { color: #374151; }
+        .v2-req-time { color: #9ca3af; font-size: 0.75rem; }
+        .v2-req-meta { color: #6b7280; }
+        .v2-pgbtn { color: #374151; }
         body.theme-dark { background: #0b0d12; }
+        body.theme-dark h1, body.theme-dark .v2-sub { color: #ededf8 !important; }
+        body.theme-dark .v2-card h3 { color: #ededf8; }
+        body.theme-dark .v2-card .text-gray-400 { color: #ededf8b8 !important; }
         body.theme-dark .v2-card { background: rgba(235, 234, 250, 0.04); }
         body.theme-dark .v2-kpi { background: rgba(235, 234, 250, 0.06); }
         body.theme-dark .v2-kpi .lbl, body.theme-dark .mc-rate, body.theme-dark .v2-reqrow { color: #ededf8b8; }
@@ -64,7 +72,19 @@
         body.theme-dark .v2-sess { background: rgba(235, 234, 250, 0.06); border-color: rgba(235, 234, 250, 0.14); color: #ededf8; }
         body.theme-dark .ctl-select, body.theme-dark .ctl-btn-ghost { background: rgba(235, 234, 250, 0.06); color: #ededf8; border-color: rgba(235, 234, 250, 0.14); }
         body.theme-dark .ctl-btn-new { background: rgba(6, 182, 212, 0.12); color: #67e8f9; border-color: rgba(6, 182, 212, 0.3); }
+        body.theme-dark .v2-legend { color: #ededf8b8; }
+        body.theme-dark .v2-reqrow-card { background: rgba(235, 234, 250, 0.06); }
+        body.theme-dark .v2-req-title { color: #ededf8; }
+        body.theme-dark .v2-req-time { color: #ededf8b8; }
+        body.theme-dark .v2-req-meta { color: #ededf8b8; }
+        body.theme-dark #my-requests-modal-box { background: #16181f; color: #ededf8; }
+        body.theme-dark #my-requests-modal-box .border-b, body.theme-dark #my-requests-modal-box .border-t { border-color: rgba(235, 234, 250, 0.12) !important; }
+        body.theme-dark #my-requests-modal-box .text-gray-500 { color: #ededf8b8 !important; }
+        body.theme-dark #my-requests-modal-box select, body.theme-dark #my-requests-modal-box .v2-pgbtn { background: rgba(235, 234, 250, 0.06); color: #ededf8; border-color: rgba(235, 234, 250, 0.14); }
         body.theme-blackgold { background: #14110c; }
+        body.theme-blackgold h1, body.theme-blackgold .v2-sub { color: #fafaf9 !important; }
+        body.theme-blackgold .v2-card h3 { color: #fafaf9; }
+        body.theme-blackgold .v2-card .text-gray-400 { color: #c9b896 !important; }
         body.theme-blackgold .v2-card { background: rgba(212, 168, 83, 0.05); }
         body.theme-blackgold .v2-kpi { background: rgba(212, 168, 83, 0.07); }
         body.theme-blackgold .v2-kpi .lbl, body.theme-blackgold .mc-rate, body.theme-blackgold .v2-reqrow { color: #c9b896; }
@@ -76,6 +96,15 @@
         body.theme-blackgold .v2-sess { background: rgba(212, 168, 83, 0.07); border-color: rgba(212, 168, 83, 0.22); color: #fafaf9; }
         body.theme-blackgold .ctl-select, body.theme-blackgold .ctl-btn-ghost { background: rgba(212, 168, 83, 0.07); color: #fafaf9; border-color: rgba(212, 168, 83, 0.22); }
         body.theme-blackgold .ctl-btn-new { background: rgba(212, 168, 83, 0.12); color: #e7c67c; border-color: rgba(212, 168, 83, 0.35); }
+        body.theme-blackgold .v2-legend { color: #c9b896; }
+        body.theme-blackgold .v2-reqrow-card { background: rgba(212, 168, 83, 0.07); }
+        body.theme-blackgold .v2-req-title { color: #fafaf9; }
+        body.theme-blackgold .v2-req-time { color: #c9b896; }
+        body.theme-blackgold .v2-req-meta { color: #c9b896; }
+        body.theme-blackgold #my-requests-modal-box { background: #1d1812; color: #fafaf9; }
+        body.theme-blackgold #my-requests-modal-box .border-b, body.theme-blackgold #my-requests-modal-box .border-t { border-color: rgba(212, 168, 83, 0.2) !important; }
+        body.theme-blackgold #my-requests-modal-box .text-gray-500 { color: #c9b896 !important; }
+        body.theme-blackgold #my-requests-modal-box select, body.theme-blackgold #my-requests-modal-box .v2-pgbtn { background: rgba(212, 168, 83, 0.07); color: #fafaf9; border-color: rgba(212, 168, 83, 0.22); }
     </style>
     <script>
         const APP_BASE_PATH = {{ app_base_path | tojson }};
@@ -89,7 +118,7 @@
         <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight text-gray-800">{{ _('Statistics Monitor') }} <span style="font-size:0.6em;color:#06b6d4;vertical-align:super">NEW</span></h1>
-                <p class="mt-0.5 text-sm text-gray-500">{{ name }}</p>
+                <p class="mt-0.5 text-sm text-gray-500 v2-sub">{{ name }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <select id="period-select" onchange="loadStats()" class="ctl-select">
@@ -154,16 +183,40 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+            <div class="v2-card flex flex-col max-h-[22rem]">
+                <h3 class="shrink-0">{{ _('My Requests') }}
+                    <button onclick="openMyRequestsModal()" class="text-xs text-blue-600 hover:underline">{{ _('View All') }} &rarr;</button>
+                </h3>
+                <div id="my-requests-list" class="flex-1 min-h-0 overflow-hidden"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
+            </div>
             <div class="v2-card">
                 <h3>{{ _('Model Usage') }} <span class="meta">{{ _('Personal') }} / {{ _('System') }}</span></h3>
                 <div id="v2-model-usage"><div class="text-gray-400 text-center py-3">{{ _('Loading...') }}</div></div>
             </div>
             <div class="v2-card">
                 <h3 id="v2-sessions-title">{{ _('System Active Requests') }} <span class="meta">{{ _('Real-time') }}</span></h3>
-                <div id="v2-sessions" class="grid grid-cols-1 2xl:grid-cols-2 gap-2"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
+                <div id="v2-sessions" class="grid grid-cols-1 gap-2"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
             </div>
         </div>
+    </div>
+
+    <div id="my-requests-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(0,0,0,0.5)">
+      <div id="my-requests-modal-box" class="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+        <div class="flex justify-between items-center px-4 py-3 border-b shrink-0">
+          <h3 class="text-base font-semibold" id="my-requests-modal-title"></h3>
+          <button onclick="closeMyRequestsModal()" class="text-gray-400 hover:text-gray-600">&#10005;</button>
+        </div>
+        <div class="px-3 py-2 border-b flex flex-wrap items-center gap-2 text-sm shrink-0">
+          <span class="text-gray-500" id="my-requests-time-label"></span>
+          <select id="my-requests-range" class="border rounded px-2 py-1 text-sm" onchange="resetAndLoadMyRequestsModal()"></select>
+          <select id="my-requests-model" class="border rounded px-2 py-1 text-sm min-w-32" onchange="resetAndLoadMyRequestsModal()"></select>
+          <select id="my-requests-status" class="border rounded px-2 py-1 text-sm" onchange="resetAndLoadMyRequestsModal()"></select>
+          <button onclick="resetAndLoadMyRequestsModal()" class="ml-auto px-2 py-1 border rounded text-sm hover:bg-gray-50" id="my-requests-refresh"></button>
+        </div>
+        <div id="my-requests-modal-list" class="p-3 overflow-y-auto flex-1 min-h-0 space-y-2"></div>
+        <div id="my-requests-modal-pagination" class="px-3 py-2 border-t flex items-center justify-between text-sm shrink-0"></div>
+      </div>
     </div>
 
 {% raw %}
@@ -497,6 +550,152 @@
         }
 
         let userLiveWs = null;
+
+        async function loadMyRequests() {
+            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active?limit=7');
+            const list = data.requests || [];
+            const el = document.getElementById('my-requests-list');
+            if (!el) return;
+            if (!list.length) {
+                el.innerHTML = `<div class="text-gray-400 text-center py-2">${T('暂无请求', 'No requests')}</div>`;
+                return;
+            }
+            el.innerHTML = list.map(r => renderRequestRow(r)).join('');
+            const base = el.getBoundingClientRect().top;
+            let visible = 0;
+            for (const row of [...el.children]) {
+                const rect = row.getBoundingClientRect();
+                if (rect.bottom - base <= el.clientHeight + 1) visible++;
+                else break;
+            }
+            [...el.children].slice(visible).forEach(row => row.remove());
+        }
+        function renderRequestRow(r) {
+            const statusDot = r.status === 'error'
+                ? '<span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>'
+                : '<span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>';
+            const latency = r.latency_ms != null ? (r.latency_ms >= 1000 ? (r.latency_ms / 1000).toFixed(1) + 's' : r.latency_ms + 'ms') : '-';
+            const tokens = r.tokens > 0 ? formatCompactTokens(r.tokens) : '-';
+            const time = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+            const errorHtml = r.error ? `<div class="text-xs text-red-500 mt-1 truncate" title="${escapeHtml(r.error)}">${escapeHtml(r.error)}</div>` : '';
+            const ctx = r.context_tokens > 0 ? formatCompactTokens(r.context_tokens) : '-';
+            const inputT = r.input_tokens > 0 ? formatCompactTokens(r.input_tokens) : '-';
+            const outputT = r.output_tokens > 0 ? formatCompactTokens(r.output_tokens) : '-';
+            const cachedT = r.cached_tokens > 0 ? formatCompactTokens(r.cached_tokens) : '-';
+            const cachePct = r.cache_ratio > 0 ? r.cache_ratio + '%' : '-';
+            const cost = r.cost_cny > 0 ? '¥' + r.cost_cny.toFixed(2) : '-';
+            return `
+                <div class="v2-reqrow-card rounded p-2 mb-1.5 last:mb-0">
+                    <div class="flex items-center gap-2 text-sm v2-req-title">
+                        ${statusDot}
+                        <span class="font-medium truncate">${escapeHtml(r.model)}</span>
+                        <span class="v2-req-time shrink-0 ml-auto">${time}</span>
+                    </div>
+                    <div class="flex items-center gap-2.5 mt-0.5 text-xs v2-req-meta flex-nowrap whitespace-nowrap overflow-x-auto">
+                        <span class="shrink-0">${T('Token', 'Tokens')}: ${tokens}</span>
+                        <span class="shrink-0">${T('上下文', 'Context')}: ${ctx}</span>
+                        <span class="shrink-0">${T('输入', 'Input')}: ${inputT}</span>
+                        <span class="shrink-0">${T('输出', 'Output')}: ${outputT}</span>
+                        <span class="shrink-0">${T('缓存', 'Cache')}: ${cachedT} (${cachePct})</span>
+                        <span class="shrink-0">${T('费用', 'Cost')}: ${cost}</span>
+                        <span class="ml-auto shrink-0">${latency}</span>
+                    </div>
+                    ${errorHtml}
+                </div>
+            `;
+        }
+        let _myReqPage = 1;
+        let _myReqTotalPages = 1;
+        let _myReqInited = false;
+        function openMyRequestsModal() {
+            const modal = document.getElementById('my-requests-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            if (!_myReqInited) initMyRequestsModal();
+            loadMyRequestsModal(1);
+        }
+        function closeMyRequestsModal() {
+            const modal = document.getElementById('my-requests-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+        function initMyRequestsModal() {
+            _myReqInited = true;
+            document.getElementById('my-requests-modal-title').textContent = T('我的请求历史', 'My Request History');
+            document.getElementById('my-requests-time-label').textContent = T('时间范围', 'Time Range');
+            document.getElementById('my-requests-refresh').textContent = T('刷新', 'Refresh');
+            const ranges = [
+                ['1h', T('近1小时', 'Last 1h')],
+                ['6h', T('近6小时', 'Last 6h')],
+                ['24h', T('近24小时', 'Last 24h')],
+                ['7d', T('近7天', 'Last 7d')],
+                ['30d', T('近30天', 'Last 30d')],
+                ['90d', T('近90天', 'Last 90d')],
+                ['all', T('全部', 'All Time')],
+            ];
+            document.getElementById('my-requests-range').innerHTML = ranges
+                .map(([v, l]) => `<option value="${v}" ${v === '1h' ? 'selected' : ''}>${l}</option>`).join('');
+            const statuses = [
+                ['', T('全部状态', 'All Statuses')],
+                ['success', T('成功', 'Success')],
+                ['error', T('错误', 'Error')],
+            ];
+            document.getElementById('my-requests-status').innerHTML = statuses
+                .map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+        }
+        function resetAndLoadMyRequestsModal() {
+            document.getElementById('my-requests-model').innerHTML = `<option value="">${T('全部模型', 'All Models')}</option>`;
+            loadMyRequestsModal(1);
+        }
+        async function loadMyRequestsModal(page) {
+            _myReqPage = page;
+            const range = document.getElementById('my-requests-range')?.value || '1h';
+            const model = document.getElementById('my-requests-model')?.value || '';
+            const status = document.getElementById('my-requests-status')?.value || '';
+            const listEl = document.getElementById('my-requests-modal-list');
+            const pgEl = document.getElementById('my-requests-modal-pagination');
+            listEl.innerHTML = `<div class="text-gray-400 text-center py-8">${T('加载中...', 'Loading...')}</div>`;
+            pgEl.innerHTML = '';
+            const params = new URLSearchParams({ time_range: range, page: String(page), page_size: '10' });
+            if (model) params.set('model', model);
+            if (status) params.set('status', status);
+            let data;
+            try {
+                data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/user/api/my-requests?${params}`);
+            } catch (e) {
+                listEl.innerHTML = `<div class="text-red-500 text-center py-8">${T('加载失败', 'Failed to load')}</div>`;
+                return;
+            }
+            const modelSel = document.getElementById('my-requests-model');
+            const curModel = modelSel.value;
+            modelSel.innerHTML = `<option value="">${T('全部模型', 'All Models')}</option>`
+                + (data.models || []).map(m => `<option value="${escapeHtml(m)}" ${m === curModel ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('');
+            const list = data.requests || [];
+            if (!list.length) {
+                listEl.innerHTML = `<div class="text-gray-400 text-center py-8">${T('暂无请求', 'No requests')}</div>`;
+                pgEl.innerHTML = '';
+                return;
+            }
+            listEl.innerHTML = list.map(r => renderRequestRow(r)).join('');
+            _myReqTotalPages = Math.max(1, Math.ceil((data.total || 0) / (data.page_size || 10)));
+            let html = `<span class="v2-req-meta">${(data.total || 0).toLocaleString()} ${window.I18N.req} · ${_myReqPage}/${_myReqTotalPages}</span>`;
+            let btns = '<span class="flex gap-1">';
+            if (page > 1) btns += `<button onclick="loadMyRequestsModal(${page - 1})" class="px-3 py-1 border rounded v2-pgbtn">&lt;</button>`;
+            const start = Math.max(1, page - 2);
+            const end = Math.min(_myReqTotalPages, page + 2);
+            for (let i = start; i <= end; i++) {
+                btns += `<button onclick="loadMyRequestsModal(${i})" class="px-3 py-1 border rounded v2-pgbtn ${i === page ? 'bg-blue-500 text-white' : ''}">${i}</button>`;
+            }
+            if (page < _myReqTotalPages) btns += `<button onclick="loadMyRequestsModal(${page + 1})" class="px-3 py-1 border rounded v2-pgbtn">&gt;</button>`;
+            btns += '</span>';
+            pgEl.innerHTML = html + btns;
+        }
+        document.getElementById('my-requests-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'my-requests-modal') closeMyRequestsModal();
+        });
+
         function applyUserLive(data) {
             if (!data) return;
             if (typeof data.active_users === 'number') {
@@ -526,7 +725,10 @@
 
         applyTheme(getThemeMode());
         loadStats();
+        loadMyRequests();
         loadSessions();
+        setInterval(loadStats, 30000);
+        setInterval(loadMyRequests, 10000);
         setInterval(loadSessions, 15000);
         connectUserLiveWs();
     </script>
