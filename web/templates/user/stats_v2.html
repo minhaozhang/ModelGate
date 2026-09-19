@@ -46,8 +46,11 @@
         .v2-reqrow .bar { height: 5px; border-radius: 3px; background: #e5e7eb; flex: 1; overflow: hidden; }
         .v2-reqrow .bar i { display: block; height: 100%; border-radius: 3px; }
         .v2-reqrow .nums { flex: 0 0 11rem; white-space: nowrap; text-align: right; }
-        .v2-sess { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.75rem; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+        .v2-sess { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 0.625rem; padding: 0.6rem 0.8rem; font-size: 0.75rem; display: flex; flex-direction: column; gap: 6px; }
         .v2-sess b { color: #2563eb; }
+        .v2-sess .hd { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .v2-sess .chips { display: flex; flex-wrap: wrap; gap: 4px 12px; color: #6b7280; }
+        .v2-sess .chips i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
         .v2-legend { display: flex; gap: 14px; font-size: 0.6875rem; color: #6b7280; }
         .v2-legend b.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
         .v2-reqrow-card { background: #ffffff; }
@@ -70,6 +73,7 @@
         body.theme-dark .mc-needle-tail { stroke: #8b8fa8; }
         body.theme-dark .mc-hub { fill: #1a1d26; stroke: #8b8fa8; }
         body.theme-dark .v2-sess { background: rgba(235, 234, 250, 0.06); border-color: rgba(235, 234, 250, 0.14); color: #ededf8; }
+        body.theme-dark .v2-sess .chips { color: #ededf8b8; }
         body.theme-dark .ctl-select, body.theme-dark .ctl-btn-ghost { background: rgba(235, 234, 250, 0.06); color: #ededf8; border-color: rgba(235, 234, 250, 0.14); }
         body.theme-dark .ctl-btn-new { background: rgba(6, 182, 212, 0.12); color: #67e8f9; border-color: rgba(6, 182, 212, 0.3); }
         body.theme-dark .v2-legend { color: #ededf8b8; }
@@ -94,6 +98,7 @@
         body.theme-blackgold .mc-needle-tail { stroke: #d4a853; }
         body.theme-blackgold .mc-hub { fill: #1a1712; stroke: #d4a853; }
         body.theme-blackgold .v2-sess { background: rgba(212, 168, 83, 0.07); border-color: rgba(212, 168, 83, 0.22); color: #fafaf9; }
+        body.theme-blackgold .v2-sess .chips { color: #c9b896b8; }
         body.theme-blackgold .ctl-select, body.theme-blackgold .ctl-btn-ghost { background: rgba(212, 168, 83, 0.07); color: #fafaf9; border-color: rgba(212, 168, 83, 0.22); }
         body.theme-blackgold .ctl-btn-new { background: rgba(212, 168, 83, 0.12); color: #e7c67c; border-color: rgba(212, 168, 83, 0.35); }
         body.theme-blackgold .v2-legend { color: #c9b896; }
@@ -188,9 +193,9 @@
                 </h3>
                 <div id="my-requests-list" class="flex-1 min-h-0 overflow-hidden grid grid-cols-1 gap-y-1.5"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
             </div>
-            <div class="v2-card flex flex-col" style="max-height:24rem">
+            <div class="v2-card flex flex-col" style="align-self:start">
                 <h3 id="v2-sessions-title" class="shrink-0">{{ _('System Active Requests') }} <span class="meta">{{ _('Real-time') }}</span></h3>
-                <div id="v2-sessions" class="flex-1 min-h-0 overflow-y-auto grid grid-cols-1 gap-2"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
+                <div id="v2-sessions" class="grid gap-2" style="max-height:22rem;overflow-y:auto"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
             </div>
         </div>
 
@@ -606,19 +611,22 @@
             if (!el) return;
             const sessions = data.sessions || [];
             const twoCols = sessions.length > 6;
-            el.className = 'flex-1 min-h-0 overflow-y-auto grid gap-2 ' + (twoCols ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1');
+            el.className = 'grid gap-2 ' + (twoCols ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1');
             if (!sessions.length) {
                 el.innerHTML = `<div class="text-gray-400 text-center py-2">${T('现在很安静', 'So empty...')}</div>`;
                 return;
             }
             el.innerHTML = sessions.map(session => {
-                const modelsHtml = Object.entries(session.models || {})
+                const chipsHtml = Object.entries(session.models || {})
                     .sort((a, b) => b[1] - a[1])
-                    .map(([model, count]) => `<span class="text-xs px-1">${escapeHtml(model)}(${count})</span>`)
+                    .map(([model, count]) => `<span><i style="background:${_mcModelColor(model)}"></i>${escapeHtml(model)}(${count})</span>`)
                     .join('');
                 return `<div class="v2-sess">
-                    <span style="${session.is_self ? 'font-weight:600;color:#2563eb' : ''}">${escapeHtml(session.name)}</span>
-                    <span><b>${session.requests}</b> ${window.I18N.active} · <span style="color:#6b7280">${modelsHtml || window.I18N.noModels}</span></span>
+                    <div class="hd">
+                        <span style="font-weight:600;${session.is_self ? 'color:#2563eb' : ''}">${escapeHtml(session.name)}${session.is_self ? ' (' + T('我', 'me') + ')' : ''}</span>
+                        <span><b>${session.requests}</b> ${window.I18N.active}</span>
+                    </div>
+                    <div class="chips">${chipsHtml || window.I18N.noModels}</div>
                 </div>`;
             }).join('');
         }
