@@ -156,6 +156,20 @@
         body.theme-dark #recommendation-meta {
             color: #ededf8b8 !important;
         }
+        #model-concurrency-list .mc-track { stroke: #e5e7eb; }
+        #model-concurrency-list .mc-tick { stroke: #cbd5e1; }
+        #model-concurrency-list .mc-value { transition: stroke-dashoffset .6s ease, stroke .3s ease; }
+        #model-concurrency-list .mc-dot { transition: cx .6s ease, cy .6s ease, opacity .3s ease; }
+        body.theme-dark #model-concurrency-list .mc-track { stroke: rgba(235, 234, 250, 0.14); }
+        body.theme-dark #model-concurrency-list .mc-tick { stroke: rgba(235, 234, 250, 0.30); }
+        body.theme-dark #model-concurrency-list .mc-name { color: #ededf8b8 !important; }
+        body.theme-dark #model-concurrency-list .mc-eff { color: #ededf873 !important; }
+        body.theme-dark #model-concurrency-list .model-conc-card { border-color: rgba(235, 234, 250, 0.14) !important; }
+        body.theme-blackgold #model-concurrency-list .mc-track { stroke: rgba(212, 168, 83, 0.18); }
+        body.theme-blackgold #model-concurrency-list .mc-tick { stroke: rgba(212, 168, 83, 0.38); }
+        body.theme-blackgold #model-concurrency-list .mc-name { color: #c9b896 !important; }
+        body.theme-blackgold #model-concurrency-list .mc-eff { color: #c9b89673 !important; }
+        body.theme-blackgold #model-concurrency-list .model-conc-card { border-color: rgba(212, 168, 83, 0.22) !important; }
         body.theme-dark #recommendation-analysis-meta {
             color: #a5b4fc !important;
         }
@@ -2177,14 +2191,68 @@
                 }
             }, 500);
         }
+        const _modelConcCards = new Map();
+        const _MC_ARC_D = 'M 6 32 A 26 26 0 0 1 58 32';
+        const _MC_ARC_LEN = 81.68;
+        function buildModelConcGauge(name) {
+            const root = document.createElement('div');
+            root.dataset.mcName = name;
+            root.className = 'model-conc-card bg-white border border-gray-200/70 rounded-md px-2.5 py-2 flex flex-col items-center';
+            root.style.width = '132px';
+            root.innerHTML = `
+                <svg viewBox="0 0 64 36" style="width:100%;max-width:96px" class="select-none" aria-hidden="true">
+                    <path class="mc-track" d="${_MC_ARC_D}" fill="none" stroke-width="2"/>
+                    <line class="mc-tick" x1="7" y1="32" x2="10" y2="32" stroke-width="1"/>
+                    <line class="mc-tick" x1="32" y1="7" x2="32" y2="10" stroke-width="1"/>
+                    <line class="mc-tick" x1="54" y1="32" x2="57" y2="32" stroke-width="1"/>
+                    <path class="mc-value" d="${_MC_ARC_D}" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-dasharray="${_MC_ARC_LEN}" stroke-dashoffset="${_MC_ARC_LEN}"/>
+                    <circle class="mc-dot" cx="6" cy="32" r="2" fill="#22d3ee" opacity="0"/>
+                </svg>
+                <div class="mc-name w-full text-center text-xs font-medium text-gray-600 truncate" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+                <div class="leading-none font-mono"><span class="mc-in text-sm font-semibold" style="color:#06b6d4">0</span><span class="mc-eff text-[11px] text-gray-400">/0</span></div>
+                <div class="mc-badge hidden text-[11px] text-red-500 mt-0.5"></div>`;
+            return {
+                root,
+                valuePath: root.querySelector('.mc-value'),
+                dot: root.querySelector('.mc-dot'),
+                inEl: root.querySelector('.mc-in'),
+                effEl: root.querySelector('.mc-eff'),
+                badgeEl: root.querySelector('.mc-badge'),
+            };
+        }
+        function updateModelConcGauge(card, m) {
+            const limit = m.limit || 0;
+            const eff = typeof m.effective === 'number' ? m.effective : limit;
+            const inUse = m.in_use || 0;
+            const pct = eff > 0 ? Math.min(inUse / eff, 1) : (inUse > 0 ? 1 : 0);
+            card.valuePath.style.strokeDashoffset = (_MC_ARC_LEN * (1 - pct)).toFixed(2);
+            const angle = Math.PI * (1 - pct);
+            card.dot.setAttribute('cx', (32 + 26 * Math.cos(angle)).toFixed(2));
+            card.dot.setAttribute('cy', (32 - 26 * Math.sin(angle)).toFixed(2));
+            card.dot.setAttribute('opacity', pct > 0 ? '1' : '0');
+            let color = '#06b6d4';
+            if (eff === 0) color = inUse > 0 ? '#ef4444' : '#9ca3af';
+            else if (pct >= 0.95) color = '#ef4444';
+            else if (pct > 0.8) color = '#f59e0b';
+            card.valuePath.style.stroke = color;
+            card.dot.setAttribute('fill', color);
+            card.inEl.style.color = color;
+            card.inEl.textContent = inUse;
+            card.effEl.textContent = '/' + eff;
+            let badge = '';
+            if (limit === 0) badge = window.I18N.modelDisabled;
+            else if (eff === 0) badge = window.I18N.modelConcNoProviders;
+            if (badge) {
+                card.badgeEl.textContent = badge;
+                card.badgeEl.classList.remove('hidden');
+            } else {
+                card.badgeEl.classList.add('hidden');
+            }
+        }
         function renderModelConcurrency(map, requestsToday) {
             const container = document.getElementById('model-concurrency-list');
             if (!container) return;
             const entries = Object.entries(map || {});
-            if (!entries.length) {
-                container.innerHTML = `<div class="w-full text-gray-400 text-center py-3">${window.I18N.modelConcEmpty}</div>`;
-                return;
-            }
             const todayKnown = Array.isArray(requestsToday);
             const todaySet = todayKnown ? new Set(requestsToday) : null;
             const visible = entries.filter(([name, m]) => {
@@ -2196,33 +2264,34 @@
                 }
                 return true;
             });
+            visible.sort((a, b) => (b[1].in_use - a[1].in_use) || (b[1].limit - a[1].limit) || a[0].localeCompare(b[0]));
             if (!visible.length) {
                 container.innerHTML = `<div class="w-full text-gray-400 text-center py-3">${window.I18N.modelConcEmpty}</div>`;
+                _modelConcCards.clear();
                 return;
             }
-            visible.sort((a, b) => (b[1].in_use - a[1].in_use) || (b[1].limit - a[1].limit) || a[0].localeCompare(b[0]));
-            container.innerHTML = visible.map(([name, m]) => {
-                const limit = m.limit || 0;
-                const eff = typeof m.effective === 'number' ? m.effective : limit;
-                const inUse = m.in_use || 0;
-                const pct = eff > 0 ? Math.min((inUse / eff) * 100, 100) : (inUse > 0 ? 100 : 0);
-                const barColor = eff === 0 ? '#ef4444' : pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
-                let badge = '';
-                if (limit === 0) {
-                    badge = `<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600 shrink-0">${window.I18N.modelDisabled}</span>`;
-                } else if (eff === 0) {
-                    badge = `<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600 shrink-0">${window.I18N.modelConcNoProviders}</span>`;
+            const seen = new Set(visible.map(e => e[0]));
+            for (const [name, card] of _modelConcCards) {
+                if (!seen.has(name)) {
+                    card.root.remove();
+                    _modelConcCards.delete(name);
                 }
-                const limitHint = eff < limit ? `<span class="text-gray-400" title="${window.I18N.modelConcConfigured}: ${limit}">&nbsp;(${window.I18N.modelConcConfigured} ${limit})</span>` : '';
-                return `<div class="bg-white rounded-lg p-3 shadow-sm">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <span class="text-sm font-medium text-gray-700 truncate" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
-                        ${badge}
-                        <span class="text-xs text-gray-500 ml-auto metric-value shrink-0">${inUse}/${eff}${limitHint}</span>
-                    </div>
-                    <div class="mt-2 h-1.5 bg-gray-200 rounded overflow-hidden"><div style="width:${pct}%;height:100%;background:${barColor};border-radius:9999px;transition:width .4s ease"></div></div>
-                </div>`;
-            }).join('');
+            }
+            visible.forEach(([name, m]) => {
+                let card = _modelConcCards.get(name);
+                if (!card) {
+                    card = buildModelConcGauge(name);
+                    _modelConcCards.set(name, card);
+                }
+                updateModelConcGauge(card, m);
+            });
+            const orderWant = visible.map(e => e[0]);
+            const children = [...container.children];
+            const orderNow = children.map(el => el.dataset.mcName).filter(Boolean);
+            if (orderNow.join('|') !== orderWant.join('|') || orderNow.length !== children.length) {
+                container.innerHTML = '';
+                orderWant.forEach(n => container.appendChild(_modelConcCards.get(n).root));
+            }
         }
         function connectUserLiveWs() {
             const proto = location.protocol === 'https:' ? 'wss' : 'ws';
