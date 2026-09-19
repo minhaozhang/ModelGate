@@ -444,6 +444,8 @@
         modelConcurrency: {{ _('Model Concurrency') | tojson }},
         modelConcLive: {{ _('Real-time') | tojson }},
         modelConcEmpty: {{ _('No models with concurrency limits') | tojson }},
+        modelConcNoProviders: {{ _('No providers available') | tojson }},
+        modelConcConfigured: {{ _('Configured') | tojson }},
         modelDisabled: {{ _('disabled') | tojson }},
         err: {{ _('err') | tojson }},
         models: {{ _('models') | tojson }},
@@ -2174,15 +2176,22 @@
             entries.sort((a, b) => (b[1].in_use - a[1].in_use) || (b[1].limit - a[1].limit) || a[0].localeCompare(b[0]));
             container.innerHTML = entries.map(([name, m]) => {
                 const limit = m.limit || 0;
+                const eff = typeof m.effective === 'number' ? m.effective : limit;
                 const inUse = m.in_use || 0;
-                const pct = limit > 0 ? Math.min((inUse / limit) * 100, 100) : (inUse > 0 ? 100 : 0);
-                const barColor = limit === 0 ? '#ef4444' : pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
-                const badge = limit === 0 ? `<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600 shrink-0">${window.I18N.modelDisabled}</span>` : '';
+                const pct = eff > 0 ? Math.min((inUse / eff) * 100, 100) : (inUse > 0 ? 100 : 0);
+                const barColor = eff === 0 ? '#ef4444' : pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
+                let badge = '';
+                if (limit === 0) {
+                    badge = `<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600 shrink-0">${window.I18N.modelDisabled}</span>`;
+                } else if (eff === 0) {
+                    badge = `<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600 shrink-0">${window.I18N.modelConcNoProviders}</span>`;
+                }
+                const limitHint = eff < limit ? `<span class="text-gray-400" title="${window.I18N.modelConcConfigured}: ${limit}">&nbsp;(${window.I18N.modelConcConfigured} ${limit})</span>` : '';
                 return `<div class="bg-white rounded-lg p-3 shadow-sm">
                     <div class="flex items-center gap-2 min-w-0">
                         <span class="text-sm font-medium text-gray-700 truncate" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
                         ${badge}
-                        <span class="text-xs text-gray-500 ml-auto metric-value shrink-0">${inUse}/${limit}</span>
+                        <span class="text-xs text-gray-500 ml-auto metric-value shrink-0">${inUse}/${eff}${limitHint}</span>
                     </div>
                     <div class="mt-2 h-1.5 bg-gray-200 rounded overflow-hidden"><div style="width:${pct}%;height:100%;background:${barColor};border-radius:9999px;transition:width .4s ease"></div></div>
                 </div>`;

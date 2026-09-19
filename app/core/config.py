@@ -519,7 +519,30 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
         sem = standard_model_semaphores.get(f"stdmodel:{model_name}")
         available = getattr(sem, "_value", None) if sem else None
         in_use = max(limit - available, 0) if available is not None else 0
-        model_concurrency[model_name] = {"limit": limit, "in_use": in_use}
+
+        capacity = 0
+        unbounded = False
+        for pcfg in providers_cache.values():
+            if pcfg.get("disabled_reason"):
+                continue
+            if not any(
+                pm.get("model_name") == model_name
+                for pm in pcfg.get("models", [])
+            ):
+                continue
+            for k in pcfg.get("api_keys", []):
+                klimit = k.get("max_concurrent")
+                if klimit is None:
+                    unbounded = True
+                else:
+                    capacity += klimit
+
+        effective = limit if unbounded else min(limit, capacity)
+        model_concurrency[model_name] = {
+            "limit": limit,
+            "in_use": in_use,
+            "effective": effective,
+        }
 
     return {
         "active_requests": active_requests_count,

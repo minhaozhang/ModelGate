@@ -3005,6 +3005,12 @@ msgstr "实时"
 msgid "No models with concurrency limits"
 msgstr "暂无配置并发上限的模型"
 
+msgid "No providers available"
+msgstr "无可用供应商"
+
+msgid "Configured"
+msgstr "配置"
+
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
 
