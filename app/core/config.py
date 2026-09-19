@@ -496,6 +496,9 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
     await prune_stale_active_requests()
     async with active_requests_lock:
         active_requests_count = len(active_requests)
+        active_users_count = len(
+            {entry.get("api_key_id") for entry in active_requests.values()}
+        )
     disabled_providers = {
         pname: pconf.get("disabled_reason")
         for pname, pconf in providers_cache.items()
@@ -503,6 +506,7 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
     }
     return {
         "active_requests": active_requests_count,
+        "active_users": active_users_count,
         "tokens_per_second": get_total_tokens_per_second(),
         "busyness": dict(busyness_state) if busyness_state else None,
         "disabled_providers": disabled_providers,

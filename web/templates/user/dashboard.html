@@ -2143,6 +2143,13 @@
         function applyUserLive(data) {
             if (!data) return;
             if ('busyness' in data) renderBusyness(data.busyness);
+            if (typeof data.active_users === 'number') {
+                const count = data.active_users;
+                lastLiveCounts = { users: count, requests: data.active_requests || 0 };
+                renderGlobalStrip();
+                document.getElementById('system-active-title').textContent = getDynamicActiveTitle(count);
+                document.getElementById('system-active-count').textContent = `${count} ${window.I18N.active} / ${(data.active_requests || 0).toLocaleString()} ${window.I18N.req}`;
+            }
             const disabledItems = Object.entries(data.disabled_providers || {})
                 .map(function(entry) { return { name: entry[0], reason: entry[1] }; });
             if (disabledItems.length) {
