@@ -1,11 +1,14 @@
 import asyncio
 import os
+import time
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
 import sys
 from typing import Any, Optional
+
+from sqlalchemy import select
 
 os.makedirs("logs", exist_ok=True)
 
@@ -84,6 +87,7 @@ provider_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 provider_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 user_api_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 standard_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
+_model_requests_today_cache: dict[str, Any] = {"names": set(), "at": 0.0}
 
 DEFAULT_OUTBOUND_USER_AGENT = (
     "opencode/local ai-sdk/provider-utils/4.0.23 runtime/node.js/24"
@@ -544,6 +548,31 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
             "effective": effective,
         }
 
+    model_requests_today: list[str] = []
+    global _model_requests_today_cache
+    now_ts = time.monotonic()
+    if now_ts - _model_requests_today_cache["at"] > 60:
+        try:
+            from app.core.database import ModelDailyStat
+
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            async with async_session_maker() as session:
+                rows = await session.execute(
+                    select(ModelDailyStat.model_name)
+                    .where(
+                        ModelDailyStat.date == today_str,
+                        ModelDailyStat.requests > 0,
+                    )
+                    .distinct()
+                )
+                _model_requests_today_cache["names"] = {
+                    r[0] for r in rows.fetchall()
+                }
+        except Exception:
+            pass
+        _model_requests_today_cache["at"] = now_ts
+    model_requests_today = sorted(_model_requests_today_cache["names"])
+
     return {
         "active_requests": active_requests_count,
         "active_users": active_users_count,
@@ -551,6 +580,7 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
         "busyness": dict(busyness_state) if busyness_state else None,
         "disabled_providers": disabled_providers,
         "model_concurrency": model_concurrency,
+        "model_requests_today": model_requests_today,
     }
 
 

@@ -2157,7 +2157,7 @@
                 document.getElementById('system-active-count').textContent = `${count} ${window.I18N.active} / ${(data.active_requests || 0).toLocaleString()} ${window.I18N.req}`;
             }
             if (data.model_concurrency) {
-                renderModelConcurrency(data.model_concurrency);
+                renderModelConcurrency(data.model_concurrency, data.model_requests_today);
             }
             const disabledItems = Object.entries(data.disabled_providers || {})
                 .map(function(entry) { return { name: entry[0], reason: entry[1] }; });
@@ -2165,7 +2165,7 @@
                 renderProviderStatusBanner({ disabled_providers: disabledItems });
             }
         }
-        function renderModelConcurrency(map) {
+        function renderModelConcurrency(map, requestsToday) {
             const container = document.getElementById('model-concurrency-list');
             if (!container) return;
             const entries = Object.entries(map || {});
@@ -2173,8 +2173,22 @@
                 container.innerHTML = `<div class="w-full text-gray-400 text-center py-3">${window.I18N.modelConcEmpty}</div>`;
                 return;
             }
-            entries.sort((a, b) => (b[1].in_use - a[1].in_use) || (b[1].limit - a[1].limit) || a[0].localeCompare(b[0]));
-            container.innerHTML = entries.map(([name, m]) => {
+            const todaySet = new Set(Array.isArray(requestsToday) ? requestsToday : null);
+            const visible = entries.filter(([name, m]) => {
+                const limit = m.limit || 0;
+                const eff = typeof m.effective === 'number' ? m.effective : limit;
+                const inUse = m.in_use || 0;
+                if (limit > 0 && eff === 0 && inUse === 0 && todaySet && !todaySet.has(name)) {
+                    return false;
+                }
+                return true;
+            });
+            if (!visible.length) {
+                container.innerHTML = `<div class="w-full text-gray-400 text-center py-3">${window.I18N.modelConcEmpty}</div>`;
+                return;
+            }
+            visible.sort((a, b) => (b[1].in_use - a[1].in_use) || (b[1].limit - a[1].limit) || a[0].localeCompare(b[0]));
+            container.innerHTML = visible.map(([name, m]) => {
                 const limit = m.limit || 0;
                 const eff = typeof m.effective === 'number' ? m.effective : limit;
                 const inUse = m.in_use || 0;
