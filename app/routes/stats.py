@@ -247,6 +247,37 @@ def get_period_start(period: str, now: datetime) -> datetime:
     return today_start
 
 
+MONITOR_RANGE_DELTAS = {
+    "1h": timedelta(hours=1),
+    "6h": timedelta(hours=6),
+    "24h": timedelta(hours=24),
+    "7d": timedelta(days=7),
+}
+
+
+def resolve_monitor_window(
+    time_range: Optional[str],
+    start_time: Optional[str],
+    end_time: Optional[str],
+    now: datetime,
+) -> Optional[tuple[datetime, datetime]]:
+    if start_time or end_time:
+        try:
+            start = (
+                datetime.fromisoformat(start_time)
+                if start_time
+                else now - timedelta(days=7)
+            )
+            end = datetime.fromisoformat(end_time) if end_time else now
+        except ValueError:
+            return None
+        return start, end
+    delta = MONITOR_RANGE_DELTAS.get(time_range or "")
+    if delta is None:
+        return None
+    return now - delta, now
+
+
 async def get_cached_today_stats(start: datetime) -> dict:
     from app.core.config import proxy_logger
 
@@ -869,33 +900,64 @@ def merge_range_aggregate(target: dict, raw: dict) -> None:
 async def get_aggregate_stats(
     dimension: Literal["provider", "api_key", "model"] = "provider",
     period: Literal["day", "week", "month", "year"] = "day",
+    time_range: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
     _: bool = Depends(permission_required("page.stats")),
 ):
     now = get_local_now()
-    start = get_period_start(period, now)
 
-    async with async_session_maker() as session:
-        if period in TOTALS_AGGREGATED_PERIODS:
-            aggregate_start, aggregate_end, raw_ranges = (
-                get_totals_aggregate_bounds(start, now)
-            )
+    window = resolve_monitor_window(time_range, start_time, end_time, now)
+    if window:
+        start, end = window
+        async with async_session_maker() as session:
             stats_data = {}
-            if aggregate_start < aggregate_end:
-                merge_named_stats(
-                    stats_data,
-                    await get_daily_aggregated_stats(
-                        session, dimension, aggregate_start, aggregate_end
-                    ),
+            if start < get_day_start(end):
+                aggregate_start, aggregate_end, raw_ranges = (
+                    get_totals_aggregate_bounds(start, end)
                 )
-            for raw_lo, raw_hi in raw_ranges:
-                merge_named_stats(
-                    stats_data,
-                    await get_raw_grouped_stats(
-                        session, dimension, raw_lo, end=raw_hi
-                    ),
+                if aggregate_start < aggregate_end:
+                    merge_named_stats(
+                        stats_data,
+                        await get_daily_aggregated_stats(
+                            session, dimension, aggregate_start, aggregate_end
+                        ),
+                    )
+                for raw_lo, raw_hi in raw_ranges:
+                    merge_named_stats(
+                        stats_data,
+                        await get_raw_grouped_stats(
+                            session, dimension, raw_lo, end=raw_hi
+                        ),
+                    )
+            else:
+                stats_data = await get_raw_grouped_stats(
+                    session, dimension, start, end=end
                 )
-        else:
-            stats_data = await get_raw_grouped_stats(session, dimension, start)
+    else:
+        start = get_period_start(period, now)
+        async with async_session_maker() as session:
+            if period in TOTALS_AGGREGATED_PERIODS:
+                aggregate_start, aggregate_end, raw_ranges = (
+                    get_totals_aggregate_bounds(start, now)
+                )
+                stats_data = {}
+                if aggregate_start < aggregate_end:
+                    merge_named_stats(
+                        stats_data,
+                        await get_daily_aggregated_stats(
+                            session, dimension, aggregate_start, aggregate_end
+                        ),
+                    )
+                for raw_lo, raw_hi in raw_ranges:
+                    merge_named_stats(
+                        stats_data,
+                        await get_raw_grouped_stats(
+                            session, dimension, raw_lo, end=raw_hi
+                        ),
+                    )
+            else:
+                stats_data = await get_raw_grouped_stats(session, dimension, start)
 
     total_requests = sum(d["requests"] for d in stats_data.values())
     total_tokens = sum(d["tokens"] for d in stats_data.values())
@@ -1149,26 +1211,24 @@ async def get_trend_data(
 @router.get("/stats/monitor-details")
 async def get_monitor_details(
     period: Literal["day", "week", "month", "year"] = "day",
+    time_range: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
     _: bool = Depends(permission_required("page.stats")),
 ):
     now = get_local_now()
-    start = get_period_start(period, now)
-    _, intervals, format_func = get_period_range(period, now)
-    trend_data = {
-        label: {
-            "requests": 0,
-            "tokens": 0,
-            "errors": 0,
-            "timeouts": 0,
-            "rate_limited": 0,
-        }
-        for label in intervals
-    }
+    window = resolve_monitor_window(time_range, start_time, end_time, now)
+    if window:
+        start, end = window
+    else:
+        start = get_period_start(period, now)
+        end = now
 
     async with async_session_maker() as session:
         total_errors_result = await session.execute(
             select(func.count(RequestLog.id)).where(
                 RequestLog.created_at >= start,
+                RequestLog.created_at <= end,
                 RequestLog.status == ERROR_STATUS,
             )
         )
@@ -1177,6 +1237,7 @@ async def get_monitor_details(
         total_timeouts_result = await session.execute(
             select(func.count(RequestLog.id)).where(
                 RequestLog.created_at >= start,
+                RequestLog.created_at <= end,
                 RequestLog.status == TIMEOUT_STATUS,
             )
         )
@@ -1185,6 +1246,7 @@ async def get_monitor_details(
         total_rate_limited_result = await session.execute(
             select(func.count(RequestLog.id)).where(
                 RequestLog.created_at >= start,
+                RequestLog.created_at <= end,
                 RequestLog.status.in_(RATE_LIMITED_STATUSES),
             )
         )
@@ -1204,7 +1266,10 @@ async def get_monitor_details(
                     case((RequestLog.status.in_(RATE_LIMITED_STATUSES), 1), else_=0)
                 ).label("rate_limited"),
             )
-            .where(RequestLog.created_at >= start)
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.created_at <= end,
+            )
             .group_by(RequestLog.provider_id)
         )
         provider_rows = provider_rows_result.fetchall()
@@ -1223,32 +1288,13 @@ async def get_monitor_details(
                     case((RequestLog.status.in_(RATE_LIMITED_STATUSES), 1), else_=0)
                 ).label("rate_limited"),
             )
-            .where(RequestLog.created_at >= start)
+            .where(
+                RequestLog.created_at >= start,
+                RequestLog.created_at <= end,
+            )
             .group_by(RequestLog.api_key_id)
         )
         api_key_rows = api_key_rows_result.fetchall()
-
-        model_group_expr = provider_stats_model_expr(
-            RequestLog.model, RequestLog.actual_model
-        )
-        model_rows_result = await session.execute(
-            select(
-                model_group_expr.label("group_key"),
-                func.count(RequestLog.id).label("requests"),
-                func.sum(case((RequestLog.status == ERROR_STATUS, 1), else_=0)).label(
-                    "errors"
-                ),
-                func.sum(case((RequestLog.status == TIMEOUT_STATUS, 1), else_=0)).label(
-                    "timeouts"
-                ),
-                func.sum(
-                    case((RequestLog.status.in_(RATE_LIMITED_STATUSES), 1), else_=0)
-                ).label("rate_limited"),
-            )
-            .where(RequestLog.created_at >= start)
-            .group_by(model_group_expr)
-        )
-        model_rows = model_rows_result.fetchall()
 
         provider_ids = [row.group_key for row in provider_rows if row.group_key]
         api_key_ids = [row.group_key for row in api_key_rows if row.group_key]
@@ -1271,33 +1317,6 @@ async def get_monitor_details(
                 api_key.id: api_key.name for api_key in api_keys_result.scalars()
             }
 
-        trend_logs_result = await session.execute(
-            select(
-                RequestLog.created_at,
-                RequestLog.status,
-                RequestLog.tokens,
-            ).where(RequestLog.created_at >= start)
-        )
-        trend_logs = trend_logs_result.fetchall()
-        for log in trend_logs:
-            label = format_func(log.created_at)
-            if label not in trend_data:
-                continue
-            if log.status in RATE_LIMITED_STATUSES:
-                trend_data[label]["rate_limited"] += 1
-                continue
-            tokens = (
-                (log.tokens or {}).get("total_tokens")
-                or (log.tokens or {}).get("estimated")
-                or 0
-            )
-            trend_data[label]["requests"] += 1
-            trend_data[label]["tokens"] += tokens
-            if log.status == ERROR_STATUS:
-                trend_data[label]["errors"] += 1
-            elif log.status == TIMEOUT_STATUS:
-                trend_data[label]["timeouts"] += 1
-
         top_model_group_expr = provider_stats_model_expr(
             RequestLog.model, RequestLog.actual_model
         )
@@ -1308,6 +1327,7 @@ async def get_monitor_details(
             )
             .where(
                 RequestLog.created_at >= start,
+                RequestLog.created_at <= end,
                 RequestLog.latency_ms.is_not(None),
                 RequestLog.status != "pending",
                 RequestLog.model.is_not(None),
@@ -1350,6 +1370,7 @@ async def get_monitor_details(
                 )
                 .where(
                     RequestLog.created_at >= start,
+                    RequestLog.created_at <= end,
                     latency_group_expr.in_(top_models),
                     RequestLog.latency_ms.is_not(None),
                     RequestLog.status != "pending",
@@ -1393,6 +1414,7 @@ async def get_monitor_details(
             )
             .where(
                 RequestLog.created_at >= start,
+                RequestLog.created_at <= end,
                 RequestLog.latency_ms.is_not(None),
                 RequestLog.status != "pending",
                 RequestLog.provider_id.is_not(None),
@@ -1438,6 +1460,7 @@ async def get_monitor_details(
                 )
                 .where(
                     RequestLog.created_at >= start,
+                    RequestLog.created_at <= end,
                     RequestLog.provider_id.in_(list(resolved_providers.keys())),
                     RequestLog.latency_ms.is_not(None),
                     RequestLog.status != "pending",
@@ -1516,40 +1539,37 @@ async def get_monitor_details(
         lambda api_key_id: api_keys_map.get(api_key_id, f"Deleted Key #{api_key_id}"),
         masked=True,
     )
-    model_entries = build_status_entries(
-        model_rows,
-        "model",
-        lambda model_name: model_name,
-    )
 
-    all_entries = provider_entries + api_key_entries + model_entries
-    error_hotspots = sorted(
-        [item for item in all_entries if item["requests"] >= 3 and item["errors"] > 0],
-        key=lambda item: (item["error_rate"], item["errors"], item["requests"]),
-        reverse=True,
-    )[:6]
-    timeout_hotspots = sorted(
-        [
-            item
-            for item in all_entries
-            if item["requests"] >= 3 and item["timeouts"] > 0
-        ],
-        key=lambda item: (item["timeouts"], item["timeout_rate"], item["requests"]),
-        reverse=True,
-    )[:6]
+    def pick_error_hotspots(entries: list[dict]) -> list[dict]:
+        return sorted(
+            [item for item in entries if item["requests"] >= 3 and item["errors"] > 0],
+            key=lambda item: (item["error_rate"], item["errors"], item["requests"]),
+            reverse=True,
+        )[:6]
+
+    def pick_timeout_hotspots(entries: list[dict]) -> list[dict]:
+        return sorted(
+            [
+                item
+                for item in entries
+                if item["requests"] >= 3 and item["timeouts"] > 0
+            ],
+            key=lambda item: (item["timeouts"], item["timeout_rate"], item["requests"]),
+            reverse=True,
+        )[:6]
 
     return {
         "period": period,
+        "time_range": time_range,
         "start": start.isoformat(),
+        "end": end.isoformat(),
         "total_errors": total_errors,
         "total_timeouts": total_timeouts,
         "total_rate_limited": total_rate_limited,
-        "trend": {
-            "intervals": intervals,
-            "data": trend_data,
-        },
-        "error_hotspots": error_hotspots,
-        "timeout_hotspots": timeout_hotspots,
+        "error_hotspots_provider": pick_error_hotspots(provider_entries),
+        "error_hotspots_api_key": pick_error_hotspots(api_key_entries),
+        "timeout_hotspots_provider": pick_timeout_hotspots(provider_entries),
+        "timeout_hotspots_api_key": pick_timeout_hotspots(api_key_entries),
         "latency": {
             "models": top_models,
             "intervals": latency_intervals,

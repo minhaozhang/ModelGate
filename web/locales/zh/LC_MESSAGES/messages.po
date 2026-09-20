@@ -3029,6 +3029,9 @@ msgstr "已禁用"
 msgid "Completed At"
 msgstr "完成时间"
 
+msgid "Usage composition, hotspots and latency"
+msgstr "用量构成、热点与延迟"
+
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
 

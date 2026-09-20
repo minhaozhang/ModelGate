@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -7,6 +7,7 @@
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/output.css?v={{ css_version }}">
     <script src="/static/js/chart.min.js"></script>
+    <script src="/static/js/date-picker.js"></script>
     <style>
         .nav-link { transition: all 0.2s; }
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
@@ -42,7 +43,22 @@
         body.theme-dark input,
         body.theme-dark select,
         body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
-        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500):not(.bg-teal-500) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500):not(.bg-teal-500):not(.time-btn.active) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+        .time-btn {
+            padding: 0.5rem 0.9rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            background: #ffffff;
+            color: #374151;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+        .time-btn:hover { background: #f9fafb; border-color: #d1d5db; }
+        .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
+        body.theme-dark .time-btn { background: #0f172a; color: #e5e7eb; border-color: #334155; }
+        body.theme-dark .time-btn:hover { background: #1e293b; }
+        body.theme-dark .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
         body.theme-dark .shadow,
         body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
         body.theme-dark .nav-link { color: #cbd5e1 !important; }
@@ -182,53 +198,20 @@
         {% include 'components/nav.html' %}
 
         <main class="ml-56 flex-1 p-6">
-            {% call admin_page_header(_('Statistics Monitor'), _('Composition, concentration, hotspots, and trend behavior')) %}
-            <div class="flex bg-white rounded border overflow-hidden">
-                <button onclick="setPeriod('day')" id="btn-day" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white">{{ _('Day') }}</button>
-                <button onclick="setPeriod('week')" id="btn-week" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Week') }}</button>
-                <button onclick="setPeriod('month')" id="btn-month" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Month') }}</button>
-                <button onclick="setPeriod('year')" id="btn-year" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">{{ _('Year') }}</button>
+            {% call admin_page_header(_('Statistics Monitor'), _('Usage composition, hotspots and latency')) %}
+            <div class="flex flex-wrap items-center gap-3">
+                <div id="monitor-range-btns" class="flex gap-2">
+                    <button class="time-btn" data-range="1h" onclick="setTimeRange(this)">1h</button>
+                    <button class="time-btn" data-range="6h" onclick="setTimeRange(this)">6h</button>
+                    <button class="time-btn active" data-range="24h" onclick="setTimeRange(this)">24h</button>
+                    <button class="time-btn" data-range="7d" onclick="setTimeRange(this)">7d</button>
+                    <button class="time-btn" data-range="custom" onclick="setTimeRange(this)">{{ _('Custom') }}</button>
+                </div>
+                <div id="monitor-custom-range" class="hidden">
+                    <div id="monitor-datetime-picker"></div>
+                </div>
             </div>
             {% endcall %}
-
-            <div class="grid grid-cols-1 md:grid-cols-6 xl:grid-cols-9 gap-4 mb-6">
-                <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Total Requests') }}</div>
-                    <div id="total-requests" class="text-3xl font-bold text-blue-600">0</div>
-                </div>
-                <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Total Tokens') }}</div>
-                    <div class="text-xl font-bold leading-none text-green-600">↑<span id="total-prompt-tokens">0</span> / ↓<span id="total-completion-tokens">0</span></div>
-                </div>
-                <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Errors') }}</div>
-                    <div id="total-errors" class="text-3xl font-bold text-red-600">0</div>
-                </div>
-                <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Timeouts') }}</div>
-                    <div id="total-timeouts" class="text-3xl font-bold text-amber-600">0</div>
-                </div>
-                <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('429') }}</div>
-                    <div id="total-rate-limited" class="text-3xl font-bold text-sky-600">0</div>
-                </div>
-                <div class="stat-card bg-white rounded-lg shadow p-5">
-                    <div class="text-gray-500 text-sm mb-1">{{ _('Error Rate') }}</div>
-                    <div id="error-rate" class="text-3xl font-bold text-orange-600">0%</div>
-                </div>
-                <div id="mcp-calls-card" class="stat-card bg-white rounded-lg shadow p-5 hidden">
-                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 调用' if current_locale == 'zh' else 'MCP Calls' }}</div>
-                    <div id="mcp-total-calls" class="text-3xl font-bold text-purple-600">0</div>
-                </div>
-                <div id="mcp-errors-card" class="stat-card bg-white rounded-lg shadow p-5 hidden">
-                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 错误' if current_locale == 'zh' else 'MCP Errors' }}</div>
-                    <div id="mcp-total-errors" class="text-3xl font-bold text-red-600">0</div>
-                </div>
-                <div id="mcp-servers-card" class="stat-card bg-white rounded-lg shadow p-5 hidden">
-                    <div class="text-gray-500 text-sm mb-1">{{ 'MCP 服务器' if current_locale == 'zh' else 'MCP Servers' }}</div>
-                    <div id="mcp-server-count" class="text-3xl font-bold text-teal-600">0</div>
-                </div>
-            </div>
 
             <div id="system-info-panel" class="bg-white rounded-lg shadow p-5 mb-6">
                 <div class="flex items-center justify-between mb-4">
@@ -277,14 +260,6 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-lg shadow p-5 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold">{{ _('Request Trend') }}</h3>
-                    <div id="trend-meta" class="text-sm text-gray-500">{{ _('Requests') }} / {{ _('Tokens') }} / {{ _('Errors') }} / {{ _('Timeouts') }}</div>
-                </div>
-                <canvas id="trendChart" height="80"></canvas>
-            </div>
-
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 <div class="bg-white rounded-lg shadow p-5">
                     <h3 class="text-lg font-semibold mb-4">{{ _('Provider Usage') }}</h3>
@@ -303,22 +278,22 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 xl:grid-cols-4 gap-6 mt-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mt-6">
                 <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">{{ _('Traffic Concentration') }}</h3>
-                    <div id="concentration-cards" class="space-y-3"></div>
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Error Hotspots') }} · {{ _('Provider') }}</h3>
+                    <div id="error-hotspots-provider" class="space-y-3"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">{{ _('Error Hotspots') }}</h3>
-                    <div id="error-hotspots" class="space-y-3"></div>
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Error Hotspots') }} · {{ _('API Key') }}</h3>
+                    <div id="error-hotspots-api-key" class="space-y-3"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">{{ _('Timeout Hotspots') }}</h3>
-                    <div id="timeout-hotspots" class="space-y-3"></div>
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Timeout Hotspots') }} · {{ _('Provider') }}</h3>
+                    <div id="timeout-hotspots-provider" class="space-y-3"></div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-5">
-                    <h3 class="text-lg font-semibold mb-4">{{ _('Active Footprint') }}</h3>
-                    <div id="footprint-cards" class="space-y-3"></div>
+                    <h3 class="text-lg font-semibold mb-4">{{ _('Timeout Hotspots') }} · {{ _('API Key') }}</h3>
+                    <div id="timeout-hotspots-api-key" class="space-y-3"></div>
                 </div>
             </div>
 
@@ -421,10 +396,10 @@
     </script>
     <script>
         const APP_BASE_PATH = {{ app_base_path | tojson }};
-        let currentPeriod = 'day';
+        let currentRange = '24h';
+        let monitorDatePicker = null;
         let currentLatencyView = 'average';
         let currentLatencyDimension = 'model';
-        let trendChart = null;
         let providerChart = null;
         let apikeyChart = null;
         let modelChart = null;
@@ -475,15 +450,25 @@
             return await resp.json();
         }
 
-        function setPeriod(period) {
-            currentPeriod = period;
-            document.querySelectorAll('[id^="btn-"]').forEach(btn => {
-                btn.classList.remove('bg-blue-500', 'text-white');
-                btn.classList.add('text-gray-600', 'hover:bg-gray-100');
-            });
-            document.getElementById('btn-' + period).classList.add('bg-blue-500', 'text-white');
-            document.getElementById('btn-' + period).classList.remove('text-gray-600', 'hover:bg-gray-100');
-            loadData();
+        function setTimeRange(btn) {
+            document.querySelectorAll('#monitor-range-btns .time-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentRange = btn.dataset.range;
+            const customEl = document.getElementById('monitor-custom-range');
+            if (currentRange === 'custom') {
+                customEl.classList.remove('hidden');
+                if (!monitorDatePicker) {
+                    monitorDatePicker = MgDateRangePicker.create({
+                        el: '#monitor-datetime-picker',
+                        type: 'date',
+                        placeholder: '{{ _("Select date range") }}',
+                        onChange: () => loadData()
+                    });
+                }
+            } else {
+                customEl.classList.add('hidden');
+                loadData();
+            }
         }
 
         function setLatencyView(view) {
@@ -535,22 +520,6 @@
 
         function formatPct(value, digits = 1) {
             return `${(Number(value || 0) * 100).toFixed(digits)}%`;
-        }
-
-        function getTokenChartScale(requestValues, tokenValues) {
-            const maxRequests = Math.max(...requestValues, 1);
-            const maxTokens = Math.max(...tokenValues, 1);
-            const scales = [
-                { divisor: 1, suffix: '' },
-                { divisor: 1000, suffix: 'K' },
-                { divisor: 1000000, suffix: 'M' },
-                { divisor: 1000000000, suffix: 'B' }
-            ];
-            let scale = scales.find(s => maxTokens / s.divisor <= maxRequests * 5) || scales[scales.length - 1];
-            if (maxTokens / scale.divisor >= 1000) {
-                scale = scales[scales.indexOf(scale) + 1] || scale;
-            }
-            return scale;
         }
 
         function buildDonutSeries(data, palette, metric = 'tokens', limit = 5) {
@@ -641,33 +610,6 @@
             return { chart, entries: series.entries };
         }
 
-        function renderConcentrationCards(providerEntries, apikeyEntries, modelEntries) {
-            const sections = [
-                 [window.I18N.providers, providerEntries, false],
-                 [window.I18N.apiKeys, apikeyEntries, true],
-                 [window.I18N.models, modelEntries, false]
-             ];
-             const html = sections.map(([label, entries, shouldMask]) => {
-                 const total = entries.reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0) || 1;
-                 const top1 = entries[0];
-                 const top3Value = entries.slice(0, 3).reduce((sum, [, stats]) => sum + (stats.tokens || 0), 0);
-                 const displayName = top1 ? (shouldMask ? maskName(top1[0]) : top1[0]) : window.I18N.noData;
-                 const fullName = top1 ? top1[0] : '';
-                 return `
-                     <div class="rounded-lg bg-slate-50 p-4">
-                         <div class="text-xs uppercase tracking-wide text-slate-500">${label}</div>
-                         <div class="mt-2 text-sm font-medium text-slate-800 truncate" title="${fullName}">${displayName}</div>
-                        <div class="mt-1 text-xs text-slate-500">${window.I18N.top1Share} ${top1 ? formatPct((top1[1].tokens || 0) / total) : '0%'}</div>
-                        <div class="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
-                            <div class="h-full bg-slate-700" style="width:${Math.min((top3Value / total) * 100, 100)}%"></div>
-                        </div>
-                        <div class="mt-2 text-xs text-slate-500">${window.I18N.top3Combined} ${formatPct(top3Value / total)}</div>
-                    </div>
-                `;
-            }).join('');
-            document.getElementById('concentration-cards').innerHTML = html;
-        }
-
         function renderHotspots(targetId, hotspots, kind = 'error') {
             const countKey = kind === 'timeout' ? 'timeouts' : 'errors';
             const rateKey = kind === 'timeout' ? 'timeout_rate' : 'error_rate';
@@ -746,44 +688,6 @@
                 }
             }
 
-            return { start, end };
-        }
-
-        function getTrendVisibleRange(seriesList, totalBuckets) {
-            let firstIndex = null;
-            let lastIndex = null;
-            seriesList.forEach(series => {
-                (series || []).forEach((value, index) => {
-                    if (!Number(value || 0)) return;
-                    firstIndex = firstIndex === null ? index : Math.min(firstIndex, index);
-                    lastIndex = lastIndex === null ? index : Math.max(lastIndex, index);
-                });
-            });
-            if (firstIndex === null || lastIndex === null) {
-                if (currentPeriod === 'month' || currentPeriod === 'year') {
-                    const minVisibleBuckets = Math.min(30, totalBuckets);
-                    return { start: Math.max(totalBuckets - minVisibleBuckets, 0), end: Math.max(totalBuckets - 1, 0) };
-                }
-                return { start: 0, end: Math.max(totalBuckets - 1, 0) };
-            }
-            if (currentPeriod === 'month' || currentPeriod === 'year') {
-                const minVisibleBuckets = Math.min(30, totalBuckets);
-                const start = Math.max(Math.min(firstIndex - 1, totalBuckets - minVisibleBuckets), 0);
-                return { start, end: Math.max(totalBuckets - 1, 0) };
-            }
-            let start = Math.max(firstIndex - 1, 0);
-            let end = Math.min(lastIndex + 1, totalBuckets - 1);
-            if (currentPeriod === 'day') {
-                const minVisibleBuckets = totalBuckets >= 48 ? 12 : 6;
-                const currentVisibleBuckets = end - start + 1;
-                if (currentVisibleBuckets < minVisibleBuckets) {
-                    end = Math.min(end + (minVisibleBuckets - currentVisibleBuckets), totalBuckets - 1);
-                    const stillMissing = minVisibleBuckets - (end - start + 1);
-                    if (stillMissing > 0) {
-                        start = Math.max(start - stillMissing, 0);
-                    }
-                }
-            }
             return { start, end };
         }
 
@@ -1085,189 +989,29 @@
             container.innerHTML = `${legend}<div class="heatmap-grid" style="grid-template-columns:minmax(140px, 1.4fr) repeat(${visibleIntervals.length}, minmax(28px, 1fr));">${header}${rows}</div>`;
         }
 
-        function renderFootprintCards(providerEntries, apikeyEntries, modelEntries) {
-            const cards = [
-                {
-                    label: window.I18N.activeProviders,
-                    value: providerEntries.length,
-                    detail: providerEntries[0] ? `${window.I18N.top} ${providerEntries[0][0]}` : window.I18N.noTraffic
-                },
-                {
-                    label: window.I18N.activeApiKeys,
-                    value: apikeyEntries.length,
-                    detail: apikeyEntries[0] ? `${window.I18N.top} ${maskName(apikeyEntries[0][0])}` : window.I18N.noTraffic
-                },
-                {
-                    label: window.I18N.activeModels,
-                    value: modelEntries.length,
-                    detail: modelEntries[0] ? `${window.I18N.top} ${modelEntries[0][0]}` : window.I18N.noTraffic
-                }
-            ];
 
-            const html = cards.map(card => `
-                <div class="rounded-lg border border-gray-100 bg-gray-50 p-4">
-                    <div class="text-xs uppercase tracking-wide text-gray-500">${card.label}</div>
-                    <div class="mt-2 text-2xl font-bold text-gray-800">${card.value.toLocaleString()}</div>
-                    <div class="mt-1 text-sm text-gray-500 truncate" title="${card.detail}">${card.detail}</div>
-                </div>
-            `).join('');
-
-            document.getElementById('footprint-cards').innerHTML = html;
-        }
-
-        function renderTrendChart(data) {
-            const ctx = document.getElementById('trendChart').getContext('2d');
-            const chartTheme = getChartTheme();
-            if (trendChart) trendChart.destroy();
-
-            const requests = data.intervals.map(label => data.data[label]?.requests || 0);
-            const rawTokens = data.intervals.map(label => data.data[label]?.tokens || 0);
-            const errors = data.intervals.map(label => data.data[label]?.errors || 0);
-            const timeouts = data.intervals.map(label => data.data[label]?.timeouts || 0);
-            const visibleRange = getTrendVisibleRange([requests, rawTokens, errors, timeouts], data.intervals.length);
-            const tokenScale = getTokenChartScale(requests, rawTokens);
-            const tokens = rawTokens.map(value => Number((value / tokenScale.divisor).toFixed(2)));
-            const tokenLabel = tokenScale.suffix ? `${window.I18N.tokens} (${tokenScale.suffix})` : window.I18N.tokens;
-            document.getElementById('trend-meta').textContent = window.I18N.onRightAxis.replace('{label}', tokenLabel);
-
-            trendChart = new Chart(ctx, {
-                data: {
-                    labels: data.intervals,
-                    datasets: [
-                        {
-                            type: 'bar',
-                            label: window.I18N.requests,
-                            data: requests,
-                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
-                            borderColor: 'rgba(59, 130, 246, 0.85)',
-                            borderWidth: 1,
-                            borderRadius: 4,
-                            yAxisID: 'yRequests'
-                        },
-                        {
-                            type: 'line',
-                            label: tokenLabel,
-                            data: tokens,
-                            borderColor: '#10b981',
-                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                            pointBackgroundColor: '#10b981',
-                            pointRadius: 3,
-                            pointHoverRadius: 4,
-                            borderWidth: 2,
-                            tension: 0.25,
-                            fill: true,
-                            yAxisID: 'yTokens'
-                        },
-                        {
-                            type: 'line',
-                            label: window.I18N.errors,
-                            data: errors,
-                            borderColor: '#ef4444',
-                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                            pointBackgroundColor: '#ef4444',
-                            pointRadius: 2,
-                            pointHoverRadius: 4,
-                            borderWidth: 2,
-                            tension: 0.2,
-                            borderDash: [6, 4],
-                            fill: false,
-                            yAxisID: 'yRequests'
-                        },
-                        {
-                            type: 'line',
-                            label: window.I18N.timeouts,
-                            data: timeouts,
-                            borderColor: '#f59e0b',
-                            backgroundColor: 'rgba(245, 158, 11, 0.08)',
-                            pointBackgroundColor: '#f59e0b',
-                            pointRadius: 2,
-                            pointHoverRadius: 4,
-                            borderWidth: 2,
-                            tension: 0.2,
-                            borderDash: [2, 5],
-                            fill: false,
-                            yAxisID: 'yRequests'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    interaction: { mode: 'index', intersect: false },
-                    scales: {
-                        x: {
-                            min: visibleRange.start,
-                            max: visibleRange.end,
-                            grid: { color: chartTheme.gridColor },
-                            ticks: {
-                                color: chartTheme.tickColor,
-                                autoSkip: true,
-                                maxRotation: 0,
-                                minRotation: 0,
-                                maxTicksLimit: currentPeriod === 'week' ? 10 : 12
-                            }
-                        },
-                        yRequests: {
-                            beginAtZero: true,
-                            position: 'left',
-                            grid: { color: chartTheme.gridColor },
-                            ticks: { color: chartTheme.tickColor },
-                            title: { display: true, text: window.I18N.requestsErrorsTimeouts, color: chartTheme.titleColor }
-                        },
-                        yTokens: {
-                            beginAtZero: true,
-                            position: 'right',
-                            grid: { drawOnChartArea: false },
-                            ticks: { color: chartTheme.tickColor },
-                            title: { display: true, text: tokenLabel, color: chartTheme.titleColor }
-                        }
-                    },
-                    plugins: {
-                        legend: { position: 'top', labels: { color: chartTheme.legendColor } },
-                        tooltip: {
-                            backgroundColor: chartTheme.tooltipBg,
-                            titleColor: chartTheme.tooltipTitle,
-                            bodyColor: chartTheme.tooltipBody,
-                            borderColor: chartTheme.tooltipBorder,
-                            borderWidth: 1,
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.dataset.yAxisID === 'yTokens') {
-                                        const rawValue = rawTokens[context.dataIndex] || 0;
-                                        return `${tokenLabel}: ${formatCompactTokens(rawValue)} (${rawValue.toLocaleString()})`;
-                                    }
-                                    return `${context.dataset.label}: ${(context.parsed.y || 0).toLocaleString()}`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+        function buildMonitorRangeParams() {
+            const params = new URLSearchParams();
+            if (currentRange === 'custom' && monitorDatePicker) {
+                const s = monitorDatePicker.getStartISO();
+                const e = monitorDatePicker.getEndISO();
+                if (s) params.set('start_time', s);
+                if (e) params.set('end_time', e);
+            }
+            if (!params.has('start_time') && !params.has('end_time')) {
+                params.set('time_range', currentRange === 'custom' ? '24h' : currentRange);
+            }
+            return params;
         }
 
         async function loadData() {
+            const qs = buildMonitorRangeParams().toString();
             const [providerData, apikeyData, modelData, monitorData] = await Promise.all([
-                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=provider&period=` + currentPeriod),
-                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=api_key&period=` + currentPeriod),
-                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=model&period=` + currentPeriod),
-                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/monitor-details?period=` + currentPeriod)
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=provider&${qs}`),
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=api_key&${qs}`),
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/aggregate?dimension=model&${qs}`),
+                fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/monitor-details?${qs}`)
             ]);
-
-            const totalRequests = providerData.total_requests || 0;
-            const totalTokens = providerData.total_tokens || 0;
-            const totalPromptTokens = providerData.total_prompt_tokens || 0;
-            const totalCompletionTokens = providerData.total_completion_tokens || 0;
-            const totalErrors = monitorData.total_errors || 0;
-            const totalTimeouts = monitorData.total_timeouts || 0;
-            const totalRateLimited = monitorData.total_rate_limited || 0;
-
-            document.getElementById('total-requests').textContent = totalRequests.toLocaleString();
-            document.getElementById('total-prompt-tokens').textContent = formatCompactTokens(totalPromptTokens);
-            document.getElementById('total-completion-tokens').textContent = formatCompactTokens(totalCompletionTokens);
-            document.getElementById('total-errors').textContent = totalErrors.toLocaleString();
-            document.getElementById('total-timeouts').textContent = totalTimeouts.toLocaleString();
-            document.getElementById('total-rate-limited').textContent = totalRateLimited.toLocaleString();
-            document.getElementById('error-rate').textContent = (totalRequests > 0 ? ((totalErrors / totalRequests) * 100).toFixed(1) : '0.0') + '%';
 
             const providerResult = renderUsageChart(providerChart, 'providerChart', 'provider-legend', providerData.data || {}, {
                 type: 'doughnut',
@@ -1300,20 +1044,17 @@
             });
             modelChart = modelResult.chart;
 
-            renderConcentrationCards(providerResult.entries, apikeyResult.entries, modelResult.entries);
-            renderHotspots('error-hotspots', monitorData.error_hotspots || [], 'error');
-            renderHotspots('timeout-hotspots', monitorData.timeout_hotspots || [], 'timeout');
-            renderFootprintCards(providerResult.entries, apikeyResult.entries, modelResult.entries);
+            renderHotspots('error-hotspots-provider', monitorData.error_hotspots_provider || [], 'error');
+            renderHotspots('error-hotspots-api-key', monitorData.error_hotspots_api_key || [], 'error');
+            renderHotspots('timeout-hotspots-provider', monitorData.timeout_hotspots_provider || [], 'timeout');
+            renderHotspots('timeout-hotspots-api-key', monitorData.timeout_hotspots_api_key || [], 'timeout');
             renderLatencyChart(monitorData.latency || {});
-            renderTrendChart(monitorData.trend || { intervals: [], data: {} });
         }
 
         loadData();
         setInterval(loadData, 30000);
         loadProviderStatus();
         setInterval(loadProviderStatus, 10000);
-        loadMcpStats();
-        setInterval(loadMcpStats, 60000);
         loadSystemInfo();
         setInterval(loadSystemInfo, 10000);
 
@@ -1436,27 +1177,6 @@
             } catch (e) {
                 console.error('Failed to load system info', e);
             }
-        }
-
-        async function loadMcpStats() {
-            try {
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`);
-                const servers = data.servers || [];
-                if (servers.length === 0) return;
-                document.getElementById('mcp-calls-card').classList.remove('hidden');
-                document.getElementById('mcp-errors-card').classList.remove('hidden');
-                document.getElementById('mcp-servers-card').classList.remove('hidden');
-                const logsResp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-logs/query?time_range=24h&page_size=1`);
-                const totalCalls = logsResp.total || 0;
-                let totalErrors = 0;
-                if (totalCalls > 0) {
-                    const errResp = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-logs/query?status=error&page_size=1`);
-                    totalErrors = errResp.total || 0;
-                }
-                document.getElementById('mcp-total-calls').textContent = totalCalls.toLocaleString();
-                document.getElementById('mcp-total-errors').textContent = totalErrors.toLocaleString();
-                document.getElementById('mcp-server-count').textContent = servers.length.toLocaleString();
-            } catch (e) {}
         }
     </script>
 </body>
