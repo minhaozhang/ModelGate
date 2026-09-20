@@ -3020,6 +3020,12 @@ msgstr "新版界面"
 msgid "Back to Classic"
 msgstr "返回旧版"
 
+msgid "Enabled"
+msgstr "启用"
+
+msgid "Disabled"
+msgstr "已禁用"
+
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
 

@@ -267,7 +267,7 @@
 
         async function loadKeys() {
             try {
-                const data = await fetchJsonOrRedirect(`${BASE}/admin/api/keys`);
+                const data = await fetchJsonOrRedirect(`${BASE}/admin/api/keys?status=all`);
                 if (!data) return;
                 allKeys = Array.isArray(data) ? data : (data.keys || []);
             } catch (error) {

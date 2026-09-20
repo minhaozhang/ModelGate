@@ -68,9 +68,17 @@ def _validate_access_payload(
 
 
 @router.get("/keys")
-async def list_api_keys(_: bool = Depends(permission_required("page.api_keys"))):
+async def list_api_keys(
+    status: str = "active",
+    _: bool = Depends(permission_required("page.api_keys")),
+):
     async with async_session_maker() as session:
-        result = await session.execute(select(ApiKey))
+        query = select(ApiKey)
+        if status == "inactive":
+            query = query.where(ApiKey.is_active == False)  # noqa: E712
+        elif status != "all":
+            query = query.where(ApiKey.is_active == True)  # noqa: E712
+        result = await session.execute(query)
         keys = result.scalars().all()
         key_ids = [k.id for k in keys]
         if not key_ids:

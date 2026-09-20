@@ -364,7 +364,11 @@ async def get_model_api_keys(
         if model_result.scalar_one_or_none() is None:
             return JSONResponse({"error": "Model not found"}, status_code=404)
 
-        keys_result = await session.execute(select(ApiKey).order_by(ApiKey.name))
+        keys_result = await session.execute(
+            select(ApiKey)
+            .where(ApiKey.is_active == True)  # noqa: E712
+            .order_by(ApiKey.name)
+        )
         keys = keys_result.scalars().all()
 
         tag_rows: list[tuple[int, str]] = []
