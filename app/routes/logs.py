@@ -1,5 +1,4 @@
 from collections import Counter
-import csv
 import io
 from datetime import datetime, timedelta
 from typing import Optional
@@ -329,6 +328,34 @@ async def query_logs(
 
 LOG_EXPORT_MAX_ROWS = 50000
 
+_XLSX_COL_WIDTHS = [8, 20, 20, 24, 18, 12, 12, 10, 12, 12, 15]
+
+
+def _xlsx_safe(value):
+    if isinstance(value, str) and value.startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
+
+
+def _build_xlsx(rows: list[list]) -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Request Logs"
+    ws.append([_xlsx_safe(v) for v in rows[0]])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    for row in rows[1:]:
+        ws.append([_xlsx_safe(v) for v in row])
+    for idx, width in enumerate(_XLSX_COL_WIDTHS, start=1):
+        ws.column_dimensions[get_column_letter(idx)].width = width
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
 
 @router.get("/logs/export")
 async def export_logs(
@@ -361,10 +388,7 @@ async def export_logs(
                 logs = result.scalars().all()
                 provider_map, api_key_map = await _get_maps(session, logs)
 
-    buf = io.StringIO()
-    buf.write("\ufeff")
-    writer = csv.writer(buf)
-    writer.writerow(
+    rows: list[list] = [
         [
             "ID",
             "时间",
@@ -373,19 +397,23 @@ async def export_logs(
             "Key",
             "供应商",
             "状态",
-            "耗时(ms)",
+            "耗时(秒)",
             "输入Tokens",
             "输出Tokens",
             "客户端IP",
         ]
-    )
+    ]
     for log in logs:
         tokens = log.tokens if isinstance(log.tokens, dict) else {}
-        writer.writerow(
+        rows.append(
             [
                 log.id,
-                log.created_at.isoformat(sep=" ") if log.created_at else "",
-                log.updated_at.isoformat(sep=" ") if log.updated_at else "",
+                log.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                if log.created_at
+                else "",
+                log.updated_at.strftime("%Y-%m-%d %H:%M:%S")
+                if log.updated_at
+                else "",
                 log.model or "",
                 api_key_map.get(log.api_key_id, f"Key-{log.api_key_id}")
                 if log.api_key_id is not None
@@ -394,17 +422,22 @@ async def export_logs(
                 if log.provider_id is not None
                 else "",
                 log.status or "",
-                log.latency_ms if log.latency_ms is not None else "",
+                round(log.latency_ms / 1000, 3)
+                if log.latency_ms is not None
+                else "",
                 tokens.get("prompt_tokens") or 0,
                 tokens.get("completion_tokens") or 0,
                 log.client_ip or "",
             ]
         )
 
-    filename = f"request_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"request_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     return Response(
-        content=buf.getvalue(),
-        media_type="text/csv; charset=utf-8",
+        content=_build_xlsx(rows),
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

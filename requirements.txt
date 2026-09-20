@@ -16,3 +16,4 @@ minio
 bcrypt
 PyJWT
 psutil
+openpyxl

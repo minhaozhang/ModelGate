@@ -3032,6 +3032,9 @@ msgstr "完成时间"
 msgid "Usage composition, hotspots and latency"
 msgstr "用量构成、热点与延迟"
 
+msgid "Export Excel"
+msgstr "导出 Excel"
+
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
 
