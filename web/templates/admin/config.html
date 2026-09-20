@@ -443,6 +443,9 @@
                 <button onclick="clearAllModelApiKeys()" class="text-xs text-gray-500 hover:text-gray-700 px-2 py-1">清空</button>
                 <span id="model-apikeys-count" class="text-xs text-gray-400 ml-auto"></span>
             </div>
+            <div id="model-apikeys-tagbar" class="px-4 py-2 border-b shrink-0 hidden">
+                <div id="model-apikeys-tagbar-inner" class="flex flex-wrap gap-1.5"></div>
+            </div>
             <div id="model-apikeys-list" class="p-4 overflow-y-auto flex-1 min-h-0"></div>
             <div class="p-4 border-t shrink-0 flex justify-end gap-2">
                 <button onclick="closeModelApiKeysModal()" class="px-4 py-2 border rounded text-sm hover:bg-gray-50">取消</button>
@@ -2369,6 +2372,8 @@
         let modelApiKeysTarget = null;
         let modelApiKeysCache = [];
         let modelApiKeysBound = new Set();
+        let modelApiKeysTagFilter = new Set();
+        let modelApiKeysTagList = [];
 
         async function openModelApiKeysModal(modelId) {
             modelApiKeysTarget = modelId;
@@ -2383,10 +2388,43 @@
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/models/${modelId}/api-keys`);
                 modelApiKeysCache = data.api_keys || [];
                 modelApiKeysBound = new Set((data.bound_key_ids || []).map(Number));
+                modelApiKeysTagFilter = new Set();
+                const tagSet = new Set();
+                modelApiKeysCache.forEach(k => (k.tags || []).forEach(tg => tagSet.add(tg)));
+                modelApiKeysTagList = Array.from(tagSet).sort();
+                renderModelApiKeysTagBar();
                 renderModelApiKeysList();
             } catch(e) {
                 document.getElementById('model-apikeys-list').innerHTML = '<div class="text-center text-red-500 py-8">加载失败</div>';
             }
+        }
+
+        function renderModelApiKeysTagBar() {
+            const bar = document.getElementById('model-apikeys-tagbar');
+            if (!bar) return;
+            if (modelApiKeysTagList.length === 0) {
+                bar.classList.add('hidden');
+                return;
+            }
+            bar.classList.remove('hidden');
+            let html = `<button onclick="toggleModelApiKeyTag(-1)" class="text-xs px-2.5 py-1 rounded-full border ${modelApiKeysTagFilter.size === 0 ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">全部</button>`;
+            modelApiKeysTagList.forEach((tag, i) => {
+                const active = modelApiKeysTagFilter.has(tag);
+                html += `<button onclick="toggleModelApiKeyTag(${i})" class="text-xs px-2.5 py-1 rounded-full border ${active ? 'bg-blue-500 text-white border-blue-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${escapeHtml(tag)}</button>`;
+            });
+            document.getElementById('model-apikeys-tagbar-inner').innerHTML = html;
+        }
+
+        function toggleModelApiKeyTag(index) {
+            if (index === -1) {
+                modelApiKeysTagFilter.clear();
+            } else {
+                const tag = modelApiKeysTagList[index];
+                if (modelApiKeysTagFilter.has(tag)) modelApiKeysTagFilter.delete(tag);
+                else modelApiKeysTagFilter.add(tag);
+            }
+            renderModelApiKeysTagBar();
+            renderModelApiKeysList();
         }
 
         function _modelApiKeysSearchTerm() {
@@ -2394,6 +2432,7 @@
         }
 
         function _modelApiKeyMatches(k, term) {
+            if (modelApiKeysTagFilter.size > 0 && !(k.tags || []).some(t => modelApiKeysTagFilter.has(t))) return false;
             if (!term) return true;
             const hay = [k.name, k.email, (k.tags || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
             return hay.includes(term);
@@ -2459,6 +2498,8 @@
             modelApiKeysTarget = null;
             modelApiKeysCache = [];
             modelApiKeysBound = new Set();
+            modelApiKeysTagFilter = new Set();
+            modelApiKeysTagList = [];
         }
 
         async function saveModelApiKeys() {
