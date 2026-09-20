@@ -3026,6 +3026,9 @@ msgstr "启用"
 msgid "Disabled"
 msgstr "已禁用"
 
+msgid "Completed At"
+msgstr "完成时间"
+
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
 

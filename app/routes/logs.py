@@ -1,7 +1,10 @@
 from collections import Counter
+import csv
+import io
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
+from fastapi.responses import Response
 from sqlalchemy import select, func, cast, Numeric, or_
 
 from app.core.database import (
@@ -85,6 +88,7 @@ def _serialize_error_log(
         "response": log.response,
         "error": log.error,
         "created_at": log.created_at.isoformat(),
+        "updated_at": log.updated_at.isoformat() if log.updated_at else None,
     }
 
 
@@ -196,6 +200,77 @@ def _escape_ilike(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+def _resolve_log_time_range(
+    time_range: str, start_time: Optional[str], end_time: Optional[str]
+) -> Optional[tuple[datetime, datetime]]:
+    now = datetime.now()
+    if start_time or end_time:
+        try:
+            dt_start = (
+                datetime.fromisoformat(start_time)
+                if start_time
+                else now - timedelta(days=7)
+            )
+            dt_end = datetime.fromisoformat(end_time) if end_time else now
+        except ValueError:
+            return None
+    else:
+        deltas = {
+            "1h": timedelta(hours=1),
+            "6h": timedelta(hours=6),
+            "24h": timedelta(hours=24),
+            "7d": timedelta(days=7),
+        }
+        dt_start = now - deltas.get(time_range, timedelta(hours=1))
+        dt_end = now
+    return dt_start, dt_end
+
+
+async def _resolve_log_filter_conditions(
+    session,
+    key_name: Optional[str],
+    model: Optional[str],
+    provider: Optional[int],
+    status: Optional[str],
+    dt_start: datetime,
+    dt_end: datetime,
+) -> tuple[list, bool]:
+    conditions = [
+        RequestLog.created_at >= dt_start,
+        RequestLog.created_at <= dt_end,
+    ]
+    if key_name:
+        safe_key = _escape_ilike(key_name)
+        key_result = await session.execute(
+            select(ApiKey).where(ApiKey.name == key_name)
+        )
+        key = key_result.scalar_one_or_none()
+        if key:
+            conditions.append(RequestLog.api_key_id == key.id)
+        else:
+            key_result = await session.execute(
+                select(ApiKey).where(ApiKey.name.ilike(f"%{safe_key}%"))
+            )
+            keys = key_result.scalars().all()
+            if keys:
+                conditions.append(RequestLog.api_key_id.in_([k.id for k in keys]))
+            else:
+                return conditions, True
+    if provider:
+        conditions.append(RequestLog.provider_id == provider)
+    if model:
+        safe_model = _escape_ilike(model)
+        conditions.append(
+            or_(
+                RequestLog.model.ilike(f"%{safe_model}%"),
+                RequestLog.requested_model.ilike(f"%{safe_model}%"),
+            )
+        )
+    if status:
+        conditions.append(RequestLog.status == status)
+    return conditions, False
+
+
 @router.get("/logs/query")
 async def query_logs(
     key_name: Optional[str] = None,
@@ -211,83 +286,26 @@ async def query_logs(
 ):
     page = max(1, page)
     page_size = max(1, min(page_size, 200))
-    now = datetime.now()
 
-    if start_time or end_time:
-        try:
-            dt_start = (
-                datetime.fromisoformat(start_time)
-                if start_time
-                else now - timedelta(days=7)
-            )
-            dt_end = datetime.fromisoformat(end_time) if end_time else now
-        except ValueError:
-            return {"logs": [], "total": 0, "page": page, "page_size": page_size}
-    else:
-        deltas = {
-            "1h": timedelta(hours=1),
-            "6h": timedelta(hours=6),
-            "24h": timedelta(hours=24),
-            "7d": timedelta(days=7),
-        }
-        dt_start = now - deltas.get(time_range, timedelta(hours=1))
-        dt_end = now
+    resolved = _resolve_log_time_range(time_range, start_time, end_time)
+    if not resolved:
+        return {"logs": [], "total": 0, "page": page, "page_size": page_size}
+    dt_start, dt_end = resolved
 
     async with async_session_maker() as session:
-        api_key_id_filter = None
-        if key_name:
-            safe_key = _escape_ilike(key_name)
-            key_result = await session.execute(
-                select(ApiKey).where(ApiKey.name == key_name)
-            )
-            key = key_result.scalar_one_or_none()
-            if key:
-                api_key_id_filter = key.id
-            else:
-                key_result = await session.execute(
-                    select(ApiKey).where(ApiKey.name.ilike(f"%{safe_key}%"))
-                )
-                keys = key_result.scalars().all()
-                if keys:
-                    api_key_id_filter = [k.id for k in keys]
-                else:
-                    return {
-                        "logs": [],
-                        "total": 0,
-                        "page": page,
-                        "page_size": page_size,
-                    }
-
-        q = select(RequestLog).where(
-            RequestLog.created_at >= dt_start,
-            RequestLog.created_at <= dt_end,
+        conditions, no_match = await _resolve_log_filter_conditions(
+            session, key_name, model, provider, status, dt_start, dt_end
         )
-        count_q = select(func.count(RequestLog.id)).where(
-            RequestLog.created_at >= dt_start,
-            RequestLog.created_at <= dt_end,
-        )
+        if no_match:
+            return {
+                "logs": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+            }
 
-        if api_key_id_filter is not None:
-            if isinstance(api_key_id_filter, list):
-                q = q.where(RequestLog.api_key_id.in_(api_key_id_filter))
-                count_q = count_q.where(RequestLog.api_key_id.in_(api_key_id_filter))
-            else:
-                q = q.where(RequestLog.api_key_id == api_key_id_filter)
-                count_q = count_q.where(RequestLog.api_key_id == api_key_id_filter)
-        if provider:
-            q = q.where(RequestLog.provider_id == provider)
-            count_q = count_q.where(RequestLog.provider_id == provider)
-        if model:
-            safe_model = _escape_ilike(model)
-            model_match = or_(
-                RequestLog.model.ilike(f"%{safe_model}%"),
-                RequestLog.requested_model.ilike(f"%{safe_model}%"),
-            )
-            q = q.where(model_match)
-            count_q = count_q.where(model_match)
-        if status:
-            q = q.where(RequestLog.status == status)
-            count_q = count_q.where(RequestLog.status == status)
+        q = select(RequestLog).where(*conditions)
+        count_q = select(func.count(RequestLog.id)).where(*conditions)
 
         total_result = await session.execute(count_q)
         total = total_result.scalar() or 0
@@ -307,6 +325,88 @@ async def query_logs(
             "page": page,
             "page_size": page_size,
         }
+
+
+LOG_EXPORT_MAX_ROWS = 50000
+
+
+@router.get("/logs/export")
+async def export_logs(
+    key_name: Optional[str] = None,
+    model: Optional[str] = None,
+    provider: Optional[int] = None,
+    status: Optional[str] = None,
+    time_range: str = "1h",
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    _: bool = Depends(permission_required("page.logs.requests")),
+):
+    resolved = _resolve_log_time_range(time_range, start_time, end_time)
+    logs = []
+    provider_map: dict[int, str] = {}
+    api_key_map: dict[int, str] = {}
+    if resolved:
+        dt_start, dt_end = resolved
+        async with async_session_maker() as session:
+            conditions, no_match = await _resolve_log_filter_conditions(
+                session, key_name, model, provider, status, dt_start, dt_end
+            )
+            if not no_match:
+                result = await session.execute(
+                    select(RequestLog)
+                    .where(*conditions)
+                    .order_by(RequestLog.created_at.desc())
+                    .limit(LOG_EXPORT_MAX_ROWS)
+                )
+                logs = result.scalars().all()
+                provider_map, api_key_map = await _get_maps(session, logs)
+
+    buf = io.StringIO()
+    buf.write("\ufeff")
+    writer = csv.writer(buf)
+    writer.writerow(
+        [
+            "ID",
+            "时间",
+            "完成时间",
+            "模型",
+            "Key",
+            "供应商",
+            "状态",
+            "耗时(ms)",
+            "输入Tokens",
+            "输出Tokens",
+            "客户端IP",
+        ]
+    )
+    for log in logs:
+        tokens = log.tokens if isinstance(log.tokens, dict) else {}
+        writer.writerow(
+            [
+                log.id,
+                log.created_at.isoformat(sep=" ") if log.created_at else "",
+                log.updated_at.isoformat(sep=" ") if log.updated_at else "",
+                log.model or "",
+                api_key_map.get(log.api_key_id, f"Key-{log.api_key_id}")
+                if log.api_key_id is not None
+                else "",
+                provider_map.get(log.provider_id, "")
+                if log.provider_id is not None
+                else "",
+                log.status or "",
+                log.latency_ms if log.latency_ms is not None else "",
+                tokens.get("prompt_tokens") or 0,
+                tokens.get("completion_tokens") or 0,
+                log.client_ip or "",
+            ]
+        )
+
+    filename = f"request_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/logs/aggregate")

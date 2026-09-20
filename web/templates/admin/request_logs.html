@@ -273,6 +273,9 @@
                         <button onclick="loadLogs()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium">
                             {{ _('Query') }}
                         </button>
+                        <button onclick="exportLogs()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded hover:bg-gray-50 text-sm font-medium">
+                            {{ _('Export CSV') }}
+                        </button>
                     </div>
                 </section>
 
@@ -287,6 +290,7 @@
                             <thead>
                                 <tr>
                                     <th>{{ _('Created At') }}</th>
+                                    <th>{{ _('Completed At') }}</th>
                                     <th>{{ _('Status') }}</th>
                                     <th>{{ _('API Key') }}</th>
                                     <th>{{ _('Provider') }}</th>
@@ -636,7 +640,7 @@
             return map[status] || 'badge-cancelled';
         }
 
-        function buildQueryUrl(page) {
+        function buildFilterParams() {
             const params = new URLSearchParams();
             const keyName = document.getElementById('filter-key').value.trim();
             const model = document.getElementById('filter-model').value.trim();
@@ -656,10 +660,19 @@
             } else {
                 params.set('time_range', currentRange);
             }
+            return params;
+        }
 
+        function buildQueryUrl(page) {
+            const params = buildFilterParams();
             params.set('page', page);
             params.set('page_size', '50');
             return `${APP_BASE_PATH}/admin/api/logs/query?${params.toString()}`;
+        }
+
+        function exportLogs() {
+            const params = buildFilterParams();
+            window.open(`${APP_BASE_PATH}/admin/api/logs/export?${params.toString()}`, '_blank');
         }
 
         function renderLogs(logs) {
@@ -714,6 +727,7 @@
                         data-model="${escapeHtml(log.model || '')}"
                         data-tokens="${escapeHtml(typeof log.tokens === 'object' ? JSON.stringify(log.tokens) : (log.tokens || ''))}">
                         <td class="cell-time whitespace-nowrap text-gray-700">${escapeHtml(new Date(log.created_at).toLocaleString())}</td>
+                        <td class="cell-time whitespace-nowrap text-gray-700">${log.updated_at ? escapeHtml(new Date(log.updated_at).toLocaleString()) : '-'}</td>
                         <td class="cell-status">
                             <div class="flex items-center gap-1 flex-wrap">
                                 <span class="badge ${badgeClass}">${escapeHtml(log.status)}</span>
