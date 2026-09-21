@@ -50,6 +50,16 @@ class UpstreamStallTimeout(asyncio.TimeoutError):
     """Upstream went silent mid-stream (no raw line within the stall window)."""
 
 
+def _first_chunk_timeout(ctx_tokens: int | None) -> float:
+    """Scale the first-chunk budget with prompt size: large-context prefill
+    legitimately needs seconds before the first token (≈+1s per 10K tokens,
+    capped). Dead upstreams (zero bytes) still trip the base timeout fast."""
+    base = STREAM_FIRST_CHUNK_TIMEOUT_SECONDS
+    if ctx_tokens:
+        base += ctx_tokens / 10000
+    return min(base, 60.0)
+
+
 async def _stall_watchdog(aiter_lines, timeout_s: float):
     """Pass through raw lines; abort when upstream stays silent past timeout_s.
 
@@ -120,16 +130,18 @@ async def handle_streaming(
         )
         is_active_request_registered = True
         req = client.build_request("POST", url, headers=headers, content=body)
+        first_chunk_timeout = _first_chunk_timeout(request_context_tokens)
         try:
             resp = await asyncio.wait_for(
                 client.send(req, stream=True),
-                STREAM_FIRST_CHUNK_TIMEOUT_SECONDS,
+                first_chunk_timeout,
             )
         except asyncio.TimeoutError:
             if chosen_key_id is not None:
                 record_key_event(chosen_key_id, "timeout")
             raise UpstreamFirstChunkTimeout(
-                f"upstream did not respond within {STREAM_FIRST_CHUNK_TIMEOUT_SECONDS}s"
+                f"upstream did not respond within {first_chunk_timeout:.1f}s"
+                f" (ctx={request_context_tokens or 0})"
             )
 
         if resp.status_code >= 400:
@@ -255,7 +267,7 @@ async def handle_streaming(
         try:
             first_raw_line = await asyncio.wait_for(
                 first_line_iter.__anext__(),
-                STREAM_FIRST_CHUNK_TIMEOUT_SECONDS,
+                first_chunk_timeout,
             )
         except StopAsyncIteration:
             first_raw_line = None
@@ -264,7 +276,8 @@ async def handle_streaming(
             if chosen_key_id is not None:
                 record_key_event(chosen_key_id, "timeout")
             raise UpstreamFirstChunkTimeout(
-                f"first-chunk timeout after {STREAM_FIRST_CHUNK_TIMEOUT_SECONDS}s"
+                f"first-chunk timeout after {first_chunk_timeout:.1f}s"
+                f" (ctx={request_context_tokens or 0})"
             )
         except Exception:
             await resp.aclose()
