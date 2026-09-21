@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import unittest
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock, patch
@@ -99,8 +99,8 @@ class StreamFirstChunkTimeoutTests(unittest.IsolatedAsyncioTestCase):
         active_requests.clear()
         config.user_slot_released_ids.clear()
 
-    def test_default_timeout_is_90s(self):
-        self.assertEqual(STREAM_FIRST_CHUNK_TIMEOUT_SECONDS, 90.0)
+    def test_default_timeout_is_5s(self):
+        self.assertEqual(STREAM_FIRST_CHUNK_TIMEOUT_SECONDS, 5.0)
 
     async def test_send_headers_timeout_triggers_error(self):
         from app.services.proxy_runtime import stream as stream_module

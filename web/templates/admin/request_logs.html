@@ -25,6 +25,7 @@
         .badge-error { background: #fee2e2; color: #b91c1c; }
         .badge-timeout { background: #ffedd5; color: #c2410c; }
         .badge-pending { background: #fef9c3; color: #a16207; }
+        .badge-sending { background: #dbeafe; color: #1d4ed8; }
         .badge-cancelled { background: #f1f5f9; color: #475569; }
 
         /* Request logs table */
@@ -127,6 +128,7 @@
         body.theme-dark .badge-error { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
         body.theme-dark .badge-timeout { background: rgba(249, 115, 22, 0.16); color: #fdba74; }
         body.theme-dark .badge-pending { background: rgba(234, 179, 8, 0.16); color: #fde047; }
+        body.theme-dark .badge-sending { background: rgba(59, 130, 246, 0.16); color: #93c5fd; }
         body.theme-dark .badge-cancelled { background: rgba(100, 116, 139, 0.16); color: #94a3b8; }
 
         body.theme-dark .log-table thead th { background: #0b1220; color: #94a3b8; border-color: #1f2937; }
@@ -253,6 +255,7 @@
                                 <option value="local_rate_limited">local_rate_limited</option>
                                 <option value="timeout">timeout</option>
                                 <option value="cancelled">cancelled</option>
+                                <option value="sending">sending</option>
                                 <option value="pending">pending</option>
                             </select>
                         </div>
@@ -298,6 +301,7 @@
                                     <th>{{ _('Upstream') }}/{{ _('Downstream') }}</th>
                                     <th class="num">{{ _('Tokens') }}</th>
                                     <th class="num">{{ _('Latency') }}</th>
+                                    <th class="num">{{ _('TTFT') }}</th>
                                     <th class="num">{{ _('Cost') }}</th>
                         <th>{{ _('Client IP') }}</th>
                         <th>{{ _('User Agent') }}</th>
@@ -345,6 +349,7 @@
                                 <option value="local_rate_limited">local_rate_limited</option>
                                 <option value="timeout">timeout</option>
                                 <option value="cancelled">cancelled</option>
+                                <option value="sending">sending</option>
                                 <option value="pending">pending</option>
                             </select>
                         </div>
@@ -406,6 +411,7 @@
             upstream: "{{ _('Upstream') }}",
             downstream: "{{ _('Downstream') }}",
             latency: "{{ _('Latency') }}",
+            ttft: "{{ _('TTFT') }}",
             tokens: "{{ _('Tokens') }}",
             clientIp: "{{ _('Client IP') }}",
             userAgent: "{{ _('User Agent') }}",
@@ -635,6 +641,7 @@
                 error: 'badge-error',
                 timeout: 'badge-timeout',
                 pending: 'badge-pending',
+                sending: 'badge-sending',
                 cancelled: 'badge-cancelled'
             };
             return map[status] || 'badge-cancelled';
@@ -748,6 +755,7 @@
                         </td>
                         <td class="cell-tokens num">${tokensHtml}</td>
                         <td class="cell-latency num mono text-gray-700">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + 's' : '-'}</td>
+                        <td class="num mono text-gray-700">${log.first_chunk_ms != null ? (log.first_chunk_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="cell-cost num mono text-gray-700">${billingCost !== null ? formatCost(billingCost) : '-'}</td>
                         <td class="cell-ip mono text-xs text-gray-600">${log.client_ip ? `<button class="link-btn" onclick="showIpLocation('${escapeHtml(log.client_ip)}')" title="${window.I18N.ipLocation}">${escapeHtml(log.client_ip)}</button>` : '-'}</td>
                         <td class="cell-ua text-xs text-gray-600"><div class="max-w-[180px] truncate" title="${escapeHtml(log.user_agent || '')}">${escapeHtml(log.user_agent || '-')}</div></td>

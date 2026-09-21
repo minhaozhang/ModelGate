@@ -6,6 +6,11 @@ from app.core.config import providers_cache
 from app.core.database import async_session_maker, ApiKey, RequestLog, RequestContent
 from sqlalchemy import delete as sa_delete
 
+# In-flight request log statuses: "sending" (upstream request sent, first
+# chunk not yet received) and "pending" (stream relaying). All stats /
+# aggregation queries treat these as not-yet-completed.
+IN_FLIGHT_STATUSES = ("pending", "sending")
+
 
 def _clean_null_bytes(value: Any) -> Any:
     if isinstance(value, str):
@@ -119,6 +124,21 @@ async def update_request_log(
             await session.execute(
                 sa_delete(RequestContent).where(RequestContent.log_id == log_id)
             )
+        await session.commit()
+        return (result.rowcount or 0) > 0
+
+
+async def update_request_log_status(
+    log_id: int, status: str, first_chunk_ms: Optional[float] = None
+) -> bool:
+    """Phase-only update (sending -> pending): touch status/updated_at only."""
+    values = {"status": status, "updated_at": func.now()}
+    if first_chunk_ms is not None:
+        values["first_chunk_ms"] = first_chunk_ms
+    async with async_session_maker() as session:
+        result = await session.execute(
+            update(RequestLog).where(RequestLog.id == log_id).values(**values)
+        )
         await session.commit()
         return (result.rowcount or 0) > 0
 

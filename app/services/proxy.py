@@ -31,7 +31,7 @@ from app.services.provider import (
     pick_api_keys,
 )
 from app.services.auth import validate_api_key
-from app.services.logging import create_request_log
+from app.services.logging import create_request_log, update_request_log
 from app.services.tokens import (
     estimate_request_context_tokens,
     request_has_image_parts,
@@ -1128,6 +1128,7 @@ async def proxy_request(request: Request, endpoint: str):
                     stream_log_id = await create_request_log(
                         provider_name,
                         actual_model,
+                        status="sending",
                         api_key_id=api_key_id,
                         client_ip=client_ip,
                         user_agent=user_agent,
@@ -1236,6 +1237,22 @@ async def proxy_request(request: Request, endpoint: str):
                         type(handler_exc).__name__,
                         sanitize_text_for_log(handler_exc, limit=200),
                     )
+                    if stream_log_id is not None:
+                        try:
+                            await update_request_log(
+                                stream_log_id,
+                                status=(
+                                    "timeout"
+                                    if isinstance(handler_exc, UpstreamFirstChunkTimeout)
+                                    else "error"
+                                ),
+                                latency_ms=(time.time() - start_time) * 1000,
+                                error=f"{type(handler_exc).__name__}: "
+                                f"{sanitize_text_for_log(handler_exc, limit=200)}",
+                            )
+                        except Exception:
+                            pass
+                        stream_log_id = None
                     acquired = False
                     user_provider_model_acquired = False
                     provider_key_semaphore = None

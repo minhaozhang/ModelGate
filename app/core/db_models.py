@@ -352,6 +352,7 @@ class RequestLog(Base):
     response = Column(Text, nullable=True)
     tokens = Column(JSONB, nullable=True)
     latency_ms = Column(Float, nullable=True)
+    first_chunk_ms = Column(Float, nullable=True)
     request_context_tokens = Column(Integer, nullable=True)
     status = Column(String(20), nullable=False)
     upstream_status_code = Column(Integer, nullable=True)
@@ -386,6 +387,7 @@ class RequestLogHistory(Base):
     response = Column(Text, nullable=True)
     tokens = Column(JSONB, nullable=True)
     latency_ms = Column(Float, nullable=True)
+    first_chunk_ms = Column(Float, nullable=True)
     request_context_tokens = Column(Integer, nullable=True)
     status = Column(String(20), nullable=False)
     upstream_status_code = Column(Integer, nullable=True)
@@ -439,6 +441,7 @@ if request_logs_all_table is None:
         Column("response", Text),
         Column("tokens", JSONB),
         Column("latency_ms", Float),
+        Column("first_chunk_ms", Float),
         Column("request_context_tokens", Integer),
         Column("status", String(20)),
         Column("upstream_status_code", Integer),
@@ -771,6 +774,7 @@ class McpCallLog(Base):
     result = Column(Text, nullable=True)
     is_error = Column(Boolean, default=False)
     latency_ms = Column(Float, nullable=True)
+    first_chunk_ms = Column(Float, nullable=True)
     client_ip = Column(String(64), nullable=True)
     user_agent = Column(String(1024), nullable=True)
     error = Column(Text, nullable=True)

@@ -18,7 +18,11 @@ from app.core.config import (
 )
 from app.core.log_sanitizer import sanitize_text_for_log
 from app.services.key_health import record_key_event
-from app.services.logging import create_request_log, update_request_log
+from app.services.logging import (
+    create_request_log,
+    update_request_log,
+    update_request_log_status,
+)
 from app.services.minimax import MinimaxStreamProcessor
 from app.services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
 from app.services.proxy_runtime.adapters import get_adapter
@@ -122,6 +126,8 @@ async def handle_streaming(
                 STREAM_FIRST_CHUNK_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
+            if chosen_key_id is not None:
+                record_key_event(chosen_key_id, "timeout")
             raise UpstreamFirstChunkTimeout(
                 f"upstream did not respond within {STREAM_FIRST_CHUNK_TIMEOUT_SECONDS}s"
             )
@@ -255,6 +261,8 @@ async def handle_streaming(
             first_raw_line = None
         except asyncio.TimeoutError:
             await resp.aclose()
+            if chosen_key_id is not None:
+                record_key_event(chosen_key_id, "timeout")
             raise UpstreamFirstChunkTimeout(
                 f"first-chunk timeout after {STREAM_FIRST_CHUNK_TIMEOUT_SECONDS}s"
             )
@@ -266,6 +274,21 @@ async def handle_streaming(
             raise RuntimeError(
                 "upstream closed connection without sending any SSE data"
             )
+        ttft_ms = (time.time() - start_time) * 1000
+        logger.info(
+            "[STREAM TTFT] %s/%s ctx=%s ttft=%.2fs",
+            provider,
+            model,
+            request_context_tokens,
+            ttft_ms / 1000,
+        )
+        if log_id is not None:
+            try:
+                await update_request_log_status(
+                    log_id, "pending", first_chunk_ms=ttft_ms
+                )
+            except Exception:
+                logger.debug("failed to mark log %s as pending", log_id)
 
         async def _chained_first_line():
             yield first_raw_line
@@ -523,6 +546,8 @@ async def handle_streaming(
                 requested_model=requested_model,
             )
         except UpstreamStallTimeout as e:
+            if chosen_key_id is not None:
+                record_key_event(chosen_key_id, "timeout")
             await _record_stream_result(
                 total_content,
                 total_reasoning,

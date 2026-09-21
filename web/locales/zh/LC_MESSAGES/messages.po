@@ -3035,6 +3035,9 @@ msgstr "用量构成、热点与延迟"
 msgid "Export Excel"
 msgstr "导出 Excel"
 
+msgid "TTFT"
+msgstr "首包耗时"
+
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
 

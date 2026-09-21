@@ -708,6 +708,7 @@ async def migrate_request_logs(conn) -> None:
             "actual_model VARCHAR(100)",
             "provider_key_id INTEGER",
             "provider_key_label VARCHAR(50)",
+            "first_chunk_ms DOUBLE PRECISION",
         ):
             await conn.execute(
                 text(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_sql}")
@@ -730,7 +731,7 @@ async def migrate_request_logs(conn) -> None:
 
     # request_logs_all: live + archived union view.
     columns = (
-        "id, api_key_id, provider_id, model, response, tokens, latency_ms, "
+        "id, api_key_id, provider_id, model, response, tokens, latency_ms, first_chunk_ms, "
         "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
         "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, routing_decision, created_at, updated_at"
     )

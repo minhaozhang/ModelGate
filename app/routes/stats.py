@@ -25,6 +25,7 @@ from app.core.database import (
     ModelDailyStat,
 )
 import app.core.config as config_module
+from app.services.logging import IN_FLIGHT_STATUSES
 from app.core.config import (
     add_live_stats_subscriber,
     api_keys_cache,
@@ -1329,7 +1330,7 @@ async def get_monitor_details(
                 RequestLog.created_at >= start,
                 RequestLog.created_at <= end,
                 RequestLog.latency_ms.is_not(None),
-                RequestLog.status != "pending",
+                RequestLog.status.notin_(IN_FLIGHT_STATUSES),
                 RequestLog.model.is_not(None),
             )
             .group_by(top_model_group_expr)
@@ -1373,7 +1374,7 @@ async def get_monitor_details(
                     RequestLog.created_at <= end,
                     latency_group_expr.in_(top_models),
                     RequestLog.latency_ms.is_not(None),
-                    RequestLog.status != "pending",
+                    RequestLog.status.notin_(IN_FLIGHT_STATUSES),
                 )
                 .group_by(
                     latency_group_expr,
@@ -1416,7 +1417,7 @@ async def get_monitor_details(
                 RequestLog.created_at >= start,
                 RequestLog.created_at <= end,
                 RequestLog.latency_ms.is_not(None),
-                RequestLog.status != "pending",
+                RequestLog.status.notin_(IN_FLIGHT_STATUSES),
                 RequestLog.provider_id.is_not(None),
             )
             .group_by(RequestLog.provider_id)
@@ -1463,7 +1464,7 @@ async def get_monitor_details(
                     RequestLog.created_at <= end,
                     RequestLog.provider_id.in_(list(resolved_providers.keys())),
                     RequestLog.latency_ms.is_not(None),
-                    RequestLog.status != "pending",
+                    RequestLog.status.notin_(IN_FLIGHT_STATUSES),
                 )
                 .group_by(
                     RequestLog.provider_id,
@@ -2179,7 +2180,7 @@ async def get_active_sessions_by_model(_: bool = Depends(permission_required("pa
             select(RequestLog)
             .where(
                 or_(
-                    RequestLog.status == "pending",
+                    RequestLog.status.in_(IN_FLIGHT_STATUSES),
                     RequestLog.created_at >= recent_cutoff,
                 )
             )
@@ -2399,7 +2400,7 @@ async def get_slow_requests(_: bool = Depends(permission_required("page.stats"))
         result = await session.execute(
             select(RequestLog)
             .where(
-                RequestLog.status == "pending",
+                RequestLog.status.in_(IN_FLIGHT_STATUSES),
                 RequestLog.created_at <= pending_cutoff,
             )
             .order_by(RequestLog.created_at.asc())

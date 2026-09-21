@@ -305,7 +305,7 @@ async def cleanup_stale_pending_requests() -> None:
         result = await session.execute(
             update(RequestLog)
             .where(
-                RequestLog.status == "pending",
+                RequestLog.status.in_(("pending", "sending")),
                 RequestLog.created_at < func.now() - timedelta(minutes=10),
             )
             .values(

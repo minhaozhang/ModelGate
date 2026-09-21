@@ -18,6 +18,7 @@ BASE_SCORE = 100
 DEDUCT_RATE_LIMIT = 5
 DEDUCT_SERVER_ERROR = 10
 DEDUCT_CLIENT_ERROR = 5
+DEDUCT_TIMEOUT = 10
 BONUS_SUCCESS_PER = 10
 BONUS_SUCCESS_POINTS = 5
 REENABLE_SCORE = 60
@@ -48,6 +49,7 @@ def compute_health_score(key_id: int, is_active: bool = True) -> int:
     rate_limited_count = 0
     server_error_count = 0
     client_error_count = 0
+    timeout_count = 0
     success_count = 0
 
     for e in recent:
@@ -59,6 +61,8 @@ def compute_health_score(key_id: int, is_active: bool = True) -> int:
             server_error_count += 1
         elif e.event_type == "error_4xx":
             client_error_count += 1
+        elif e.event_type == "timeout":
+            timeout_count += 1
         elif e.event_type == "success":
             success_count += 1
 
@@ -68,6 +72,7 @@ def compute_health_score(key_id: int, is_active: bool = True) -> int:
     other_deductions = (
         server_error_count * DEDUCT_SERVER_ERROR
         + client_error_count * DEDUCT_CLIENT_ERROR
+        + timeout_count * DEDUCT_TIMEOUT
     )
     bonus = (success_count // BONUS_SUCCESS_PER) * BONUS_SUCCESS_POINTS
     score_before_429 = max(0, min(BASE_SCORE, BASE_SCORE - other_deductions + bonus))
@@ -97,7 +102,13 @@ def get_events_5m(key_id: int) -> dict[str, int]:
         cutoff = now - WINDOW_SECONDS
         recent = [e for e in events if e.timestamp >= cutoff]
 
-    counts = {"success": 0, "rate_limited": 0, "server_error": 0, "client_error": 0}
+    counts = {
+        "success": 0,
+        "rate_limited": 0,
+        "server_error": 0,
+        "client_error": 0,
+        "timeout": 0,
+    }
     for e in recent:
         if e.event_type == "success":
             counts["success"] += 1
@@ -107,6 +118,8 @@ def get_events_5m(key_id: int) -> dict[str, int]:
             counts["server_error"] += 1
         elif e.event_type == "error_4xx":
             counts["client_error"] += 1
+        elif e.event_type == "timeout":
+            counts["timeout"] += 1
     return counts
 
 

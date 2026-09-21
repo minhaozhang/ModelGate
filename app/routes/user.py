@@ -45,6 +45,7 @@ from app.core.database import (
     generate_api_key,
 )
 from app.core.i18n import render, translate
+from app.services.logging import IN_FLIGHT_STATUSES
 from app.services.model_naming import (
     provider_stats_model_expr,
     provider_stats_model_name,
@@ -783,7 +784,9 @@ async def get_user_stats(
         health_result = await session.execute(
             select(
                 func.count(RequestLog.id).label("recent_requests"),
-                func.sum(case((RequestLog.status != "pending", 1), else_=0)).label(
+                func.sum(
+                    case((RequestLog.status.notin_(IN_FLIGHT_STATUSES), 1), else_=0)
+                ).label(
                     "completed_requests"
                 ),
                 func.count(func.distinct(RequestLog.api_key_id)).label(
@@ -794,11 +797,13 @@ async def get_user_stats(
                 ).label("error_count"),
                 func.avg(
                     case(
-                        (RequestLog.status != "pending", RequestLog.latency_ms),
+                        (RequestLog.status.notin_(IN_FLIGHT_STATUSES), RequestLog.latency_ms),
                         else_=None,
                     )
                 ).label("avg_latency_ms"),
-                func.sum(case((RequestLog.status == "pending", 1), else_=0)).label(
+                func.sum(
+                    case((RequestLog.status.in_(IN_FLIGHT_STATUSES), 1), else_=0)
+                ).label(
                     "pending_requests"
                 ),
             ).where(RequestLog.created_at >= health_start)
@@ -890,7 +895,7 @@ async def download_user_billing_details(
             select(RequestLog).where(
                 RequestLog.api_key_id == api_key_id,
                 RequestLog.created_at >= start,
-                RequestLog.status != "pending",
+                RequestLog.status.notin_(IN_FLIGHT_STATUSES),
             )
         )
         logs = result.scalars().all()
