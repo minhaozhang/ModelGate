@@ -51,7 +51,7 @@ TASK_REGISTRY = {
     "auto_reenable_disabled": {
         "name": "自动恢复禁用",
         "description": "自动重新启用被禁用的供应商密钥和供应商",
-        "default_cron": "*/30 * * * *",
+        "default_cron": "0 * * * *",
         "func": auto_reenable_disabled_keys_and_providers,
     },
     "compute_busyness_level": {

@@ -1217,6 +1217,16 @@ async def init_db():
     async with engine.begin() as conn:
         await create_tables(conn)
         await seed_rbac_defaults(conn)
+        # One-time: slow the auto-reenable sweep from 30min to hourly (only
+        # rows still on the old default; customized values are untouched).
+        await conn.execute(
+            text(
+                "UPDATE scheduler_tasks SET cron_expression = '0 * * * *', "
+                "default_cron = '0 * * * *' "
+                "WHERE task_id = 'auto_reenable_disabled' "
+                "AND cron_expression = '*/30 * * * *'"
+            )
+        )
         await migrate_request_logs(conn)
         await migrate_daily_stats(conn)
         await migrate_api_keys(conn)

@@ -1,4 +1,5 @@
 import time
+import asyncio
 import threading
 from dataclasses import dataclass
 
@@ -11,7 +12,12 @@ class KeyEvent:
 
 
 _key_events: dict[int, list[KeyEvent]] = {}
+_health_disable_inflight: set[int] = set()
 _lock = threading.Lock()
+
+FAILURE_EVENT_TYPES = ("error_429", "error_5xx", "error_4xx", "timeout")
+HEALTH_DISABLE_REASON = "健康分归零：5分钟内连续失败，自动禁用"
+HEALTH_AUTO_RECOVER_MINUTES = 65
 
 WINDOW_SECONDS = 300
 BASE_SCORE = 100
@@ -32,6 +38,60 @@ def record_key_event(key_id: int, event_type: str, status_code: int = 0) -> None
         _key_events[key_id].append(
             KeyEvent(timestamp=time.monotonic(), event_type=event_type, status_code=status_code)
         )
+    if event_type in FAILURE_EVENT_TYPES:
+        _maybe_schedule_health_disable(key_id)
+
+
+def _maybe_schedule_health_disable(key_id: int) -> None:
+    """When a key's score drops to 0, auto-disable it (fire-and-forget task)."""
+    try:
+        if compute_health_score(key_id) > 0:
+            return
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    loop.create_task(_auto_disable_unhealthy_key(key_id))
+
+
+async def _auto_disable_unhealthy_key(key_id: int) -> None:
+    if key_id in _health_disable_inflight:
+        return
+    _health_disable_inflight.add(key_id)
+    try:
+        from datetime import datetime, timedelta
+
+        from app.core.config import providers_cache, proxy_logger
+        from app.services.provider_limiter import disable_provider_key
+
+        for provider_name, provider_config in (providers_cache or {}).items():
+            keys = (provider_config or {}).get("api_keys") or []
+            if not any(k.get("id") == key_id for k in keys):
+                continue
+            recover_at = datetime.now() + timedelta(
+                minutes=HEALTH_AUTO_RECOVER_MINUTES
+            )
+            reason = (
+                f"{HEALTH_DISABLE_REASON}"
+                f"（预计 {recover_at:%Y-%m-%d %H:%M:%S} 自动恢复）"
+            )
+            proxy_logger.warning(
+                "[KEY HEALTH] key id=%s score hit 0, auto-disabling (provider=%s)",
+                key_id,
+                provider_name,
+            )
+            await disable_provider_key(provider_name, provider_config, key_id, reason)
+            return
+    except Exception:
+        try:
+            from app.core.config import proxy_logger
+
+            proxy_logger.exception(
+                "[KEY HEALTH] auto-disable failed for key id=%s", key_id
+            )
+        except Exception:
+            pass
+    finally:
+        _health_disable_inflight.discard(key_id)
 
 
 def compute_health_score(key_id: int, is_active: bool = True) -> int:
