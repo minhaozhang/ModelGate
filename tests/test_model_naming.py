@@ -121,7 +121,7 @@ class StreamFallbackLoggingTests(unittest.IsolatedAsyncioTestCase):
                 "app.services.proxy_runtime.response_handler.update_stats", new=Mock()
             ),
             patch(
-                "app.services.proxy_runtime.response_handler.record_request_rate",
+                "app.services.proxy_runtime.response_handler.record_tokens_second",
                 new=Mock(),
             ),
             patch(

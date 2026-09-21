@@ -332,7 +332,7 @@ class ProviderKeyHealthEventTests(unittest.IsolatedAsyncioTestCase):
             patch("app.services.proxy_runtime.response_handler.update_request_log", new=AsyncMock(return_value=True)),
             patch("app.services.proxy_runtime.response_handler.update_request_content", new=AsyncMock()),
             patch("app.services.proxy_runtime.response_handler.update_stats", new=Mock()),
-            patch("app.services.proxy_runtime.response_handler.record_request_rate", new=Mock()),
+            patch("app.services.proxy_runtime.response_handler.record_tokens_second", new=Mock()),
         ):
             await response_handler._record_stream_result(
                 "",

@@ -8,7 +8,7 @@ from app.core.config import (
     finish_active_request,
     logger,
     providers_cache,
-    record_request_rate,
+    record_tokens_second,
     register_active_request,
     update_stats,
 )
@@ -188,7 +188,7 @@ async def handle_normal(
             requested_model=requested_model,
         )
         if not is_error and total_tokens > 0:
-            record_request_rate(tokens_record.get('completion_tokens', 0), latency)
+            record_tokens_second(tokens_record.get('completion_tokens', 0) or 0)
         log_response_meta(provider, model, response_meta)
         if chosen_key_id is not None:
             if request_status == "success":

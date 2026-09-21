@@ -11,6 +11,7 @@ from app.core.config import (
     finish_active_request,
     logger,
     providers_cache,
+    record_stream_text_delta,
     register_active_request,
     update_stats,
 )
@@ -314,9 +315,11 @@ async def handle_streaming(
                             content = delta.get("content", "")
                             if content:
                                 total_content += content
+                                record_stream_text_delta(content)
                             reasoning = delta.get("reasoning_content", "")
                             if reasoning:
                                 total_reasoning += reasoning
+                                record_stream_text_delta(reasoning)
                             if choice.get("finish_reason"):
                                 final_finish_reason = choice["finish_reason"]
                             tc_list = delta.get("tool_calls")
@@ -404,6 +407,8 @@ async def handle_streaming(
                         elif result[0] == "content":
                             total_content += result[1]
                             total_reasoning += result[2]
+                            record_stream_text_delta(result[1])
+                            record_stream_text_delta(result[2])
                             data = json.dumps(chunk)
                             raw_line = f"data: {data}"
                     elif content:
@@ -420,10 +425,12 @@ async def handle_streaming(
                             repeated_count = 0
                         last_content = content
                         total_content += content
+                        record_stream_text_delta(content)
 
                     reasoning = delta.get("reasoning_content", "")
                     if reasoning and provider != "minimax":
                         total_reasoning += reasoning
+                        record_stream_text_delta(reasoning)
 
                 except json.JSONDecodeError as e:
                     line_preview = sanitize_text_for_log(

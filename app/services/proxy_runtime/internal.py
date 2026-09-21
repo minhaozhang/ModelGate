@@ -4,7 +4,7 @@ import time
 
 from sqlalchemy import select
 
-from app.core.config import logger, record_request_rate, update_stats
+from app.core.config import logger, record_tokens_second, update_stats
 from app.core.database import ApiKey, async_session_maker
 from app.core.log_sanitizer import sanitize_text_for_log
 from app.services.key_health import record_key_event
@@ -360,7 +360,7 @@ async def call_internal_model_via_proxy(
             requested_model=requested_model,
         )
         if not is_error and total_tokens > 0:
-            record_request_rate(tokens_record.get('completion_tokens', 0), latency)
+            record_tokens_second(tokens_record.get('completion_tokens', 0) or 0)
         log_response_meta(provider_name, actual_model, response_meta)
         await create_request_log(
             provider_name,

@@ -117,7 +117,10 @@ stats = {
 }
 
 requests_per_second: list[tuple[str, int]] = []
-completed_request_rates: list[tuple[str, float]] = []
+token_buckets: list[tuple[str, int]] = []
+_tokens_per_second_ewma: float | None = None
+TOKEN_RATE_WINDOW_SECONDS = 10
+TOKEN_RATE_EWMA_ALPHA = 0.3
 
 today_stats_cache: dict = {}
 today_stats_cache_time: Optional[datetime] = None
@@ -229,26 +232,50 @@ def update_stats(
     requests_per_second[:] = [(k, v) for k, v in requests_per_second if k >= cutoff]
 
 
-def record_request_rate(tokens: int, latency_ms: float) -> None:
-    if tokens <= 0 or latency_ms <= 0:
+def _trim_token_buckets(now: datetime) -> None:
+    cutoff = (now - timedelta(seconds=TOKEN_RATE_WINDOW_SECONDS)).strftime(
+        "%Y%m%d_%H%M%S"
+    )
+    token_buckets[:] = [(k, v) for k, v in token_buckets if k >= cutoff]
+
+
+def record_tokens_second(tokens: int) -> None:
+    """按秒累积 tokens（负值用于流式估算校正，桶值不为负）。"""
+    if tokens == 0:
         return
-    rate = tokens / (latency_ms / 1000)
     now = datetime.now()
     second_key = now.strftime("%Y%m%d_%H%M%S")
-    completed_request_rates.append((second_key, rate))
-    cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
-    completed_request_rates[:] = [
-        (k, v) for k, v in completed_request_rates if k >= cutoff
-    ]
+    if token_buckets and token_buckets[-1][0] == second_key:
+        token_buckets[-1] = (second_key, max(token_buckets[-1][1] + tokens, 0))
+    else:
+        token_buckets.append((second_key, max(tokens, 0)))
+    _trim_token_buckets(now)
+
+
+def record_stream_text_delta(text: str) -> None:
+    """流式 chunk 增量估算（len/4，与 build_tokens_record 估算口径一致）。"""
+    if not text:
+        return
+    record_tokens_second(len(text) // 4)
 
 
 def get_total_tokens_per_second() -> float:
+    global _tokens_per_second_ewma
     now = datetime.now()
-    cutoff = (now - timedelta(seconds=10)).strftime("%Y%m%d_%H%M%S")
-    rates = [v for k, v in completed_request_rates if k >= cutoff]
-    if not rates:
-        return 0
-    return round(sum(rates), 1)
+    _trim_token_buckets(now)
+    total = sum(v for _, v in token_buckets)
+    raw = round(total / TOKEN_RATE_WINDOW_SECONDS, 1)
+    if _tokens_per_second_ewma is None:
+        _tokens_per_second_ewma = raw
+    else:
+        _tokens_per_second_ewma = round(
+            _tokens_per_second_ewma * (1 - TOKEN_RATE_EWMA_ALPHA)
+            + raw * TOKEN_RATE_EWMA_ALPHA,
+            1,
+        )
+    if _tokens_per_second_ewma <= 0.1:
+        _tokens_per_second_ewma = 0.0
+    return _tokens_per_second_ewma
 
 
 def get_api_key_name(api_key_id: int | None) -> str | None:
