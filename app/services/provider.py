@@ -433,7 +433,7 @@ async def load_providers():
             active_keys, disabled_reasons, disabled_keys = await _load_provider_keys(session, p.id)
             providers_cache[p.name] = {
                 "id": p.id,
-                "base_url": p.base_url,
+                "base_url": (p.base_url or "").strip(),
                 "protocol": p.protocol or "openai",
                 "models": provider_models_data,
                 "merge_consecutive_messages": p.merge_consecutive_messages or False,

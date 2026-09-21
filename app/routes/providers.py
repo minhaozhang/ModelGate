@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Cookie, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +22,11 @@ class ProviderCreate(BaseModel):
     protocol: Optional[str] = "openai"
     merge_consecutive_messages: Optional[bool] = False
 
+    @field_validator("base_url")
+    @classmethod
+    def _strip_base_url(cls, v: str) -> str:
+        return v.strip()
+
 
 class ProviderUpdate(BaseModel):
     base_url: Optional[str] = None
@@ -29,6 +34,11 @@ class ProviderUpdate(BaseModel):
     protocol: Optional[str] = None
     merge_consecutive_messages: Optional[bool] = None
     disable_schedule: Optional[list] = None
+
+    @field_validator("base_url")
+    @classmethod
+    def _strip_base_url(cls, v: Optional[str]) -> Optional[str]:
+        return v.strip() if v is not None else v
 
 
 @router.get("/provider-status")

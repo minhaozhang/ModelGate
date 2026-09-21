@@ -1227,6 +1227,9 @@ async def init_db():
                 "AND cron_expression = '*/30 * * * *'"
             )
         )
+        # One-time: strip stray leading/trailing whitespace from provider
+        # base URLs (breaks httpx: "unknown url type: '/%20https://...'").
+        await conn.execute(text("UPDATE providers SET base_url = TRIM(base_url)"))
         await migrate_request_logs(conn)
         await migrate_daily_stats(conn)
         await migrate_api_keys(conn)
