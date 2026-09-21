@@ -711,12 +711,15 @@
                     : '';
 
                 let tokensHtml = '<span class="text-gray-400">-</span>';
-                if (tokenParts) {
+                const hasUsage = tokenParts && (tokenParts.prompt > 0 || tokenParts.completion > 0);
+                if (hasUsage) {
                     tokensHtml = `<div class="mono text-xs">↑${formatK(tokenParts.prompt)}<br>↓${formatK(tokenParts.completion)}</div>`;
                     if (cached > 0) {
                         const pct = tokenParts.prompt > 0 ? Math.round(cached / tokenParts.prompt * 100) : 0;
                         tokensHtml += `<div class="mt-0.5"><span class="cache-badge">缓存 ${formatK(cached)} · ${pct}%</span></div>`;
                     }
+                } else if (log.request_context_tokens > 0) {
+                    tokensHtml = `<div class="mono text-xs text-gray-400" title="估算上下文">↑~${formatK(log.request_context_tokens)}<br>↓-</div>`;
                 }
 
                 let modelExtra = '';
