@@ -30,6 +30,27 @@ class HealthAutoDisableTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(calls, [1])
 
+    async def test_connect_errors_deduct_and_trigger_auto_disable(self):
+        calls = []
+
+        async def fake_disable(key_id):
+            calls.append(key_id)
+
+        with patch(
+            "app.services.key_health._auto_disable_unhealthy_key",
+            side_effect=fake_disable,
+        ):
+            for _ in range(9):
+                key_health.record_key_event(5, "connect_error")
+            self.assertEqual(key_health.compute_health_score(5), 10)
+            key_health.record_key_event(5, "connect_error")
+            await asyncio.sleep(0.05)
+
+        self.assertEqual(calls, [5])
+        self.assertEqual(
+            key_health.get_events_5m(5)["connect_error"], 10
+        )
+
     async def test_score_above_zero_does_not_trigger(self):
         calls = []
 

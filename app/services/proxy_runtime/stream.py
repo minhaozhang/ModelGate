@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 
+import httpx
 from fastapi.responses import Response, StreamingResponse
 
 from app.core.config import (
@@ -44,6 +45,10 @@ from app.services.tokens import _collect_tool_calls
 
 class UpstreamFirstChunkTimeout(RuntimeError):
     """Upstream gave no usable first chunk within the timeout window."""
+
+
+class UpstreamConnectError(RuntimeError):
+    """Upstream host unreachable at connection stage (DNS/refused/proxy)."""
 
 
 class UpstreamStallTimeout(asyncio.TimeoutError):
@@ -136,6 +141,19 @@ async def handle_streaming(
                 client.send(req, stream=True),
                 first_chunk_timeout,
             )
+        except (
+            httpx.ConnectError,
+            httpx.ConnectTimeout,
+            httpx.PoolTimeout,
+            httpx.ProxyError,
+        ) as connect_exc:
+            if chosen_key_id is not None:
+                record_key_event(chosen_key_id, "connect_error")
+            key_desc = provider_key_label or (f"key-{chosen_key_id}" if chosen_key_id is not None else "?")
+            raise UpstreamConnectError(
+                f"connect failed (provider={provider}, key={key_desc}): "
+                f"{type(connect_exc).__name__}: {connect_exc}"
+            ) from connect_exc
         except asyncio.TimeoutError:
             if chosen_key_id is not None:
                 record_key_event(chosen_key_id, "timeout")
@@ -588,6 +606,32 @@ async def handle_streaming(
                 requested_model=requested_model,
             )
             yield f"data: {json.dumps({'error': {'message': '上游流式响应超时（长时间无数据），请稍后重试', 'type': 'timeout'}})}\n\n"
+        except httpx.TransportError as e:
+            if chosen_key_id is not None:
+                record_key_event(chosen_key_id, "connect_error")
+            await _record_stream_result(
+                total_content,
+                total_reasoning,
+                stream_tool_calls,
+                final_finish_reason,
+                last_usage,
+                req_body,
+                provider,
+                model,
+                api_key_id,
+                client_ip,
+                user_agent,
+                request_context_tokens,
+                start_time,
+                log_id,
+                "error",
+                upstream_status_code=upstream_status_code,
+                error=e,
+                provider_key_id=chosen_key_id,
+                upstream_model=upstream_model,
+                requested_model=requested_model,
+            )
+            yield f"data: {json.dumps({'error': {'message': '上游网络中断（连接断开/读取失败），请稍后重试', 'type': 'api_error'}})}\n\n"
         except Exception as e:
             await _record_stream_result(
                 total_content,

@@ -164,6 +164,54 @@ class StreamFirstChunkTimeoutTests(unittest.IsolatedAsyncioTestCase):
                 await _call_stream(stream_module, client)
         self.assertTrue(resp.closed)
 
+    async def test_connect_error_raises_with_provider_and_key(self):
+        import httpx
+
+        from app.services.proxy_runtime import stream as stream_module
+
+        client = Mock()
+        client.build_request = Mock(return_value=Mock())
+
+        async def refused(req, stream=True):
+            raise httpx.ConnectError("[Errno 11001] getaddrinfo failed")
+
+        client.send = refused
+        req_stub = Mock()
+        req_stub.is_disconnected = AsyncMock(return_value=False)
+        events = []
+        with patch("app.services.proxy_runtime.stream.get_http_client", Mock(return_value=client)), patch(
+            "app.services.proxy_runtime.stream.record_key_event",
+            side_effect=lambda kid, etype, *a, **k: events.append((kid, etype)),
+        ):
+            with self.assertRaises(RuntimeError) as ctx:
+                await stream_module.handle_streaming(
+                    "https://up.example/v1/chat/completions",
+                    {},
+                    b"{}",
+                    "prov",
+                    "mdl",
+                    [],
+                    0.0,
+                    {},
+                    1,
+                    "ip",
+                    "ua",
+                    0,
+                    asyncio.Semaphore(0),
+                    asyncio.Semaphore(0),
+                    asyncio.Semaphore(0),
+                    "rid-ce",
+                    None,
+                    req_stub,
+                    chosen_key_id=7,
+                    provider_key_label="主力",
+                )
+        self.assertIsInstance(ctx.exception, stream_module.UpstreamConnectError)
+        self.assertIn("provider=prov", str(ctx.exception))
+        self.assertIn("key=主力", str(ctx.exception))
+        self.assertIn("getaddrinfo failed", str(ctx.exception))
+        self.assertEqual(events, [(7, "connect_error")])
+
     async def test_empty_2xx_stream_errors_instead_of_success(self):
         from app.services.proxy_runtime import stream as stream_module
 
