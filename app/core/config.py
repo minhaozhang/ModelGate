@@ -150,6 +150,12 @@ user_slot_released_ids: set[str] = set()
 STREAM_FIRST_CHUNK_TIMEOUT_SECONDS = _env_float(
     "STREAM_FIRST_CHUNK_TIMEOUT_SECONDS", 90.0
 )
+# Mid-stream stall guard: terminate the relay when upstream stays silent
+# (no raw line, keep-alive comments included) for this long after the first
+# chunk. Catches zombie connections that never send [DONE].
+STREAM_STALL_TIMEOUT_SECONDS = _env_float(
+    "STREAM_STALL_TIMEOUT_SECONDS", 120.0
+)
 # After first-chunk timeouts exhaust all routes, only suggest the client
 # compacts when the context is actually large.
 COMPACT_HINT_MIN_TOKENS = _env_float(

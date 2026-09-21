@@ -6,6 +6,7 @@ from fastapi.responses import Response, StreamingResponse
 
 from app.core.config import (
     STREAM_FIRST_CHUNK_TIMEOUT_SECONDS,
+    STREAM_STALL_TIMEOUT_SECONDS,
     consume_user_slot_released,
     error_logger,
     finish_active_request,
@@ -39,6 +40,30 @@ from app.services.tokens import _collect_tool_calls
 
 class UpstreamFirstChunkTimeout(RuntimeError):
     """Upstream gave no usable first chunk within the timeout window."""
+
+
+class UpstreamStallTimeout(asyncio.TimeoutError):
+    """Upstream went silent mid-stream (no raw line within the stall window)."""
+
+
+async def _stall_watchdog(aiter_lines, timeout_s: float):
+    """Pass through raw lines; abort when upstream stays silent past timeout_s.
+
+    Wrap the RAW line iterator (not the normalized stream) so keep-alive
+    comment lines and blank lines also reset the timer — only a truly dead
+    connection (zero bytes) triggers the watchdog.
+    """
+    ait = aiter_lines.__aiter__()
+    while True:
+        try:
+            item = await asyncio.wait_for(ait.__anext__(), timeout_s)
+        except StopAsyncIteration:
+            return
+        except asyncio.TimeoutError as exc:
+            raise UpstreamStallTimeout(
+                f"upstream silent for over {timeout_s}s mid-stream"
+            ) from exc
+        yield item
 
 
 async def handle_streaming(
@@ -275,7 +300,9 @@ async def handle_streaming(
 
         try:
             chunk_count = 0
-            async for raw_line in normalize_sse_stream(_chained_first_line()):
+            async for raw_line in normalize_sse_stream(
+                _stall_watchdog(_chained_first_line(), STREAM_STALL_TIMEOUT_SECONDS)
+            ):
                 if chunk_count == 0:
                     logger.debug(
                         "[STREAM DEBUG] %s/%s first_chunk=%s",
@@ -495,6 +522,30 @@ async def handle_streaming(
                 upstream_model=upstream_model,
                 requested_model=requested_model,
             )
+        except UpstreamStallTimeout as e:
+            await _record_stream_result(
+                total_content,
+                total_reasoning,
+                stream_tool_calls,
+                final_finish_reason,
+                last_usage,
+                req_body,
+                provider,
+                model,
+                api_key_id,
+                client_ip,
+                user_agent,
+                request_context_tokens,
+                start_time,
+                log_id,
+                "timeout",
+                upstream_status_code=upstream_status_code,
+                error=e,
+                provider_key_id=chosen_key_id,
+                upstream_model=upstream_model,
+                requested_model=requested_model,
+            )
+            yield f"data: {json.dumps({'error': {'message': '上游流式响应超时（长时间无数据），请稍后重试', 'type': 'timeout'}})}\n\n"
         except Exception as e:
             await _record_stream_result(
                 total_content,
