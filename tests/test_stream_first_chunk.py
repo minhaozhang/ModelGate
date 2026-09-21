@@ -107,8 +107,9 @@ class StreamFirstChunkTimeoutTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(_first_chunk_timeout(None), 5.0)
         self.assertEqual(_first_chunk_timeout(0), 5.0)
-        self.assertEqual(_first_chunk_timeout(30000), 8.0)
-        self.assertEqual(_first_chunk_timeout(77000), 12.7)
+        self.assertEqual(_first_chunk_timeout(30000), 11.0)
+        self.assertEqual(_first_chunk_timeout(55000), 16.0)
+        self.assertEqual(_first_chunk_timeout(77000), 20.4)
         self.assertEqual(_first_chunk_timeout(1000000), 60.0)
 
     async def test_send_headers_timeout_triggers_error(self):

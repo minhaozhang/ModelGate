@@ -52,11 +52,11 @@ class UpstreamStallTimeout(asyncio.TimeoutError):
 
 def _first_chunk_timeout(ctx_tokens: int | None) -> float:
     """Scale the first-chunk budget with prompt size: large-context prefill
-    legitimately needs seconds before the first token (≈+1s per 10K tokens,
+    legitimately needs seconds before the first token (≈+2s per 10K tokens,
     capped). Dead upstreams (zero bytes) still trip the base timeout fast."""
     base = STREAM_FIRST_CHUNK_TIMEOUT_SECONDS
     if ctx_tokens:
-        base += ctx_tokens / 10000
+        base += ctx_tokens / 5000
     return min(base, 60.0)
 
 
