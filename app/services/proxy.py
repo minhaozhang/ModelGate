@@ -704,6 +704,7 @@ async def proxy_request(request: Request, endpoint: str):
         first_no_key_failure = None
         preferred_local_rate_limit_response = None
         first_chunk_timed_out = False
+        first_chunk_timeout_tries: list[str] = []
 
         def remember_local_rate_limit_response(message: str, code: str) -> None:
             nonlocal preferred_local_rate_limit_response
@@ -1231,6 +1232,7 @@ async def proxy_request(request: Request, endpoint: str):
                 except Exception as handler_exc:
                     if isinstance(handler_exc, UpstreamFirstChunkTimeout):
                         first_chunk_timed_out = True
+                        first_chunk_timeout_tries.append(str(handler_exc))
                     logger.warning(
                         "[ROUTE FALLBACK] Provider %s raised %s: %s, trying next provider",
                         provider_name,
@@ -1344,7 +1346,13 @@ async def proxy_request(request: Request, endpoint: str):
                 message = (
                     f"Request context is ~{request_context_tokens} tokens and "
                     "upstream did not respond in time after trying all "
-                    "available providers. Please compact the conversation "
+                    "available providers"
+                    + (
+                        f" ({'; '.join(first_chunk_timeout_tries)}). "
+                        if first_chunk_timeout_tries
+                        else ". "
+                    )
+                    + "Please compact the conversation "
                     "(reduce message history) and retry."
                 )
                 logger.warning(

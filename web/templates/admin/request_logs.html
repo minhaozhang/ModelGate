@@ -300,6 +300,7 @@
                                     <th>{{ _('Model') }}</th>
                                     <th>{{ _('Upstream') }}/{{ _('Downstream') }}</th>
                                     <th class="num">{{ _('Tokens') }}</th>
+                                    <th class="num">{{ _('Context') }}</th>
                                     <th class="num">{{ _('Latency') }}</th>
                                     <th class="num">{{ _('TTFT') }}</th>
                                     <th class="num">{{ _('Cost') }}</th>
@@ -754,6 +755,7 @@
                             <span class="text-gray-400">${escapeHtml(log.downstream_status_code ?? '-')}</span>
                         </td>
                         <td class="cell-tokens num">${tokensHtml}</td>
+                        <td class="num mono text-gray-700">${log.request_context_tokens != null && log.request_context_tokens !== '' ? log.request_context_tokens : '-'}</td>
                         <td class="cell-latency num mono text-gray-700">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="num mono text-gray-700">${log.first_chunk_ms != null ? (log.first_chunk_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="cell-cost num mono text-gray-700">${billingCost !== null ? formatCost(billingCost) : '-'}</td>

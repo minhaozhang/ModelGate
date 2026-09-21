@@ -139,9 +139,11 @@ async def handle_streaming(
         except asyncio.TimeoutError:
             if chosen_key_id is not None:
                 record_key_event(chosen_key_id, "timeout")
+            key_desc = provider_key_label or (f"key-{chosen_key_id}" if chosen_key_id is not None else "?")
             raise UpstreamFirstChunkTimeout(
                 f"upstream did not respond within {first_chunk_timeout:.1f}s"
-                f" (ctx={request_context_tokens or 0})"
+                f" (provider={provider}, key={key_desc},"
+                f" ctx={request_context_tokens or 0})"
             )
 
         if resp.status_code >= 400:
@@ -275,9 +277,11 @@ async def handle_streaming(
             await resp.aclose()
             if chosen_key_id is not None:
                 record_key_event(chosen_key_id, "timeout")
+            key_desc = provider_key_label or (f"key-{chosen_key_id}" if chosen_key_id is not None else "?")
             raise UpstreamFirstChunkTimeout(
                 f"first-chunk timeout after {first_chunk_timeout:.1f}s"
-                f" (ctx={request_context_tokens or 0})"
+                f" (provider={provider}, key={key_desc},"
+                f" ctx={request_context_tokens or 0})"
             )
         except Exception:
             await resp.aclose()
