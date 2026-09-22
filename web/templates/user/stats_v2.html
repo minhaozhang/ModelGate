@@ -47,20 +47,25 @@
         .v2-reqrow .bar i { display: block; height: 100%; border-radius: 3px; }
         .v2-reqrow .nums { flex: 0 0 11rem; white-space: nowrap; text-align: right; }
         .bubble-pool { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center; min-height: 110px; padding: 12px 4px 16px; }
-        .v2-bubble { animation: v2bubblePop .5s cubic-bezier(0.22, 1, 0.36, 1) backwards, v2bubbleBob var(--bob-dur, 5s) ease-in-out var(--bob-delay, 0s) infinite alternate; }
-        .v2-bubble.out { animation: v2bubbleOut .32s ease-in forwards; pointer-events: none; }
-        .v2-bubble-body { width: var(--size, 90px); height: var(--size, 90px); border-radius: 50%; border: 2px solid #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px; text-align: center; transition: width .6s ease, height .6s ease, background .6s ease, border-color .6s ease; }
-        .v2-bubble-body.busy { animation: v2bubblePulse 2.2s ease-in-out infinite; }
+        .v2-bubble { position: relative; animation: v2bubbleFloat var(--bob-dur, 6s) ease-in-out var(--bob-delay, 0s) infinite; }
+        .v2-bubble.burst { animation: none; pointer-events: none; }
+        .v2-bubble-body { position: relative; overflow: hidden; width: var(--size, 90px); height: var(--size, 90px); border-radius: 50%; border: 2px solid #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px; text-align: center; transition: width .6s ease, height .6s ease, background .6s ease, border-color .6s ease; animation: v2bubblePop .5s cubic-bezier(0.22, 1, 0.36, 1) var(--pop-delay, 0s) backwards, v2bubbleMorph var(--morph-dur, 11s) ease-in-out var(--morph-delay, 0s) infinite alternate; }
+        .v2-bubble-body::before { content: ''; position: absolute; left: 16%; top: 10%; width: 36%; height: 26%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,255,255,.5), rgba(255,255,255,0)); transform: rotate(-18deg); pointer-events: none; }
+        .v2-bubble-body.busy { animation: v2bubblePulse 2.2s ease-in-out infinite, v2bubbleMorph var(--morph-dur, 11s) ease-in-out var(--morph-delay, 0s) infinite alternate; }
+        .v2-bubble.burst .v2-bubble-body { animation: v2bubbleBurst .42s cubic-bezier(0.55, 0, 0.55, 0.2) forwards; }
+        .v2-bubble-spark { position: absolute; left: 50%; top: 50%; width: var(--sz, 4px); height: var(--sz, 4px); border-radius: 50%; pointer-events: none; animation: v2bubbleSpark .48s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
         .v2-bubble .b-name { font-size: 12px; font-weight: 600; color: #374151; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .v2-bubble .b-count { font-size: 11px; color: #6b7280; }
         .v2-bubble.self .v2-bubble-body { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22); }
         .v2-bubble.self .b-name { color: #2563eb; }
-        @keyframes v2bubblePop { from { transform: scale(0.4); opacity: 0; } 65% { transform: scale(1.05); opacity: 1; } to { transform: scale(1); opacity: 1; } }
-        @keyframes v2bubbleBob { from { transform: translateY(-4px); } to { transform: translateY(5px); } }
-        @keyframes v2bubbleOut { to { transform: scale(0.5); opacity: 0; } }
+        @keyframes v2bubblePop { from { transform: scale(0.3); opacity: 0; } 60% { transform: scale(1.07); opacity: 1; } to { transform: scale(1); opacity: 1; } }
+        @keyframes v2bubbleFloat { 0% { transform: translate(0, -3px) rotate(-1.2deg); } 25% { transform: translate(2.5px, 0.5px) rotate(0.5deg); } 50% { transform: translate(0, 4px) rotate(1.4deg); } 75% { transform: translate(-2.5px, 0.5px) rotate(-0.5deg); } 100% { transform: translate(0, -3px) rotate(-1.2deg); } }
+        @keyframes v2bubbleMorph { 0% { border-radius: 52% 48% 55% 45% / 50% 54% 46% 50%; } 33% { border-radius: 45% 55% 48% 52% / 55% 45% 52% 48%; } 66% { border-radius: 50% 50% 42% 58% / 48% 52% 55% 45%; } 100% { border-radius: 55% 45% 52% 48% / 45% 52% 48% 55%; } }
+        @keyframes v2bubbleBurst { 0% { transform: scale(1); opacity: 1; } 30% { transform: scale(1.14); opacity: 1; } 100% { transform: scale(0.15); opacity: 0; } }
+        @keyframes v2bubbleSpark { from { transform: translate(-50%, -50%) scale(1); opacity: 1; } to { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(0.25); opacity: 0; } }
         @keyframes v2bubblePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
         @media (max-width: 640px) { .bubble-pool { gap: 10px; } .v2-bubble-body { width: min(var(--size, 90px), 96px); height: min(var(--size, 90px), 96px); } .v2-bubble .b-name { font-size: 11px; } .v2-bubble .b-count { font-size: 10px; } }
-        @media (prefers-reduced-motion: reduce) { .v2-bubble, .v2-bubble-body { animation: none !important; transition: none !important; } }
+        @media (prefers-reduced-motion: reduce) { .v2-bubble, .v2-bubble-body, .v2-bubble-spark { animation: none !important; transition: none !important; } .v2-bubble.burst { opacity: 0; } }
         .v2-legend { display: flex; gap: 14px; font-size: 0.6875rem; color: #6b7280; }
         .v2-legend b.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
         .v2-reqrow-card { background: #ffffff; }
@@ -649,6 +654,23 @@
         }
 
         const _activeBubbles = new Map();
+        function _burstBubble(node) {
+            if (!node || node.classList.contains('burst')) return;
+            node.classList.add('burst');
+            const color = node.dataset.color || '#94a3b8';
+            for (let i = 0; i < 7; i++) {
+                const spark = document.createElement('span');
+                spark.className = 'v2-bubble-spark';
+                const ang = (i / 7) * Math.PI * 2 + Math.random() * 0.6;
+                const dist = 26 + Math.random() * 24;
+                spark.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(1) + 'px');
+                spark.style.setProperty('--dy', (Math.sin(ang) * dist).toFixed(1) + 'px');
+                spark.style.setProperty('--sz', (3 + Math.random() * 4).toFixed(1) + 'px');
+                spark.style.background = color;
+                node.appendChild(spark);
+            }
+            setTimeout(() => node.remove(), 520);
+        }
         function _dynamicActiveTitle(activeCount) {
             const hour = new Date().getHours();
             if (activeCount === 0) return _activeTitles.empty;
@@ -679,10 +701,7 @@
             const liveEl = document.getElementById('v2-sess-live');
             if (liveEl) liveEl.textContent = `${data.active_count ?? sessions.length} ${T('人', 'users')} · ${(data.request_count || 0).toLocaleString()} ${window.I18N.req}`;
             if (!sessions.length) {
-                for (const [name, node] of _activeBubbles) {
-                    node.classList.add('out');
-                    setTimeout(() => node.remove(), 340);
-                }
+                for (const [name, node] of _activeBubbles) _burstBubble(node);
                 _activeBubbles.clear();
                 if (!el.querySelector('.v2-bubble')) {
                     el.innerHTML = `<div class="text-gray-400 text-center py-6 w-full">${T('现在很安静', 'So empty...')}</div>`;
@@ -702,8 +721,11 @@
                     bubble = document.createElement('div');
                     bubble.className = 'v2-bubble';
                     bubble.dataset.name = s.name;
-                    bubble.style.setProperty('--bob-dur', (4 + Math.random() * 3).toFixed(2) + 's');
-                    bubble.style.setProperty('--bob-delay', (-Math.random() * 5).toFixed(2) + 's');
+                    bubble.style.setProperty('--bob-dur', (4.5 + Math.random() * 3).toFixed(2) + 's');
+                    bubble.style.setProperty('--bob-delay', (-Math.random() * 6).toFixed(2) + 's');
+                    bubble.style.setProperty('--morph-dur', (9 + Math.random() * 5).toFixed(2) + 's');
+                    bubble.style.setProperty('--morph-delay', (-Math.random() * 10).toFixed(2) + 's');
+                    bubble.style.setProperty('--pop-delay', (Math.min(_activeBubbles.size, 10) * 0.05).toFixed(2) + 's');
                     bubble.innerHTML = `<div class="v2-bubble-body"><span class="b-name"></span><span class="b-count"></span></div>`;
                     el.appendChild(bubble);
                     _activeBubbles.set(s.name, bubble);
@@ -712,6 +734,7 @@
                 body.style.setProperty('--size', size + 'px');
                 body.style.background = `linear-gradient(145deg, ${color}2e, ${color}12)`;
                 body.style.borderColor = color;
+                bubble.dataset.color = color;
                 bubble.classList.toggle('self', !!s.is_self);
                 body.classList.toggle('busy', req >= 5);
                 bubble.style.order = String(1000 - req);
@@ -728,8 +751,7 @@
             for (const [name, node] of _activeBubbles) {
                 if (!seen.has(name)) {
                     _activeBubbles.delete(name);
-                    node.classList.add('out');
-                    setTimeout(() => node.remove(), 340);
+                    _burstBubble(node);
                 }
             }
             [...el.children].forEach(child => { if (!child.classList.contains('v2-bubble')) child.remove(); });
@@ -762,12 +784,27 @@
             }
             [...el.children].slice(visible).forEach(row => row.remove());
         }
+        function requestStatusVisual(status) {
+            const inflight = status === 'waiting' || status === 'sending' || status === 'pending';
+            const map = {
+                waiting: ['bg-gray-400', T('排队中', 'waiting')],
+                sending: ['bg-blue-500', T('发送中', 'sending')],
+                pending: ['bg-amber-500', T('传输中', 'pending')],
+                success: ['bg-green-500', T('成功', 'success')],
+                error: ['bg-red-500', T('失败', 'error')],
+                timeout: ['bg-red-500', T('超时', 'timeout')],
+            };
+            const [dot, label] = map[status] || map.success;
+            const pulse = inflight ? ' animate-pulse' : '';
+            return `<span class="inline-flex items-center gap-1 shrink-0"><span class="inline-block w-2 h-2 rounded-full ${dot}${pulse}"></span><span class="v2-req-status text-[11px]">${label}</span></span>`;
+        }
+        function formatMs(v) {
+            if (v == null) return '-';
+            return v >= 1000 ? (v / 1000).toFixed(1) + 's' : v + 'ms';
+        }
         function renderRequestRow(r) {
-            const statusDot = r.status === 'error'
-                ? '<span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>'
-                : '<span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>';
-            const latency = r.latency_ms != null ? (r.latency_ms >= 1000 ? (r.latency_ms / 1000).toFixed(1) + 's' : r.latency_ms + 'ms') : '-';
-            const tokens = r.tokens > 0 ? formatCompactTokens(r.tokens) : '-';
+            const statusVisual = requestStatusVisual(r.status);
+            const latency = r.latency_ms != null ? formatMs(r.latency_ms) : '-';
             const time = r.created_at ? new Date(r.created_at).toLocaleString() : '';
             const errorHtml = r.error ? `<div class="text-xs text-red-500 mt-1 truncate" title="${escapeHtml(r.error)}">${escapeHtml(r.error)}</div>` : '';
             const ctx = r.context_tokens > 0 ? formatCompactTokens(r.context_tokens) : '-';
@@ -779,18 +816,20 @@
             return `
                 <div class="v2-reqrow-card rounded p-2 mb-1.5 last:mb-0">
                     <div class="flex items-center gap-2 text-sm v2-req-title">
-                        ${statusDot}
+                        ${statusVisual}
                         <span class="font-medium truncate">${escapeHtml(r.model)}</span>
                         <span class="v2-req-time shrink-0 ml-auto">${time}</span>
                     </div>
                     <div class="flex items-center gap-2.5 mt-0.5 text-xs v2-req-meta flex-nowrap whitespace-nowrap overflow-x-auto">
-                        <span class="shrink-0">${T('Token', 'Tokens')}: ${tokens}</span>
                         <span class="shrink-0">${T('上下文', 'Context')}: ${ctx}</span>
                         <span class="shrink-0">${T('输入', 'Input')}: ${inputT}</span>
                         <span class="shrink-0">${T('输出', 'Output')}: ${outputT}</span>
                         <span class="shrink-0">${T('缓存', 'Cache')}: ${cachedT} (${cachePct})</span>
                         <span class="shrink-0">${T('费用', 'Cost')}: ${cost}</span>
-                        <span class="ml-auto shrink-0">${latency}</span>
+                        <span class="shrink-0">${T('耗时', 'Latency')}: ${latency}</span>
+                        <span class="shrink-0">${T('首Token', 'First token')}: ${formatMs(r.first_chunk_ms)}</span>
+                        ${r.wait_ms > 0 ? `<span class="shrink-0">${T('排队', 'Wait')}: ${formatMs(r.wait_ms)}</span>` : ''}
+                        <span class="ml-auto shrink-0"></span>
                     </div>
                     ${errorHtml}
                 </div>
