@@ -61,7 +61,7 @@ def _first_chunk_timeout(ctx_tokens: int | None) -> float:
     capped). Dead upstreams (zero bytes) still trip the base timeout fast."""
     base = STREAM_FIRST_CHUNK_TIMEOUT_SECONDS
     if ctx_tokens:
-        base += ctx_tokens / 5000
+        base += ctx_tokens / 4000
     return min(base, 60.0)
 
 
