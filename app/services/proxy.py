@@ -1190,8 +1190,6 @@ async def proxy_request(request: Request, endpoint: str):
                                 chosen_key_id,
                                 "normal_started",
                             ),
-                            log_id=waiting_log_id,
-                            wait_ms=acquired_wait_ms,
                         )
                         if isinstance(response, StreamingResponse):
                             user_api_key_acquired = False
@@ -1233,6 +1231,8 @@ async def proxy_request(request: Request, endpoint: str):
                             "normal_started",
                         ),
                         user_api_key_semaphore=user_api_key_semaphore,
+                        log_id=waiting_log_id,
+                        wait_ms=acquired_wait_ms,
                     )
                 except Exception as handler_exc:
                     if isinstance(handler_exc, UpstreamFirstChunkTimeout):
@@ -1589,6 +1589,8 @@ async def handle_normal(
     routing_decision=None,
     inbound_protocol=None,
     user_api_key_semaphore=None,
+    log_id=None,
+    wait_ms=None,
 ):
     return await runtime_handle_normal(
         client=client,
@@ -1618,6 +1620,8 @@ async def handle_normal(
         inbound_protocol=inbound_protocol,
         model_concurrency_semaphore=model_concurrency_semaphore,
         user_api_key_semaphore=user_api_key_semaphore,
+        log_id=log_id,
+        wait_ms=wait_ms,
     )
 
 
