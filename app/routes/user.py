@@ -24,6 +24,7 @@ from app.core.config import (
     active_requests_lock,
     add_user_live_stats_subscriber,
     build_user_live_stats_snapshot,
+    build_user_sessions_payload,
     build_user_my_requests_rows,
     busyness_state,
     logger,
@@ -1479,6 +1480,7 @@ async def user_live_stats_websocket(websocket: WebSocket):
     try:
         snapshot = await build_user_live_stats_snapshot()
         snapshot["my_requests"] = await build_user_my_requests_rows(api_key_id)
+        snapshot.update(await build_user_sessions_payload(api_key_id))
         await websocket.send_json(snapshot)
         while True:
             await websocket.receive_text()

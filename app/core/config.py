@@ -682,6 +682,58 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
     }
 
 
+def _mask_session_name(name: str) -> str:
+    if len(name) <= 4:
+        return name
+    return f"{name[:2]}***{name[-2:]}"
+
+
+async def build_user_sessions_payload(api_key_id: int | None) -> dict[str, Any]:
+    """Per-user view of in-flight sessions (user dashboard bubble pool).
+
+    Same semantics as /user/api/system-active, but driven from the 1s
+    live-stats tick so bubbles track request start/end within a second
+    instead of the 15s poll. Labels for self/anonymous are left to the
+    client (WS pushes carry no Request context for i18n); other key
+    names are masked with the same rule as the route."""
+    await prune_stale_active_requests()
+    async with active_requests_lock:
+        grouped: dict[Optional[int], dict[str, Any]] = {}
+        for entry in active_requests.values():
+            kid = entry.get("api_key_id")
+            bucket = grouped.setdefault(kid, {"requests": 0, "models": {}})
+            bucket["requests"] += 1
+            model = entry.get("display_model") or entry.get("model")
+            if model:
+                bucket["models"][model] = bucket["models"].get(model, 0) + 1
+    sessions: list[dict[str, Any]] = []
+    other_index = 1
+    for kid in sorted(grouped.keys(), key=lambda v: (v != api_key_id, v or 0)):
+        bucket = grouped[kid]
+        if kid == api_key_id:
+            name, is_self = None, True
+        elif kid is None:
+            name, is_self = "Anonymous", False
+        else:
+            raw = get_api_key_name(kid)
+            name = _mask_session_name(raw) if raw else f"Other {other_index}"
+            is_self = False
+        other_index += 1
+        sessions.append(
+            {
+                "name": name,
+                "is_self": is_self,
+                "requests": bucket["requests"],
+                "models": bucket["models"],
+            }
+        )
+    return {
+        "sessions": sessions,
+        "active_count": len(sessions),
+        "request_count": sum(b["requests"] for b in grouped.values()),
+    }
+
+
 async def add_live_stats_subscriber(subscriber: Any) -> None:
     async with live_stats_subscribers_lock:
         live_stats_subscribers.add(subscriber)
@@ -822,6 +874,7 @@ async def broadcast_live_stats() -> None:
     for api_key_id, subs in user_registry.items():
         payload = dict(user_snapshot)
         payload["my_requests"] = await build_user_my_requests_rows(api_key_id)
+        payload.update(await build_user_sessions_payload(api_key_id))
         for subscriber in subs:
             try:
                 await subscriber.send_json(payload)

@@ -847,7 +847,9 @@
                 if (st) st.r = Math.min(body.offsetWidth || size, 96) / 2;
                 const nameEl = bubble.querySelector('.b-name');
                 const countEl = bubble.querySelector('.b-count');
-                const wantName = s.is_self ? `${s.name} (${T('我', 'me')})` : s.name;
+                const wantName = s.is_self
+                    ? `${T('你自己', 'you')} (${T('我', 'me')})`
+                    : (s.name || T('匿名', 'Anonymous'));
                 if (nameEl.textContent !== wantName) {
                     nameEl.textContent = wantName;
                     nameEl.title = wantName;
@@ -1049,6 +1051,9 @@
             if (!data) return;
             if (Array.isArray(data.my_requests)) {
                 renderMyRequestsRows(data.my_requests);
+            }
+            if (Array.isArray(data.sessions)) {
+                renderV2Sessions(data);
             }
             if (typeof data.active_users === 'number') {
                 document.getElementById('v2-live-text').textContent =

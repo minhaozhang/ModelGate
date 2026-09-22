@@ -90,6 +90,79 @@ class UserLiveWebSocketTests(unittest.TestCase):
         self.assertIn("busyness", fake.sent[0])
         self.assertIn("active_requests", fake.sent[0])
         self.assertIn("my_requests", fake.sent[0])
+        self.assertIn("sessions", fake.sent[0])
+
+    def test_authenticated_receives_sessions_payload(self):
+        USER_SESSIONS["tok"] = {
+            "api_key_id": 5,
+            "expires": datetime.now() + timedelta(hours=1),
+        }
+        client = build_client()
+        client.cookies.set("user_session", "tok")
+        with client.websocket_connect("/user/api/live") as ws:
+            data = ws.receive_json()
+        self.assertIn("sessions", data)
+        self.assertIn("active_count", data)
+        self.assertIn("request_count", data)
+
+
+class UserSessionsPayloadTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.original_active = dict(config.active_requests)
+        self.original_keys_cache = dict(config.api_keys_cache)
+        config.active_requests.clear()
+        config.api_keys_cache.clear()
+        config.api_keys_cache.update(
+            {
+                "k7": {"id": 7, "name": "repro7", "tags": []},
+                "k9": {"id": 9, "name": "ab", "tags": []},
+            }
+        )
+
+    def tearDown(self):
+        config.active_requests.clear()
+        config.active_requests.update(self.original_active)
+        config.api_keys_cache.clear()
+        config.api_keys_cache.update(self.original_keys_cache)
+
+    async def test_sessions_grouping_mask_and_self(self):
+        await config.register_active_request(
+            "r1", "p1", "m1", 5, requested_model="m1"
+        )
+        await config.register_active_request(
+            "r2", "p1", "m1", 5, requested_model="m1"
+        )
+        await config.register_active_request(
+            "r3", "p1", "m2", 7, requested_model="m2"
+        )
+        await config.register_active_request(
+            "r4", "p1", "m2", 9, requested_model="m2"
+        )
+        await config.register_active_request(
+            "r5", "p1", "m3", None, requested_model="m3"
+        )
+        payload = await config.build_user_sessions_payload(5)
+        self.assertEqual(payload["active_count"], 4)
+        self.assertEqual(payload["request_count"], 5)
+        by_flag = {s["is_self"]: s for s in payload["sessions"]}
+        self.assertTrue(by_flag[True]["name"] is None)
+        self.assertEqual(by_flag[True]["requests"], 2)
+        names = [s["name"] for s in payload["sessions"] if not s["is_self"]]
+        self.assertIn("re***o7", names)
+        self.assertIn("ab", names)
+        self.assertIn("Anonymous", names)
+        models = {
+            s["name"]: s["models"]
+            for s in payload["sessions"]
+            if not s["is_self"]
+        }
+        self.assertEqual(models["re***o7"], {"m2": 1})
+
+    async def test_empty_sessions(self):
+        payload = await config.build_user_sessions_payload(5)
+        self.assertEqual(payload["sessions"], [])
+        self.assertEqual(payload["active_count"], 0)
+        self.assertEqual(payload["request_count"], 0)
 
     def test_broadcast_skips_user_snapshot_without_subscribers(self):
         async def run():
