@@ -29,7 +29,7 @@
         .v2-reqrow .bar { height: 5px; border-radius: 3px; background: #e5e7eb; flex: 1; overflow: hidden; }
         .v2-reqrow .bar i { display: block; height: 100%; border-radius: 3px; }
         .v2-reqrow .nums { flex: 0 0 11rem; white-space: nowrap; text-align: right; }
-        .bubble-pool { position: relative; height: 340px; overflow: hidden; }
+        .bubble-pool { position: relative; height: 300px; overflow: hidden; }
         .bubble-pool.rm-static { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center; align-content: center; padding: 12px 4px; }
         .v2-bubble { position: absolute; left: 0; top: 0; will-change: transform; }
         .rm-static .v2-bubble { position: static; will-change: auto; }
@@ -48,7 +48,7 @@
         @keyframes v2bubbleBurst { 0% { transform: scale(1); opacity: 1; } 30% { transform: scale(1.14); opacity: 1; } 100% { transform: scale(0.15); opacity: 0; } }
         @keyframes v2bubbleSpark { from { transform: translate(-50%, -50%) scale(1); opacity: 1; } to { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(0.25); opacity: 0; } }
         @keyframes v2bubblePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
-        @media (max-width: 640px) { .bubble-pool { height: 260px; } .bubble-pool.rm-static { gap: 10px; } .v2-bubble-body { width: min(var(--size, 90px), 96px); height: min(var(--size, 90px), 96px); } .v2-bubble .b-name { font-size: 11px; } .v2-bubble .b-count { font-size: 10px; } }
+        @media (max-width: 640px) { .bubble-pool { height: 240px; } .bubble-pool.rm-static { gap: 10px; } .v2-bubble-body { width: min(var(--size, 90px), 96px); height: min(var(--size, 90px), 96px); } .v2-bubble .b-name { font-size: 11px; } .v2-bubble .b-count { font-size: 10px; } }
         @media (prefers-reduced-motion: reduce) { .v2-bubble, .v2-bubble-body, .v2-bubble-spark { animation: none !important; transition: none !important; } .v2-bubble.burst { opacity: 0; } }
         .v2-legend { display: flex; gap: 14px; font-size: 0.6875rem; color: #6b7280; }
         .v2-legend b.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
@@ -684,8 +684,17 @@
             for (const b of bubbles) {
                 const st = b.st;
                 st.wanderT += dt * st.wF;
-                const ax = (cx - st.x) * 0.16 + Math.cos(st.wanderT + st.phase) * st.wA;
-                const ay = (cy - st.y) * 0.16 + Math.sin(st.wanderT * 0.8 + st.phase * 1.7) * st.wA;
+                let ax = Math.cos(st.wanderT + st.phase) * st.wA;
+                let ay = Math.sin(st.wanderT * 0.8 + st.phase * 1.7) * st.wA;
+                const dxc = st.x - cx, dyc = st.y - cy;
+                const frx = Math.max(W * 0.32, 60), fry = Math.max(H * 0.22, 40);
+                const nx = dxc / frx, ny = dyc / fry;
+                const nr = Math.hypot(nx, ny) || 1e-4;
+                if (nr > 1) {
+                    const overU = nr - 1;
+                    ax -= (nx / nr) * overU * 260;
+                    ay -= (ny / nr) * overU * 260;
+                }
                 st.vx += ax * dt;
                 st.vy += ay * dt;
             }
@@ -807,11 +816,11 @@
                     bubble.style.setProperty('--pop-delay', popDelay.toFixed(2) + 's');
                     bubble.style.setProperty('--morph-delay', (popDelay + 2.8).toFixed(2) + 's');
                     bubble.innerHTML = `<div class="v2-bubble-body"><span class="b-name"></span><span class="b-count"></span></div>`;
-                    const W = el.clientWidth || 600, H = el.clientHeight || 340;
+                    const W = el.clientWidth || 600, H = el.clientHeight || 300;
                     const rGuess = Math.min(size, 96) / 2;
                     const st = {
-                        x: W / 2 + (Math.random() - 0.5) * Math.min(W * 0.5, 260),
-                        y: H / 2 + (Math.random() - 0.5) * Math.min(H * 0.5, 120),
+                        x: rGuess + 10 + Math.random() * Math.max(W - 2 * rGuess - 20, 40),
+                        y: rGuess + 10 + Math.random() * Math.max(H - 2 * rGuess - 20, 40),
                         vx: (Math.random() - 0.5) * 60,
                         vy: (Math.random() - 0.5) * 60,
                         wanderT: Math.random() * 10,
