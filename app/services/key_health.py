@@ -198,6 +198,18 @@ def on_key_reenabled(key_id: int) -> None:
         _key_events[key_id] = [e for e in events if e.event_type != "disabled" and e.timestamp >= now - WINDOW_SECONDS]
 
 
+def reset_key_health(key_id: int) -> None:
+    """Manual re-enable: wipe the event window so the key starts at 100.
+
+    Unlike on_key_reenabled (which keeps recent failures for auto
+    re-enables), a human explicitly turning the key back on signals the
+    underlying issue was addressed (quota reset, billing fixed), so
+    stale failure events from the old window should not drag the score
+    down and immediately re-disable the key."""
+    with _lock:
+        _key_events.pop(key_id, None)
+
+
 def clear_all() -> None:
     with _lock:
         _key_events.clear()

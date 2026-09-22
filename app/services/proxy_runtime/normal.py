@@ -86,6 +86,8 @@ async def handle_normal(
             requested_model=requested_model,
             upstream_model=upstream_model,
             user_semaphore=user_api_key_semaphore,
+            provider_key_id=chosen_key_id,
+            provider_key_label=provider_key_label,
         )
         is_active_request_registered = True
 

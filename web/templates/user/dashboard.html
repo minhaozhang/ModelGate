@@ -334,14 +334,14 @@
                     <option value="en">English</option>
                     <option value="zh">中文</option>
                 </select>
-                <select id="theme-toggle" onchange="applyTheme(this.value)" class="ctl-select cursor-pointer">
+                <select id="theme-toggle" onchange="applyTheme(this.value); syncEmbedTheme(this.value)" class="ctl-select cursor-pointer">
                     <option value="light">{{ _('Light Mode') }}</option>
                     <option value="dark">{{ _('Dark Mode') }}</option>
                     <option value="blackgold">{{ _('Black Gold') }}</option>
                 </select>
-                <a href="{{ app_base_path }}/user/stats-v2" class="ctl-btn-new" title="{{ _('New Look') }}">
-                    {{ _('New Look') }} &nearr;
-                </a>
+                <button onclick="showLegacyStats()" class="ctl-btn-new" title="{{ _('Back to Classic') }}">
+                    {{ _('Back to Classic') }} &nearr;
+                </button>
                 <button onclick="regenerateKey()" class="ctl-btn-amber">
                     {{ _('Reset API Key') }}
                 </button>
@@ -380,7 +380,9 @@
         </div>
 
         <div class="bg-white rounded-2xl card-shell mb-6">
-            {% include 'user/tab_stats.html' %}
+            <div id="tab-stats" class="tab-content active" style="padding:0">
+                <iframe id="v2-stats-embed" src="{{ app_base_path }}/user/stats-v2?embed=1" title="{{ _('Statistics Monitor') }}" style="width:100%;border:0;display:block;height:1200px"></iframe>
+            </div>
             {% include 'user/tab_catalog.html' %}
             {% include 'user/tab_opencode.html' %}
             {% include 'user/tab_codex.html' %}
@@ -388,6 +390,15 @@
             {% include 'user/tab_documents.html' %}
             {% include 'user/tab_mcp.html' %}
             {% include 'user/tab_notifications.html' %}
+        </div>
+
+        <div id="legacy-stats-panel" class="hidden mb-6">
+            <div class="flex justify-end mb-4">
+                <button onclick="exitLegacyStats()" class="ctl-btn-new">&larr; {{ _('New Look') }}</button>
+            </div>
+            <div class="bg-white rounded-2xl card-shell">
+                {% include 'user/tab_stats.html' %}
+            </div>
         </div>
     </div>
     
@@ -597,6 +608,31 @@
             return await resp.json();
         }
         
+        function showLegacyStats() {
+            document.getElementById('legacy-stats-panel').classList.remove('hidden');
+            document.querySelector('.tab-nav').classList.add('hidden');
+            document.querySelector('.card-shell').classList.add('hidden');
+            var strip = document.getElementById('global-status-strip');
+            if (strip) strip.classList.add('hidden');
+            window.scrollTo({ top: 0 });
+        }
+        function exitLegacyStats() {
+            document.getElementById('legacy-stats-panel').classList.add('hidden');
+            document.querySelector('.tab-nav').classList.remove('hidden');
+            document.querySelector('.card-shell').classList.remove('hidden');
+            window.scrollTo({ top: 0 });
+        }
+        window.addEventListener('message', function (e) {
+            if (e.origin !== location.origin) return;
+            if (e.data && e.data.type === 'v2-stats-height') {
+                var f = document.getElementById('v2-stats-embed');
+                if (f) { var h = parseInt(e.data.height, 10) || 1200; f.style.height = Math.max(600, Math.min(5000, h + 16)) + 'px'; }
+            }
+        });
+        function syncEmbedTheme(v) {
+            var f = document.getElementById('v2-stats-embed');
+            if (f && f.contentWindow) { try { f.contentWindow.postMessage({ type: 'v2-theme', theme: v }, location.origin); } catch (e) {} }
+        }
         function showTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));

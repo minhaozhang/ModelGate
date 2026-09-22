@@ -87,6 +87,10 @@ def request_has_image_parts(req_body: Optional[dict]) -> bool:
     return _analyze_request(req_body)[1] > 0
 
 
+def count_image_parts(req_body: Optional[dict]) -> int:
+    return _analyze_request(req_body)[1]
+
+
 def _tool_call_key(tool_call: dict) -> str:
     if not isinstance(tool_call, dict):
         return ""

@@ -46,12 +46,13 @@
         .v2-reqrow .bar { height: 5px; border-radius: 3px; background: #e5e7eb; flex: 1; overflow: hidden; }
         .v2-reqrow .bar i { display: block; height: 100%; border-radius: 3px; }
         .v2-reqrow .nums { flex: 0 0 11rem; white-space: nowrap; text-align: right; }
-        .bubble-pool { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center; min-height: 110px; padding: 12px 4px 16px; }
-        .v2-bubble { position: relative; animation: v2bubbleFloat var(--bob-dur, 6s) ease-in-out var(--bob-delay, 0s) infinite; }
-        .v2-bubble.burst { animation: none; pointer-events: none; }
-        .v2-bubble-body { position: relative; overflow: hidden; width: var(--size, 90px); height: var(--size, 90px); border-radius: 50%; border: 2px solid #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px; text-align: center; transition: width .6s ease, height .6s ease, background .6s ease, border-color .6s ease; animation: v2bubblePop .5s cubic-bezier(0.22, 1, 0.36, 1) var(--pop-delay, 0s) backwards, v2bubbleMorph var(--morph-dur, 11s) ease-in-out var(--morph-delay, 0s) infinite alternate; }
-        .v2-bubble-body::before { content: ''; position: absolute; left: 16%; top: 10%; width: 36%; height: 26%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,255,255,.5), rgba(255,255,255,0)); transform: rotate(-18deg); pointer-events: none; }
-        .v2-bubble-body.busy { animation: v2bubblePulse 2.2s ease-in-out infinite, v2bubbleMorph var(--morph-dur, 11s) ease-in-out var(--morph-delay, 0s) infinite alternate; }
+        .bubble-pool { position: relative; height: 340px; overflow: hidden; }
+        .bubble-pool.rm-static { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center; align-content: center; padding: 12px 4px; }
+        .v2-bubble { position: absolute; left: 0; top: 0; will-change: transform; }
+        .rm-static .v2-bubble { position: static; will-change: auto; }
+        .v2-bubble.burst { pointer-events: none; }
+        .v2-bubble-body { position: relative; overflow: hidden; width: var(--size, 90px); height: var(--size, 90px); border-radius: 50%; border: 2px solid #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px; text-align: center; transition: width .6s ease, height .6s ease, background .6s ease, border-color .6s ease; animation: v2bubblePop .5s cubic-bezier(0.22, 1, 0.36, 1) var(--pop-delay, 0s) backwards, v2bubbleSettle 2.6s cubic-bezier(0.22, 1, 0.36, 1) var(--pop-delay, 0s) forwards, v2bubbleMorph var(--morph-dur, 12s) ease-in-out var(--morph-delay, 2.8s) infinite alternate; }
+        .v2-bubble-body.busy { animation: v2bubblePulse 2.2s ease-in-out infinite, v2bubbleMorph var(--morph-dur, 12s) ease-in-out var(--morph-delay, 2.8s) infinite alternate; }
         .v2-bubble.burst .v2-bubble-body { animation: v2bubbleBurst .42s cubic-bezier(0.55, 0, 0.55, 0.2) forwards; }
         .v2-bubble-spark { position: absolute; left: 50%; top: 50%; width: var(--sz, 4px); height: var(--sz, 4px); border-radius: 50%; pointer-events: none; animation: v2bubbleSpark .48s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
         .v2-bubble .b-name { font-size: 12px; font-weight: 600; color: #374151; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -59,12 +60,12 @@
         .v2-bubble.self .v2-bubble-body { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22); }
         .v2-bubble.self .b-name { color: #2563eb; }
         @keyframes v2bubblePop { from { transform: scale(0.3); opacity: 0; } 60% { transform: scale(1.07); opacity: 1; } to { transform: scale(1); opacity: 1; } }
-        @keyframes v2bubbleFloat { 0% { transform: translate(0, -3px) rotate(-1.2deg); } 25% { transform: translate(2.5px, 0.5px) rotate(0.5deg); } 50% { transform: translate(0, 4px) rotate(1.4deg); } 75% { transform: translate(-2.5px, 0.5px) rotate(-0.5deg); } 100% { transform: translate(0, -3px) rotate(-1.2deg); } }
-        @keyframes v2bubbleMorph { 0% { border-radius: 52% 48% 55% 45% / 50% 54% 46% 50%; } 33% { border-radius: 45% 55% 48% 52% / 55% 45% 52% 48%; } 66% { border-radius: 50% 50% 42% 58% / 48% 52% 55% 45%; } 100% { border-radius: 55% 45% 52% 48% / 45% 52% 48% 55%; } }
+        @keyframes v2bubbleSettle { from { border-radius: 64% 36% 42% 58% / 58% 42% 64% 36%; } 55% { border-radius: 56% 44% 47% 53% / 52% 48% 56% 44%; } to { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } }
+        @keyframes v2bubbleMorph { 0% { border-radius: 52% 48% 53% 47% / 49% 53% 47% 51%; } 50% { border-radius: 47% 53% 49% 51% / 53% 47% 52% 48%; } 100% { border-radius: 53% 47% 51% 49% / 48% 52% 50% 50%; } }
         @keyframes v2bubbleBurst { 0% { transform: scale(1); opacity: 1; } 30% { transform: scale(1.14); opacity: 1; } 100% { transform: scale(0.15); opacity: 0; } }
         @keyframes v2bubbleSpark { from { transform: translate(-50%, -50%) scale(1); opacity: 1; } to { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(0.25); opacity: 0; } }
         @keyframes v2bubblePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
-        @media (max-width: 640px) { .bubble-pool { gap: 10px; } .v2-bubble-body { width: min(var(--size, 90px), 96px); height: min(var(--size, 90px), 96px); } .v2-bubble .b-name { font-size: 11px; } .v2-bubble .b-count { font-size: 10px; } }
+        @media (max-width: 640px) { .bubble-pool { height: 260px; } .bubble-pool.rm-static { gap: 10px; } .v2-bubble-body { width: min(var(--size, 90px), 96px); height: min(var(--size, 90px), 96px); } .v2-bubble .b-name { font-size: 11px; } .v2-bubble .b-count { font-size: 10px; } }
         @media (prefers-reduced-motion: reduce) { .v2-bubble, .v2-bubble-body, .v2-bubble-spark { animation: none !important; transition: none !important; } .v2-bubble.burst { opacity: 0; } }
         .v2-legend { display: flex; gap: 14px; font-size: 0.6875rem; color: #6b7280; }
         .v2-legend b.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
@@ -138,7 +139,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-        <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
+        <div id="v2-page-head" class="flex flex-wrap justify-between items-center gap-3 mb-5">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight text-gray-800">{{ _('Statistics Monitor') }} <span style="font-size:0.6em;color:#06b6d4;vertical-align:super">NEW</span></h1>
                 <p class="mt-0.5 text-sm text-gray-500 v2-sub">{{ name }}</p>
@@ -195,15 +196,6 @@
             </div>
         </div>
 
-        <div class="v2-card mb-6">
-            <h3>{{ _('Request Trend') }} <span class="meta">{{ _('Personal') }} / {{ _('System') }}</span></h3>
-            <div style="height: 260px;"><canvas id="v2-trend-chart"></canvas></div>
-            <div class="v2-legend mt-2">
-                <span><b class="sw" style="background:#3b82f6"></b>{{ _('Personal') }}</span>
-                <span><b class="sw" style="background:#9ca3af"></b>{{ _('System') }}</span>
-            </div>
-        </div>
-
         <div class="v2-card mb-6 flex flex-col" style="max-height:24rem">
             <h3 class="shrink-0">{{ _('My Requests') }}
                 <button onclick="openMyRequestsModal()" class="text-xs text-blue-600 hover:underline">{{ _('View All') }} &rarr;</button>
@@ -218,7 +210,16 @@
                     <span class="meta">{{ _('Real-time') }}</span>
                 </span>
             </h3>
-            <div id="v2-sessions" class="bubble-pool"><div class="text-gray-400 text-center py-2 w-full">{{ _('Loading...') }}</div></div>
+            <div id="v2-sessions" class="bubble-pool"><div class="text-gray-400 text-center py-6 w-full">{{ _('Loading...') }}</div></div>
+        </div>
+
+        <div class="v2-card mb-6">
+            <h3>{{ _('Request Trend') }} <span class="meta">{{ _('Personal') }} / {{ _('System') }}</span></h3>
+            <div style="height: 260px;"><canvas id="v2-trend-chart"></canvas></div>
+            <div class="v2-legend mt-2">
+                <span><b class="sw" style="background:#3b82f6"></b>{{ _('Personal') }}</span>
+                <span><b class="sw" style="background:#9ca3af"></b>{{ _('System') }}</span>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
@@ -654,6 +655,87 @@
         }
 
         const _activeBubbles = new Map();
+        const _bubblePhys = new Map();
+        let _physRaf = null;
+        let _physLast = 0;
+        function _reducedMotion() {
+            return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+        }
+        const _BUBBLE_COLORS = ['#3b82f6','#6366f1','#8b5cf6','#d946ef','#ec4899','#f43f5e','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4'];
+        function _bubbleColorFor(name) {
+            let h = 0;
+            for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) | 0;
+            return _BUBBLE_COLORS[Math.abs(h) % _BUBBLE_COLORS.length];
+        }
+        function _stepPhysics(ts) {
+            _physRaf = null;
+            const el = document.getElementById('v2-sessions');
+            if (!el || _reducedMotion()) return;
+            const nodes = [...el.querySelectorAll('.v2-bubble')];
+            if (!nodes.length) return;
+            const W = el.clientWidth, H = el.clientHeight;
+            const dt = Math.min((ts - _physLast) / 1000 || 0.016, 0.05);
+            _physLast = ts;
+            const cx = W / 2, cy = H / 2;
+            const bubbles = [];
+            for (const node of nodes) {
+                const st = _bubblePhys.get(node.dataset.name);
+                if (!st) continue;
+                bubbles.push({ node, st });
+            }
+            for (const b of bubbles) {
+                const st = b.st;
+                st.wanderT += dt * st.wF;
+                const ax = (cx - st.x) * 0.16 + Math.cos(st.wanderT + st.phase) * st.wA;
+                const ay = (cy - st.y) * 0.16 + Math.sin(st.wanderT * 0.8 + st.phase * 1.7) * st.wA;
+                st.vx += ax * dt;
+                st.vy += ay * dt;
+            }
+            for (let i = 0; i < bubbles.length; i++) {
+                for (let j = i + 1; j < bubbles.length; j++) {
+                    const a = bubbles[i].st, c = bubbles[j].st;
+                    let dx = c.x - a.x, dy = c.y - a.y;
+                    const d2 = dx * dx + dy * dy;
+                    const minD = a.r + c.r + 14;
+                    if (d2 >= minD * minD) continue;
+                    if (d2 < 0.01) {
+                        const kick = 60 + Math.random() * 40;
+                        a.vx -= kick; c.vx += kick;
+                        a.vy -= kick * 0.4; c.vy += kick * 0.4;
+                        continue;
+                    }
+                    const d = Math.sqrt(d2);
+                    dx /= d; dy /= d;
+                    const overlap = minD - d;
+                    const f = (overlap / minD) * 300 * dt;
+                    a.vx -= dx * f; a.vy -= dy * f;
+                    c.vx += dx * f; c.vy += dy * f;
+                    const push = overlap * 0.3;
+                    a.x -= dx * push; a.y -= dy * push;
+                    c.x += dx * push; c.y += dy * push;
+                }
+            }
+            const pad = 6;
+            for (const b of bubbles) {
+                const st = b.st;
+                st.vx *= 0.95; st.vy *= 0.95;
+                const sp = Math.hypot(st.vx, st.vy);
+                if (sp > 260) { st.vx *= 260 / sp; st.vy *= 260 / sp; }
+                st.x += st.vx * dt;
+                st.y += st.vy * dt;
+                if (st.x < st.r + pad) { st.x = st.r + pad; st.vx = Math.abs(st.vx) * 0.55; }
+                if (st.x > W - st.r - pad) { st.x = W - st.r - pad; st.vx = -Math.abs(st.vx) * 0.55; }
+                if (st.y < st.r + pad) { st.y = st.r + pad; st.vy = Math.abs(st.vy) * 0.55; }
+                if (st.y > H - st.r - pad) { st.y = H - st.r - pad; st.vy = -Math.abs(st.vy) * 0.55; }
+                b.node.style.transform = `translate(${(st.x - st.r).toFixed(1)}px, ${(st.y - st.r).toFixed(1)}px)`;
+            }
+            _physRaf = requestAnimationFrame(_stepPhysics);
+        }
+        function _ensurePhysics() {
+            if (_reducedMotion() || _physRaf) return;
+            _physLast = performance.now();
+            _physRaf = requestAnimationFrame(_stepPhysics);
+        }
         function _burstBubble(node) {
             if (!node || node.classList.contains('burst')) return;
             node.classList.add('burst');
@@ -703,6 +785,7 @@
             if (!sessions.length) {
                 for (const [name, node] of _activeBubbles) _burstBubble(node);
                 _activeBubbles.clear();
+                _bubblePhys.clear();
                 if (!el.querySelector('.v2-bubble')) {
                     el.innerHTML = `<div class="text-gray-400 text-center py-6 w-full">${T('现在很安静', 'So empty...')}</div>`;
                 }
@@ -713,7 +796,7 @@
             for (const s of ordered) {
                 seen.add(s.name);
                 const models = Object.entries(s.models || {}).sort((a, b) => b[1] - a[1]);
-                const color = _mcModelColor(models[0] ? models[0][0] : s.name);
+                const color = _bubbleColorFor(s.name);
                 const req = s.requests || 1;
                 const size = Math.min(78 + (req - 1) * 9, 152);
                 let bubble = _activeBubbles.get(s.name);
@@ -721,23 +804,40 @@
                     bubble = document.createElement('div');
                     bubble.className = 'v2-bubble';
                     bubble.dataset.name = s.name;
-                    bubble.style.setProperty('--bob-dur', (4.5 + Math.random() * 3).toFixed(2) + 's');
-                    bubble.style.setProperty('--bob-delay', (-Math.random() * 6).toFixed(2) + 's');
                     bubble.style.setProperty('--morph-dur', (9 + Math.random() * 5).toFixed(2) + 's');
-                    bubble.style.setProperty('--morph-delay', (-Math.random() * 10).toFixed(2) + 's');
-                    bubble.style.setProperty('--pop-delay', (Math.min(_activeBubbles.size, 10) * 0.05).toFixed(2) + 's');
+                    const popDelay = Math.min(_activeBubbles.size, 10) * 0.06;
+                    bubble.style.setProperty('--pop-delay', popDelay.toFixed(2) + 's');
+                    bubble.style.setProperty('--morph-delay', (popDelay + 2.8).toFixed(2) + 's');
                     bubble.innerHTML = `<div class="v2-bubble-body"><span class="b-name"></span><span class="b-count"></span></div>`;
+                    const W = el.clientWidth || 600, H = el.clientHeight || 340;
+                    const rGuess = Math.min(size, 96) / 2;
+                    const st = {
+                        x: W / 2 + (Math.random() - 0.5) * Math.min(W * 0.5, 260),
+                        y: H / 2 + (Math.random() - 0.5) * Math.min(H * 0.5, 120),
+                        vx: (Math.random() - 0.5) * 60,
+                        vy: (Math.random() - 0.5) * 60,
+                        wanderT: Math.random() * 10,
+                        wF: 0.4 + Math.random() * 0.9,
+                        wA: 55 + Math.random() * 50,
+                        phase: Math.random() * Math.PI * 2,
+                        r: rGuess,
+                    };
+                    st.x = Math.max(rGuess + 8, Math.min(W - rGuess - 8, st.x));
+                    st.y = Math.max(rGuess + 8, Math.min(H - rGuess - 8, st.y));
+                    _bubblePhys.set(s.name, st);
                     el.appendChild(bubble);
                     _activeBubbles.set(s.name, bubble);
                 }
                 const body = bubble.querySelector('.v2-bubble-body');
                 body.style.setProperty('--size', size + 'px');
-                body.style.background = `linear-gradient(145deg, ${color}2e, ${color}12)`;
+                body.style.background = `linear-gradient(145deg, ${color}45, ${color}14)`;
                 body.style.borderColor = color;
+                body.style.boxShadow = s.is_self ? '' : `0 0 20px ${color}30`;
                 bubble.dataset.color = color;
                 bubble.classList.toggle('self', !!s.is_self);
                 body.classList.toggle('busy', req >= 5);
-                bubble.style.order = String(1000 - req);
+                const st = _bubblePhys.get(s.name);
+                if (st) st.r = Math.min(body.offsetWidth || size, 96) / 2;
                 const nameEl = bubble.querySelector('.b-name');
                 const countEl = bubble.querySelector('.b-count');
                 const wantName = s.is_self ? `${s.name} (${T('我', 'me')})` : s.name;
@@ -751,10 +851,12 @@
             for (const [name, node] of _activeBubbles) {
                 if (!seen.has(name)) {
                     _activeBubbles.delete(name);
+                    _bubblePhys.delete(name);
                     _burstBubble(node);
                 }
             }
             [...el.children].forEach(child => { if (!child.classList.contains('v2-bubble')) child.remove(); });
+            _ensurePhysics();
         }
         async function loadSessions() {
             try {
@@ -764,12 +866,14 @@
         }
 
         let userLiveWs = null;
+        let _myReqLastSig = '';
 
-        async function loadMyRequests() {
-            const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active?limit=13');
-            const list = data.requests || [];
+        function renderMyRequestsRows(list) {
             const el = document.getElementById('my-requests-list');
             if (!el) return;
+            const sig = JSON.stringify(list);
+            if (sig === _myReqLastSig) return;
+            _myReqLastSig = sig;
             if (!list.length) {
                 el.innerHTML = `<div class="text-gray-400 text-center py-2">${T('暂无请求', 'No requests')}</div>`;
                 return;
@@ -783,6 +887,13 @@
                 else break;
             }
             [...el.children].slice(visible).forEach(row => row.remove());
+        }
+
+        async function loadMyRequests() {
+            try {
+                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active?limit=13');
+                renderMyRequestsRows(data.requests || []);
+            } catch (e) {}
         }
         function requestStatusVisual(status) {
             const inflight = status === 'waiting' || status === 'sending' || status === 'pending';
@@ -929,6 +1040,9 @@
 
         function applyUserLive(data) {
             if (!data) return;
+            if (Array.isArray(data.my_requests)) {
+                renderMyRequestsRows(data.my_requests);
+            }
             if (typeof data.active_users === 'number') {
                 document.getElementById('v2-live-text').textContent =
                     `${data.active_users} ${window.I18N.active} / ${(data.active_requests || 0).toLocaleString()} ${window.I18N.req}`;
@@ -954,12 +1068,35 @@
             userLiveWs.onerror = () => { try { userLiveWs.close(); } catch (e) {} };
         }
 
+        const _embed = new URLSearchParams(location.search).get('embed') === '1';
+        function _reportV2Height() {
+            if (!_embed || window.parent === window) return;
+            try { parent.postMessage({ type: 'v2-stats-height', height: document.documentElement.scrollHeight }, location.origin); } catch (e) {}
+        }
+        if (_embed) {
+            document.getElementById('v2-page-head').classList.add('hidden');
+            const cont = document.querySelector('.container');
+            cont.classList.remove('py-8');
+            cont.classList.add('py-4');
+            window.addEventListener('message', function (ev) {
+                if (ev.origin !== location.origin) return;
+                if (ev.data && ev.data.type === 'v2-theme') applyTheme(ev.data.theme);
+            });
+        }
+        window.addEventListener('load', _reportV2Height);
+        window.addEventListener('resize', _reportV2Height);
+        setInterval(_reportV2Height, 600);
+
         applyTheme(getThemeMode());
+        if (_reducedMotion()) {
+            const pool = document.getElementById('v2-sessions');
+            if (pool) pool.classList.add('rm-static');
+        }
         loadStats();
         loadMyRequests();
         loadSessions();
         setInterval(loadStats, 30000);
-        setInterval(loadMyRequests, 10000);
+        setInterval(() => { if (!userLiveWs || userLiveWs.readyState !== 1) loadMyRequests(); }, 10000);
         setInterval(loadSessions, 15000);
         connectUserLiveWs();
     </script>

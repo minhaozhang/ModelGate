@@ -89,6 +89,20 @@ class HealthAutoDisableTests(unittest.IsolatedAsyncioTestCase):
         key_health.on_key_reenabled(4)
         self.assertEqual(key_health.compute_health_score(4, is_active=True), 100)
 
+    async def test_reset_key_health_restores_full_score(self):
+        for _ in range(10):
+            key_health.record_key_event(6, "timeout")
+        self.assertEqual(key_health.compute_health_score(6), 0)
+        key_health.record_key_event(6, "disabled")
+        key_health.reset_key_health(6)
+        self.assertEqual(key_health.compute_health_score(6), 100)
+        self.assertEqual(key_health.get_events_5m(6), {k: 0 for k in (
+            "success", "rate_limited", "server_error", "client_error",
+            "timeout", "connect_error",
+        )})
+        self.assertEqual(key_health.get_health_level(
+            key_health.compute_health_score(6)), "excellent")
+
 
 if __name__ == "__main__":
     unittest.main()

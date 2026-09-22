@@ -20,7 +20,7 @@ class UserLiveWebSocketTests(unittest.TestCase):
     def setUp(self):
         USER_SESSIONS.clear()
         self.original_busyness = dict(config.busyness_state)
-        self.original_user_subs = set(config.user_live_stats_subscribers)
+        self.original_user_subs = dict(config.user_live_stats_subscribers)
         self.original_providers_cache = dict(config.providers_cache)
 
     def tearDown(self):
@@ -66,6 +66,7 @@ class UserLiveWebSocketTests(unittest.TestCase):
         self.assertIn("active_requests", data)
         self.assertIn("tokens_per_second", data)
         self.assertIn("disabled_providers", data)
+        self.assertIn("my_requests", data)
         self.assertEqual(data["busyness"]["level"], 2)
         self.assertEqual(data["busyness"]["active_users_10min"], 3)
 
@@ -79,15 +80,16 @@ class UserLiveWebSocketTests(unittest.TestCase):
 
         async def run():
             fake = FakeUserSocket()
-            await config.add_user_live_stats_subscriber(fake)
+            await config.add_user_live_stats_subscriber(5, fake)
             await config.broadcast_live_stats()
-            await config.remove_user_live_stats_subscriber(fake)
+            await config.remove_user_live_stats_subscriber(5, fake)
             return fake
 
         fake = asyncio.run(run())
         self.assertEqual(len(fake.sent), 1)
         self.assertIn("busyness", fake.sent[0])
         self.assertIn("active_requests", fake.sent[0])
+        self.assertIn("my_requests", fake.sent[0])
 
     def test_broadcast_skips_user_snapshot_without_subscribers(self):
         async def run():

@@ -727,7 +727,9 @@
                                 : String(tokensVal);
                     const elapsed0 = Number(r.elapsed_seconds ?? 0);
                     const durClass = elapsed0 > 120 ? 'text-red-600' : elapsed0 > 60 ? 'text-orange-500' : 'text-gray-400';
-                    return `<div class="request-row flex items-center gap-2 py-0.5"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded inline-block max-w-[260px] truncate" title="${label}">${label}${warnIcon}</span><span class="live-duration text-xs font-medium flex-shrink-0 ml-auto ${durClass}" data-elapsed0="${elapsed0}">${formatDuration(elapsed0)}</span><span class="text-xs text-gray-500 flex-shrink-0">${td}</span></div>`;
+                    const pk = r.provider_key || '';
+                    const pkHtml = pk ? `<span class="text-[10px] text-gray-400 flex-shrink-0 max-w-[90px] truncate" title="upstream key: ${pk}">${pk}</span>` : '';
+                    return `<div class="request-row flex items-center gap-2 py-0.5"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded inline-block max-w-[260px] truncate" title="${label}${warnIcon ? ' ⚠ disabled' : ''}${pk ? ' | upstream key: ' + pk : ''}">${label}${warnIcon}</span>${pkHtml}<span class="live-duration text-xs font-medium flex-shrink-0 ml-auto ${durClass}" data-elapsed0="${elapsed0}">${formatDuration(elapsed0)}</span><span class="text-xs text-gray-500 flex-shrink-0">${td}</span></div>`;
                 }).join('');
 
                 const innerHtml = `<div class="min-w-0 flex-1">

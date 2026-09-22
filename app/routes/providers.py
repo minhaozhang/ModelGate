@@ -327,6 +327,9 @@ async def update_provider_key(
                 pk.disabled_reason = None
                 pk.disabled_at = None
                 pk.reset_at = None
+                from app.services.key_health import reset_key_health
+
+                reset_key_health(key_id)
             else:
                 pk.disabled_by = "manual"
                 pk.disabled_reason = None

@@ -112,6 +112,37 @@ class StreamFirstChunkTimeoutTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(_first_chunk_timeout(77000), 24.25)
         self.assertEqual(_first_chunk_timeout(1000000), 60.0)
 
+    def test_first_chunk_timeout_scales_with_images(self):
+        from app.services.proxy_runtime.stream import _first_chunk_timeout
+
+        self.assertEqual(_first_chunk_timeout(None, 0), 5.0)
+        self.assertEqual(_first_chunk_timeout(0, 1), 15.0)
+        self.assertEqual(_first_chunk_timeout(0, 3), 35.0)
+        self.assertEqual(_first_chunk_timeout(30000, 2), 32.5)
+        self.assertEqual(_first_chunk_timeout(1000000, 1), 120.0)
+
+    def test_count_image_parts_detects_images(self):
+        from app.services.tokens import count_image_parts
+
+        image_url = "data:image/png;base64," + "A" * 200
+        body = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "看图"},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                }
+            ]
+        }
+        self.assertEqual(count_image_parts(body), 1)
+        self.assertEqual(
+            count_image_parts({"messages": [{"role": "user", "content": "hi"}]}),
+            0,
+        )
+        self.assertEqual(count_image_parts(None), 0)
+
     async def test_send_headers_timeout_triggers_error(self):
         from app.services.proxy_runtime import stream as stream_module
 

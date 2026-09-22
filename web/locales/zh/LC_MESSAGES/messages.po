@@ -1801,7 +1801,7 @@ msgstr "下游"
 #: web/templates/admin/request_logs.html:296
 #: web/templates/admin/request_logs.html:404
 msgid "Latency"
-msgstr "延迟"
+msgstr "总耗时"
 
 #: web/templates/admin/request_logs.html:297
 #: web/templates/user/dashboard.html:437

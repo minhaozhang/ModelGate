@@ -1,4 +1,0 @@
-FROM modelgate:base
-WORKDIR /app
-COPY . .
-RUN mkdir -p logs uploads/documents && pybabel compile -d web/locales

@@ -136,6 +136,12 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+# Cadence for the continuous live-stats refresh (Tokens/s decay).
+LIVE_STATS_TICK_SECONDS = _env_float(
+    "MODELGATE_LIVE_STATS_TICK_SECONDS", 1.0
+)
+
+
 # User-concurrency slots held longer than this are force-released so a long
 # thinking/streaming request does not lock a user with concurrency=1 out of
 # new requests entirely.
@@ -150,6 +156,14 @@ user_slot_released_ids: set[str] = set()
 # relays; a provider that cannot open the stream in 5s is treated as down.
 STREAM_FIRST_CHUNK_TIMEOUT_SECONDS = _env_float(
     "STREAM_FIRST_CHUNK_TIMEOUT_SECONDS", 5.0
+)
+# Extra first-chunk budget per image part in multimodal requests.
+# Image token cost is not estimable from the payload (base64 is
+# stripped from the estimate), so the ctx-based scaling alone gives
+# multimodal requests ~the 5s base budget while vision prefill of
+# large images legitimately takes tens of seconds.
+STREAM_IMAGE_FIRST_CHUNK_BUDGET_SECONDS = _env_float(
+    "STREAM_IMAGE_FIRST_CHUNK_BUDGET_SECONDS", 10.0
 )
 # Mid-stream stall guard: terminate the relay when upstream stays silent
 # (no raw line, keep-alive comments included) for this long after the first
@@ -167,7 +181,7 @@ active_requests_lock = asyncio.Lock()
 busyness_state: dict[str, Any] = {}
 live_stats_subscribers: set[Any] = set()
 live_stats_subscribers_lock = asyncio.Lock()
-user_live_stats_subscribers: set[Any] = set()
+user_live_stats_subscribers: dict[int, set[Any]] = {}
 user_live_stats_subscribers_lock = asyncio.Lock()
 
 
@@ -313,6 +327,8 @@ async def register_active_request(
     requested_model: str | None = None,
     upstream_model: str | None = None,
     user_semaphore: Any = None,
+    provider_key_id: int | None = None,
+    provider_key_label: str | None = None,
 ) -> None:
     from app.services.model_naming import user_stats_model_name
 
@@ -330,6 +346,8 @@ async def register_active_request(
             "prompt_tokens": prompt_tokens,
             "started_at": now,
             "user_semaphore": user_semaphore,
+            "provider_key_id": provider_key_id,
+            "provider_key_label": provider_key_label,
         }
     asyncio.create_task(broadcast_live_stats())
 
@@ -462,6 +480,14 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
                     "provider": provider_name,
                     "actual": actual,
                     "tokens": prompt_tokens,
+                    "provider_key": (
+                        request_data.get("provider_key_label")
+                        or (
+                            f"key-{request_data['provider_key_id']}"
+                            if request_data.get("provider_key_id") is not None
+                            else ""
+                        )
+                    ),
                     "elapsed_seconds": round(
                         (snapshot_now - request_data["started_at"]).total_seconds(),
                         1,
@@ -646,6 +672,7 @@ async def build_user_live_stats_snapshot() -> dict[str, Any]:
 async def add_live_stats_subscriber(subscriber: Any) -> None:
     async with live_stats_subscribers_lock:
         live_stats_subscribers.add(subscriber)
+    _ensure_live_stats_tick()
 
 
 async def remove_live_stats_subscriber(subscriber: Any) -> None:
@@ -653,14 +680,37 @@ async def remove_live_stats_subscriber(subscriber: Any) -> None:
         live_stats_subscribers.discard(subscriber)
 
 
-async def add_user_live_stats_subscriber(subscriber: Any) -> None:
+async def add_user_live_stats_subscriber(
+    api_key_id: int, subscriber: Any
+) -> None:
     async with user_live_stats_subscribers_lock:
-        user_live_stats_subscribers.add(subscriber)
+        user_live_stats_subscribers.setdefault(api_key_id, set()).add(
+            subscriber
+        )
+    _ensure_live_stats_tick()
 
 
-async def remove_user_live_stats_subscriber(subscriber: Any) -> None:
+async def remove_user_live_stats_subscriber(
+    api_key_id: int, subscriber: Any
+) -> None:
     async with user_live_stats_subscribers_lock:
-        user_live_stats_subscribers.discard(subscriber)
+        subscribers = user_live_stats_subscribers.get(api_key_id)
+        if subscribers is not None:
+            subscribers.discard(subscriber)
+            if not subscribers:
+                user_live_stats_subscribers.pop(api_key_id, None)
+
+
+async def build_user_my_requests_rows(api_key_id: int) -> list:
+    """Recent request rows for one dashboard user (fresh query; the last
+    event of a request lifecycle must never be served stale, and query
+    cost is negligible at this scale)."""
+    from app.routes.user import build_user_recent_requests
+
+    try:
+        return await build_user_recent_requests(api_key_id, limit=10)
+    except Exception:
+        return []
 
 
 async def _send_payload_to_subscribers(
@@ -697,9 +747,79 @@ async def broadcast_live_stats() -> None:
         return
     user_snapshot = await build_user_live_stats_snapshot()
     async with user_live_stats_subscribers_lock:
-        user_subscribers = list(user_live_stats_subscribers)
-    stale = await _send_payload_to_subscribers(user_subscribers, user_snapshot)
+        user_registry = {
+            key_id: set(subs)
+            for key_id, subs in user_live_stats_subscribers.items()
+            if subs
+        }
+    stale: list[tuple[int, Any]] = []
+    for api_key_id, subs in user_registry.items():
+        payload = dict(user_snapshot)
+        payload["my_requests"] = await build_user_my_requests_rows(api_key_id)
+        for subscriber in subs:
+            try:
+                await subscriber.send_json(payload)
+            except Exception:
+                stale.append((api_key_id, subscriber))
     if stale:
-        await _discard_stale_subscribers(
-            stale, user_live_stats_subscribers_lock, user_live_stats_subscribers
-        )
+        async with user_live_stats_subscribers_lock:
+            for api_key_id, subscriber in stale:
+                subscribers = user_live_stats_subscribers.get(api_key_id)
+                if subscribers is not None:
+                    subscribers.discard(subscriber)
+
+
+_tick_last_active = False
+
+
+async def _live_stats_tick_once() -> bool:
+    """One tick of the continuous live-stats refresh.
+
+    Tokens/s is read-time computed over a decaying 10s token
+    window, so event-driven pushes (request start/end) alone would
+    freeze the rate mid-stream and never show it decay back to 0
+    after traffic stops. Tick while anything is flowing (active
+    requests or recent token buckets), plus one final push to land
+    on zero. No subscribers or idle traffic -> no work."""
+    global _tick_last_active
+    async with live_stats_subscribers_lock:
+        has_admin = bool(live_stats_subscribers)
+    async with user_live_stats_subscribers_lock:
+        has_user = bool(user_live_stats_subscribers)
+    if not (has_admin or has_user):
+        return False
+    async with active_requests_lock:
+        has_active = bool(active_requests)
+    flowing = bool(token_buckets) or ((_tokens_per_second_ewma or 0) > 0)
+    if has_active or flowing:
+        _tick_last_active = True
+        await broadcast_live_stats()
+        return True
+    if _tick_last_active:
+        _tick_last_active = False
+        await broadcast_live_stats()
+        return True
+    return False
+
+
+async def _live_stats_tick_loop() -> None:
+    while True:
+        await asyncio.sleep(LIVE_STATS_TICK_SECONDS)
+        try:
+            await _live_stats_tick_once()
+        except Exception:
+            continue
+
+
+_tick_task: Optional[asyncio.Task] = None
+
+
+def _ensure_live_stats_tick() -> None:
+    global _tick_task
+    if _tick_task is not None and not _tick_task.done():
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    _tick_task = loop.create_task(_live_stats_tick_loop())

@@ -24,6 +24,7 @@ from app.core.config import (
     active_requests_lock,
     add_user_live_stats_subscriber,
     build_user_live_stats_snapshot,
+    build_user_my_requests_rows,
     busyness_state,
     logger,
     prune_stale_active_requests,
@@ -970,7 +971,13 @@ async def get_user_recent_requests(
     if not api_key_id:
         return translated_error(request, "Not authenticated", 401)
     limit = max(1, min(limit, 100))
+    requests = await build_user_recent_requests(api_key_id, limit=limit)
+    return {"requests": requests}
 
+
+async def build_user_recent_requests(
+    api_key_id: int, limit: int = 10
+) -> list[dict]:
     async with async_session_maker() as session:
         result = await session.execute(
             select(
@@ -1047,7 +1054,7 @@ async def get_user_recent_requests(
                 "created_at": r.created_at.isoformat() if r.created_at else None,
             })
 
-        return {"requests": requests}
+        return requests
 
 
 def _summarize_request_row(r, provider_map) -> dict:
@@ -1465,17 +1472,20 @@ async def user_live_stats_websocket(websocket: WebSocket):
         await websocket.close(code=4401)
         return
 
+    api_key_id = session_data.get("api_key_id")
     await websocket.accept()
-    await add_user_live_stats_subscriber(websocket)
+    await add_user_live_stats_subscriber(api_key_id, websocket)
 
     try:
-        await websocket.send_json(await build_user_live_stats_snapshot())
+        snapshot = await build_user_live_stats_snapshot()
+        snapshot["my_requests"] = await build_user_my_requests_rows(api_key_id)
+        await websocket.send_json(snapshot)
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
         pass
     finally:
-        await remove_user_live_stats_subscriber(websocket)
+        await remove_user_live_stats_subscriber(api_key_id, websocket)
 
 
 @router.get("/user/api/provider-status")

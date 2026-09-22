@@ -7,6 +7,7 @@ from fastapi.responses import Response, StreamingResponse
 
 from app.core.config import (
     STREAM_FIRST_CHUNK_TIMEOUT_SECONDS,
+    STREAM_IMAGE_FIRST_CHUNK_BUDGET_SECONDS,
     STREAM_STALL_TIMEOUT_SECONDS,
     consume_user_slot_released,
     error_logger,
@@ -27,6 +28,7 @@ from app.services.logging import (
 from app.services.minimax import MinimaxStreamProcessor
 from app.services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
 from app.services.proxy_runtime.adapters import get_adapter
+from app.services.tokens import count_image_parts
 from app.services.proxy_runtime.client import REPEATED_CHUNK_LIMIT, get_http_client
 from app.services.proxy_runtime.concurrency import (
     RATE_LIMITED_STATUSES,
@@ -55,14 +57,23 @@ class UpstreamStallTimeout(asyncio.TimeoutError):
     """Upstream went silent mid-stream (no raw line within the stall window)."""
 
 
-def _first_chunk_timeout(ctx_tokens: int | None) -> float:
+def _first_chunk_timeout(ctx_tokens: int | None, image_count: int = 0) -> float:
     """Scale the first-chunk budget with prompt size: large-context prefill
     legitimately needs seconds before the first token (≈+2s per 10K tokens,
-    capped). Dead upstreams (zero bytes) still trip the base timeout fast."""
+    capped). Dead upstreams (zero bytes) still trip the base timeout fast.
+
+    Multimodal requests get an extra flat budget per image part: base64
+    payload is stripped from the ctx estimate, so image-heavy prefill
+    (vision encoder + attention over huge grids) would otherwise be
+    killed by the ~5s text-only budget. The cap is lifted to 120s when
+    images are present."""
     base = STREAM_FIRST_CHUNK_TIMEOUT_SECONDS
     if ctx_tokens:
         base += ctx_tokens / 4000
-    return min(base, 60.0)
+    if image_count:
+        base += image_count * STREAM_IMAGE_FIRST_CHUNK_BUDGET_SECONDS
+    cap = 120.0 if image_count else 60.0
+    return min(base, cap)
 
 
 async def _stall_watchdog(aiter_lines, timeout_s: float):
@@ -132,10 +143,14 @@ async def handle_streaming(
             requested_model=requested_model,
             upstream_model=upstream_model,
             user_semaphore=user_api_key_semaphore,
+            provider_key_id=chosen_key_id,
+            provider_key_label=provider_key_label,
         )
         is_active_request_registered = True
         req = client.build_request("POST", url, headers=headers, content=body)
-        first_chunk_timeout = _first_chunk_timeout(request_context_tokens)
+        first_chunk_timeout = _first_chunk_timeout(
+            request_context_tokens, count_image_parts(req_body)
+        )
         try:
             resp = await asyncio.wait_for(
                 client.send(req, stream=True),

@@ -90,6 +90,9 @@ async def create_request_log(
             session.add(content)
             await session.commit()
 
+        if status == "waiting":
+            _notify_live_stats()
+
         return log.id
 
 
@@ -155,12 +158,25 @@ async def update_request_log(
         return (result.rowcount or 0) > 0
 
 
+def _notify_live_stats() -> None:
+    try:
+        import asyncio
+
+        from app.core.config import broadcast_live_stats
+
+        asyncio.get_running_loop().create_task(broadcast_live_stats())
+    except Exception:
+        pass
+
+
 async def safe_update_request_log(log_id, **kwargs) -> None:
     """Best-effort update: swallow errors so log issues never kill requests."""
     if not isinstance(log_id, int):
         return
     try:
-        await update_request_log(log_id, **kwargs)
+        updated = await update_request_log(log_id, **kwargs)
+        if updated and "status" in kwargs:
+            _notify_live_stats()
     except Exception:
         import logging as _logging
 
@@ -181,7 +197,10 @@ async def update_request_log_status(
             update(RequestLog).where(RequestLog.id == log_id).values(**values)
         )
         await session.commit()
-        return (result.rowcount or 0) > 0
+        updated = (result.rowcount or 0) > 0
+    if updated:
+        _notify_live_stats()
+    return updated
 
 
 async def update_request_content(
