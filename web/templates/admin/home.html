@@ -689,11 +689,13 @@
 
             const grouped = [];
             const userIndex = new Map();
+            const rawNames = new Map();
             for (const r of rows) {
                 const k = maskKeyName(r.key || 'Unknown');
                 if (!userIndex.has(k)) {
                     userIndex.set(k, []);
                     grouped.push([k, userIndex.get(k)]);
+                    rawNames.set(k, String(r.key || 'Unknown'));
                 }
                 userIndex.get(k).push(r);
             }
@@ -713,6 +715,7 @@
             const disabledProviders = data.disabled_providers || {};
             liveSnapshotRecvAt = Date.now();
             for (const [name, userRows] of grouped) {
+                const rawName = rawNames.get(name) || name;
                 const tagsHtml = (userRows[0].tags || []).map(t => `<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded ml-1 align-middle">${t}</span>`).join('');
                 const reqHtml = userRows.map(r => {
                     const label = routeLabel(r);
@@ -738,7 +741,7 @@
 
                 const innerHtml = `<div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1">
-                        <span class="font-medium truncate cursor-default" title="${name}">${escapeHtml(name)}</span>${tagsHtml}
+                        <span class="font-medium truncate cursor-default" title="${escapeHtml(rawName)}">${escapeHtml(name)}</span>${tagsHtml}
                         <span class="text-xs text-gray-400 ml-auto flex-shrink-0">${userRows.length} ${homeI18n.req}</span>
                     </div>
                     <div class="text-xs text-gray-500 mt-1">${reqHtml}</div>
