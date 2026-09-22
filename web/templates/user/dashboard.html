@@ -325,7 +325,7 @@
                 <p class="mt-0.5 text-sm text-gray-500">{{ name }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <select id="period-select" onchange="loadStats()" class="ctl-select">
+                <select id="period-select" onchange="onPeriodChange()" class="ctl-select">
                     <option value="day">{{ _('Today') }}</option>
                     <option value="week">{{ _('This Week') }}</option>
                     <option value="month">{{ _('This Month') }}</option>
@@ -334,7 +334,7 @@
                     <option value="en">English</option>
                     <option value="zh">中文</option>
                 </select>
-                <select id="theme-toggle" onchange="applyTheme(this.value); syncEmbedTheme(this.value)" class="ctl-select cursor-pointer">
+                <select id="theme-toggle" onchange="applyTheme(this.value)" class="ctl-select cursor-pointer">
                     <option value="light">{{ _('Light Mode') }}</option>
                     <option value="dark">{{ _('Dark Mode') }}</option>
                     <option value="blackgold">{{ _('Black Gold') }}</option>
@@ -379,10 +379,9 @@
             <button class="tab-btn" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}</button>
         </div>
 
+        {% include 'user/tab_stats_v2.html' %}
+
         <div class="bg-white rounded-2xl card-shell mb-6">
-            <div id="tab-stats" class="tab-content active" style="padding:0">
-                <iframe id="v2-stats-embed" src="{{ app_base_path }}/user/stats-v2?embed=1" title="{{ _('Statistics Monitor') }}" style="width:100%;border:0;display:block;height:1200px"></iframe>
-            </div>
             {% include 'user/tab_catalog.html' %}
             {% include 'user/tab_opencode.html' %}
             {% include 'user/tab_codex.html' %}
@@ -594,6 +593,7 @@
             localStorage.setItem('dashboard_theme', mode);
             document.getElementById('theme-toggle').value = mode;
             if (window.ParticleBG) ParticleBG.setTheme(mode);
+            window.dispatchEvent(new Event('mg-theme-change'));
         }
 
         applyTheme(getThemeMode());
@@ -622,6 +622,8 @@
             document.getElementById('legacy-stats-panel').classList.remove('hidden');
             document.querySelector('.tab-nav').classList.add('hidden');
             document.querySelector('.card-shell').classList.add('hidden');
+            var v2Tab = document.getElementById('tab-stats');
+            if (v2Tab) v2Tab.classList.remove('active');
             var strip = document.getElementById('global-status-strip');
             if (strip) strip.classList.add('hidden');
             _syncStatsToggle();
@@ -632,19 +634,18 @@
             document.getElementById('legacy-stats-panel').classList.add('hidden');
             document.querySelector('.tab-nav').classList.remove('hidden');
             document.querySelector('.card-shell').classList.remove('hidden');
+            document.querySelectorAll('.tab-content').forEach(function (c) { c.classList.remove('active'); });
+            document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+            var statsBtn = document.querySelector('.tab-nav .tab-btn');
+            if (statsBtn) statsBtn.classList.add('active');
+            var v2Tab = document.getElementById('tab-stats');
+            if (v2Tab) v2Tab.classList.add('active');
             _syncStatsToggle();
             window.scrollTo({ top: 0 });
         }
-        window.addEventListener('message', function (e) {
-            if (e.origin !== location.origin) return;
-            if (e.data && e.data.type === 'v2-stats-height') {
-                var f = document.getElementById('v2-stats-embed');
-                if (f) { var h = parseInt(e.data.height, 10) || 1200; f.style.height = Math.max(600, Math.min(5000, h + 16)) + 'px'; }
-            }
-        });
-        function syncEmbedTheme(v) {
-            var f = document.getElementById('v2-stats-embed');
-            if (f && f.contentWindow) { try { f.contentWindow.postMessage({ type: 'v2-theme', theme: v }, location.origin); } catch (e) {} }
+        function onPeriodChange() {
+            if (_statsLegacy) loadStats();
+            else if (window.v2LoadStats) window.v2LoadStats();
         }
         function showTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));

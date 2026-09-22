@@ -1,0 +1,1093 @@
+<div id="tab-stats" class="tab-content active">
+    <style>
+        .v2-card { background: #f9fafb; border-radius: 1rem; padding: 1.25rem; }
+        .v2-card h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; color: #1f2937; }
+        .v2-card h3 .meta { font-size: 0.6875rem; color: #9ca3af; font-weight: 400; }
+        .v2-kpi { background: rgba(255,255,255,.7); border-radius: 1rem; padding: 0.875rem 1rem; }
+        .v2-kpi .lbl { font-size: 0.6875rem; color: #6b7280; font-weight: 500; }
+        .v2-kpi .val { font-size: 1.625rem; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+        .v2-kpi .vs { font-size: 0.6875rem; color: #9ca3af; margin-top: 2px; }
+        .v2-kpi .vs b { color: #6b7280; font-weight: 600; }
+        .v2-live { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #059669; background: #d1fae5; padding: 4px 12px; border-radius: 999px; font-weight: 600; }
+        .v2-live i { width: 7px; height: 7px; border-radius: 50%; background: #10b981; animation: v2pulse 1.6s infinite; }
+        @keyframes v2pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+        .v2-glow-amber { animation: v2glowA 1.8s ease-in-out infinite; border-color: #f59e0b !important; }
+        @keyframes v2glowA { 0%,100%{ box-shadow:0 0 0 0 rgba(245,158,11,0);} 50%{ box-shadow:0 0 14px 2px rgba(245,158,11,.45);} }
+        .v2-glow-red { animation: v2glowR 1.2s ease-in-out infinite; border-color: #ef4444 !important; }
+        @keyframes v2glowR { 0%,100%{ box-shadow:0 0 0 0 rgba(239,68,68,0);} 50%{ box-shadow:0 0 16px 3px rgba(239,68,68,.5);} }
+        #v2-model-concurrency-list .model-conc-card { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 8px 10px; width: 132px; display: flex; flex-direction: column; align-items: center; background: #ffffff; }
+        #v2-model-concurrency-list .mc-tick { stroke: #cbd5e1; }
+        #v2-model-concurrency-list .mc-hub { fill: #ffffff; stroke: #475569; stroke-width: 1; }
+        #v2-model-concurrency-list .mc-name { font-size: 12px; font-weight: 500; color: #4b5563; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #v2-model-concurrency-list .mc-rate { font-size: 10px; color: #6b7280; margin-top: 1px; }
+        #v2-model-concurrency-list .mc-rate b { color: #059669; }
+        #v2-model-concurrency-list .mc-bars { display: flex; align-items: flex-end; gap: 2px; height: 18px; margin-top: 4px; width: 100%; }
+        #v2-model-concurrency-list .mc-bars i { flex: 1; border-radius: 1px; min-height: 1px; opacity: .6; transition: height .6s ease; }
+        #v2-model-concurrency-list .mc-badge { font-size: 11px; color: #ef4444; margin-top: 2px; }
+        .v2-reqrow { display: flex; justify-content: space-between; gap: 10px; font-size: 0.75rem; color: #4b5563; padding: 0.45rem 0; border-bottom: 1px solid #f3f4f6; align-items: center; }
+        .v2-reqrow .mname { flex: 0 0 7.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .v2-reqrow .bar { height: 5px; border-radius: 3px; background: #e5e7eb; flex: 1; overflow: hidden; }
+        .v2-reqrow .bar i { display: block; height: 100%; border-radius: 3px; }
+        .v2-reqrow .nums { flex: 0 0 11rem; white-space: nowrap; text-align: right; }
+        .bubble-pool { position: relative; height: 340px; overflow: hidden; }
+        .bubble-pool.rm-static { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center; align-content: center; padding: 12px 4px; }
+        .v2-bubble { position: absolute; left: 0; top: 0; will-change: transform; }
+        .rm-static .v2-bubble { position: static; will-change: auto; }
+        .v2-bubble.burst { pointer-events: none; }
+        .v2-bubble-body { position: relative; overflow: hidden; width: var(--size, 90px); height: var(--size, 90px); border-radius: 50%; border: 2px solid #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px; text-align: center; transition: width .6s ease, height .6s ease, background .6s ease, border-color .6s ease; animation: v2bubblePop .5s cubic-bezier(0.22, 1, 0.36, 1) var(--pop-delay, 0s) backwards, v2bubbleSettle 2.6s cubic-bezier(0.22, 1, 0.36, 1) var(--pop-delay, 0s) forwards, v2bubbleMorph var(--morph-dur, 12s) ease-in-out var(--morph-delay, 2.8s) infinite alternate; }
+        .v2-bubble-body.busy { animation: v2bubblePulse 2.2s ease-in-out infinite, v2bubbleMorph var(--morph-dur, 12s) ease-in-out var(--morph-delay, 2.8s) infinite alternate; }
+        .v2-bubble.burst .v2-bubble-body { animation: v2bubbleBurst .42s cubic-bezier(0.55, 0, 0.55, 0.2) forwards; }
+        .v2-bubble-spark { position: absolute; left: 50%; top: 50%; width: var(--sz, 4px); height: var(--sz, 4px); border-radius: 50%; pointer-events: none; animation: v2bubbleSpark .48s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        .v2-bubble .b-name { font-size: 12px; font-weight: 600; color: #374151; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .v2-bubble .b-count { font-size: 11px; color: #6b7280; }
+        .v2-bubble.self .v2-bubble-body { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22); }
+        .v2-bubble.self .b-name { color: #2563eb; }
+        @keyframes v2bubblePop { from { transform: scale(0.3); opacity: 0; } 60% { transform: scale(1.07); opacity: 1; } to { transform: scale(1); opacity: 1; } }
+        @keyframes v2bubbleSettle { from { border-radius: 64% 36% 42% 58% / 58% 42% 64% 36%; } 55% { border-radius: 56% 44% 47% 53% / 52% 48% 56% 44%; } to { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; } }
+        @keyframes v2bubbleMorph { 0% { border-radius: 52% 48% 53% 47% / 49% 53% 47% 51%; } 50% { border-radius: 47% 53% 49% 51% / 53% 47% 52% 48%; } 100% { border-radius: 53% 47% 51% 49% / 48% 52% 50% 50%; } }
+        @keyframes v2bubbleBurst { 0% { transform: scale(1); opacity: 1; } 30% { transform: scale(1.14); opacity: 1; } 100% { transform: scale(0.15); opacity: 0; } }
+        @keyframes v2bubbleSpark { from { transform: translate(-50%, -50%) scale(1); opacity: 1; } to { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(0.25); opacity: 0; } }
+        @keyframes v2bubblePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+        @media (max-width: 640px) { .bubble-pool { height: 260px; } .bubble-pool.rm-static { gap: 10px; } .v2-bubble-body { width: min(var(--size, 90px), 96px); height: min(var(--size, 90px), 96px); } .v2-bubble .b-name { font-size: 11px; } .v2-bubble .b-count { font-size: 10px; } }
+        @media (prefers-reduced-motion: reduce) { .v2-bubble, .v2-bubble-body, .v2-bubble-spark { animation: none !important; transition: none !important; } .v2-bubble.burst { opacity: 0; } }
+        .v2-legend { display: flex; gap: 14px; font-size: 0.6875rem; color: #6b7280; }
+        .v2-legend b.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
+        .v2-reqrow-card { background: #ffffff; }
+        .v2-req-title { color: #374151; }
+        .v2-req-time { color: #9ca3af; font-size: 0.75rem; }
+        .v2-req-meta { color: #6b7280; }
+        .v2-pgbtn { color: #374151; }
+        body.theme-dark .v2-card h3 { color: #ededf8; }
+        body.theme-dark .v2-card .text-gray-400 { color: #ededf8b8 !important; }
+        body.theme-dark .v2-card { background: rgba(235, 234, 250, 0.04); }
+        body.theme-dark .v2-kpi { background: rgba(235, 234, 250, 0.06); }
+        body.theme-dark .v2-kpi .lbl, body.theme-dark .v2-reqrow { color: #ededf8b8; }
+        body.theme-dark .v2-kpi .vs b, body.theme-dark .v2-kpi .vs { color: #ededf8b8; }
+        body.theme-dark #v2-model-concurrency-list .model-conc-card { background: rgba(235, 234, 250, 0.06); border-color: rgba(235, 234, 250, 0.14); }
+        body.theme-dark #v2-model-concurrency-list .mc-name { color: #ededf8; }
+        body.theme-dark #v2-model-concurrency-list .mc-tick { stroke: #4b5563; }
+        body.theme-dark #v2-model-concurrency-list .mc-track { stroke: rgba(235, 234, 250, 0.14); }
+        body.theme-dark #v2-model-concurrency-list .mc-needle-tail { stroke: #8b8fa8; }
+        body.theme-dark #v2-model-concurrency-list .mc-hub { fill: #1a1d26; stroke: #8b8fa8; }
+        body.theme-dark .v2-bubble .b-name { color: #ededf8; }
+        body.theme-dark .v2-bubble .b-count { color: #ededf8b8; }
+        body.theme-dark .v2-bubble.self .b-name { color: #60a5fa; }
+        body.theme-dark .v2-legend { color: #ededf8b8; }
+        body.theme-dark .v2-reqrow-card { background: rgba(235, 234, 250, 0.06); }
+        body.theme-dark .v2-req-title { color: #ededf8; }
+        body.theme-dark .v2-req-time { color: #ededf8b8; }
+        body.theme-dark .v2-req-meta { color: #ededf8b8; }
+        body.theme-dark #v2-my-requests-modal-box { background: #16181f; color: #ededf8; }
+        body.theme-dark #v2-my-requests-modal-box .border-b, body.theme-dark #v2-my-requests-modal-box .border-t { border-color: rgba(235, 234, 250, 0.12) !important; }
+        body.theme-dark #v2-my-requests-modal-box .text-gray-500 { color: #ededf8b8 !important; }
+        body.theme-dark #v2-my-requests-modal-box select, body.theme-dark #v2-my-requests-modal-box .v2-pgbtn { background: rgba(235, 234, 250, 0.06); color: #ededf8; border-color: rgba(235, 234, 250, 0.14); }
+        body.theme-blackgold .v2-card h3 { color: #fafaf9; }
+        body.theme-blackgold .v2-card .text-gray-400 { color: #c9b896 !important; }
+        body.theme-blackgold .v2-card { background: rgba(212, 168, 83, 0.05); }
+        body.theme-blackgold .v2-kpi { background: rgba(212, 168, 83, 0.07); }
+        body.theme-blackgold .v2-kpi .lbl, body.theme-blackgold .v2-reqrow { color: #c9b896; }
+        body.theme-blackgold #v2-model-concurrency-list .model-conc-card { background: rgba(212, 168, 83, 0.07); border-color: rgba(212, 168, 83, 0.22); }
+        body.theme-blackgold #v2-model-concurrency-list .mc-name { color: #fafaf9; }
+        body.theme-blackgold #v2-model-concurrency-list .mc-track { stroke: rgba(212, 168, 83, 0.2); }
+        body.theme-blackgold #v2-model-concurrency-list .mc-needle-tail { stroke: #d4a853; }
+        body.theme-blackgold #v2-model-concurrency-list .mc-hub { fill: #1a1712; stroke: #d4a853; }
+        body.theme-blackgold .v2-bubble .b-name { color: #fafaf9; }
+        body.theme-blackgold .v2-bubble .b-count { color: #c9b896; }
+        body.theme-blackgold .v2-bubble.self .b-name { color: #e7c67c; }
+        body.theme-blackgold .v2-bubble.self .v2-bubble-body { border-color: #d4a853 !important; box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.25); }
+        body.theme-blackgold .v2-legend { color: #c9b896; }
+        body.theme-blackgold .v2-reqrow-card { background: rgba(212, 168, 83, 0.07); }
+        body.theme-blackgold .v2-req-title { color: #fafaf9; }
+        body.theme-blackgold .v2-req-time { color: #c9b896; }
+        body.theme-blackgold .v2-req-meta { color: #c9b896; }
+        body.theme-blackgold #v2-my-requests-modal-box { background: #1d1812; color: #fafaf9; }
+        body.theme-blackgold #v2-my-requests-modal-box .border-b, body.theme-blackgold #v2-my-requests-modal-box .border-t { border-color: rgba(212, 168, 83, 0.2) !important; }
+        body.theme-blackgold #v2-my-requests-modal-box .text-gray-500 { color: #c9b896 !important; }
+        body.theme-blackgold #v2-my-requests-modal-box select, body.theme-blackgold #v2-my-requests-modal-box .v2-pgbtn { background: rgba(212, 168, 83, 0.07); color: #fafaf9; border-color: rgba(212, 168, 83, 0.22); }
+        {% if v2_standalone %}
+        body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+        .ctl-select { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.375rem 0.625rem; font-size: 0.8125rem; background: #ffffff; color: #374151; }
+        .ctl-btn-ghost { border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: 0.8125rem; font-weight: 500; color: #4b5563; background: #ffffff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+        .ctl-btn-ghost:hover { background: #f9fafb; }
+        .ctl-btn-new { border: 1px solid #a5f3fc; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-size: 0.8125rem; font-weight: 600; color: #0e7490; background: #ecfeff; cursor: pointer; }
+        .ctl-btn-new:hover { background: #cffafe; }
+        body.theme-dark { background: #0b0d12; }
+        body.theme-dark h1, body.theme-dark .v2-sub { color: #ededf8 !important; }
+        body.theme-dark .ctl-select, body.theme-dark .ctl-btn-ghost { background: rgba(235, 234, 250, 0.06); color: #ededf8; border-color: rgba(235, 234, 250, 0.14); }
+        body.theme-dark .ctl-btn-new { background: rgba(6, 182, 212, 0.12); color: #67e8f9; border-color: rgba(6, 182, 212, 0.3); }
+        body.theme-blackgold { background: #14110c; }
+        body.theme-blackgold h1, body.theme-blackgold .v2-sub { color: #fafaf9 !important; }
+        body.theme-blackgold .ctl-select, body.theme-blackgold .ctl-btn-ghost { background: rgba(212, 168, 83, 0.07); color: #fafaf9; border-color: rgba(212, 168, 83, 0.22); }
+        body.theme-blackgold .ctl-btn-new { background: rgba(212, 168, 83, 0.12); color: #e7c67c; border-color: rgba(212, 168, 83, 0.35); }
+        {% endif %}
+    </style>
+    {% if v2_standalone %}
+    <div class="container mx-auto px-4 py-8">
+    <div id="v2-page-head" class="flex flex-wrap justify-between items-center gap-3 mb-5">
+        <div>
+            <h1 class="text-2xl font-semibold tracking-tight text-gray-800">{{ _('Statistics Monitor') }} <span style="font-size:0.6em;color:#06b6d4;vertical-align:super">NEW</span></h1>
+            <p class="mt-0.5 text-sm text-gray-500 v2-sub">{{ name }}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <select id="v2-period-select" onchange="v2LoadStats()" class="ctl-select">
+                <option value="day">{{ _('Today') }}</option>
+                <option value="week">{{ _('This Week') }}</option>
+                <option value="month">{{ _('This Month') }}</option>
+            </select>
+            <select id="v2-theme-toggle" onchange="v2ApplyTheme(this.value)" class="ctl-select cursor-pointer">
+                <option value="light">{{ _('Light Mode') }}</option>
+                <option value="dark">{{ _('Dark Mode') }}</option>
+                <option value="blackgold">{{ _('Black Gold') }}</option>
+            </select>
+            <a href="{{ app_base_path }}/user/dashboard" class="ctl-btn-ghost">&larr; {{ _('Back to Classic') }}</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="v2-card mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div class="v2-kpi">
+                <div class="lbl">{{ _('Total Requests') }} · {{ _('Personal') }}/{{ _('System') }}</div>
+                <div class="val" style="color:#2563eb" id="v2-total-requests">-</div>
+                <div class="vs">{{ _('System') }} <b id="v2-sys-requests">-</b></div>
+            </div>
+            <div class="v2-kpi">
+                <div class="lbl">{{ _('Total Tokens') }}</div>
+                <div class="val" style="color:#059669;font-size:1.25rem" id="v2-total-tokens">-</div>
+                <div class="vs">{{ _('System') }} <b id="v2-sys-tokens">-</b></div>
+            </div>
+            <div class="v2-kpi">
+                <div class="lbl">{{ _('Errors') }} · {{ _('Personal') }}</div>
+                <div class="val" style="color:#dc2626" id="v2-errors">-</div>
+                <div class="vs" id="v2-error-rate">&nbsp;</div>
+            </div>
+            <div class="v2-kpi">
+                <div class="lbl">{{ _('Est. Cost') }}</div>
+                <div class="val" style="color:#d97706" id="v2-cost">-</div>
+                <div class="vs">{{ _('per-request snapshots' if current_locale != 'zh' else '按请求计费快照汇总') }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="v2-card mb-6">
+        <h3>{{ _('Model Concurrency') }}
+            <span class="flex items-center gap-3">
+                <span class="v2-live"><i></i><span id="v2-live-text">-</span></span>
+                <span class="meta">{{ _('Real-time') }}</span>
+            </span>
+        </h3>
+        <div id="v2-model-concurrency-list" class="flex flex-wrap gap-2" style="justify-content: space-evenly">
+            <div class="text-gray-400 text-center py-3 w-full">{{ _('Loading...') }}</div>
+        </div>
+    </div>
+
+    <div class="v2-card mb-6 flex flex-col" style="max-height:24rem">
+        <h3 class="shrink-0">{{ _('My Requests') }}
+            <button onclick="v2OpenMyRequestsModal()" class="text-xs text-blue-600 hover:underline">{{ _('View All') }} &rarr;</button>
+        </h3>
+        <div id="v2-my-requests-list" class="flex-1 min-h-0 overflow-hidden grid grid-cols-1 gap-y-1.5"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
+    </div>
+
+    <div class="v2-card mb-6">
+        <h3 id="v2-sessions-title"><span id="v2-sessions-title-text">{{ _('System Active Requests') }}</span>
+            <span class="flex items-center gap-3">
+                <span class="v2-live"><i></i><span id="v2-sess-live">-</span></span>
+                <span class="meta">{{ _('Real-time') }}</span>
+            </span>
+        </h3>
+        <div id="v2-sessions" class="bubble-pool"><div class="text-gray-400 text-center py-6 w-full">{{ _('Loading...') }}</div></div>
+    </div>
+
+    <div class="v2-card mb-6">
+        <h3>{{ _('Request Trend') }} <span class="meta">{{ _('Personal') }} / {{ _('System') }}</span></h3>
+        <div style="height: 260px;"><canvas id="v2-trend-chart"></canvas></div>
+        <div class="v2-legend mt-2">
+            <span><b class="sw" style="background:#3b82f6"></b>{{ _('Personal') }}</span>
+            <span><b class="sw" style="background:#9ca3af"></b>{{ _('System') }}</span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+        <div class="v2-card">
+            <h3>{{ _('Model Usage') }} <span class="meta" id="v2-usage-meta">{{ _('Personal') }}</span></h3>
+            <div class="flex items-center gap-4 flex-wrap">
+                <div style="height:180px;width:180px;flex-shrink:0"><canvas id="v2-usage-chart"></canvas></div>
+                <div id="v2-usage-legend" class="flex-1 min-w-[10rem]"><div class="text-gray-400 text-center py-3">{{ _('Loading...') }}</div></div>
+            </div>
+        </div>
+        <div class="v2-card">
+            <h3>{{ _('System Model Usage') }} <span class="meta" id="v2-sys-usage-meta">{{ _('System') }}</span></h3>
+            <div class="flex items-center gap-4 flex-wrap">
+                <div style="height:180px;width:180px;flex-shrink:0"><canvas id="v2-sys-usage-chart"></canvas></div>
+                <div id="v2-sys-usage-legend" class="flex-1 min-w-[10rem]"><div class="text-gray-400 text-center py-3">{{ _('Loading...') }}</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="v2-my-requests-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(0,0,0,0.5)">
+      <div id="v2-my-requests-modal-box" class="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+        <div class="flex justify-between items-center px-4 py-3 border-b shrink-0">
+          <h3 class="text-base font-semibold" id="v2-my-requests-modal-title"></h3>
+          <button onclick="v2CloseMyRequestsModal()" class="text-gray-400 hover:text-gray-600">&#10005;</button>
+        </div>
+        <div class="px-3 py-2 border-b flex flex-wrap items-center gap-2 text-sm shrink-0">
+          <span class="text-gray-500" id="v2-my-requests-time-label"></span>
+          <select id="v2-my-requests-range" class="border rounded px-2 py-1 text-sm" onchange="v2ResetAndLoadMyRequestsModal()"></select>
+          <select id="v2-my-requests-model" class="border rounded px-2 py-1 text-sm min-w-32" onchange="v2ResetAndLoadMyRequestsModal()"></select>
+          <select id="v2-my-requests-status" class="border rounded px-2 py-1 text-sm" onchange="v2ResetAndLoadMyRequestsModal()"></select>
+          <button onclick="v2ResetAndLoadMyRequestsModal()" class="ml-auto px-2 py-1 border rounded text-sm hover:bg-gray-50" id="v2-my-requests-refresh"></button>
+        </div>
+        <div id="v2-my-requests-modal-list" class="p-3 overflow-y-auto flex-1 min-h-0 space-y-2"></div>
+        <div id="v2-my-requests-modal-pagination" class="px-3 py-2 border-t flex items-center justify-between text-sm shrink-0"></div>
+      </div>
+    </div>
+
+{% raw %}
+    <script>
+        (function () {
+        const I18N = {
+            unauthorized: 'Unauthorized',
+            loading: document.querySelector('html').getAttribute('lang') === 'zh' ? '加载中...' : 'Loading...',
+            noData: document.querySelector('html').getAttribute('lang') === 'zh' ? '暂无数据' : 'No data',
+            noModels: document.querySelector('html').getAttribute('lang') === 'zh' ? '暂无模型' : 'No models',
+            req: 'req',
+            active: document.querySelector('html').getAttribute('lang') === 'zh' ? '并发' : 'active',
+            concPerMin: 'req/min',
+            modelConcEmpty: document.querySelector('html').getAttribute('lang') === 'zh' ? '暂无配置并发上限的模型' : 'No models with concurrency limits',
+            modelDisabled: document.querySelector('html').getAttribute('lang') === 'zh' ? '已禁用' : 'disabled',
+            modelConcNoProviders: document.querySelector('html').getAttribute('lang') === 'zh' ? '无可用供应商' : 'No providers available'
+        };
+        const lang = document.querySelector('html').getAttribute('lang');
+        const T = (zh, en) => lang === 'zh' ? zh : en;
+        const _activeTitles = {
+            empty: T('今天有点冷清', 'Online Users'),
+            justYou: T('一个人的舞台', 'Only You Online'),
+            lonelyNight: T('夜猫子，只有你', 'Night Owl — Just You'),
+            earlyBird: T('早起的鸟儿', 'Early Bird — Just You'),
+            companions: T('陪伴你的牛马', 'Companions at Work'),
+            nightOwls: T('修仙小分队', 'Night Owls Club'),
+            earlyBirds: T('早起的鸟儿们', 'Early Birds'),
+            tokenFighters: T('和你抢 Token 的人', 'Token Rivals'),
+            crowded: T('高峰时刻，Token 大战', 'Peak Hours'),
+            shouldSleep: T('都这个点了，该睡觉了', "Shouldn't You Be Asleep?")
+        };
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        function getThemeMode() {
+            try { return localStorage.getItem('dashboard_theme') || 'light'; } catch (e) { return 'light'; }
+        }
+        function applyTheme(mode) {
+            document.body.classList.remove('theme-dark', 'theme-blackgold');
+            if (mode === 'dark') document.body.classList.add('theme-dark');
+            else if (mode === 'blackgold') document.body.classList.add('theme-blackgold');
+            localStorage.setItem('dashboard_theme', mode);
+            const tt = document.getElementById('v2-theme-toggle');
+            if (tt) tt.value = mode;
+            if (window.ParticleBG) ParticleBG.setTheme(mode);
+            _rerenderCharts();
+        }
+
+        async function fetchJsonOrRedirect(url, options) {
+            const resp = await fetch(url, options);
+            if (resp.status === 401) {
+                window.location.href = `${APP_BASE_PATH}/user/login`;
+                throw new Error(I18N.unauthorized);
+            }
+            return await resp.json();
+        }
+        function formatCompactTokens(tokens) {
+            if (tokens >= 1e9) return (tokens / 1e9).toFixed(2) + 'B';
+            if (tokens >= 1e6) return (tokens / 1e6).toFixed(2) + 'M';
+            if (tokens >= 1e3) return (tokens / 1e3).toFixed(1) + 'K';
+            return String(Math.round(tokens || 0));
+        }
+
+        let v2TrendChart = null;
+        let _v2TrendData = {};
+        let _v2SystemTrendData = {};
+        let _v2PersonalModels = {};
+        let _v2SystemModels = {};
+        const _standalone = !!document.getElementById('v2-page-head');
+        function _periodValue() {
+            const el = document.getElementById(_standalone ? 'v2-period-select' : 'period-select');
+            return el ? el.value : 'day';
+        }
+
+        async function loadStats() {
+            const period = _periodValue();
+            const [data, systemModels] = await Promise.all([
+                fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/stats?period=' + period),
+                fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-models?period=' + period)
+            ]);
+            const myReq = data.total_requests || 0;
+            const sysReq = systemModels.total_requests || 0;
+            document.getElementById('v2-total-requests').textContent = myReq.toLocaleString();
+            document.getElementById('v2-sys-requests').textContent = sysReq.toLocaleString();
+
+            document.getElementById('v2-total-tokens').textContent = '↑' + formatCompactTokens(data.total_prompt_tokens || 0) + ' / ↓' + formatCompactTokens(data.total_completion_tokens || 0);
+            document.getElementById('v2-sys-tokens').textContent = '↑' + formatCompactTokens(systemModels.total_prompt_tokens || 0) + ' / ↓' + formatCompactTokens(systemModels.total_completion_tokens || 0);
+
+            const errs = data.total_errors || 0;
+            document.getElementById('v2-errors').textContent = errs.toLocaleString();
+            document.getElementById('v2-error-rate').textContent = myReq > 0
+                ? T('错误率', 'Error rate') + ' ' + (errs / myReq * 100).toFixed(2) + '%' : '\u00a0';
+            const cost = data.estimated_cost || 0;
+            document.getElementById('v2-cost').textContent = cost > 0 ? '¥' + (cost >= 1 ? cost.toFixed(2) : cost.toFixed(4)) : '-';
+
+            _v2TrendData = data.trend || {};
+            _v2SystemTrendData = systemModels.trend || {};
+            _v2PersonalModels = data.models || {};
+            _v2SystemModels = systemModels.models || {};
+            renderV2Trend();
+            renderV2ModelUsage();
+        }
+
+        function renderV2Trend() {
+            const canvas = document.getElementById('v2-trend-chart');
+            if (!canvas) return;
+            const labels = Object.keys(_v2TrendData).length ? Object.keys(_v2TrendData) : Object.keys(_v2SystemTrendData);
+            const mine = labels.map(l => (_v2TrendData[l] || {}).requests || 0);
+            const sys = labels.map(l => (_v2SystemTrendData[l] || {}).requests || 0);
+            const dark = document.body.classList.contains('theme-dark') || document.body.classList.contains('theme-blackgold');
+            const gridColor = dark ? 'rgba(235,234,250,0.08)' : 'rgba(15,23,42,0.06)';
+            const textColor = dark ? '#ededf8b8' : '#6b7280';
+            if (v2TrendChart) v2TrendChart.destroy();
+            v2TrendChart = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: T('我的', 'Mine'), data: mine, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.12)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 0, yAxisID: 'yMine' },
+                        { label: T('全站', 'System'), data: sys, borderColor: '#9ca3af', borderDash: [6, 4], fill: false, tension: 0.35, borderWidth: 2, pointRadius: 0, yAxisID: 'ySys' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: gridColor }, ticks: { color: textColor, maxTicksLimit: 12 } },
+                        yMine: { position: 'left', grid: { color: gridColor }, ticks: { color: textColor }, beginAtZero: true },
+                        ySys: { position: 'right', grid: { drawOnChartArea: false }, ticks: { color: textColor }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        let v2UsageChart = null;
+        let v2SysUsageChart = null;
+        const _V2_USAGE_PALETTE = ['#2563eb', '#0f766e', '#0ea5e9', '#1d4ed8', '#14b8a6', '#0891b2', '#059669', '#0284c7'];
+        const _V2_SYS_PALETTE = ['#6366f1', '#06b6d4', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#f97316', '#14b8a6'];
+        function buildV2Series(models, palette, limit) {
+            const entries = Object.entries(models || {})
+                .sort((a, b) => (b[1].requests || 0) - (a[1].requests || 0))
+                .filter(([, stats]) => (stats.requests || 0) > 0);
+            const top = entries.slice(0, limit);
+            const labels = top.map(([name]) => name);
+            const values = top.map(([, stats]) => stats.requests || 0);
+            const colors = top.map((_, i) => palette[i % palette.length]);
+            const other = entries.slice(limit).reduce((s, [, st]) => s + (st.requests || 0), 0);
+            if (other > 0) { labels.push(T('其他', 'Others')); values.push(other); colors.push('#cbd5e1'); }
+            return { entries, labels, values, colors };
+        }
+        function renderV2Doughnut(canvasId, chartRef, models, palette, legendId, metaId, metaLabel) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const series = buildV2Series(models, palette, 6);
+            const dark = document.body.classList.contains('theme-dark') || document.body.classList.contains('theme-blackgold');
+            if (chartRef.chart) chartRef.chart.destroy();
+            const total = series.values.reduce((s, v) => s + v, 0) || 1;
+            const centerText = {
+                id: 'centerText',
+                afterDraw(chart) {
+                    if (!series.values.length) return;
+                    const { ctx } = chart;
+                    const meta = chart.getDatasetMeta(0);
+                    if (!meta.data.length) return;
+                    const { x, y } = meta.data[0];
+                    ctx.save();
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = dark ? '#ededf8' : '#111827';
+                    ctx.font = '700 20px ui-sans-serif, system-ui, sans-serif';
+                    ctx.fillText(formatCompactTokens(total), x, y - 2);
+                    ctx.fillStyle = dark ? '#ededf8b8' : '#6b7280';
+                    ctx.font = '500 10px ui-sans-serif, system-ui, sans-serif';
+                    ctx.fillText(I18N.req, x, y + 14);
+                    ctx.restore();
+                }
+            };
+            chartRef.chart = new Chart(canvas, {
+                type: 'doughnut',
+                plugins: [centerText],
+                data: {
+                    labels: series.labels,
+                    datasets: [{
+                        data: series.values,
+                        backgroundColor: series.colors.map(c => c + 'cc'),
+                        borderColor: series.colors,
+                        borderWidth: 2,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '62%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: dark ? '#1a1d26' : '#ffffff',
+                            titleColor: dark ? '#ededf8' : '#111827',
+                            bodyColor: dark ? '#ededf8b8' : '#4b5563',
+                            borderColor: dark ? 'rgba(235,234,250,0.14)' : '#e5e7eb',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const total = series.values.reduce((s, v) => s + v, 0) || 1;
+                                    return ` ${context.label}: ${(context.raw || 0).toLocaleString()} ${I18N.req} (${((context.raw || 0) / total * 100).toFixed(1)}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            const legendEl = document.getElementById(legendId);
+            if (!series.entries.length) {
+                legendEl.innerHTML = `<div class="text-gray-400 text-center py-3">${I18N.noData}</div>`;
+            } else {
+                legendEl.innerHTML = series.entries.slice(0, 8).map(([name, stats], i) => `
+                    <div class="v2-reqrow" style="border-bottom:0;padding:0.3rem 0">
+                        <span class="mname" style="flex:1 1 auto;display:flex;align-items:center;gap:6px" title="${escapeHtml(name)}">
+                            <i style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${palette[i % palette.length]}"></i>
+                            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(name)}</span>
+                        </span>
+                        <span class="nums" style="flex:0 0 auto">${(stats.requests || 0).toLocaleString()} · ${((stats.requests || 0) / total * 100).toFixed(1)}%</span>
+                    </div>`).join('');
+            }
+            if (metaId) {
+                const meta = document.getElementById(metaId);
+                if (meta) meta.textContent = `${metaLabel} / ${Object.keys(models || {}).length} ${T('模型', 'models')} / ${T('Top占比', 'Top share')} ${series.entries[0] ? ((series.entries[0][1].requests || 0) / total * 100).toFixed(1) + '%' : '0%'}`;
+            }
+        }
+        function renderV2ModelUsage() {
+            renderV2Doughnut('v2-usage-chart', { get chart() { return v2UsageChart; }, set chart(v) { v2UsageChart = v; } }, _v2PersonalModels, _V2_USAGE_PALETTE, 'v2-usage-legend', 'v2-usage-meta', T('我的', 'Personal'));
+            renderV2Doughnut('v2-sys-usage-chart', { get chart() { return v2SysUsageChart; }, set chart(v) { v2SysUsageChart = v; } }, _v2SystemModels, _V2_SYS_PALETTE, 'v2-sys-usage-legend', 'v2-sys-usage-meta', T('全站', 'System'));
+        }
+        function _rerenderCharts() {
+            if (v2TrendChart) { v2TrendChart.destroy(); v2TrendChart = null; renderV2Trend(); }
+            if (_v2PersonalModels) renderV2ModelUsage();
+        }
+        window.addEventListener('mg-theme-change', _rerenderCharts);
+
+        const _modelConcCards = new Map();
+        const _MC_ARC_D = 'M 6 32 A 26 26 0 0 1 58 32';
+        const _MC_ARC_LEN = 81.68;
+        const _MC_PALETTE = ['#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#10b981', '#14b8a6', '#6366f1'];
+        function _mcModelColor(name) {
+            let h = 5381;
+            for (let i = 0; i < name.length; i++) h = ((h << 5) + h + name.charCodeAt(i)) >>> 0;
+            return _MC_PALETTE[h % _MC_PALETTE.length];
+        }
+        function buildModelConcGauge(name) {
+            const baseColor = _mcModelColor(name);
+            const root = document.createElement('div');
+            root.dataset.mcName = name;
+            root.className = 'model-conc-card flex flex-col items-center';
+            root.innerHTML = `
+                <svg viewBox="0 0 64 40" style="width:100%;max-width:96px" class="select-none" aria-hidden="true">
+                    <path class="mc-track" d="${_MC_ARC_D}" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+                    <line class="mc-tick" x1="7" y1="32" x2="10" y2="32" stroke-width="1"/>
+                    <line class="mc-tick" x1="32" y1="7" x2="32" y2="10" stroke-width="1"/>
+                    <line class="mc-tick" x1="54" y1="32" x2="57" y2="32" stroke-width="1"/>
+                    <path class="mc-value" d="${_MC_ARC_D}" fill="none" stroke="${baseColor}" stroke-width="2" stroke-linecap="round" stroke-dasharray="${_MC_ARC_LEN}" stroke-dashoffset="${_MC_ARC_LEN}"/>
+                    <g class="mc-needle" style="transform-origin:32px 32px;transform:rotate(-90deg)">
+                        <path class="mc-needle-shape" d="M 31.2 30.5 L 32 10.5 L 32.8 30.5 Z" fill="${baseColor}"/>
+                        <line class="mc-needle-tail" x1="32" y1="33" x2="32" y2="37.5" stroke-width="2" stroke-linecap="round"/>
+                    </g>
+                    <circle class="mc-hub" cx="32" cy="32" r="2.6"/>
+                    <circle class="mc-hub-dot" cx="32" cy="32" r="1" fill="${baseColor}"/>
+                </svg>
+                <div class="mc-name w-full text-center" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+                <div class="leading-none font-mono"><span class="mc-in text-sm font-semibold" style="color:${baseColor};font-size:14px;font-weight:700">0</span><span class="mc-eff" style="color:#9ca3af;font-size:11px">/0</span></div>
+                <div class="mc-badge hidden"></div>
+                <div class="mc-rate"><b>0</b> ${I18N.concPerMin}</div>
+                <div class="mc-bars"></div>`;
+            return {
+                root,
+                baseColor,
+                valuePath: root.querySelector('.mc-value'),
+                needle: root.querySelector('.mc-needle'),
+                needleShape: root.querySelector('.mc-needle-shape'),
+                hubDot: root.querySelector('.mc-hub-dot'),
+                inEl: root.querySelector('.mc-in'),
+                effEl: root.querySelector('.mc-eff'),
+                badgeEl: root.querySelector('.mc-badge'),
+                rateEl: root.querySelector('.mc-rate b'),
+                barsEl: root.querySelector('.mc-bars'),
+                curPct: 0,
+                tgtPct: 0
+            };
+        }
+        let _mcAnimTimer = 0;
+        function _mcApplyPct(card, pct) {
+            card.valuePath.style.strokeDashoffset = (_MC_ARC_LEN * (1 - pct)).toFixed(2);
+            card.needle.style.transform = `rotate(${(-90 + 180 * pct).toFixed(1)}deg)`;
+        }
+        function _mcAnimTick() {
+            let any = false;
+            for (const card of _modelConcCards.values()) {
+                const t = card.tgtPct || 0;
+                const c = card.curPct || 0;
+                const d = t - c;
+                if (Math.abs(d) < 0.0015) {
+                    if (c !== t) { _mcApplyPct(card, t); card.curPct = t; }
+                    continue;
+                }
+                card.curPct = c + d * 0.14;
+                _mcApplyPct(card, card.curPct);
+                any = true;
+            }
+            _mcAnimTimer = any ? requestAnimationFrame(_mcAnimTick) : 0;
+        }
+        function _mcStartAnim() {
+            if (!_mcAnimTimer) _mcAnimTimer = requestAnimationFrame(_mcAnimTick);
+        }
+        function updateModelConcGauge(card, m, extras) {
+            const limit = m.limit || 0;
+            const eff = typeof m.effective === 'number' ? m.effective : limit;
+            const inUse = m.in_use || 0;
+            const pct = eff > 0 ? Math.min(inUse / eff, 1) : (inUse > 0 ? 1 : 0);
+            card.tgtPct = pct;
+            _mcStartAnim();
+            let color = card.baseColor;
+            if (eff === 0) color = inUse > 0 ? '#ef4444' : '#9ca3af';
+            else if (pct >= 0.95) color = '#ef4444';
+            else if (pct > 0.8) color = '#f59e0b';
+            card.valuePath.style.stroke = color;
+            card.needleShape.setAttribute('fill', color);
+            card.hubDot.setAttribute('fill', color);
+            card.inEl.style.color = color;
+            card.inEl.textContent = inUse;
+            card.effEl.textContent = '/' + eff;
+            let badge = '';
+            if (limit === 0) badge = I18N.modelDisabled;
+            else if (eff === 0) badge = I18N.modelConcNoProviders;
+            if (badge) {
+                card.badgeEl.textContent = badge;
+                card.badgeEl.classList.remove('hidden');
+            } else {
+                card.badgeEl.classList.add('hidden');
+            }
+            if (card.rateEl) card.rateEl.textContent = (extras && extras.rate != null) ? extras.rate : 0;
+            if (card.barsEl && extras && extras.series) {
+                const s = extras.series;
+                const max = Math.max(...s, 1);
+                if (card.barsEl.childElementCount !== s.length) {
+                    card.barsEl.innerHTML = s.map(() => '<i></i>').join('');
+                }
+                [...card.barsEl.children].forEach((bar, i) => {
+                    bar.style.height = Math.max((s[i] || 0) / max * 100, (s[i] || 0) > 0 ? 8 : 2) + '%';
+                    bar.style.background = color;
+                });
+            }
+            card.root.classList.toggle('v2-glow-red', pct >= 0.95 && eff > 0);
+            card.root.classList.toggle('v2-glow-amber', pct > 0.8 && pct < 0.95 && eff > 0);
+        }
+        function renderModelConcurrency(map, counts24h, series24h, ratesPerMin) {
+            const container = document.getElementById('v2-model-concurrency-list');
+            if (!container) return;
+            const entries = Object.entries(map || {});
+            const countsKnown = counts24h && typeof counts24h === 'object';
+            const countOf = name => (countsKnown ? (counts24h[name] || 0) : 0);
+            const visible = entries.filter(([name, m]) => {
+                const inUse = m.in_use || 0;
+                if (countsKnown && countOf(name) === 0 && inUse === 0) {
+                    return false;
+                }
+                return true;
+            });
+            visible.sort((a, b) => (countOf(b[0]) - countOf(a[0])) || (b[1].in_use - a[1].in_use) || (b[1].limit - a[1].limit) || a[0].localeCompare(b[0]));
+            if (!visible.length) {
+                container.innerHTML = `<div class="w-full text-gray-400 text-center py-3">${I18N.modelConcEmpty}</div>`;
+                _modelConcCards.clear();
+                return;
+            }
+            const seen = new Set(visible.map(e => e[0]));
+            for (const [name, card] of _modelConcCards) {
+                if (!seen.has(name)) {
+                    card.root.remove();
+                    _modelConcCards.delete(name);
+                }
+            }
+            visible.forEach(([name, m]) => {
+                let card = _modelConcCards.get(name);
+                if (!card) {
+                    card = buildModelConcGauge(name);
+                    _modelConcCards.set(name, card);
+                }
+                updateModelConcGauge(card, m, {
+                    rate: ratesPerMin ? (ratesPerMin[name] || 0) : 0,
+                    series: series24h ? series24h[name] : null
+                });
+            });
+            const orderWant = visible.map(e => e[0]);
+            const children = [...container.children];
+            const orderNow = children.map(el => el.dataset.mcName).filter(Boolean);
+            if (orderNow.join('|') !== orderWant.join('|') || orderNow.length !== children.length) {
+                container.innerHTML = '';
+                orderWant.forEach(n => container.appendChild(_modelConcCards.get(n).root));
+            }
+        }
+
+        let _modelConcRenderTimer = null;
+        let _modelConcPendingData = null;
+        function scheduleModelConcurrencyRender(map, counts, series, rates) {
+            _modelConcPendingData = { map: map, counts: counts, series: series, rates: rates };
+            if (_modelConcRenderTimer) return;
+            _modelConcRenderTimer = setTimeout(() => {
+                _modelConcRenderTimer = null;
+                if (_modelConcPendingData) {
+                    renderModelConcurrency(_modelConcPendingData.map, _modelConcPendingData.counts, _modelConcPendingData.series, _modelConcPendingData.rates);
+                }
+            }, 500);
+        }
+
+        const _activeBubbles = new Map();
+        const _bubblePhys = new Map();
+        let _physRaf = null;
+        let _physLast = 0;
+        function _reducedMotion() {
+            return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+        }
+        const _BUBBLE_COLORS = ['#3b82f6','#6366f1','#8b5cf6','#d946ef','#ec4899','#f43f5e','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4'];
+        function _bubbleColorFor(name) {
+            let h = 0;
+            for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) | 0;
+            return _BUBBLE_COLORS[Math.abs(h) % _BUBBLE_COLORS.length];
+        }
+        function _stepPhysics(ts) {
+            _physRaf = null;
+            const el = document.getElementById('v2-sessions');
+            if (!el || _reducedMotion()) return;
+            const nodes = [...el.querySelectorAll('.v2-bubble')];
+            if (!nodes.length) return;
+            const W = el.clientWidth, H = el.clientHeight;
+            const dt = Math.min((ts - _physLast) / 1000 || 0.016, 0.05);
+            _physLast = ts;
+            const cx = W / 2, cy = H / 2;
+            const bubbles = [];
+            for (const node of nodes) {
+                const st = _bubblePhys.get(node.dataset.name);
+                if (!st) continue;
+                bubbles.push({ node, st });
+            }
+            for (const b of bubbles) {
+                const st = b.st;
+                st.wanderT += dt * st.wF;
+                const ax = (cx - st.x) * 0.16 + Math.cos(st.wanderT + st.phase) * st.wA;
+                const ay = (cy - st.y) * 0.16 + Math.sin(st.wanderT * 0.8 + st.phase * 1.7) * st.wA;
+                st.vx += ax * dt;
+                st.vy += ay * dt;
+            }
+            for (let i = 0; i < bubbles.length; i++) {
+                for (let j = i + 1; j < bubbles.length; j++) {
+                    const a = bubbles[i].st, c = bubbles[j].st;
+                    let dx = c.x - a.x, dy = c.y - a.y;
+                    const d2 = dx * dx + dy * dy;
+                    const minD = a.r + c.r + 14;
+                    if (d2 >= minD * minD) continue;
+                    if (d2 < 0.01) {
+                        const kick = 60 + Math.random() * 40;
+                        a.vx -= kick; c.vx += kick;
+                        a.vy -= kick * 0.4; c.vy += kick * 0.4;
+                        continue;
+                    }
+                    const d = Math.sqrt(d2);
+                    dx /= d; dy /= d;
+                    const overlap = minD - d;
+                    const f = (overlap / minD) * 300 * dt;
+                    a.vx -= dx * f; a.vy -= dy * f;
+                    c.vx += dx * f; c.vy += dy * f;
+                    const push = overlap * 0.3;
+                    a.x -= dx * push; a.y -= dy * push;
+                    c.x += dx * push; c.y += dy * push;
+                }
+            }
+            const pad = 6;
+            for (const b of bubbles) {
+                const st = b.st;
+                st.vx *= 0.95; st.vy *= 0.95;
+                const sp = Math.hypot(st.vx, st.vy);
+                if (sp > 260) { st.vx *= 260 / sp; st.vy *= 260 / sp; }
+                st.x += st.vx * dt;
+                st.y += st.vy * dt;
+                if (st.x < st.r + pad) { st.x = st.r + pad; st.vx = Math.abs(st.vx) * 0.55; }
+                if (st.x > W - st.r - pad) { st.x = W - st.r - pad; st.vx = -Math.abs(st.vx) * 0.55; }
+                if (st.y < st.r + pad) { st.y = st.r + pad; st.vy = Math.abs(st.vy) * 0.55; }
+                if (st.y > H - st.r - pad) { st.y = H - st.r - pad; st.vy = -Math.abs(st.vy) * 0.55; }
+                b.node.style.transform = `translate(${(st.x - st.r).toFixed(1)}px, ${(st.y - st.r).toFixed(1)}px)`;
+            }
+            _physRaf = requestAnimationFrame(_stepPhysics);
+        }
+        function _ensurePhysics() {
+            if (_reducedMotion() || _physRaf) return;
+            _physLast = performance.now();
+            _physRaf = requestAnimationFrame(_stepPhysics);
+        }
+        function _burstBubble(node) {
+            if (!node || node.classList.contains('burst')) return;
+            node.classList.add('burst');
+            const color = node.dataset.color || '#94a3b8';
+            for (let i = 0; i < 7; i++) {
+                const spark = document.createElement('span');
+                spark.className = 'v2-bubble-spark';
+                const ang = (i / 7) * Math.PI * 2 + Math.random() * 0.6;
+                const dist = 26 + Math.random() * 24;
+                spark.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(1) + 'px');
+                spark.style.setProperty('--dy', (Math.sin(ang) * dist).toFixed(1) + 'px');
+                spark.style.setProperty('--sz', (3 + Math.random() * 4).toFixed(1) + 'px');
+                spark.style.background = color;
+                node.appendChild(spark);
+            }
+            setTimeout(() => node.remove(), 520);
+        }
+        function _dynamicActiveTitle(activeCount) {
+            const hour = new Date().getHours();
+            if (activeCount === 0) return _activeTitles.empty;
+            if (activeCount === 1) {
+                if (hour >= 0 && hour < 5) return _activeTitles.lonelyNight;
+                if (hour >= 5 && hour < 9) return _activeTitles.earlyBird;
+                if (hour >= 22) return _activeTitles.lonelyNight;
+                return _activeTitles.justYou;
+            }
+            if (activeCount <= 4) {
+                if (hour >= 0 && hour < 5 || hour >= 22) return _activeTitles.nightOwls;
+                if (hour >= 5 && hour < 9) return _activeTitles.earlyBirds;
+                return _activeTitles.companions;
+            }
+            if (activeCount <= 10) {
+                if (hour >= 0 && hour < 6) return _activeTitles.shouldSleep;
+                return _activeTitles.tokenFighters;
+            }
+            if (hour >= 0 && hour < 6) return _activeTitles.shouldSleep;
+            return _activeTitles.crowded;
+        }
+        function renderV2Sessions(data) {
+            const el = document.getElementById('v2-sessions');
+            if (!el) return;
+            const sessions = data.sessions || [];
+            const titleEl = document.getElementById('v2-sessions-title-text');
+            if (titleEl) titleEl.textContent = _dynamicActiveTitle(data.active_count ?? sessions.length);
+            const liveEl = document.getElementById('v2-sess-live');
+            if (liveEl) liveEl.textContent = `${data.active_count ?? sessions.length} ${T('人', 'users')} · ${(data.request_count || 0).toLocaleString()} ${I18N.req}`;
+            if (!sessions.length) {
+                for (const [name, node] of _activeBubbles) _burstBubble(node);
+                _activeBubbles.clear();
+                _bubblePhys.clear();
+                if (!el.querySelector('.v2-bubble')) {
+                    el.innerHTML = `<div class="text-gray-400 text-center py-6 w-full">${T('现在很安静', 'So empty...')}</div>`;
+                }
+                return;
+            }
+            const ordered = sessions.slice().sort((a, b) => (b.requests || 0) - (a.requests || 0));
+            const seen = new Set();
+            for (const s of ordered) {
+                seen.add(s.name);
+                const models = Object.entries(s.models || {}).sort((a, b) => b[1] - a[1]);
+                const color = _bubbleColorFor(s.name);
+                const req = s.requests || 1;
+                const size = Math.min(78 + (req - 1) * 9, 152);
+                let bubble = _activeBubbles.get(s.name);
+                if (!bubble) {
+                    bubble = document.createElement('div');
+                    bubble.className = 'v2-bubble';
+                    bubble.dataset.name = s.name;
+                    bubble.style.setProperty('--morph-dur', (9 + Math.random() * 5).toFixed(2) + 's');
+                    const popDelay = Math.min(_activeBubbles.size, 10) * 0.06;
+                    bubble.style.setProperty('--pop-delay', popDelay.toFixed(2) + 's');
+                    bubble.style.setProperty('--morph-delay', (popDelay + 2.8).toFixed(2) + 's');
+                    bubble.innerHTML = `<div class="v2-bubble-body"><span class="b-name"></span><span class="b-count"></span></div>`;
+                    const W = el.clientWidth || 600, H = el.clientHeight || 340;
+                    const rGuess = Math.min(size, 96) / 2;
+                    const st = {
+                        x: W / 2 + (Math.random() - 0.5) * Math.min(W * 0.5, 260),
+                        y: H / 2 + (Math.random() - 0.5) * Math.min(H * 0.5, 120),
+                        vx: (Math.random() - 0.5) * 60,
+                        vy: (Math.random() - 0.5) * 60,
+                        wanderT: Math.random() * 10,
+                        wF: 0.4 + Math.random() * 0.9,
+                        wA: 55 + Math.random() * 50,
+                        phase: Math.random() * Math.PI * 2,
+                        r: rGuess,
+                    };
+                    st.x = Math.max(rGuess + 8, Math.min(W - rGuess - 8, st.x));
+                    st.y = Math.max(rGuess + 8, Math.min(H - rGuess - 8, st.y));
+                    _bubblePhys.set(s.name, st);
+                    el.appendChild(bubble);
+                    _activeBubbles.set(s.name, bubble);
+                }
+                const body = bubble.querySelector('.v2-bubble-body');
+                body.style.setProperty('--size', size + 'px');
+                body.style.background = `linear-gradient(145deg, ${color}45, ${color}14)`;
+                body.style.borderColor = color;
+                body.style.boxShadow = s.is_self ? '' : `0 0 20px ${color}30`;
+                bubble.dataset.color = color;
+                bubble.classList.toggle('self', !!s.is_self);
+                body.classList.toggle('busy', req >= 5);
+                const st = _bubblePhys.get(s.name);
+                if (st) st.r = Math.min(body.offsetWidth || size, 96) / 2;
+                const nameEl = bubble.querySelector('.b-name');
+                const countEl = bubble.querySelector('.b-count');
+                const wantName = s.is_self ? `${s.name} (${T('我', 'me')})` : s.name;
+                if (nameEl.textContent !== wantName) {
+                    nameEl.textContent = wantName;
+                    nameEl.title = wantName;
+                }
+                countEl.textContent = `${req} ${I18N.active}`;
+                bubble.setAttribute('title', models.length ? models.map(([m, c]) => `${m}(${c})`).join(' · ') : s.name);
+            }
+            for (const [name, node] of _activeBubbles) {
+                if (!seen.has(name)) {
+                    _activeBubbles.delete(name);
+                    _bubblePhys.delete(name);
+                    _burstBubble(node);
+                }
+            }
+            [...el.children].forEach(child => { if (!child.classList.contains('v2-bubble')) child.remove(); });
+            _ensurePhysics();
+        }
+        async function loadSessions() {
+            try {
+                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-active');
+                renderV2Sessions(data);
+            } catch (e) {}
+        }
+
+        let userLiveWs = null;
+        let _myReqLastSig = '';
+
+        function renderMyRequestsRows(list) {
+            const el = document.getElementById('v2-my-requests-list');
+            if (!el) return;
+            const sig = JSON.stringify(list);
+            if (sig === _myReqLastSig) return;
+            _myReqLastSig = sig;
+            if (!list.length) {
+                el.innerHTML = `<div class="text-gray-400 text-center py-2">${T('暂无请求', 'No requests')}</div>`;
+                return;
+            }
+            el.innerHTML = list.map(r => renderRequestRow(r)).join('');
+            const base = el.getBoundingClientRect().top;
+            let visible = 0;
+            for (const row of [...el.children]) {
+                const rect = row.getBoundingClientRect();
+                if (rect.bottom - base <= el.clientHeight + 1) visible++;
+                else break;
+            }
+            [...el.children].slice(visible).forEach(row => row.remove());
+        }
+
+        async function loadMyRequests() {
+            try {
+                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/active?limit=13');
+                renderMyRequestsRows(data.requests || []);
+            } catch (e) {}
+        }
+        function requestStatusVisual(status) {
+            const inflight = status === 'waiting' || status === 'sending' || status === 'pending';
+            const map = {
+                waiting: ['bg-gray-400', T('排队中', 'waiting')],
+                sending: ['bg-blue-500', T('发送中', 'sending')],
+                pending: ['bg-amber-500', T('传输中', 'pending')],
+                success: ['bg-green-500', T('成功', 'success')],
+                error: ['bg-red-500', T('失败', 'error')],
+                timeout: ['bg-red-500', T('超时', 'timeout')],
+            };
+            const [dot, label] = map[status] || map.success;
+            const pulse = inflight ? ' animate-pulse' : '';
+            return `<span class="inline-flex items-center gap-1 shrink-0"><span class="inline-block w-2 h-2 rounded-full ${dot}${pulse}"></span><span class="v2-req-status text-[11px]">${label}</span></span>`;
+        }
+        function formatMs(v) {
+            if (v == null) return '-';
+            return v >= 1000 ? (v / 1000).toFixed(1) + 's' : v + 'ms';
+        }
+        function renderRequestRow(r) {
+            const statusVisual = requestStatusVisual(r.status);
+            const latency = r.latency_ms != null ? formatMs(r.latency_ms) : '-';
+            const time = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+            const errorHtml = r.error ? `<div class="text-xs text-red-500 mt-1 truncate" title="${escapeHtml(r.error)}">${escapeHtml(r.error)}</div>` : '';
+            const ctx = r.context_tokens > 0 ? formatCompactTokens(r.context_tokens) : '-';
+            const inputT = r.input_tokens > 0 ? formatCompactTokens(r.input_tokens) : '-';
+            const outputT = r.output_tokens > 0 ? formatCompactTokens(r.output_tokens) : '-';
+            const cachedT = r.cached_tokens > 0 ? formatCompactTokens(r.cached_tokens) : '-';
+            const cachePct = r.cache_ratio > 0 ? r.cache_ratio + '%' : '-';
+            const cost = r.cost_cny > 0 ? '¥' + r.cost_cny.toFixed(2) : '-';
+            return `
+                <div class="v2-reqrow-card rounded p-2 mb-1.5 last:mb-0">
+                    <div class="flex items-center gap-2 text-sm v2-req-title">
+                        ${statusVisual}
+                        <span class="font-medium truncate">${escapeHtml(r.model)}</span>
+                        <span class="v2-req-time shrink-0 ml-auto">${time}</span>
+                    </div>
+                    <div class="flex items-center gap-2.5 mt-0.5 text-xs v2-req-meta flex-nowrap whitespace-nowrap overflow-x-auto">
+                        <span class="shrink-0">${T('上下文', 'Context')}: ${ctx}</span>
+                        <span class="shrink-0">${T('输入', 'Input')}: ${inputT}</span>
+                        <span class="shrink-0">${T('输出', 'Output')}: ${outputT}</span>
+                        <span class="shrink-0">${T('缓存', 'Cache')}: ${cachedT} (${cachePct})</span>
+                        <span class="shrink-0">${T('费用', 'Cost')}: ${cost}</span>
+                        <span class="shrink-0">${T('耗时', 'Latency')}: ${latency}</span>
+                        <span class="shrink-0">${T('首Token', 'First token')}: ${formatMs(r.first_chunk_ms)}</span>
+                        ${r.wait_ms > 0 ? `<span class="shrink-0">${T('排队', 'Wait')}: ${formatMs(r.wait_ms)}</span>` : ''}
+                        <span class="ml-auto shrink-0"></span>
+                    </div>
+                    ${errorHtml}
+                </div>
+            `;
+        }
+        let _myReqPage = 1;
+        let _myReqTotalPages = 1;
+        let _myReqInited = false;
+        function openMyRequestsModal() {
+            const modal = document.getElementById('v2-my-requests-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            if (!_myReqInited) initMyRequestsModal();
+            loadMyRequestsModal(1);
+        }
+        function closeMyRequestsModal() {
+            const modal = document.getElementById('v2-my-requests-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+        function initMyRequestsModal() {
+            _myReqInited = true;
+            document.getElementById('v2-my-requests-modal-title').textContent = T('我的请求历史', 'My Request History');
+            document.getElementById('v2-my-requests-time-label').textContent = T('时间范围', 'Time Range');
+            document.getElementById('v2-my-requests-refresh').textContent = T('刷新', 'Refresh');
+            const ranges = [
+                ['1h', T('近1小时', 'Last 1h')],
+                ['6h', T('近6小时', 'Last 6h')],
+                ['24h', T('近24小时', 'Last 24h')],
+                ['7d', T('近7天', 'Last 7d')],
+                ['30d', T('近30天', 'Last 30d')],
+                ['90d', T('近90天', 'Last 90d')],
+                ['all', T('全部', 'All Time')],
+            ];
+            document.getElementById('v2-my-requests-range').innerHTML = ranges
+                .map(([v, l]) => `<option value="${v}" ${v === '1h' ? 'selected' : ''}>${l}</option>`).join('');
+            const statuses = [
+                ['', T('全部状态', 'All Statuses')],
+                ['success', T('成功', 'Success')],
+                ['error', T('错误', 'Error')],
+            ];
+            document.getElementById('v2-my-requests-status').innerHTML = statuses
+                .map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+        }
+        function resetAndLoadMyRequestsModal() {
+            document.getElementById('v2-my-requests-model').innerHTML = `<option value="">${T('全部模型', 'All Models')}</option>`;
+            loadMyRequestsModal(1);
+        }
+        async function loadMyRequestsModal(page) {
+            _myReqPage = page;
+            const range = document.getElementById('v2-my-requests-range')?.value || '1h';
+            const model = document.getElementById('v2-my-requests-model')?.value || '';
+            const status = document.getElementById('v2-my-requests-status')?.value || '';
+            const listEl = document.getElementById('v2-my-requests-modal-list');
+            const pgEl = document.getElementById('v2-my-requests-modal-pagination');
+            listEl.innerHTML = `<div class="text-gray-400 text-center py-8">${T('加载中...', 'Loading...')}</div>`;
+            pgEl.innerHTML = '';
+            const params = new URLSearchParams({ time_range: range, page: String(page), page_size: '10' });
+            if (model) params.set('model', model);
+            if (status) params.set('status', status);
+            let data;
+            try {
+                data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/user/api/my-requests?${params}`);
+            } catch (e) {
+                listEl.innerHTML = `<div class="text-red-500 text-center py-8">${T('加载失败', 'Failed to load')}</div>`;
+                return;
+            }
+            const modelSel = document.getElementById('v2-my-requests-model');
+            const curModel = modelSel.value;
+            modelSel.innerHTML = `<option value="">${T('全部模型', 'All Models')}</option>`
+                + (data.models || []).map(m => `<option value="${escapeHtml(m)}" ${m === curModel ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('');
+            const list = data.requests || [];
+            if (!list.length) {
+                listEl.innerHTML = `<div class="text-gray-400 text-center py-8">${T('暂无请求', 'No requests')}</div>`;
+                pgEl.innerHTML = '';
+                return;
+            }
+            listEl.innerHTML = list.map(r => renderRequestRow(r)).join('');
+            _myReqTotalPages = Math.max(1, Math.ceil((data.total || 0) / (data.page_size || 10)));
+            let html = `<span class="v2-req-meta">${(data.total || 0).toLocaleString()} ${I18N.req} · ${_myReqPage}/${_myReqTotalPages}</span>`;
+            let btns = '<span class="flex gap-1">';
+            if (page > 1) btns += `<button onclick="v2LoadMyRequestsModal(${page - 1})" class="px-3 py-1 border rounded v2-pgbtn">&lt;</button>`;
+            const start = Math.max(1, page - 2);
+            const end = Math.min(_myReqTotalPages, page + 2);
+            for (let i = start; i <= end; i++) {
+                btns += `<button onclick="v2LoadMyRequestsModal(${i})" class="px-3 py-1 border rounded v2-pgbtn ${i === page ? 'bg-blue-500 text-white' : ''}">${i}</button>`;
+            }
+            if (page < _myReqTotalPages) btns += `<button onclick="v2LoadMyRequestsModal(${page + 1})" class="px-3 py-1 border rounded v2-pgbtn">&gt;</button>`;
+            btns += '</span>';
+            pgEl.innerHTML = html + btns;
+        }
+        document.getElementById('v2-my-requests-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'v2-my-requests-modal') closeMyRequestsModal();
+        });
+
+        function applyUserLive(data) {
+            if (!data) return;
+            if (Array.isArray(data.my_requests)) {
+                renderMyRequestsRows(data.my_requests);
+            }
+            if (typeof data.active_users === 'number') {
+                document.getElementById('v2-live-text').textContent =
+                    `${data.active_users} ${I18N.active} / ${(data.active_requests || 0).toLocaleString()} ${I18N.req}`;
+            }
+            if (data.model_concurrency) {
+                scheduleModelConcurrencyRender(data.model_concurrency, data.model_requests_24h, data.model_hourly_24h, data.model_rate_per_min);
+            }
+        }
+        function connectUserLiveWs() {
+            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            try {
+                userLiveWs = new WebSocket(`${proto}://${location.host}${APP_BASE_PATH}/user/api/live`);
+            } catch (e) {
+                setTimeout(connectUserLiveWs, 15000);
+                return;
+            }
+            userLiveWs.onmessage = (ev) => {
+                let d;
+                try { d = JSON.parse(ev.data); } catch (e) { return; }
+                applyUserLive(d);
+            };
+            userLiveWs.onclose = () => setTimeout(connectUserLiveWs, 15000);
+            userLiveWs.onerror = () => { try { userLiveWs.close(); } catch (e) {} };
+        }
+
+        window.v2LoadStats = loadStats;
+        window.v2ApplyTheme = applyTheme;
+        window.v2OpenMyRequestsModal = openMyRequestsModal;
+        window.v2CloseMyRequestsModal = closeMyRequestsModal;
+        window.v2ResetAndLoadMyRequestsModal = resetAndLoadMyRequestsModal;
+        window.v2LoadMyRequestsModal = loadMyRequestsModal;
+
+        window.addEventListener('DOMContentLoaded', function () {
+            if (_standalone) applyTheme(getThemeMode());
+            if (_reducedMotion()) {
+                const pool = document.getElementById('v2-sessions');
+                if (pool) pool.classList.add('rm-static');
+            }
+            loadStats();
+            loadMyRequests();
+            loadSessions();
+            setInterval(loadStats, 30000);
+            setInterval(() => { if (!userLiveWs || userLiveWs.readyState !== 1) loadMyRequests(); }, 10000);
+            setInterval(loadSessions, 15000);
+            connectUserLiveWs();
+        });
+        })();
+    </script>
+{% endraw %}
+</div>
