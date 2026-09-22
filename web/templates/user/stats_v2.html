@@ -207,7 +207,7 @@
         </div>
 
         <div class="v2-card mb-6">
-            <h3 id="v2-sessions-title">{{ _('System Active Requests') }}
+            <h3 id="v2-sessions-title"><span id="v2-sessions-title-text">{{ _('System Active Requests') }}</span>
                 <span class="flex items-center gap-3">
                     <span class="v2-live"><i></i><span id="v2-sess-live">-</span></span>
                     <span class="meta">{{ _('Real-time') }}</span>
@@ -262,10 +262,24 @@
             req: 'req',
             active: document.querySelector('html').getAttribute('lang') === 'zh' ? '并发' : 'active',
             concPerMin: 'req/min',
-            modelConcEmpty: document.querySelector('html').getAttribute('lang') === 'zh' ? '暂无配置并发上限的模型' : 'No models with concurrency limits'
+            modelConcEmpty: document.querySelector('html').getAttribute('lang') === 'zh' ? '暂无配置并发上限的模型' : 'No models with concurrency limits',
+            modelDisabled: document.querySelector('html').getAttribute('lang') === 'zh' ? '已禁用' : 'disabled',
+            modelConcNoProviders: document.querySelector('html').getAttribute('lang') === 'zh' ? '无可用供应商' : 'No providers available'
         };
         const lang = document.querySelector('html').getAttribute('lang');
         const T = (zh, en) => lang === 'zh' ? zh : en;
+        const _activeTitles = {
+            empty: T('今天有点冷清', 'Online Users'),
+            justYou: T('一个人的舞台', 'Only You Online'),
+            lonelyNight: T('夜猫子，只有你', 'Night Owl — Just You'),
+            earlyBird: T('早起的鸟儿', 'Early Bird — Just You'),
+            companions: T('陪伴你的牛马', 'Companions at Work'),
+            nightOwls: T('修仙小分队', 'Night Owls Club'),
+            earlyBirds: T('早起的鸟儿们', 'Early Birds'),
+            tokenFighters: T('和你抢 Token 的人', 'Token Rivals'),
+            crowded: T('高峰时刻，Token 大战', 'Peak Hours'),
+            shouldSleep: T('都这个点了，该睡觉了', "Shouldn't You Be Asleep?")
+        };
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -491,6 +505,7 @@
                 </svg>
                 <div class="mc-name w-full text-center" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
                 <div class="leading-none font-mono"><span class="mc-in text-sm font-semibold" style="color:${baseColor};font-size:14px;font-weight:700">0</span><span class="mc-eff" style="color:#9ca3af;font-size:11px">/0</span></div>
+                <div class="mc-badge hidden"></div>
                 <div class="mc-rate"><b>0</b> ${window.I18N.concPerMin}</div>
                 <div class="mc-bars"></div>`;
             return {
@@ -502,6 +517,7 @@
                 hubDot: root.querySelector('.mc-hub-dot'),
                 inEl: root.querySelector('.mc-in'),
                 effEl: root.querySelector('.mc-eff'),
+                badgeEl: root.querySelector('.mc-badge'),
                 rateEl: root.querySelector('.mc-rate b'),
                 barsEl: root.querySelector('.mc-bars'),
                 curPct: 0,
@@ -549,6 +565,15 @@
             card.inEl.style.color = color;
             card.inEl.textContent = inUse;
             card.effEl.textContent = '/' + eff;
+            let badge = '';
+            if (limit === 0) badge = window.I18N.modelDisabled;
+            else if (eff === 0) badge = window.I18N.modelConcNoProviders;
+            if (badge) {
+                card.badgeEl.textContent = badge;
+                card.badgeEl.classList.remove('hidden');
+            } else {
+                card.badgeEl.classList.add('hidden');
+            }
             if (card.rateEl) card.rateEl.textContent = (extras && extras.rate != null) ? extras.rate : 0;
             if (card.barsEl && extras && extras.series) {
                 const s = extras.series;
@@ -624,10 +649,33 @@
         }
 
         const _activeBubbles = new Map();
+        function _dynamicActiveTitle(activeCount) {
+            const hour = new Date().getHours();
+            if (activeCount === 0) return _activeTitles.empty;
+            if (activeCount === 1) {
+                if (hour >= 0 && hour < 5) return _activeTitles.lonelyNight;
+                if (hour >= 5 && hour < 9) return _activeTitles.earlyBird;
+                if (hour >= 22) return _activeTitles.lonelyNight;
+                return _activeTitles.justYou;
+            }
+            if (activeCount <= 4) {
+                if (hour >= 0 && hour < 5 || hour >= 22) return _activeTitles.nightOwls;
+                if (hour >= 5 && hour < 9) return _activeTitles.earlyBirds;
+                return _activeTitles.companions;
+            }
+            if (activeCount <= 10) {
+                if (hour >= 0 && hour < 6) return _activeTitles.shouldSleep;
+                return _activeTitles.tokenFighters;
+            }
+            if (hour >= 0 && hour < 6) return _activeTitles.shouldSleep;
+            return _activeTitles.crowded;
+        }
         function renderV2Sessions(data) {
             const el = document.getElementById('v2-sessions');
             if (!el) return;
             const sessions = data.sessions || [];
+            const titleEl = document.getElementById('v2-sessions-title-text');
+            if (titleEl) titleEl.textContent = _dynamicActiveTitle(data.active_count ?? sessions.length);
             const liveEl = document.getElementById('v2-sess-live');
             if (liveEl) liveEl.textContent = `${data.active_count ?? sessions.length} ${T('人', 'users')} · ${(data.request_count || 0).toLocaleString()} ${window.I18N.req}`;
             if (!sessions.length) {
