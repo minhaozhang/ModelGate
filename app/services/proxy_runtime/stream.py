@@ -8,6 +8,8 @@ from fastapi.responses import Response, StreamingResponse
 from app.core.config import (
     STREAM_FIRST_CHUNK_TIMEOUT_SECONDS,
     STREAM_IMAGE_FIRST_CHUNK_BUDGET_SECONDS,
+    STREAM_KEEPALIVE_INTERVAL_SECONDS,
+    STREAM_STALL_TIMEOUT_ESTABLISHED_SECONDS,
     STREAM_STALL_TIMEOUT_SECONDS,
     consume_user_slot_released,
     error_logger,
@@ -57,6 +59,82 @@ class UpstreamStallTimeout(asyncio.TimeoutError):
     """Upstream went silent mid-stream (no raw line within the stall window)."""
 
 
+class _KeepAliveSentinel:
+    """Marker yielded by the stall watchdog while upstream is silent so the
+    generator can ping the downstream client with an SSE comment."""
+
+    __slots__ = ()
+
+
+_KA = _KeepAliveSentinel()
+
+
+def _is_data_line(line) -> bool:
+    return isinstance(line, str) and line.startswith("data:")
+
+
+async def _stall_watchdog(
+    aiter_lines,
+    timeout_s: float,
+    established_timeout_s: float | None = None,
+    keepalive_interval_s: float = 0.0,
+):
+    """Pass through raw lines; abort when upstream stays silent past the window.
+
+    Wrap the RAW line iterator (not the normalized stream) so keep-alive
+    comment lines and blank lines from upstream also reset the timer — only
+    a truly dead connection (zero bytes) triggers the watchdog.
+
+    Two windows: `timeout_s` applies until the first data-bearing line
+    (fast dead-connection detection); once the stream has delivered real
+    data the window switches to `established_timeout_s` — long silent
+    gaps then mean thinking/tool-use on an established, healthy
+    connection, not a dead one.
+
+    While waiting (and keepalive_interval_s > 0), yields `_KA` every
+    keepalive_interval_s so downstream proxies don't idle-timeout us;
+    keep-alive pings do not extend the deadline.
+    """
+    ait = aiter_lines.__aiter__()
+    window = timeout_s
+    if established_timeout_s is not None and established_timeout_s <= window:
+        established_timeout_s = None
+    deadline = time.monotonic() + window
+    nxt = asyncio.ensure_future(ait.__anext__())
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            nxt.cancel()
+            raise UpstreamStallTimeout(
+                f"upstream silent for over {window:.1f}s mid-stream"
+            )
+        slice_s = remaining
+        if keepalive_interval_s > 0:
+            slice_s = min(remaining, keepalive_interval_s)
+        try:
+            item = await asyncio.wait_for(asyncio.shield(nxt), slice_s)
+        except StopAsyncIteration:
+            return
+        except asyncio.TimeoutError as exc:
+            if keepalive_interval_s > 0 and time.monotonic() < deadline:
+                yield _KA
+                continue
+            nxt.cancel()
+            raise UpstreamStallTimeout(
+                f"upstream silent for over {window:.1f}s mid-stream"
+            ) from exc
+        deadline = time.monotonic() + window
+        if (
+            established_timeout_s is not None
+            and window != established_timeout_s
+            and _is_data_line(item)
+        ):
+            window = established_timeout_s
+            deadline = time.monotonic() + window
+        nxt = asyncio.ensure_future(ait.__anext__())
+        yield item
+
+
 def _first_chunk_timeout(ctx_tokens: int | None, image_count: int = 0) -> float:
     """Scale the first-chunk budget with prompt size: large-context prefill
     legitimately needs seconds before the first token (≈+2s per 10K tokens,
@@ -74,26 +152,6 @@ def _first_chunk_timeout(ctx_tokens: int | None, image_count: int = 0) -> float:
         base += image_count * STREAM_IMAGE_FIRST_CHUNK_BUDGET_SECONDS
     cap = 120.0 if image_count else 60.0
     return min(base, cap)
-
-
-async def _stall_watchdog(aiter_lines, timeout_s: float):
-    """Pass through raw lines; abort when upstream stays silent past timeout_s.
-
-    Wrap the RAW line iterator (not the normalized stream) so keep-alive
-    comment lines and blank lines also reset the timer — only a truly dead
-    connection (zero bytes) triggers the watchdog.
-    """
-    ait = aiter_lines.__aiter__()
-    while True:
-        try:
-            item = await asyncio.wait_for(ait.__anext__(), timeout_s)
-        except StopAsyncIteration:
-            return
-        except asyncio.TimeoutError as exc:
-            raise UpstreamStallTimeout(
-                f"upstream silent for over {timeout_s}s mid-stream"
-            ) from exc
-        yield item
 
 
 async def handle_streaming(
@@ -386,8 +444,16 @@ async def handle_streaming(
         try:
             chunk_count = 0
             async for raw_line in normalize_sse_stream(
-                _stall_watchdog(_chained_first_line(), STREAM_STALL_TIMEOUT_SECONDS)
+                _stall_watchdog(
+                    _chained_first_line(),
+                    STREAM_STALL_TIMEOUT_SECONDS,
+                    established_timeout_s=STREAM_STALL_TIMEOUT_ESTABLISHED_SECONDS,
+                    keepalive_interval_s=STREAM_KEEPALIVE_INTERVAL_SECONDS,
+                )
             ):
+                if raw_line is _KA:
+                    yield ": keep-alive\n\n"
+                    continue
                 if chunk_count == 0:
                     logger.debug(
                         "[STREAM DEBUG] %s/%s first_chunk=%s",

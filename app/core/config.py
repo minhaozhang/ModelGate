@@ -178,6 +178,12 @@ FIRST_CHUNK_TOTAL_BUDGET_SECONDS = _env_float(
 STREAM_STALL_TIMEOUT_SECONDS = _env_float(
     "STREAM_STALL_TIMEOUT_SECONDS", 120.0
 )
+STREAM_STALL_TIMEOUT_ESTABLISHED_SECONDS = _env_float(
+    "STREAM_STALL_TIMEOUT_ESTABLISHED_SECONDS", 300.0
+)
+STREAM_KEEPALIVE_INTERVAL_SECONDS = _env_float(
+    "STREAM_KEEPALIVE_INTERVAL_SECONDS", 20.0
+)
 # After first-chunk timeouts exhaust all routes, only suggest the client
 # compacts when the context is actually large.
 COMPACT_HINT_MIN_TOKENS = _env_float(

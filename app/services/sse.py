@@ -12,6 +12,9 @@ async def normalize_sse_stream(aiter_lines):
         return f"data: {payload}"
 
     async for raw_line in aiter_lines:
+        if not isinstance(raw_line, str):
+            yield raw_line
+            continue
         line = raw_line.rstrip("\r")
         if line == "":
             event = flush_event()
