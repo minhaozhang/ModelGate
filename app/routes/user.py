@@ -1273,22 +1273,12 @@ async def export_user_my_requests(
             .limit(USER_MY_REQUESTS_EXPORT_MAX_ROWS)
         )
         rows = result.fetchall()
-        provider_ids = {r.provider_id for r in rows if r.provider_id}
-        provider_map = {}
-        if provider_ids:
-            prov_result = await session.execute(
-                select(Provider.id, Provider.name).where(
-                    Provider.id.in_(provider_ids)
-                )
-            )
-            provider_map = dict(prov_result.fetchall())
 
         xlsx_rows: list[list] = [
             [
                 "ID",
                 "时间",
                 "模型",
-                "供应商",
                 "状态",
                 "耗时(ms)",
                 "首包(ms)",
@@ -1303,7 +1293,7 @@ async def export_user_my_requests(
             ]
         ]
         for r in rows:
-            s = _summarize_request_row(r, provider_map)
+            s = _summarize_request_row(r, {})
             xlsx_rows.append(
                 [
                     s["id"],
@@ -1311,7 +1301,6 @@ async def export_user_my_requests(
                     if r.created_at
                     else "",
                     s["model"] or "",
-                    s["provider"],
                     s["status"],
                     s["latency_ms"] if s["latency_ms"] is not None else "",
                     s["first_chunk_ms"] if s["first_chunk_ms"] is not None else "",

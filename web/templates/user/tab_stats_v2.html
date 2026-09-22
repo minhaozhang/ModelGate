@@ -40,6 +40,7 @@
         .v2-bubble-spark { position: absolute; left: 50%; top: 50%; width: var(--sz, 4px); height: var(--sz, 4px); border-radius: 50%; pointer-events: none; animation: v2bubbleSpark .48s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
         .v2-bubble .b-name { font-size: 12px; font-weight: 600; color: #374151; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .v2-bubble .b-count { font-size: 11px; color: #6b7280; }
+        .v2-bubble .b-age { font-size: 10px; color: #9ca3af; font-variant-numeric: tabular-nums; line-height: 1; }
         .v2-bubble.self .v2-bubble-body { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22); }
         .v2-bubble.self .b-name { color: #2563eb; }
         @keyframes v2bubblePop { from { transform: scale(0.3); opacity: 0; } 60% { transform: scale(1.07); opacity: 1; } to { transform: scale(1); opacity: 1; } }
@@ -77,6 +78,8 @@
         body.theme-dark #v2-model-concurrency-list .mc-hub { fill: #1a1d26; stroke: #8b8fa8; }
         body.theme-dark .v2-bubble .b-name { color: #ededf8; }
         body.theme-dark .v2-bubble .b-count { color: #ededf8b8; }
+        body.theme-dark .v2-bubble .b-age { color: #ededf89c; }
+        body.theme-dark .v2-bubble .b-count { color: #ededf8b8; }
         body.theme-dark .v2-bubble.self .b-name { color: #60a5fa; }
         body.theme-dark .v2-legend { color: #ededf8b8; }
         body.theme-dark .v2-reqrow-card { background: rgba(235, 234, 250, 0.06); }
@@ -87,7 +90,7 @@
         body.theme-dark .v2-req-title { color: #ededf8; }
         body.theme-dark .v2-req-time { color: #ededf8b8; }
         body.theme-dark .v2-req-meta { color: #ededf8b8; }
-        body.theme-dark #v2-my-requests-modal-box { background: #16181f; color: #ededf8; }
+        body.theme-dark #v2-my-requests-modal-box { background: rgba(22, 24, 31, 0.95) !important; color: #ededf8; }
         body.theme-dark #v2-my-requests-modal-box .border-b, body.theme-dark #v2-my-requests-modal-box .border-t { border-color: rgba(235, 234, 250, 0.12) !important; }
         body.theme-dark #v2-my-requests-modal-box .text-gray-500 { color: #ededf8b8 !important; }
         body.theme-dark #v2-my-requests-modal-box select, body.theme-dark #v2-my-requests-modal-box .v2-pgbtn { background: rgba(235, 234, 250, 0.06); color: #ededf8; border-color: rgba(235, 234, 250, 0.14); }
@@ -103,6 +106,7 @@
         body.theme-blackgold #v2-model-concurrency-list .mc-hub { fill: #1a1712; stroke: #d4a853; }
         body.theme-blackgold .v2-bubble .b-name { color: #fafaf9; }
         body.theme-blackgold .v2-bubble .b-count { color: #c9b896; }
+        body.theme-blackgold .v2-bubble .b-age { color: #c9b896b3; }
         body.theme-blackgold .v2-bubble.self .b-name { color: #e7c67c; }
         body.theme-blackgold .v2-bubble.self .v2-bubble-body { border-color: #d4a853 !important; box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.25); }
         body.theme-blackgold .v2-legend { color: #c9b896; }
@@ -114,7 +118,7 @@
         body.theme-blackgold .v2-req-title { color: #fafaf9; }
         body.theme-blackgold .v2-req-time { color: #c9b896; }
         body.theme-blackgold .v2-req-meta { color: #c9b896; }
-        body.theme-blackgold #v2-my-requests-modal-box { background: #1d1812; color: #fafaf9; }
+        body.theme-blackgold #v2-my-requests-modal-box { background: rgba(26, 24, 20, 0.95) !important; color: #fafaf9; }
         body.theme-blackgold #v2-my-requests-modal-box .border-b, body.theme-blackgold #v2-my-requests-modal-box .border-t { border-color: rgba(212, 168, 83, 0.2) !important; }
         body.theme-blackgold #v2-my-requests-modal-box .text-gray-500 { color: #c9b896 !important; }
         body.theme-blackgold #v2-my-requests-modal-box select, body.theme-blackgold #v2-my-requests-modal-box .v2-pgbtn { background: rgba(212, 168, 83, 0.07); color: #fafaf9; border-color: rgba(212, 168, 83, 0.22); }
@@ -750,6 +754,7 @@
                 if (st.y < st.r + pad) { st.y = st.r + pad; st.vy = Math.abs(st.vy) * 0.55; }
                 if (st.y > H - st.r - pad) { st.y = H - st.r - pad; st.vy = -Math.abs(st.vy) * 0.55; }
                 b.node.style.transform = `translate(${(st.x - st.r).toFixed(1)}px, ${(st.y - st.r).toFixed(1)}px)`;
+                _updateBubbleAge(st);
             }
             _physRaf = requestAnimationFrame(_stepPhysics);
         }
@@ -796,6 +801,19 @@
             if (hour >= 0 && hour < 6) return _activeTitles.shouldSleep;
             return _activeTitles.crowded;
         }
+        function _fmtAge(sec) {
+            if (sec < 60) return sec + 's';
+            if (sec < 3600) return Math.floor(sec / 60) + 'm' + String(sec % 60).padStart(2, '0') + 's';
+            return Math.floor(sec / 3600) + 'h' + String(Math.floor((sec % 3600) / 60)).padStart(2, '0') + 'm';
+        }
+        function _updateBubbleAge(st) {
+            if (!st || !st.bornAt || !st.ageEl) return;
+            const sec = Math.max(0, Math.floor((Date.now() - st.bornAt) / 1000));
+            if (sec !== st.ageSec) {
+                st.ageSec = sec;
+                st.ageEl.textContent = _fmtAge(sec);
+            }
+        }
         function renderV2Sessions(data) {
             const el = document.getElementById('v2-sessions');
             if (!el) return;
@@ -816,21 +834,22 @@
             const ordered = sessions.slice().sort((a, b) => (b.requests || 0) - (a.requests || 0));
             const seen = new Set();
             for (const s of ordered) {
-                seen.add(s.name);
+                const key = s.is_self ? '__self__' : String(s.name ?? 'Anonymous');
+                seen.add(key);
                 const models = Object.entries(s.models || {}).sort((a, b) => b[1] - a[1]);
                 const color = _bubbleColorFor(s.name);
                 const req = s.requests || 1;
                 const size = Math.min(78 + (req - 1) * 9, 152);
-                let bubble = _activeBubbles.get(s.name);
+                let bubble = _activeBubbles.get(key);
                 if (!bubble) {
                     bubble = document.createElement('div');
                     bubble.className = 'v2-bubble';
-                    bubble.dataset.name = s.name;
+                    bubble.dataset.name = key;
                     bubble.style.setProperty('--morph-dur', (9 + Math.random() * 5).toFixed(2) + 's');
                     const popDelay = Math.min(_activeBubbles.size, 10) * 0.06;
                     bubble.style.setProperty('--pop-delay', popDelay.toFixed(2) + 's');
                     bubble.style.setProperty('--morph-delay', (popDelay + 2.8).toFixed(2) + 's');
-                    bubble.innerHTML = `<div class="v2-bubble-body"><span class="b-name"></span><span class="b-count"></span></div>`;
+                    bubble.innerHTML = `<div class="v2-bubble-body"><span class="b-name"></span><span class="b-count"></span><span class="b-age"></span></div>`;
                     const W = el.clientWidth || 600, H = el.clientHeight || 300;
                     const rGuess = Math.min(size, 96) / 2;
                     const st = {
@@ -846,9 +865,11 @@
                     };
                     st.x = Math.max(rGuess + 8, Math.min(W - rGuess - 8, st.x));
                     st.y = Math.max(rGuess + 8, Math.min(H - rGuess - 8, st.y));
-                    _bubblePhys.set(s.name, st);
+                    st.bornAt = Date.now();
+                    st.ageSec = -1;
+                    _bubblePhys.set(key, st);
                     el.appendChild(bubble);
-                    _activeBubbles.set(s.name, bubble);
+                    _activeBubbles.set(key, bubble);
                 }
                 const body = bubble.querySelector('.v2-bubble-body');
                 body.style.setProperty('--size', size + 'px');
@@ -858,7 +879,7 @@
                 bubble.dataset.color = color;
                 bubble.classList.toggle('self', !!s.is_self);
                 body.classList.toggle('busy', req >= 5);
-                const st = _bubblePhys.get(s.name);
+                const st = _bubblePhys.get(key);
                 if (st) st.r = Math.min(body.offsetWidth || size, 96) / 2;
                 const nameEl = bubble.querySelector('.b-name');
                 const countEl = bubble.querySelector('.b-count');
@@ -870,6 +891,8 @@
                     nameEl.title = wantName;
                 }
                 countEl.textContent = `${req} ${I18N.active}`;
+                if (!st.ageEl) st.ageEl = bubble.querySelector('.b-age');
+                _updateBubbleAge(st);
                 bubble.setAttribute('title', models.length ? models.map(([m, c]) => `${m}(${c})`).join(' · ') : s.name);
             }
             for (const [name, node] of _activeBubbles) {
