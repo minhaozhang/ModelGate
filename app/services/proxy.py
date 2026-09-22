@@ -31,7 +31,11 @@ from app.services.provider import (
     pick_api_keys,
 )
 from app.services.auth import validate_api_key
-from app.services.logging import create_request_log, update_request_log
+from app.services.logging import (
+    create_request_log,
+    safe_update_request_log,
+    update_request_log,
+)
 from app.services.tokens import (
     estimate_request_context_tokens,
     request_has_image_parts,
@@ -705,6 +709,23 @@ async def proxy_request(request: Request, endpoint: str):
         preferred_local_rate_limit_response = None
         first_chunk_timed_out = False
         first_chunk_timeout_tries: list[str] = []
+        waiting_started = time.time()
+        waiting_log_id = None
+        try:
+            waiting_log_id = await create_request_log(
+                "",
+                requested_model,
+                status="waiting",
+                api_key_id=api_key_id,
+                client_ip=client_ip,
+                user_agent=user_agent,
+                request_context_tokens=request_context_tokens,
+                inbound_protocol=inbound_protocol,
+                intent=request_intent,
+                requested_model=requested_model,
+            )
+        except Exception:
+            waiting_log_id = None
 
         def remember_local_rate_limit_response(message: str, code: str) -> None:
             nonlocal preferred_local_rate_limit_response
@@ -854,21 +875,15 @@ async def proxy_request(request: Request, endpoint: str):
                     api_key_id=api_key_id,
                     is_rate_limited=True,
                 )
-                await create_request_log(
-                    provider_name,
-                    actual_model,
+                await safe_update_request_log(
+                    waiting_log_id,
                     status=LOCAL_RATE_LIMITED_STATUS,
-                    api_key_id=api_key_id,
-                    client_ip=client_ip,
-                    user_agent=user_agent,
-                    request_context_tokens=request_context_tokens,
+                    provider_name=provider_name,
+                    model=actual_model,
                     latency_ms=(time.time() - start_time) * 1000,
                     upstream_status_code=429,
                     downstream_status_code=429,
                     error=msg,
-                    inbound_protocol=inbound_protocol,
-                    intent=request_intent,
-                    requested_model=requested_model,
                     routing_decision=_build_routing_decision(
                         routing_decision_base,
                         route_result,
@@ -877,6 +892,7 @@ async def proxy_request(request: Request, endpoint: str):
                             "filtered": key_explanation.get("filtered", []),
                         },
                     ),
+                    wait_ms=round((time.time() - waiting_started) * 1000),
                 )
                 retry_headers = {"Retry-After": "30"}
                 if busyness_headers:
@@ -999,21 +1015,15 @@ async def proxy_request(request: Request, endpoint: str):
                             api_key_id=api_key_id,
                             is_rate_limited=True,
                         )
-                        await create_request_log(
-                            provider_name,
-                            actual_model,
+                        await safe_update_request_log(
+                            waiting_log_id,
                             status=LOCAL_RATE_LIMITED_STATUS,
-                            api_key_id=api_key_id,
-                            client_ip=client_ip,
-                            user_agent=user_agent,
-                            request_context_tokens=request_context_tokens,
+                            provider_name=provider_name,
+                            model=actual_model,
                             latency_ms=(time.time() - start_time) * 1000,
                             upstream_status_code=429,
                             downstream_status_code=429,
                             error=message,
-                            inbound_protocol=inbound_protocol,
-                            intent=request_intent,
-                            requested_model=requested_model,
                             provider_key_id=chosen_key_id,
                             provider_key_label=_get_key_label(provider_config, chosen_key_id),
                             routing_decision=_build_routing_decision(
@@ -1023,6 +1033,7 @@ async def proxy_request(request: Request, endpoint: str):
                                 chosen_key_id,
                                 "provider_key_concurrency_reached",
                             ),
+                            wait_ms=round((time.time() - waiting_started) * 1000),
                         )
                         return _openai_error_response(
                             message,
@@ -1088,21 +1099,15 @@ async def proxy_request(request: Request, endpoint: str):
                             api_key_id=api_key_id,
                             is_rate_limited=True,
                         )
-                        await create_request_log(
-                            provider_name,
-                            actual_model,
+                        await safe_update_request_log(
+                            waiting_log_id,
                             status=LOCAL_RATE_LIMITED_STATUS,
-                            api_key_id=api_key_id,
-                            client_ip=client_ip,
-                            user_agent=user_agent,
-                            request_context_tokens=request_context_tokens,
+                            provider_name=provider_name,
+                            model=actual_model,
                             latency_ms=(time.time() - start_time) * 1000,
                             upstream_status_code=429,
                             downstream_status_code=429,
                             error=message,
-                            inbound_protocol=inbound_protocol,
-                            intent=request_intent,
-                            requested_model=requested_model,
                             provider_key_id=chosen_key_id,
                             provider_key_label=_get_key_label(provider_config, chosen_key_id),
                             routing_decision=_build_routing_decision(
@@ -1112,6 +1117,7 @@ async def proxy_request(request: Request, endpoint: str):
                                 chosen_key_id,
                                 "user_provider_model_concurrency_reached",
                             ),
+                            wait_ms=round((time.time() - waiting_started) * 1000),
                         )
                         return _openai_error_response(
                             message,
@@ -1124,20 +1130,15 @@ async def proxy_request(request: Request, endpoint: str):
                             },
                         )
 
+                acquired_wait_ms = round((time.time() - waiting_started) * 1000)
                 stream_log_id = None
                 if stream:
-                    stream_log_id = await create_request_log(
-                        provider_name,
-                        actual_model,
+                    stream_log_id = waiting_log_id
+                    await safe_update_request_log(
+                        stream_log_id,
                         status="sending",
-                        api_key_id=api_key_id,
-                        client_ip=client_ip,
-                        user_agent=user_agent,
-                        request_context_tokens=request_context_tokens,
-                        inbound_protocol=inbound_protocol,
-                        intent=request_intent,
-                        request_messages=messages,
-                        requested_model=requested_model,
+                        provider_name=provider_name,
+                        model=actual_model,
                         provider_key_id=chosen_key_id,
                         provider_key_label=_get_key_label(provider_config, chosen_key_id),
                         routing_decision=_build_routing_decision(
@@ -1147,6 +1148,8 @@ async def proxy_request(request: Request, endpoint: str):
                             chosen_key_id,
                             "stream_started",
                         ),
+                        request_messages=messages,
+                        wait_ms=round((time.time() - waiting_started) * 1000),
                     )
 
                 client = get_http_client()
@@ -1185,8 +1188,10 @@ async def proxy_request(request: Request, endpoint: str):
                                 route_result,
                                 key_explanation,
                                 chosen_key_id,
-                                "stream_started",
+                                "normal_started",
                             ),
+                            log_id=waiting_log_id,
+                            wait_ms=acquired_wait_ms,
                         )
                         if isinstance(response, StreamingResponse):
                             user_api_key_acquired = False
@@ -1241,7 +1246,7 @@ async def proxy_request(request: Request, endpoint: str):
                     )
                     if stream_log_id is not None:
                         try:
-                            await update_request_log(
+                            await safe_update_request_log(
                                 stream_log_id,
                                 status=(
                                     "timeout"
@@ -1251,6 +1256,7 @@ async def proxy_request(request: Request, endpoint: str):
                                 latency_ms=(time.time() - start_time) * 1000,
                                 error=f"{type(handler_exc).__name__}: "
                                 f"{sanitize_text_for_log(handler_exc, limit=200)}",
+                                wait_ms=round((time.time() - waiting_started) * 1000),
                             )
                         except Exception:
                             pass
@@ -1361,21 +1367,14 @@ async def proxy_request(request: Request, endpoint: str):
                     request_context_tokens,
                     COMPACT_HINT_MIN_TOKENS,
                 )
-                await create_request_log(
-                    "",
-                    requested_model,
+                await safe_update_request_log(
+                    waiting_log_id,
                     status="error",
-                    api_key_id=api_key_id,
-                    client_ip=client_ip,
-                    user_agent=user_agent,
-                    request_context_tokens=request_context_tokens,
                     latency_ms=(time.time() - start_time) * 1000,
                     upstream_status_code=400,
                     downstream_status_code=400,
                     error=message,
-                    inbound_protocol=inbound_protocol,
-                    intent=request_intent,
-                    requested_model=requested_model,
+                    wait_ms=round((time.time() - waiting_started) * 1000),
                 )
                 return _openai_error_response(
                     message,
@@ -1393,6 +1392,14 @@ async def proxy_request(request: Request, endpoint: str):
                 model,
                 getattr(last_response, "status_code", 0),
             )
+            await safe_update_request_log(
+                waiting_log_id,
+                status="error",
+                latency_ms=(time.time() - start_time) * 1000,
+                downstream_status_code=503,
+                error=f"模型 '{model}' 当前没有可用的供应商，所有供应商均请求失败",
+                wait_ms=round((time.time() - waiting_started) * 1000),
+            )
             return _openai_error_response(
                 f"模型 '{model}' 当前没有可用的供应商，所有供应商均请求失败，请稍后重试或联系管理员检查供应商状态",
                 503,
@@ -1400,6 +1407,14 @@ async def proxy_request(request: Request, endpoint: str):
                 "model_unavailable",
             )
         if access_denied_seen:
+            await safe_update_request_log(
+                waiting_log_id,
+                status="error",
+                latency_ms=(time.time() - start_time) * 1000,
+                downstream_status_code=403,
+                error=build_model_access_denied_message(requested_model),
+                wait_ms=round((time.time() - waiting_started) * 1000),
+            )
             return _openai_error_response(
                 build_model_access_denied_message(requested_model),
                 403,
@@ -1407,6 +1422,14 @@ async def proxy_request(request: Request, endpoint: str):
                 "model_access_denied",
             )
         if known_model_without_provider_seen:
+            await safe_update_request_log(
+                waiting_log_id,
+                status="error",
+                latency_ms=(time.time() - start_time) * 1000,
+                downstream_status_code=503,
+                error=f"模型 '{model}' 当前暂无可用供应商或供应商 Key",
+                wait_ms=round((time.time() - waiting_started) * 1000),
+            )
             return _openai_error_response(
                 f"模型 '{model}' 当前暂无可用供应商或供应商 Key，请稍后重试或联系管理员检查供应商与 Key 状态",
                 503,
@@ -1427,6 +1450,14 @@ async def proxy_request(request: Request, endpoint: str):
         logger.error("[PROXY ERROR] Unknown provider for model: %s", model)
         logger.debug(
             "[PROXY ERROR] Available providers: %s", list(providers_cache.keys())
+        )
+        await safe_update_request_log(
+            waiting_log_id,
+            status="error",
+            latency_ms=(time.time() - start_time) * 1000,
+            downstream_status_code=400,
+            error=f"未找到模型: {model}",
+            wait_ms=round((time.time() - waiting_started) * 1000),
         )
         return _openai_error_response(
             f"未找到模型: {model}，请检查模型名称或前往用户界面查看可用模型",
@@ -1449,22 +1480,17 @@ async def proxy_request(request: Request, endpoint: str):
             is_error=True,
             requested_model=requested_model,
         )
-        await create_request_log(
-            provider_name,
-            actual_model,
+        await safe_update_request_log(
+            waiting_log_id,
             status="error",
-            api_key_id=api_key_id,
-            client_ip=client_ip,
-            user_agent=user_agent,
-            request_context_tokens=estimate_request_context_tokens(body_json),
+            provider_name=provider_name,
+            model=actual_model,
             latency_ms=latency,
             downstream_status_code=502,
             error=str(e),
-            inbound_protocol=inbound_protocol,
-            intent=request_intent,
-            requested_model=requested_model,
             provider_key_id=chosen_key_id,
             provider_key_label=_get_key_label(provider_config, chosen_key_id),
+            wait_ms=round((time.time() - waiting_started) * 1000),
         )
         error_logger.error(
             f"[REQUEST ERROR] Provider: {provider_name}, Model: {actual_model}\n"

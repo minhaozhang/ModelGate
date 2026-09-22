@@ -24,8 +24,9 @@
         .badge-success { background: #dcfce7; color: #15803d; }
         .badge-error { background: #fee2e2; color: #b91c1c; }
         .badge-timeout { background: #ffedd5; color: #c2410c; }
-        .badge-pending { background: #fef9c3; color: #a16207; }
-        .badge-sending { background: #dbeafe; color: #1d4ed8; }
+ .badge-pending { background: #fef9c3; color: #a16207; }
+ .badge-sending { background: #dbeafe; color: #1d4ed8; }
+ .badge-waiting { background: #f1f5f9; color: #64748b; }
         .badge-cancelled { background: #f1f5f9; color: #475569; }
 
         /* Request logs table */
@@ -127,8 +128,9 @@
         body.theme-dark .badge-success { background: rgba(34, 197, 94, 0.16); color: #86efac; }
         body.theme-dark .badge-error { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
         body.theme-dark .badge-timeout { background: rgba(249, 115, 22, 0.16); color: #fdba74; }
-        body.theme-dark .badge-pending { background: rgba(234, 179, 8, 0.16); color: #fde047; }
-        body.theme-dark .badge-sending { background: rgba(59, 130, 246, 0.16); color: #93c5fd; }
+body.theme-dark .badge-pending { background: rgba(234, 179, 8, 0.16); color: #fde047; }
+body.theme-dark .badge-sending { background: rgba(59, 130, 246, 0.16); color: #93c5fd; }
+body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #cbd5e1; }
         body.theme-dark .badge-cancelled { background: rgba(100, 116, 139, 0.16); color: #94a3b8; }
 
         body.theme-dark .log-table thead th { background: #0b1220; color: #94a3b8; border-color: #1f2937; }
@@ -257,6 +259,7 @@
                                 <option value="cancelled">cancelled</option>
                                 <option value="sending">sending</option>
                                 <option value="pending">pending</option>
+                                <option value="waiting">waiting</option>
                             </select>
                         </div>
                         <div>
@@ -303,6 +306,7 @@
                                     <th class="num">{{ _('Context') }}</th>
                                     <th class="num">{{ _('Latency') }}</th>
                                     <th class="num">{{ _('TTFT') }}</th>
+                                    <th class="num">{{ _('Wait') }}</th>
                                     <th class="num">{{ _('Cost') }}</th>
                         <th>{{ _('Client IP') }}</th>
                         <th>{{ _('User Agent') }}</th>
@@ -352,6 +356,7 @@
                                 <option value="cancelled">cancelled</option>
                                 <option value="sending">sending</option>
                                 <option value="pending">pending</option>
+                                <option value="waiting">waiting</option>
                             </select>
                         </div>
                         <div>
@@ -643,6 +648,7 @@
                 timeout: 'badge-timeout',
                 pending: 'badge-pending',
                 sending: 'badge-sending',
+                waiting: 'badge-waiting',
                 cancelled: 'badge-cancelled'
             };
             return map[status] || 'badge-cancelled';
@@ -761,6 +767,7 @@
                         <td class="num mono text-gray-700">${log.request_context_tokens != null && log.request_context_tokens !== '' ? log.request_context_tokens : '-'}</td>
                         <td class="cell-latency num mono text-gray-700">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="num mono text-gray-700">${log.first_chunk_ms != null ? (log.first_chunk_ms / 1000).toFixed(2) + 's' : '-'}</td>
+                        <td class="num mono ${log.wait_ms > 5000 ? 'text-amber-600' : 'text-gray-700'}">${log.wait_ms != null ? (log.wait_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="cell-cost num mono text-gray-700">${billingCost !== null ? formatCost(billingCost) : '-'}</td>
                         <td class="cell-ip mono text-xs text-gray-600">${log.client_ip ? `<button class="link-btn" onclick="showIpLocation('${escapeHtml(log.client_ip)}')" title="${window.I18N.ipLocation}">${escapeHtml(log.client_ip)}</button>` : '-'}</td>
                         <td class="cell-ua text-xs text-gray-600"><div class="max-w-[180px] truncate" title="${escapeHtml(log.user_agent || '')}">${escapeHtml(log.user_agent || '-')}</div></td>

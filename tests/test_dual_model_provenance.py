@@ -206,6 +206,7 @@ class StreamPreCreateProvenanceTests(unittest.IsolatedAsyncioTestCase):
         import contextlib
 
         log_mock = AsyncMock(return_value=101)
+        update_mock = AsyncMock(return_value=True)
         stats_mock = Mock()
         handler = AsyncMock(return_value=StreamingResponse(iter([])))
         with contextlib.ExitStack() as stack:
@@ -228,6 +229,7 @@ class StreamPreCreateProvenanceTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             stack.enter_context(patch("app.services.proxy.create_request_log", new=log_mock))
+            stack.enter_context(patch("app.services.proxy.safe_update_request_log", new=update_mock))
             stack.enter_context(patch("app.services.proxy.update_stats", new=stats_mock))
             stack.enter_context(
                 patch(
@@ -241,8 +243,11 @@ class StreamPreCreateProvenanceTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        kwargs = log_mock.call_args.kwargs
-        self.assertEqual(kwargs.get("requested_model"), "cap-stream")
+        self.assertEqual(log_mock.call_args.kwargs.get("status"), "waiting")
+        kwargs = update_mock.call_args.kwargs
+        self.assertEqual(kwargs.get("status"), "sending")
+        self.assertEqual(kwargs.get("model"), "cap-stream")
+        self.assertIsNotNone(kwargs.get("wait_ms"))
         self.assertIsNone(kwargs.get("actual_model"))
         decision = kwargs.get("routing_decision") or {}
         self.assertEqual(decision.get("outcome"), "stream_started")

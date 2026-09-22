@@ -353,6 +353,7 @@ class RequestLog(Base):
     tokens = Column(JSONB, nullable=True)
     latency_ms = Column(Float, nullable=True)
     first_chunk_ms = Column(Float, nullable=True)
+    wait_ms = Column(Float, nullable=True)
     request_context_tokens = Column(Integer, nullable=True)
     status = Column(String(20), nullable=False)
     upstream_status_code = Column(Integer, nullable=True)
@@ -388,6 +389,7 @@ class RequestLogHistory(Base):
     tokens = Column(JSONB, nullable=True)
     latency_ms = Column(Float, nullable=True)
     first_chunk_ms = Column(Float, nullable=True)
+    wait_ms = Column(Float, nullable=True)
     request_context_tokens = Column(Integer, nullable=True)
     status = Column(String(20), nullable=False)
     upstream_status_code = Column(Integer, nullable=True)
@@ -442,6 +444,7 @@ if request_logs_all_table is None:
         Column("tokens", JSONB),
         Column("latency_ms", Float),
         Column("first_chunk_ms", Float),
+        Column("wait_ms", Float),
         Column("request_context_tokens", Integer),
         Column("status", String(20)),
         Column("upstream_status_code", Integer),

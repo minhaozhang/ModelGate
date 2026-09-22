@@ -9,7 +9,7 @@ from sqlalchemy import delete as sa_delete
 # In-flight request log statuses: "sending" (upstream request sent, first
 # chunk not yet received) and "pending" (stream relaying). All stats /
 # aggregation queries treat these as not-yet-completed.
-IN_FLIGHT_STATUSES = ("pending", "sending")
+IN_FLIGHT_STATUSES = ("waiting", "pending", "sending")
 
 
 def _clean_null_bytes(value: Any) -> Any:
@@ -103,29 +103,70 @@ async def update_request_log(
     downstream_status_code: Optional[int] = None,
     error: Optional[str] = None,
     actual_model: Optional[str] = None,
+    provider_name: Optional[str] = None,
+    model: Optional[str] = None,
+    provider_key_id: Optional[int] = None,
+    provider_key_label: Optional[str] = None,
+    routing_decision: Optional[dict] = None,
+    request_messages: Optional[list] = None,
+    wait_ms: Optional[float] = None,
 ) -> bool:
     async with async_session_maker() as session:
+        values = dict(
+            response=_clean_null_bytes(response),
+            tokens=_clean_null_bytes(tokens) or {},
+            latency_ms=latency_ms,
+            status=status,
+            upstream_status_code=upstream_status_code,
+            downstream_status_code=downstream_status_code,
+            error=_clean_null_bytes(error),
+            actual_model=actual_model,
+            updated_at=func.now(),
+        )
+        if wait_ms is not None:
+            values["wait_ms"] = wait_ms
+        if provider_name:
+            pinfo = providers_cache.get(provider_name)
+            if pinfo:
+                values["provider_id"] = pinfo.get("id")
+        if model is not None:
+            values["model"] = model
+        if provider_key_id is not None:
+            values["provider_key_id"] = provider_key_id
+        if provider_key_label is not None:
+            values["provider_key_label"] = _clean_null_bytes(provider_key_label)
+        if routing_decision is not None:
+            values["routing_decision"] = _clean_null_bytes(routing_decision)
         result = await session.execute(
-            update(RequestLog)
-            .where(RequestLog.id == log_id)
-            .values(
-                response=_clean_null_bytes(response),
-                tokens=_clean_null_bytes(tokens) or {},
-                latency_ms=latency_ms,
-                status=status,
-                upstream_status_code=upstream_status_code,
-                downstream_status_code=downstream_status_code,
-                error=_clean_null_bytes(error),
-                actual_model=actual_model,
-                updated_at=func.now(),
-            )
+            update(RequestLog).where(RequestLog.id == log_id).values(**values)
         )
         if status != "success":
             await session.execute(
                 sa_delete(RequestContent).where(RequestContent.log_id == log_id)
             )
+        if request_messages is not None:
+            session.add(
+                RequestContent(
+                    log_id=log_id,
+                    request_messages=_clean_null_bytes(request_messages),
+                )
+            )
         await session.commit()
         return (result.rowcount or 0) > 0
+
+
+async def safe_update_request_log(log_id, **kwargs) -> None:
+    """Best-effort update: swallow errors so log issues never kill requests."""
+    if not isinstance(log_id, int):
+        return
+    try:
+        await update_request_log(log_id, **kwargs)
+    except Exception:
+        import logging as _logging
+
+        _logging.getLogger("modelgate.logging").warning(
+            "safe_update_request_log failed for log %s", log_id, exc_info=True
+        )
 
 
 async def update_request_log_status(

@@ -540,6 +540,7 @@ class ProxyGlobalUserConcurrencyTests(unittest.IsolatedAsyncioTestCase):
             ),
             patch("app.services.proxy.handle_streaming", new=stream_handler),
             patch("app.services.proxy.create_request_log", new=AsyncMock(return_value=1)),
+            patch("app.services.proxy.safe_update_request_log", new=AsyncMock()),
             patch("app.services.proxy.update_stats", new=Mock()),
             patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
         ):
@@ -1331,6 +1332,7 @@ class RouteFallbackOnServerErrorTests(unittest.IsolatedAsyncioTestCase):
             ),
             patch("app.services.proxy.handle_streaming", new=AsyncMock(side_effect=fake_handle_streaming)),
             patch("app.services.proxy.create_request_log", new=AsyncMock(return_value=1)),
+            patch("app.services.proxy.safe_update_request_log", new=AsyncMock()),
             patch("app.services.proxy.update_stats", new=Mock()),
             patch("app.services.proxy.schedule_api_key_last_used_update", return_value=None),
         ):

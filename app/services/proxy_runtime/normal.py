@@ -14,7 +14,11 @@ from app.core.config import (
 )
 from app.core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
 from app.services.key_health import record_key_event
-from app.services.logging import create_request_log, update_request_content
+from app.services.logging import (
+    create_request_log,
+    safe_update_request_log,
+    update_request_content,
+)
 from app.services.minimax import process_minimax_response
 from app.services.pricing import enrich_tokens_with_billing
 from app.services.provider_limiter import check_usage_limit_error, check_invalid_api_key_error, disable_provider_key
@@ -62,6 +66,8 @@ async def handle_normal(
     routing_decision=None,
     inbound_protocol=None,
     user_api_key_semaphore=None,
+    log_id=None,
+    wait_ms=None,
 ):
     logger.debug(
         "[NORMAL REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -199,36 +205,64 @@ async def handle_normal(
                 record_key_event(chosen_key_id, "error_5xx", resp.status_code)
             elif resp.status_code >= 400:
                 record_key_event(chosen_key_id, "error_4xx", resp.status_code)
-        normal_log_id = await create_request_log(
-            provider,
-            model,
-            status=request_status,
-            api_key_id=api_key_id,
-            client_ip=client_ip,
-            user_agent=user_agent,
-            request_context_tokens=request_context_tokens,
-            response=response_text,
-            tokens=tokens_record,
-            latency_ms=latency,
-            upstream_status_code=resp.status_code,
-            downstream_status_code=resp.status_code,
-            error=(
-                sanitize_text_for_log(provider_error, limit=2000)
-                if provider_error
-                else sanitize_text_for_log(resp.text, limit=2000)
+        normal_log_id = log_id
+        if normal_log_id is not None:
+            await safe_update_request_log(
+                normal_log_id,
+                response=response_text,
+                tokens=tokens_record,
+                latency_ms=latency,
+                status=request_status,
+                upstream_status_code=resp.status_code,
+                downstream_status_code=resp.status_code,
+                error=(
+                    sanitize_text_for_log(provider_error, limit=2000)
+                    if provider_error
+                    else sanitize_text_for_log(resp.text, limit=2000)
+                )
+                if request_status != "success"
+                else None,
+                actual_model=upstream_model
+                or (model if requested_model and requested_model != model else None),
+                provider_name=provider,
+                model=model,
+                provider_key_id=chosen_key_id,
+                provider_key_label=provider_key_label,
+                routing_decision=routing_decision,
+                request_messages=messages,
+                wait_ms=wait_ms,
             )
-            if request_status != "success"
-            else None,
-            request_messages=messages,
-            intent=intent,
-            requested_model=requested_model,
-            actual_model=upstream_model
-            or (model if requested_model and requested_model != model else None),
-            provider_key_id=chosen_key_id,
-            provider_key_label=provider_key_label,
-            routing_decision=routing_decision,
-            inbound_protocol=inbound_protocol,
-        )
+        else:
+            normal_log_id = await create_request_log(
+                provider,
+                model,
+                status=request_status,
+                api_key_id=api_key_id,
+                client_ip=client_ip,
+                user_agent=user_agent,
+                request_context_tokens=request_context_tokens,
+                response=response_text,
+                tokens=tokens_record,
+                latency_ms=latency,
+                upstream_status_code=resp.status_code,
+                downstream_status_code=resp.status_code,
+                error=(
+                    sanitize_text_for_log(provider_error, limit=2000)
+                    if provider_error
+                    else sanitize_text_for_log(resp.text, limit=2000)
+                )
+                if request_status != "success"
+                else None,
+                request_messages=messages,
+                intent=intent,
+                requested_model=requested_model,
+                actual_model=upstream_model
+                or (model if requested_model and requested_model != model else None),
+                provider_key_id=chosen_key_id,
+                provider_key_label=provider_key_label,
+                routing_decision=routing_decision,
+                inbound_protocol=inbound_protocol,
+            )
         if request_status == "success" and normal_log_id:
             try:
                 await update_request_content(

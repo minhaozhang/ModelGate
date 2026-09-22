@@ -305,7 +305,7 @@ async def cleanup_stale_pending_requests() -> None:
         result = await session.execute(
             update(RequestLog)
             .where(
-                RequestLog.status.in_(("pending", "sending")),
+                RequestLog.status.in_(("waiting", "pending", "sending")),
                 RequestLog.created_at < func.now() - timedelta(minutes=10),
             )
             .values(
@@ -342,6 +342,8 @@ async def archive_old_request_logs() -> int:
                         response,
                         tokens,
                         latency_ms,
+                        first_chunk_ms,
+                        wait_ms,
                         request_context_tokens,
                         status,
                         upstream_status_code,
@@ -369,6 +371,8 @@ async def archive_old_request_logs() -> int:
                         rl.response,
                         rl.tokens,
                         rl.latency_ms,
+                        rl.first_chunk_ms,
+                        rl.wait_ms,
                         rl.request_context_tokens,
                         rl.status,
                         rl.upstream_status_code,

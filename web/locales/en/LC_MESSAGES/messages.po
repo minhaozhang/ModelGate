@@ -1,4 +1,4 @@
-
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
@@ -6,12 +6,12 @@ msgstr ""
 "POT-Creation-Date: 2026-08-31 22:57+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: en\n"
 "Language-Team: en <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: en\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: web/templates/admin/api_keys.html:6 web/templates/admin/api_keys.html:93
@@ -110,14 +110,15 @@ msgstr ""
 #: web/templates/public/opencode.html:58 web/templates/public/opencode.html:91
 #: web/templates/user/tab_codex.html:11 web/templates/user/tab_codex.html:20
 #: web/templates/user/tab_codex.html:27 web/templates/user/tab_codex.html:48
-#: web/templates/user/tab_codex.html:82 web/templates/user/tab_opencode.html:11
+#: web/templates/user/tab_codex.html:82
+#: web/templates/user/tab_opencode.html:11
 #: web/templates/user/tab_opencode.html:20
 #: web/templates/user/tab_opencode.html:27
-#: web/templates/user/tab_opencode.html:91 web/templates/user/tab_usage.html:36
-#: web/templates/user/tab_usage.html:58 web/templates/user/tab_usage.html:80
-#: web/templates/user/tab_usage.html:172 web/templates/user/tab_usage.html:197
-#: web/templates/user/tab_usage.html:223 web/templates/user/tab_usage.html:248
-#: web/templates/user/tab_usage.html:267
+#: web/templates/user/tab_opencode.html:91
+#: web/templates/user/tab_usage.html:36 web/templates/user/tab_usage.html:58
+#: web/templates/user/tab_usage.html:80 web/templates/user/tab_usage.html:172
+#: web/templates/user/tab_usage.html:197 web/templates/user/tab_usage.html:223
+#: web/templates/user/tab_usage.html:248 web/templates/user/tab_usage.html:267
 msgid "Copy"
 msgstr ""
 
@@ -324,8 +325,8 @@ msgstr ""
 
 #: web/templates/admin/api_keys.html:277
 msgid ""
-"No specific model restrictions. This API key can use all currently "
-"allowed models."
+"No specific model restrictions. This API key can use all currently allowed "
+"models."
 msgstr ""
 
 #: web/templates/admin/api_keys.html:278 web/templates/admin/api_keys.html:312
@@ -528,9 +529,9 @@ msgstr ""
 
 #: web/templates/admin/config.html:523
 msgid ""
-"Requests are skipped during the window. Weekly rules repeat every week; "
-"one-time rules fire once. End time earlier than or equal to start time "
-"crosses into the next day."
+"Requests are skipped during the window. Weekly rules repeat every week; one-"
+"time rules fire once. End time earlier than or equal to start time crosses "
+"into the next day."
 msgstr ""
 
 #: web/templates/admin/config.html:525 web/templates/admin/config.html:731
@@ -567,8 +568,8 @@ msgstr ""
 
 #: web/templates/admin/config.html:561
 msgid ""
-"Reject requests whose estimated input tokens exceed this limit. Defaults "
-"to the context window value; agents auto-compact when rejected"
+"Reject requests whose estimated input tokens exceed this limit. Defaults to "
+"the context window value; agents auto-compact when rejected"
 msgstr ""
 
 #: web/templates/admin/config.html:561
@@ -581,8 +582,8 @@ msgstr ""
 
 #: web/templates/admin/config.html:567
 msgid ""
-"Max simultaneous in-flight requests for this model across all API keys. 0"
-" disables the model entirely; empty = no limit"
+"Max simultaneous in-flight requests for this model across all API keys. 0 "
+"disables the model entirely; empty = no limit"
 msgstr ""
 
 #: web/templates/admin/config.html:567
@@ -603,8 +604,8 @@ msgstr ""
 
 #: web/templates/admin/config.html:580
 msgid ""
-"Comma-separated reasoning effort levels exposed as switchable variants in"
-" opencode (e.g. high,max). Leave empty to use provider defaults (Zhipu "
+"Comma-separated reasoning effort levels exposed as switchable variants in "
+"opencode (e.g. high,max). Leave empty to use provider defaults (Zhipu "
 "GLM-5.2+: high,max; others: low,high,max)."
 msgstr ""
 
@@ -652,7 +653,8 @@ msgstr ""
 msgid "No keys configured"
 msgstr ""
 
-#: web/templates/admin/config.html:659 web/templates/admin/mobile_home.html:165
+#: web/templates/admin/config.html:659
+#: web/templates/admin/mobile_home.html:165
 #: web/templates/admin/notifications.html:31
 #: web/templates/admin/request_logs.html:283
 #: web/templates/admin/request_logs.html:379
@@ -701,7 +703,8 @@ msgstr ""
 msgid "No upstream models"
 msgstr ""
 
-#: web/templates/admin/config.html:672 web/templates/admin/mobile_home.html:300
+#: web/templates/admin/config.html:672
+#: web/templates/admin/mobile_home.html:300
 msgid "Keys"
 msgstr ""
 
@@ -841,7 +844,8 @@ msgid "{count} key(s)"
 msgstr ""
 
 #: web/templates/admin/config.html:714
-msgid "Access is configured on the bound provider-model, not on the model itself."
+msgid ""
+"Access is configured on the bound provider-model, not on the model itself."
 msgstr ""
 
 #: web/templates/admin/config.html:716
@@ -891,7 +895,8 @@ msgstr ""
 msgid "Scheduled disable"
 msgstr ""
 
-#: web/templates/admin/config.html:729 web/templates/admin/mobile_home.html:307
+#: web/templates/admin/config.html:729
+#: web/templates/admin/mobile_home.html:307
 msgid "active now"
 msgstr ""
 
@@ -929,7 +934,8 @@ msgstr ""
 
 #: web/templates/admin/documents.html:7 web/templates/admin/documents.html:65
 #: web/templates/user/dashboard.html:370 web/templates/user/documents.html:6
-#: web/templates/user/documents.html:41 web/templates/user/tab_documents.html:4
+#: web/templates/user/documents.html:41
+#: web/templates/user/tab_documents.html:4
 msgid "Documents"
 msgstr ""
 
@@ -945,19 +951,23 @@ msgstr ""
 msgid "Create"
 msgstr ""
 
-#: web/templates/admin/documents.html:76 web/templates/admin/documents.html:152
+#: web/templates/admin/documents.html:76
+#: web/templates/admin/documents.html:152
 msgid "No documents yet"
 msgstr ""
 
-#: web/templates/admin/documents.html:81 web/templates/admin/documents.html:131
+#: web/templates/admin/documents.html:81
+#: web/templates/admin/documents.html:131
 msgid "Preview"
 msgstr ""
 
-#: web/templates/admin/documents.html:82 web/templates/admin/documents.html:165
+#: web/templates/admin/documents.html:82
+#: web/templates/admin/documents.html:165
 msgid "Select a document to preview"
 msgstr ""
 
-#: web/templates/admin/documents.html:91 web/templates/admin/documents.html:159
+#: web/templates/admin/documents.html:91
+#: web/templates/admin/documents.html:159
 msgid "Create Document"
 msgstr ""
 
@@ -1227,15 +1237,18 @@ msgstr ""
 msgid "Admin Dashboard"
 msgstr ""
 
-#: web/templates/admin/mobile_home.html:93 web/templates/admin/monitor.html:188
+#: web/templates/admin/mobile_home.html:93
+#: web/templates/admin/monitor.html:188
 msgid "Week"
 msgstr ""
 
-#: web/templates/admin/mobile_home.html:94 web/templates/admin/monitor.html:189
+#: web/templates/admin/mobile_home.html:94
+#: web/templates/admin/monitor.html:189
 msgid "Month"
 msgstr ""
 
-#: web/templates/admin/mobile_home.html:95 web/templates/admin/monitor.html:190
+#: web/templates/admin/mobile_home.html:95
+#: web/templates/admin/monitor.html:190
 msgid "Year"
 msgstr ""
 
@@ -1593,8 +1606,8 @@ msgstr ""
 
 #: web/templates/admin/reports.html:69
 msgid ""
-"Generate usage reports as reusable task pipelines with CSV, Markdown, and"
-" DOCX outputs"
+"Generate usage reports as reusable task pipelines with CSV, Markdown, and "
+"DOCX outputs"
 msgstr ""
 
 #: web/templates/admin/reports.html:73
@@ -1710,8 +1723,7 @@ msgstr ""
 
 #: web/templates/admin/reports.html:167
 msgid ""
-"Reusable outputs are generated first, then assembled into the final "
-"report."
+"Reusable outputs are generated first, then assembled into the final report."
 msgstr ""
 
 #: web/templates/admin/reports.html:168
@@ -1741,8 +1753,8 @@ msgid ""
 "range"
 msgstr ""
 
-#: web/templates/admin/request_logs.html:220 web/templates/public/query.html:60
-#: web/templates/user/dashboard.html:478
+#: web/templates/admin/request_logs.html:220
+#: web/templates/public/query.html:60 web/templates/user/dashboard.html:478
 msgid "Refresh"
 msgstr ""
 
@@ -2077,10 +2089,9 @@ msgstr ""
 #: web/templates/public/opencode.html:93
 msgid ""
 "# Please add the following provider config to "
-"~/.config/opencode/opencode.jsonc. If that file does not exist, create it"
-" first. You can also place opencode.jsonc in the current project root. "
-"Keep existing providers and settings, only add or update the modelgate "
-"provider."
+"~/.config/opencode/opencode.jsonc. If that file does not exist, create it "
+"first. You can also place opencode.jsonc in the current project root. Keep "
+"existing providers and settings, only add or update the modelgate provider."
 msgstr ""
 
 #: web/templates/public/opencode.html:94
@@ -2152,14 +2163,16 @@ msgid "No accessible models"
 msgstr ""
 
 #: web/templates/user/dashboard.html:399
-msgid "This API key currently has access to all active models on the platform."
+msgid ""
+"This API key currently has access to all active models on the platform."
 msgstr ""
 
 #: web/templates/user/dashboard.html:400
 msgid "Models explicitly available to this API key."
 msgstr ""
 
-#: web/templates/user/dashboard.html:401 web/templates/user/tab_catalog.html:17
+#: web/templates/user/dashboard.html:401
+#: web/templates/user/tab_catalog.html:17
 msgid "Models available to this API key."
 msgstr ""
 
@@ -2418,10 +2431,10 @@ msgstr ""
 #: web/templates/user/dashboard.html:475
 msgid ""
 "Please help me add the following provider configuration to "
-"~/.config/opencode/opencode.jsonc. If that file does not exist, create it"
-" first. You can also place opencode.jsonc in the current project root. "
-"Keep existing providers and other settings, only add or update the "
-"modelgate provider."
+"~/.config/opencode/opencode.jsonc. If that file does not exist, create it "
+"first. You can also place opencode.jsonc in the current project root. Keep "
+"existing providers and other settings, only add or update the modelgate "
+"provider."
 msgstr ""
 
 #: web/templates/user/dashboard.html:479
@@ -2492,8 +2505,8 @@ msgstr ""
 
 #: web/templates/user/dashboard.html:497
 msgid ""
-"Regenerate the API key? The old key will stop working immediately, and "
-"you will be logged out."
+"Regenerate the API key? The old key will stop working immediately, and you "
+"will be logged out."
 msgstr ""
 
 #: web/templates/user/dashboard.html:498
@@ -2579,20 +2592,21 @@ msgstr ""
 
 #: web/templates/user/tab_codex.html:6
 msgid ""
-"Codex CLI, the ChatGPT desktop app and the VS Code Codex extension share "
-"one config. The script backs up config.toml, writes the models.json "
-"catalog and merges the ModelGate entries (your MCP servers and other "
-"settings are preserved)."
+"Codex CLI, the ChatGPT desktop app and the VS Code Codex extension share one"
+" config. The script backs up config.toml, writes the models.json catalog and"
+" merges the ModelGate entries (your MCP servers and other settings are "
+"preserved)."
 msgstr ""
 
-#: web/templates/user/tab_codex.html:13 web/templates/user/tab_opencode.html:13
+#: web/templates/user/tab_codex.html:13
+#: web/templates/user/tab_opencode.html:13
 msgid "The commands below already embed your API key."
 msgstr ""
 
 #: web/templates/user/tab_codex.html:31
 msgid ""
-"Requires Codex installed and run at least once (the ~/.codex folder "
-"exists). macOS/Linux only needs curl."
+"Requires Codex installed and run at least once (the ~/.codex folder exists)."
+" macOS/Linux only needs curl."
 msgstr ""
 
 #: web/templates/user/tab_codex.html:35
@@ -2632,9 +2646,9 @@ msgstr ""
 
 #: web/templates/user/tab_codex.html:56
 msgid ""
-"If config.toml already exists, merge the entries above into it (replace "
-"the whole [model_providers.modelgate] section) and keep everything else. "
-"The API key is embedded in experimental_bearer_token."
+"If config.toml already exists, merge the entries above into it (replace the "
+"whole [model_providers.modelgate] section) and keep everything else. The API"
+" key is embedded in experimental_bearer_token."
 msgstr ""
 
 #: web/templates/user/tab_codex.html:60
@@ -2643,8 +2657,8 @@ msgstr ""
 
 #: web/templates/user/tab_codex.html:61
 msgid ""
-"Generated from the models available to your API key; place it in the same"
-" folder."
+"Generated from the models available to your API key; place it in the same "
+"folder."
 msgstr ""
 
 #: web/templates/user/tab_codex.html:62
@@ -2653,8 +2667,8 @@ msgstr ""
 
 #: web/templates/user/tab_codex.html:68
 msgid ""
-"Put both files in ~/.codex/ (Windows: %USERPROFILE%\\.codex\\); create "
-"the folder if missing"
+"Put both files in ~/.codex/ (Windows: %USERPROFILE%\\.codex\\); create the "
+"folder if missing"
 msgstr ""
 
 #: web/templates/user/tab_codex.html:69
@@ -2692,14 +2706,14 @@ msgstr ""
 
 #: web/templates/user/tab_opencode.html:31
 msgid ""
-"Requires only curl on macOS/Linux. The script prompts for the API key if "
-"it is not embedded in the URL."
+"Requires only curl on macOS/Linux. The script prompts for the API key if it "
+"is not embedded in the URL."
 msgstr ""
 
 #: web/templates/user/tab_opencode.html:31
 msgid ""
-"The macOS/Linux script only needs curl. If the API key is not embedded in"
-" the URL, the script will prompt for it."
+"The macOS/Linux script only needs curl. If the API key is not embedded in "
+"the URL, the script will prompt for it."
 msgstr ""
 
 #: web/templates/user/tab_opencode.html:35
@@ -2805,8 +2819,8 @@ msgstr ""
 #: web/templates/user/tab_usage.html:11
 msgid ""
 "A plain model name auto-routes to an available provider. Add the <code "
-"class=\"bg-white px-1 py-0.5 rounded\">provider/</code> prefix only to "
-"force a specific one."
+"class=\"bg-white px-1 py-0.5 rounded\">provider/</code> prefix only to force"
+" a specific one."
 msgstr ""
 
 #: web/templates/user/tab_usage.html:15
@@ -2902,14 +2916,14 @@ msgstr ""
 
 #: web/templates/user/tab_usage.html:110
 msgid ""
-"Tip: the OpenCode Config tab generates this file from your accessible "
-"models — copying from there is recommended."
+"Tip: the OpenCode Config tab generates this file from your accessible models"
+" — copying from there is recommended."
 msgstr ""
 
 #: web/templates/user/tab_usage.html:142
 msgid ""
-"<code>threshold</code>: 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 "
-"表示占用 50% 时开始压缩。"
+"<code>threshold</code>: 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 "
+"50% 时开始压缩。"
 msgstr ""
 
 #: web/templates/user/tab_usage.html:143
@@ -2930,10 +2944,10 @@ msgstr ""
 
 #: web/templates/user/tab_usage.html:161
 msgid ""
-"The Anthropic endpoint translates requests to OpenAI format internally. "
-"All models in your model list can be used — just pass the model name; "
-"<code class=\"bg-white px-1 py-0.5 rounded\">provider/model</code> also "
-"works to pin a specific provider."
+"The Anthropic endpoint translates requests to OpenAI format internally. All "
+"models in your model list can be used — just pass the model name; <code "
+"class=\"bg-white px-1 py-0.5 rounded\">provider/model</code> also works to "
+"pin a specific provider."
 msgstr ""
 
 #: web/templates/user/tab_usage.html:169
@@ -2947,6 +2961,9 @@ msgstr ""
 #: web/templates/user/tab_usage.html:264
 msgid "Tool Use (Function Calling)"
 msgstr ""
+
+msgid "Wait"
+msgstr "Wait"
 
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
@@ -3033,30 +3050,26 @@ msgstr ""
 #~ msgstr "System Active Requests (Last 1 Minute)"
 
 #~ msgid ""
-#~ "Anonymized across all API keys. Your "
-#~ "own traffic is labeled as Yourself."
+#~ "Anonymized across all API keys. Your own traffic is labeled as Yourself."
 #~ msgstr ""
-#~ "Anonymized across all API keys. Your "
-#~ "own traffic is labeled as Yourself."
+#~ "Anonymized across all API keys. Your own traffic is labeled as Yourself."
 
 #~ msgid "Requests / Tokens / Errors"
 #~ msgstr "Requests / Tokens / Errors"
 
 #~ msgid ""
-#~ "Copy the generated <code class=\"bg-"
-#~ "blue-100 px-1 rounded\">opencode.jsonc</code>"
+#~ "Copy the generated <code class=\"bg-blue-100 px-1 "
+#~ "rounded\">opencode.jsonc</code>"
 #~ msgstr ""
-#~ "Copy the generated <code class=\"bg-"
-#~ "blue-100 px-1 rounded\">opencode.jsonc</code>"
+#~ "Copy the generated <code class=\"bg-blue-100 px-1 "
+#~ "rounded\">opencode.jsonc</code>"
 
 #~ msgid ""
-#~ "Create <code class=\"bg-blue-100 px-1 "
-#~ "rounded\">opencode.jsonc</code> in your project "
-#~ "root"
+#~ "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code> in "
+#~ "your project root"
 #~ msgstr ""
-#~ "Create <code class=\"bg-blue-100 px-1 "
-#~ "rounded\">opencode.jsonc</code> in your project "
-#~ "root"
+#~ "Create <code class=\"bg-blue-100 px-1 rounded\">opencode.jsonc</code> in "
+#~ "your project root"
 
 #~ msgid "Home"
 #~ msgstr "Home"
@@ -3095,28 +3108,22 @@ msgstr ""
 #~ msgstr "Balanced recent stability, speed, and sample size"
 
 #~ msgid ""
-#~ "Recent data is limited. Try quieter "
-#~ "periods and check system health first"
+#~ "Recent data is limited. Try quieter periods and check system health first"
 #~ msgstr ""
-#~ "Recent data is limited. Try quieter "
-#~ "periods and check system health first"
+#~ "Recent data is limited. Try quieter periods and check system health first"
 
 #~ msgid ""
-#~ "Based on recent daily patterns, {ranges}"
-#~ " tends to be smoother with lower "
+#~ "Based on recent daily patterns, {ranges} tends to be smoother with lower "
 #~ "errors and faster responses"
 #~ msgstr ""
-#~ "Based on recent daily patterns, {ranges}"
-#~ " tends to be smoother with lower "
+#~ "Based on recent daily patterns, {ranges} tends to be smoother with lower "
 #~ "errors and faster responses"
 
 #~ msgid ""
-#~ "Based on recent daily patterns, {ranges}"
-#~ " tend to be smoother with lower "
+#~ "Based on recent daily patterns, {ranges} tend to be smoother with lower "
 #~ "errors and faster responses"
 #~ msgstr ""
-#~ "Based on recent daily patterns, {ranges}"
-#~ " tend to be smoother with lower "
+#~ "Based on recent daily patterns, {ranges} tend to be smoother with lower "
 #~ "errors and faster responses"
 
 #~ msgid "Active 1h"
@@ -3129,12 +3136,10 @@ msgstr ""
 #~ msgstr "Busyness Control Rules"
 
 #~ msgid ""
-#~ "Auto downgrade, suggest, or block models"
-#~ " based on system busyness level "
+#~ "Auto downgrade, suggest, or block models based on system busyness level "
 #~ "(1=extremely busy ~ 6=quiet)"
 #~ msgstr ""
-#~ "Auto downgrade, suggest, or block models"
-#~ " based on system busyness level "
+#~ "Auto downgrade, suggest, or block models based on system busyness level "
 #~ "(1=extremely busy ~ 6=quiet)"
 
 #~ msgid "Action"
@@ -3279,13 +3284,11 @@ msgstr ""
 #~ msgstr "Reset API Key"
 
 #~ msgid ""
-#~ "Regenerate the API key? The old "
-#~ "key will stop working immediately, and"
-#~ " you will be logged out."
+#~ "Regenerate the API key? The old key will stop working immediately, and you "
+#~ "will be logged out."
 #~ msgstr ""
-#~ "Regenerate the API key? The old "
-#~ "key will stop working immediately, and"
-#~ " you will be logged out."
+#~ "Regenerate the API key? The old key will stop working immediately, and you "
+#~ "will be logged out."
 
 #~ msgid "Failed to regenerate API key"
 #~ msgstr "Failed to regenerate API key"
@@ -3303,13 +3306,11 @@ msgstr ""
 #~ msgstr "API Key Regenerated"
 
 #~ msgid ""
-#~ "Copy this key now. For security "
-#~ "reasons, it will be masked in the"
-#~ " list afterwards."
+#~ "Copy this key now. For security reasons, it will be masked in the list "
+#~ "afterwards."
 #~ msgstr ""
-#~ "Copy this key now. For security "
-#~ "reasons, it will be masked in the"
-#~ " list afterwards."
+#~ "Copy this key now. For security reasons, it will be masked in the list "
+#~ "afterwards."
 
 #~ msgid "I have saved it"
 #~ msgstr "I have saved it"
@@ -3366,22 +3367,18 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid ""
-#~ "For OpenCode setup, open the setup "
-#~ "document below or send it directly "
-#~ "to your agent."
+#~ "For OpenCode setup, open the setup document below or send it directly to "
+#~ "your agent."
 #~ msgstr ""
 
 #~ msgid ""
-#~ "Keep this API key private and do"
-#~ " not share it in public chats "
-#~ "or repositories."
+#~ "Keep this API key private and do not share it in public chats or "
+#~ "repositories."
 #~ msgstr ""
 
 #~ msgid ""
-#~ "Please choose a free model in "
-#~ "OpenCode first, then send the setup "
-#~ "link below directly to OpenCode and "
-#~ "press Enter:"
+#~ "Please choose a free model in OpenCode first, then send the setup link below"
+#~ " directly to OpenCode and press Enter:"
 #~ msgstr ""
 
 #~ msgid "Follow this document."
@@ -3391,14 +3388,12 @@ msgstr ""
 #~ msgstr "Allowed Models"
 
 #~ msgid ""
-#~ "No specific model restrictions. This API"
-#~ " key can use all currently allowed"
-#~ " models."
+#~ "No specific model restrictions. This API key can use all currently allowed "
+#~ "models."
 #~ msgstr ""
 
 #~ msgid ""
-#~ "If OpenCode is not installed yet, "
-#~ "please download it from the official "
+#~ "If OpenCode is not installed yet, please download it from the official "
 #~ "website below."
 #~ msgstr ""
 
@@ -3544,13 +3539,11 @@ msgstr ""
 #~ msgstr "Context Window"
 
 #~ msgid ""
-#~ "Maximum tokens for the reasoning/thinking "
-#~ "process. Only applies when reasoning is"
-#~ " enabled"
+#~ "Maximum tokens for the reasoning/thinking process. Only applies when "
+#~ "reasoning is enabled"
 #~ msgstr ""
-#~ "Maximum tokens for the reasoning/thinking "
-#~ "process. Only applies when reasoning is"
-#~ " enabled"
+#~ "Maximum tokens for the reasoning/thinking process. Only applies when "
+#~ "reasoning is enabled"
 
 #~ msgid "Reasoning Budget"
 #~ msgstr "Reasoning Budget"
@@ -3559,15 +3552,11 @@ msgstr ""
 #~ msgstr "Reasoning Effort Variants"
 
 #~ msgid ""
-#~ "Comma-separated reasoning effort levels "
-#~ "exposed as switchable variants in "
-#~ "opencode (e.g. high,max). Leave empty to"
-#~ " disable effort variants."
+#~ "Comma-separated reasoning effort levels exposed as switchable variants in "
+#~ "opencode (e.g. high,max). Leave empty to disable effort variants."
 #~ msgstr ""
-#~ "Comma-separated reasoning effort levels "
-#~ "exposed as switchable variants in "
-#~ "opencode (e.g. high,max). Leave empty to"
-#~ " disable effort variants."
+#~ "Comma-separated reasoning effort levels exposed as switchable variants in "
+#~ "opencode (e.g. high,max). Leave empty to disable effort variants."
 
 #~ msgid "Enable extended reasoning / chain-of-thought for this model"
 #~ msgstr "Enable extended reasoning / chain-of-thought for this model"
@@ -3576,9 +3565,8 @@ msgstr ""
 #~ msgstr "Reasoning"
 
 #~ msgid ""
-#~ "Estimated blended price per 1M tokens"
-#~ " (USD). Used for cost estimation on"
-#~ " user dashboard."
+#~ "Estimated blended price per 1M tokens (USD). Used for cost estimation on "
+#~ "user dashboard."
 #~ msgstr ""
 
 #~ msgid "Est. Price $/1M tokens"
@@ -3729,9 +3717,7 @@ msgstr ""
 #~ msgstr "{count} samples"
 
 #~ msgid ""
-#~ "Access is configured on the bound "
-#~ "provider-model, not on the model "
-#~ "itself."
+#~ "Access is configured on the bound provider-model, not on the model itself."
 #~ msgstr ""
 
 #~ msgid "Disable"
@@ -4155,12 +4141,10 @@ msgstr ""
 #~ msgstr "Usage Guide"
 
 #~ msgid ""
-#~ "Generate usage reports as reusable task"
-#~ " pipelines with CSV, Markdown, and "
+#~ "Generate usage reports as reusable task pipelines with CSV, Markdown, and "
 #~ "DOCX outputs"
 #~ msgstr ""
-#~ "Generate usage reports as reusable task"
-#~ " pipelines with CSV, Markdown, and "
+#~ "Generate usage reports as reusable task pipelines with CSV, Markdown, and "
 #~ "DOCX outputs"
 
 #~ msgid "Create Report Task"
@@ -4176,13 +4160,11 @@ msgstr ""
 #~ msgstr "Task orchestration mode"
 
 #~ msgid ""
-#~ "Each report now runs as subtasks "
-#~ "with retries, self-checks, and reusable"
-#~ " artifacts before DOCX assembly."
+#~ "Each report now runs as subtasks with retries, self-checks, and reusable "
+#~ "artifacts before DOCX assembly."
 #~ msgstr ""
-#~ "Each report now runs as subtasks "
-#~ "with retries, self-checks, and reusable"
-#~ " artifacts before DOCX assembly."
+#~ "Each report now runs as subtasks with retries, self-checks, and reusable "
+#~ "artifacts before DOCX assembly."
 
 #~ msgid "Template Preview"
 #~ msgstr "Template Preview"
@@ -4245,11 +4227,9 @@ msgstr ""
 #~ msgstr "Planned Outputs"
 
 #~ msgid ""
-#~ "Reusable outputs are generated first, "
-#~ "then assembled into the final report."
+#~ "Reusable outputs are generated first, then assembled into the final report."
 #~ msgstr ""
-#~ "Reusable outputs are generated first, "
-#~ "then assembled into the final report."
+#~ "Reusable outputs are generated first, then assembled into the final report."
 
 #~ msgid "completed"
 #~ msgstr "completed"
@@ -4270,13 +4250,11 @@ msgstr ""
 #~ msgstr "Request Logs"
 
 #~ msgid ""
-#~ "Query and filter proxy request logs "
-#~ "by API key, model, status, and "
-#~ "time range"
+#~ "Query and filter proxy request logs by API key, model, status, and time "
+#~ "range"
 #~ msgstr ""
-#~ "Query and filter proxy request logs "
-#~ "by API key, model, status, and "
-#~ "time range"
+#~ "Query and filter proxy request logs by API key, model, status, and time "
+#~ "range"
 
 #~ msgid "Refresh"
 #~ msgstr "Refresh"
@@ -4474,23 +4452,16 @@ msgstr ""
 #~ msgstr "Enter your API Key to generate config"
 
 #~ msgid ""
-#~ "# Please add the following provider "
-#~ "config to ~/.config/opencode/opencode.jsonc. If "
-#~ "that file does not exist, create "
-#~ "it first. You can also place "
-#~ "opencode.jsonc in the current project "
-#~ "root. Keep existing providers and "
-#~ "settings, only add or update the "
-#~ "modelgate provider."
+#~ "# Please add the following provider config to "
+#~ "~/.config/opencode/opencode.jsonc. If that file does not exist, create it "
+#~ "first. You can also place opencode.jsonc in the current project root. Keep "
+#~ "existing providers and settings, only add or update the modelgate provider."
 #~ msgstr ""
-#~ "Please help me add the following "
-#~ "provider configuration to "
-#~ "~/.config/opencode/opencode.jsonc. If that file "
-#~ "does not exist, create it first. "
-#~ "You can also place opencode.jsonc in "
-#~ "the current project root. Keep existing"
-#~ " providers and other settings, only "
-#~ "add or update the modelgate provider."
+#~ "Please help me add the following provider configuration to "
+#~ "~/.config/opencode/opencode.jsonc. If that file does not exist, create it "
+#~ "first. You can also place opencode.jsonc in the current project root. Keep "
+#~ "existing providers and other settings, only add or update the modelgate "
+#~ "provider."
 
 #~ msgid "context"
 #~ msgstr "Context"
@@ -4540,8 +4511,10 @@ msgstr ""
 #~ msgid "No accessible models"
 #~ msgstr "No accessible models"
 
-#~ msgid "This API key currently has access to all active models on the platform."
-#~ msgstr "This API key currently has access to all active models on the platform."
+#~ msgid ""
+#~ "This API key currently has access to all active models on the platform."
+#~ msgstr ""
+#~ "This API key currently has access to all active models on the platform."
 
 #~ msgid "Models explicitly available to this API key."
 #~ msgstr "Models explicitly available to this API key."
@@ -4736,23 +4709,17 @@ msgstr ""
 #~ msgstr "samples"
 
 #~ msgid ""
-#~ "Please help me add the following "
-#~ "provider configuration to "
-#~ "~/.config/opencode/opencode.jsonc. If that file "
-#~ "does not exist, create it first. "
-#~ "You can also place opencode.jsonc in "
-#~ "the current project root. Keep existing"
-#~ " providers and other settings, only "
-#~ "add or update the modelgate provider."
+#~ "Please help me add the following provider configuration to "
+#~ "~/.config/opencode/opencode.jsonc. If that file does not exist, create it "
+#~ "first. You can also place opencode.jsonc in the current project root. Keep "
+#~ "existing providers and other settings, only add or update the modelgate "
+#~ "provider."
 #~ msgstr ""
-#~ "Please help me add the following "
-#~ "provider configuration to "
-#~ "~/.config/opencode/opencode.jsonc. If that file "
-#~ "does not exist, create it first. "
-#~ "You can also place opencode.jsonc in "
-#~ "the current project root. Keep existing"
-#~ " providers and other settings, only "
-#~ "add or update the modelgate provider."
+#~ "Please help me add the following provider configuration to "
+#~ "~/.config/opencode/opencode.jsonc. If that file does not exist, create it "
+#~ "first. You can also place opencode.jsonc in the current project root. Keep "
+#~ "existing providers and other settings, only add or update the modelgate "
+#~ "provider."
 
 #~ msgid "top share"
 #~ msgstr "top share"
@@ -4848,9 +4815,8 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid ""
-#~ "Upload your existing opencode.jsonc to "
-#~ "merge the latest ModelGate config into"
-#~ " it"
+#~ "Upload your existing opencode.jsonc to merge the latest ModelGate config "
+#~ "into it"
 #~ msgstr ""
 
 #~ msgid "Config path: %USERPROFILE%\\\\.config\\\\opencode\\\\opencode.jsonc"
@@ -4905,8 +4871,7 @@ msgstr ""
 #~ msgstr "Model Name Format"
 
 #~ msgid ""
-#~ "Use <code class=\"bg-white px-2 py-1 "
-#~ "rounded\">provider/model</code> format"
+#~ "Use <code class=\"bg-white px-2 py-1 rounded\">provider/model</code> format"
 #~ msgstr ""
 
 #~ msgid "With Provider"
@@ -4940,11 +4905,9 @@ msgstr ""
 #~ msgstr "JavaScript"
 
 #~ msgid ""
-#~ "Install OpenCode from <a "
-#~ "href=\"https://opencode.ai/\" target=\"_blank\" class"
-#~ "=\"text-blue-500 hover:underline\">opencode.ai</a>, "
-#~ "then go to the OpenCode Config tab"
-#~ " to get your configuration."
+#~ "Install OpenCode from <a href=\"https://opencode.ai/\" target=\"_blank\" "
+#~ "class=\"text-blue-500 hover:underline\">opencode.ai</a>, then go to the "
+#~ "OpenCode Config tab to get your configuration."
 #~ msgstr ""
 
 #~ msgid "Config file location"
@@ -4984,8 +4947,8 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid ""
-#~ "<code>threshold</code>: 0.0~1.0, default 0.75. "
-#~ "上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 50% 时开始压缩。"
+#~ "<code>threshold</code>: 0.0~1.0, default 0.75. 上下文占用比例达到该值时触发压缩。设为 0.5 表示占用 "
+#~ "50% 时开始压缩。"
 #~ msgstr ""
 
 #~ msgid "<code>strategy</code>: summarize（摘要）/ truncate（截断）/ archive（归档）"
@@ -5001,12 +4964,9 @@ msgstr ""
 #~ msgstr "Required Header"
 
 #~ msgid ""
-#~ "The Anthropic endpoint translates requests "
-#~ "to OpenAI format internally. All models"
-#~ " registered in ModelGate can be used,"
-#~ " just use <code class=\"bg-white px-1"
-#~ " py-0.5 rounded\">provider/model</code> as the"
-#~ " model name."
+#~ "The Anthropic endpoint translates requests to OpenAI format internally. All "
+#~ "models registered in ModelGate can be used, just use <code class=\"bg-white "
+#~ "px-1 py-0.5 rounded\">provider/model</code> as the model name."
 #~ msgstr ""
 
 #~ msgid "Python (Anthropic SDK)"
@@ -5095,4 +5055,3 @@ msgstr ""
 
 #~ msgid "Disable reason (optional)"
 #~ msgstr "Disable reason (optional)"
-

@@ -3038,6 +3038,9 @@ msgstr "导出 Excel"
 msgid "TTFT"
 msgstr "首包耗时"
 
+msgid "Wait"
+msgstr "等待"
+
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
 
