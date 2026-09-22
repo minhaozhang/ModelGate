@@ -91,6 +91,16 @@ def count_image_parts(req_body: Optional[dict]) -> int:
     return _analyze_request(req_body)[1]
 
 
+def estimate_request_context(req_body: Optional[dict]) -> tuple[int, int]:
+    """One-pass ctx estimate: (text_tokens, image_count).
+
+    Serializing the payload is the expensive step (multimodal bodies
+    carry megabytes of base64), so callers needing both values must
+    use this instead of estimate_request_context_tokens +
+    count_image_parts separately."""
+    return _analyze_request(req_body)
+
+
 def _tool_call_key(tool_call: dict) -> str:
     if not isinstance(tool_call, dict):
         return ""

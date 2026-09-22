@@ -37,8 +37,7 @@ from app.services.logging import (
     update_request_log,
 )
 from app.services.tokens import (
-    estimate_request_context_tokens,
-    request_has_image_parts,
+    estimate_request_context,
 )
 from app.services.deepseek_compat import is_deepseek_thinking_active, patch_reasoning_content
 from app.services.busyness import LEVEL_LABELS
@@ -464,13 +463,13 @@ async def proxy_request(request: Request, endpoint: str):
         return block_response
 
     requested_model = model
-    request_context_tokens = estimate_request_context_tokens(body_json)
+    request_context_tokens, request_image_count = estimate_request_context(body_json)
     from app.services.intent_classifier import classify_intent
 
     request_intent = classify_intent(body_json.get("messages") or [])
 
     hard_limit = get_cached_context_hard_limit(requested_model)
-    if hard_limit and not request_has_image_parts(body_json) and request_context_tokens > hard_limit:
+    if hard_limit and request_image_count == 0 and request_context_tokens > hard_limit:
         message = (
             f"This model's maximum context length is {hard_limit} tokens. "
             f"However, your messages resulted in ~{request_context_tokens} tokens. "
@@ -572,7 +571,7 @@ async def proxy_request(request: Request, endpoint: str):
                 api_key_id=api_key_id,
                 client_ip=client_ip,
                 user_agent=user_agent,
-                request_context_tokens=estimate_request_context_tokens(body_json),
+                request_context_tokens=request_context_tokens,
                 latency_ms=(time.time() - start_time) * 1000,
                 upstream_status_code=429,
                 downstream_status_code=429,
@@ -624,7 +623,7 @@ async def proxy_request(request: Request, endpoint: str):
                     api_key_id=api_key_id,
                     client_ip=client_ip,
                     user_agent=user_agent,
-                    request_context_tokens=estimate_request_context_tokens(body_json),
+                    request_context_tokens=request_context_tokens,
                     latency_ms=(time.time() - start_time) * 1000,
                     upstream_status_code=429,
                     downstream_status_code=429,
@@ -677,7 +676,7 @@ async def proxy_request(request: Request, endpoint: str):
                     api_key_id=api_key_id,
                     client_ip=client_ip,
                     user_agent=user_agent,
-                    request_context_tokens=estimate_request_context_tokens(body_json),
+                    request_context_tokens=request_context_tokens,
                     latency_ms=(time.time() - start_time) * 1000,
                     upstream_status_code=429,
                     downstream_status_code=429,
@@ -799,7 +798,6 @@ async def proxy_request(request: Request, endpoint: str):
                             headers=busyness_headers or None,
                         )
 
-            request_context_tokens = estimate_request_context_tokens(body_json)
             all_keys = pick_api_keys(
                 provider_config,
                 api_key_id,
@@ -946,7 +944,7 @@ async def proxy_request(request: Request, endpoint: str):
                 )
 
             body = json.dumps(route_body_json).encode()
-            request_context_tokens = estimate_request_context_tokens(route_body_json)
+            route_context_tokens, route_image_count = estimate_request_context(route_body_json)
             adapter_endpoint = adapter.get_target_path(endpoint)
             provider_protocol = provider_config.get("protocol", "openai")
             route_exhausted = False
@@ -1168,7 +1166,7 @@ async def proxy_request(request: Request, endpoint: str):
                             api_key_id,
                             client_ip,
                             user_agent,
-                            request_context_tokens,
+                            route_context_tokens,
                             provider_key_semaphore,
                             user_provider_model_semaphore,
                             user_api_key_semaphore,
@@ -1176,6 +1174,7 @@ async def proxy_request(request: Request, endpoint: str):
                             stream_log_id,
                             request,
                             chosen_key_id=chosen_key_id,
+                            request_image_count=route_image_count,
                             protocol=provider_protocol,
                             extra_response_headers=busyness_headers,
                             intent=request_intent,
@@ -1210,7 +1209,7 @@ async def proxy_request(request: Request, endpoint: str):
                             api_key_id,
                             client_ip,
                             user_agent,
-                            request_context_tokens,
+                            route_context_tokens,
                             provider_key_semaphore,
                             user_provider_model_semaphore,
                             request_id,
@@ -1653,6 +1652,7 @@ async def handle_streaming(
     upstream_model=None,
     provider_key_label=None,
     routing_decision=None,
+    request_image_count=None,
 ):
     return await runtime_handle_streaming(
         url=url,
@@ -1682,4 +1682,5 @@ async def handle_streaming(
         provider_key_label=provider_key_label,
         routing_decision=routing_decision,
         model_concurrency_semaphore=model_concurrency_semaphore,
+        request_image_count=request_image_count,
     )

@@ -124,6 +124,7 @@ async def handle_streaming(
     upstream_model=None,
     provider_key_label=None,
     routing_decision=None,
+    request_image_count: int | None = None,
 ):
     logger.debug(
         "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -149,7 +150,10 @@ async def handle_streaming(
         is_active_request_registered = True
         req = client.build_request("POST", url, headers=headers, content=body)
         first_chunk_timeout = _first_chunk_timeout(
-            request_context_tokens, count_image_parts(req_body)
+            request_context_tokens,
+            request_image_count
+            if request_image_count is not None
+            else count_image_parts(req_body),
         )
         try:
             resp = await asyncio.wait_for(
