@@ -14,7 +14,7 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import case, func, select
 
@@ -1114,6 +1114,46 @@ def _summarize_request_row(r, provider_map) -> dict:
     }
 
 
+USER_MY_REQUESTS_EXPORT_MAX_ROWS = 50000
+
+
+def _user_my_requests_window(time_range: str) -> tuple[datetime, datetime]:
+    now = datetime.now()
+    if time_range == "all":
+        return datetime(2000, 1, 1), now
+    deltas = {
+        "1h": timedelta(hours=1),
+        "6h": timedelta(hours=6),
+        "24h": timedelta(hours=24),
+        "7d": timedelta(days=7),
+        "30d": timedelta(days=30),
+        "90d": timedelta(days=90),
+    }
+    return now - deltas.get(time_range, timedelta(days=7)), now
+
+
+def _user_my_requests_filters(
+    api_key_id: int,
+    model: Optional[str],
+    status: Optional[str],
+    dt_start: datetime,
+    dt_end: datetime,
+) -> list:
+    filters = [
+        RequestLog.api_key_id == api_key_id,
+        RequestLog.created_at >= dt_start,
+        RequestLog.created_at <= dt_end,
+    ]
+    if model:
+        filters.append(RequestLog.model.ilike(f"%{_escape_user_model(model)}%"))
+    if status:
+        if status == "error":
+            filters.append(RequestLog.status.in_(ERROR_STATUSES))
+        elif status == "success":
+            filters.append(RequestLog.status == "success")
+    return filters
+
+
 @router.get("/user/api/my-requests")
 async def get_user_my_requests(
     request: Request,
@@ -1129,35 +1169,12 @@ async def get_user_my_requests(
 
     page = max(1, page)
     page_size = max(1, min(page_size, 100))
-    now = datetime.now()
-
-    if time_range == "all":
-        dt_start = datetime(2000, 1, 1)
-    else:
-        deltas = {
-            "1h": timedelta(hours=1),
-            "6h": timedelta(hours=6),
-            "24h": timedelta(hours=24),
-            "7d": timedelta(days=7),
-            "30d": timedelta(days=30),
-            "90d": timedelta(days=90),
-        }
-        dt_start = now - deltas.get(time_range, timedelta(days=7))
-    dt_end = now
+    dt_start, dt_end = _user_my_requests_window(time_range)
 
     async with async_session_maker() as session:
-        filters = [
-            RequestLog.api_key_id == api_key_id,
-            RequestLog.created_at >= dt_start,
-            RequestLog.created_at <= dt_end,
-        ]
-        if model:
-            filters.append(RequestLog.model.ilike(f"%{_escape_user_model(model)}%"))
-        if status:
-            if status == "error":
-                filters.append(RequestLog.status.in_(ERROR_STATUSES))
-            elif status == "success":
-                filters.append(RequestLog.status == "success")
+        filters = _user_my_requests_filters(
+            api_key_id, model, status, dt_start, dt_end
+        )
 
         count_q = select(func.count()).select_from(RequestLog).where(*filters)
         total = (await session.execute(count_q)).scalar() or 0
@@ -1217,6 +1234,107 @@ async def get_user_my_requests(
 
 def _escape_user_model(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+@router.get("/user/api/my-requests/export")
+async def export_user_my_requests(
+    request: Request,
+    api_key_id: int = Depends(get_user_session),
+    model: Optional[str] = None,
+    status: Optional[str] = None,
+    time_range: str = "1h",
+):
+    from app.routes.logs import _build_xlsx
+
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+
+    dt_start, dt_end = _user_my_requests_window(time_range)
+    async with async_session_maker() as session:
+        filters = _user_my_requests_filters(
+            api_key_id, model, status, dt_start, dt_end
+        )
+        result = await session.execute(
+            select(
+                RequestLog.id,
+                RequestLog.model,
+                RequestLog.provider_id,
+                RequestLog.tokens,
+                RequestLog.request_context_tokens,
+                RequestLog.latency_ms,
+                RequestLog.first_chunk_ms,
+                RequestLog.wait_ms,
+                RequestLog.status,
+                RequestLog.error,
+                RequestLog.created_at,
+            )
+            .where(*filters)
+            .order_by(RequestLog.created_at.desc())
+            .limit(USER_MY_REQUESTS_EXPORT_MAX_ROWS)
+        )
+        rows = result.fetchall()
+        provider_ids = {r.provider_id for r in rows if r.provider_id}
+        provider_map = {}
+        if provider_ids:
+            prov_result = await session.execute(
+                select(Provider.id, Provider.name).where(
+                    Provider.id.in_(provider_ids)
+                )
+            )
+            provider_map = dict(prov_result.fetchall())
+
+        xlsx_rows: list[list] = [
+            [
+                "ID",
+                "时间",
+                "模型",
+                "供应商",
+                "状态",
+                "耗时(ms)",
+                "首包(ms)",
+                "排队(ms)",
+                "上下文Tokens",
+                "输入Tokens",
+                "输出Tokens",
+                "缓存Tokens",
+                "缓存率(%)",
+                "成本(元)",
+                "错误",
+            ]
+        ]
+        for r in rows:
+            s = _summarize_request_row(r, provider_map)
+            xlsx_rows.append(
+                [
+                    s["id"],
+                    r.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                    if r.created_at
+                    else "",
+                    s["model"] or "",
+                    s["provider"],
+                    s["status"],
+                    s["latency_ms"] if s["latency_ms"] is not None else "",
+                    s["first_chunk_ms"] if s["first_chunk_ms"] is not None else "",
+                    s["wait_ms"] if s["wait_ms"] is not None else "",
+                    s["context_tokens"],
+                    s["input_tokens"],
+                    s["output_tokens"],
+                    s["cached_tokens"],
+                    s["cache_ratio"] or "",
+                    s["cost_cny"] or "",
+                    s["error"] or "",
+                ]
+            )
+
+    filename = f"my_requests_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return Response(
+        content=_build_xlsx(xlsx_rows),
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/user/api/system-models")

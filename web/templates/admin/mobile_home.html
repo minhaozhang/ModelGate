@@ -90,6 +90,10 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         .conc-bar-bg { width: 48px; height: 6px; border-radius: 9999px; background: #e5e7eb; overflow: hidden; flex-shrink: 0; }
         .conc-bar-fill { height: 100%; border-radius: 9999px; transition: width 0.3s; }
         body.theme-dark .conc-bar-bg { background: #1f2937; }
+        body.theme-dark .log-provider { background: rgba(148, 163, 184, 0.16) !important; color: #cbd5e1 !important; }
+        body.theme-dark .log-provider { border: 1px solid rgba(148, 163, 184, 0.3); }
+        .log-tokens { color: #64748b; }
+        body.theme-dark .log-tokens { color: #94a3b8; }
     </style>
 </head>
 <body class="theme-dark bg-gray-50 min-h-screen pb-20">
@@ -320,6 +324,10 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         expectedRestoreAt: "{{ _('expected restore at {time}') }}",
         noNotifications: "{{ _('No notifications') }}",
         noLogs: "{{ _('No logs in range') }}",
+        logCtx: "{{ _('ctx' if current_locale != 'zh' else '上下文') }}",
+        logCache: "{{ _('cache' if current_locale != 'zh' else '缓存') }}",
+        logFirst: "{{ _('first' if current_locale != 'zh' else '首包') }}",
+        logWait: "{{ _('wait' if current_locale != 'zh' else '排队') }}",
         justNow: "{{ _('Just now') }}",
         minutesAgo: "{{ _('{n}m ago') }}",
         hoursAgo: "{{ _('{n}h ago') }}",
@@ -1157,6 +1165,17 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             return `${Math.floor(totalSec / 60)}m${String(Math.round(totalSec % 60)).padStart(2, '0')}s`;
         }
 
+        function logTokenBreakdown(log) {
+            const t = (log.tokens && typeof log.tokens === 'object') ? log.tokens : {};
+            const det = t.prompt_tokens_details || {};
+            return {
+                ctx: Number(log.request_context_tokens || 0),
+                input: Number(t.prompt_tokens || t.input_tokens || 0),
+                output: Number(t.completion_tokens || t.output_tokens || 0),
+                cached: Number(det.cached_tokens || 0)
+            };
+        }
+        function fmtTok(v) { return v > 0 ? v.toLocaleString() : '-'; }
         function renderLogs(logs, append) {
             const statusStyles = {
                 success: 'bg-green-100 text-green-700',
@@ -1168,6 +1187,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 const sc = statusStyles[log.status] || 'bg-gray-200 text-gray-600';
                 const time = formatLogTime(log.created_at);
                 const code = log.downstream_status_code ?? '-';
+                const tk = logTokenBreakdown(log);
                 const proto = (log.inbound_protocol && log.inbound_protocol !== 'openai')
                     ? `<span class="px-1.5 py-0.5 rounded text-[9px] bg-indigo-100 text-indigo-700 shrink-0">${esc(log.inbound_protocol)}</span>`
                     : '';
@@ -1184,13 +1204,21 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     </div>
                     ${modelExtra}
                     <div class="flex items-center gap-2 text-[10px] text-gray-500 mt-1">
-                        <span class="truncate">${esc(log.api_key || '-')}</span>
+                        <span class="shrink-0 font-medium" title="${esc(log.api_key || '-')}">${esc(log.api_key || '-')}</span>
                         <span class="log-provider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">${esc(log.provider || '-')}</span>
                         <span class="shrink-0">${code}</span>
                         <span class="shrink-0 ml-auto">${formatLatency(log.latency_ms)}</span>
                     </div>
+                    <div class="flex items-center gap-2 text-[10px] log-tokens mt-1">
+                        <span class="shrink-0">${window.I18N.logCtx || 'ctx'} ${fmtTok(tk.ctx)}</span>
+                        <span class="shrink-0">&uarr;${fmtTok(tk.input)}</span>
+                        <span class="shrink-0">&darr;${fmtTok(tk.output)}</span>
+                        <span class="shrink-0">${window.I18N.logCache || 'cache'} ${fmtTok(tk.cached)}</span>
+                        <span class="shrink-0 ml-auto">${window.I18N.logFirst || 'first'} ${formatLatency(log.first_chunk_ms)}</span>
+                    </div>
                     <div class="log-detail hidden mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-500 space-y-1">
-                        <div>${esc(log.provider || '-')} &middot; Key: ${esc(log.provider_key_label || '-')} &middot; ${esc(log.inbound_protocol || 'openai')} &middot; tokens: ${log.tokens ?? '-'}</div>
+                        <div>${esc(log.status)} &middot; Key: ${esc(log.api_key || '-')} &middot; ${esc(log.provider || '-')} &middot; ${esc(log.inbound_protocol || 'openai')}</div>
+                        <div>Provider Key: ${esc(log.provider_key_label || '-')} &middot; ${window.I18N.logWait || 'wait'}: ${formatLatency(log.wait_ms)}</div>
                         <div class="font-mono break-all">${esc(log.client_ip || '-')}</div>
                         <div class="break-all">${esc(String(log.user_agent || '-').substring(0, 300))}</div>
                         ${errMsg}
