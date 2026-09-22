@@ -13,6 +13,7 @@ from app.core.config import (
     error_logger,
     consume_user_slot_released,
     COMPACT_HINT_MIN_TOKENS,
+    FIRST_CHUNK_TOTAL_BUDGET_SECONDS,
 )
 from app.core.log_sanitizer import (
     sanitize_payload_for_log,
@@ -708,7 +709,9 @@ async def proxy_request(request: Request, endpoint: str):
         preferred_local_rate_limit_response = None
         first_chunk_timed_out = False
         first_chunk_timeout_tries: list[str] = []
+        first_chunk_budget_exhausted = False
         waiting_started = time.time()
+        first_chunk_deadline = waiting_started + FIRST_CHUNK_TOTAL_BUDGET_SECONDS
         waiting_log_id = None
         try:
             waiting_log_id = await create_request_log(
@@ -755,6 +758,14 @@ async def proxy_request(request: Request, endpoint: str):
             )
 
         for route_idx, route_result in enumerate(route_candidates):
+            if time.time() >= first_chunk_deadline:
+                first_chunk_budget_exhausted = True
+                logger.warning(
+                    "[FIRST CHUNK BUDGET] model=%s total budget %.0fs exhausted",
+                    model,
+                    FIRST_CHUNK_TOTAL_BUDGET_SECONDS,
+                )
+                break
             provider_config = route_result.provider_config
             provider_name = route_result.provider_name
             standard_model = route_result.model_name or requested_model
@@ -950,6 +961,10 @@ async def proxy_request(request: Request, endpoint: str):
             route_exhausted = False
 
             for attempt_idx, (chosen_api_key, chosen_key_id) in enumerate(all_keys):
+                if time.time() >= first_chunk_deadline:
+                    first_chunk_budget_exhausted = True
+                    route_exhausted = True
+                    break
                 target_url = f"{provider_config['base_url']}{adapter_endpoint}"
                 headers = build_headers(provider_config, api_key=chosen_api_key, protocol=provider_protocol)
 
@@ -1175,6 +1190,7 @@ async def proxy_request(request: Request, endpoint: str):
                             request,
                             chosen_key_id=chosen_key_id,
                             request_image_count=route_image_count,
+                            first_chunk_deadline=first_chunk_deadline,
                             protocol=provider_protocol,
                             extra_response_headers=busyness_headers,
                             intent=request_intent,
@@ -1342,6 +1358,30 @@ async def proxy_request(request: Request, endpoint: str):
 
             if route_exhausted:
                 continue
+
+        if first_chunk_budget_exhausted and last_response is None:
+            message = (
+                f"Upstream did not deliver a first chunk within the total retry "
+                f"budget of {FIRST_CHUNK_TOTAL_BUDGET_SECONDS:.0f}s across all "
+                "providers and keys. Please retry, or reduce context/images."
+            )
+            logger.warning(
+                "[FIRST CHUNK BUDGET] model=%s aborting after %.0fs",
+                model,
+                time.time() - waiting_started,
+            )
+            await safe_update_request_log(
+                waiting_log_id,
+                status="error",
+                latency_ms=(time.time() - start_time) * 1000,
+                upstream_status_code=504,
+                downstream_status_code=504,
+                error=message,
+                wait_ms=round((time.time() - waiting_started) * 1000),
+            )
+            return _openai_error_response(
+                message, 504, "server_error", "first_chunk_budget_exceeded"
+            )
 
         if last_response is not None:
             if (
@@ -1653,6 +1693,7 @@ async def handle_streaming(
     provider_key_label=None,
     routing_decision=None,
     request_image_count=None,
+    first_chunk_deadline=None,
 ):
     return await runtime_handle_streaming(
         url=url,
@@ -1683,4 +1724,5 @@ async def handle_streaming(
         routing_decision=routing_decision,
         model_concurrency_semaphore=model_concurrency_semaphore,
         request_image_count=request_image_count,
+        first_chunk_deadline=first_chunk_deadline,
     )

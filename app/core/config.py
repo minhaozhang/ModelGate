@@ -165,6 +165,13 @@ STREAM_FIRST_CHUNK_TIMEOUT_SECONDS = _env_float(
 STREAM_IMAGE_FIRST_CHUNK_BUDGET_SECONDS = _env_float(
     "STREAM_IMAGE_FIRST_CHUNK_BUDGET_SECONDS", 10.0
 )
+# Total wall-clock budget for the WHOLE first-chunk retry chain (all
+# providers x all keys). Without it a multimodal request (per-attempt
+# budget up to 120s) multiplied by N keys can hold the client for
+# 120s x N before the final error.
+FIRST_CHUNK_TOTAL_BUDGET_SECONDS = _env_float(
+    "MODELGATE_FIRST_CHUNK_TOTAL_BUDGET_SECONDS", 240.0
+)
 # Mid-stream stall guard: terminate the relay when upstream stays silent
 # (no raw line, keep-alive comments included) for this long after the first
 # chunk. Catches zombie connections that never send [DONE].
@@ -678,6 +685,7 @@ async def add_live_stats_subscriber(subscriber: Any) -> None:
 async def remove_live_stats_subscriber(subscriber: Any) -> None:
     async with live_stats_subscribers_lock:
         live_stats_subscribers.discard(subscriber)
+    await _maybe_stop_live_stats_tick()
 
 
 async def add_user_live_stats_subscriber(
@@ -699,18 +707,69 @@ async def remove_user_live_stats_subscriber(
             subscribers.discard(subscriber)
             if not subscribers:
                 user_live_stats_subscribers.pop(api_key_id, None)
+                _user_requests_cache.pop(api_key_id, None)
+                _user_requests_dirty.discard(api_key_id)
+    await _maybe_stop_live_stats_tick()
 
 
 async def build_user_my_requests_rows(api_key_id: int) -> list:
-    """Recent request rows for one dashboard user (fresh query; the last
-    event of a request lifecycle must never be served stale, and query
-    cost is negligible at this scale)."""
+    """Recent request rows for one dashboard user.
+
+    Cached until that user's request logs change: the 1s live-stats
+    tick broadcasts every second, so re-querying the DB on every push
+    would burn one query per user per second even when nothing about
+    THAT user changed. Dirty flags are set by the request-log
+    create/update paths (only for users with an existing cache, i.e.
+    users actually watching a dashboard)."""
+    if (
+        api_key_id in _user_requests_cache
+        and api_key_id not in _user_requests_dirty
+    ):
+        return _user_requests_cache[api_key_id]
     from app.routes.user import build_user_recent_requests
 
     try:
-        return await build_user_recent_requests(api_key_id, limit=10)
+        rows = await build_user_recent_requests(api_key_id, limit=10)
     except Exception:
-        return []
+        rows = []
+    _user_requests_cache[api_key_id] = rows
+    _user_requests_dirty.discard(api_key_id)
+    return rows
+
+
+_user_requests_cache: dict[int, list] = {}
+_user_requests_dirty: set[int] = set()
+_LOG_OWNER_CACHE_LIMIT = 4096
+_log_owner_cache: dict[int, int] = {}
+
+
+def remember_log_owner(log_id: int, api_key_id: Optional[int]) -> None:
+    """Map log_id -> api_key_id so later status updates can invalidate
+    exactly one user's my-requests cache without a DB lookup."""
+    if not log_id or api_key_id is None:
+        return
+    _log_owner_cache[log_id] = api_key_id
+    if len(_log_owner_cache) > _LOG_OWNER_CACHE_LIMIT:
+        for stale in list(_log_owner_cache.keys())[: _LOG_OWNER_CACHE_LIMIT // 2]:
+            _log_owner_cache.pop(stale, None)
+
+
+def mark_user_requests_dirty(api_key_id: Optional[int]) -> None:
+    if api_key_id is None or api_key_id not in _user_requests_cache:
+        return
+    _user_requests_dirty.add(api_key_id)
+
+
+def mark_all_user_requests_dirty() -> None:
+    _user_requests_dirty.update(_user_requests_cache.keys())
+
+
+def mark_user_requests_dirty_for_log(log_id: int) -> None:
+    owner = _log_owner_cache.get(log_id)
+    if owner is not None:
+        mark_user_requests_dirty(owner)
+    else:
+        mark_all_user_requests_dirty()
 
 
 async def _send_payload_to_subscribers(
@@ -742,6 +801,7 @@ async def broadcast_live_stats() -> None:
         await _discard_stale_subscribers(
             stale, live_stats_subscribers_lock, live_stats_subscribers
         )
+        await _maybe_stop_live_stats_tick()
 
     if not user_live_stats_subscribers:
         return
@@ -767,6 +827,7 @@ async def broadcast_live_stats() -> None:
                 subscribers = user_live_stats_subscribers.get(api_key_id)
                 if subscribers is not None:
                     subscribers.discard(subscriber)
+        await _maybe_stop_live_stats_tick()
 
 
 _tick_last_active = False
@@ -812,6 +873,32 @@ async def _live_stats_tick_loop() -> None:
 
 
 _tick_task: Optional[asyncio.Task] = None
+
+
+async def _maybe_stop_live_stats_tick() -> None:
+    """Cancel the tick loop once nobody is listening.
+
+    Lifecycle is driven by add/remove (not loop self-exit) to avoid the
+    "loop decided to exit right as a subscriber arrived" race: removal
+    re-checks emptiness after cancelling and respawns if someone
+    subscribed in between."""
+    global _tick_task
+    async with live_stats_subscribers_lock:
+        has_admin = bool(live_stats_subscribers)
+    async with user_live_stats_subscribers_lock:
+        has_user = bool(user_live_stats_subscribers)
+    if has_admin or has_user:
+        return
+    task = _tick_task
+    _tick_task = None
+    if task is not None and not task.done():
+        task.cancel()
+    async with live_stats_subscribers_lock:
+        has_admin = bool(live_stats_subscribers)
+    async with user_live_stats_subscribers_lock:
+        has_user = bool(user_live_stats_subscribers)
+    if has_admin or has_user:
+        _ensure_live_stats_tick()
 
 
 def _ensure_live_stats_tick() -> None:

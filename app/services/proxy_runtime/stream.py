@@ -125,6 +125,7 @@ async def handle_streaming(
     provider_key_label=None,
     routing_decision=None,
     request_image_count: int | None = None,
+    first_chunk_deadline: float | None = None,
 ):
     logger.debug(
         "[STREAM REQUEST] Provider: %s, Model: %s, URL: %s", provider, model, url
@@ -155,6 +156,13 @@ async def handle_streaming(
             if request_image_count is not None
             else count_image_parts(req_body),
         )
+        if first_chunk_deadline is not None:
+            # The final attempt must not overshoot the request-wide
+            # first-chunk budget (all providers x keys combined).
+            first_chunk_timeout = max(
+                0.5,
+                min(first_chunk_timeout, first_chunk_deadline - time.time()),
+            )
         try:
             resp = await asyncio.wait_for(
                 client.send(req, stream=True),

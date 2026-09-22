@@ -92,6 +92,8 @@ async def create_request_log(
 
         if status == "waiting":
             _notify_live_stats()
+        config_module.remember_log_owner(log.id, api_key_id)
+        config_module.mark_user_requests_dirty(api_key_id)
 
         return log.id
 
@@ -155,6 +157,8 @@ async def update_request_log(
                 )
             )
         await session.commit()
+        if (result.rowcount or 0) > 0:
+            config_module.mark_user_requests_dirty_for_log(log_id)
         return (result.rowcount or 0) > 0
 
 
@@ -200,6 +204,7 @@ async def update_request_log_status(
         updated = (result.rowcount or 0) > 0
     if updated:
         _notify_live_stats()
+        config_module.mark_user_requests_dirty_for_log(log_id)
     return updated
 
 
