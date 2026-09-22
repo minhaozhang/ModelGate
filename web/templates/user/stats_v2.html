@@ -1076,8 +1076,8 @@
         if (_embed) {
             document.getElementById('v2-page-head').classList.add('hidden');
             const cont = document.querySelector('.container');
-            cont.classList.remove('py-8');
-            cont.classList.add('py-4');
+            cont.classList.remove('container', 'px-4', 'py-8');
+            cont.classList.add('px-6', 'py-4');
             window.addEventListener('message', function (ev) {
                 if (ev.origin !== location.origin) return;
                 if (ev.data && ev.data.type === 'v2-theme') applyTheme(ev.data.theme);

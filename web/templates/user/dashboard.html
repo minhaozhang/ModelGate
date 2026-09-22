@@ -339,7 +339,7 @@
                     <option value="dark">{{ _('Dark Mode') }}</option>
                     <option value="blackgold">{{ _('Black Gold') }}</option>
                 </select>
-                <button onclick="showLegacyStats()" class="ctl-btn-new" title="{{ _('Back to Classic') }}">
+                <button id="stats-view-toggle" onclick="toggleStatsView()" class="ctl-btn-new" title="{{ _('Back to Classic') }}">
                     {{ _('Back to Classic') }} &nearr;
                 </button>
                 <button onclick="regenerateKey()" class="ctl-btn-amber">
@@ -393,9 +393,6 @@
         </div>
 
         <div id="legacy-stats-panel" class="hidden mb-6">
-            <div class="flex justify-end mb-4">
-                <button onclick="exitLegacyStats()" class="ctl-btn-new">&larr; {{ _('New Look') }}</button>
-            </div>
             <div class="bg-white rounded-2xl card-shell">
                 {% include 'user/tab_stats.html' %}
             </div>
@@ -491,6 +488,8 @@
         loading: {{ _('Loading...') | tojson }},
         loadFailed: {{ _('Failed to load') | tojson }},
         refresh: {{ _('Refresh') | tojson }},
+        backToClassic: {{ _('Back to Classic') | tojson }},
+        newLook: {{ _('New Look') | tojson }},
         topShare: {{ _('top share') | tojson }},
         onRightAxis: {{ _('on right axis') | tojson }},
         yourApiKey: {{ _('Your API key') | tojson }},
@@ -608,18 +607,32 @@
             return await resp.json();
         }
         
+        let _statsLegacy = false;
+        function toggleStatsView() {
+            if (_statsLegacy) exitLegacyStats(); else showLegacyStats();
+        }
+        function _syncStatsToggle() {
+            var btn = document.getElementById('stats-view-toggle');
+            if (!btn) return;
+            btn.textContent = _statsLegacy ? ('\u2190 ' + window.I18N.newLook) : (window.I18N.backToClassic + ' \u2197');
+            btn.title = _statsLegacy ? window.I18N.newLook : window.I18N.backToClassic;
+        }
         function showLegacyStats() {
+            _statsLegacy = true;
             document.getElementById('legacy-stats-panel').classList.remove('hidden');
             document.querySelector('.tab-nav').classList.add('hidden');
             document.querySelector('.card-shell').classList.add('hidden');
             var strip = document.getElementById('global-status-strip');
             if (strip) strip.classList.add('hidden');
+            _syncStatsToggle();
             window.scrollTo({ top: 0 });
         }
         function exitLegacyStats() {
+            _statsLegacy = false;
             document.getElementById('legacy-stats-panel').classList.add('hidden');
             document.querySelector('.tab-nav').classList.remove('hidden');
             document.querySelector('.card-shell').classList.remove('hidden');
+            _syncStatsToggle();
             window.scrollTo({ top: 0 });
         }
         window.addEventListener('message', function (e) {
