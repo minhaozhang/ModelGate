@@ -13,6 +13,9 @@ from app.services.provider import load_providers
 
 router = APIRouter(prefix="/admin/api", tags=["provider-models"])
 
+DEFAULT_MODEL_INPUT_PRICE_CNY = 2.0
+DEFAULT_MODEL_OUTPUT_PRICE_CNY = 8.0
+
 
 class SyncModelsRequest(BaseModel):
     models: Optional[List[str]] = None
@@ -102,6 +105,8 @@ async def add_provider_model(
             alias=data.alias,
             priority=data.priority or 0,
             is_active=data.is_active,
+            input_price_cny_per_million=DEFAULT_MODEL_INPUT_PRICE_CNY,
+            output_price_cny_per_million=DEFAULT_MODEL_OUTPUT_PRICE_CNY,
         )
         session.add(pm)
         await session.commit()
@@ -519,6 +524,8 @@ async def sync_provider_models(
                             model_id=model.id,
                             upstream_model_name=model_name,
                             is_active=True,
+                            input_price_cny_per_million=DEFAULT_MODEL_INPUT_PRICE_CNY,
+                            output_price_cny_per_million=DEFAULT_MODEL_OUTPUT_PRICE_CNY,
                         )
                         session.add(pm)
 

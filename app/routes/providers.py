@@ -10,6 +10,9 @@ from sqlalchemy.exc import IntegrityError
 from app.core.database import async_session_maker, Provider, ProviderKey
 from app.core.permissions import permission_required, login_required
 from app.services.provider import invalidate_provider_sticky_cache, load_providers
+from app.services.proxy_runtime.concurrency import (
+    DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY,
+)
 from app.services.disable_schedule import normalize_rules, schedule_active
 from app.services.key_health import compute_health_score, get_health_level, get_events_5m
 
@@ -270,7 +273,11 @@ async def create_provider_key(
             provider_id=provider_id,
             api_key=data.api_key,
             label=data.label,
-            max_concurrent=data.max_concurrent,
+            max_concurrent=(
+                data.max_concurrent
+                if data.max_concurrent is not None
+                else DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY
+            ),
             priority=data.priority or 0,
             cost_role=data.cost_role or "standard",
         )
