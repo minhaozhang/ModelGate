@@ -46,11 +46,21 @@
         .v2-reqrow .bar { height: 5px; border-radius: 3px; background: #e5e7eb; flex: 1; overflow: hidden; }
         .v2-reqrow .bar i { display: block; height: 100%; border-radius: 3px; }
         .v2-reqrow .nums { flex: 0 0 11rem; white-space: nowrap; text-align: right; }
-        .v2-sess { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 0.625rem; padding: 0.6rem 0.8rem; font-size: 0.75rem; display: flex; flex-direction: column; gap: 6px; }
-        .v2-sess b { color: #2563eb; }
-        .v2-sess .hd { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        .v2-sess .chips { display: flex; flex-wrap: wrap; gap: 4px 12px; color: #6b7280; }
-        .v2-sess .chips i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
+        .bubble-pool { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center; min-height: 110px; padding: 12px 4px 16px; }
+        .v2-bubble { animation: v2bubblePop .5s cubic-bezier(0.22, 1, 0.36, 1) backwards, v2bubbleBob var(--bob-dur, 5s) ease-in-out var(--bob-delay, 0s) infinite alternate; }
+        .v2-bubble.out { animation: v2bubbleOut .32s ease-in forwards; pointer-events: none; }
+        .v2-bubble-body { width: var(--size, 90px); height: var(--size, 90px); border-radius: 50%; border: 2px solid #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px; text-align: center; transition: width .6s ease, height .6s ease, background .6s ease, border-color .6s ease; }
+        .v2-bubble-body.busy { animation: v2bubblePulse 2.2s ease-in-out infinite; }
+        .v2-bubble .b-name { font-size: 12px; font-weight: 600; color: #374151; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .v2-bubble .b-count { font-size: 11px; color: #6b7280; }
+        .v2-bubble.self .v2-bubble-body { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22); }
+        .v2-bubble.self .b-name { color: #2563eb; }
+        @keyframes v2bubblePop { from { transform: scale(0.4); opacity: 0; } 65% { transform: scale(1.05); opacity: 1; } to { transform: scale(1); opacity: 1; } }
+        @keyframes v2bubbleBob { from { transform: translateY(-4px); } to { transform: translateY(5px); } }
+        @keyframes v2bubbleOut { to { transform: scale(0.5); opacity: 0; } }
+        @keyframes v2bubblePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+        @media (max-width: 640px) { .bubble-pool { gap: 10px; } .v2-bubble-body { width: min(var(--size, 90px), 96px); height: min(var(--size, 90px), 96px); } .v2-bubble .b-name { font-size: 11px; } .v2-bubble .b-count { font-size: 10px; } }
+        @media (prefers-reduced-motion: reduce) { .v2-bubble, .v2-bubble-body { animation: none !important; transition: none !important; } }
         .v2-legend { display: flex; gap: 14px; font-size: 0.6875rem; color: #6b7280; }
         .v2-legend b.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
         .v2-reqrow-card { background: #ffffff; }
@@ -72,8 +82,9 @@
         body.theme-dark .mc-track { stroke: rgba(235, 234, 250, 0.14); }
         body.theme-dark .mc-needle-tail { stroke: #8b8fa8; }
         body.theme-dark .mc-hub { fill: #1a1d26; stroke: #8b8fa8; }
-        body.theme-dark .v2-sess { background: rgba(235, 234, 250, 0.06); border-color: rgba(235, 234, 250, 0.14); color: #ededf8; }
-        body.theme-dark .v2-sess .chips { color: #ededf8b8; }
+        body.theme-dark .v2-bubble .b-name { color: #ededf8; }
+        body.theme-dark .v2-bubble .b-count { color: #ededf8b8; }
+        body.theme-dark .v2-bubble.self .b-name { color: #60a5fa; }
         body.theme-dark .ctl-select, body.theme-dark .ctl-btn-ghost { background: rgba(235, 234, 250, 0.06); color: #ededf8; border-color: rgba(235, 234, 250, 0.14); }
         body.theme-dark .ctl-btn-new { background: rgba(6, 182, 212, 0.12); color: #67e8f9; border-color: rgba(6, 182, 212, 0.3); }
         body.theme-dark .v2-legend { color: #ededf8b8; }
@@ -97,8 +108,10 @@
         body.theme-blackgold .mc-track { stroke: rgba(212, 168, 83, 0.2); }
         body.theme-blackgold .mc-needle-tail { stroke: #d4a853; }
         body.theme-blackgold .mc-hub { fill: #1a1712; stroke: #d4a853; }
-        body.theme-blackgold .v2-sess { background: rgba(212, 168, 83, 0.07); border-color: rgba(212, 168, 83, 0.22); color: #fafaf9; }
-        body.theme-blackgold .v2-sess .chips { color: #c9b896b8; }
+        body.theme-blackgold .v2-bubble .b-name { color: #fafaf9; }
+        body.theme-blackgold .v2-bubble .b-count { color: #c9b896; }
+        body.theme-blackgold .v2-bubble.self .b-name { color: #e7c67c; }
+        body.theme-blackgold .v2-bubble.self .v2-bubble-body { border-color: #d4a853 !important; box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.25); }
         body.theme-blackgold .ctl-select, body.theme-blackgold .ctl-btn-ghost { background: rgba(212, 168, 83, 0.07); color: #fafaf9; border-color: rgba(212, 168, 83, 0.22); }
         body.theme-blackgold .ctl-btn-new { background: rgba(212, 168, 83, 0.12); color: #e7c67c; border-color: rgba(212, 168, 83, 0.35); }
         body.theme-blackgold .v2-legend { color: #c9b896; }
@@ -186,17 +199,21 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-            <div class="v2-card flex flex-col" style="max-height:24rem">
-                <h3 class="shrink-0">{{ _('My Requests') }}
-                    <button onclick="openMyRequestsModal()" class="text-xs text-blue-600 hover:underline">{{ _('View All') }} &rarr;</button>
-                </h3>
-                <div id="my-requests-list" class="flex-1 min-h-0 overflow-hidden grid grid-cols-1 gap-y-1.5"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
-            </div>
-            <div class="v2-card flex flex-col" style="align-self:start">
-                <h3 id="v2-sessions-title" class="shrink-0">{{ _('System Active Requests') }} <span class="meta">{{ _('Real-time') }}</span></h3>
-                <div id="v2-sessions" class="grid gap-2" style="max-height:22rem;overflow-y:auto"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
-            </div>
+        <div class="v2-card mb-6 flex flex-col" style="max-height:24rem">
+            <h3 class="shrink-0">{{ _('My Requests') }}
+                <button onclick="openMyRequestsModal()" class="text-xs text-blue-600 hover:underline">{{ _('View All') }} &rarr;</button>
+            </h3>
+            <div id="my-requests-list" class="flex-1 min-h-0 overflow-hidden grid grid-cols-1 gap-y-1.5"><div class="text-gray-400 text-center py-2">{{ _('Loading...') }}</div></div>
+        </div>
+
+        <div class="v2-card mb-6">
+            <h3 id="v2-sessions-title">{{ _('System Active Requests') }}
+                <span class="flex items-center gap-3">
+                    <span class="v2-live"><i></i><span id="v2-sess-live">-</span></span>
+                    <span class="meta">{{ _('Real-time') }}</span>
+                </span>
+            </h3>
+            <div id="v2-sessions" class="bubble-pool"><div class="text-gray-400 text-center py-2 w-full">{{ _('Loading...') }}</div></div>
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
@@ -606,29 +623,68 @@
             }, 500);
         }
 
+        const _activeBubbles = new Map();
         function renderV2Sessions(data) {
             const el = document.getElementById('v2-sessions');
             if (!el) return;
             const sessions = data.sessions || [];
-            const twoCols = sessions.length > 6;
-            el.className = 'grid gap-2 ' + (twoCols ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1');
+            const liveEl = document.getElementById('v2-sess-live');
+            if (liveEl) liveEl.textContent = `${data.active_count ?? sessions.length} ${T('人', 'users')} · ${(data.request_count || 0).toLocaleString()} ${window.I18N.req}`;
             if (!sessions.length) {
-                el.innerHTML = `<div class="text-gray-400 text-center py-2">${T('现在很安静', 'So empty...')}</div>`;
+                for (const [name, node] of _activeBubbles) {
+                    node.classList.add('out');
+                    setTimeout(() => node.remove(), 340);
+                }
+                _activeBubbles.clear();
+                if (!el.querySelector('.v2-bubble')) {
+                    el.innerHTML = `<div class="text-gray-400 text-center py-6 w-full">${T('现在很安静', 'So empty...')}</div>`;
+                }
                 return;
             }
-            el.innerHTML = sessions.map(session => {
-                const chipsHtml = Object.entries(session.models || {})
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([model, count]) => `<span><i style="background:${_mcModelColor(model)}"></i>${escapeHtml(model)}(${count})</span>`)
-                    .join('');
-                return `<div class="v2-sess">
-                    <div class="hd">
-                        <span style="font-weight:600;${session.is_self ? 'color:#2563eb' : ''}">${escapeHtml(session.name)}${session.is_self ? ' (' + T('我', 'me') + ')' : ''}</span>
-                        <span><b>${session.requests}</b> ${window.I18N.active}</span>
-                    </div>
-                    <div class="chips">${chipsHtml || window.I18N.noModels}</div>
-                </div>`;
-            }).join('');
+            const ordered = sessions.slice().sort((a, b) => (b.requests || 0) - (a.requests || 0));
+            const seen = new Set();
+            for (const s of ordered) {
+                seen.add(s.name);
+                const models = Object.entries(s.models || {}).sort((a, b) => b[1] - a[1]);
+                const color = _mcModelColor(models[0] ? models[0][0] : s.name);
+                const req = s.requests || 1;
+                const size = Math.min(78 + (req - 1) * 9, 152);
+                let bubble = _activeBubbles.get(s.name);
+                if (!bubble) {
+                    bubble = document.createElement('div');
+                    bubble.className = 'v2-bubble';
+                    bubble.dataset.name = s.name;
+                    bubble.style.setProperty('--bob-dur', (4 + Math.random() * 3).toFixed(2) + 's');
+                    bubble.style.setProperty('--bob-delay', (-Math.random() * 5).toFixed(2) + 's');
+                    bubble.innerHTML = `<div class="v2-bubble-body"><span class="b-name"></span><span class="b-count"></span></div>`;
+                    el.appendChild(bubble);
+                    _activeBubbles.set(s.name, bubble);
+                }
+                const body = bubble.querySelector('.v2-bubble-body');
+                body.style.setProperty('--size', size + 'px');
+                body.style.background = `linear-gradient(145deg, ${color}2e, ${color}12)`;
+                body.style.borderColor = color;
+                bubble.classList.toggle('self', !!s.is_self);
+                body.classList.toggle('busy', req >= 5);
+                bubble.style.order = String(1000 - req);
+                const nameEl = bubble.querySelector('.b-name');
+                const countEl = bubble.querySelector('.b-count');
+                const wantName = s.is_self ? `${s.name} (${T('我', 'me')})` : s.name;
+                if (nameEl.textContent !== wantName) {
+                    nameEl.textContent = wantName;
+                    nameEl.title = wantName;
+                }
+                countEl.textContent = `${req} ${window.I18N.active}`;
+                bubble.setAttribute('title', models.length ? models.map(([m, c]) => `${m}(${c})`).join(' · ') : s.name);
+            }
+            for (const [name, node] of _activeBubbles) {
+                if (!seen.has(name)) {
+                    _activeBubbles.delete(name);
+                    node.classList.add('out');
+                    setTimeout(() => node.remove(), 340);
+                }
+            }
+            [...el.children].forEach(child => { if (!child.classList.contains('v2-bubble')) child.remove(); });
         }
         async function loadSessions() {
             try {

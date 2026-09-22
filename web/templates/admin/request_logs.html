@@ -309,7 +309,6 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                                     <th class="num">{{ _('Wait') }}</th>
                                     <th class="num">{{ _('Cost') }}</th>
                         <th>{{ _('Client IP') }}</th>
-                        <th>{{ _('User Agent') }}</th>
                         <th></th>
                                 </tr>
                             </thead>
@@ -423,6 +422,9 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
             userAgent: "{{ _('User Agent') }}",
             errorDetail: "{{ _('Error Detail') }}",
             response: "{{ _('Response') }}",
+            contentTab: "{{ _('Content') }}",
+            details: "{{ _('Details') }}",
+            meta: "Meta",
             requestAt: "{{ _('Created At') }}",
             queryResults: "{{ _('Query Results') }}",
             noLogs: "{{ _('No logs found matching the current filters.') }}",
@@ -770,10 +772,8 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                         <td class="num mono ${log.wait_ms > 5000 ? 'text-amber-600' : 'text-gray-700'}">${log.wait_ms != null ? (log.wait_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="cell-cost num mono text-gray-700">${billingCost !== null ? formatCost(billingCost) : '-'}</td>
                         <td class="cell-ip mono text-xs text-gray-600">${log.client_ip ? `<button class="link-btn" onclick="showIpLocation('${escapeHtml(log.client_ip)}')" title="${window.I18N.ipLocation}">${escapeHtml(log.client_ip)}</button>` : '-'}</td>
-                        <td class="cell-ua text-xs text-gray-600"><div class="max-w-[180px] truncate" title="${escapeHtml(log.user_agent || '')}">${escapeHtml(log.user_agent || '-')}</div></td>
                         <td class="cell-actions whitespace-nowrap">
-                            ${hasResponse ? `<button class="link-btn" onclick="showResponseDetail(this)">${window.I18N.response}</button>` : ''}
-                            <button class="link-btn ml-2" onclick="showContentDetail(${log.id})">Content</button>
+                            <button class="link-btn" onclick="showLogDetail(this, ${log.id})">${window.I18N.details}</button>
                         </td>
                     </tr>
                 `;
@@ -845,7 +845,7 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
             if (currentPage < totalPages) loadLogs(currentPage + 1);
         }
 
-        function showResponseDetail(el) {
+        async function showLogDetail(el, logId) {
             const row = el.closest('tr.log-row');
             const response = row.dataset.response;
             const ua = row.dataset.userAgent;
@@ -870,10 +870,9 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
             })() });
 
             let tokenHTML = '';
-            let tokenObj = null;
             if (tokens) {
                 try {
-                    tokenObj = JSON.parse(tokens);
+                    const tokenObj = JSON.parse(tokens);
                     if (tokenObj && typeof tokenObj === 'object') {
                         tokenHTML = buildTokenBreakdownHTML(tokenObj);
                     }
@@ -884,9 +883,12 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                 panels.push({ id: 'tokens', html: tokenHTML });
             }
 
+            tabs.push({ id: 'content', label: window.I18N.contentTab });
+            panels.push({ id: 'content', html: '<div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25);margin:2rem auto"></div>' });
+
             if (ua) {
-                tabs.push({ id: 'meta', label: 'Meta' });
-                panels.push({ id: 'meta', html: `<div class="text-xs space-y-2"><div><strong class="text-gray-500">User Agent:</strong> <span class="text-gray-300">${escapeHtml(ua)}</span></div></div>` });
+                tabs.push({ id: 'meta', label: window.I18N.meta });
+                panels.push({ id: 'meta', html: `<div class="text-xs space-y-2"><div><strong class="text-gray-500">User Agent:</strong> <span class="text-gray-300">${escapeHtml(ua)}</span></div><div><strong class="text-gray-500">Model:</strong> <span class="text-gray-300">${escapeHtml(model || '-')}</span></div><div><strong class="text-gray-500">Log:</strong> <span class="text-gray-300">#${logId}</span></div></div>` });
             }
 
             const firstTab = tabs[0].id;
@@ -903,7 +905,7 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
 
             overlay.innerHTML = `<div class="detail-modal">
                 <div class="detail-modal-header">
-                    <span class="font-semibold">${escapeHtml(model || '-')}</span>
+                    <span class="font-semibold">${escapeHtml(model || '-')}<span class="text-sm text-gray-400 font-normal ml-2">Log #${logId}</span></span>
                     <button onclick="this.closest('.detail-modal-overlay').remove()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
                 </div>
                 <div class="detail-tabs">${tabButtons}</div>
@@ -911,11 +913,40 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
             </div>`;
             document.body.appendChild(overlay);
 
+            let contentLoaded = false;
+            const loadContent = async () => {
+                if (contentLoaded) return;
+                contentLoaded = true;
+                const panel = overlay.querySelector('[data-panel="content"]');
+                try {
+                    const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/${logId}/content`);
+                    let body = '';
+                    if (data.request_messages) {
+                        body += `<div class="mb-3"><strong>Request Messages:</strong> <span id="rm-toggle" class="text-xs text-blue-500 cursor-pointer ml-2" onclick="toggleMsgView(this)">[structured]</span></div>`;
+                        body += `<div id="rm-structured">${renderMessages(data.request_messages)}</div>`;
+                        body += `<div id="rm-raw" class="hidden"><pre class="text-xs">${escapeHtml(typeof data.request_messages === 'string' ? data.request_messages : JSON.stringify(data.request_messages, null, 2))}</pre></div>`;
+                    }
+                    if (data.response_content) {
+                        body += `<div class="mb-3 mt-4"><strong>Response:</strong></div><pre class="text-xs">${escapeHtml(data.response_content)}</pre>`;
+                    }
+                    if (data.response_thinking) {
+                        body += `<div class="mb-3 mt-4"><strong>Thinking:</strong></div><pre class="text-xs text-blue-600">${escapeHtml(data.response_thinking)}</pre>`;
+                    }
+                    if (data.response_tool_calls && data.response_tool_calls.length) {
+                        body += `<div class="mb-3 mt-4"><strong>Tool Calls:</strong></div><pre class="text-xs">${escapeHtml(JSON.stringify(data.response_tool_calls, null, 2))}</pre>`;
+                    }
+                    panel.innerHTML = body || '<span class="text-gray-400">-</span>';
+                } catch (e) {
+                    panel.innerHTML = '<span class="text-red-500 text-sm">Failed to load content</span>';
+                }
+            };
+
             overlay.querySelectorAll('.detail-tab').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const tabId = btn.dataset.tab;
                     overlay.querySelectorAll('.detail-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
                     overlay.querySelectorAll('.detail-tab-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === tabId));
+                    if (tabId === 'content') loadContent();
                 });
             });
         }
@@ -994,43 +1025,6 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                 }).join('\n');
             }
             return JSON.stringify(content);
-        }
-
-        async function showContentDetail(logId) {
-            const overlay = document.createElement('div');
-            overlay.className = 'detail-modal-overlay';
-            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-            overlay.innerHTML = `<div class="detail-modal">
-                <div class="detail-modal-header">
-                    <span class="font-semibold">Content - Log #${logId}</span>
-                    <button onclick="this.closest('.detail-modal-overlay').remove()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
-                </div>
-                <div class="detail-modal-body"><div class="spinner" style="border-top-color:#3b82f6;border-color:rgba(59,130,246,0.25);margin:2rem auto"></div></div>
-            </div>`;
-            document.body.appendChild(overlay);
-            try {
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/${logId}/content`);
-                if (!data) { overlay.remove(); return; }
-                let body = '';
-                if (data.request_messages) {
-                    body += `<div class="mb-3"><strong>Request Messages:</strong> <span id="rm-toggle" class="text-xs text-blue-500 cursor-pointer ml-2" onclick="toggleMsgView(this)">[structured]</span></div>`;
-                    body += `<div id="rm-structured">${renderMessages(data.request_messages)}</div>`;
-                    body += `<div id="rm-raw" class="hidden"><pre class="text-xs">${escapeHtml(typeof data.request_messages === 'string' ? data.request_messages : JSON.stringify(data.request_messages, null, 2))}</pre></div>`;
-                }
-                if (data.response_content) {
-                    body += `<div class="mb-3 mt-4"><strong>Response:</strong></div><pre class="text-xs">${escapeHtml(data.response_content)}</pre>`;
-                }
-                if (data.response_thinking) {
-                    body += `<div class="mb-3 mt-4"><strong>Thinking:</strong></div><pre class="text-xs text-blue-600">${escapeHtml(data.response_thinking)}</pre>`;
-                }
-                if (data.response_tool_calls && data.response_tool_calls.length) {
-                    body += `<div class="mb-3 mt-4"><strong>Tool Calls:</strong></div><pre class="text-xs">${escapeHtml(JSON.stringify(data.response_tool_calls, null, 2))}</pre>`;
-                }
-                if (!body) body = '<span class="text-gray-400">No content recorded</span>';
-                overlay.querySelector('.detail-modal-body').innerHTML = body;
-            } catch (e) {
-                overlay.querySelector('.detail-modal-body').innerHTML = '<span class="text-red-500 text-sm">Failed to load content</span>';
-            }
         }
 
         async function showIpLocation(ip) {

@@ -1848,6 +1848,14 @@ msgstr "错误详情"
 msgid "Response"
 msgstr "响应内容"
 
+#: web/templates/admin/request_logs.html:410
+msgid "Content"
+msgstr "内容"
+
+#: web/templates/admin/request_logs.html:411
+msgid "Details"
+msgstr "详情"
+
 #: web/templates/admin/request_logs.html:411
 msgid "Query Results"
 msgstr "查询结果"

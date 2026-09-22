@@ -371,9 +371,11 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             return value.toFixed(1).replace(/\.0$/, '');
         }
 
-        function maskName(name) {
-            if (!name || name.length <= 4) return name;
-            return name.slice(0, 2) + '***' + name.slice(-2);
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        function escapeAttr(value) {
+            return escapeHtml(value).replace(/`/g, '&#96;');
         }
 
         function getTokenChartScale(requestValues, tokenValues) {
@@ -859,7 +861,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 }).join('');
                 return `<div class="bg-gray-50 rounded-lg p-3">
                     <div class="flex justify-between items-center gap-2">
-                        <div class="text-xs font-medium truncate cursor-default min-w-0" title="${keyName}">${maskName(keyName)}${tagsHtml}</div>
+                        <div class="text-xs font-medium truncate cursor-default min-w-0" title="${escapeAttr(keyName)}">${escapeHtml(keyName)}${tagsHtml}</div>
                         <span class="text-[10px] text-gray-400 flex-shrink-0">${userRows.length} ${window.I18N.req}</span>
                     </div>
                     <div class="mt-1">${reqRows}</div>

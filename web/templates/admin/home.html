@@ -318,6 +318,9 @@
             if (!name || name.length <= 4) return name;
             return name.slice(0, 2) + '***' + name.slice(-2);
         }
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
         function formatCompactTokens(tokens) {
             const value = Number(tokens || 0);
             if (value >= 1000000000) return (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
@@ -706,7 +709,6 @@
             const disabledProviders = data.disabled_providers || {};
             liveSnapshotRecvAt = Date.now();
             for (const [name, userRows] of grouped) {
-                const maskedName = maskName(name);
                 const tagsHtml = (userRows[0].tags || []).map(t => `<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded ml-1 align-middle">${t}</span>`).join('');
                 const reqHtml = userRows.map(r => {
                     const label = routeLabel(r);
@@ -730,7 +732,7 @@
 
                 const innerHtml = `<div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1">
-                        <span class="font-medium truncate cursor-default" title="${name}">${maskedName}</span>${tagsHtml}
+                        <span class="font-medium truncate cursor-default" title="${name}">${escapeHtml(name)}</span>${tagsHtml}
                         <span class="text-xs text-gray-400 ml-auto flex-shrink-0">${userRows.length} ${homeI18n.req}</span>
                     </div>
                     <div class="text-xs text-gray-500 mt-1">${reqHtml}</div>
