@@ -324,9 +324,9 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         expectedRestoreAt: "{{ _('expected restore at {time}') }}",
         noNotifications: "{{ _('No notifications') }}",
         noLogs: "{{ _('No logs in range') }}",
-        logCtx: "{{ _('ctx' if current_locale != 'zh' else '上下文') }}",
+        logCtx: "{{ _('ctx' if current_locale != 'zh' else '总') }}",
         logCache: "{{ _('cache' if current_locale != 'zh' else '缓存') }}",
-        logFirst: "{{ _('first' if current_locale != 'zh' else '首包') }}",
+        logFirst: "{{ _('1st' if current_locale != 'zh' else '首') }}",
         logWait: "{{ _('wait' if current_locale != 'zh' else '排队') }}",
         justNow: "{{ _('Just now') }}",
         minutesAgo: "{{ _('{n}m ago') }}",
@@ -1168,14 +1168,22 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         function logTokenBreakdown(log) {
             const t = (log.tokens && typeof log.tokens === 'object') ? log.tokens : {};
             const det = t.prompt_tokens_details || {};
+            const input = Number(t.prompt_tokens || t.input_tokens || 0);
+            const cached = Number(det.cached_tokens || 0);
             return {
                 ctx: Number(log.request_context_tokens || 0),
-                input: Number(t.prompt_tokens || t.input_tokens || 0),
+                input: input,
                 output: Number(t.completion_tokens || t.output_tokens || 0),
-                cached: Number(det.cached_tokens || 0)
+                cached: cached,
+                cachePct: (input > 0 && cached > 0) ? Math.round(cached / input * 100) : null
             };
         }
-        function fmtTok(v) { return v > 0 ? v.toLocaleString() : '-'; }
+        function fmtTok(v) {
+            if (!(v > 0)) return '-';
+            if (v >= 1e6) return ((v / 1e6).toFixed(v >= 1e7 ? 0 : 1).replace(/\.0$/, '')) + 'M';
+            if (v >= 1000) return ((v / 1000).toFixed(v >= 1e4 ? 0 : 1).replace(/\.0$/, '')) + 'k';
+            return String(v);
+        }
         function renderLogs(logs, append) {
             const statusStyles = {
                 success: 'bg-green-100 text-green-700',
@@ -1195,30 +1203,29 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     ? `<div class="text-[10px] text-blue-500 mt-0.5">&rarr; ${esc(log.requested_model)}</div>`
                     : '';
                 const errMsg = log.error ? `<div class="text-red-400 break-words">${esc(String(log.error).substring(0, 300))}</div>` : '';
+                const timeBits = [];
+                if (log.first_chunk_ms != null) timeBits.push(`${window.I18N.logFirst || 'first'} ${formatLatency(log.first_chunk_ms)}`);
+                if (log.latency_ms != null) timeBits.push(formatLatency(log.latency_ms));
                 return `<div class="bg-white rounded-xl p-3" onclick="var d=this.querySelector('.log-detail');if(d)d.classList.toggle('hidden')">
                     <div class="flex items-center gap-2 text-[11px]">
                         <span class="text-gray-400 shrink-0">${time}</span>
-                        <span class="font-medium text-gray-800 truncate flex-1">${esc(log.model || '-')}</span>
+                        <span class="font-medium text-gray-800 truncate flex-1" title="${esc(log.model || '-')}">${esc(log.model || '-')}</span>
                         ${proto}
+                        <span class="shrink-0 text-[10px] text-gray-500 max-w-[72px] truncate" title="${esc(log.api_key || '-')}">${esc(log.api_key || '-')}</span>
+                        <span class="log-provider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">${esc(log.provider || '-')}</span>
                         <span class="px-1.5 py-0.5 rounded text-[9px] ${sc} shrink-0">${esc(log.status)}</span>
                     </div>
                     ${modelExtra}
-                    <div class="flex items-center gap-2 text-[10px] text-gray-500 mt-1">
-                        <span class="shrink-0 font-medium" title="${esc(log.api_key || '-')}">${esc(log.api_key || '-')}</span>
-                        <span class="log-provider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">${esc(log.provider || '-')}</span>
-                        <span class="shrink-0">${code}</span>
-                        <span class="shrink-0 ml-auto">${formatLatency(log.latency_ms)}</span>
-                    </div>
                     <div class="flex items-center gap-2 text-[10px] log-tokens mt-1">
                         <span class="shrink-0">${window.I18N.logCtx || 'ctx'} ${fmtTok(tk.ctx)}</span>
                         <span class="shrink-0">&uarr;${fmtTok(tk.input)}</span>
                         <span class="shrink-0">&darr;${fmtTok(tk.output)}</span>
-                        <span class="shrink-0">${window.I18N.logCache || 'cache'} ${fmtTok(tk.cached)}</span>
-                        <span class="shrink-0 ml-auto">${window.I18N.logFirst || 'first'} ${formatLatency(log.first_chunk_ms)}</span>
+                        <span class="shrink-0">${window.I18N.logCache || 'cache'} ${tk.cachePct != null ? tk.cachePct + '%' : '-'}</span>
+                        <span class="shrink-0 ml-auto">${timeBits.join(' &middot; ')}</span>
                     </div>
                     <div class="log-detail hidden mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-500 space-y-1">
-                        <div>${esc(log.status)} &middot; Key: ${esc(log.api_key || '-')} &middot; ${esc(log.provider || '-')} &middot; ${esc(log.inbound_protocol || 'openai')}</div>
-                        <div>Provider Key: ${esc(log.provider_key_label || '-')} &middot; ${window.I18N.logWait || 'wait'}: ${formatLatency(log.wait_ms)}</div>
+                        <div>${esc(log.status)}${code !== '-' ? ' &middot; HTTP ' + code : ''} &middot; Key: ${esc(log.api_key || '-')} &middot; ${esc(log.provider || '-')} &middot; ${esc(log.inbound_protocol || 'openai')}</div>
+                        <div>Provider Key: ${esc(log.provider_key_label || '-')} &middot; ${window.I18N.logWait || 'wait'}: ${formatLatency(log.wait_ms)} &middot; cache: ${fmtTok(tk.cached)}/${fmtTok(tk.input)}</div>
                         <div class="font-mono break-all">${esc(log.client_ip || '-')}</div>
                         <div class="break-all">${esc(String(log.user_agent || '-').substring(0, 300))}</div>
                         ${errMsg}
