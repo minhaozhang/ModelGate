@@ -3,6 +3,8 @@
         .v2-card { background: #f9fafb; border-radius: 1rem; padding: 1.25rem; }
         .v2-card h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; color: #1f2937; }
         .v2-card h3 .meta { font-size: 0.6875rem; color: #9ca3af; font-weight: 400; }
+        .v2-kpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+        @media (min-width: 768px) { .v2-kpi-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
         .v2-kpi { background: rgba(255,255,255,.7); border-radius: 1rem; padding: 0.875rem 1rem; }
         .v2-kpi .lbl { font-size: 0.6875rem; color: #6b7280; font-weight: 500; }
         .v2-kpi .val { font-size: 1.625rem; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
@@ -163,7 +165,7 @@
     {% endif %}
 
     <div class="v2-card mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+        <div class="v2-kpi-grid">
             <div class="v2-kpi">
                 <div class="lbl">{{ _('Total Requests') }} · {{ _('Personal') }}/{{ _('System') }}</div>
                 <div class="val" style="color:#2563eb" id="v2-total-requests">-</div>
@@ -175,9 +177,9 @@
                 <div class="vs">{{ _('System') }} <b id="v2-sys-tokens">-</b></div>
             </div>
             <div class="v2-kpi">
-                <div class="lbl">{{ _('Tokens/s') }} · {{ _('System') }} {{ _('Real-time') }}</div>
+                <div class="lbl">{{ _('Tokens/s') }}</div>
                 <div class="val" style="color:#7c3aed" id="v2-tps">-</div>
-                <div class="vs">10s {{ _('window' if current_locale != 'zh' else '衰减窗口') }}</div>
+                <div class="vs">{{ _('System') }} · {{ _('Real-time') }}</div>
             </div>
             <div class="v2-kpi">
                 <div class="lbl">{{ _('Errors') }} · {{ _('Personal') }}</div>
