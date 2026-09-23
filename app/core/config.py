@@ -286,11 +286,24 @@ def record_tokens_second(tokens: int) -> None:
     _trim_token_buckets(now)
 
 
+def estimate_tokens(text: str) -> int:
+    """流式增量 tokens 估算：CJK 字符（含 CJK 标点）按 1 token 计，其余按 4 字符 1 token。
+
+    流中估算与请求结束补差必须共用本函数，口径不一致会导致补差错误。"""
+    if not text:
+        return 0
+    cjk = 0
+    for ch in text:
+        if "\u4e00" <= ch <= "\u9fff" or "\u3000" <= ch <= "\u303f":
+            cjk += 1
+    return cjk + (len(text) - cjk) // 4
+
+
 def record_stream_text_delta(text: str) -> None:
-    """流式 chunk 增量估算（len/4，与 build_tokens_record 估算口径一致）。"""
+    """流式 chunk 增量估算（CJK-aware，与结束补差同口径）。"""
     if not text:
         return
-    record_tokens_second(len(text) // 4)
+    record_tokens_second(estimate_tokens(text))
 
 
 def get_total_tokens_per_second() -> float:

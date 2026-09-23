@@ -3,7 +3,7 @@ import time
 
 from fastapi.responses import JSONResponse
 
-from app.core.config import error_logger, logger, record_tokens_second, update_stats
+from app.core.config import error_logger, estimate_tokens, logger, record_tokens_second, update_stats
 from app.core.log_sanitizer import sanitize_payload_for_log, sanitize_text_for_log
 from app.services.logging import create_request_log, update_request_log, update_request_content
 from app.services.minimax import process_minimax_response
@@ -209,8 +209,8 @@ async def _record_stream_result(
         record_tokens_second(
             (tokens_record.get("completion_tokens") or 0)
             - (
-                len(total_content or "") // 4
-                + len(total_reasoning or "") // 4
+                estimate_tokens(total_content or "")
+                + estimate_tokens(total_reasoning or "")
             )
         )
         updated = await update_request_log(
