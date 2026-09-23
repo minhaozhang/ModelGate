@@ -516,6 +516,7 @@ async def handle_streaming(
                                 provider_key_id=chosen_key_id,
                                 upstream_model=upstream_model,
                                 requested_model=requested_model,
+                                request_image_count=request_image_count,
                             )
                             return
                     continue
@@ -649,6 +650,7 @@ async def handle_streaming(
                             provider_key_id=chosen_key_id,
                             upstream_model=upstream_model,
                             requested_model=requested_model,
+                            request_image_count=request_image_count,
                         )
                         return
 
@@ -672,6 +674,7 @@ async def handle_streaming(
                 provider_key_id=chosen_key_id,
                 upstream_model=upstream_model,
                 requested_model=requested_model,
+                request_image_count=request_image_count,
             )
         except UpstreamStallTimeout as e:
             if chosen_key_id is not None:
@@ -697,6 +700,7 @@ async def handle_streaming(
                 provider_key_id=chosen_key_id,
                 upstream_model=upstream_model,
                 requested_model=requested_model,
+                request_image_count=request_image_count,
             )
             yield f"data: {json.dumps({'error': {'message': '上游流式响应超时（长时间无数据），请稍后重试', 'type': 'timeout'}})}\n\n"
         except httpx.TransportError as e:
@@ -723,9 +727,71 @@ async def handle_streaming(
                 provider_key_id=chosen_key_id,
                 upstream_model=upstream_model,
                 requested_model=requested_model,
+                request_image_count=request_image_count,
             )
             yield f"data: {json.dumps({'error': {'message': '上游网络中断（连接断开/读取失败），请稍后重试', 'type': 'api_error'}})}\n\n"
+        except asyncio.CancelledError:
+            try:
+                await asyncio.shield(_record_stream_result(
+                    total_content,
+                    total_reasoning,
+                    stream_tool_calls,
+                    final_finish_reason,
+                    last_usage,
+                    req_body,
+                    provider,
+                    model,
+                    api_key_id,
+                    client_ip,
+                    user_agent,
+                    request_context_tokens,
+                    start_time,
+                    log_id,
+                    "cancelled",
+                    provider_key_id=chosen_key_id,
+                    upstream_model=upstream_model,
+                    requested_model=requested_model,
+                    request_image_count=request_image_count,
+                ))
+            except Exception:
+                pass
+            raise
+        except GeneratorExit:
+            # Client disconnected (generator aclose). Must not await here —
+            # hand the log write to a detached task, then re-raise.
+            try:
+                asyncio.get_running_loop().create_task(
+                    _record_stream_result(
+                        total_content,
+                        total_reasoning,
+                        stream_tool_calls,
+                        final_finish_reason,
+                        last_usage,
+                        req_body,
+                        provider,
+                        model,
+                        api_key_id,
+                        client_ip,
+                        user_agent,
+                        request_context_tokens,
+                        start_time,
+                        log_id,
+                        "cancelled",
+                        provider_key_id=chosen_key_id,
+                        upstream_model=upstream_model,
+                        requested_model=requested_model,
+                        request_image_count=request_image_count,
+                    )
+                )
+            except Exception:
+                pass
+            raise
         except Exception as e:
+            if chosen_key_id is not None:
+                record_key_event(
+                    chosen_key_id,
+                    "timeout" if isinstance(e, asyncio.TimeoutError) else "error_5xx",
+                )
             await _record_stream_result(
                 total_content,
                 total_reasoning,
@@ -747,6 +813,7 @@ async def handle_streaming(
                 provider_key_id=chosen_key_id,
                 upstream_model=upstream_model,
                 requested_model=requested_model,
+                request_image_count=request_image_count,
             )
             yield f"data: {json.dumps({'error': {'message': '请求处理失败，请稍后重试', 'type': 'api_error'}})}\n\n"
         finally:

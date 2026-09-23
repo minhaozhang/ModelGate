@@ -862,10 +862,16 @@
                 const providerStyle = r.provider_disabled ? 'text-red-500 line-through' : '';
                 const providerTitle = r.provider_disabled ? ` title="${(r.provider_disabled_reason || '').replace(/"/g, '&quot;')}"` : '';
                 const keyLabel = (r.key_label || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                const ev = r.recent_events || {};
+                const evText = Object.entries(ev)
+                    .filter(([k, v]) => v > 0 && k !== 'success')
+                    .map(([k, v]) => `${k}:${v}`)
+                    .join(' / ');
+                const evBadge = evText ? `<span class="text-[10px] text-red-400" title="5m events">${evText}</span>` : '';
                 return `<div class="p-2 bg-gray-50 rounded border-l-4 ${r.provider_disabled ? 'border-red-400' : 'border-blue-400'}">
                     <div class="flex justify-between items-center gap-2">
                         <div class="font-medium text-sm truncate ${providerStyle}"${providerTitle}>${r.provider} / <span class="cursor-default" title="${keyLabel}">${keyLabel}</span></div>
-                        ${hBadge}
+                        <div class="flex items-center gap-1.5 shrink-0">${evBadge}${hBadge}</div>
                     </div>
                     <div class="flex items-center gap-2 mt-1">
                         ${concHtml}

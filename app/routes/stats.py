@@ -2227,7 +2227,7 @@ def _build_provider_key_rows(
 ) -> list[dict]:
     """Build provider/key live rows, keeping only entries with usage today,
     sorted by usage descending."""
-    from app.services.key_health import get_health_level
+    from app.services.key_health import get_events_5m, get_health_level
 
     rows = []
     for provider_name, pcfg in providers_cache.items():
@@ -2274,6 +2274,7 @@ def _build_provider_key_rows(
                     "key_label": label,
                     "health_score": health,
                     "health_level": get_health_level(health),
+                    "recent_events": get_events_5m(key_id),
                     "concurrency_limit": conc_limit,
                     "concurrency_in_use": conc_in_use,
                     "usage": usage,

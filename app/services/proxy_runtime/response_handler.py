@@ -170,6 +170,7 @@ async def _record_stream_result(
     provider_key_id=None,
     upstream_model=None,
     requested_model=None,
+    request_image_count=None,
 ):
     latency = (time.time() - start_time) * 1000
     response_meta = build_response_meta(
@@ -232,6 +233,7 @@ async def _record_stream_result(
                 client_ip=client_ip,
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,
+                request_image_count=request_image_count,
                 response=total_content,
                 tokens=tokens_record,
                 latency_ms=latency,
@@ -266,6 +268,7 @@ async def _record_stream_result(
                 client_ip=client_ip,
                 user_agent=user_agent,
                 request_context_tokens=request_context_tokens,
+                request_image_count=request_image_count,
                 response=total_content,
                 tokens=tokens_record,
                 latency_ms=latency,
@@ -280,8 +283,11 @@ async def _record_stream_result(
                 record_key_event(provider_key_id, "error_429", upstream_status_code or 429)
             elif upstream_status_code and upstream_status_code >= 500:
                 record_key_event(provider_key_id, "error_5xx", upstream_status_code)
-            else:
-                record_key_event(provider_key_id, "error_4xx", upstream_status_code or 400)
+            elif upstream_status_code and 400 <= upstream_status_code < 500:
+                # Only a genuine 4xx upstream response counts as client_error;
+                # mid-stream failures (code None/2xx) are attributed by the
+                # caller's fallback handler to avoid double-charging the key.
+                record_key_event(provider_key_id, "error_4xx", upstream_status_code)
         update_stats(
             provider,
             model,
