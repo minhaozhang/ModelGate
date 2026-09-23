@@ -1213,10 +1213,10 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                         ${proto}
                         <span class="shrink-0 text-[10px] text-gray-500 max-w-[72px] truncate" title="${esc(log.api_key || '-')}">${esc(log.api_key || '-')}</span>
                         <span class="log-provider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">${esc(log.provider || '-')}</span>
-                        <span class="px-1.5 py-0.5 rounded text-[9px] ${sc} shrink-0">${esc(log.status)}</span>
                     </div>
                     ${modelExtra}
                     <div class="flex items-center gap-2 text-[10px] log-tokens mt-1">
+                        <span class="px-1.5 py-0.5 rounded text-[9px] ${sc} shrink-0">${esc(log.status)}</span>
                         <span class="shrink-0">${window.I18N.logCtx || 'ctx'} ${fmtTok(tk.ctx)}</span>
                         <span class="shrink-0">&uarr;${fmtTok(tk.input)}</span>
                         <span class="shrink-0">&darr;${fmtTok(tk.output)}</span>
