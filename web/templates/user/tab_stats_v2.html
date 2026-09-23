@@ -163,7 +163,7 @@
     {% endif %}
 
     <div class="v2-card mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
             <div class="v2-kpi">
                 <div class="lbl">{{ _('Total Requests') }} · {{ _('Personal') }}/{{ _('System') }}</div>
                 <div class="val" style="color:#2563eb" id="v2-total-requests">-</div>
@@ -173,6 +173,11 @@
                 <div class="lbl">{{ _('Total Tokens') }}</div>
                 <div class="val" style="color:#059669;font-size:1.25rem" id="v2-total-tokens">-</div>
                 <div class="vs">{{ _('System') }} <b id="v2-sys-tokens">-</b></div>
+            </div>
+            <div class="v2-kpi">
+                <div class="lbl">{{ _('Tokens/s') }} · {{ _('System') }} {{ _('Real-time') }}</div>
+                <div class="val" style="color:#7c3aed" id="v2-tps">-</div>
+                <div class="vs">10s {{ _('window' if current_locale != 'zh' else '衰减窗口') }}</div>
             </div>
             <div class="v2-kpi">
                 <div class="lbl">{{ _('Errors') }} · {{ _('Personal') }}</div>
@@ -1143,6 +1148,10 @@
             if (typeof data.active_users === 'number') {
                 document.getElementById('v2-live-text').textContent =
                     `${data.active_users} ${I18N.active} / ${(data.active_requests || 0).toLocaleString()} ${I18N.req}`;
+            }
+            if (typeof data.tokens_per_second === 'number') {
+                const tpsEl = document.getElementById('v2-tps');
+                if (tpsEl) tpsEl.textContent = Math.max(0, Math.round(data.tokens_per_second)).toLocaleString();
             }
             if (data.model_concurrency) {
                 scheduleModelConcurrencyRender(data.model_concurrency, data.model_requests_24h, data.model_hourly_24h, data.model_rate_per_min);
