@@ -540,8 +540,9 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
         function formatK(value) {
             if (value === null || value === undefined || value === '-') return '-';
             const v = Number(value);
-            if (isNaN(v) || v === 0) return '-';
-            if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+            if (isNaN(v) || v <= 0) return '-';
+            if (v >= 1e6) return (v / 1e6).toFixed(v >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+            if (v >= 1000) return (v / 1000).toFixed(v >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'k';
             return String(v);
         }
         function getTokenCount(tokens) {
@@ -766,7 +767,7 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                             <span class="text-gray-400">${escapeHtml(log.downstream_status_code ?? '-')}</span>
                         </td>
                         <td class="cell-tokens num">${tokensHtml}</td>
-                        <td class="num mono text-gray-700">${log.request_context_tokens != null && log.request_context_tokens !== '' ? log.request_context_tokens : '-'}</td>
+                        <td class="num mono text-gray-700" title="${log.request_context_tokens != null && log.request_context_tokens !== '' ? Number(log.request_context_tokens).toLocaleString() : ''}">${log.request_context_tokens != null && log.request_context_tokens !== '' ? formatK(log.request_context_tokens) : '-'}</td>
                         <td class="cell-latency num mono text-gray-700">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="num mono text-gray-700">${log.first_chunk_ms != null ? (log.first_chunk_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="num mono ${log.wait_ms > 5000 ? 'text-amber-600' : 'text-gray-700'}">${log.wait_ms != null ? (log.wait_ms / 1000).toFixed(2) + 's' : '-'}</td>
