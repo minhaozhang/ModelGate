@@ -115,6 +115,7 @@ async def update_request_log(
     provider_key_id: Optional[int] = None,
     provider_key_label: Optional[str] = None,
     routing_decision: Optional[dict] = None,
+    fallback_tries: Optional[list] = None,
     request_messages: Optional[list] = None,
     wait_ms: Optional[float] = None,
 ) -> bool:
@@ -144,6 +145,8 @@ async def update_request_log(
             values["provider_key_label"] = _clean_null_bytes(provider_key_label)
         if routing_decision is not None:
             values["routing_decision"] = _clean_null_bytes(routing_decision)
+        if fallback_tries is not None:
+            values["fallback_tries"] = _clean_null_bytes(fallback_tries) or []
         result = await session.execute(
             update(RequestLog).where(RequestLog.id == log_id).values(**values)
         )

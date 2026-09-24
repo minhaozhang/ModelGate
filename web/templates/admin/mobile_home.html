@@ -271,6 +271,10 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             <button class="log-chip active" onclick="setLogsStatus('', this)">{{ _('All') }}</button>
             <button class="log-chip" onclick="setLogsStatus('error', this)">{{ _('Errors') }}</button>
             <button class="log-chip" onclick="setLogsStatus('timeout', this)">{{ _('Timeouts') }}</button>
+            <select id="logs-key-select" onchange="setLogsKey(this.value)"
+                class="ml-auto text-[10px] border border-gray-200 rounded-lg px-2 py-1 text-gray-600 bg-white max-w-[40%] truncate">
+                <option value="">{{ _('All keys') }}</option>
+            </select>
         </div>
         <div id="logs-list" class="space-y-2"></div>
         <div class="text-center">
@@ -329,6 +333,8 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         logFirst: "{{ _('1st' if current_locale != 'zh' else '首') }}",
         logWait: "{{ _('wait' if current_locale != 'zh' else '排队') }}",
         logImg: "{{ _('img' if current_locale != 'zh' else '图') }}",
+        logRetry: "{{ _('retried' if current_locale != 'zh' else '重试') }}",
+        logAllKeys: "{{ _('All keys' if current_locale != 'zh' else '全部 Key') }}",
         justNow: "{{ _('Just now') }}",
         minutesAgo: "{{ _('{n}m ago') }}",
         hoursAgo: "{{ _('{n}h ago') }}",
@@ -1078,7 +1084,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             });
             document.querySelectorAll('.mobile-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
             if (name === 'notifications') { loadNotifications(false); updateNotifBadge(); }
-            if (name === 'logs' && !logsLoaded) loadLogs(false);
+            if (name === 'logs' && !logsLoaded) { loadLogsKeyOptions(); loadLogs(false); }
             window.scrollTo(0, 0);
         }
 
@@ -1142,6 +1148,33 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             loadLogs(false);
         }
 
+        let logsKeyFilter = '';
+        let logsKeyOptionsLoaded = false;
+
+        async function loadLogsKeyOptions() {
+            if (logsKeyOptionsLoaded) return;
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys?status=all&page_size=200`);
+                const sel = document.getElementById('logs-key-select');
+                if (!sel || !Array.isArray(data.api_keys)) return;
+                data.api_keys.forEach(k => {
+                    const opt = document.createElement('option');
+                    opt.value = k.name;
+                    opt.textContent = k.name;
+                    sel.appendChild(opt);
+                });
+                logsKeyOptionsLoaded = true;
+            } catch (e) {
+                console.error('Failed to load key options:', e);
+            }
+        }
+
+        function setLogsKey(value) {
+            logsKeyFilter = value;
+            logsPage = 1;
+            loadLogs(false);
+        }
+
         async function loadLogs(append) {
             if (logsLoading) return;
             logsLoading = true;
@@ -1149,6 +1182,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 if (!append) logsPage = 1;
                 const params = new URLSearchParams({ time_range: '24h', page: logsPage, page_size: 30 });
                 if (logsStatus) params.set('status', logsStatus);
+                if (logsKeyFilter) params.set('key_name', logsKeyFilter);
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/query?${params}`);
                 logsTotal = data.total || 0;
                 renderLogs(data.logs || [], append);
@@ -1170,6 +1204,17 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             const totalSec = v / 1000;
             if (totalSec < 60) return `${totalSec.toFixed(1)}s`;
             return `${Math.floor(totalSec / 60)}m${String(Math.round(totalSec % 60)).padStart(2, '0')}s`;
+        }
+
+        function fmtTries(tries) {
+            return (tries || []).map(t => {
+                let seg = t.provider || '-';
+                if (t.key) seg += '/' + t.key;
+                if (t.status_code != null) seg += ':' + t.status_code;
+                else if (t.error) seg += ':' + String(t.error).substring(0, 60);
+                else seg += ':' + (t.stage || '');
+                return seg;
+            }).join('; ').substring(0, 300);
         }
 
         function logTokenBreakdown(log) {
@@ -1207,6 +1252,10 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 const imgChip = imgCount > 0
                     ? `<span class="px-1.5 py-0.5 rounded text-[9px] bg-sky-100 text-sky-700 shrink-0">${window.I18N.logImg || 'img'}&times;${imgCount}</span>`
                     : '';
+                const tries = Array.isArray(log.fallback_tries) ? log.fallback_tries : [];
+                const retryChip = tries.length > 0
+                    ? `<span class="px-1.5 py-0.5 rounded text-[9px] bg-amber-100 text-amber-700 shrink-0" title="${esc(fmtTries(tries))}">${window.I18N.logRetry || 'retried'}</span>`
+                    : '';
                 const proto = (log.inbound_protocol && log.inbound_protocol !== 'openai')
                     ? `<span class="px-1.5 py-0.5 rounded text-[9px] bg-indigo-100 text-indigo-700 shrink-0">${esc(log.inbound_protocol)}</span>`
                     : '';
@@ -1229,6 +1278,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     <div class="flex items-center gap-2 text-[10px] log-tokens mt-1">
                         <span class="px-1.5 py-0.5 rounded text-[9px] ${sc} shrink-0">${esc(log.status)}</span>
                         ${imgChip}
+                        ${retryChip}
                         <span class="shrink-0">${window.I18N.logCtx || 'ctx'} ${fmtTok(tk.ctx)}</span>
                         <span class="shrink-0">&uarr;${fmtTok(tk.input)}</span>
                         <span class="shrink-0">&darr;${fmtTok(tk.output)}</span>

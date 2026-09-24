@@ -307,6 +307,7 @@ _DDL: list[str] = [
     "provider_key_label VARCHAR(50), "
     "routing_decision JSONB, "
     "request_image_count INTEGER, "
+    "fallback_tries JSONB, "
     "created_at TIMESTAMP NOT NULL DEFAULT now(), "
     "updated_at TIMESTAMP"
     ")",
@@ -338,6 +339,7 @@ _DDL: list[str] = [
     "provider_key_label VARCHAR(50), "
     "routing_decision JSONB, "
     "request_image_count INTEGER, "
+    "fallback_tries JSONB, "
     "created_at TIMESTAMP NOT NULL DEFAULT now(), "
     "updated_at TIMESTAMP, "
     "archive_month VARCHAR(7) NOT NULL, "
@@ -713,6 +715,7 @@ async def migrate_request_logs(conn) -> None:
             "first_chunk_ms DOUBLE PRECISION",
             "wait_ms DOUBLE PRECISION",
             "request_image_count INTEGER",
+            "fallback_tries JSONB",
         ):
             await conn.execute(
                 text(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_sql}")
@@ -737,7 +740,7 @@ async def migrate_request_logs(conn) -> None:
     columns = (
         "id, api_key_id, provider_id, model, response, tokens, latency_ms, first_chunk_ms, wait_ms, "
         "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
-        "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, routing_decision, request_image_count, created_at, updated_at"
+        "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, routing_decision, request_image_count, fallback_tries, created_at, updated_at"
     )
     await conn.execute(text("DROP VIEW IF EXISTS request_logs_all"))
     await conn.execute(

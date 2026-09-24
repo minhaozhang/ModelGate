@@ -57,6 +57,7 @@
         .v2-legend b.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
         .v2-reqrow-card { background: #ffffff; }
         .v2-img-chip { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 4px; font-size: 10px; font-weight: 600; background: #e0f2fe; color: #0369a1; vertical-align: 1px; }
+        .v2-retry-chip { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 4px; font-size: 10px; font-weight: 600; background: #fef3c7; color: #b45309; vertical-align: 1px; cursor: help; }
         .v2-req-table { width: 100%; border-collapse: collapse; font-size: 12px; }
         .v2-req-table th { position: sticky; top: 0; z-index: 1; background: #f3f4f6; color: #374151; text-align: left; font-weight: 600; padding: 7px 10px; white-space: nowrap; border-bottom: 1px solid #e5e7eb; }
         .v2-req-table td { padding: 6px 10px; white-space: nowrap; border-bottom: 1px solid #f0f1f3; color: #1f2937; }
@@ -87,6 +88,7 @@
         body.theme-dark .v2-legend { color: #ededf8b8; }
         body.theme-dark .v2-reqrow-card { background: rgba(235, 234, 250, 0.06); }
         body.theme-dark .v2-img-chip { background: rgba(14,165,233,0.18); color: #7dd3fc; }
+        body.theme-dark .v2-retry-chip { background: rgba(245,158,11,0.18); color: #fcd34d; }
         body.theme-dark .v2-req-table th { background: #232632; color: #ededf8; border-bottom: 1px solid rgba(235, 234, 250, 0.18); }
         body.theme-dark .v2-req-table td { color: #ededf8; border-bottom: 1px solid rgba(235, 234, 250, 0.10); }
         body.theme-dark .v2-req-table tr:hover td { background: rgba(235, 234, 250, 0.05); }
@@ -116,6 +118,7 @@
         body.theme-blackgold .v2-legend { color: #c9b896; }
         body.theme-blackgold .v2-reqrow-card { background: rgba(212, 168, 83, 0.07); }
         body.theme-blackgold .v2-img-chip { background: rgba(212, 168, 83, 0.16); color: #e7c67c; }
+        body.theme-blackgold .v2-retry-chip { background: rgba(212, 168, 83, 0.16); color: #e7c67c; }
         body.theme-blackgold .v2-req-table th { background: #2a2216; color: #fafaf9; border-bottom: 1px solid rgba(212, 168, 83, 0.28); }
         body.theme-blackgold .v2-req-table td { color: #fafaf9; border-bottom: 1px solid rgba(212, 168, 83, 0.14); }
         body.theme-blackgold .v2-req-table tr:hover td { background: rgba(212, 168, 83, 0.06); }
@@ -970,6 +973,21 @@
             if (v == null) return '-';
             return v >= 1000 ? (v / 1000).toFixed(1) + 's' : v + 'ms';
         }
+        function fmtTries(tries) {
+            return (tries || []).map(t => {
+                let seg = t.provider || '-';
+                if (t.key) seg += '/' + t.key;
+                if (t.status_code != null) seg += ':' + t.status_code;
+                else if (t.error) seg += ':' + String(t.error).substring(0, 60);
+                else seg += ':' + (t.stage || '');
+                return seg;
+            }).join('; ').substring(0, 300);
+        }
+        function retryChipHtml(r) {
+            const tries = Array.isArray(r.fallback_tries) ? r.fallback_tries : [];
+            if (!tries.length) return '';
+            return `<span class="v2-retry-chip shrink-0" title="${escapeHtml(fmtTries(tries))}">${T('曾失败', 'retried')}</span>`;
+        }
         function renderRequestRow(r) {
             const statusVisual = requestStatusVisual(r.status);
             const latency = r.latency_ms != null ? formatMs(r.latency_ms) : '-';
@@ -983,12 +1001,14 @@
             const cost = r.cost_cny > 0 ? '¥' + r.cost_cny.toFixed(2) : '-';
             const imgCount = Number(r.image_count || 0);
             const imgChip = imgCount > 0 ? `<span class="v2-img-chip shrink-0" title="${escapeHtml(T('本次请求包含图片', 'Request contained images'))}">${T('图', 'img')}×${imgCount}</span>` : '';
+            const retryChip = retryChipHtml(r);
             return `
                 <div class="v2-reqrow-card rounded p-2 mb-1.5 last:mb-0">
                     <div class="flex items-center gap-2 text-sm v2-req-title">
                         ${statusVisual}
                         <span class="font-medium truncate">${escapeHtml(r.model)}</span>
                         ${imgChip}
+                        ${retryChip}
                         <span class="v2-req-time shrink-0 ml-auto">${time}</span>
                     </div>
                     <div class="flex items-center gap-2.5 mt-0.5 text-xs v2-req-meta flex-nowrap whitespace-nowrap overflow-x-auto">
@@ -1024,7 +1044,8 @@
             const body = list.map(r => {
                 const time = r.created_at ? new Date(r.created_at).toLocaleString() : '-';
                 const imgCount = Number(r.image_count || 0);
-                const imgChip = imgCount > 0 ? `<span class="v2-img-chip" title="${escapeHtml(T('本次请求包含图片', 'Request contained images'))}">${T('图', 'img')}×${imgCount}</span> ` : '';
+                const imgChip = imgCount > 0 ? `<span class="v2-img-chip" title="${escapeHtml(T('本次请求包含图片', 'Request contained images'))}">${T('图', 'img')}×${imgCount}</span>` : '';
+                const retryChip = retryChipHtml(r);
                 const errHtml = r.error
                     ? `<td class="err-line" title="${escapeHtml(r.error)}">${escapeHtml(r.error)}</td>`
                     : '<td></td>';
@@ -1035,7 +1056,7 @@
                         <td>${time}</td>
                         <td class="num">${formatMs(r.latency_ms)}</td>
                         <td class="num">${formatMs(r.first_chunk_ms)}</td>
-                        <td class="num">${imgChip}${r.context_tokens > 0 ? formatCompactTokens(r.context_tokens) : '-'}</td>
+                        <td class="num">${imgChip}${retryChip}${r.context_tokens > 0 ? formatCompactTokens(r.context_tokens) : '-'}</td>
                         <td class="num">${r.input_tokens > 0 ? formatCompactTokens(r.input_tokens) : '-'}</td>
                         <td class="num">${r.output_tokens > 0 ? formatCompactTokens(r.output_tokens) : '-'}</td>
                         <td class="num">${r.cached_tokens > 0 ? formatCompactTokens(r.cached_tokens) + (r.cache_ratio > 0 ? ' (' + r.cache_ratio + '%)' : '') : '-'}</td>

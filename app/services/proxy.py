@@ -192,6 +192,23 @@ def _strip_key_secrets(items: list[dict]) -> list[dict]:
     return stripped
 
 
+def _summarize_fallback_tries(tries: list[dict]) -> str:
+    """Compact one-line summary of failed attempts, e.g. 'prov/k1:429; prov2:connect'."""
+    parts = []
+    for t in tries or []:
+        seg = str(t.get("provider") or "-")
+        if t.get("key"):
+            seg += f"/{t['key']}"
+        if t.get("status_code") is not None:
+            seg += f":{t['status_code']}"
+        elif t.get("error"):
+            seg += f":{str(t['error'])[:60]}"
+        else:
+            seg += f":{t.get('stage', '')}"
+        parts.append(seg)
+    return "; ".join(parts)[:300]
+
+
 def _build_routing_decision(
     base_decision: dict,
     route_result: RouteResult | None = None,
@@ -714,6 +731,23 @@ async def proxy_request(request: Request, endpoint: str):
         first_chunk_timed_out = False
         first_chunk_timeout_tries: list[str] = []
         first_chunk_budget_exhausted = False
+        fallback_tries: list[dict] = []
+
+        def _note_try(stage, prov, key_label=None, status_code=None, error=None):
+            item = {"stage": stage, "provider": prov or "-"}
+            if key_label:
+                item["key"] = key_label
+            if status_code is not None:
+                item["status_code"] = int(status_code)
+            if error:
+                item["error"] = str(error)[:120]
+            fallback_tries.append(item)
+            del fallback_tries[:-10]
+
+        async def _persist_tries(log_id):
+            if fallback_tries and isinstance(log_id, int):
+                return await safe_update_request_log(log_id, fallback_tries=fallback_tries)
+            return None
         waiting_started = time.time()
         first_chunk_deadline = waiting_started + FIRST_CHUNK_TOTAL_BUDGET_SECONDS
         waiting_log_id = None
@@ -781,6 +815,7 @@ async def proxy_request(request: Request, endpoint: str):
 
             if not provider_config:
                 no_provider_seen = True
+                _note_try("no_provider", provider_name)
                 if route_result.model_id or route_result.requested_model_id:
                     known_model_without_provider_seen = True
                 continue
@@ -793,6 +828,7 @@ async def proxy_request(request: Request, endpoint: str):
                 is_forced_provider=route_result.is_forced_provider,
             ):
                 access_denied_seen = True
+                _note_try("access_denied", provider_name)
                 continue
 
             model_config = get_model_config(provider_config, standard_model)
@@ -857,6 +893,7 @@ async def proxy_request(request: Request, endpoint: str):
                     route_result,
                     best_disabled_reason,
                 )
+                _note_try("no_key", provider_name, error=msg)
                 if (
                     first_no_key_failure is None
                     or best_disabled_priority > first_no_key_failure.get("disabled_priority", -1)
@@ -1264,6 +1301,12 @@ async def proxy_request(request: Request, endpoint: str):
                         type(handler_exc).__name__,
                         sanitize_text_for_log(handler_exc, limit=200),
                     )
+                    _note_try(
+                        "exception",
+                        provider_name,
+                        _get_key_label(provider_config, chosen_key_id),
+                        error=f"{type(handler_exc).__name__}: {sanitize_text_for_log(handler_exc, limit=80)}",
+                    )
                     if stream_log_id is not None:
                         try:
                             await safe_update_request_log(
@@ -1298,6 +1341,7 @@ async def proxy_request(request: Request, endpoint: str):
                         route_exhausted = True
                         break
                     if route_result.is_forced_provider:
+                        await _persist_tries(waiting_log_id)
                         return last_response
                     break
 
@@ -1313,7 +1357,15 @@ async def proxy_request(request: Request, endpoint: str):
                     status_code = response.status_code
 
                     if status_code < 400:
+                        await _persist_tries(waiting_log_id)
                         return response
+
+                    _note_try(
+                        "response",
+                        provider_name,
+                        _get_key_label(provider_config, chosen_key_id),
+                        status_code=status_code,
+                    )
 
                     if _is_key_retryable_status(status_code):
                         if attempt_idx < len(all_keys) - 1:
@@ -1344,6 +1396,7 @@ async def proxy_request(request: Request, endpoint: str):
                                 )
                             return preferred_local_rate_limit_response
                         if route_result.is_forced_provider:
+                            await _persist_tries(waiting_log_id)
                             return response
                         break
 
@@ -1356,9 +1409,11 @@ async def proxy_request(request: Request, endpoint: str):
                             route_exhausted = True
                             break
                         if route_result.is_forced_provider:
+                            await _persist_tries(waiting_log_id)
                             return response
                         break
 
+                await _persist_tries(waiting_log_id)
                 return response
 
             if route_exhausted:
@@ -1382,6 +1437,7 @@ async def proxy_request(request: Request, endpoint: str):
                 upstream_status_code=504,
                 downstream_status_code=504,
                 error=message,
+                fallback_tries=fallback_tries or None,
                 wait_ms=round((time.time() - waiting_started) * 1000),
             )
             return _openai_error_response(
@@ -1418,6 +1474,7 @@ async def proxy_request(request: Request, endpoint: str):
                     upstream_status_code=400,
                     downstream_status_code=400,
                     error=message,
+                    fallback_tries=fallback_tries or None,
                     wait_ms=round((time.time() - waiting_started) * 1000),
                 )
                 return _openai_error_response(
@@ -1430,22 +1487,25 @@ async def proxy_request(request: Request, endpoint: str):
                 preferred_local_rate_limit_response is not None
                 and _should_prefer_local_rate_limit_response(last_response)
             ):
+                await _persist_tries(waiting_log_id)
                 return preferred_local_rate_limit_response
             logger.warning(
                 "[ROUTE FALLBACK] All providers failed for model %s, last status=%d",
                 model,
                 getattr(last_response, "status_code", 0),
             )
+            fail_chain = f" | 失败链: {_summarize_fallback_tries(fallback_tries)}" if fallback_tries else ""
             await safe_update_request_log(
                 waiting_log_id,
                 status="error",
                 latency_ms=(time.time() - start_time) * 1000,
                 downstream_status_code=503,
-                error=f"模型 '{model}' 当前没有可用的供应商，所有供应商均请求失败",
+                error=f"模型 '{model}' 当前没有可用的供应商，所有供应商均请求失败{fail_chain}",
+                fallback_tries=fallback_tries or None,
                 wait_ms=round((time.time() - waiting_started) * 1000),
             )
             return _openai_error_response(
-                f"模型 '{model}' 当前没有可用的供应商，所有供应商均请求失败，请稍后重试或联系管理员检查供应商状态",
+                f"模型 '{model}' 当前没有可用的供应商，所有供应商均请求失败{fail_chain}，请稍后重试或联系管理员检查供应商状态",
                 503,
                 "server_error",
                 "model_unavailable",
@@ -1457,6 +1517,7 @@ async def proxy_request(request: Request, endpoint: str):
                 latency_ms=(time.time() - start_time) * 1000,
                 downstream_status_code=403,
                 error=build_model_access_denied_message(requested_model),
+                fallback_tries=fallback_tries or None,
                 wait_ms=round((time.time() - waiting_started) * 1000),
             )
             return _openai_error_response(
@@ -1472,6 +1533,7 @@ async def proxy_request(request: Request, endpoint: str):
                 latency_ms=(time.time() - start_time) * 1000,
                 downstream_status_code=503,
                 error=f"模型 '{model}' 当前暂无可用供应商或供应商 Key",
+                fallback_tries=fallback_tries or None,
                 wait_ms=round((time.time() - waiting_started) * 1000),
             )
             return _openai_error_response(
@@ -1501,6 +1563,7 @@ async def proxy_request(request: Request, endpoint: str):
             latency_ms=(time.time() - start_time) * 1000,
             downstream_status_code=400,
             error=f"未找到模型: {model}",
+            fallback_tries=fallback_tries or None,
             wait_ms=round((time.time() - waiting_started) * 1000),
         )
         return _openai_error_response(

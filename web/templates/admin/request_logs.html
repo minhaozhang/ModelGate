@@ -75,6 +75,12 @@
             border-radius: 4px; font-size: 0.625rem;
             font-weight: 600; background: #e0f2fe; color: #0369a1;
         }
+        .retry-badge {
+            display: inline-block; padding: 0.1rem 0.4rem;
+            border-radius: 4px; font-size: 0.625rem;
+            font-weight: 600; background: #fef3c7; color: #b45309;
+            cursor: default;
+        }
         .link-btn {
             background: transparent; border: 0; padding: 0;
             color: #3b82f6; cursor: pointer; font-size: 0.75rem;
@@ -151,6 +157,7 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
         body.theme-dark .proto-badge { background: rgba(168,85,247,0.18); color: #d8b4fe; }
         body.theme-dark .cache-badge { background: rgba(16,185,129,0.18); color: #6ee7b7; }
         body.theme-dark .img-badge { background: rgba(14,165,233,0.18); color: #7dd3fc; }
+        body.theme-dark .retry-badge { background: rgba(245,158,11,0.18); color: #fcd34d; }
         body.theme-dark .link-btn { color: #60a5fa; }
 
         body.theme-dark .time-btn { background: #0f172a; color: #e5e7eb; border-color: #334155; }
@@ -451,7 +458,8 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
             lookupFailed: "{{ _('Lookup failed') }}",
             viewOnMap: "{{ _('View on map') }}",
             imageMark: "{{ _('Images' if current_locale != 'zh' else '图') }}",
-            imagesInRequest: "{{ _('Request contained {count} image(s)' if current_locale != 'zh' else '本次请求包含 {count} 张图片') }}"
+            imagesInRequest: "{{ _('Request contained {count} image(s)' if current_locale != 'zh' else '本次请求包含 {count} 张图片') }}",
+            retried: "{{ _('Retried' if current_locale != 'zh' else '重试') }}"
         };
 
         let currentPage = 1;
@@ -543,6 +551,17 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
             } else {
                 customEl.classList.add('hidden');
             }
+        }
+
+        function fmtTries(tries) {
+            return (tries || []).map(t => {
+                let seg = t.provider || '-';
+                if (t.key) seg += '/' + t.key;
+                if (t.status_code != null) seg += ':' + t.status_code;
+                else if (t.error) seg += ':' + String(t.error).substring(0, 60);
+                else seg += ':' + (t.stage || '');
+                return seg;
+            }).join('; ').substring(0, 300);
         }
 
         function formatK(value) {
@@ -730,6 +749,10 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                 const imgBadge = imgCount > 0
                     ? `<span class="img-badge" title="${window.I18N.imagesInRequest.replace('{count}', imgCount)}">${window.I18N.imageMark}×${imgCount}</span>`
                     : '';
+                const tries = Array.isArray(log.fallback_tries) ? log.fallback_tries : [];
+                const retryBadge = tries.length > 0
+                    ? `<span class="retry-badge" title="${escapeHtml(fmtTries(tries))}">${window.I18N.retried}</span>`
+                    : '';
 
                 let tokensHtml = '<span class="text-gray-400">-</span>';
                 const hasUsage = tokenParts && (tokenParts.prompt > 0 || tokenParts.completion > 0);
@@ -764,6 +787,7 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                             <div class="flex items-center gap-1 flex-wrap">
                                 <span class="badge ${badgeClass}">${escapeHtml(log.status)}</span>
                                 ${intentBadge}
+                                ${retryBadge}
                             </div>
                             ${protoBadge ? `<div class="mt-0.5">${protoBadge}</div>` : ''}
                             ${errIndicator}
