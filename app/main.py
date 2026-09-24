@@ -198,18 +198,6 @@ async def startup():
 
     await startup_scheduler()
 
-    from app.services.weixin import start_polling
-
-    await start_polling()
-
-    from app.routes.weixin import start_mcp
-
-    await start_mcp()
-
-    from app.routes.mcp_proxy import start_mcp_proxy
-
-    await start_mcp_proxy()
-
     from app.services.system_config import init_system_config
 
     await init_system_config()
@@ -233,18 +221,6 @@ async def shutdown():
 
     await close_http_client()
 
-    from app.services.weixin import stop_polling
-
-    await stop_polling()
-
-    from app.routes.weixin import stop_mcp
-
-    await stop_mcp()
-
-    from app.routes.mcp_proxy import stop_mcp_proxy
-
-    await stop_mcp_proxy()
-
 
 from app.routes import (
     proxy,
@@ -265,7 +241,6 @@ from app.routes import (
     reports,
     system_config,
     documents,
-    mcp_servers,
     users,
     roles,
     permissions,
@@ -292,21 +267,12 @@ app.include_router(codex.router)
 app.include_router(reports.router)
 app.include_router(system_config.router)
 app.include_router(documents.router)
-app.include_router(mcp_servers.router)
 app.include_router(users.router)
 app.include_router(roles.router)
 app.include_router(permissions.router)
 app.include_router(menus.router)
 app.include_router(audit.router)
 app.include_router(audit.page_router)
-
-from app.routes.weixin import get_mcp_asgi_app
-
-app.mount("/weixin", get_mcp_asgi_app())
-
-from app.routes.mcp_proxy import get_mcp_proxy_asgi_app
-
-app.mount("/mcp-proxy", get_mcp_proxy_asgi_app())
 
 
 if __name__ == "__main__":

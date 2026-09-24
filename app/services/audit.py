@@ -11,7 +11,6 @@ _RESOURCE_MAP = {
     "provider_models": "provider_model",
     "keys": "api_key",
     "api_key_time_rules": "time_rule",
-    "mcp_servers": "mcp_server",
     "documents": "document",
     "document_files": "document_file",
     "system_config": "system_config",
@@ -167,7 +166,7 @@ async def write_audit_log(
 
 
 WRITE_METHODS = {"POST", "PUT", "DELETE"}
-SKIP_PATHS = {"/v1/", "/weixin", "/mcp-proxy", "/admin/api/auth/check", "/admin/api/audit"}
+SKIP_PATHS = {"/v1/", "/admin/api/auth/check", "/admin/api/audit"}
 
 
 def should_audit(request: Request) -> bool:

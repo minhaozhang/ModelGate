@@ -375,7 +375,6 @@
             <button class="tab-btn" onclick="showTab('codex')">Codex {{ _('Config') }}</button>
             <button class="tab-btn" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
             <button class="tab-btn" onclick="showTab('documents')">{{ _('Documents') }}</button>
-            <button class="tab-btn" onclick="showTab('mcp')">MCP Tools</button>
             <button class="tab-btn" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}</button>
         </div>
 
@@ -387,7 +386,6 @@
             {% include 'user/tab_codex.html' %}
             {% include 'user/tab_usage.html' %}
             {% include 'user/tab_documents.html' %}
-            {% include 'user/tab_mcp.html' %}
             {% include 'user/tab_notifications.html' %}
         </div>
 
@@ -659,7 +657,6 @@
             if (tab === 'codex') loadCodexConfig();
             if (tab === 'catalog' && !catalogLoaded) loadCatalog();
             if (tab === 'documents') loadDocList();
-            if (tab === 'mcp') loadMcpInfo();
             if (tab === 'notifications') { loadUserNotifList(1); userNotifMarkAllRead(); }
         }
 
@@ -695,66 +692,6 @@
 
         function openDocumentPage(docId) {
             window.location.href = APP_BASE_PATH + '/user/documents/' + docId;
-        }
-
-        async function loadMcpInfo() {
-            try {
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/user/api/mcp-info`);
-                if (!data.has_mcp) {
-                    document.getElementById('mcp-no-server').classList.remove('hidden');
-                    document.getElementById('mcp-info').classList.add('hidden');
-                    return;
-                }
-                document.getElementById('mcp-no-server').classList.add('hidden');
-                document.getElementById('mcp-info').classList.remove('hidden');
-
-                const servers = data.servers || [];
-                const tools = data.tools || [];
-
-                const configObj = {
-                    mcpServers: {
-                        "modelgate-proxy": {
-                            url: data.endpoint,
-                            headers: { "Authorization": "Bearer YOUR_API_KEY" }
-                        }
-                    }
-                };
-                const configObjSSE = {
-                    mcpServers: {
-                        "modelgate-proxy": {
-                            url: data.endpoint + "/sse",
-                            headers: { "Authorization": "Bearer YOUR_API_KEY" }
-                        }
-                    }
-                };
-                document.getElementById('mcp-config-snippet').textContent = JSON.stringify(configObj, null, 2);
-                document.getElementById('mcp-config-snippet-sse').textContent = JSON.stringify(configObjSSE, null, 2);
-
-                document.getElementById('mcp-tool-count').textContent = tools.length;
-
-                const toolsList = document.getElementById('mcp-tools-list');
-                toolsList.innerHTML = '';
-                if (tools.length === 0) {
-                    toolsList.innerHTML = '<p class="text-gray-400 text-sm">No tools available</p>';
-                    return;
-                }
-                tools.forEach(tool => {
-                    const div = document.createElement('div');
-                    div.className = 'bg-white rounded-lg p-3 shadow-sm';
-                    div.innerHTML = `
-                        <div class="font-mono text-sm font-semibold text-blue-600 mb-1">${escapeHtml(tool.name)}</div>
-                        <div class="text-gray-500 text-xs">${escapeHtml(tool.description || '')}</div>
-                    `;
-                    toolsList.appendChild(div);
-                });
-            } catch (e) {
-                console.error('Failed to load MCP info:', e);
-            }
-        }
-
-        function copyMcpConfig(elementId) {
-            const text = document.getElementById(elementId || 'mcp-config-snippet').textContent;
-            navigator.clipboard.writeText(text);
         }
 
         async function loadDocList() {

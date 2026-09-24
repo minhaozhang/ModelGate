@@ -47,8 +47,6 @@ def _make_ctx():
     ), patch(
         "app.routes.keys.ApiKeyModelAccess", SimpleNamespace
     ), patch(
-        "app.routes.keys.ApiKeyMcpServer", SimpleNamespace
-    ), patch(
         "app.routes.keys.ApiKeyTag", SimpleNamespace
     ):
         yield session

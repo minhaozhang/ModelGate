@@ -35,7 +35,6 @@ jsonschema-specifications==2025.9.1
 jsonschema==4.26.0
 lxml==6.1.2
 markdown-it-py==4.2.0
-mcp==1.27.1
 mdurl==0.1.2
 minio==7.2.20
 openpyxl==3.1.5
@@ -49,7 +48,6 @@ python-dateutil==2.9.0.post0
 python-docx==1.2.0
 python-dotenv==1.2.3
 python-multipart==0.0.32
-qrcode==8.2
 referencing==0.37.0
 rich==15.0.0
 rpds-py==2026.6.3

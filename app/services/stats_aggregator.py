@@ -12,8 +12,6 @@ from app.core.database import (
     ApiKeyModelDailyStat,
     ModelDailyStat,
     Provider,
-    McpCallLog,
-    McpCallDailyStat,
 )
 from app.services.model_naming import (
     provider_stats_model_name,
@@ -464,51 +462,6 @@ async def aggregate_yesterday_stats() -> None:
         logger.error(f"[AGGREGATOR] Error aggregating yesterday stats: {e}")
 
 
-async def aggregate_mcp_stats(date_str: str) -> None:
-    start_dt = datetime.strptime(date_str, "%Y-%m-%d")
-    end_dt = start_dt + timedelta(days=1)
-
-    async with async_session_maker() as session:
-        result = await session.execute(
-            select(
-                McpCallLog.mcp_server_id,
-                func.extract("hour", McpCallLog.created_at).label("hour"),
-                func.count().label("calls"),
-                func.sum(func.cast(McpCallLog.is_error, Integer)).label("errors"),
-                func.avg(McpCallLog.latency_ms).label("avg_latency"),
-            )
-            .where(
-                McpCallLog.created_at >= start_dt,
-                McpCallLog.created_at < end_dt,
-            )
-            .group_by(McpCallLog.mcp_server_id, "hour")
-        )
-        rows = result.all()
-
-        await session.execute(
-            delete(McpCallDailyStat).where(McpCallDailyStat.date == date_str)
-        )
-
-        for row in rows:
-            stat = McpCallDailyStat(
-                mcp_server_id=row.mcp_server_id,
-                date=date_str,
-                hour=int(row.hour) if row.hour is not None else None,
-                calls=row.calls,
-                errors=row.errors or 0,
-                avg_latency_ms=round(float(row.avg_latency), 2) if row.avg_latency else None,
-            )
-            session.add(stat)
-
-        await session.commit()
-
-    logger.info(
-        "[AGGREGATOR] Aggregated MCP stats for %s: %d groups",
-        date_str,
-        len(rows),
-    )
-
-
 async def backup_request_contents() -> dict:
     import gzip
     import json
@@ -601,14 +554,3 @@ async def backup_request_contents() -> dict:
 
     logger.info("[BACKUP] Deleted %d rows from request_contents for %s", deleted, target_date_str)
     return {"date": target_date_str, "status": "success", "exported": exported, "deleted": deleted, "file_size_mb": round(file_size / 1024 / 1024, 1)}
-
-
-async def aggregate_mcp_yesterday_stats() -> None:
-    async with async_session_maker() as session:
-        today_result = await session.execute(select(func.current_date()))
-        db_today = today_result.scalar()
-    yesterday = (db_today - timedelta(days=1)).strftime("%Y-%m-%d")
-    try:
-        await aggregate_mcp_stats(yesterday)
-    except Exception as e:
-        logger.error(f"[AGGREGATOR] Error aggregating MCP stats for {yesterday}: {e}")

@@ -42,8 +42,6 @@
         body.theme-dark code { background: #111827 !important; color: #e2e8f0 !important; }
         body.theme-dark .model-item.selected,
         body.theme-dark label.selected { background: rgba(37, 99, 235, 0.18) !important; }
-        .mcp-server-item:hover { background: #f8fafc; }
-        body.theme-dark .mcp-server-item:hover { background: rgba(148, 163, 184, 0.12) !important; }
         .model-chip {
             display: inline-flex;
             align-items: center;
@@ -161,12 +159,6 @@
                         <p id="access-mode-error" class="text-xs text-red-500 mt-1 hidden"></p>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('MCP Servers') }}</label>
-                            <div id="apikey-mcp-servers" class="border rounded max-h-28 overflow-y-auto p-2 flex flex-wrap gap-1.5">
-                            </div>
-                            <p class="text-xs text-gray-500 mt-1">{{ _('Select MCP servers this key can access') }}</p>
-                        </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Tags' if current_locale != 'zh' else '标签') }}</label>
                             <div id="apikey-tags-container" class="min-h-8 border rounded px-2 py-1.5 flex flex-wrap gap-1 mb-2"></div>
@@ -562,11 +554,8 @@ maxConcurrent: "{{ _('Max concurrency' if current_locale != 'zh' else '并发上
         const APP_BASE_PATH = {{ app_base_path | tojson }};
         let standardModels = [];
         let apiKeysData = [];
-        let mcpServers = [];
         let standardModelsLoadPromise = null;
-        let mcpServersLoadPromise = null;
         let standardModelPickerCacheKey = '';
-        let mcpServerPickerCacheKey = '';
         let filteredData = [];
         let allListTags = [];
         let selectedListTagFilter = new Set();
@@ -687,30 +676,7 @@ maxConcurrent: "{{ _('Max concurrency' if current_locale != 'zh' else '并发上
         function isAutoModel(model) {
             return (model?.name || '').toLowerCase() === 'auto' || (model?.is_virtual && (model?.tags || '').includes('auto'));
         }
-        
-        async function loadMcpServers() {
-            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/mcp-servers`);
-            mcpServers = data.servers || [];
-            mcpServerPickerCacheKey = '';
-        }
 
-        function renderMcpServerCheckboxes(selectedIds) {
-            const container = document.getElementById('apikey-mcp-servers');
-            const cacheKey = `${mcpServers.map(s => s.id).join(',')}|${[...selectedIds].sort((a, b) => a - b).join(',')}`;
-            if (cacheKey === mcpServerPickerCacheKey) return;
-            mcpServerPickerCacheKey = cacheKey;
-            if (mcpServers.length === 0) {
-                container.innerHTML = '<div class="text-xs text-gray-400">No MCP servers</div>';
-                return;
-            }
-            container.innerHTML = mcpServers.map(s => `
-                <label class="mcp-server-item inline-flex items-center gap-1.5 text-xs py-1 px-2 rounded border cursor-pointer">
-                    <input type="checkbox" class="mcp-server-check" value="${s.id}" ${selectedIds.includes(s.id) ? 'checked' : ''}>
-                    ${(s.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-                </label>
-            `).join('');
-        }
-        
         function getStandardModelDisplayName(modelId) {
             const model = standardModels.find(m => m.id === modelId);
             return model ? (model.display_name || model.name) : `ID:${modelId}`;
@@ -818,14 +784,6 @@ maxConcurrent: "{{ _('Max concurrency' if current_locale != 'zh' else '并发上
                             <div class="mt-1 text-xs text-gray-500">${window.I18N.expiresAt}: ${formatExpiry(k.expires_at)}</div>
                             <div class="mt-2 text-xs text-gray-500">${window.I18N.lastUsed}: ${formatLastUsed(k.last_used_at)}</div>
                             ${modelsDisplay}
-                            ${(k.mcp_server_ids && k.mcp_server_ids.length > 0) ? `
-                                <div class="mt-3 flex flex-wrap gap-2">
-                                    ${k.mcp_server_ids.map(sid => {
-                                        const srv = mcpServers.find(s => s.id === sid);
-                                        return srv ? `<span class="inline-block text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">MCP: ${(srv.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>` : '';
-                                    }).join('')}
-                                </div>
-                            ` : ''}
                             ${timeRulesDisplay}
                             ${k.bypass_busyness ? '<span class="inline-block text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded mt-1">' + (window.I18N.bypassBusyness || 'Bypass busyness') + '</span>' : ''}
             ${k.daily_quota_cny !== null && k.daily_quota_cny !== undefined && k.daily_quota_cny > 0 ? '<span class="inline-block text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded mt-1">' + (window.I18N.dailyQuota || 'Daily quota') + ' ¥' + k.daily_quota_cny + '</span>' : ''}
@@ -1053,16 +1011,13 @@ maxConcurrent: "{{ _('Max concurrency' if current_locale != 'zh' else '并发上
 
         async function ensureApiKeyPickerData() {
             standardModelsLoadPromise = standardModelsLoadPromise || loadStandardModels();
-            mcpServersLoadPromise = mcpServersLoadPromise || loadMcpServers();
             await Promise.allSettled([
                 standardModelsLoadPromise,
-                mcpServersLoadPromise,
             ]);
         }
 
-        function prepareApiKeyPickers(selectedMcpServerIds) {
+        function prepareApiKeyPickers() {
             renderStandardModelCheckboxes(true);
-            renderMcpServerCheckboxes(selectedMcpServerIds || []);
         }
         
         function copyKey(key) {
@@ -1154,7 +1109,7 @@ ${shCmd}`;
             selectedStandardModelIds = [...(key.allowed_model_ids || [])];
             setAccessMode('model');
             updateSelectedCount();
-            prepareApiKeyPickers(key.mcp_server_ids || []);
+            prepareApiKeyPickers();
             document.getElementById('apikey-bypass-busyness').checked = key.bypass_busyness || false;
             document.getElementById('apikey-daily-quota').value =
                 key.daily_quota_cny === null || key.daily_quota_cny === undefined ? '' : key.daily_quota_cny;
@@ -1193,8 +1148,7 @@ ${shCmd}`;
                 })(),
                 tags: currentTags,
             };
-            data.mcp_server_ids = Array.from(document.querySelectorAll('.mcp-server-check:checked')).map(c => parseInt(c.value));
-            
+
             try {
                 if (id) {
                     await mgFetch(`${APP_BASE_PATH}/admin/api/keys/` + id, {

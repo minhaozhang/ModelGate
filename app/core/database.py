@@ -22,7 +22,6 @@ from app.core.db_models import (  # noqa: F401
     ApiKey,
     ApiKeyDailyStat,
     ApiKeyDailyUsage,
-    ApiKeyMcpServer,
     ApiKeyModel,
     ApiKeyModelAccess,
     ApiKeyModelDailyStat,
@@ -33,9 +32,6 @@ from app.core.db_models import (  # noqa: F401
     Document,
     DocumentFile,
     IpLocation,
-    McpCallDailyStat,
-    McpCallLog,
-    McpServer,
     Menu,
     Model,
     ModelDailyStat,
@@ -60,9 +56,6 @@ from app.core.db_models import (  # noqa: F401
     SystemSetting,
     User,
     UserRole,
-    WeixinAccount,
-    WeixinContextToken,
-    WeixinMessage,
     read_registry,
 )
 from app.core.db_migrations import (  # noqa: F401

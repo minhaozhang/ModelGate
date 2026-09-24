@@ -8,7 +8,6 @@ from app.core.database import (
     async_session_maker,
     ApiKey,
     ApiKeyModelAccess,
-    ApiKeyMcpServer,
     ApiKeyTag,
     ApiKeyTimeRule,
 )
@@ -56,15 +55,6 @@ async def load_api_keys():
                 rule_data["weekdays"] = r.weekdays
             key_rules_map[r.api_key_id].append(rule_data)
 
-        all_mcp_result = await session.execute(
-            select(ApiKeyMcpServer.api_key_id, ApiKeyMcpServer.mcp_server_id).where(
-                ApiKeyMcpServer.api_key_id.in_(key_ids)
-            )
-        )
-        key_mcp_map: dict[int, list[int]] = {k.id: [] for k in keys}
-        for row in all_mcp_result.fetchall():
-            key_mcp_map[row[0]].append(row[1])
-
         all_tags_result = await session.execute(
             select(ApiKeyTag.api_key_id, ApiKeyTag.tag).where(
                 ApiKeyTag.api_key_id.in_(key_ids)
@@ -87,7 +77,6 @@ async def load_api_keys():
                 "allowed_provider_model_ids": [],
                 "allowed_model_ids": key_model_access_map[k.id],
                 "time_rules": key_rules_map[k.id],
-                "mcp_server_ids": key_mcp_map[k.id],
                 "tags": key_tags_map[k.id],
             }
 
@@ -245,12 +234,6 @@ async def validate_api_key(
                 if r.weekdays is not None:
                     rule_data["weekdays"] = r.weekdays
                 rules.append(rule_data)
-            mcp_result = await session.execute(
-                select(ApiKeyMcpServer.mcp_server_id).where(
-                    ApiKeyMcpServer.api_key_id == db_key.id
-                )
-            )
-            mcp_ids = [row[0] for row in mcp_result.fetchall()]
             key_info = {
                 "id": db_key.id,
                 "name": db_key.name,
@@ -262,7 +245,6 @@ async def validate_api_key(
                 "allowed_provider_model_ids": [],
                 "allowed_model_ids": model_ids,
                 "time_rules": rules,
-                "mcp_server_ids": mcp_ids,
             }
             api_keys_cache[key] = key_info
 

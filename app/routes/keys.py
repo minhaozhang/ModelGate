@@ -12,7 +12,6 @@ from app.core.database import (
     ApiKey,
     ApiKeyModel,
     ApiKeyModelAccess,
-    ApiKeyMcpServer,
     ApiKeyTag,
     ApiKeyTimeRule,
     RequestLog,
@@ -33,7 +32,6 @@ class ApiKeyCreate(BaseModel):
     expires_at: Optional[datetime] = None
     access_mode: Optional[str] = None
     allowed_model_ids: list[int] = Field(default_factory=list)
-    mcp_server_ids: list[int] = Field(default_factory=list)
     bypass_busyness: bool = False
     max_concurrent: Optional[int] = None
     daily_quota_cny: Optional[float] = None
@@ -47,7 +45,6 @@ class ApiKeyUpdate(BaseModel):
     access_mode: Optional[str] = None
     allowed_model_ids: Optional[list[int]] = None
     is_active: Optional[bool] = None
-    mcp_server_ids: Optional[list[int]] = None
     bypass_busyness: Optional[bool] = None
     max_concurrent: Optional[int] = None
     daily_quota_cny: Optional[float] = None
@@ -86,7 +83,6 @@ async def list_api_keys(
 
         model_access_map: dict[int, list[int]] = defaultdict(list)
         time_rules_map: dict[int, list[ApiKeyTimeRule]] = defaultdict(list)
-        mcp_server_map: dict[int, list[int]] = defaultdict(list)
         tags_map: dict[int, list[str]] = defaultdict(list)
         model_name_map: dict[int, str] = {}
 
@@ -122,14 +118,6 @@ async def list_api_keys(
         )
         for rule in rules_result.scalars().all():
             time_rules_map[rule.api_key_id].append(rule)
-
-        mcp_result = await session.execute(
-            select(ApiKeyMcpServer.api_key_id, ApiKeyMcpServer.mcp_server_id).where(
-                ApiKeyMcpServer.api_key_id.in_(key_ids)
-            )
-        )
-        for api_key_id, mcp_server_id in mcp_result.fetchall():
-            mcp_server_map[api_key_id].append(mcp_server_id)
 
         tags_result = await session.execute(
             select(ApiKeyTag.api_key_id, ApiKeyTag.tag).where(
@@ -175,7 +163,6 @@ async def list_api_keys(
                     "bypass_busyness": k.bypass_busyness or False,
                     "max_concurrent": getattr(k, "max_concurrent", None),
                     "daily_quota_cny": k.daily_quota_cny,
-                    "mcp_server_ids": mcp_server_map[k.id],
                     "tags": tags_map[k.id],
                     "last_used_at": k.last_used_at.isoformat()
                     if k.last_used_at
@@ -228,9 +215,6 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_requir
         for model_id in data.allowed_model_ids:
             assoc = ApiKeyModelAccess(api_key_id=new_key.id, model_id=model_id)
             session.add(assoc)
-        for sid in data.mcp_server_ids:
-            assoc = ApiKeyMcpServer(api_key_id=new_key.id, mcp_server_id=sid)
-            session.add(assoc)
         for tag in data.tags:
             t = ApiKeyTag(api_key_id=new_key.id, tag=tag)
             session.add(t)
@@ -279,13 +263,6 @@ async def update_api_key(
                     )
             else:
                 key.daily_quota_cny = data.daily_quota_cny
-        if data.mcp_server_ids is not None:
-            await session.execute(
-                delete(ApiKeyMcpServer).where(ApiKeyMcpServer.api_key_id == key_id)
-            )
-            for sid in data.mcp_server_ids:
-                assoc = ApiKeyMcpServer(api_key_id=key_id, mcp_server_id=sid)
-                session.add(assoc)
         if data.allowed_model_ids is not None:
             await session.execute(
                 delete(ApiKeyModel).where(ApiKeyModel.api_key_id == key_id)

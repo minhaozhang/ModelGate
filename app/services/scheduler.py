@@ -15,7 +15,6 @@ from app.services.stats_aggregator import (
     backfill_historical_stats,
     cleanup_stale_pending_requests,
     archive_old_request_logs,
-    aggregate_mcp_yesterday_stats,
     backup_request_contents,
 )
 from app.services.busyness import compute_busyness_level, LEVEL_LABELS
@@ -29,12 +28,6 @@ TASK_REGISTRY = {
         "description": "聚合昨日的请求、Token、错误等统计数据到日统计表",
         "default_cron": "5 0 * * *",
         "func": aggregate_yesterday_stats,
-    },
-    "aggregate_mcp_daily_stats": {
-        "name": "MCP每日统计聚合",
-        "description": "聚合昨日MCP调用的统计数据",
-        "default_cron": "10 0 * * *",
-        "func": aggregate_mcp_yesterday_stats,
     },
     "archive_old_request_logs": {
         "name": "日志归档",
@@ -182,9 +175,6 @@ async def _run_task_with_logging(task_id: str, func, summary: str | None = None)
 async def _task_aggregate_daily():
     await _run_task_with_logging("aggregate_daily_stats", TASK_REGISTRY["aggregate_daily_stats"]["func"])
 
-async def _task_aggregate_mcp():
-    await _run_task_with_logging("aggregate_mcp_daily_stats", TASK_REGISTRY["aggregate_mcp_daily_stats"]["func"])
-
 async def _task_archive():
     await _run_task_with_logging("archive_old_request_logs", TASK_REGISTRY["archive_old_request_logs"]["func"])
 
@@ -235,7 +225,6 @@ async def _task_glm_health_check():
 
 TASK_HANDLERS = {
     "aggregate_daily_stats": _task_aggregate_daily,
-    "aggregate_mcp_daily_stats": _task_aggregate_mcp,
     "archive_old_request_logs": _task_archive,
     "cleanup_stale_pending": _task_cleanup,
     "auto_reenable_disabled": _task_auto_reenable,

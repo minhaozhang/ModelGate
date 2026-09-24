@@ -26,7 +26,6 @@ class AdminUiStaticTests(unittest.TestCase):
 
         self.assertIn("loadApiKeys().catch", html)
         self.assertIn("standardModelsLoadPromise = standardModelsLoadPromise || loadStandardModels()", html)
-        self.assertIn("mcpServersLoadPromise = mcpServersLoadPromise || loadMcpServers()", html)
         self.assertIn("loadApiKeys().catch(renderApiKeyLoadError)", html)
         self.assertNotIn(".then(() => loadApiKeys().catch(renderApiKeyLoadError))", html)
         self.assertIn("Failed to load API keys", html)
@@ -50,7 +49,6 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("key_ids = [k.id for k in keys]", list_body)
         self.assertIn("ApiKeyModelAccess.api_key_id.in_(key_ids)", list_body)
         self.assertIn("ApiKeyTimeRule.api_key_id.in_(key_ids)", list_body)
-        self.assertIn("ApiKeyMcpServer.api_key_id.in_(key_ids)", list_body)
         self.assertIn("ApiKeyTag.api_key_id.in_(key_ids)", list_body)
 
     def test_api_key_list_uses_payload_model_names_not_lazy_picker_cache(self):
@@ -126,13 +124,11 @@ class AdminUiStaticTests(unittest.TestCase):
 
     def test_api_key_modal_does_not_close_from_backdrop_click(self):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
-        mcp = (ROOT / "web" / "templates" / "admin" / "mcp_servers.html").read_text(encoding="utf-8")
 
         self.assertIn("apikey-modal-card", html)
         self.assertNotIn("if (e.target.id === 'apikey-modal') closeApiKeyModal();", html)
         self.assertNotIn("if (e.target.id === 'timerule-modal') closeTimeRuleModal();", html)
         self.assertNotIn("e.target.id === 'manual-copy-modal'", html)
-        self.assertNotIn("if (e.target.id === 'server-modal') closeServerModal();", mcp)
 
     def test_api_key_model_access_allows_empty_selection_for_disabled_keys(self):
         html = (ROOT / "web" / "templates" / "admin" / "api_keys.html").read_text(encoding="utf-8")
@@ -314,14 +310,12 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("apikey-modal-body", html)
         self.assertIn("shrink-0 border-t", html)
         self.assertIn("md:grid-cols-2", html)
-        self.assertIn("apikey-mcp-servers", html)
         self.assertIn("apikey-tags-container", html)
 
     def test_admin_modals_reserve_taskbar_safe_height(self):
         files = [
             "api_keys.html",
             "config.html",
-            "mcp_servers.html",
             "documents.html",
             "reports.html",
             "request_logs.html",
@@ -338,15 +332,12 @@ class AdminUiStaticTests(unittest.TestCase):
 
     def test_admin_form_modals_keep_actions_outside_scroll_body(self):
         config = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
-        mcp = (ROOT / "web" / "templates" / "admin" / "mcp_servers.html").read_text(encoding="utf-8")
         users = (ROOT / "web" / "templates" / "admin" / "users.html").read_text(encoding="utf-8")
         roles = (ROOT / "web" / "templates" / "admin" / "roles.html").read_text(encoding="utf-8")
 
         self.assertIn('id="provider-form" class="flex min-h-0 flex-1 flex-col overflow-hidden"', config)
         self.assertIn('id="model-form" class="flex min-h-0 flex-1 flex-col overflow-hidden"', config)
-        self.assertIn('id="server-form" class="flex min-h-0 flex-1 flex-col overflow-hidden"', mcp)
         self.assertIn("border-t p-4 shrink-0", config)
-        self.assertIn("border-t p-4 shrink-0", mcp)
         self.assertIn(".modal-actions", users)
         self.assertIn(".modal-actions", roles)
 
