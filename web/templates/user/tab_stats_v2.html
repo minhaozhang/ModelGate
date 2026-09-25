@@ -216,13 +216,6 @@
         <div style="height: 220px;"><canvas id="v2-cost-chart"></canvas></div>
     </div>
 
-    <div class="v2-card mb-6" id="v2-tag-usage-card" style="display:none">
-        <h3>{{ '项目分布（近 30 天）' if current_locale == 'zh' else 'By Project (last 30 days)' }}
-            <span class="meta">{{ '标签按当天归属统计' if current_locale == 'zh' else 'tagged by the day' }}</span>
-        </h3>
-        <div id="v2-tag-usage-body"></div>
-    </div>
-
     <div class="v2-card mb-6">
         <h3>{{ _('Model Concurrency') }}
             <span class="flex items-center gap-3">
@@ -476,36 +469,6 @@
                 if (winEl) winEl.innerHTML = T('总花费', 'All-time') + ' <b>¥' + _fmtCny(data.total_cost || 0) + '</b>';
                 renderV2CostChart();
             } catch (e) { /* non-fatal */ }
-        }
-        async function loadTagUsage() {
-            const card = document.getElementById('v2-tag-usage-card');
-            const body = document.getElementById('v2-tag-usage-body');
-            if (!card || !body) return;
-            try {
-                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/tag-usage?days=30');
-                const items = data.items || [];
-                if (!items.length) { card.style.display = 'none'; return; }
-                card.style.display = '';
-                const totalCost = items.reduce((s, it) => s + (it.cost || 0), 0);
-                const hasCost = totalCost > 0;
-                const shares = hasCost
-                    ? items.map(it => (it.cost || 0) / totalCost * 100)
-                    : items.map(it => (it.requests || 0) / Math.max(1, items.reduce((s, x) => s + (x.requests || 0), 0)) * 100);
-                body.innerHTML = items.map((it, i) => {
-                    const pct = shares[i];
-                    const label = it.tag ? escapeHtml(it.tag) : T('无标签', 'Untagged');
-                    return `
-                    <div style="margin-bottom:10px">
-                        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-                            <span style="font-weight:600">${label}</span>
-                            <span style="color:#6b7280">${formatCompactTokens(it.requests || 0)} ${T('次', 'req')} · ${formatCompactTokens(it.tokens || 0)} tok · <b style="color:#d97706">¥${_fmtCny(it.cost || 0)}</b> · ${pct.toFixed(1)}%</span>
-                        </div>
-                        <div style="height:6px;border-radius:3px;background:rgba(107,114,128,0.15);overflow:hidden">
-                            <div style="height:100%;width:${Math.max(1.5, pct)}%;background:#d97706;border-radius:3px"></div>
-                        </div>
-                    </div>`;
-                }).join('');
-            } catch (e) { card.style.display = 'none'; }
         }
         function renderV2CostChart() {
             const canvas = document.getElementById('v2-cost-chart');
@@ -1363,12 +1326,10 @@
             }
             loadStats();
             loadCostTrend();
-            loadTagUsage();
             loadMyRequests();
             loadSessions();
             setInterval(loadStats, 30000);
             setInterval(loadCostTrend, 60000);
-            setInterval(loadTagUsage, 60000);
             setInterval(() => { if (!userLiveWs || userLiveWs.readyState !== 1) loadMyRequests(); }, 10000);
             setInterval(loadSessions, 15000);
             connectUserLiveWs();
