@@ -11,6 +11,9 @@ from app.core.database import (
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
     ModelDailyStat,
+    TagDailyStat,
+    ApiKey,
+    ApiKeyTag,
     Provider,
 )
 from app.services.model_naming import (
@@ -69,9 +72,14 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 tokens = 0
                 prompt_tokens = 0
                 completion_tokens = 0
+                cost_cny = 0.0
             else:
                 prompt_tokens = (log.tokens or {}).get("prompt_tokens") or 0
                 completion_tokens = (log.tokens or {}).get("completion_tokens") or 0
+                try:
+                    cost_cny = float((log.tokens or {}).get("total_cost_cny") or 0)
+                except (TypeError, ValueError):
+                    cost_cny = 0.0
 
             if provider_name:
                 if provider_name not in provider_stats:
@@ -106,6 +114,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                         "errors": 0,
                         "timeouts": 0,
                         "rate_limited": 0,
+                        "cost_cny": 0.0,
                     }
                 if is_rate_limited:
                     api_key_stats[log.api_key_id]["rate_limited"] += 1
@@ -114,6 +123,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 api_key_stats[log.api_key_id]["tokens"] += tokens
                 api_key_stats[log.api_key_id]["prompt_tokens"] += prompt_tokens
                 api_key_stats[log.api_key_id]["completion_tokens"] += completion_tokens
+                api_key_stats[log.api_key_id]["cost_cny"] += cost_cny
                 if is_error:
                     api_key_stats[log.api_key_id]["errors"] += 1
                 if is_timeout:
@@ -206,6 +216,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 errors=stats["errors"],
                 timeouts=stats["timeouts"],
                 rate_limited=stats["rate_limited"],
+                cost_cny=round(stats["cost_cny"], 10),
             )
             session.add(stat)
 
@@ -296,6 +307,151 @@ async def backfill_historical_stats() -> None:
             await aggregate_stats_for_date(date_str)
         except Exception as e:
             logger.error(f"[AGGREGATOR] Error backfilling {date_str}: {e}")
+
+
+async def aggregate_tag_daily_stats(date_str: str) -> dict:
+    """Snapshot per-(tag, api_key) usage for one day into tag_daily_stats.
+
+    Tag attribution is frozen at aggregation time: rows keyed by current
+    api_key_tags membership (untagged keys land under tag=''). Multi-tag keys
+    produce one row per tag, so per-tag views are complete while per-key
+    totals must come from api_key_daily_stats instead.
+    """
+    start_dt = datetime.strptime(date_str, "%Y-%m-%d")
+    end_dt = start_dt + timedelta(days=1)
+
+    async with async_session_maker() as session:
+        key_result = await session.execute(select(ApiKey.id, ApiKey.name))
+        key_names = {row.id: row.name for row in key_result.fetchall()}
+
+        tag_result = await session.execute(
+            select(ApiKeyTag.api_key_id, ApiKeyTag.tag)
+        )
+        tags_map: dict[int, list[str]] = {}
+        for row in tag_result.fetchall():
+            tags_map.setdefault(row.api_key_id, []).append(row.tag)
+
+        result = await session.execute(
+            select(RequestLogRead).where(
+                and_(
+                    RequestLogRead.created_at >= start_dt,
+                    RequestLogRead.created_at < end_dt,
+                )
+            )
+        )
+        logs = result.scalars().all()
+
+        stats: dict[tuple[str, int], dict] = {}
+        for log in logs:
+            if not log.api_key_id:
+                continue
+            is_rate_limited = log.status in RATE_LIMITED_STATUSES
+            if is_rate_limited:
+                tokens = 0
+                prompt_tokens = 0
+                completion_tokens = 0
+                cost_cny = 0.0
+            else:
+                tokens = (
+                    (log.tokens or {}).get("total_tokens")
+                    or (log.tokens or {}).get("estimated")
+                    or 0
+                )
+                prompt_tokens = (log.tokens or {}).get("prompt_tokens") or 0
+                completion_tokens = (log.tokens or {}).get("completion_tokens") or 0
+                try:
+                    cost_cny = float((log.tokens or {}).get("total_cost_cny") or 0)
+                except (TypeError, ValueError):
+                    cost_cny = 0.0
+
+            for tag in tags_map.get(log.api_key_id) or [""]:
+                bucket_key = (tag, log.api_key_id)
+                bucket = stats.setdefault(
+                    bucket_key,
+                    {
+                        "requests": 0,
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
+                        "tokens": 0,
+                        "cost_cny": 0.0,
+                    },
+                )
+                if not is_rate_limited:
+                    bucket["requests"] += 1
+                bucket["tokens"] += tokens
+                bucket["prompt_tokens"] += prompt_tokens
+                bucket["completion_tokens"] += completion_tokens
+                bucket["cost_cny"] += cost_cny
+
+        await session.execute(
+            delete(TagDailyStat).where(TagDailyStat.date == date_str)
+        )
+
+        for (tag, api_key_id), bucket in stats.items():
+            session.add(
+                TagDailyStat(
+                    date=date_str,
+                    tag=tag,
+                    api_key_id=api_key_id,
+                    key_name=key_names.get(api_key_id, str(api_key_id)),
+                    requests=bucket["requests"],
+                    prompt_tokens=bucket["prompt_tokens"],
+                    completion_tokens=bucket["completion_tokens"],
+                    tokens=bucket["tokens"],
+                    cost_cny=round(bucket["cost_cny"], 10),
+                )
+            )
+
+        await session.commit()
+
+    total_rows = len(stats)
+    distinct_keys = len({key_id for _, key_id in stats})
+    logger.info(
+        f"[AGGREGATOR] Aggregated tag stats for {date_str}: {total_rows} rows, {distinct_keys} api_keys"
+    )
+
+    return {
+        "date": date_str,
+        "rows": total_rows,
+        "api_keys": distinct_keys,
+    }
+
+
+async def aggregate_tag_yesterday_stats() -> None:
+    async with async_session_maker() as session:
+        today_result = await session.execute(select(func.current_date()))
+        db_today = today_result.scalar()
+    yesterday = (db_today - timedelta(days=1)).strftime("%Y-%m-%d")
+    try:
+        await aggregate_tag_daily_stats(yesterday)
+        await backfill_tag_stats()
+    except Exception as e:
+        logger.error(f"[AGGREGATOR] Error aggregating yesterday tag stats: {e}")
+
+
+async def backfill_tag_stats() -> None:
+    """Fill tag_daily_stats (and refresh api_key_daily_stats cost) for dates
+    that already have daily stats but no tag snapshot yet. One-time full
+    history pass on first deploy, then a no-op."""
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(ProviderDailyStat.date).distinct()
+        )
+        stat_dates = {row[0] for row in result.fetchall()}
+        result = await session.execute(select(TagDailyStat.date).distinct())
+        tag_dates = {row[0] for row in result.fetchall()}
+
+    missing = sorted(stat_dates - tag_dates)
+    if not missing:
+        return
+
+    logger.info(f"[AGGREGATOR] Backfilling tag stats for {len(missing)} dates")
+    for date_str in missing:
+        try:
+            await aggregate_stats_for_date(date_str)
+            await aggregate_tag_daily_stats(date_str)
+        except Exception as e:
+            logger.error(f"[AGGREGATOR] Error backfilling tag stats {date_str}: {e}")
 
 
 async def cleanup_stale_pending_requests() -> None:

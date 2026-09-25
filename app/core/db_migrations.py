@@ -434,6 +434,22 @@ _DDL: list[str] = [
     "CREATE INDEX IF NOT EXISTS idx_model_stats_date ON model_daily_stats (date)",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_model_stats_unique ON model_daily_stats (model_name, provider_name, date)",
 
+    "CREATE TABLE IF NOT EXISTS tag_daily_stats ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "date VARCHAR(10) NOT NULL, "
+    "tag VARCHAR(50) NOT NULL DEFAULT '', "
+    "api_key_id INTEGER NOT NULL, "
+    "key_name VARCHAR(100) NOT NULL DEFAULT '', "
+    "requests INTEGER DEFAULT 0, "
+    "prompt_tokens INTEGER DEFAULT 0, "
+    "completion_tokens INTEGER DEFAULT 0, "
+    "tokens INTEGER DEFAULT 0, "
+    "cost_cny DOUBLE PRECISION DEFAULT '0'"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_tag_daily_stats ON tag_daily_stats (date, tag, api_key_id)",
+    "CREATE INDEX IF NOT EXISTS idx_tag_daily_stats_date ON tag_daily_stats (date)",
+    "CREATE INDEX IF NOT EXISTS idx_tag_daily_stats_tag ON tag_daily_stats (tag)",
+
     "CREATE TABLE IF NOT EXISTS analysis_records ("
     "id SERIAL NOT NULL PRIMARY KEY, "
     "analysis_type VARCHAR(50) NOT NULL, "
@@ -1061,6 +1077,12 @@ async def migrate_mcp(conn) -> None:
     await conn.execute(text("ALTER TABLE mcp_servers DROP COLUMN IF EXISTS api_key_id"))
 
 
+async def migrate_tag_stats(conn) -> None:
+    await conn.execute(
+        text("ALTER TABLE api_key_daily_stats ADD COLUMN IF NOT EXISTS cost_cny DOUBLE PRECISION DEFAULT '0'")
+    )
+
+
 async def migrate_audit_logs(conn) -> None:
     await conn.execute(text("DROP INDEX IF EXISTS idx_audit_logs_user_id"))
     await conn.execute(text("DROP INDEX IF EXISTS idx_audit_logs_resource"))
@@ -1079,6 +1101,7 @@ def default_rbac_permissions() -> list[dict]:
         ("page.models", "标准模型页面", "models"),
         ("page.provider_models", "供应商模型页面", "provider_models"),
         ("page.providers", "供应商页面", "providers"),
+        ("page.report_center", "报表中心页面", "report_center"),
         ("page.roles", "角色权限页面", "roles"),
         ("page.stats", "统计监控页面", "stats"),
         ("page.system.config", "系统配置页面", "system_config"),
@@ -1242,5 +1265,6 @@ async def init_db():
         await migrate_documents(conn)
         await migrate_analysis(conn)
         await migrate_mcp(conn)
+        await migrate_tag_stats(conn)
         await migrate_audit_logs(conn)
         await migrate_scheduler(conn)

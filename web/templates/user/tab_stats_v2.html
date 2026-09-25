@@ -58,6 +58,9 @@
         .v2-reqrow-card { background: #ffffff; }
         .v2-img-chip { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 4px; font-size: 10px; font-weight: 600; background: #e0f2fe; color: #0369a1; vertical-align: 1px; }
         .v2-retry-chip { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 4px; font-size: 10px; font-weight: 600; background: #fef3c7; color: #b45309; vertical-align: 1px; cursor: help; }
+        .v2-cost-toggle { font-size: 0.6875rem; font-weight: 600; padding: 3px 12px; border: 0; cursor: pointer; transition: background .2s, color .2s; }
+        body.theme-dark .v2-cost-toggle { color: #ededf8b8; }
+        body.theme-blackgold .v2-cost-toggle { color: #c9b896; }
         .v2-req-table { width: 100%; border-collapse: collapse; font-size: 12px; }
         .v2-req-table th { position: sticky; top: 0; z-index: 1; background: #f3f4f6; color: #374151; text-align: left; font-weight: 600; padding: 7px 10px; white-space: nowrap; border-bottom: 1px solid #e5e7eb; }
         .v2-req-table td { padding: 6px 10px; white-space: nowrap; border-bottom: 1px solid #f0f1f3; color: #1f2937; }
@@ -193,11 +196,24 @@
                 <div class="vs" id="v2-error-rate">&nbsp;</div>
             </div>
             <div class="v2-kpi">
-                <div class="lbl">{{ _('Est. Cost') }}</div>
+                <div class="lbl">{{ '总花费' if current_locale == 'zh' else 'Total Cost' }}</div>
                 <div class="val" style="color:#d97706" id="v2-cost">-</div>
-                <div class="vs">{{ _('per-request snapshots' if current_locale != 'zh' else '按请求计费快照汇总') }}</div>
+                <div class="vs" id="v2-cost-window">&nbsp;</div>
             </div>
         </div>
+    </div>
+
+    <div class="v2-card mb-6">
+        <h3>{{ '每日花费 / Token' if current_locale == 'zh' else 'Daily Cost / Tokens' }}
+            <span class="flex items-center gap-2">
+                <span class="meta" id="v2-cost-chart-meta"></span>
+                <span class="flex rounded-lg overflow-hidden border" style="border-color:#e5e7eb">
+                    <button type="button" id="v2-cost-metric-cost" onclick="v2SetCostMetric('cost')" class="v2-cost-toggle" style="background:#d97706;color:#fff">费用</button>
+                    <button type="button" id="v2-cost-metric-tokens" onclick="v2SetCostMetric('tokens')" class="v2-cost-toggle" style="background:transparent;color:#6b7280">Token</button>
+                </span>
+            </span>
+        </h3>
+        <div style="height: 220px;"><canvas id="v2-cost-chart"></canvas></div>
     </div>
 
     <div class="v2-card mb-6">
@@ -365,8 +381,6 @@
             document.getElementById('v2-errors').textContent = errs.toLocaleString();
             document.getElementById('v2-error-rate').textContent = myReq > 0
                 ? T('错误率', 'Error rate') + ' ' + (errs / myReq * 100).toFixed(2) + '%' : '\u00a0';
-            const cost = data.estimated_cost || 0;
-            document.getElementById('v2-cost').textContent = cost > 0 ? '¥' + (cost >= 1 ? cost.toFixed(2) : cost.toFixed(4)) : '-';
 
             _v2TrendData = data.trend || {};
             _v2SystemTrendData = systemModels.trend || {};
@@ -410,6 +424,75 @@
 
         let v2UsageChart = null;
         let v2SysUsageChart = null;
+        let v2CostChart = null;
+        let _v2CostData = { dates: [], cost: [], tokens: [] };
+        let _v2CostMetric = 'cost';
+        function _fmtCny(v) { v = v || 0; return v >= 1 ? v.toFixed(2) : v.toFixed(4); }
+        function v2SetCostMetric(metric) {
+            _v2CostMetric = metric;
+            const costBtn = document.getElementById('v2-cost-metric-cost');
+            const tokenBtn = document.getElementById('v2-cost-metric-tokens');
+            const active = { background: metric === 'cost' ? '#d97706' : '#059669', color: '#fff' };
+            const idle = { background: 'transparent', color: '' };
+            const apply = (el, st) => { if (el) { el.style.background = st.background; el.style.color = st.color; } };
+            apply(costBtn, metric === 'cost' ? active : idle);
+            apply(tokenBtn, metric === 'tokens' ? active : idle);
+            renderV2CostChart();
+        }
+        async function loadCostTrend() {
+            try {
+                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/cost-trend?days=30');
+                _v2CostData = data;
+                const totalEl = document.getElementById('v2-cost');
+                if (totalEl) totalEl.textContent = (data.total_cost || 0) > 0 ? '¥' + _fmtCny(data.total_cost) : '-';
+                const winEl = document.getElementById('v2-cost-window');
+                if (winEl) winEl.innerHTML = T('近30天', 'Last 30d') + ' <b>¥' + _fmtCny(data.window_cost || 0) + '</b>';
+                renderV2CostChart();
+            } catch (e) { /* non-fatal */ }
+        }
+        function renderV2CostChart() {
+            const canvas = document.getElementById('v2-cost-chart');
+            if (!canvas) return;
+            const isCost = _v2CostMetric === 'cost';
+            const dark = document.body.classList.contains('theme-dark') || document.body.classList.contains('theme-blackgold');
+            const gridColor = dark ? 'rgba(235,234,250,0.08)' : 'rgba(15,23,42,0.06)';
+            const textColor = dark ? '#ededf8b8' : '#6b7280';
+            const baseColor = isCost ? '#d97706' : '#059669';
+            const dates = _v2CostData.dates || [];
+            const values = (isCost ? _v2CostData.cost : _v2CostData.tokens) || [];
+            const metaEl = document.getElementById('v2-cost-chart-meta');
+            if (metaEl) {
+                const sum = values.reduce((s, v) => s + (v || 0), 0);
+                metaEl.textContent = isCost ? ('¥' + _fmtCny(sum)) : formatCompactTokens(sum);
+            }
+            const labels = dates.map(d => String(d).slice(5));
+            if (v2CostChart) v2CostChart.destroy();
+            v2CostChart = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: isCost ? T('每日花费', 'Daily cost') : T('每日 Token', 'Daily tokens'),
+                        data: values,
+                        borderColor: baseColor,
+                        backgroundColor: isCost ? 'rgba(217,119,6,0.14)' : 'rgba(5,150,105,0.14)',
+                        fill: true, tension: 0.35, borderWidth: 2, pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: ctx => isCost ? (' ¥' + _fmtCny(ctx.raw)) : (' ' + (ctx.raw || 0).toLocaleString()) } }
+                    },
+                    scales: {
+                        x: { grid: { color: gridColor }, ticks: { color: textColor, maxTicksLimit: 10 } },
+                        y: { grid: { color: gridColor }, ticks: { color: textColor, callback: v => isCost ? '¥' + (v >= 1 ? v.toFixed(0) : v) : formatCompactTokens(v) }, beginAtZero: true }
+                    }
+                }
+            });
+        }
         const _V2_USAGE_PALETTE = ['#2563eb', '#0f766e', '#0ea5e9', '#1d4ed8', '#14b8a6', '#0891b2', '#059669', '#0284c7'];
         const _V2_SYS_PALETTE = ['#6366f1', '#06b6d4', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#f97316', '#14b8a6'];
         function buildV2Series(models, palette, limit) {
@@ -508,6 +591,7 @@
         function _rerenderCharts() {
             if (v2TrendChart) { v2TrendChart.destroy(); v2TrendChart = null; renderV2Trend(); }
             if (_v2PersonalModels) renderV2ModelUsage();
+            if (v2CostChart) { v2CostChart.destroy(); v2CostChart = null; renderV2CostChart(); }
         }
         window.addEventListener('mg-theme-change', _rerenderCharts);
 
@@ -1207,6 +1291,7 @@
 
         window.v2LoadStats = loadStats;
         window.v2ApplyTheme = applyTheme;
+        window.v2SetCostMetric = v2SetCostMetric;
         window.v2OpenMyRequestsModal = openMyRequestsModal;
         window.v2CloseMyRequestsModal = closeMyRequestsModal;
         window.v2ResetAndLoadMyRequestsModal = resetAndLoadMyRequestsModal;
@@ -1220,9 +1305,11 @@
                 if (pool) pool.classList.add('rm-static');
             }
             loadStats();
+            loadCostTrend();
             loadMyRequests();
             loadSessions();
             setInterval(loadStats, 30000);
+            setInterval(loadCostTrend, 60000);
             setInterval(() => { if (!userLiveWs || userLiveWs.readyState !== 1) loadMyRequests(); }, 10000);
             setInterval(loadSessions, 15000);
             connectUserLiveWs();

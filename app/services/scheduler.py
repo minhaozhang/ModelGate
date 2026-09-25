@@ -12,6 +12,7 @@ from app.core.database import SchedulerTask, SchedulerTaskLog, async_session_mak
 from app.services.provider_limiter import auto_reenable_disabled_keys_and_providers
 from app.services.stats_aggregator import (
     aggregate_yesterday_stats,
+    aggregate_tag_yesterday_stats,
     backfill_historical_stats,
     cleanup_stale_pending_requests,
     archive_old_request_logs,
@@ -28,6 +29,12 @@ TASK_REGISTRY = {
         "description": "聚合昨日的请求、Token、错误等统计数据到日统计表",
         "default_cron": "5 0 * * *",
         "func": aggregate_yesterday_stats,
+    },
+    "aggregate_tag_daily_stats": {
+        "name": "标签每日统计",
+        "description": "按标签快照昨日各API Key的请求数、Token与花费到标签日统计表",
+        "default_cron": "15 0 * * *",
+        "func": aggregate_tag_yesterday_stats,
     },
     "archive_old_request_logs": {
         "name": "日志归档",
@@ -175,6 +182,9 @@ async def _run_task_with_logging(task_id: str, func, summary: str | None = None)
 async def _task_aggregate_daily():
     await _run_task_with_logging("aggregate_daily_stats", TASK_REGISTRY["aggregate_daily_stats"]["func"])
 
+async def _task_aggregate_tags():
+    await _run_task_with_logging("aggregate_tag_daily_stats", TASK_REGISTRY["aggregate_tag_daily_stats"]["func"])
+
 async def _task_archive():
     await _run_task_with_logging("archive_old_request_logs", TASK_REGISTRY["archive_old_request_logs"]["func"])
 
@@ -225,6 +235,7 @@ async def _task_glm_health_check():
 
 TASK_HANDLERS = {
     "aggregate_daily_stats": _task_aggregate_daily,
+    "aggregate_tag_daily_stats": _task_aggregate_tags,
     "archive_old_request_logs": _task_archive,
     "cleanup_stale_pending": _task_cleanup,
     "auto_reenable_disabled": _task_auto_reenable,
@@ -259,11 +270,12 @@ async def startup_scheduler():
 
 async def run_backfill():
     import asyncio
+    from app.services.stats_aggregator import backfill_tag_stats
     await asyncio.sleep(5)
     logger.info("[SCHEDULER] Running backfill for missing dates...")
     await _run_task_with_logging("aggregate_daily_stats", backfill_historical_stats, "backfill")
     await _run_task_with_logging("archive_old_request_logs", archive_old_request_logs, "backfill")
-
+    await _run_task_with_logging("aggregate_tag_daily_stats", backfill_tag_stats, "backfill")
 
 async def _restore_reenable_jobs_on_startup():
     import asyncio

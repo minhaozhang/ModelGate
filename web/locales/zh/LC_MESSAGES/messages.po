@@ -3373,3 +3373,38 @@ msgstr "等待"
 
 #~ msgid "Without Prefix"
 #~ msgstr "不带前缀"
+msgid "Report Center"
+msgstr "报表中心"
+
+msgid "By Tag"
+msgstr "按标签"
+
+msgid "By Person"
+msgstr "按人"
+
+msgid "Last 7 days"
+msgstr "近 7 天"
+
+msgid "Last 30 days"
+msgstr "近 30 天"
+
+msgid "Last 90 days"
+msgstr "近 90 天"
+
+msgid "Tag"
+msgstr "标签"
+
+msgid "People"
+msgstr "人数"
+
+msgid "Input Tokens"
+msgstr "输入 Token"
+
+msgid "Output Tokens"
+msgstr "输出 Token"
+
+msgid "Total Tokens"
+msgstr "总 Token"
+
+msgid "Cost (CNY)"
+msgstr "花费（元）"

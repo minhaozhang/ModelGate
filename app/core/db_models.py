@@ -499,6 +499,7 @@ class ApiKeyDailyStat(Base):
     errors = Column(Integer, default=0)
     timeouts = Column(Integer, default=0)
     rate_limited = Column(Integer, default=0)
+    cost_cny = Column(Float, default=0)
 
     __table_args__ = (Index("idx_apikey_stats_date", "date"),)
 
@@ -550,6 +551,27 @@ class ModelDailyStat(Base):
         Index(
             "idx_model_stats_unique", "model_name", "provider_name", "date", unique=True
         ),
+    )
+
+
+class TagDailyStat(Base):
+    __tablename__ = "tag_daily_stats"
+
+    id = Column(Integer, primary_key=True)
+    date = Column(String(10), nullable=False)
+    tag = Column(String(50), nullable=False, default="")
+    api_key_id = Column(Integer, nullable=False)
+    key_name = Column(String(100), nullable=False, default="")
+    requests = Column(Integer, default=0)
+    prompt_tokens = Column(Integer, default=0)
+    completion_tokens = Column(Integer, default=0)
+    tokens = Column(Integer, default=0)
+    cost_cny = Column(Float, default=0)
+
+    __table_args__ = (
+        UniqueConstraint("date", "tag", "api_key_id", name="uq_tag_daily_stats"),
+        Index("idx_tag_daily_stats_date", "date"),
+        Index("idx_tag_daily_stats_tag", "tag"),
     )
 
 

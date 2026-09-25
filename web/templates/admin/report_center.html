@@ -1,0 +1,215 @@
+{% set active_page = 'report-center' %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('Report Center') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css?v={{ css_version }}">
+    <style>
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
+        .spinner { width: 1rem; height: 1rem; border-radius: 9999px; border: 2px solid rgba(59, 130, 246, 0.3); border-top-color: #3b82f6; animation: spin 0.9s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .rc-tab { padding: 0.375rem 1rem; font-size: 0.8125rem; font-weight: 600; border-bottom: 2px solid transparent; color: #6b7280; cursor: pointer; background: none; border-top: 0; border-left: 0; border-right: 0; }
+        .rc-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+        .rc-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+        .rc-table th { text-align: left; font-weight: 600; color: #374151; padding: 0.5rem 0.75rem; border-bottom: 1px solid #e5e7eb; white-space: nowrap; background: #f9fafb; }
+        .rc-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f3f4f6; color: #1f2937; white-space: nowrap; }
+        .rc-table tr:hover td { background: #f8fafc; }
+        .rc-table td.num, .rc-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+        .rc-table tr.total td { font-weight: 700; background: #f9fafb; border-top: 2px solid #e5e7eb; }
+        .rc-tagchip { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; background: #e0f2fe; color: #0369a1; }
+        .rc-tagchip.none { background: #f3f4f6; color: #6b7280; }
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav, body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #020617 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .border, body.theme-dark .border-b, body.theme-dark .border-t, body.theme-dark .border-gray-200 { border-color: #1f2937 !important; }
+        body.theme-dark input, body.theme-dark select { background: #0f172a !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+        body.theme-dark .rc-table th { color: #e2e8f0; border-bottom-color: #334155; background: #0f172a; }
+        body.theme-dark .rc-table td { color: #e2e8f0; border-bottom-color: #1f2937; }
+        body.theme-dark .rc-table tr:hover td { background: rgba(51, 65, 85, 0.35); }
+        body.theme-dark .rc-table tr.total td { background: #0f172a; border-top-color: #334155; }
+        body.theme-dark .rc-tagchip { background: rgba(14, 165, 233, 0.18); color: #7dd3fc; }
+        body.theme-dark .rc-tagchip.none { background: rgba(148, 163, 184, 0.16); color: #94a3b8; }
+        body.theme-dark .rc-tab { color: #94a3b8; }
+        body.theme-dark .rc-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    {% include 'components/nav.html' %}
+    <div class="flex-1 flex flex-col md:flex-row">
+        <main class="flex-1 p-4 md:p-8 overflow-x-hidden">
+            <div class="max-w-6xl mx-auto">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-800">{{ _('Report Center') }}</h1>
+                        <p class="text-sm text-gray-500 mt-1" id="rc-subtitle"></p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <input type="date" id="rc-start" class="border rounded-lg px-3 py-2 text-sm">
+                        <span class="text-gray-400 text-sm">~</span>
+                        <input type="date" id="rc-end" class="border rounded-lg px-3 py-2 text-sm">
+                        <select id="rc-quick" class="border rounded-lg px-3 py-2 text-sm">
+                            <option value="7">{{ _('Last 7 days') }}</option>
+                            <option value="30" selected>{{ _('Last 30 days') }}</option>
+                            <option value="90">{{ _('Last 90 days') }}</option>
+                        </select>
+                        <button onclick="rcLoad()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">{{ _('Query') }}</button>
+                        <button onclick="rcExport()" class="border px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100">{{ _('Export CSV') }}</button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="flex border-b border-gray-200 px-4">
+                        <button class="rc-tab active" id="rc-tab-tag" onclick="rcSetView('tag')">{{ _('By Tag') }}</button>
+                        <button class="rc-tab" id="rc-tab-key" onclick="rcSetView('key')">{{ _('By Person') }}</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="rc-table">
+                            <thead>
+                                <tr id="rc-head-tag">
+                                    <th>{{ _('Tag') }}</th>
+                                    <th class="num">{{ _('People') }}</th>
+                                    <th class="num">{{ _('Requests') }}</th>
+                                    <th class="num">{{ _('Input Tokens') }}</th>
+                                    <th class="num">{{ _('Output Tokens') }}</th>
+                                    <th class="num">{{ _('Total Tokens') }}</th>
+                                    <th class="num">{{ _('Cost (CNY)') }}</th>
+                                </tr>
+                                <tr id="rc-head-key" style="display:none">
+                                    <th>{{ _('Person') }}</th>
+                                    <th class="num">{{ _('Requests') }}</th>
+                                    <th class="num">{{ _('Input Tokens') }}</th>
+                                    <th class="num">{{ _('Output Tokens') }}</th>
+                                    <th class="num">{{ _('Total Tokens') }}</th>
+                                    <th class="num">{{ _('Cost (CNY)') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rc-body">
+                                <tr><td colspan="7" class="text-center text-gray-400 py-8"><span class="spinner"></span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 mt-3" id="rc-note"></p>
+            </div>
+        </main>
+    </div>
+
+<script>
+(function () {
+    const APP_BASE_PATH = {{ app_base_path | tojson }};
+    const lang = document.querySelector('html').getAttribute('lang');
+    const T = (zh, en) => lang === 'zh' ? zh : en;
+    let rcView = 'tag';
+    let rcData = { rows: [] };
+
+    function escapeHtml(v) {
+        return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function fmtNum(v) { return (v || 0).toLocaleString(); }
+    function fmtCost(v) { v = v || 0; return '¥' + (v >= 1 ? v.toFixed(2) : v.toFixed(4)); }
+
+    function rcSetView(view) {
+        rcView = view;
+        document.getElementById('rc-tab-tag').classList.toggle('active', view === 'tag');
+        document.getElementById('rc-tab-key').classList.toggle('active', view === 'key');
+        document.getElementById('rc-head-tag').style.display = view === 'tag' ? '' : 'none';
+        document.getElementById('rc-head-key').style.display = view === 'key' ? '' : 'none';
+        document.getElementById('rc-note').textContent = view === 'tag'
+            ? T('多标签 Key 会同时计入其每个标签，跨标签合计会大于实际总量；按人视图不含重复。', 'Keys with multiple tags are counted under each tag; cross-tag totals overlap. The by-person view has no duplicates.')
+            : '';
+        rcLoad();
+    }
+
+    function rcRender() {
+        const body = document.getElementById('rc-body');
+        const rows = rcData.rows || [];
+        if (!rows.length) {
+            body.innerHTML = `<tr><td colspan="7" class="text-center text-gray-400 py-8">${T('暂无数据', 'No data')}</td></tr>`;
+            document.getElementById('rc-subtitle').textContent = '';
+            return;
+        }
+        const sum = { requests: 0, prompt_tokens: 0, completion_tokens: 0, tokens: 0, cost: 0 };
+        let html = '';
+        for (const r of rows) {
+            sum.requests += r.requests; sum.prompt_tokens += r.prompt_tokens;
+            sum.completion_tokens += r.completion_tokens; sum.tokens += r.tokens; sum.cost += r.cost;
+            if (rcView === 'tag') {
+                const chip = r.tag ? `<span class="rc-tagchip">${escapeHtml(r.tag)}</span>` : `<span class="rc-tagchip none">${T('无标签', 'Untagged')}</span>`;
+                html += `<tr>
+                    <td>${chip}</td>
+                    <td class="num">${fmtNum(r.key_count)}</td>
+                    <td class="num">${fmtNum(r.requests)}</td>
+                    <td class="num">${fmtNum(r.prompt_tokens)}</td>
+                    <td class="num">${fmtNum(r.completion_tokens)}</td>
+                    <td class="num">${fmtNum(r.tokens)}</td>
+                    <td class="num">${fmtCost(r.cost)}</td>
+                </tr>`;
+            } else {
+                html += `<tr>
+                    <td>${escapeHtml(r.key_name)}</td>
+                    <td class="num">${fmtNum(r.requests)}</td>
+                    <td class="num">${fmtNum(r.prompt_tokens)}</td>
+                    <td class="num">${fmtNum(r.completion_tokens)}</td>
+                    <td class="num">${fmtNum(r.tokens)}</td>
+                    <td class="num">${fmtCost(r.cost)}</td>
+                </tr>`;
+            }
+        }
+        const totalCells = rcView === 'tag'
+            ? `<td>${T('合计', 'Total')}</td><td class="num">-</td><td class="num">${fmtNum(sum.requests)}</td><td class="num">${fmtNum(sum.prompt_tokens)}</td><td class="num">${fmtNum(sum.completion_tokens)}</td><td class="num">${fmtNum(sum.tokens)}</td><td class="num">${fmtCost(sum.cost)}</td>`
+            : `<td>${T('合计', 'Total')}</td><td class="num">${fmtNum(sum.requests)}</td><td class="num">${fmtNum(sum.prompt_tokens)}</td><td class="num">${fmtNum(sum.completion_tokens)}</td><td class="num">${fmtNum(sum.tokens)}</td><td class="num">${fmtCost(sum.cost)}</td>`;
+        html += `<tr class="total">${totalCells}</tr>`;
+        body.innerHTML = html;
+        document.getElementById('rc-subtitle').textContent = `${rcData.start} ~ ${rcData.end}`;
+    }
+
+    async function rcLoad() {
+        const body = document.getElementById('rc-body');
+        body.innerHTML = `<tr><td colspan="7" class="text-center text-gray-400 py-8"><span class="spinner"></span></td></tr>`;
+        const qs = new URLSearchParams({ start: document.getElementById('rc-start').value, end: document.getElementById('rc-end').value });
+        const resp = await fetch(`${APP_BASE_PATH}/admin/api/report-center/by-${rcView}?${qs}`);
+        if (resp.status === 401 || resp.status === 403) {
+            body.innerHTML = `<tr><td colspan="7" class="text-center text-gray-400 py-8">${T('无权限', 'Forbidden')}</td></tr>`;
+            return;
+        }
+        rcData = await resp.json();
+        rcRender();
+    }
+
+    function rcExport() {
+        const qs = new URLSearchParams({ start: document.getElementById('rc-start').value, end: document.getElementById('rc-end').value });
+        window.location.href = `${APP_BASE_PATH}/admin/api/report-center/by-${rcView}.csv?${qs}`;
+    }
+
+    function initDates(days) {
+        const end = new Date();
+        const start = new Date(Date.now() - (days - 1) * 86400000);
+        const fmt = d => d.toISOString().slice(0, 10);
+        document.getElementById('rc-start').value = fmt(start);
+        document.getElementById('rc-end').value = fmt(end);
+    }
+
+    window.rcSetView = rcSetView;
+    window.rcLoad = rcLoad;
+    window.rcExport = rcExport;
+
+    document.getElementById('rc-quick').addEventListener('change', function () {
+        initDates(parseInt(this.value, 10) || 30);
+        rcLoad();
+    });
+    initDates(30);
+    rcSetView('tag');
+})();
+</script>
+</body>
+</html>

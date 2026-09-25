@@ -883,6 +883,86 @@ async def get_user_billing_usage(
     return await get_daily_usage_summary(api_key_id)
 
 
+@router.get("/user/api/cost-trend")
+async def get_user_cost_trend(
+    request: Request, api_key_id: int = Depends(get_user_session), days: int = 30
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+
+    days = max(1, min(days, 90))
+    now = get_local_now()
+    today_start = get_day_start(now)
+    start = today_start - timedelta(days=days - 1)
+    start_str = start.strftime("%Y-%m-%d")
+    today_str = today_start.strftime("%Y-%m-%d")
+
+    daily: dict[str, dict] = {}
+    async with async_session_maker() as session:
+        agg_result = await session.execute(
+            select(
+                ApiKeyDailyStat.date,
+                func.coalesce(func.sum(ApiKeyDailyStat.cost_cny), 0).label("cost"),
+                func.coalesce(func.sum(ApiKeyDailyStat.tokens), 0).label("tokens"),
+            )
+            .where(
+                ApiKeyDailyStat.api_key_id == api_key_id,
+                ApiKeyDailyStat.date >= start_str,
+                ApiKeyDailyStat.date < today_str,
+            )
+            .group_by(ApiKeyDailyStat.date)
+        )
+        for row in agg_result.fetchall():
+            daily[row.date] = {
+                "cost": float(row.cost or 0),
+                "tokens": int(row.tokens or 0),
+            }
+
+        today_result = await session.execute(
+            select(RequestLog.tokens, RequestLog.status).where(
+                RequestLog.api_key_id == api_key_id,
+                RequestLog.created_at >= today_start,
+                RequestLog.status.notin_(IN_FLIGHT_STATUSES),
+            )
+        )
+        today_cost = 0.0
+        today_tokens = 0
+        for tokens, status in today_result.fetchall():
+            payload = tokens if isinstance(tokens, dict) else {}
+            today_cost += _billing_number(payload.get("total_cost_cny"))
+            if status not in ("rate_limited", "local_rate_limited"):
+                today_tokens += get_token_count(payload)
+        daily[today_str] = {"cost": today_cost, "tokens": today_tokens}
+
+        total_result = await session.execute(
+            select(func.coalesce(func.sum(ApiKeyDailyStat.cost_cny), 0)).where(
+                ApiKeyDailyStat.api_key_id == api_key_id
+            )
+        )
+        all_time_cost = float(total_result.scalar() or 0) + today_cost
+
+    dates = []
+    cost_series = []
+    token_series = []
+    current = start
+    while current <= today_start:
+        key = current.strftime("%Y-%m-%d")
+        dates.append(key)
+        point = daily.get(key) or {"cost": 0.0, "tokens": 0}
+        cost_series.append(round(point["cost"], 6))
+        token_series.append(point["tokens"])
+        current += timedelta(days=1)
+
+    return {
+        "days": days,
+        "total_cost": round(all_time_cost, 6),
+        "window_cost": round(sum(cost_series), 6),
+        "dates": dates,
+        "cost": cost_series,
+        "tokens": token_series,
+    }
+
+
 @router.get("/user/api/billing-details.csv")
 async def download_user_billing_details(
     request: Request, api_key_id: int = Depends(get_user_session), period: str = "day"

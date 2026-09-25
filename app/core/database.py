@@ -52,6 +52,7 @@ from app.core.db_models import (  # noqa: F401
     Role,
     RolePermission,
     SchedulerTask,
+    TagDailyStat,
     SchedulerTaskLog,
     SystemSetting,
     User,

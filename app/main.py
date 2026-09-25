@@ -239,6 +239,7 @@ from app.routes import (
     opencode,
     codex,
     reports,
+    report_center,
     system_config,
     documents,
     users,
@@ -265,6 +266,7 @@ app.include_router(user.router)
 app.include_router(opencode.router)
 app.include_router(codex.router)
 app.include_router(reports.router)
+app.include_router(report_center.router)
 app.include_router(system_config.router)
 app.include_router(documents.router)
 app.include_router(users.router)
