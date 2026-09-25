@@ -37,6 +37,7 @@ from app.core.database import (
     async_session_maker,
     ApiKey,
     ApiKeyModel,
+    ApiKeyTag,
     Model,
     Provider,
     ProviderModel,
@@ -44,6 +45,7 @@ from app.core.database import (
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
     ModelDailyStat,
+    TagDailyStat,
     generate_api_key,
 )
 from app.core.i18n import render, translate
@@ -929,7 +931,10 @@ async def get_user_cost_trend(
         today_tokens = 0
         for tokens, status in today_result.fetchall():
             payload = tokens if isinstance(tokens, dict) else {}
-            today_cost += _billing_number(payload.get("total_cost_cny"))
+            billing = payload.get("billing")
+            today_cost += _billing_number(
+                billing.get("total_cost_cny") if isinstance(billing, dict) else None
+            )
             if status not in ("rate_limited", "local_rate_limited"):
                 today_tokens += get_token_count(payload)
         daily[today_str] = {"cost": today_cost, "tokens": today_tokens}
@@ -960,6 +965,97 @@ async def get_user_cost_trend(
         "dates": dates,
         "cost": cost_series,
         "tokens": token_series,
+    }
+
+
+@router.get("/user/api/tag-usage")
+async def get_user_tag_usage(
+    request: Request, api_key_id: int = Depends(get_user_session), days: int = 30
+):
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+
+    days = max(1, min(days, 90))
+    now = get_local_now()
+    today_start = get_day_start(now)
+    start = today_start - timedelta(days=days - 1)
+    start_str = start.strftime("%Y-%m-%d")
+    today_str = today_start.strftime("%Y-%m-%d")
+
+    buckets: dict[str, dict] = {}
+
+    async with async_session_maker() as session:
+        agg_result = await session.execute(
+            select(
+                TagDailyStat.tag,
+                func.coalesce(func.sum(TagDailyStat.requests), 0).label("requests"),
+                func.coalesce(func.sum(TagDailyStat.tokens), 0).label("tokens"),
+                func.coalesce(func.sum(TagDailyStat.cost_cny), 0).label("cost"),
+            )
+            .where(
+                TagDailyStat.api_key_id == api_key_id,
+                TagDailyStat.date >= start_str,
+                TagDailyStat.date < today_str,
+            )
+            .group_by(TagDailyStat.tag)
+        )
+        for tag, req, tok, cost in agg_result.fetchall():
+            buckets[tag or ""] = {
+                "requests": int(req or 0),
+                "tokens": int(tok or 0),
+                "cost": float(cost or 0),
+            }
+
+        current_tags_result = await session.execute(
+            select(ApiKeyTag.tag).where(ApiKeyTag.api_key_id == api_key_id)
+        )
+        current_tags = sorted({row[0] or "" for row in current_tags_result.fetchall()})
+
+        today_result = await session.execute(
+            select(RequestLog.tokens, RequestLog.status).where(
+                RequestLog.api_key_id == api_key_id,
+                RequestLog.created_at >= today_start,
+                RequestLog.status.notin_(IN_FLIGHT_STATUSES),
+            )
+        )
+        today_requests = 0
+        today_tokens = 0
+        today_cost = 0.0
+        for tokens, status in today_result.fetchall():
+            payload = tokens if isinstance(tokens, dict) else {}
+            billing = payload.get("billing")
+            today_cost += _billing_number(
+                billing.get("total_cost_cny") if isinstance(billing, dict) else None
+            )
+            today_requests += 1
+            if status not in ("rate_limited", "local_rate_limited"):
+                today_tokens += get_token_count(payload)
+
+        if today_requests:
+            for tag in current_tags or [""]:
+                bucket = buckets.setdefault(
+                    tag, {"requests": 0, "tokens": 0, "cost": 0.0}
+                )
+                bucket["requests"] += today_requests
+                bucket["tokens"] += today_tokens
+                bucket["cost"] = round(bucket["cost"] + today_cost, 6)
+
+    items = [
+        {
+            "tag": tag,
+            "requests": v["requests"],
+            "tokens": v["tokens"],
+            "cost": round(v["cost"], 6),
+        }
+        for tag, v in buckets.items()
+        if v["requests"] > 0 or v["cost"] > 0
+    ]
+    items.sort(key=lambda x: (-x["cost"], -x["requests"]))
+
+    return {
+        "days": days,
+        "items": items,
+        "note": "tags reflect the key's tag on each day; a key with multiple tags on the same day is counted under each",
     }
 
 
