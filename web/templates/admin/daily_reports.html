@@ -47,7 +47,7 @@
                 <div class="bg-white rounded-lg shadow p-4 w-64 shrink-0">
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-sm font-semibold">{{ _('历史简报') if current_locale == 'zh' else 'History' }}</span>
-                        <button onclick="drRerunPrompt()" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">{{ _('补跑') if current_locale == 'zh' else 'Rerun' }}</button>
+                        <button onclick="drOpenRerun()" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">{{ _('补跑') if current_locale == 'zh' else 'Rerun' }}</button>
                     </div>
                     <div id="dr-list" class="space-y-1 text-sm"></div>
                 </div>
@@ -56,6 +56,26 @@
                 </div>
             </div>
         </main>
+    </div>
+    <div id="dr-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background: rgba(0,0,0,0.5);">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-5">
+            <div class="text-base font-semibold mb-4">{{ _('补跑简报') if current_locale == 'zh' else 'Rerun Report' }}</div>
+            <label class="block text-xs text-gray-500 mb-1">{{ _('日期') if current_locale == 'zh' else 'Date' }}</label>
+            <input id="dr-run-date" type="text" class="w-full border rounded px-3 py-2 text-sm font-mono mb-3" placeholder="YYYY-MM-DD（{{ _('留空为昨天') if current_locale == 'zh' else 'empty = yesterday' }}）">
+            <label class="flex items-center gap-2 text-sm mb-2">
+                <input id="dr-run-ai" type="checkbox" checked class="accent-indigo-500" onchange="document.getElementById('dr-run-ai-box').style.display=this.checked?'':'none'">
+                <span>{{ _('附带 AI 分析') if current_locale == 'zh' else 'Include AI analysis' }}</span>
+            </label>
+            <div id="dr-run-ai-box">
+                <label class="block text-xs text-gray-500 mb-1">{{ _('分析模型') if current_locale == 'zh' else 'Model' }}</label>
+                <select id="dr-run-model" class="w-full border rounded px-3 py-2 text-sm mb-1"></select>
+                <div class="text-xs text-gray-400">{{ _('分析结果会保存在简报里') if current_locale == 'zh' else 'Result is stored in the report' }}</div>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button onclick="drCloseRerun()" class="px-3 py-1.5 text-sm rounded border">{{ _('取消') if current_locale == 'zh' else 'Cancel' }}</button>
+                <button id="dr-run-btn" onclick="drRunSubmit()" class="px-3 py-1.5 text-sm rounded bg-blue-500 hover:bg-blue-600 text-white">{{ _('生成') if current_locale == 'zh' else 'Generate' }}</button>
+            </div>
+        </div>
     </div>
     <script>
         const APP_BASE_PATH = "{{ app_base_path }}";
@@ -112,10 +132,27 @@
                         ${(s.security ? s.security.flags : []).concat(s.errors ? s.errors.flags : []).map(f => `<div>• ${esc(f)}</div>`).join('')}
                     </div>` : ''}
                 </div>
+                ${drAi(s.ai)}
                 ${drSecurity(s.security || {})}
                 ${drErrors(s.errors || {})}
                 ${drUsage(s.usage || {})}
             `;
+        }
+
+        function drAi(ai) {
+            if (!ai || (!ai.text && !ai.error && !ai.skipped)) return '';
+            if (ai.skipped) return '';
+            const inner = ai.text
+                ? `<div class="text-sm leading-relaxed whitespace-pre-wrap">${esc(ai.text)}</div>`
+                : `<div class="text-sm text-red-400">${T('AI 分析失败', 'AI analysis failed')}: ${esc(ai.error || '')}</div>`;
+            return `
+            <div class="bg-white rounded-lg shadow p-6 mb-4" style="background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.06));">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="sec-title">🤖 ${T('AI 分析', 'AI Analysis')}</div>
+                    <span class="text-xs text-gray-400 font-mono">${esc(ai.model || '')}</span>
+                </div>
+                ${inner}
+            </div>`;
         }
 
         function drSecurity(sec) {
@@ -203,16 +240,72 @@
             </div>`;
         }
 
-        async function drRerunPrompt() {
-            const d = prompt(T('补跑哪一天？（YYYY-MM-DD，留空为昨天）', 'Rerun which date? (YYYY-MM-DD, empty = yesterday)'), drCurrent ? drCurrent.date : '');
-            if (d === null) return;
-            const r = await fetch(APP_BASE_PATH + '/admin/api/daily-reports/run', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ date: d.trim() })
+        let drModels = null;
+
+        async function drLoadModels() {
+            if (drModels !== null) return;
+            const sel = document.getElementById('dr-run-model');
+            sel.innerHTML = '<option>…</option>';
+            try {
+                const r = await fetch(APP_BASE_PATH + '/admin/api/daily-reports/ai-models/list');
+                const d = await r.json();
+                drModels = d.models || [];
+            } catch { drModels = []; }
+            if (!drModels.length) {
+                sel.innerHTML = `<option value="">${T('无可用模型', 'No models available')}</option>`;
+                return;
+            }
+            const groups = {};
+            drModels.forEach(m => {
+                const i = m.indexOf('/');
+                const p = i > 0 ? m.slice(0, i) : m;
+                (groups[p] = groups[p] || []).push(m);
             });
-            if (r.ok) { await drLoadList(); if (d.trim()) drShow(d.trim()); }
-            else { const e = await r.json().catch(() => ({})); alert(e.detail || 'Failed'); }
+            sel.innerHTML = Object.entries(groups).map(([p, ms]) =>
+                `<optgroup label="${esc(p)}">` + ms.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('') + `</optgroup>`
+            ).join('');
+        }
+
+        function drOpenRerun() {
+            document.getElementById('dr-run-date').value = drCurrent ? drCurrent.date : '';
+            document.getElementById('dr-run-ai').checked = true;
+            document.getElementById('dr-run-ai-box').style.display = '';
+            const m = document.getElementById('dr-modal');
+            m.classList.remove('hidden'); m.classList.add('flex');
+            drLoadModels();
+        }
+
+        function drCloseRerun() {
+            const m = document.getElementById('dr-modal');
+            m.classList.add('hidden'); m.classList.remove('flex');
+        }
+
+        async function drRunSubmit() {
+            const date = document.getElementById('dr-run-date').value.trim();
+            const useAi = document.getElementById('dr-run-ai').checked;
+            const model = useAi ? (document.getElementById('dr-run-model').value || '') : '';
+            const btn = document.getElementById('dr-run-btn');
+            btn.disabled = true;
+            btn.textContent = model ? T('生成中（AI 分析约 1 分钟）…', 'Running (AI ~1 min)…') : T('生成中…', 'Running…');
+            try {
+                const r = await fetch(APP_BASE_PATH + '/admin/api/daily-reports/run', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ date, ai_model: model })
+                });
+                if (r.ok) {
+                    const d = await r.json();
+                    drCloseRerun();
+                    await drLoadList();
+                    drShow(d.date || date);
+                } else {
+                    const e = await r.json().catch(() => ({}));
+                    alert(e.detail || 'Failed');
+                }
+            } finally {
+                btn.disabled = false;
+                btn.textContent = T('生成', 'Generate');
+            }
         }
 
         drLoadList();

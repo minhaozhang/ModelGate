@@ -65,6 +65,24 @@ async def get_daily_report(
     }
 
 
+@router.get("/ai-models/list")
+async def list_ai_models(
+    _: bool = Depends(permission_required("page.daily_reports")),
+):
+    from app.core.database import Model, Provider, ProviderModel
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Provider.name, Model.name)
+            .join(ProviderModel, ProviderModel.provider_id == Provider.id)
+            .join(Model, ProviderModel.model_id == Model.id)
+            .where(ProviderModel.is_active == True)  # noqa: E712
+            .order_by(Provider.name, Model.name)
+        )
+        rows = result.all()
+    return {"models": [f"{p}/{m}" for p, m in rows]}
+
+
 @router.post("/run")
 async def run_daily_report(
     body: dict,
@@ -76,7 +94,10 @@ async def run_daily_report(
     target = _parse_date(date_str)
     if target >= date_type.today():
         raise HTTPException(status_code=422, detail="只能生成今天之前的日期")
+    ai_model = str(body.get("ai_model") or "").strip()
+    if ai_model and "/" not in ai_model:
+        raise HTTPException(status_code=422, detail="模型名应为 供应商/模型 格式")
     from app.services.daily_report import generate_daily_report
 
-    result = await generate_daily_report(date_str)
+    result = await generate_daily_report(date_str, ai_model=ai_model or None)
     return {"ok": True, "date": result["date"], "level": result["level"], "summary": result["summary"]}

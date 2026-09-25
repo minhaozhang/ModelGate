@@ -328,7 +328,93 @@ def _fmt_delta(v: float | None) -> str:
     return f"{v:+.1f}%"
 
 
-async def generate_daily_report(date_str: str, notify: bool = True) -> dict:
+async def _ai_analyze(date_str: str, sections: dict, model: str) -> dict:
+    import json as _json
+
+    from app.services.proxy import call_internal_model_via_proxy
+
+    payload = {
+        "date": date_str,
+        "security": {
+            k: sections["security"][k]
+            for k in (
+                "login_failures",
+                "login_locked",
+                "login_fail_top_ips",
+                "auth_failures",
+                "auth_fail_top_ips",
+                "auth_fail_reasons",
+                "rate_limited",
+                "admin_ops",
+                "flags",
+            )
+            if k in sections.get("security", {})
+        },
+        "errors": {
+            k: sections["errors"][k]
+            for k in ("total", "errors", "timeouts", "rate_limited", "error_rate",
+                      "top_error_models", "worst_providers", "top_upstream_status", "flags")
+            if k in sections.get("errors", {})
+        },
+        "usage": {
+            k: sections["usage"][k]
+            for k in ("requests", "tokens", "cost", "requests_delta_pct",
+                      "tokens_delta_pct", "cost_delta_pct", "top_keys", "top_tags")
+            if k in sections.get("usage", {})
+        },
+    }
+
+    body_json = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "你是 ModelGate API 网关的运维分析师，根据每日运营数据写简明分析。"
+                    "要求：中文；200字以内；先用一句话总体评估，再指出异常或值得关注的点"
+                    "（引用具体数字），最后给1-2条可执行建议；用短句，不要标题，"
+                    "不要输出JSON，不要客套。"
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"以下是 {date_str} 的运营数据JSON：\n"
+                + _json.dumps(payload, ensure_ascii=False),
+            },
+        ],
+        "max_tokens": 600,
+        "temperature": 0.3,
+        "stream": False,
+    }
+
+    try:
+        result = await call_internal_model_via_proxy(
+            requested_model=model,
+            body_json=body_json,
+            purpose="daily-report-analysis",
+            timeout_seconds=90.0,
+        )
+        if not result.get("ok"):
+            reason = str(result.get("error") or "")[:300]
+            logger.warning("[DAILY REPORT] AI analysis failed: %s", reason)
+            return {"model": model, "error": reason}
+        reply = ""
+        try:
+            message = result["payload"]["choices"][0]["message"] or {}
+            reply = message.get("content") or message.get("reasoning_content") or ""
+        except (KeyError, IndexError, TypeError):
+            reply = ""
+        if not reply:
+            return {"model": model, "error": "AI 响应为空"}
+        return {"model": model, "text": reply.strip()}
+    except Exception as exc:
+        logger.warning("[DAILY REPORT] AI analysis error: %s", exc)
+        return {"model": model, "error": str(exc)[:300]}
+
+
+async def generate_daily_report(
+    date_str: str, notify: bool = True, ai_model: str | None = None
+) -> dict:
     start_dt, end_dt = _day_bounds(date_str)
     thresholds = await _thresholds()
 
@@ -342,6 +428,13 @@ async def generate_daily_report(date_str: str, notify: bool = True) -> dict:
     summary = _build_summary(level, security, errors, usage)
 
     sections = {"security": security, "errors": errors, "usage": usage}
+
+    try:
+        if ai_model:
+            sections["ai"] = await _ai_analyze(date_str, sections, ai_model)
+    except Exception as exc:
+        logger.warning("[DAILY REPORT] AI analysis crashed: %s", exc)
+        sections["ai"] = {"error": str(exc)[:300]}
 
     async with async_session_maker() as session:
         await session.execute(delete(DailyReport).where(DailyReport.date == date_str))
@@ -375,6 +468,11 @@ async def generate_daily_report(date_str: str, notify: bool = True) -> dict:
                 if usage["top_keys"]
                 else "用量: 无请求"
             )
+            ai = sections.get("ai") or {}
+            if ai.get("text"):
+                body_lines.append("")
+                body_lines.append(f"AI 分析（{ai.get('model', '?')}）:")
+                body_lines.append(ai["text"][:400])
             await create_notification(
                 "system",
                 level,

@@ -55,10 +55,26 @@ class DailyReportStaticTests(unittest.TestCase):
             "drSecurity",
             "drErrors",
             "drUsage",
+            "drAi",
             "/admin/api/daily-reports",
-            "drRerunPrompt",
+            "drOpenRerun",
+            "ai-models/list",
         ):
             self.assertIn(needle, tpl)
+
+    def test_ai_analysis_manual_only(self):
+        src = (ROOT / "app" / "services" / "daily_report.py").read_text(encoding="utf-8")
+        self.assertIn("async def _ai_analyze", src)
+        self.assertIn('if ai_model:\n            sections["ai"]', src)
+        self.assertIn('purpose="daily-report-analysis"', src)
+        sched = (ROOT / "app" / "services" / "scheduler.py").read_text(encoding="utf-8")
+        self.assertIn("await generate_daily_report(yesterday)", sched)
+
+    def test_ai_models_endpoint(self):
+        src = (ROOT / "app" / "routes" / "daily_reports.py").read_text(encoding="utf-8")
+        self.assertIn('@router.get("/ai-models/list")', src)
+        self.assertIn('ai_model = str(body.get("ai_model") or "").strip()', src)
+        self.assertIn('generate_daily_report(date_str, ai_model=ai_model or None)', src)
 
     def test_nav_has_daily_reports_link(self):
         nav = (ROOT / "web" / "templates" / "components" / "nav.html").read_text(encoding="utf-8")
