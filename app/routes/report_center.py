@@ -77,11 +77,22 @@ async def _query_by_tag(start: str, end: str) -> list[dict]:
 
 
 async def _query_by_key(start: str, end: str) -> list[dict]:
+    from app.core.database import ApiKeyTag
+
+    tag_agg = (
+        select(
+            ApiKeyTag.api_key_id.label("k_id"),
+            func.string_agg(ApiKeyTag.tag, "/").label("tags"),
+        )
+        .group_by(ApiKeyTag.api_key_id)
+        .subquery()
+    )
     async with async_session_maker() as session:
         result = await session.execute(
             select(
                 ApiKeyDailyStat.api_key_id,
                 ApiKey.name.label("key_name"),
+                tag_agg.c.tags.label("key_tags"),
                 func.coalesce(func.sum(ApiKeyDailyStat.requests), 0).label("requests"),
                 func.coalesce(func.sum(ApiKeyDailyStat.prompt_tokens), 0).label("prompt_tokens"),
                 func.coalesce(func.sum(ApiKeyDailyStat.completion_tokens), 0).label("completion_tokens"),
@@ -89,11 +100,12 @@ async def _query_by_key(start: str, end: str) -> list[dict]:
                 func.coalesce(func.sum(ApiKeyDailyStat.cost_cny), 0).label("cost"),
             )
             .join(ApiKey, ApiKey.id == ApiKeyDailyStat.api_key_id, isouter=True)
+            .join(tag_agg, tag_agg.c.k_id == ApiKeyDailyStat.api_key_id, isouter=True)
             .where(
                 ApiKeyDailyStat.date >= start,
                 ApiKeyDailyStat.date <= end,
             )
-            .group_by(ApiKeyDailyStat.api_key_id, ApiKey.name)
+            .group_by(ApiKeyDailyStat.api_key_id, ApiKey.name, tag_agg.c.tags)
             .order_by(func.coalesce(func.sum(ApiKeyDailyStat.cost_cny), 0).desc())
         )
         rows = result.fetchall()
@@ -101,6 +113,7 @@ async def _query_by_key(start: str, end: str) -> list[dict]:
     return [
         {
             "key_name": row.key_name or f"(已删除 #{row.api_key_id})",
+            "tags": [t for t in (row.key_tags or "").split("/") if t],
             "requests": int(row.requests or 0),
             "prompt_tokens": int(row.prompt_tokens or 0),
             "completion_tokens": int(row.completion_tokens or 0),
@@ -133,15 +146,23 @@ async def report_by_key(
     return {"start": start_date, "end": end_date, "rows": rows}
 
 
-def _rows_to_csv(headers: list[str], rows: list[dict]) -> str:
+def _rows_to_csv(headers: list[str], rows: list[dict], keys: list[str]) -> str:
+    def _cell(row: dict, key: str):
+        value = row.get(key, "")
+        if isinstance(value, list):
+            return "/".join(value)
+        return value
+
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(headers)
     for row in rows:
-        writer.writerow([row.get(key, "") for key in
-                         ["tag", "key_name", "key_count", "requests",
-                          "prompt_tokens", "completion_tokens", "tokens", "cost"]])
+        writer.writerow([_cell(row, key) for key in keys])
     return buf.getvalue()
+
+
+_BY_TAG_CSV_KEYS = ["tag", "key_count", "requests", "prompt_tokens", "completion_tokens", "tokens", "cost"]
+_BY_KEY_CSV_KEYS = ["tags", "key_name", "requests", "prompt_tokens", "completion_tokens", "tokens", "cost"]
 
 
 @router.get("/by-tag.csv")
@@ -154,7 +175,7 @@ async def report_by_tag_csv(
     rows = await _query_by_tag(start_date, end_date)
     filename = f"modelgate_report_by_tag_{start_date}_{end_date}.csv"
     return Response(
-        content="\ufeff" + _rows_to_csv(["标签", "人数", "请求数", "输入Token", "输出Token", "总Token", "花费(元)"], rows),
+        content="\ufeff" + _rows_to_csv(["标签", "人数", "请求数", "输入Token", "输出Token", "总Token", "花费(元)"], rows, _BY_TAG_CSV_KEYS),
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
@@ -170,7 +191,7 @@ async def report_by_key_csv(
     rows = await _query_by_key(start_date, end_date)
     filename = f"modelgate_report_by_key_{start_date}_{end_date}.csv"
     return Response(
-        content="\ufeff" + _rows_to_csv(["Key", "人数", "请求数", "输入Token", "输出Token", "总Token", "花费(元)"], rows),
+        content="\ufeff" + _rows_to_csv(["标签", "Key", "请求数", "输入Token", "输出Token", "总Token", "花费(元)"], rows, _BY_KEY_CSV_KEYS),
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

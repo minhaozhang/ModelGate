@@ -86,6 +86,7 @@
                                 </tr>
                                 <tr id="rc-head-key" style="display:none">
                                     <th>{{ _('Person') }}</th>
+                                    <th>{{ _('Tags') }}</th>
                                     <th class="num">{{ _('Requests') }}</th>
                                     <th class="num">{{ _('Input Tokens') }}</th>
                                     <th class="num">{{ _('Output Tokens') }}</th>
@@ -134,7 +135,7 @@
         const body = document.getElementById('rc-body');
         const rows = rcData.rows || [];
         if (!rows.length) {
-            body.innerHTML = `<tr><td colspan="7" class="text-center text-gray-400 py-8">${T('暂无数据', 'No data')}</td></tr>`;
+            body.innerHTML = `<tr><td colspan="8" class="text-center text-gray-400 py-8">${T('暂无数据', 'No data')}</td></tr>`;
             document.getElementById('rc-subtitle').textContent = '';
             return;
         }
@@ -155,8 +156,12 @@
                     <td class="num">${fmtCost(r.cost)}</td>
                 </tr>`;
             } else {
+                const chips = (r.tags && r.tags.length)
+                    ? r.tags.map(t => `<span class="rc-tagchip">${escapeHtml(t)}</span>`).join(' ')
+                    : `<span class="rc-tagchip none">${T('无标签', 'Untagged')}</span>`;
                 html += `<tr>
                     <td>${escapeHtml(r.key_name)}</td>
+                    <td>${chips}</td>
                     <td class="num">${fmtNum(r.requests)}</td>
                     <td class="num">${fmtNum(r.prompt_tokens)}</td>
                     <td class="num">${fmtNum(r.completion_tokens)}</td>
@@ -167,7 +172,7 @@
         }
         const totalCells = rcView === 'tag'
             ? `<td>${T('合计', 'Total')}</td><td class="num">-</td><td class="num">${fmtNum(sum.requests)}</td><td class="num">${fmtNum(sum.prompt_tokens)}</td><td class="num">${fmtNum(sum.completion_tokens)}</td><td class="num">${fmtNum(sum.tokens)}</td><td class="num">${fmtCost(sum.cost)}</td>`
-            : `<td>${T('合计', 'Total')}</td><td class="num">${fmtNum(sum.requests)}</td><td class="num">${fmtNum(sum.prompt_tokens)}</td><td class="num">${fmtNum(sum.completion_tokens)}</td><td class="num">${fmtNum(sum.tokens)}</td><td class="num">${fmtCost(sum.cost)}</td>`;
+            : `<td>${T('合计', 'Total')}</td><td class="num">-</td><td class="num">${fmtNum(sum.requests)}</td><td class="num">${fmtNum(sum.prompt_tokens)}</td><td class="num">${fmtNum(sum.completion_tokens)}</td><td class="num">${fmtNum(sum.tokens)}</td><td class="num">${fmtCost(sum.cost)}</td>`;
         html += `<tr class="total">${totalCells}</tr>`;
         body.innerHTML = html;
         document.getElementById('rc-subtitle').textContent = `${rcData.start} ~ ${rcData.end}`;

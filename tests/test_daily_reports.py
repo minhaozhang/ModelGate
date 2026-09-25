@@ -104,13 +104,39 @@ class DailyReportStaticTests(unittest.TestCase):
 
     def test_thresholds_in_defaults_and_ui(self):
         cfg = (ROOT / "app" / "services" / "system_config.py").read_text(encoding="utf-8")
-        for key in ("error_rate_warn", "auth_fail_warn", "login_fail_warn", "rate_limit_warn"):
+        for key in ("error_rate_warn", "auth_fail_warn", "login_fail_warn", "rate_limit_warn", "ip_req_warn", "ip_auth_fail_warn"):
             self.assertIn(key, cfg)
         route = (ROOT / "app" / "routes" / "system_config.py").read_text(encoding="utf-8")
         self.assertIn('"daily_report"', route)
         ui = (ROOT / "web" / "templates" / "admin" / "system_config.html").read_text(encoding="utf-8")
         self.assertIn("daily_report-error_rate_warn", ui)
+        self.assertIn("daily_report-ip_auth_fail_warn", ui)
         self.assertIn("saveDailyReport", ui)
+
+    def test_ip_distribution_in_security_section(self):
+        src = (ROOT / "app" / "services" / "daily_report.py").read_text(encoding="utf-8")
+        self.assertIn('"ip_top": ip_top_data', src)
+        self.assertIn("ip_req_warn", src)
+        self.assertIn("ip_auth_fail_warn", src)
+        self.assertIn("IpLocation", src)
+
+    def test_by_key_report_includes_tags(self):
+        src = (ROOT / "app" / "routes" / "report_center.py").read_text(encoding="utf-8")
+        self.assertIn("ApiKeyTag", src)
+        self.assertIn('string_agg(ApiKeyTag.tag, "/")', src)
+        self.assertIn('"tags": [t for t in (row.key_tags or "").split("/") if t]', src)
+        csv_route = src
+        self.assertIn("_BY_KEY_CSV_KEYS", csv_route)
+        tpl = (ROOT / "web" / "templates" / "admin" / "report_center.html").read_text(encoding="utf-8")
+        self.assertIn("r.tags", tpl)
+        self.assertIn("rc-head-key", tpl)
+
+    def test_request_logs_ip_city(self):
+        src = (ROOT / "app" / "routes" / "logs.py").read_text(encoding="utf-8")
+        self.assertIn("_ip_city_map", src)
+        self.assertIn('"ip_city": ip_city_map.get(log.client_ip or "")', src)
+        tpl = (ROOT / "web" / "templates" / "admin" / "request_logs.html").read_text(encoding="utf-8")
+        self.assertIn("log.ip_city", tpl)
 
 
 if __name__ == "__main__":

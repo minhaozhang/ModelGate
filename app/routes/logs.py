@@ -54,6 +54,33 @@ async def _get_maps(
     return provider_map, api_key_map
 
 
+async def _ip_city_map(session, ips: list[str]) -> dict[str, str]:
+    """Batch lookup city labels for client IPs from the ip_locations table (DB-only, no external calls)."""
+    unique = list({ip for ip in ips if ip})
+    if not unique:
+        return {}
+    from app.core.database import IpLocation
+
+    result = await session.execute(
+        select(IpLocation.ip, IpLocation.country, IpLocation.province, IpLocation.city).where(
+            IpLocation.ip.in_(unique)
+        )
+    )
+    out: dict[str, str] = {}
+    for ip, country, province, city in result.all():
+        parts: list[str] = []
+        if country and country not in ("中国", "China", "CHN"):
+            parts.append(country)
+        if province:
+            parts.append(province)
+        if city and city != province:
+            parts.append(city)
+        label = " ".join(parts)
+        if label:
+            out[ip] = label
+    return out
+
+
 def _serialize_error_log(
     log: RequestLog,
     provider_map: dict[int, str],
@@ -322,9 +349,17 @@ async def query_logs(
 
         provider_map, api_key_map = await _get_maps(session, logs)
 
+        ip_city_map = await _ip_city_map(
+            session, [log.client_ip for log in logs if log.client_ip]
+        )
+
         return {
             "logs": [
-                _serialize_error_log(log, provider_map, api_key_map) for log in logs
+                {
+                    **_serialize_error_log(log, provider_map, api_key_map),
+                    "ip_city": ip_city_map.get(log.client_ip or ""),
+                }
+                for log in logs
             ],
             "total": total,
             "page": page,

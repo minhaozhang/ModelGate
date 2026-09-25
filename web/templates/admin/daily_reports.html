@@ -159,6 +159,7 @@
             const ips = (sec.login_fail_top_ips || []);
             const aips = (sec.auth_fail_top_ips || []);
             const reasons = (sec.auth_fail_reasons || []);
+            const ipTop = (sec.ip_top || []).filter(i => (i.requests + i.auth_failures + i.login_failures) > 0);
             return `
             <div class="bg-white rounded-lg shadow p-6 mb-4">
                 <div class="sec-title mb-3">🛡 ${T('安全', 'Security')}</div>
@@ -168,6 +169,18 @@
                     <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('限流请求', 'Rate limited')}</div><div class="text-xl font-semibold">${fmt(sec.rate_limited)}</div></div>
                     <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('管理端操作', 'Admin ops')}</div><div class="text-xl font-semibold">${fmt(sec.admin_ops)}</div></div>
                 </div>
+                ${ipTop.length ? `
+                <div class="mb-4">
+                    <div class="text-xs text-gray-500 mb-1">${T('IP 分布 Top（含异常检测）', 'Top IPs (anomaly-aware)')}</div>
+                    <table class="dr-table w-full text-sm mb-3">
+                        <thead><tr><th>IP</th><th>${T('城市', 'City')}</th><th class="text-right">${T('请求', 'Req')}</th><th class="text-right">${T('错误', 'Err')}</th><th class="text-right">${T('认证失败', 'Auth fail')}</th><th class="text-right">${T('登录失败', 'Login fail')}</th></tr></thead>
+                        <tbody>${ipTop.map(i => {
+                            const anomalous = i.auth_failures > 0 && i.requests === 0;
+                            return `<tr${anomalous ? ' style="color:#f87171;"' : ''}><td class="font-mono text-xs">${esc(i.ip)}</td><td class="text-xs">${esc(i.city || '—')}</td><td class="text-right">${fmt(i.requests)}</td><td class="text-right ${i.errors > 0 ? 'text-red-400' : ''}">${fmt(i.errors)}</td><td class="text-right ${i.auth_failures > 0 ? 'text-red-400' : ''}">${fmt(i.auth_failures)}</td><td class="text-right ${i.login_failures > 0 ? 'text-orange-400' : ''}">${fmt(i.login_failures)}</td></tr>`;
+                        }).join('')}</tbody>
+                    </table>
+                    <div class="text-xs text-gray-400">${T('红色行为只有失败记录、无正常请求的可疑 IP', 'Red rows = IPs with failures only and no successful traffic')}</div>
+                </div>` : ''}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
                         <div class="text-xs text-gray-500 mb-1">${T('登录失败 Top IP', 'Login failure top IPs')}</div>

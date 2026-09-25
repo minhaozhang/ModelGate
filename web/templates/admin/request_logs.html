@@ -808,7 +808,7 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                         <td class="num mono text-gray-700">${log.first_chunk_ms != null ? (log.first_chunk_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="num mono ${log.wait_ms > 5000 ? 'text-amber-600' : 'text-gray-700'}">${log.wait_ms != null ? (log.wait_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="cell-cost num mono text-gray-700">${billingCost !== null ? formatCost(billingCost) : '-'}</td>
-                        <td class="cell-ip mono text-xs text-gray-600">${log.client_ip ? `<button class="link-btn" onclick="showIpLocation('${escapeHtml(log.client_ip)}')" title="${window.I18N.ipLocation}">${escapeHtml(log.client_ip)}</button>` : '-'}</td>
+                        <td class="cell-ip mono text-xs text-gray-600">${log.client_ip ? `<button class="link-btn" onclick="showIpLocation('${escapeHtml(log.client_ip)}')" title="${window.I18N.ipLocation}">${escapeHtml(log.client_ip)}</button>${log.ip_city ? `<div class="text-[10px] text-gray-400 mt-0.5" title="${escapeHtml(log.ip_city)}">${escapeHtml(log.ip_city)}</div>` : ''}` : '-'}</td>
                         <td class="cell-actions whitespace-nowrap">
                             <button class="link-btn" onclick="showLogDetail(this, ${log.id})">${window.I18N.details}</button>
                         </td>

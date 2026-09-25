@@ -189,6 +189,14 @@
                         <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Rate limited requests warn' if current_locale != 'zh' else '限流请求告警（次）') }}</label>
                         <input id="daily_report-rate_limit_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="500">
                     </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Single IP requests warn' if current_locale != 'zh' else '单 IP 请求告警（次）') }}</label>
+                        <input id="daily_report-ip_req_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="2000">
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Single IP auth failures warn' if current_locale != 'zh' else '单 IP 认证失败告警（次）') }}</label>
+                        <input id="daily_report-ip_auth_fail_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="30">
+                    </div>
                 </div>
                 <div class="mt-4 flex gap-2">
                     <button onclick="saveDailyReport()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
@@ -336,7 +344,7 @@
             msg.classList.remove('hidden');
         }
         async function saveDailyReport() {
-            const keys = ['error_rate_warn', 'auth_fail_warn', 'login_fail_warn', 'rate_limit_warn'];
+            const keys = ['error_rate_warn', 'auth_fail_warn', 'login_fail_warn', 'rate_limit_warn', 'ip_req_warn', 'ip_auth_fail_warn'];
             const daily_report = {};
             for (const key of keys) {
                 const el = document.getElementById('daily_report-' + key);

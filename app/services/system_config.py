@@ -36,6 +36,8 @@ ALL_DEFAULTS = {
         "auth_fail_warn": "100",
         "login_fail_warn": "20",
         "rate_limit_warn": "500",
+        "ip_req_warn": "2000",
+        "ip_auth_fail_warn": "30",
     },
 }
 

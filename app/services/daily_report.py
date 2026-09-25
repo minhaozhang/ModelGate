@@ -43,6 +43,8 @@ async def _thresholds() -> dict:
         "auth_fail_warn": await get_float_setting("daily_report", "auth_fail_warn", 100.0),
         "login_fail_warn": await get_float_setting("daily_report", "login_fail_warn", 20.0),
         "rate_limit_warn": await get_float_setting("daily_report", "rate_limit_warn", 500.0),
+        "ip_req_warn": await get_float_setting("daily_report", "ip_req_warn", 2000.0),
+        "ip_auth_fail_warn": await get_float_setting("daily_report", "ip_auth_fail_warn", 30.0),
     }
 
 
@@ -113,6 +115,73 @@ async def _security_section(session, start_dt: datetime, end_dt: datetime, thres
         for u, a, r, d in high_risk_rows.fetchall()
     ]
 
+    ip_traffic_rows = await session.execute(
+        select(
+            RequestLogRead.client_ip,
+            func.count().label("requests"),
+            func.count().filter(
+                RequestLogRead.status.in_((ERROR_STATUS, TIMEOUT_STATUS))
+            ).label("errors"),
+        )
+        .where(
+            RequestLogRead.created_at >= start_dt,
+            RequestLogRead.created_at < end_dt,
+            RequestLogRead.api_key_id.isnot(None),
+            RequestLogRead.client_ip.isnot(None),
+        )
+        .group_by(RequestLogRead.client_ip)
+    )
+    ip_traffic: dict[str, dict] = {}
+    for ip, reqs, errs in ip_traffic_rows.fetchall():
+        ip_traffic.setdefault(ip, {"requests": 0, "errors": 0, "auth_failures": 0, "login_failures": 0})
+        ip_traffic[ip]["requests"] = reqs or 0
+        ip_traffic[ip]["errors"] = errs or 0
+    for ip, cnt in auth_fail_by_ip.items():
+        ip_traffic.setdefault(ip, {"requests": 0, "errors": 0, "auth_failures": 0, "login_failures": 0})
+        ip_traffic[ip]["auth_failures"] += cnt
+    for ip, cnt in login_fail_by_ip.items():
+        ip_traffic.setdefault(ip, {"requests": 0, "errors": 0, "auth_failures": 0, "login_failures": 0})
+        ip_traffic[ip]["login_failures"] += cnt
+
+    ip_top = sorted(
+        ip_traffic.items(),
+        key=lambda kv: (kv[1]["requests"] + kv[1]["auth_failures"] + kv[1]["login_failures"]),
+        reverse=True,
+    )[:5]
+
+    ip_top_ips = [ip for ip, _ in ip_top]
+    ip_cities: dict[str, str] = {}
+    if ip_top_ips:
+        from app.core.database import IpLocation
+
+        loc_rows = await session.execute(
+            select(
+                IpLocation.ip,
+                IpLocation.country,
+                IpLocation.province,
+                IpLocation.city,
+            ).where(IpLocation.ip.in_(ip_top_ips))
+        )
+        for ip, country, province, city in loc_rows.fetchall():
+            parts = []
+            if country and country not in ("中国", "China", "CHN"):
+                parts.append(country)
+            if province:
+                parts.append(province)
+            if city and city != province:
+                parts.append(city)
+            if parts:
+                ip_cities[ip] = " ".join(parts)
+
+    ip_top_data = [
+        {
+            "ip": ip,
+            "city": ip_cities.get(ip, ""),
+            **stats,
+        }
+        for ip, stats in ip_top
+    ]
+
     flags = []
     if login_failures > thresholds["login_fail_warn"]:
         flags.append(f"登录失败 {login_failures} 次超过阈值 {int(thresholds['login_fail_warn'])}")
@@ -120,6 +189,17 @@ async def _security_section(session, start_dt: datetime, end_dt: datetime, thres
         flags.append(f"Key 认证失败 {auth_failures} 次超过阈值 {int(thresholds['auth_fail_warn'])}")
     if rate_limited > thresholds["rate_limit_warn"]:
         flags.append(f"限流 {rate_limited} 次超过阈值 {int(thresholds['rate_limit_warn'])}")
+    for ip, stats in ip_top:
+        if stats["requests"] >= thresholds["ip_req_warn"]:
+            flags.append(
+                f"IP {ip} 请求 {stats['requests']} 次超过阈值 {int(thresholds['ip_req_warn'])}"
+                + (f"（{ip_cities.get(ip)}）" if ip_cities.get(ip) else "")
+            )
+        if stats["auth_failures"] >= thresholds["ip_auth_fail_warn"]:
+            flags.append(
+                f"IP {ip} 认证失败 {stats['auth_failures']} 次超过阈值 {int(thresholds['ip_auth_fail_warn'])}"
+                + (f"（{ip_cities.get(ip)}）" if ip_cities.get(ip) else "")
+            )
 
     return {
         "login_failures": login_failures,
@@ -131,6 +211,7 @@ async def _security_section(session, start_dt: datetime, end_dt: datetime, thres
         "rate_limited": rate_limited,
         "admin_ops": admin_ops,
         "high_risk_ops": high_risk_ops,
+        "ip_top": ip_top_data,
         "flags": flags,
     }
 
@@ -346,6 +427,7 @@ async def _ai_analyze(date_str: str, sections: dict, model: str) -> dict:
                 "auth_fail_reasons",
                 "rate_limited",
                 "admin_ops",
+                "ip_top",
                 "flags",
             )
             if k in sections.get("security", {})

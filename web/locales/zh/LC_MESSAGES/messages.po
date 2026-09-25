@@ -3403,6 +3403,18 @@ msgstr "按标签"
 msgid "By Person"
 msgstr "按人"
 
+msgid "Person"
+msgstr "人（Key）"
+
+msgid "Tags"
+msgstr "标签"
+
+msgid "Single IP requests warn"
+msgstr "单 IP 请求告警（次）"
+
+msgid "Single IP auth failures warn"
+msgstr "单 IP 认证失败告警（次）"
+
 msgid "Last 7 days"
 msgstr "近 7 天"
 
