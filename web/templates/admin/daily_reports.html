@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="{{ 'zh' if current_locale == 'zh' else 'en' }}">
 <head>
     <meta charset="utf-8">
     {% include 'components/site_head_meta.html' %}
@@ -25,6 +25,9 @@
         .dr-item { cursor: pointer; transition: background 0.15s; }
         .dr-item:hover { background: rgba(59, 130, 246, 0.08); }
         .dr-item.active { background: rgba(59, 130, 246, 0.15); border-right: 3px solid #3b82f6; }
+        .link-btn { cursor: pointer; background: none; border: none; padding: 0; font-size: inherit; }
+        .link-btn:hover { text-decoration: underline; }
+        #dr-detail-body .bg-white { background: transparent !important; box-shadow: none !important; }
         .level-warning { color: #f59e0b; font-weight: 600; }
         .level-info { color: #10b981; }
         .flag-box { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); }
@@ -43,16 +46,25 @@
         {% include "components/nav.html" %}
         <main class="ml-56 flex-1 p-6">
             {% call admin_page_header(_('Daily Reports')) %}{% endcall %}
-            <div class="flex gap-6" style="align-items: flex-start;">
-                <div class="bg-white rounded-lg shadow p-4 w-64 shrink-0">
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-sm font-semibold">{{ _('历史简报') if current_locale == 'zh' else 'History' }}</span>
-                        <button onclick="drOpenRerun()" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">{{ _('补跑') if current_locale == 'zh' else 'Rerun' }}</button>
-                    </div>
-                    <div id="dr-list" class="space-y-1 text-sm"></div>
+            <div class="bg-white rounded-lg shadow">
+                <div class="flex items-center justify-between px-4 py-3 border-b">
+                    <span class="text-sm font-semibold">{{ _('历史简报') if current_locale == 'zh' else 'History' }}</span>
+                    <button onclick="drOpenRerun()" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded">{{ _('补跑') if current_locale == 'zh' else 'Rerun' }}</button>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <div id="dr-detail"><div class="text-gray-400 text-sm p-8 text-center">{{ _('选择左侧日期查看简报') if current_locale == 'zh' else 'Select a date' }}</div></div>
+                <div class="overflow-x-auto">
+                    <table class="dr-table w-full text-sm">
+                        <thead>
+                            <tr>
+                                <th class="text-left">{{ _('日期') if current_locale == 'zh' else 'Date' }}</th>
+                                <th class="text-left">{{ _('级别') if current_locale == 'zh' else 'Level' }}</th>
+                                <th class="text-left">{{ _('摘要') if current_locale == 'zh' else 'Summary' }}</th>
+                                <th class="text-left">AI</th>
+                                <th class="text-left">{{ _('生成时间') if current_locale == 'zh' else 'Created' }}</th>
+                                <th class="text-left">{{ _('操作') if current_locale == 'zh' else 'Actions' }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dr-body"></tbody>
+                    </table>
                 </div>
             </div>
         </main>
@@ -77,6 +89,18 @@
             </div>
         </div>
     </div>
+    <div id="dr-detail-modal" class="fixed inset-0 hidden items-center justify-center z-50 p-4" style="background: rgba(0,0,0,0.5);">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl flex flex-col" style="max-height: 85vh;">
+            <div class="flex items-center justify-between px-5 py-3 border-b shrink-0">
+                <h2 id="dr-detail-title" class="text-base font-semibold font-mono"></h2>
+                <div class="flex items-center gap-3">
+                    <button onclick="drAiFromDetail()" class="text-xs bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded">🤖 {{ _('AI 分析') if current_locale == 'zh' else 'AI Analysis' }}</button>
+                    <button onclick="drCloseDetail()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+                </div>
+            </div>
+            <div id="dr-detail-body" class="p-5 overflow-y-auto"></div>
+        </div>
+    </div>
     <script>
         const APP_BASE_PATH = "{{ app_base_path }}";
         const ZH = document.documentElement.lang === 'zh';
@@ -94,37 +118,36 @@
             if (!r.ok) return;
             const d = await r.json();
             drItems = d.items || [];
-            const el = document.getElementById('dr-list');
+            const el = document.getElementById('dr-body');
             if (!drItems.length) {
-                el.innerHTML = '<div class="text-gray-400 text-xs p-2">' + T('暂无简报，等待每日 00:35 自动生成', 'No reports yet; auto-generated daily at 00:35') + '</div>';
+                el.innerHTML = `<tr><td colspan="6" class="text-center text-gray-400 text-xs py-8">${T('暂无简报，等待每日 00:35 自动生成', 'No reports yet; auto-generated daily at 00:35')}</td></tr>`;
                 return;
             }
             el.innerHTML = drItems.map(it => `
-                <div class="dr-item rounded px-3 py-2" data-date="${it.date}" onclick="drShow('${it.date}')">
-                    <div class="flex items-center justify-between">
-                        <span class="font-mono text-xs">${it.date}</span>
-                        <span class="level-${it.level} text-xs">${it.level === 'warning' ? T('警告', 'WARN') : T('正常', 'OK')}</span>
-                    </div>
-                    <div class="text-xs text-gray-500 truncate" title="${esc(it.summary)}">${esc(it.summary)}</div>
-                </div>
+                <tr>
+                    <td class="font-mono text-xs">${it.date}</td>
+                    <td><span class="level-${it.level} text-xs">${it.level === 'warning' ? T('警告', 'WARN') : T('正常', 'OK')}</span></td>
+                    <td class="max-w-md"><div class="text-xs text-gray-500 truncate" title="${esc(it.summary)}">${esc(it.summary)}</div></td>
+                    <td class="text-xs">${it.has_ai ? '<span class="text-indigo-400">🤖 ' + T('有', 'yes') + '</span>' : '<span class="text-gray-400">—</span>'}</td>
+                    <td class="text-xs text-gray-400 font-mono">${it.created_at || '-'}</td>
+                    <td class="whitespace-nowrap text-xs">
+                        <button class="link-btn text-blue-500 hover:underline mr-2" onclick="drShow('${it.date}')">${T('详情', 'Detail')}</button>
+                        <button class="link-btn text-indigo-500 hover:underline" onclick="drAiFor('${it.date}')">🤖 ${T('AI 分析', 'AI')}</button>
+                    </td>
+                </tr>
             `).join('');
-            drShow(drItems[0].date);
         }
 
         async function drShow(date) {
-            document.querySelectorAll('.dr-item').forEach(el => el.classList.toggle('active', el.dataset.date === date));
             const r = await fetch(APP_BASE_PATH + '/admin/api/daily-reports/' + date);
-            const box = document.getElementById('dr-detail');
-            if (!r.ok) { box.innerHTML = '<div class="text-gray-400 text-sm p-8 text-center">' + T('加载失败', 'Failed to load') + '</div>'; return; }
+            if (!r.ok) { alert(T('加载失败', 'Failed to load')); return; }
             const d = await r.json();
             drCurrent = d;
             const s = d.sections || {};
-            box.innerHTML = `
-                <div class="bg-white rounded-lg shadow p-6 mb-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <h2 class="text-lg font-semibold font-mono">${d.date}</h2>
-                        <span class="level-${d.level} text-sm">${d.level === 'warning' ? T('警告', 'Warning') : T('正常', 'Normal')}</span>
-                    </div>
+            document.getElementById('dr-detail-title').innerHTML =
+                `${d.date} <span class="level-${d.level} text-sm ml-2">${d.level === 'warning' ? T('警告', 'Warning') : T('正常', 'Normal')}</span>`;
+            document.getElementById('dr-detail-body').innerHTML = `
+                <div class="rounded p-4 mb-4" style="background: rgba(100,116,139,0.08);">
                     <div class="text-sm text-gray-600">${esc(d.summary)}</div>
                     ${(s.security && s.security.flags && s.security.flags.length) || (s.errors && s.errors.flags && s.errors.flags.length) ? `
                     <div class="flag-box rounded p-3 mt-3 text-sm">
@@ -137,6 +160,21 @@
                 ${drErrors(s.errors || {})}
                 ${drUsage(s.usage || {})}
             `;
+            const m = document.getElementById('dr-detail-modal');
+            m.classList.remove('hidden'); m.classList.add('flex');
+        }
+
+        function drCloseDetail() {
+            const m = document.getElementById('dr-detail-modal');
+            m.classList.add('hidden'); m.classList.remove('flex');
+        }
+
+        function drAiFor(date) {
+            drOpenRerun(date, true);
+        }
+
+        function drAiFromDetail() {
+            if (drCurrent) drOpenRerun(drCurrent.date, true);
         }
 
         function drAi(ai) {
@@ -279,13 +317,15 @@
             ).join('');
         }
 
-        function drOpenRerun() {
-            document.getElementById('dr-run-date').value = drCurrent ? drCurrent.date : '';
+        function drOpenRerun(prefillDate, aiFocus) {
+            document.getElementById('dr-run-date').value = prefillDate || (drCurrent ? drCurrent.date : '');
             document.getElementById('dr-run-ai').checked = true;
             document.getElementById('dr-run-ai-box').style.display = '';
             const m = document.getElementById('dr-modal');
             m.classList.remove('hidden'); m.classList.add('flex');
-            drLoadModels();
+            drLoadModels().then(() => {
+                if (aiFocus) document.getElementById('dr-run-model').focus();
+            });
         }
 
         function drCloseRerun() {
@@ -311,8 +351,7 @@
                     drCloseRerun();
                     await drLoadList();
                     drShow(d.date || date);
-                } else {
-                    const e = await r.json().catch(() => ({}));
+                } else {                    const e = await r.json().catch(() => ({}));
                     alert(e.detail || 'Failed');
                 }
             } finally {

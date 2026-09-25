@@ -59,8 +59,22 @@ class DailyReportStaticTests(unittest.TestCase):
             "/admin/api/daily-reports",
             "drOpenRerun",
             "ai-models/list",
+            "dr-detail-modal",
+            "drAiFor",
+            'has_ai',
         ):
             self.assertIn(needle, tpl)
+
+    def test_list_api_returns_has_ai(self):
+        src = (ROOT / "app" / "routes" / "daily_reports.py").read_text(encoding="utf-8")
+        self.assertIn('"has_ai": bool((r.sections or {}).get("ai"))', src)
+
+    def test_mobile_key_filter_searchable(self):
+        tpl = (ROOT / "web" / "templates" / "admin" / "mobile_home.html").read_text(encoding="utf-8")
+        self.assertIn("logs-key-input", tpl)
+        self.assertIn("renderLogsKeyOptions", tpl)
+        self.assertIn("pickLogsKey", tpl)
+        self.assertNotIn('id="logs-key-select"', tpl)
 
     def test_ai_analysis_manual_only(self):
         src = (ROOT / "app" / "services" / "daily_report.py").read_text(encoding="utf-8")

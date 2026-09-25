@@ -36,6 +36,7 @@ async def list_daily_reports(
                 "date": r.date,
                 "level": r.level,
                 "summary": r.summary,
+                "has_ai": bool((r.sections or {}).get("ai")),
                 "created_at": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else None,
             }
             for r in rows

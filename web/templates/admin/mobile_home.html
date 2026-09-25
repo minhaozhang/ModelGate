@@ -271,10 +271,13 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             <button class="log-chip active" onclick="setLogsStatus('', this)">{{ _('All') }}</button>
             <button class="log-chip" onclick="setLogsStatus('error', this)">{{ _('Errors') }}</button>
             <button class="log-chip" onclick="setLogsStatus('timeout', this)">{{ _('Timeouts') }}</button>
-            <select id="logs-key-select" onchange="setLogsKey(this.value)"
-                class="ml-auto text-[10px] border border-gray-200 rounded-lg px-2 py-1 text-gray-600 bg-white max-w-[40%] truncate">
-                <option value="">{{ _('All keys') }}</option>
-            </select>
+            <div class="ml-auto relative" style="max-width:45%">
+                <input id="logs-key-input" type="text" autocomplete="off"
+                    placeholder="{{ _('Filter key…' if current_locale != 'zh' else '筛选 Key…') }}"
+                    class="w-full text-[10px] border border-gray-200 rounded-lg px-2 py-1 text-gray-600 bg-white"
+                    oninput="renderLogsKeyOptions()" onfocus="renderLogsKeyOptions()">
+                <div id="logs-key-dropdown" class="hidden absolute right-0 z-30 mt-1 w-full min-w-[140px] max-h-52 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg"></div>
+            </div>
         </div>
         <div id="logs-list" class="space-y-2"></div>
         <div class="text-center">
@@ -1150,19 +1153,40 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
 
         let logsKeyFilter = '';
         let logsKeyOptionsLoaded = false;
+        let logsKeyNames = [];
+
+        function renderLogsKeyOptions() {
+            const input = document.getElementById('logs-key-input');
+            const dd = document.getElementById('logs-key-dropdown');
+            if (!input || !dd) return;
+            const q = (input.value || '').trim().toLowerCase();
+            if (q === logsKeyFilter.toLowerCase()) { /* typing same as selected: still show list */ }
+            const all = [{ name: '', label: window.I18N.logAllKeys || 'All keys' }]
+                .concat(logsKeyNames.map(n => ({ name: n, label: n })));
+            const matches = q
+                ? all.filter(o => o.label.toLowerCase().includes(q)).slice(0, 8)
+                : all.slice(0, 8);
+            dd.innerHTML = matches.map(o =>
+                `<div class="px-3 py-2 text-[11px] text-gray-700 hover:bg-blue-50 truncate ${o.name === logsKeyFilter ? 'font-semibold text-blue-600' : ''}"
+                    onmousedown="pickLogsKey('${o.name.replace(/'/g, "\\'")}')">${escapeHtml(o.label)}</div>`
+            ).join('') || `<div class="px-3 py-2 text-[11px] text-gray-400">无匹配</div>`;
+            dd.classList.remove('hidden');
+        }
+
+        function pickLogsKey(name) {
+            const input = document.getElementById('logs-key-input');
+            const dd = document.getElementById('logs-key-dropdown');
+            if (input) input.value = name;
+            if (dd) dd.classList.add('hidden');
+            setLogsKey(name);
+        }
 
         async function loadLogsKeyOptions() {
             if (logsKeyOptionsLoaded) return;
             try {
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/keys?status=all&page_size=200`);
-                const sel = document.getElementById('logs-key-select');
-                if (!sel || !Array.isArray(data.api_keys)) return;
-                data.api_keys.forEach(k => {
-                    const opt = document.createElement('option');
-                    opt.value = k.name;
-                    opt.textContent = k.name;
-                    sel.appendChild(opt);
-                });
+                if (!Array.isArray(data.api_keys)) return;
+                logsKeyNames = data.api_keys.map(k => k.name).filter(Boolean);
                 logsKeyOptionsLoaded = true;
             } catch (e) {
                 console.error('Failed to load key options:', e);
@@ -1174,6 +1198,14 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             logsPage = 1;
             loadLogs(false);
         }
+
+        document.addEventListener('click', e => {
+            const dd = document.getElementById('logs-key-dropdown');
+            const input = document.getElementById('logs-key-input');
+            if (dd && !dd.classList.contains('hidden') && !dd.contains(e.target) && e.target !== input) {
+                dd.classList.add('hidden');
+            }
+        });
 
         async function loadLogs(append) {
             if (logsLoading) return;
