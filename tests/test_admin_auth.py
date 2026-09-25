@@ -20,11 +20,11 @@ class AdminAuthLockoutTests(unittest.TestCase):
         client_ip = "203.0.113.10"
 
         for attempt in range(1, 5):
-            response = auth._record_failure(client_ip, "admin")
+            response = auth._record_failure(None, client_ip, "admin")
             self.assertEqual(response.status_code, 401, f"attempt {attempt}")
             self.assertNotIn(client_ip, config.login_lockout)
 
-        response = auth._record_failure(client_ip, "admin")
+        response = auth._record_failure(None, client_ip, "admin")
 
         self.assertEqual(response.status_code, 429)
         self.assertIn(client_ip, config.login_lockout)

@@ -41,6 +41,10 @@ async def get_config(_: bool = Depends(permission_required("page.system.config")
     except ValueError:
         billing_settings["peak_windows_valid"] = False
 
+    daily_report_settings = {}
+    for key in ALL_DEFAULTS.get("daily_report", {}):
+        daily_report_settings[key] = await get_setting("daily_report", key)
+
     return {
         "ua_override": ua or DEFAULT_OUTBOUND_USER_AGENT,
         "default_ua": DEFAULT_OUTBOUND_USER_AGENT,
@@ -48,6 +52,7 @@ async def get_config(_: bool = Depends(permission_required("page.system.config")
         "glm_health_check_model": glm_model,
         "glm_health_check_model_default": DEFAULT_HEALTH_CHECK_MODEL,
         "billing": billing_settings,
+        "daily_report": daily_report_settings,
     }
 
 
@@ -104,6 +109,16 @@ async def update_config(body: dict, _: bool = Depends(permission_required("syste
     for key, value in busyness_updates.items():
         if key in valid_busyness_keys:
             await save_setting("busyness", key, str(value))
+
+    daily_report_updates = body.get("daily_report", {})
+    valid_daily_report_keys = ALL_DEFAULTS.get("daily_report", {})
+    for key, value in daily_report_updates.items():
+        if key in valid_daily_report_keys:
+            try:
+                float(value)
+            except (TypeError, ValueError):
+                continue
+            await save_setting("daily_report", key, str(value))
 
     return {"ok": True}
 

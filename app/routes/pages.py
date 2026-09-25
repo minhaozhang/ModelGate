@@ -101,6 +101,13 @@ async def report_center_page(request: Request, session: Optional[str] = Cookie(N
     return HTMLResponse(content=render(request, "admin/report_center.html"))
 
 
+@router.get("/daily-reports", response_class=HTMLResponse)
+async def daily_reports_page(request: Request, session: Optional[str] = Cookie(None)):
+    if not _check_auth(session):
+        return RedirectResponse(url=build_app_url(request, "/admin/login"))
+    return HTMLResponse(content=render(request, "admin/daily_reports.html"))
+
+
 @router.get("/documents", response_class=HTMLResponse)
 async def documents_page(request: Request, session: Optional[str] = Cookie(None)):
     if not _check_auth(session):

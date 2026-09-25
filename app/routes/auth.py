@@ -35,14 +35,36 @@ def _check_lockout(client_ip: str):
     return None
 
 
-def _record_failure(client_ip: str, username: str):
+def _record_failure(request: Request, client_ip: str, username: str):
     login_attempts[client_ip] = login_attempts.get(client_ip, 0) + 1
     admin_logger.warning(
         f"[LOGIN] Failed - User: {username or '<empty>'}, IP: {client_ip}, "
         f"Attempts: {login_attempts[client_ip]}"
     )
-    if login_attempts[client_ip] >= LOGIN_MAX_ATTEMPTS:
+    lockout = login_attempts[client_ip] >= LOGIN_MAX_ATTEMPTS
+    if lockout:
         login_lockout[client_ip] = datetime.now() + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
+    try:
+        from app.services.audit import write_audit_log
+        import asyncio
+
+        asyncio.get_running_loop().create_task(
+            write_audit_log(
+                request,
+                "create",
+                "session",
+                None,
+                f"登录失败 系统 (User: {username or '<empty>'}, IP: {client_ip}, "
+                f"Attempts: {login_attempts[client_ip]}"
+                + (", Locked" if lockout else "") + ")",
+                None,
+                429 if lockout else 401,
+                username=username or "",
+            )
+        )
+    except Exception:
+        pass
+    if lockout:
         return JSONResponse(
             {"error": f"Too many failed attempts. Account locked for {LOGIN_LOCKOUT_MINUTES} minutes."},
             status_code=429,
@@ -114,7 +136,7 @@ async def login(data: LoginRequest, response: Response, request: Request):
         )
         return {"success": True}
 
-    return _record_failure(client_ip, username)
+    return _record_failure(request, client_ip, username)
 
 
 @router.post("/logout")

@@ -38,6 +38,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
             and_(
                 RequestLogRead.created_at >= start_dt,
                 RequestLogRead.created_at < end_dt,
+                RequestLogRead.api_key_id.isnot(None),
             )
         )
         result = await session.execute(logs_query)
@@ -77,7 +78,9 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 prompt_tokens = (log.tokens or {}).get("prompt_tokens") or 0
                 completion_tokens = (log.tokens or {}).get("completion_tokens") or 0
                 try:
-                    cost_cny = float((log.tokens or {}).get("total_cost_cny") or 0)
+                    cost_cny = float(
+                        ((log.tokens or {}).get("billing") or {}).get("total_cost_cny") or 0
+                    )
                 except (TypeError, ValueError):
                     cost_cny = 0.0
 
@@ -336,6 +339,7 @@ async def aggregate_tag_daily_stats(date_str: str) -> dict:
                 and_(
                     RequestLogRead.created_at >= start_dt,
                     RequestLogRead.created_at < end_dt,
+                    RequestLogRead.api_key_id.isnot(None),
                 )
             )
         )
@@ -360,7 +364,9 @@ async def aggregate_tag_daily_stats(date_str: str) -> dict:
                 prompt_tokens = (log.tokens or {}).get("prompt_tokens") or 0
                 completion_tokens = (log.tokens or {}).get("completion_tokens") or 0
                 try:
-                    cost_cny = float((log.tokens or {}).get("total_cost_cny") or 0)
+                    cost_cny = float(
+                        ((log.tokens or {}).get("billing") or {}).get("total_cost_cny") or 0
+                    )
                 except (TypeError, ValueError):
                     cost_cny = 0.0
 
@@ -452,6 +458,41 @@ async def backfill_tag_stats() -> None:
             await aggregate_tag_daily_stats(date_str)
         except Exception as e:
             logger.error(f"[AGGREGATOR] Error backfilling tag stats {date_str}: {e}")
+
+
+async def backfill_cost_fix() -> None:
+    """One-time full-history re-aggregation after the cost field fix
+    (tokens.billing.total_cost_cny instead of the never-populated top-level
+    tokens.total_cost_cny). Guarded by a system_settings flag so it runs
+    exactly once per deployment."""
+    from app.services.system_config import get_setting, save_setting
+
+    if await get_setting("stats", "cost_nested_backfill", "") == "done":
+        return
+
+    async with async_session_maker() as session:
+        result = await session.execute(select(ApiKeyDailyStat.date).distinct())
+        dates = sorted({row[0] for row in result.fetchall()})
+
+    if not dates:
+        await save_setting(
+            "stats", "cost_nested_backfill", "done", "cost字段嵌套路径修复回填标记"
+        )
+        return
+
+    logger.info(
+        f"[AGGREGATOR] Re-aggregating {len(dates)} dates for cost path fix"
+    )
+    for date_str in dates:
+        try:
+            await aggregate_stats_for_date(date_str)
+            await aggregate_tag_daily_stats(date_str)
+        except Exception as e:
+            logger.error(f"[AGGREGATOR] Error re-aggregating {date_str}: {e}")
+    await save_setting(
+        "stats", "cost_nested_backfill", "done", "cost字段嵌套路径修复回填标记"
+    )
+    logger.info("[AGGREGATOR] Cost path fix backfill complete")
 
 
 async def cleanup_stale_pending_requests() -> None:

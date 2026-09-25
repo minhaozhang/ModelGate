@@ -422,6 +422,22 @@ async def proxy_request(request: Request, endpoint: str):
     inbound_protocol = request.headers.get("x-inbound-protocol", "openai") or "openai"
     api_key_id, auth_error = await validate_api_key(auth_header, model)
     if auth_error:
+        try:
+            await create_request_log(
+                "",
+                model,
+                status="auth_failed",
+                api_key_id=None,
+                client_ip=get_client_ip(request),
+                user_agent=request.headers.get("user-agent"),
+                latency_ms=(time.time() - start_time) * 1000,
+                downstream_status_code=401,
+                error=auth_error,
+                inbound_protocol=inbound_protocol,
+                requested_model=model,
+            )
+        except Exception:
+            logger.exception("[AUTH FAILED LOG] failed to record auth failure")
         return _openai_error_response(
             auth_error, 401, "authentication_error", "invalid_api_key"
         )

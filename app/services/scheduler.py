@@ -36,6 +36,12 @@ TASK_REGISTRY = {
         "default_cron": "15 0 * * *",
         "func": aggregate_tag_yesterday_stats,
     },
+    "daily_ops_report": {
+        "name": "每日运营简报",
+        "description": "分析昨日的安全（登录失败/认证失败/限流）、错误分布与用量，落库并推送通知",
+        "default_cron": "35 0 * * *",
+        "func": None,
+    },
     "archive_old_request_logs": {
         "name": "日志归档",
         "description": "将30天前的请求日志从主表归档到历史表",
@@ -233,9 +239,21 @@ async def _task_glm_health_check():
     await _run_task_with_logging("glm_health_check", run_glm_health_check)
 
 
+async def _task_daily_ops_report():
+    from datetime import date, timedelta
+
+    from app.services.daily_report import generate_daily_report
+
+    yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    result = await generate_daily_report(yesterday)
+    summary = f"date={result['date']}, level={result['level']}"
+    await _run_task_with_logging("daily_ops_report", None, summary)
+
+
 TASK_HANDLERS = {
     "aggregate_daily_stats": _task_aggregate_daily,
     "aggregate_tag_daily_stats": _task_aggregate_tags,
+    "daily_ops_report": _task_daily_ops_report,
     "archive_old_request_logs": _task_archive,
     "cleanup_stale_pending": _task_cleanup,
     "auto_reenable_disabled": _task_auto_reenable,
@@ -270,12 +288,13 @@ async def startup_scheduler():
 
 async def run_backfill():
     import asyncio
-    from app.services.stats_aggregator import backfill_tag_stats
+    from app.services.stats_aggregator import backfill_cost_fix, backfill_tag_stats
     await asyncio.sleep(5)
     logger.info("[SCHEDULER] Running backfill for missing dates...")
     await _run_task_with_logging("aggregate_daily_stats", backfill_historical_stats, "backfill")
     await _run_task_with_logging("archive_old_request_logs", archive_old_request_logs, "backfill")
     await _run_task_with_logging("aggregate_tag_daily_stats", backfill_tag_stats, "backfill")
+    await _run_task_with_logging("aggregate_daily_stats", backfill_cost_fix, "cost-fix")
 
 async def _restore_reenable_jobs_on_startup():
     import asyncio

@@ -450,6 +450,17 @@ _DDL: list[str] = [
     "CREATE INDEX IF NOT EXISTS idx_tag_daily_stats_date ON tag_daily_stats (date)",
     "CREATE INDEX IF NOT EXISTS idx_tag_daily_stats_tag ON tag_daily_stats (tag)",
 
+    "CREATE TABLE IF NOT EXISTS daily_reports ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "date VARCHAR(10) NOT NULL, "
+    "level VARCHAR(10) NOT NULL DEFAULT 'info', "
+    "summary TEXT NOT NULL DEFAULT '', "
+    "sections JSONB, "
+    "created_at TIMESTAMP NOT NULL DEFAULT now(), "
+    "updated_at TIMESTAMP"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_reports_date ON daily_reports (date)",
+
     "CREATE TABLE IF NOT EXISTS analysis_records ("
     "id SERIAL NOT NULL PRIMARY KEY, "
     "analysis_type VARCHAR(50) NOT NULL, "
@@ -1101,6 +1112,7 @@ def default_rbac_permissions() -> list[dict]:
         ("page.models", "标准模型页面", "models"),
         ("page.provider_models", "供应商模型页面", "provider_models"),
         ("page.providers", "供应商页面", "providers"),
+        ("page.daily_reports", "每日简报页面", "daily_reports"),
         ("page.report_center", "报表中心页面", "report_center"),
         ("page.roles", "角色权限页面", "roles"),
         ("page.stats", "统计监控页面", "stats"),

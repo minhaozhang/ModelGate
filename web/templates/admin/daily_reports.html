@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    {% include 'components/site_head_meta.html' %}
+    <title>{{ _('Daily Reports') }} - ModelGate</title>
+    <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/static/css/output.css?v={{ css_version }}">
+    <style>
+        body.theme-dark { background: #020617 !important; color: #e2e8f0; }
+        body.theme-dark nav, body.theme-dark .bg-white { background: #0f172a !important; }
+        body.theme-dark .bg-gray-50 { background: #111827 !important; }
+        body.theme-dark .bg-gray-100 { background: #1f2937 !important; }
+        body.theme-dark .bg-gray-200 { background: #2d3748 !important; }
+        body.theme-dark .text-gray-800 { color: #f8fafc !important; }
+        body.theme-dark .text-gray-600, body.theme-dark .text-gray-700 { color: #cbd5e1 !important; }
+        body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-gray-400 { color: #64748b !important; }
+        body.theme-dark .border, body.theme-dark .border-b, body.theme-dark .border-t { border-color: #1f2937 !important; }
+        body.theme-dark input, body.theme-dark select { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
+        body.theme-dark .nav-link { color: #cbd5e1 !important; }
+        body.theme-dark .nav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa !important; border-right: 3px solid #60a5fa; }
+        .nav-link { transition: all 0.2s; }
+        .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        .dr-item { cursor: pointer; transition: background 0.15s; }
+        .dr-item:hover { background: rgba(59, 130, 246, 0.08); }
+        .dr-item.active { background: rgba(59, 130, 246, 0.15); border-right: 3px solid #3b82f6; }
+        .level-warning { color: #f59e0b; font-weight: 600; }
+        .level-info { color: #10b981; }
+        .flag-box { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); }
+        .stat-card { background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); }
+        .sec-title { font-weight: 600; font-size: 0.95rem; }
+        table.dr-table th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; color: #64748b; font-weight: 600; }
+        table.dr-table td, table.dr-table th { padding: 0.35rem 0.6rem; }
+        table.dr-table tbody tr { border-top: 1px solid rgba(100, 116, 139, 0.2); }
+        body:not(.theme-dark) .stat-card { background: #f0f7ff; border-color: #bfdbfe; }
+        body:not(.theme-dark) .flag-box { background: #fffbeb; border-color: #fcd34d; }
+    </style>
+</head>
+<body class="theme-dark bg-gray-100 min-h-screen">
+    {% from 'components/admin_header.html' import admin_page_header with context %}
+    <div class="flex">
+        {% include "components/nav.html" %}
+        <main class="ml-56 flex-1 p-6">
+            {% call admin_page_header(_('Daily Reports')) %}{% endcall %}
+            <div class="flex gap-6" style="align-items: flex-start;">
+                <div class="bg-white rounded-lg shadow p-4 w-64 shrink-0">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-semibold">{{ _('历史简报') if current_locale == 'zh' else 'History' }}</span>
+                        <button onclick="drRerunPrompt()" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">{{ _('补跑') if current_locale == 'zh' else 'Rerun' }}</button>
+                    </div>
+                    <div id="dr-list" class="space-y-1 text-sm"></div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div id="dr-detail"><div class="text-gray-400 text-sm p-8 text-center">{{ _('选择左侧日期查看简报') if current_locale == 'zh' else 'Select a date' }}</div></div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script>
+        const APP_BASE_PATH = "{{ app_base_path }}";
+        const ZH = document.documentElement.lang === 'zh';
+        function T(zh, en) { return ZH ? zh : en; }
+        function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+        function fmt(n) { return Number(n || 0).toLocaleString(); }
+        function fmtCost(n) { return '¥' + Number(n || 0).toFixed(4); }
+        function fmtDelta(v) { return v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; }
+
+        let drItems = [];
+        let drCurrent = null;
+
+        async function drLoadList() {
+            const r = await fetch(APP_BASE_PATH + '/admin/api/daily-reports?limit=90');
+            if (!r.ok) return;
+            const d = await r.json();
+            drItems = d.items || [];
+            const el = document.getElementById('dr-list');
+            if (!drItems.length) {
+                el.innerHTML = '<div class="text-gray-400 text-xs p-2">' + T('暂无简报，等待每日 00:35 自动生成', 'No reports yet; auto-generated daily at 00:35') + '</div>';
+                return;
+            }
+            el.innerHTML = drItems.map(it => `
+                <div class="dr-item rounded px-3 py-2" data-date="${it.date}" onclick="drShow('${it.date}')">
+                    <div class="flex items-center justify-between">
+                        <span class="font-mono text-xs">${it.date}</span>
+                        <span class="level-${it.level} text-xs">${it.level === 'warning' ? T('警告', 'WARN') : T('正常', 'OK')}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 truncate" title="${esc(it.summary)}">${esc(it.summary)}</div>
+                </div>
+            `).join('');
+            drShow(drItems[0].date);
+        }
+
+        async function drShow(date) {
+            document.querySelectorAll('.dr-item').forEach(el => el.classList.toggle('active', el.dataset.date === date));
+            const r = await fetch(APP_BASE_PATH + '/admin/api/daily-reports/' + date);
+            const box = document.getElementById('dr-detail');
+            if (!r.ok) { box.innerHTML = '<div class="text-gray-400 text-sm p-8 text-center">' + T('加载失败', 'Failed to load') + '</div>'; return; }
+            const d = await r.json();
+            drCurrent = d;
+            const s = d.sections || {};
+            box.innerHTML = `
+                <div class="bg-white rounded-lg shadow p-6 mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-lg font-semibold font-mono">${d.date}</h2>
+                        <span class="level-${d.level} text-sm">${d.level === 'warning' ? T('警告', 'Warning') : T('正常', 'Normal')}</span>
+                    </div>
+                    <div class="text-sm text-gray-600">${esc(d.summary)}</div>
+                    ${(s.security && s.security.flags && s.security.flags.length) || (s.errors && s.errors.flags && s.errors.flags.length) ? `
+                    <div class="flag-box rounded p-3 mt-3 text-sm">
+                        <div class="font-semibold mb-1">${T('告警事项', 'Alerts')}</div>
+                        ${(s.security ? s.security.flags : []).concat(s.errors ? s.errors.flags : []).map(f => `<div>• ${esc(f)}</div>`).join('')}
+                    </div>` : ''}
+                </div>
+                ${drSecurity(s.security || {})}
+                ${drErrors(s.errors || {})}
+                ${drUsage(s.usage || {})}
+            `;
+        }
+
+        function drSecurity(sec) {
+            const ips = (sec.login_fail_top_ips || []);
+            const aips = (sec.auth_fail_top_ips || []);
+            const reasons = (sec.auth_fail_reasons || []);
+            return `
+            <div class="bg-white rounded-lg shadow p-6 mb-4">
+                <div class="sec-title mb-3">🛡 ${T('安全', 'Security')}</div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('管理端登录失败', 'Login failures')}</div><div class="text-xl font-semibold">${fmt(sec.login_failures)}</div><div class="text-xs text-gray-400">${T('锁定触发', 'lockouts')} ${fmt(sec.login_locked)}</div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('Key 认证失败', 'Auth failures')}</div><div class="text-xl font-semibold">${fmt(sec.auth_failures)}</div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('限流请求', 'Rate limited')}</div><div class="text-xl font-semibold">${fmt(sec.rate_limited)}</div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('管理端操作', 'Admin ops')}</div><div class="text-xl font-semibold">${fmt(sec.admin_ops)}</div></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <div class="text-xs text-gray-500 mb-1">${T('登录失败 Top IP', 'Login failure top IPs')}</div>
+                        ${ips.length ? ips.map(([ip, c]) => `<div class="flex justify-between font-mono text-xs"><span>${esc(ip)}</span><span>${fmt(c)}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
+                        <div class="text-xs text-gray-500 mt-3 mb-1">${T('认证失败原因', 'Auth failure reasons')}</div>
+                        ${reasons.length ? reasons.map(([rs, c]) => `<div class="flex justify-between text-xs"><span class="truncate" title="${esc(rs)}">${esc(rs)}</span><span>${fmt(c)}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-500 mb-1">${T('认证失败 Top IP', 'Auth failure top IPs')}</div>
+                        ${aips.length ? aips.map(([ip, c]) => `<div class="flex justify-between font-mono text-xs"><span>${esc(ip)}</span><span>${fmt(c)}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
+                        ${(sec.high_risk_ops || []).length ? `<div class="text-xs text-gray-500 mt-3 mb-1">${T('高危操作（删除类）', 'High-risk ops (deletes)')}</div>` + sec.high_risk_ops.map(o => `<div class="text-xs truncate" title="${esc(o.detail)}">[${esc(o.user)}] ${esc(o.action)}/${esc(o.resource)} — ${esc(o.detail)}</div>`).join('') : ''}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function drErrors(err) {
+            const models = (err.top_error_models || []).filter(m => (m.errors + m.timeouts) > 0);
+            const provs = (err.worst_providers || []).filter(p => p.error_rate > 0);
+            const ups = (err.top_upstream_status || []);
+            return `
+            <div class="bg-white rounded-lg shadow p-6 mb-4">
+                <div class="sec-title mb-3">⚠ ${T('错误分布', 'Errors')}</div>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('总请求', 'Requests')}</div><div class="text-xl font-semibold">${fmt(err.total)}</div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('错误', 'Errors')}</div><div class="text-xl font-semibold text-red-400">${fmt(err.errors)}</div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('超时', 'Timeouts')}</div><div class="text-xl font-semibold text-orange-400">${fmt(err.timeouts)}</div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('限流', 'Rate limited')}</div><div class="text-xl font-semibold">${fmt(err.rate_limited)}</div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('错误率', 'Error rate')}</div><div class="text-xl font-semibold">${(err.error_rate || 0).toFixed(1)}%</div></div>
+                </div>
+                ${models.length ? `
+                <table class="dr-table w-full text-sm mb-3">
+                    <thead><tr><th>${T('供应商/模型', 'Provider/Model')}</th><th>${T('请求', 'Req')}</th><th>${T('错误', 'Err')}</th><th>${T('超时', 'TO')}</th><th>${T('限流', 'RL')}</th></tr></thead>
+                    <tbody>${models.map(m => `<tr><td class="font-mono text-xs">${esc(m.provider)}/${esc(m.model)}</td><td>${fmt(m.requests)}</td><td class="text-red-400">${fmt(m.errors)}</td><td class="text-orange-400">${fmt(m.timeouts)}</td><td>${fmt(m.rate_limited)}</td></tr>`).join('')}</tbody>
+                </table>` : `<div class="text-gray-400 text-sm mb-3">${T('当日无模型错误', 'No model errors')}</div>`}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <div class="text-xs text-gray-500 mb-1">${T('供应商错误率 Top', 'Worst providers by error rate')}</div>
+                        ${provs.length ? provs.map(p => `<div class="flex justify-between text-xs"><span>${esc(p.provider)}</span><span class="text-red-400">${p.error_rate.toFixed(2)}%</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-500 mb-1">${T('上游状态码 Top', 'Top upstream status codes')}</div>
+                        ${ups.length ? ups.map(([c, n]) => `<div class="flex justify-between font-mono text-xs"><span>${esc(c)}</span><span>${fmt(n)}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function drUsage(u) {
+            const keys = (u.top_keys || []).filter(k => k.requests > 0);
+            const tags = (u.top_tags || []).filter(t => t.requests > 0);
+            return `
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="sec-title mb-3">📊 ${T('用量', 'Usage')}</div>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('请求数', 'Requests')}</div><div class="text-xl font-semibold">${fmt(u.requests)} <span class="text-xs ${((u.requests_delta_pct)||0) >= 0 ? 'text-green-400' : 'text-red-400'}">${fmtDelta(u.requests_delta_pct)}</span></div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">Token</div><div class="text-xl font-semibold">${fmt(u.tokens)} <span class="text-xs ${((u.tokens_delta_pct)||0) >= 0 ? 'text-green-400' : 'text-red-400'}">${fmtDelta(u.tokens_delta_pct)}</span></div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('花费', 'Cost')}</div><div class="text-xl font-semibold">${fmtCost(u.cost)} <span class="text-xs ${((u.cost_delta_pct)||0) >= 0 ? 'text-green-400' : 'text-red-400'}">${fmtDelta(u.cost_delta_pct)}</span></div></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <div class="text-xs text-gray-500 mb-1">${T('Top Key（按花费）', 'Top keys by cost')}</div>
+                        ${keys.length ? keys.map(k => `<div class="flex justify-between text-xs"><span>${esc(k.key)}</span><span>${fmtCost(k.cost)} · ${fmt(k.requests)} ${T('次', 'req')}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-500 mb-1">${T('Top 标签（按花费）', 'Top tags by cost')}</div>
+                        ${tags.length ? tags.map(t => `<div class="flex justify-between text-xs"><span>${t.tag ? esc(t.tag) : T('无标签', 'Untagged')}</span><span>${fmtCost(t.cost)} · ${fmt(t.requests)} ${T('次', 'req')}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        async function drRerunPrompt() {
+            const d = prompt(T('补跑哪一天？（YYYY-MM-DD，留空为昨天）', 'Rerun which date? (YYYY-MM-DD, empty = yesterday)'), drCurrent ? drCurrent.date : '');
+            if (d === null) return;
+            const r = await fetch(APP_BASE_PATH + '/admin/api/daily-reports/run', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ date: d.trim() })
+            });
+            if (r.ok) { await drLoadList(); if (d.trim()) drShow(d.trim()); }
+            else { const e = await r.json().catch(() => ({})); alert(e.detail || 'Failed'); }
+        }
+
+        drLoadList();
+    </script>
+</body>
+</html>

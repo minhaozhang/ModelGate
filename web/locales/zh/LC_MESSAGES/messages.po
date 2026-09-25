@@ -3376,6 +3376,27 @@ msgstr "等待"
 msgid "Report Center"
 msgstr "报表中心"
 
+msgid "Daily Reports"
+msgstr "每日简报"
+
+msgid "Daily Report Alert Thresholds"
+msgstr "每日简报告警阈值"
+
+msgid "Daily ops report flags warning when any metric exceeds its threshold"
+msgstr "每日简报中任一指标超过阈值时，简报级别升级为警告"
+
+msgid "Error rate warn % (errors/attempts)"
+msgstr "错误率告警 %（错误/总请求）"
+
+msgid "API auth failures warn"
+msgstr "Key 认证失败告警（次）"
+
+msgid "Admin login failures warn"
+msgstr "管理端登录失败告警（次）"
+
+msgid "Rate limited requests warn"
+msgstr "限流请求告警（次）"
+
 msgid "By Tag"
 msgstr "按标签"
 

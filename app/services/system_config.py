@@ -31,6 +31,12 @@ ALL_DEFAULTS = {
         "offpeak_multiplier": "0.8",
         "default_daily_quota_cny": "",
     },
+    "daily_report": {
+        "error_rate_warn": "30",
+        "auth_fail_warn": "100",
+        "login_fail_warn": "20",
+        "rate_limit_warn": "500",
+    },
 }
 
 _settings_cache: dict[str, tuple[str, float]] = {}

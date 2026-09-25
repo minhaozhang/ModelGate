@@ -575,6 +575,22 @@ class TagDailyStat(Base):
     )
 
 
+class DailyReport(Base):
+    __tablename__ = "daily_reports"
+
+    id = Column(Integer, primary_key=True)
+    date = Column(String(10), nullable=False)
+    level = Column(String(10), nullable=False, default="info")
+    summary = Column(Text, nullable=False, default="")
+    sections = Column(JSONB, nullable=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("date", name="uq_daily_reports_date"),
+    )
+
+
 # ==================== Analysis framework ====================
 
 

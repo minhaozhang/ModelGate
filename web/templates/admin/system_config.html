@@ -169,6 +169,32 @@
                 </div>
                 <div id="billing-msg" class="mt-3 text-sm hidden"></div>
             </div>
+            <div class="mt-6 bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold mb-1">{{ _('Daily Report Alert Thresholds' if current_locale != 'zh' else '每日简报告警阈值') }}</h2>
+                <p class="text-xs text-gray-500 mb-4">{{ _('Daily ops report flags warning when any metric exceeds its threshold' if current_locale != 'zh' else '每日简报中任一指标超过阈值时，简报级别升级为警告') }}</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Error rate warn % (errors/attempts)' if current_locale != 'zh' else '错误率告警 %（错误/总请求）') }}</label>
+                        <input id="daily_report-error_rate_warn" type="number" step="1" min="0" max="100" class="w-full border rounded px-3 py-2 text-sm" placeholder="30">
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('API auth failures warn' if current_locale != 'zh' else 'Key 认证失败告警（次）') }}</label>
+                        <input id="daily_report-auth_fail_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="100">
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Admin login failures warn' if current_locale != 'zh' else '管理端登录失败告警（次）') }}</label>
+                        <input id="daily_report-login_fail_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="20">
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Rate limited requests warn' if current_locale != 'zh' else '限流请求告警（次）') }}</label>
+                        <input id="daily_report-rate_limit_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="500">
+                    </div>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button onclick="saveDailyReport()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
+                </div>
+                <div id="daily_report-msg" class="mt-3 text-sm hidden"></div>
+            </div>
         </main>
     </div>
     <script>
@@ -215,6 +241,12 @@
                     msg.textContent = '{{ _('Stored peak windows are invalid; all day treated as off-peak' if current_locale != 'zh' else '已保存的高峰时段格式非法，当前全天按低峰计费') }}';
                     msg.className = 'mt-3 text-sm text-red-600';
                     msg.classList.remove('hidden');
+                }
+            }
+            if (d.daily_report) {
+                for (const [key, val] of Object.entries(d.daily_report)) {
+                    const el = document.getElementById('daily_report-' + key);
+                    if (el) el.value = val;
                 }
             }
         }
@@ -293,6 +325,29 @@
                 body: JSON.stringify({ billing })
             });
             const msg = document.getElementById('billing-msg');
+            if (r.ok) {
+                msg.textContent = '{{ _('Saved') }}';
+                msg.className = 'mt-3 text-sm text-green-600';
+            } else {
+                const d = await r.json();
+                msg.textContent = d.detail || '{{ _('Save failed') }}';
+                msg.className = 'mt-3 text-sm text-red-600';
+            }
+            msg.classList.remove('hidden');
+        }
+        async function saveDailyReport() {
+            const keys = ['error_rate_warn', 'auth_fail_warn', 'login_fail_warn', 'rate_limit_warn'];
+            const daily_report = {};
+            for (const key of keys) {
+                const el = document.getElementById('daily_report-' + key);
+                if (el) daily_report[key] = el.value;
+            }
+            const r = await fetch(APP_BASE_PATH + '/admin/api/system/config', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ daily_report })
+            });
+            const msg = document.getElementById('daily_report-msg');
             if (r.ok) {
                 msg.textContent = '{{ _('Saved') }}';
                 msg.className = 'mt-3 text-sm text-green-600';
