@@ -11,13 +11,18 @@ from app.core.database import Notification, async_session_maker
 
 
 def _notification_visible_to_user(notification: Notification, api_key_id: int) -> bool:
-    return notification.target_api_key_id in (None, api_key_id)
+    if notification.target_api_key_id == api_key_id:
+        return True
+    return notification.target_api_key_id is None and notification.type == "user"
 
 
 def _user_visible_notification_clause(api_key_id: int):
     return or_(
-        Notification.target_api_key_id == None,
         Notification.target_api_key_id == api_key_id,
+        and_(
+            Notification.target_api_key_id == None,  # noqa: E711
+            Notification.type == "user",
+        ),
     )
 
 

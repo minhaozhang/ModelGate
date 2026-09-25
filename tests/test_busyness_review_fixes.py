@@ -164,11 +164,13 @@ class BusynessEndpointCacheTests(unittest.IsolatedAsyncioTestCase):
 
 class NotificationVisibilityTests(unittest.TestCase):
     def test_user_can_only_mark_visible_notifications_read(self):
-        public_notification = type("Notification", (), {"target_api_key_id": None})()
-        own_notification = type("Notification", (), {"target_api_key_id": 7})()
-        other_notification = type("Notification", (), {"target_api_key_id": 8})()
+        user_broadcast = type("Notification", (), {"target_api_key_id": None, "type": "user"})()
+        system_broadcast = type("Notification", (), {"target_api_key_id": None, "type": "system"})()
+        own_notification = type("Notification", (), {"target_api_key_id": 7, "type": "system"})()
+        other_notification = type("Notification", (), {"target_api_key_id": 8, "type": "user"})()
 
-        self.assertTrue(_notification_visible_to_user(public_notification, 7))
+        self.assertTrue(_notification_visible_to_user(user_broadcast, 7))
+        self.assertFalse(_notification_visible_to_user(system_broadcast, 7))
         self.assertTrue(_notification_visible_to_user(own_notification, 7))
         self.assertFalse(_notification_visible_to_user(other_notification, 7))
 
