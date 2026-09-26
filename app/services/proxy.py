@@ -587,6 +587,7 @@ async def proxy_request(request: Request, endpoint: str):
     from app.services.provider import (
         get_cached_model_max_concurrent,
         get_cached_model_per_key_concurrency,
+        get_cached_model_per_key_concurrency_tiers,
     )
 
     model_conc_limit = get_cached_model_max_concurrent(model)
@@ -749,6 +750,10 @@ async def proxy_request(request: Request, endpoint: str):
             bypass_busyness,
             model,
             model_cfg=get_cached_model_per_key_concurrency(model),
+            model_tiers=get_cached_model_per_key_concurrency_tiers(model),
+            key_max_concurrent=_get_user_api_key_limit(
+                False, _api_key_max_concurrent(api_key_id)
+            ),
         )
         if user_model_limit < 9999:
             user_model_sem_key, user_model_semaphore = (

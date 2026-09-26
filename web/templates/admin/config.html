@@ -809,9 +809,13 @@
                         <input type="number" id="model-max-concurrent" min="0" step="1" value="" placeholder="{{ _('empty = unlimited, 0 = disabled, e.g. 3') }}" class="w-full border rounded px-3 py-2">
                     </div>
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Per-user-key concurrency for this model: empty = dynamic (model headroom + time window), 0 = disabled for all keys, n = fixed cap. Key-level overrides win') }}">{{ _('Per-Key Concurrent') }}</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Per-user-key concurrency for this model: empty = dynamic (model headroom + time window), 0 = disabled for all keys, n = fixed cap. Wins over idle tiers') }}">{{ _('Per-Key Concurrent') }}</label>
                         <input type="number" id="model-per-key-concurrency" min="0" step="1" value="" placeholder="{{ _('empty = dynamic, 0 = disabled, e.g. 2') }}" class="w-full border rounded px-3 py-2">
                     </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Idle-based per-user-key concurrency, matched top-down by the model total-gauge idle pct. Effective limit = min(key max concurrency, tier). Used only when Per-Key Concurrent is empty') }}">{{ _('Idle Tiers (pct:limit)') }}</label>
+                    <input type="text" id="model-per-key-tiers" value="" placeholder="{{ _('e.g. 80:4, 50:2, 0:1 — idle>=80% -> 4/user; empty = dynamic') }}" class="w-full border rounded px-3 py-2 font-mono text-sm">
                 </div>
                 <div class="flex gap-4">
                     <div class="flex-1 flex flex-col justify-end">
@@ -1644,6 +1648,7 @@
             document.getElementById('model-context-hard-limit').value = '';
             document.getElementById('model-max-concurrent').value = '';
             document.getElementById('model-per-key-concurrency').value = '';
+            document.getElementById('model-per-key-tiers').value = '';
             document.getElementById('model-thinking-enabled').checked = true;
             document.getElementById('model-reasoning-effort').value = '';
             document.getElementById('model-multimodal').checked = false;
@@ -1666,6 +1671,7 @@
             document.getElementById('model-context-hard-limit').value = m.context_hard_limit ? formatTokenValue(m.context_hard_limit) : '';
             document.getElementById('model-max-concurrent').value = (m.max_concurrent === 0 || m.max_concurrent) ? m.max_concurrent : '';
             document.getElementById('model-per-key-concurrency').value = (m.per_key_concurrency === 0 || m.per_key_concurrency) ? m.per_key_concurrency : '';
+            document.getElementById('model-per-key-tiers').value = (m.per_key_concurrency_tiers || []).map(t => `${t.min_idle_pct}:${t.limit}`).join(', ');
             document.getElementById('model-thinking-enabled').checked = m.thinking_enabled;
             document.getElementById('model-reasoning-effort').value = m.reasoning_effort || '';
             document.getElementById('model-multimodal').checked = m.is_multimodal;
@@ -1681,6 +1687,22 @@
             document.getElementById('model-modal').classList.remove('flex');
         }
 
+        function parsePerKeyTiers(raw) {
+            const text = (raw || '').trim();
+            if (!text) return [];
+            const tiers = [];
+            for (const part of text.split(/[,;]/)) {
+                const seg = part.trim();
+                if (!seg) continue;
+                const mMatch = seg.match(/^(\d+)\s*[:：]\s*(\d+)$/);
+                if (!mMatch) return null;
+                const pct = parseInt(mMatch[1], 10), limit = parseInt(mMatch[2], 10);
+                if (pct > 100 || pct < 0 || limit < 0) return null;
+                tiers.push({min_idle_pct: pct, limit: limit});
+            }
+            return tiers;
+        }
+
         document.getElementById('model-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('model-id').value;
@@ -1692,11 +1714,17 @@
                 context_hard_limit: parseTokenValue(document.getElementById('model-context-hard-limit').value) || null,
                 max_concurrent: document.getElementById('model-max-concurrent').value === '' ? null : parseInt(document.getElementById('model-max-concurrent').value, 10),
                 per_key_concurrency: document.getElementById('model-per-key-concurrency').value === '' ? null : parseInt(document.getElementById('model-per-key-concurrency').value, 10),
+                per_key_concurrency_tiers: parsePerKeyTiers(document.getElementById('model-per-key-tiers').value),
                 thinking_enabled: document.getElementById('model-thinking-enabled').checked,
                 reasoning_effort: document.getElementById('model-reasoning-effort').value.trim() || null,
                 is_multimodal: document.getElementById('model-multimodal').checked,
                 is_active: document.getElementById('model-active').checked
             };
+            const tiersParsed = parsePerKeyTiers(document.getElementById('model-per-key-tiers').value);
+            if (tiersParsed === null) {
+                showToast(t('tiersFormatError', '空闲分档格式错误，应为 80:4, 50:2 形式（空闲百分比:并发，均需非负，百分比≤100）'), 'error');
+                return;
+            }
             try {
                 if (id) {
                     await mgFetch(`${APP_BASE_PATH}/admin/api/models/` + id, {
@@ -1708,6 +1736,8 @@
                             context_length: data.context_length,
                             context_hard_limit: data.context_hard_limit,
                             max_concurrent: data.max_concurrent,
+                            per_key_concurrency: data.per_key_concurrency,
+                            per_key_concurrency_tiers: tiersParsed,
                             thinking_enabled: data.thinking_enabled,
                             reasoning_effort: data.reasoning_effort,
                             is_multimodal: data.is_multimodal,

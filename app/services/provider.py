@@ -48,6 +48,7 @@ _model_id_by_name: dict[str, int] = {}
 _model_hard_limit_by_name: dict[str, int | None] = {}
 _model_max_concurrent_by_name: dict[str, int | None] = {}
 _model_per_key_concurrency_by_name: dict[str, int | None] = {}
+_model_per_key_concurrency_tiers_by_name: dict[str, list | None] = {}
 
 
 @dataclass
@@ -358,16 +359,18 @@ async def load_providers():
         _model_hard_limit_by_name.clear()
         _model_max_concurrent_by_name.clear()
         _model_per_key_concurrency_by_name.clear()
+        _model_per_key_concurrency_tiers_by_name.clear()
         model_id_result = await session.execute(
-            select(Model.id, Model.name, Model.context_hard_limit, Model.context_length, Model.max_concurrent, Model.per_key_concurrency)
+            select(Model.id, Model.name, Model.context_hard_limit, Model.context_length, Model.max_concurrent, Model.per_key_concurrency, Model.per_key_concurrency_tiers)
         )
-        for model_id, model_name, hard_limit, context_length, max_concurrent, per_key_concurrency in model_id_result.fetchall():
+        for model_id, model_name, hard_limit, context_length, max_concurrent, per_key_concurrency, per_key_tiers in model_id_result.fetchall():
             _model_id_by_name[model_name] = model_id
             _model_hard_limit_by_name[model_name] = (
                 hard_limit if hard_limit is not None else context_length
             )
             _model_max_concurrent_by_name[model_name] = max_concurrent
             _model_per_key_concurrency_by_name[model_name] = per_key_concurrency
+            _model_per_key_concurrency_tiers_by_name[model_name] = per_key_tiers or None
         for p in providers:
             pm_result = await session.execute(
                 select(ProviderModel, Model)
@@ -627,6 +630,14 @@ def get_cached_model_per_key_concurrency(model_name: str) -> int | None:
     (gauge + time window), 0 = disabled, >=1 = fixed cap."""
     if model_name in _model_per_key_concurrency_by_name:
         return _model_per_key_concurrency_by_name.get(model_name)
+    return None
+
+
+def get_cached_model_per_key_concurrency_tiers(model_name: str) -> list | None:
+    """Idle-based per-key concurrency tiers for this model, sorted by
+    min_idle_pct desc: [{"min_idle_pct": 80, "limit": 4}, ...]. None = unset."""
+    if model_name in _model_per_key_concurrency_tiers_by_name:
+        return _model_per_key_concurrency_tiers_by_name.get(model_name)
     return None
 
 

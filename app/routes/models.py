@@ -35,6 +35,7 @@ class ModelCreate(BaseModel):
     context_hard_limit: Optional[int] = None
     max_concurrent: Optional[int] = Field(None, ge=0)
     per_key_concurrency: Optional[int] = Field(None, ge=0)
+    per_key_concurrency_tiers: Optional[list[dict]] = None
     thinking_enabled: bool = True
     thinking_budget: int = 8192
     reasoning_effort: Optional[str] = None
@@ -50,6 +51,7 @@ class ModelUpdate(BaseModel):
     context_hard_limit: Optional[int] = None
     max_concurrent: Optional[int] = Field(None, ge=0)
     per_key_concurrency: Optional[int] = Field(None, ge=0)
+    per_key_concurrency_tiers: Optional[list[dict]] = None
     thinking_enabled: Optional[bool] = None
     thinking_budget: Optional[int] = None
     reasoning_effort: Optional[str] = None
@@ -73,6 +75,36 @@ class AutoModelConfigUpdate(BaseModel):
 
 class ModelApiKeysUpdate(BaseModel):
     api_key_ids: list[int] = Field(default_factory=list)
+
+
+def _normalize_per_key_tiers(value: Optional[list[dict]]):
+    """Normalize idle-based per-key concurrency tiers.
+    Each item: {"min_idle_pct": 0-100, "limit": >=0}. Sorted by pct desc.
+    None/empty -> None (falls back to dynamic)."""
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        return JSONResponse({"error": "空闲分档必须是数组"}, status_code=400)
+    normalized: list[dict] = []
+    seen_pct: set[int] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            return JSONResponse({"error": "空闲分档格式错误"}, status_code=400)
+        try:
+            pct = int(item.get("min_idle_pct"))
+            limit = int(item.get("limit"))
+        except (TypeError, ValueError):
+            return JSONResponse({"error": "空闲分档数值必须为整数"}, status_code=400)
+        if pct < 0 or pct > 100:
+            return JSONResponse({"error": "空闲百分比必须在 0-100 之间"}, status_code=400)
+        if limit < 0:
+            return JSONResponse({"error": "分档并发必须为非负整数"}, status_code=400)
+        if pct in seen_pct:
+            return JSONResponse({"error": f"空闲百分比 {pct} 重复"}, status_code=400)
+        seen_pct.add(pct)
+        normalized.append({"min_idle_pct": pct, "limit": limit})
+    normalized.sort(key=lambda t: t["min_idle_pct"], reverse=True)
+    return normalized or None
 
 
 @router.get("/routing/auto-model")
@@ -130,6 +162,7 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
                     "context_hard_limit": m.context_hard_limit,
                     "max_concurrent": getattr(m, "max_concurrent", None),
                     "per_key_concurrency": getattr(m, "per_key_concurrency", None),
+                    "per_key_concurrency_tiers": getattr(m, "per_key_concurrency_tiers", None) or [],
                     "thinking_enabled": m.thinking_enabled,
                     "thinking_budget": m.thinking_budget,
                     "reasoning_effort": m.reasoning_effort,
@@ -146,8 +179,13 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
 
 @router.post("/models")
 async def create_model(data: ModelCreate, _: bool = Depends(permission_required("model.create"))):
+    normalized_tiers = _normalize_per_key_tiers(data.per_key_concurrency_tiers)
+    if isinstance(normalized_tiers, JSONResponse):
+        return normalized_tiers
     async with async_session_maker() as session:
-        model = Model(**data.model_dump())
+        payload = data.model_dump()
+        payload["per_key_concurrency_tiers"] = normalized_tiers
+        model = Model(**payload)
         session.add(model)
         await session.commit()
         from app.services.provider import load_providers
@@ -160,6 +198,9 @@ async def create_model(data: ModelCreate, _: bool = Depends(permission_required(
 async def update_model(
     model_id: int, data: ModelUpdate, _: bool = Depends(permission_required("model.update"))
 ):
+    normalized_tiers = _normalize_per_key_tiers(data.per_key_concurrency_tiers)
+    if isinstance(normalized_tiers, JSONResponse):
+        return normalized_tiers
     async with async_session_maker() as session:
         result = await session.execute(select(Model).where(Model.id == model_id))
         model = result.scalar_one_or_none()
@@ -167,6 +208,8 @@ async def update_model(
             return JSONResponse({"error": "Model not found"}, status_code=404)
         for k, v in data.model_dump(exclude_unset=True).items():
             setattr(model, k, v)
+        if "per_key_concurrency_tiers" in data.model_fields_set:
+            model.per_key_concurrency_tiers = normalized_tiers
         await session.commit()
         from app.services.provider import load_providers
 

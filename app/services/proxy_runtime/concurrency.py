@@ -203,22 +203,77 @@ def _time_cap(now: datetime | None = None) -> int:
     return off if offpeak else peak
 
 
+def _model_idle_pct(model: str) -> int:
+    """Model headroom as idle percentage (0-100) from the stdmodel gauge.
+    No gauge / no limit -> fully idle (100)."""
+    sem = standard_model_semaphores.get(f"stdmodel:{model}")
+    if sem is None:
+        return 100
+    limit = getattr(sem, SCOPED_SEMAPHORE_LIMIT_ATTR, 0) or 0
+    if limit <= 0:
+        return 100
+    available = getattr(sem, "_value", 0) or 0
+    waiters = getattr(sem, "_waiters", None)
+    if waiters:
+        available = 0
+    return int(min(max(available * 100 / limit, 0), 100))
+
+
+def _model_tiers_cap(model: str, model_tiers=None) -> int | None:
+    """Per-user-per-model cap from idle-based tiers (sorted desc by
+    min_idle_pct). Returns the first tier whose threshold the model's
+    current idle pct meets; None when no tier matches (fall back to
+    dynamic) or tiers unset."""
+    if not model_tiers:
+        return None
+    idle = _model_idle_pct(model)
+    for tier in model_tiers:
+        try:
+            pct = int(tier.get("min_idle_pct", 0))
+            limit = int(tier.get("limit", 0))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if idle >= pct:
+            return max(limit, 0)
+    return None
+
+
 def _get_user_model_limit(
     bypass_busyness: bool,
     model: str,
     now: datetime | None = None,
     model_cfg=None,
+    model_tiers=None,
+    key_max_concurrent: int | None = None,
 ) -> int:
     if bypass_busyness:
         return 9999
     # 1) Model-level fixed cap (per_key_concurrency: 0 disables, >=1 cap).
     if model_cfg is not None:
         try:
-            return max(int(model_cfg), 0)
+            limit = max(int(model_cfg), 0)
         except (TypeError, ValueError):
-            pass
-    # 2) Dynamic: model gauge headroom x time window.
-    return max(min(_model_gauge_cap(model), _time_cap(now)), 0)
+            limit = None
+        if limit is not None:
+            return _cap_by_key_concurrency(limit, key_max_concurrent)
+    # 2) Model-level idle tiers (per_key_concurrency_tiers).
+    tiers_limit = _model_tiers_cap(model, model_tiers)
+    if tiers_limit is not None:
+        return _cap_by_key_concurrency(tiers_limit, key_max_concurrent)
+    # 3) Dynamic: model gauge headroom x time window.
+    dynamic = max(min(_model_gauge_cap(model), _time_cap(now)), 0)
+    return _cap_by_key_concurrency(dynamic, key_max_concurrent)
+
+
+def _cap_by_key_concurrency(limit: int, key_max_concurrent=None) -> int:
+    """Actual per-user-per-model limit is narrowed by what the user's own
+    key supports (api_keys.max_concurrent, None = default)."""
+    try:
+        if key_max_concurrent is not None:
+            return max(min(int(limit), int(key_max_concurrent)), 0)
+    except (TypeError, ValueError):
+        pass
+    return max(int(limit), 0)
 
 
 def _get_or_create_user_provider_model_semaphore(

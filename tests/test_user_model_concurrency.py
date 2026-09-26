@@ -164,6 +164,112 @@ class UserModelLimitTests(unittest.TestCase):
         )
 
 
+class UserModelIndexedTiersTests(unittest.TestCase):
+    TIERS = [{"min_idle_pct": 80, "limit": 4}, {"min_idle_pct": 50, "limit": 2}]
+
+    def setUp(self):
+        from app.core.config import standard_model_semaphores
+
+        standard_model_semaphores.clear()
+
+    def tearDown(self):
+        from app.core.config import standard_model_semaphores
+
+        standard_model_semaphores.clear()
+
+    def _set_idle(self, limit, available, waiters=None):
+        from app.core.config import standard_model_semaphores
+
+        sem = Mock()
+        sem._modelgate_scoped_limit = limit
+        sem._value = available
+        sem._waiters = waiters
+        standard_model_semaphores["stdmodel:m"] = sem
+
+    def test_fully_idle_hits_top_tier(self):
+        self._set_idle(10, 10)
+        self.assertEqual(
+            _get_user_model_limit(False, "m", model_tiers=self.TIERS), 4
+        )
+
+    def test_eighty_pct_idle_hits_top_tier(self):
+        self._set_idle(10, 8)
+        self.assertEqual(
+            _get_user_model_limit(False, "m", model_tiers=self.TIERS), 4
+        )
+
+    def test_sixty_pct_idle_hits_second_tier(self):
+        self._set_idle(10, 6)
+        self.assertEqual(
+            _get_user_model_limit(False, "m", model_tiers=self.TIERS), 2
+        )
+
+    def test_busy_below_all_tiers_falls_back_to_dynamic(self):
+        self._set_idle(10, 3)
+        # gauge cap 1 x time cap 2 -> 1
+        self.assertEqual(
+            _get_user_model_limit(False, "m", model_tiers=self.TIERS), 1
+        )
+
+    def test_waiters_count_as_zero_idle_for_tiers(self):
+        self._set_idle(10, 9, waiters=[object()])
+        # idle treated as 0 -> below all tiers -> dynamic (gauge cap 1)
+        self.assertEqual(
+            _get_user_model_limit(False, "m", model_tiers=self.TIERS), 1
+        )
+
+    def test_no_gauge_means_idle_hits_top_tier(self):
+        self.assertEqual(
+            _get_user_model_limit(False, "m", model_tiers=self.TIERS), 4
+        )
+
+    def test_tier_zero_disables(self):
+        tiers = [{"min_idle_pct": 0, "limit": 0}]
+        self.assertEqual(
+            _get_user_model_limit(False, "m", model_tiers=tiers), 0
+        )
+
+    def test_model_cfg_fixed_cap_beats_tiers(self):
+        self._set_idle(10, 10)
+        self.assertEqual(
+            _get_user_model_limit(False, "m", model_cfg=3, model_tiers=self.TIERS), 3
+        )
+
+    def test_key_concurrency_narrows_tier(self):
+        self._set_idle(10, 10)
+        self.assertEqual(
+            _get_user_model_limit(
+                False, "m", model_tiers=self.TIERS, key_max_concurrent=2
+            ),
+            2,
+        )
+
+    def test_key_concurrency_narrows_fixed_cap(self):
+        self.assertEqual(
+            _get_user_model_limit(
+                False, "m", model_cfg=5, key_max_concurrent=3
+            ),
+            3,
+        )
+
+    def test_key_concurrency_narrows_dynamic(self):
+        self.assertEqual(
+            _get_user_model_limit(
+                False, "unknown", key_max_concurrent=1
+            ),
+            1,
+        )
+
+    def test_key_zero_disables(self):
+        self._set_idle(10, 10)
+        self.assertEqual(
+            _get_user_model_limit(
+                False, "m", model_tiers=self.TIERS, key_max_concurrent=0
+            ),
+            0,
+        )
+
+
 def _build_route(model_name: str) -> proxy_module.RouteResult:
     return proxy_module.RouteResult(
         provider_config={
@@ -285,7 +391,7 @@ class UserModelCreatingEndToEndTests(unittest.IsolatedAsyncioTestCase):
             config.api_keys_cache["test-key"] = {
                 "id": 1,
                 "bypass_busyness": False,
-                "max_concurrent": None,
+                "max_concurrent": 9,
                 "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000)),
             }
             route = _build_route("any-model")
@@ -315,6 +421,50 @@ class UserModelCreatingEndToEndTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(getattr(sem, "_value"), 4)
         finally:
             _model_per_key_concurrency_by_name.clear()
+
+    async def test_model_tiers_narrowed_by_key_concurrency(self):
+        from app.services.provider import (
+            _model_per_key_concurrency_tiers_by_name,
+        )
+
+        _model_per_key_concurrency_tiers_by_name["any-model"] = [
+            {"min_idle_pct": 80, "limit": 4},
+            {"min_idle_pct": 50, "limit": 2},
+        ]
+        try:
+            config.api_keys_cache["test-key"] = {
+                "id": 1,
+                "bypass_busyness": False,
+                "max_concurrent": 2,
+                "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000)),
+            }
+            route = _build_route("any-model")
+            request = _build_request("any-model")
+
+            async def fake_runtime_normal(**kwargs):
+                if kwargs.get("provider_key_semaphore") is not None:
+                    kwargs["provider_key_semaphore"].release()
+                if kwargs.get("user_provider_model_semaphore") is not None:
+                    kwargs["user_provider_model_semaphore"].release()
+                return Response(content=b'{"choices":[]}', status_code=200)
+
+            with contextlib.ExitStack() as stack:
+                self._patch_common(stack, route)
+                stack.enter_context(
+                    patch(
+                        "app.services.proxy.runtime_handle_normal",
+                        new=AsyncMock(side_effect=fake_runtime_normal),
+                    )
+                )
+                response = await proxy_request(request, "/chat/completions")
+
+            self.assertEqual(response.status_code, 200)
+            sem = user_model_semaphores.get("usermodel:1:any-model")
+            self.assertIsNotNone(sem)
+            # top tier 4 (no gauge -> idle 100%) narrowed by key's own 2
+            self.assertEqual(getattr(sem, "_modelgate_scoped_limit"), 2)
+        finally:
+            _model_per_key_concurrency_tiers_by_name.clear()
 
     async def test_bypass_skips_model_layer_entirely(self):
         from app.services.provider import (
