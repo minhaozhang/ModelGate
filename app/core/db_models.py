@@ -176,6 +176,7 @@ class Model(Base):
     is_active = Column(Boolean, default=True)
     is_virtual = Column(Boolean, default=False)
     max_concurrent = Column(Integer, nullable=True)
+    per_key_concurrency = Column(Integer, nullable=True)
     estimated_price = Column(Float, nullable=True, server_default="0")
     tags = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

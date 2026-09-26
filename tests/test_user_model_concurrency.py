@@ -152,6 +152,31 @@ class UserModelLimitTests(unittest.TestCase):
     def test_no_config_uses_time_cap_only(self):
         self.assertEqual(_get_user_model_limit(False, None, "unknown"), 2)
 
+    def test_model_cfg_fixed_cap(self):
+        self.assertEqual(
+            _get_user_model_limit(False, None, "m", model_cfg=3), 3
+        )
+
+    def test_model_cfg_zero_disables(self):
+        self.assertEqual(
+            _get_user_model_limit(False, None, "m", model_cfg=0), 0
+        )
+
+    def test_model_cfg_none_falls_back_to_dynamic(self):
+        self.assertEqual(
+            _get_user_model_limit(False, None, "unknown", model_cfg=None), 2
+        )
+
+    def test_key_cfg_wins_over_model_cfg(self):
+        self.assertEqual(
+            _get_user_model_limit(False, {"m": 1}, "m", model_cfg=3), 1
+        )
+
+    def test_bypass_beats_all(self):
+        self.assertEqual(
+            _get_user_model_limit(True, {"m": 0}, "m", model_cfg=0), 9999
+        )
+
 
 def _build_route(model_name: str) -> proxy_module.RouteResult:
     return proxy_module.RouteResult(
@@ -290,6 +315,122 @@ class UserModelCreatingEndToEndTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(sem)
         self.assertEqual(getattr(sem, "_modelgate_scoped_limit"), 1)
         self.assertEqual(getattr(sem, "_value"), 1)
+
+    async def test_model_level_zero_rejected_with_429(self):
+        from app.services.provider import (
+            _model_per_key_concurrency_by_name,
+        )
+
+        _model_per_key_concurrency_by_name["any-model"] = 0
+        try:
+            config.api_keys_cache["test-key"] = {
+                "id": 1,
+                "bypass_busyness": False,
+                "max_concurrent": None,
+                "model_concurrency": {},
+                "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000)),
+            }
+            route = _build_route("any-model")
+            request = _build_request("any-model")
+            runtime_normal = AsyncMock(return_value=Response(status_code=200))
+
+            with contextlib.ExitStack() as stack:
+                self._patch_common(stack, route)
+                stack.enter_context(
+                    patch("app.services.proxy.runtime_handle_normal", new=runtime_normal)
+                )
+                response = await proxy_request(request, "/chat/completions")
+
+            self.assertEqual(response.status_code, 429)
+            payload = json.loads(response.body)
+            self.assertEqual(payload["error"]["code"], "user_model_concurrency_reached")
+            runtime_normal.assert_not_awaited()
+            sem = user_model_semaphores.get("usermodel:1:any-model")
+            self.assertIsNotNone(sem)
+            self.assertEqual(getattr(sem, "_modelgate_scoped_limit"), 0)
+        finally:
+            _model_per_key_concurrency_by_name.clear()
+
+    async def test_model_level_fixed_cap_applies(self):
+        from app.services.provider import (
+            _model_per_key_concurrency_by_name,
+        )
+
+        _model_per_key_concurrency_by_name["any-model"] = 4
+        try:
+            config.api_keys_cache["test-key"] = {
+                "id": 1,
+                "bypass_busyness": False,
+                "max_concurrent": None,
+                "model_concurrency": {},
+                "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000)),
+            }
+            route = _build_route("any-model")
+            request = _build_request("any-model")
+
+            async def fake_runtime_normal(**kwargs):
+                if kwargs.get("provider_key_semaphore") is not None:
+                    kwargs["provider_key_semaphore"].release()
+                if kwargs.get("user_provider_model_semaphore") is not None:
+                    kwargs["user_provider_model_semaphore"].release()
+                return Response(content=b'{"choices":[]}', status_code=200)
+
+            with contextlib.ExitStack() as stack:
+                self._patch_common(stack, route)
+                stack.enter_context(
+                    patch(
+                        "app.services.proxy.runtime_handle_normal",
+                        new=AsyncMock(side_effect=fake_runtime_normal),
+                    )
+                )
+                response = await proxy_request(request, "/chat/completions")
+
+            self.assertEqual(response.status_code, 200)
+            sem = user_model_semaphores.get("usermodel:1:any-model")
+            self.assertIsNotNone(sem)
+            self.assertEqual(getattr(sem, "_modelgate_scoped_limit"), 4)
+            self.assertEqual(getattr(sem, "_value"), 4)
+        finally:
+            _model_per_key_concurrency_by_name.clear()
+
+    async def test_bypass_skips_model_layer_entirely(self):
+        from app.services.provider import (
+            _model_per_key_concurrency_by_name,
+        )
+
+        _model_per_key_concurrency_by_name["any-model"] = 0
+        try:
+            config.api_keys_cache["test-key"] = {
+                "id": 1,
+                "bypass_busyness": True,
+                "max_concurrent": None,
+                "model_concurrency": {"any-model": 0},
+                "allowed_provider_model_ids": list(range(1, 1000)), "allowed_model_ids": list(range(1, 1000)),
+            }
+            route = _build_route("any-model")
+            request = _build_request("any-model")
+
+            async def fake_runtime_normal(**kwargs):
+                if kwargs.get("provider_key_semaphore") is not None:
+                    kwargs["provider_key_semaphore"].release()
+                if kwargs.get("user_provider_model_semaphore") is not None:
+                    kwargs["user_provider_model_semaphore"].release()
+                return Response(content=b'{"choices":[]}', status_code=200)
+
+            with contextlib.ExitStack() as stack:
+                self._patch_common(stack, route)
+                stack.enter_context(
+                    patch(
+                        "app.services.proxy.runtime_handle_normal",
+                        new=AsyncMock(side_effect=fake_runtime_normal),
+                    )
+                )
+                response = await proxy_request(request, "/chat/completions")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIsNone(user_model_semaphores.get("usermodel:1:any-model"))
+        finally:
+            _model_per_key_concurrency_by_name.clear()
 
 
 if __name__ == "__main__":

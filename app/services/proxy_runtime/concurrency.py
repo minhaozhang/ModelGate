@@ -208,14 +208,23 @@ def _get_user_model_limit(
     stored_cfg,
     model: str,
     now: datetime | None = None,
+    model_cfg=None,
 ) -> int:
     if bypass_busyness:
         return 9999
+    # 1) Key-level explicit override (e.g. {"glm-5.3": 2}, 0 disables).
     if isinstance(stored_cfg, dict) and model in stored_cfg:
         try:
             return max(int(stored_cfg[model]), 0)
         except (TypeError, ValueError):
             pass
+    # 2) Model-level fixed cap (per_key_concurrency: 0 disables, >=1 cap).
+    if model_cfg is not None:
+        try:
+            return max(int(model_cfg), 0)
+        except (TypeError, ValueError):
+            pass
+    # 3) Dynamic: model gauge headroom x time window.
     return max(min(_model_gauge_cap(model), _time_cap(now)), 0)
 
 

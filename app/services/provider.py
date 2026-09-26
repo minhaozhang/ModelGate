@@ -47,6 +47,7 @@ _model_name_index: dict[str, list[tuple[str, dict, str, int]]] = {}
 _model_id_by_name: dict[str, int] = {}
 _model_hard_limit_by_name: dict[str, int | None] = {}
 _model_max_concurrent_by_name: dict[str, int | None] = {}
+_model_per_key_concurrency_by_name: dict[str, int | None] = {}
 
 
 @dataclass
@@ -356,15 +357,17 @@ async def load_providers():
         _model_id_by_name.clear()
         _model_hard_limit_by_name.clear()
         _model_max_concurrent_by_name.clear()
+        _model_per_key_concurrency_by_name.clear()
         model_id_result = await session.execute(
-            select(Model.id, Model.name, Model.context_hard_limit, Model.context_length, Model.max_concurrent)
+            select(Model.id, Model.name, Model.context_hard_limit, Model.context_length, Model.max_concurrent, Model.per_key_concurrency)
         )
-        for model_id, model_name, hard_limit, context_length, max_concurrent in model_id_result.fetchall():
+        for model_id, model_name, hard_limit, context_length, max_concurrent, per_key_concurrency in model_id_result.fetchall():
             _model_id_by_name[model_name] = model_id
             _model_hard_limit_by_name[model_name] = (
                 hard_limit if hard_limit is not None else context_length
             )
             _model_max_concurrent_by_name[model_name] = max_concurrent
+            _model_per_key_concurrency_by_name[model_name] = per_key_concurrency
         for p in providers:
             pm_result = await session.execute(
                 select(ProviderModel, Model)
@@ -616,6 +619,14 @@ def get_cached_model_max_concurrent(model_name: str) -> int | None:
     """Standard-model concurrency cap: None = unlimited, 0 = disabled."""
     if model_name in _model_max_concurrent_by_name:
         return _model_max_concurrent_by_name.get(model_name)
+    return None
+
+
+def get_cached_model_per_key_concurrency(model_name: str) -> int | None:
+    """Per-user-key concurrency cap for this model: None = dynamic
+    (gauge + time window), 0 = disabled, >=1 = fixed cap."""
+    if model_name in _model_per_key_concurrency_by_name:
+        return _model_per_key_concurrency_by_name.get(model_name)
     return None
 
 
