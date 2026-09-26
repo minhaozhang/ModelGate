@@ -38,6 +38,8 @@
         table.dr-table tbody tr { border-top: 1px solid rgba(100, 116, 139, 0.2); }
         body:not(.theme-dark) .stat-card { background: #f0f7ff; border-color: #bfdbfe; }
         body:not(.theme-dark) .flag-box { background: #fffbeb; border-color: #fcd34d; }
+        #dr-ai-btn { background: #6366f1; }
+        #dr-ai-btn:hover { background: #4f46e5; }
     </style>
 </head>
 <body class="theme-dark bg-gray-100 min-h-screen">
@@ -94,7 +96,7 @@
             <div class="flex items-center justify-between px-5 py-3 border-b shrink-0">
                 <h2 id="dr-detail-title" class="text-base font-semibold font-mono"></h2>
                 <div class="flex items-center gap-3">
-                    <button onclick="drAiFromDetail()" class="text-xs bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded">🤖 {{ _('AI 分析') if current_locale == 'zh' else 'AI Analysis' }}</button>
+                    <button id="dr-ai-btn" onclick="drAiFromDetail()" class="text-xs text-white px-3 py-1.5 rounded">🤖 {{ _('AI 分析') if current_locale == 'zh' else 'AI Analysis' }}</button>
                     <button onclick="drCloseDetail()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
                 </div>
             </div>

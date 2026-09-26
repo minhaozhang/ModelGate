@@ -1075,7 +1075,7 @@
         function requestStatusVisual(status) {
             const inflight = status === 'waiting' || status === 'sending' || status === 'pending';
             const map = {
-                waiting: ['bg-gray-400', T('排队中', 'waiting')],
+                waiting: ['bg-gray-300', T('排队中', 'waiting')],
                 sending: ['bg-blue-500', T('发送中', 'sending')],
                 pending: ['bg-amber-500', T('传输中', 'pending')],
                 success: ['bg-green-500', T('成功', 'success')],
