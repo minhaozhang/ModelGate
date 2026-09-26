@@ -596,8 +596,5 @@ async def get_system_info(_: bool = Depends(permission_required("page.stats"))):
 
 @router.get("/system-config", response_class=HTMLResponse)
 async def system_config_page(request: Request, _: bool = Depends(permission_required("page.system.config"))):
-    from app.core.app_paths import build_app_url
-
-    tab = request.query_params.get("tab") or "ua"
-    html = render(request, "admin/system_config.html", active_page="system-config", sys_tab=tab)
+    html = render(request, "admin/system_config.html", active_page="system-config")
     return HTMLResponse(content=html)

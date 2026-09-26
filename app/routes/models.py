@@ -207,6 +207,8 @@ async def update_model(
         if not model:
             return JSONResponse({"error": "Model not found"}, status_code=404)
         for k, v in data.model_dump(exclude_unset=True).items():
+            if k == "per_key_concurrency_tiers":
+                continue
             setattr(model, k, v)
         if "per_key_concurrency_tiers" in data.model_fields_set:
             model.per_key_concurrency_tiers = normalized_tiers
