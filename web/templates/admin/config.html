@@ -31,6 +31,10 @@
         .pk-row-dirty { border-color: #f59e0b; background: #fffbeb; }
         body.theme-dark .pk-row { background: #1e293b; }
         body.theme-dark .pk-row-dirty { background: #3a2e14; border-color: #d97706; }
+        body.theme-dark #model-pricing-list details pre { background: #1e293b; border-color: #334155; color: #e5e7eb; }
+        body.theme-dark #model-pricing-list details code { color: #93c5fd; }
+        body.theme-blackgold #model-pricing-list details pre { background: #2a2216; border-color: rgba(212,168,83,0.28); color: #fafaf9; }
+        body.theme-blackgold #model-pricing-list details code { color: #e7c67c; }
         .pk-info { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
         .pk-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .pk-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
@@ -2692,8 +2696,8 @@
                             <th>输入价</th>
                             <th>输出价</th>
                             <th>缓存输入价</th>
-                            <th>默认缓存命中率</th>
-                            <th>分档 JSON</th>
+                            <th title="默认缓存命中率：上游未返回 cached_tokens 时按此百分比估算缓存命中">缓存命中率 %</th>
+                            <th title="按请求上下文 tokens 分档计价，从上到下匹配第一个命中档位；格式说明见表格下方">分档 JSON ⓘ</th>
                             <th class="text-right">操作</th>
                         </tr>
                     </thead>
@@ -2713,7 +2717,7 @@
                             <td><input id="pricing-input-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.input_price_cny_per_million))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"></td>
                             <td><input id="pricing-output-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.output_price_cny_per_million))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"></td>
                             <td><input id="pricing-cached-${route.id}" type="number" step="0.001" value="${escapeAttr(pricingValue(route.cached_input_price_cny_per_million))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"></td>
-                            <td><input id="pricing-cache-ratio-${route.id}" type="number" min="0" max="100" step="0.1" value="${escapeAttr(pricingValue(route.default_cache_hit_ratio))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"> <span class="text-xs text-gray-400">%</span></td>
+                            <td title="默认缓存命中率（0-100）：上游未返回 cached_tokens 时按此百分比估算"><input id="pricing-cache-ratio-${route.id}" type="number" min="0" max="100" step="0.1" value="${escapeAttr(pricingValue(route.default_cache_hit_ratio))}" class="w-full border rounded px-2 py-1.5 text-sm text-right"></td>
                             <td>
                                 <textarea id="pricing-tiers-${route.id}" rows="2" class="w-full border rounded px-2 py-1.5 text-xs font-mono" placeholder='[{"max_context_tokens":524288,...}]'>${escapeHtml(pricingTiersValue(route))}</textarea>
                             </td>
@@ -2731,9 +2735,20 @@
                     </tbody>
                 </table>
             </div>
-            <div class="text-xs text-gray-500 mt-3 leading-relaxed">
-                命中缓存 token 优先使用上游返回的 cached_tokens；没有返回时，按默认缓存命中率估算。
-                MiniMax M3 这种上下文分档价格可以填分档 JSON，普通模型留空即可。「复制」把当前行价格复制到同模型其他供应商；「同步」把当前行价格覆盖到同模型所有其他供应商。
+            <div class="text-xs text-gray-500 mt-3 leading-relaxed space-y-1">
+                <div>命中缓存 token 优先使用上游返回的 cached_tokens；没有返回时，按缓存命中率估算。「复制」把当前行价格复制到同模型其他供应商；「同步」把当前行价格覆盖到同模型所有其他供应商。</div>
+                <details class="mt-1">
+                    <summary class="cursor-pointer select-none text-blue-600 hover:underline">分档 JSON 配置说明（上下文分档计价，如 MiniMax M3；普通模型留空即可）</summary>
+                    <div class="mt-2 pl-3 border-l-2 border-gray-200 space-y-1">
+                        <div>JSON 数组，按请求上下文 tokens <b>从上到下匹配第一个命中的档位</b>；都不命中时用行首基础价。</div>
+                        <div>每档字段（均可选）：<code>min_context_tokens</code> / <code>max_context_tokens</code>（档位上下限，tokens 数，可只填一个）、<code>input_price_cny_per_million</code>、<code>output_price_cny_per_million</code>、<code>cached_input_price_cny_per_million</code>（档位内未填的价格回退到行首基础价）。</div>
+                        <pre class="bg-gray-50 border rounded p-2 overflow-x-auto text-[11px]">[
+  {"max_context_tokens": 524288,  "input_price_cny_per_million": 2, "output_price_cny_per_million": 8},
+  {"min_context_tokens": 524289,  "input_price_cny_per_million": 4, "output_price_cny_per_million": 16}
+]</pre>
+                        <div>示例含义：上下文 ≤ 512K 时输入 2 元/输出 8 元；超过 512K 时输入 4 元/输出 16 元（百万 tokens）。</div>
+                    </div>
+                </details>
             </div>`;
         }
 
