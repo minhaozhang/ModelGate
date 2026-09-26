@@ -12,6 +12,8 @@
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
         .nav-link.active { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-right: 3px solid #3b82f6; }
         .model-item.selected { background: #dbeafe; }
+        .expired-key-row { background: rgba(254, 242, 242, 0.6); }
+        body.theme-dark .expired-key-row { background: rgba(127, 29, 29, 0.28) !important; }
         body.theme-dark { background: #020617 !important; color: #e2e8f0; }
         body.theme-dark nav,
         body.theme-dark .bg-white { background: #0f172a !important; }
@@ -768,7 +770,7 @@ maxConcurrent: "{{ _('Max concurrency' if current_locale != 'zh' else '并发上
                 };
                 const expired = isApiKeyExpired(k.expires_at);
                 return `
-                <div class="p-4 ${expired ? 'bg-red-50/60' : ''}">
+                <div class="p-4 ${expired ? 'expired-key-row' : ''}">
                     <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-center gap-2">
