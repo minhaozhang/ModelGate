@@ -159,7 +159,6 @@
                     <button class="config-tab-btn" data-config-tab="pricing" onclick="switchConfigTab('pricing')">价目总览</button>
                     <button class="config-tab-btn" data-config-tab="templates" onclick="switchConfigTab('templates')">策略模板</button>
                     <button class="config-tab-btn" data-config-tab="preview" onclick="switchConfigTab('preview')">路由预览</button>
-                    <button class="config-tab-btn" data-config-tab="system" onclick="switchConfigTab('system')">系统设置</button>
                 </div>
             </div>
 
@@ -411,186 +410,6 @@
                 </div>
             </div>
 
-            <div id="config-tab-system" class="config-tab-panel hidden">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <h2 class="text-lg font-semibold mb-4">{{ _('Proxy User-Agent') }}</h2>
-                        <p class="text-xs text-gray-500 mb-1">{{ _('Current outbound UA (used for all proxy requests)') }}</p>
-                        <input id="ua-input" class="w-full border rounded px-3 py-2 text-sm font-mono mb-3" placeholder="User-Agent">
-                        <div id="default-ua-hint" class="text-xs text-gray-400 mb-3"></div>
-                        <div class="flex gap-2">
-                            <button onclick="sysSaveUa()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
-                            <button onclick="sysResetUa()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm">{{ _('Reset to Default') }}</button>
-                        </div>
-                        <div id="ua-msg" class="mt-3 text-sm hidden"></div>
-                    </div>
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <h2 class="text-lg font-semibold mb-1">{{ _('Today\'s Client UA') }}</h2>
-                        <p class="text-xs text-gray-500 mb-4">{{ _('Top user agents making requests today') }}</p>
-                        <div id="ua-list" class="space-y-3 text-sm"></div>
-                    </div>
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <h2 class="text-lg font-semibold mb-4">{{ _('GLM Health Check Model' if current_locale != 'zh' else 'GLM 健康检查模型') }}</h2>
-                        <p class="text-xs text-gray-500 mb-1">{{ _('Daily 05:30 health check model (provider/model full name), empty for default' if current_locale != 'zh' else '每日 05:30 健康检查调用的模型，需 provider/model 全名，留空使用默认值') }}</p>
-                        <input id="glm-model-input" class="w-full border rounded px-3 py-2 text-sm font-mono mb-3" placeholder="zhipu/glm-5.3">
-                        <div id="glm-model-hint" class="text-xs text-gray-400 mb-3"></div>
-                        <div class="flex gap-2">
-                            <button onclick="sysSaveGlmModel()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
-                        </div>
-                        <div id="glm-model-msg" class="mt-3 text-sm hidden"></div>
-                    </div>
-                </div>
-                <div class="mt-6 bg-white rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-1">{{ _('Busyness Levels' if current_locale != 'zh' else '繁忙程度等级') }}</h2>
-                    <p class="text-xs text-gray-500 mb-4">{{ _('Busyness is computed from active users, 429 ratio and disabled providers' if current_locale != 'zh' else '根据活跃用户数、429比例和禁用供应商数量综合判定') }}</p>
-                    <div class="space-y-3">
-                        <div class="flex items-center gap-3 p-3 rounded bg-red-50 border-l-4 border-red-500">
-                            <span class="text-sm font-semibold text-red-700 w-12 shrink-0">过载</span>
-                            <span class="text-xs text-gray-500 whitespace-nowrap">活跃用户 &gt;</span>
-                            <input id="busyness-level1_active_users_threshold" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="10">
-                            <span class="text-xs text-gray-500 whitespace-nowrap">429比例 &gt;</span>
-                            <input id="busyness-level1_rate_429_threshold" type="number" step="0.05" min="0" max="1" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="0.5">
-                            <span class="text-xs text-gray-500 whitespace-nowrap">禁用供应商 ≥</span>
-                            <input id="busyness-level1_disabled_providers" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="2">
-                        </div>
-                        <div class="flex items-center gap-3 p-3 rounded bg-orange-50 border-l-4 border-orange-500">
-                            <span class="text-sm font-semibold text-orange-700 w-12 shrink-0">拥挤</span>
-                            <span class="text-xs text-gray-500 whitespace-nowrap">活跃用户 &gt;</span>
-                            <input id="busyness-level2_active_users_threshold" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="8">
-                            <span class="text-xs text-gray-500 whitespace-nowrap">429比例 &gt;</span>
-                            <input id="busyness-level2_rate_429_threshold" type="number" step="0.05" min="0" max="1" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="0.3">
-                            <span class="text-xs text-gray-500 whitespace-nowrap">禁用供应商 ≥</span>
-                            <input id="busyness-level2_disabled_providers" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="1">
-                        </div>
-                        <div class="flex items-center gap-3 p-3 rounded bg-yellow-50 border-l-4 border-yellow-500">
-                            <span class="text-sm font-semibold text-yellow-700 w-12 shrink-0">活跃</span>
-                            <span class="text-xs text-gray-500 whitespace-nowrap">活跃用户 &gt;</span>
-                            <input id="busyness-level3_active_users_threshold" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="5">
-                            <span class="text-xs text-gray-500 whitespace-nowrap">429比例 &gt;</span>
-                            <input id="busyness-level3_rate_429_threshold" type="number" step="0.05" min="0" max="1" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="0.1">
-                        </div>
-                        <div class="flex items-center gap-3 p-3 rounded bg-green-50 border-l-4 border-green-500">
-                            <span class="text-sm font-semibold text-green-700 w-12 shrink-0">流畅</span>
-                            <span class="text-xs text-gray-500 whitespace-nowrap">活跃用户 &gt;</span>
-                            <input id="busyness-level4_active_users_threshold" type="number" min="0" class="w-20 border rounded px-2 py-1 text-sm text-center" placeholder="1">
-                            <span class="text-xs text-gray-600 flex-1">10分钟内有请求，且未达到以上条件</span>
-                        </div>
-                        <div class="flex items-center gap-3 p-3 rounded bg-blue-50 border-l-4 border-blue-500">
-                            <span class="text-sm font-semibold text-blue-700 w-12 shrink-0">平静</span>
-                            <span class="text-xs text-gray-600 flex-1">10分钟内无请求，但1小时内有请求</span>
-                        </div>
-                        <div class="flex items-center gap-3 p-3 rounded bg-slate-50 border-l-4 border-slate-500">
-                            <span class="text-sm font-semibold text-slate-700 w-12 shrink-0">寂静</span>
-                            <span class="text-xs text-gray-600 flex-1">1小时内无任何请求</span>
-                        </div>
-                    </div>
-                    <div class="mt-4 flex gap-2">
-                        <button onclick="sysSaveBusyness()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
-                    </div>
-                    <div id="busyness-msg" class="mt-3 text-sm hidden"></div>
-                </div>
-                <div class="mt-6 bg-white rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-1">{{ _('Billing Rules: daily quota and peak hours' if current_locale != 'zh' else '计费规则：每日额度与峰谷时段') }}</h2>
-                    <p class="text-xs text-gray-500 mb-4">{{ _('Per-key daily spending quota in CNY (upstream cost times period multiplier). Exceeded keys get 429 until midnight. Peak hours charge faster, off-peak slower.' if current_locale != 'zh' else '按 API Key 的每日花费额度（元，成本价 × 时段乘数）。达到额度后返回 429，次日零点恢复。高峰期扣费加速，低峰期减速。') }}</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Peak windows' if current_locale != 'zh' else '高峰时段') }}</label>
-                            <input id="billing-peak_windows" class="w-full border rounded px-3 py-2 text-sm font-mono" placeholder="09:00-12:00,14:00-18:00">
-                            <p class="text-xs text-gray-400 mt-1">{{ _('Comma-separated HH:MM-HH:MM, supports cross-midnight like 22:00-06:00' if current_locale != 'zh' else '逗号分隔 HH:MM-HH:MM，支持跨零点，如 22:00-06:00') }}</p>
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Default daily quota CNY, empty means unlimited' if current_locale != 'zh' else '默认每日额度（元，留空不限）') }}</label>
-                            <input id="billing-default_daily_quota_cny" type="number" step="0.01" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="">
-                            <p class="text-xs text-gray-400 mt-1">{{ _('Applies to keys without their own quota' if current_locale != 'zh' else '对未单独设置额度的 Key 生效') }}</p>
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Peak multiplier' if current_locale != 'zh' else '高峰乘数') }}</label>
-                            <input id="billing-peak_multiplier" type="number" step="0.1" min="0.1" class="w-full border rounded px-3 py-2 text-sm" placeholder="1.5">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Off-peak multiplier' if current_locale != 'zh' else '低峰乘数') }}</label>
-                            <input id="billing-offpeak_multiplier" type="number" step="0.1" min="0.1" class="w-full border rounded px-3 py-2 text-sm" placeholder="0.8">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Global default cache hit ratio %' if current_locale != 'zh' else '全局默认缓存命中率 %') }}</label>
-                            <input id="pricing-default_cache_hit_ratio" type="number" step="0.1" min="0" max="100" class="w-full border rounded px-3 py-2 text-sm" placeholder="0">
-                            <p class="text-xs text-gray-400 mt-1">{{ _('Used when a binding has no cache hit ratio and upstream reports none' if current_locale != 'zh' else '绑定未单独设置缓存命中率、且上游未返回 cached_tokens 时按此估算；新建绑定时作为预填默认值') }}</p>
-                        </div>
-                    </div>
-                    <label class="flex items-center gap-2 mt-4 text-sm text-gray-700">
-                        <input id="billing-weekend_offpeak" type="checkbox" class="rounded">
-                        {{ _('Weekends count as off-peak all day' if current_locale != 'zh' else '周末全天按低峰计费') }}
-                    </label>
-                    <div class="mt-4 flex gap-2">
-                        <button onclick="sysSaveBilling()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
-                    </div>
-                    <div id="billing-msg" class="mt-3 text-sm hidden"></div>
-                </div>
-                <div class="mt-6 bg-white rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-1">{{ _('Daily Report Alert Thresholds' if current_locale != 'zh' else '每日简报告警阈值') }}</h2>
-                    <p class="text-xs text-gray-500 mb-4">{{ _('Daily ops report flags warning when any metric exceeds its threshold' if current_locale != 'zh' else '每日简报中任一指标超过阈值时，简报级别升级为警告') }}</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Error rate warn % (errors/attempts)' if current_locale != 'zh' else '错误率告警 %（错误/总请求）') }}</label>
-                            <input id="daily_report-error_rate_warn" type="number" step="1" min="0" max="100" class="w-full border rounded px-3 py-2 text-sm" placeholder="30">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('API auth failures warn' if current_locale != 'zh' else 'Key 认证失败告警（次）') }}</label>
-                            <input id="daily_report-auth_fail_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="100">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Admin login failures warn' if current_locale != 'zh' else '管理端登录失败告警（次）') }}</label>
-                            <input id="daily_report-login_fail_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="20">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Rate limited requests warn' if current_locale != 'zh' else '限流请求告警（次）') }}</label>
-                            <input id="daily_report-rate_limit_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="500">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Single IP requests warn' if current_locale != 'zh' else '单 IP 请求告警（次）') }}</label>
-                            <input id="daily_report-ip_req_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="2000">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Single IP auth failures warn' if current_locale != 'zh' else '单 IP 认证失败告警（次）') }}</label>
-                            <input id="daily_report-ip_auth_fail_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="30">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Single key distinct IP warn' if current_locale != 'zh' else '单 Key 不同 IP 告警（个）') }}</label>
-                            <input id="daily_report-key_ip_warn" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="3">
-                        </div>
-                    </div>
-                    <div class="mt-4 flex gap-2">
-                        <button onclick="sysSaveDailyReport()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
-                    </div>
-                    <div id="daily_report-msg" class="mt-3 text-sm hidden"></div>
-                </div>
-                <div class="mt-6 bg-white rounded-lg shadow p-6">
-                    <h2 class="text-lg font-semibold mb-1">{{ _('User Model Concurrency Control' if current_locale != 'zh' else '用户模型并发控制') }}</h2>
-                    <p class="text-xs text-gray-500 mb-4">{{ _('Dynamic per-model cap per user key: min(model gauge headroom, time window). Fixed caps are configured per standard model.' if current_locale != 'zh' else '用户 Key 对单个模型的并发上限 = min(模型并发表盘富余度, 时段上限)；固定上限在标准模型编辑里按模型配置（留空走动态）。') }}</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Off-peak start hour (0-23)' if current_locale != 'zh' else '低峰开始小时（0-23）') }}</label>
-                            <input id="concurrency-offpeak_start_hour" type="number" step="1" min="0" max="23" class="w-full border rounded px-3 py-2 text-sm" placeholder="20">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Off-peak end hour (0-23)' if current_locale != 'zh' else '低峰结束小时（0-23）') }}</label>
-                            <input id="concurrency-offpeak_end_hour" type="number" step="1" min="0" max="23" class="w-full border rounded px-3 py-2 text-sm" placeholder="11">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Peak per-model limit per key' if current_locale != 'zh' else '高峰期单 Key 单模型并发') }}</label>
-                            <input id="concurrency-peak_user_model_limit" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="2">
-                        </div>
-                        <div>
-                            <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Off-peak per-model limit per key' if current_locale != 'zh' else '低峰期单 Key 单模型并发') }}</label>
-                            <input id="concurrency-offpeak_user_model_limit" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="1">
-                        </div>
-                    </div>
-                    <div class="mt-4 flex gap-2">
-                        <button onclick="sysSaveConcurrency()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
-                    </div>
-                    <div id="concurrency-msg" class="mt-3 text-sm hidden"></div>
-                </div>
-            </div>
         </main>
     </div>
 
@@ -1066,7 +885,8 @@
         }
 
         function switchConfigTab(tab) {
-            const knownTabs = new Set(['overview', 'providers', 'models', 'auto', 'provider-models', 'pricing', 'templates', 'preview', 'system']);
+            if (tab === 'system') { window.location.href = `${APP_BASE_PATH}/admin/system-config`; return; }
+            const knownTabs = new Set(['overview', 'providers', 'models', 'auto', 'provider-models', 'pricing', 'templates', 'preview']);
             if (!knownTabs.has(tab)) tab = 'providers';
             document.querySelectorAll('.config-tab-panel').forEach(panel => panel.classList.add('hidden'));
             document.querySelectorAll('.config-tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -1081,169 +901,19 @@
             if (tab === 'provider-models') loadProviderModelRoutes();
             if (tab === 'pricing') loadModelPricing();
             if (tab === 'templates') loadStrategyTemplates();
-            if (tab === 'system' && !sysConfigLoaded) { sysConfigLoaded = true; sysLoadConfig(); sysLoadUAStats(); }
         }
 
-        let sysConfigLoaded = false;
-        let sysDefaultCacheRatio = 0;
-        function sysShowMsg(id, ok, text) {
-            const el = document.getElementById(id);
-            if (!el) return;
-            el.textContent = text;
-            el.className = 'mt-3 text-sm ' + (ok ? 'text-green-600' : 'text-red-600');
-        }
-        async function sysLoadConfig() {
+        let bindDefaultCacheRatio = 0;
+        async function ensureBindDefaultCacheRatio() {
+            if (ensureBindDefaultCacheRatio.loaded) return;
+            ensureBindDefaultCacheRatio.loaded = true;
             try {
                 const r = await fetch(`${APP_BASE_PATH}/admin/api/system/config`);
                 if (!r.ok) return;
                 const d = await r.json();
-                document.getElementById('ua-input').value = d.ua_override;
-                document.getElementById('default-ua-hint').textContent = `{{ _('Default') }}: ` + d.default_ua;
-                const glmInput = document.getElementById('glm-model-input');
-                glmInput.value = d.glm_health_check_model || '';
-                glmInput.placeholder = d.glm_health_check_model_default || 'zhipu/glm-5.3';
-                document.getElementById('glm-model-hint').textContent = `{{ _('Default') }}: ` + (d.glm_health_check_model_default || '');
-                if (d.busyness) {
-                    for (const [key, val] of Object.entries(d.busyness)) {
-                        const el = document.getElementById('busyness-' + key);
-                        if (el) el.value = val;
-                    }
-                }
-                if (d.billing) {
-                    const b = d.billing;
-                    document.getElementById('billing-peak_windows').value = b.peak_windows || '';
-                    document.getElementById('billing-default_daily_quota_cny').value = b.default_daily_quota_cny || '';
-                    document.getElementById('billing-peak_multiplier').value = b.peak_multiplier || '';
-                    document.getElementById('billing-offpeak_multiplier').value = b.offpeak_multiplier || '';
-                    document.getElementById('billing-weekend_offpeak').checked = String(b.weekend_offpeak).toLowerCase() !== 'false';
-                    if (!b.peak_windows_valid) {
-                        sysShowMsg('billing-msg', false, '{{ _('Stored peak windows are invalid; all day treated as off-peak' if current_locale != 'zh' else '已保存的高峰时段格式非法，当前全天按低峰计费') }}');
-                    }
-                }
-                if (d.daily_report) {
-                    for (const [key, val] of Object.entries(d.daily_report)) {
-                        const el = document.getElementById('daily_report-' + key);
-                        if (el) el.value = val;
-                    }
-                }
-                if (d.concurrency) {
-                    for (const [key, val] of Object.entries(d.concurrency)) {
-                        const el = document.getElementById('concurrency-' + key);
-                        if (el) el.value = val;
-                    }
-                }
-                if (d.pricing) {
-                    sysDefaultCacheRatio = parseFloat(d.pricing.default_cache_hit_ratio) || 0;
-                    document.getElementById('pricing-default_cache_hit_ratio').value = d.pricing.default_cache_hit_ratio || '0';
-                }
-            } catch (e) { console.error('sysLoadConfig failed', e); }
+                bindDefaultCacheRatio = (d.pricing && parseFloat(d.pricing.default_cache_hit_ratio)) || 0;
+            } catch (e) { console.error('ensureBindDefaultCacheRatio failed', e); }
         }
-        async function sysSaveUa() {
-            const ua = document.getElementById('ua-input').value.trim();
-            const r = await fetch(`${APP_BASE_PATH}/admin/api/system/config`, {
-                method: 'PUT', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ ua_override: ua })
-            });
-            if (r.ok) sysShowMsg('ua-msg', true, '{{ _('Saved') }}');
-            else { const d = await r.json(); sysShowMsg('ua-msg', false, d.detail || '{{ _('Save failed') }}'); }
-        }
-        async function sysResetUa() {
-            document.getElementById('ua-input').value = document.getElementById('default-ua-hint').textContent.replace(`{{ _('Default') }}: `, '');
-            await sysSaveUa();
-        }
-        async function sysSaveGlmModel() {
-            const model = document.getElementById('glm-model-input').value.trim();
-            const r = await fetch(`${APP_BASE_PATH}/admin/api/system/config`, {
-                method: 'PUT', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ glm_health_check_model: model })
-            });
-            if (r.ok) sysShowMsg('glm-model-msg', true, '{{ _('Saved') }}');
-            else { const d = await r.json(); sysShowMsg('glm-model-msg', false, d.detail || '{{ _('Save failed') }}'); }
-        }
-        async function sysSaveBusyness() {
-            const keys = ['level1_active_users_threshold', 'level1_rate_429_threshold', 'level1_disabled_providers', 'level2_active_users_threshold', 'level2_rate_429_threshold', 'level2_disabled_providers', 'level3_active_users_threshold', 'level3_rate_429_threshold', 'level4_active_users_threshold'];
-            const busyness = {};
-            for (const key of keys) {
-                const el = document.getElementById('busyness-' + key);
-                if (el) busyness[key] = el.value;
-            }
-            const r = await fetch(`${APP_BASE_PATH}/admin/api/system/config`, {
-                method: 'PUT', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ busyness })
-            });
-            if (r.ok) sysShowMsg('busyness-msg', true, '{{ _('Saved') }}');
-            else { const d = await r.json(); sysShowMsg('busyness-msg', false, d.detail || '{{ _('Save failed') }}'); }
-        }
-        async function sysSaveBilling() {
-            const body = {
-                billing: {
-                    peak_windows: document.getElementById('billing-peak_windows').value.trim(),
-                    default_daily_quota_cny: document.getElementById('billing-default_daily_quota_cny').value.trim(),
-                    peak_multiplier: document.getElementById('billing-peak_multiplier').value.trim(),
-                    offpeak_multiplier: document.getElementById('billing-offpeak_multiplier').value.trim(),
-                    weekend_offpeak: document.getElementById('billing-weekend_offpeak').checked,
-                },
-                pricing: {
-                    default_cache_hit_ratio: document.getElementById('pricing-default_cache_hit_ratio').value.trim() || '0',
-                }
-            };
-            const r = await fetch(`${APP_BASE_PATH}/admin/api/system/config`, {
-                method: 'PUT', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(body)
-            });
-            if (r.ok) { sysShowMsg('billing-msg', true, '{{ _('Saved') }}'); sysLoadConfig(); }
-            else { const d = await r.json(); sysShowMsg('billing-msg', false, d.detail || '{{ _('Save failed') }}'); }
-        }
-        async function sysSaveDailyReport() {
-            const keys = ['error_rate_warn', 'auth_fail_warn', 'login_fail_warn', 'rate_limit_warn', 'ip_req_warn', 'ip_auth_fail_warn', 'key_ip_warn'];
-            const daily_report = {};
-            for (const key of keys) {
-                const el = document.getElementById('daily_report-' + key);
-                if (el) daily_report[key] = el.value;
-            }
-            const r = await fetch(`${APP_BASE_PATH}/admin/api/system/config`, {
-                method: 'PUT', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ daily_report })
-            });
-            if (r.ok) sysShowMsg('daily_report-msg', true, '{{ _('Saved') }}');
-            else { const d = await r.json(); sysShowMsg('daily_report-msg', false, d.detail || '{{ _('Save failed') }}'); }
-        }
-        async function sysSaveConcurrency() {
-            const keys = ['offpeak_start_hour', 'offpeak_end_hour', 'peak_user_model_limit', 'offpeak_user_model_limit'];
-            const concurrency = {};
-            for (const key of keys) {
-                const el = document.getElementById('concurrency-' + key);
-                if (el) concurrency[key] = el.value;
-            }
-            const r = await fetch(`${APP_BASE_PATH}/admin/api/system/config`, {
-                method: 'PUT', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ concurrency })
-            });
-            if (r.ok) sysShowMsg('concurrency-msg', true, '{{ _('Saved') }}');
-            else { const d = await r.json(); sysShowMsg('concurrency-msg', false, d.detail || '{{ _('Save failed') }}'); }
-        }
-        async function sysLoadUAStats() {
-            try {
-                const r = await fetch(`${APP_BASE_PATH}/admin/api/system/ua-stats?limit=15`);
-                if (!r.ok) return;
-                const d = await r.json();
-                const list = document.getElementById('ua-list');
-                if (!d.items.length) {
-                    list.innerHTML = '<div class="text-gray-400">{{ _('No data today') }}</div>';
-                    return;
-                }
-                list.innerHTML = d.items.map(item => `
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="truncate font-mono text-gray-600" title="${item.ua}">${item.ua}</span>
-                            <span class="text-gray-400 ml-2 shrink-0">${item.count.toLocaleString()} <span class="text-gray-500">(${item.pct}%)</span></span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded"><div class="bar" style="width:${item.pct}%"></div></div>
-                    </div>
-                `).join('');
-            } catch (e) { console.error('sysLoadUAStats failed', e); }
-        }
-
         function openBindModal(providerId, modelId) {
             const providerSel = document.getElementById('bind-provider');
             const modelSel = document.getElementById('bind-model');
@@ -1260,7 +930,10 @@
             document.getElementById('bind-input-price').value = '';
             document.getElementById('bind-output-price').value = '';
             document.getElementById('bind-cached-price').value = '';
-            document.getElementById('bind-cache-ratio').value = sysDefaultCacheRatio || 0;
+            document.getElementById('bind-cache-ratio').value = bindDefaultCacheRatio || 0;
+            ensureBindDefaultCacheRatio().then(() => {
+                document.getElementById('bind-cache-ratio').value = bindDefaultCacheRatio || 0;
+            });
             document.getElementById('bind-pricing-tiers').value = '';
             const modal = document.getElementById('bind-modal');
             modal.classList.remove('hidden');

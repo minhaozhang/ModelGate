@@ -2,7 +2,7 @@ import os
 import time
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import select, func
 
 import app.core.config as config
@@ -598,4 +598,6 @@ async def get_system_info(_: bool = Depends(permission_required("page.stats"))):
 async def system_config_page(request: Request, _: bool = Depends(permission_required("page.system.config"))):
     from app.core.app_paths import build_app_url
 
-    return RedirectResponse(url=build_app_url(request, "/admin/config?tab=system"))
+    tab = request.query_params.get("tab") or "ua"
+    html = render(request, "admin/system_config.html", active_page="system-config", sys_tab=tab)
+    return HTMLResponse(content=html)

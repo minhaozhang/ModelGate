@@ -52,8 +52,7 @@ async def home_page(request: Request, session: Optional[str] = Cookie(None)):
 async def config_page(request: Request, session: Optional[str] = Cookie(None)):
     if not _check_auth(session):
         return RedirectResponse(url=build_app_url(request, "/admin/login"))
-    active_page = "system-config" if request.query_params.get("tab") == "system" else "config"
-    return HTMLResponse(content=render(request, "admin/config.html", active_page=active_page))
+    return HTMLResponse(content=render(request, "admin/config.html", active_page="config"))
 
 
 @router.get("/api-keys", response_class=HTMLResponse)

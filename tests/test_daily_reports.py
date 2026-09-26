@@ -122,7 +122,7 @@ class DailyReportStaticTests(unittest.TestCase):
             self.assertIn(key, cfg)
         route = (ROOT / "app" / "routes" / "system_config.py").read_text(encoding="utf-8")
         self.assertIn('"daily_report"', route)
-        ui = (ROOT / "web" / "templates" / "admin" / "config.html").read_text(encoding="utf-8")
+        ui = (ROOT / "web" / "templates" / "admin" / "system_config.html").read_text(encoding="utf-8")
         self.assertIn("daily_report-error_rate_warn", ui)
         self.assertIn("daily_report-ip_auth_fail_warn", ui)
         self.assertIn("daily_report-key_ip_warn", ui)
