@@ -191,12 +191,12 @@
                 <div class="vs">{{ _('System') }} · {{ _('Real-time') }}</div>
             </div>
             <div class="v2-kpi">
-                <div class="lbl">{{ _('Errors') }} · {{ _('Personal') }}</div>
+                <div class="lbl">{{ _('Errors') }} · {{ _('Personal') }} · <span id="v2-errors-label">{{ '当日' if current_locale == 'zh' else "Today" }}</span></div>
                 <div class="val" style="color:#dc2626" id="v2-errors">-</div>
                 <div class="vs" id="v2-error-rate">&nbsp;</div>
             </div>
             <div class="v2-kpi">
-                <div class="lbl">{{ '当日花费' if current_locale == 'zh' else "Today's Cost" }}</div>
+                <div class="lbl"><span id="v2-cost-label">{{ '当日花费' if current_locale == 'zh' else "Today's Cost" }}</span></div>
                 <div class="val" style="color:#d97706" id="v2-cost">-</div>
                 <div class="vs" id="v2-cost-window">&nbsp;</div>
             </div>
@@ -366,23 +366,38 @@
         function _applyPeriodLabels(period) {
             const reqLabel = document.getElementById('v2-req-label');
             const tokLabel = document.getElementById('v2-tokens-label');
+            const errLabel = document.getElementById('v2-errors-label');
+            const costLabel = document.getElementById('v2-cost-label');
             const reqText = {
                 day: T('当日请求数', "Today's Requests"),
-                week: T('本周请求数', "Week's Requests"),
-                month: T('本月请求数', "Month's Requests"),
+                week: T('本周请求数', "This Week's Requests"),
+                month: T('本月请求数', "This Month's Requests"),
             }[period] || T('当日请求数', "Today's Requests");
             const tokText = {
                 day: T('当日 Token 数', "Today's Tokens"),
-                week: T('本周 Token 数', "Week's Tokens"),
-                month: T('本月 Token 数', "Month's Tokens"),
+                week: T('本周 Token 数', "This Week's Tokens"),
+                month: T('本月 Token 数', "This Month's Tokens"),
             }[period] || T('当日 Token 数', "Today's Tokens");
+            const errText = {
+                day: T('当日', 'Today'),
+                week: T('本周', 'This Week'),
+                month: T('本月', 'This Month'),
+            }[period] || T('当日', 'Today');
+            const costText = {
+                day: T('当日花费', "Today's Cost"),
+                week: T('本周花费', "This Week's Cost"),
+                month: T('本月花费', "This Month's Cost"),
+            }[period] || T('当日花费', "Today's Cost");
             if (reqLabel) reqLabel.textContent = reqText;
             if (tokLabel) tokLabel.textContent = tokText;
+            if (errLabel) errLabel.textContent = errText;
+            if (costLabel) costLabel.textContent = costText;
         }
 
         async function loadStats() {
             const period = _periodValue();
             _applyPeriodLabels(period);
+            loadCostTrend();
             const [data, systemModels] = await Promise.all([
                 fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/stats?period=' + period),
                 fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/system-models?period=' + period)
@@ -459,14 +474,12 @@
         }
         async function loadCostTrend() {
             try {
-                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/cost-trend?days=30');
+                const data = await fetchJsonOrRedirect(APP_BASE_PATH + '/user/api/cost-trend?days=30&period=' + _periodValue());
                 _v2CostData = data;
-                const costSeries = data.cost || [];
-                const todayCost = costSeries.length ? (costSeries[costSeries.length - 1] || 0) : 0;
                 const totalEl = document.getElementById('v2-cost');
-                if (totalEl) totalEl.textContent = '¥' + _fmtCny(todayCost);
+                if (totalEl) totalEl.textContent = '¥' + _fmtCny(data.period_cost);
                 const winEl = document.getElementById('v2-cost-window');
-                if (winEl) winEl.innerHTML = T('总花费', 'All-time') + ' <b>¥' + _fmtCny(data.total_cost || 0) + '</b>';
+                if (winEl) winEl.innerHTML = (data.period_start || '') + ' ' + T('起 · 总花费', '→ · All-time') + ' <b>¥' + _fmtCny(data.total_cost || 0) + '</b>';
                 renderV2CostChart();
             } catch (e) { /* non-fatal */ }
         }
@@ -1329,7 +1342,6 @@
             loadMyRequests();
             loadSessions();
             setInterval(loadStats, 30000);
-            setInterval(loadCostTrend, 60000);
             setInterval(() => { if (!userLiveWs || userLiveWs.readyState !== 1) loadMyRequests(); }, 10000);
             setInterval(loadSessions, 15000);
             connectUserLiveWs();

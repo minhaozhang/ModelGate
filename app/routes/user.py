@@ -65,7 +65,7 @@ USER_SESSIONS: dict[str, dict] = {}
 USER_SESSION_EXPIRE_HOURS = 24
 USER_STATS_CACHE: dict[tuple[int, str, str], dict] = {}
 SYSTEM_MODEL_STATS_CACHE: dict[tuple[str, str], dict] = {}
-AGGREGATED_USER_PERIODS = {"month"}
+AGGREGATED_USER_PERIODS = {"week", "month"}
 
 
 def _api_key_bypasses_busyness(api_key_id: int | None) -> bool:
@@ -416,8 +416,6 @@ def build_system_health_summary(
 def get_user_period_range(
     now: datetime, period: str
 ) -> tuple[datetime, list[str], Callable[[datetime], str]]:
-    week_bucket_hours = 4
-    week_bucket_count = 42
     if period == "day":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         intervals = [
@@ -429,34 +427,23 @@ def get_user_period_range(
             microsecond=0,
         ).strftime("%H:%M")
     elif period == "week":
-        current_bucket_start = now.replace(
-            hour=(now.hour // week_bucket_hours) * week_bucket_hours,
-            minute=0,
-            second=0,
-            microsecond=0,
+        start = (now - timedelta(days=now.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
         )
-        start = current_bucket_start - timedelta(
-            hours=week_bucket_hours * (week_bucket_count - 1)
-        )
+        day_count = 7
         intervals = [
-            ((start + timedelta(hours=week_bucket_hours * i)).strftime("%m/%d %H:%M"))
-            for i in range(week_bucket_count)
+            ((start + timedelta(days=i)).strftime("%m/%d")) for i in range(day_count)
         ]
-
-        def format_func(d: datetime) -> str:
-            bucket_index = max(
-                0,
-                min(
-                    int((d - start).total_seconds() // (week_bucket_hours * 3600)),
-                    len(intervals) - 1,
-                ),
-            )
-            return intervals[bucket_index]
+        format_func = lambda d: d.strftime("%m/%d")
     else:
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
-            days=30
+        start = now.replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
         )
-        intervals = [((start + timedelta(days=i)).strftime("%m/%d")) for i in range(31)]
+        next_month = (start + timedelta(days=32)).replace(day=1)
+        day_count = (next_month - start).days
+        intervals = [
+            ((start + timedelta(days=i)).strftime("%m/%d")) for i in range(day_count)
+        ]
         format_func = lambda d: d.strftime("%m/%d")
 
     return start, intervals, format_func
@@ -885,7 +872,10 @@ async def get_user_billing_usage(
 
 @router.get("/user/api/cost-trend")
 async def get_user_cost_trend(
-    request: Request, api_key_id: int = Depends(get_user_session), days: int = 30
+    request: Request,
+    api_key_id: int = Depends(get_user_session),
+    days: int = 30,
+    period: str = "day",
 ):
     if not api_key_id:
         return translated_error(request, "Not authenticated", 401)
@@ -897,6 +887,11 @@ async def get_user_cost_trend(
     start_str = start.strftime("%Y-%m-%d")
     today_str = today_start.strftime("%Y-%m-%d")
 
+    period = period if period in {"day", "week", "month"} else "day"
+    period_start, _, _ = get_user_period_range(now, period)
+    period_start_str = period_start.strftime("%Y-%m-%d")
+    agg_query_start = min(start_str, period_start_str)
+
     daily: dict[str, dict] = {}
     async with async_session_maker() as session:
         agg_result = await session.execute(
@@ -907,7 +902,7 @@ async def get_user_cost_trend(
             )
             .where(
                 ApiKeyDailyStat.api_key_id == api_key_id,
-                ApiKeyDailyStat.date >= start_str,
+                ApiKeyDailyStat.date >= agg_query_start,
                 ApiKeyDailyStat.date < today_str,
             )
             .group_by(ApiKeyDailyStat.date)
@@ -956,10 +951,17 @@ async def get_user_cost_trend(
         token_series.append(point["tokens"])
         current += timedelta(days=1)
 
+    period_cost = round(
+        sum(v["cost"] for d, v in daily.items() if d >= period_start_str), 6
+    )
+
     return {
         "days": days,
         "total_cost": round(all_time_cost, 6),
         "window_cost": round(sum(cost_series), 6),
+        "period": period,
+        "period_cost": period_cost,
+        "period_start": period_start.strftime("%Y-%m-%d"),
         "dates": dates,
         "cost": cost_series,
         "tokens": token_series,

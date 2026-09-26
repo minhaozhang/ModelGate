@@ -27,8 +27,10 @@
         body.theme-dark select,
         body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
         body.theme-dark button:not(.bg-blue-500):not(.bg-red-500):not(.bg-green-500):not(.bg-purple-500):not(.bg-orange-500):not(.pk-action) { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
-        .pk-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f9fafb; border-radius: 0.5rem; gap: 0.75rem; }
+        .pk-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f9fafb; border-radius: 0.5rem; gap: 0.75rem; border: 1px solid transparent; }
+        .pk-row-dirty { border-color: #f59e0b; background: #fffbeb; }
         body.theme-dark .pk-row { background: #1e293b; }
+        body.theme-dark .pk-row-dirty { background: #3a2e14; border-color: #d97706; }
         .pk-info { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
         .pk-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
         .pk-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
@@ -634,6 +636,7 @@
                     <div class="flex justify-end gap-2 pt-1">
                         <button type="button" onclick="closeProviderKeysModal()" class="px-6 py-2 border rounded text-sm hover:bg-gray-50">{{ _('Cancel') }}</button>
                         <button onclick="addProviderKey()" class="px-6 py-2 bg-green-500 text-white rounded text-sm hover:bg-green-600">{{ _('Add') }}</button>
+                        <button id="provider-keys-save-btn" onclick="saveAllProviderKeys()" disabled class="px-6 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">{{ _('Save changes') }}</button>
                     </div>
                 </div>
             </div>
@@ -652,6 +655,47 @@
             <div class="p-3 border-t flex justify-end gap-2 shrink-0">
                 <button type="button" onclick="closeDisableKeyDialog()" class="px-6 py-2 border rounded text-sm hover:bg-gray-50">{{ _('Cancel') }}</button>
                 <button id="disable-key-confirm" onclick="confirmDisableKey()" class="px-6 py-2 bg-red-500 text-white rounded text-sm hover:bg-red-600">{{ _('Disable') }}</button>
+            </div>
+        </div>
+    </div>
+    <div id="batch-pricing-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-md w-full mx-4 flex flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h3 class="font-semibold">批量改价 <span id="batch-pricing-count" class="text-sm text-gray-400 font-normal"></span></h3>
+                <button onclick="closeBatchPricingModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="p-4 space-y-3">
+                <label class="block">
+                    <span class="block text-xs text-gray-500 mb-1">输入价（元/百万 tokens，留空跳过）</span>
+                    <input type="number" step="0.001" id="batch-pricing-input" class="w-full border rounded px-3 py-2 text-sm">
+                </label>
+                <label class="block">
+                    <span class="block text-xs text-gray-500 mb-1">输出价（留空跳过）</span>
+                    <input type="number" step="0.001" id="batch-pricing-output" class="w-full border rounded px-3 py-2 text-sm">
+                </label>
+                <label class="block">
+                    <span class="block text-xs text-gray-500 mb-1">缓存输入价（留空跳过）</span>
+                    <input type="number" step="0.001" id="batch-pricing-cached" class="w-full border rounded px-3 py-2 text-sm">
+                </label>
+            </div>
+            <div class="p-3 border-t flex justify-end gap-2 shrink-0">
+                <button type="button" onclick="closeBatchPricingModal()" class="px-6 py-2 border rounded text-sm hover:bg-gray-50">取消</button>
+                <button onclick="confirmBatchPricing()" class="px-6 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">应用</button>
+            </div>
+        </div>
+    </div>
+    <div id="copy-pricing-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-3">
+        <div class="admin-modal-card bg-white rounded-lg shadow-xl max-w-md w-full mx-4 flex flex-col overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h3 class="font-semibold">复制价格 <span id="copy-pricing-source" class="text-sm text-gray-400 font-normal"></span></h3>
+                <button onclick="closeCopyPricingModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 min-h-0">
+                <div id="copy-pricing-targets" class="space-y-2"></div>
+            </div>
+            <div class="p-3 border-t flex justify-end gap-2 shrink-0">
+                <button type="button" onclick="closeCopyPricingModal()" class="px-6 py-2 border rounded text-sm hover:bg-gray-50">取消</button>
+                <button onclick="confirmCopyPricing()" class="px-6 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">复制</button>
             </div>
         </div>
     </div>
@@ -1433,32 +1477,33 @@
             const container = document.getElementById('provider-keys-content');
             if (keys.length === 0) {
                 container.innerHTML = '<div class="text-gray-400 text-center py-4">' + (CONFIG_I18N.noKeys || 'No keys') + '</div>';
+                updateProviderKeysSaveBar();
                 return;
             }
             container.innerHTML = keys.map(k => `
-                <div class="pk-row">
+                <div class="pk-row" data-pk-row="${k.id}">
                     <div class="pk-info">
                         <div class="pk-meta">
                             <span class="text-sm font-mono font-medium">${k.api_key}</span>
                             <input type="text" value="${(k.label || '').replace(/"/g, '&quot;')}" placeholder="${t('label', 'Label')}"
-                                   id="provider-key-label-${k.id}"
+                                   id="provider-key-label-${k.id}" data-orig="${(k.label || '').replace(/"/g, '&quot;')}"
+                                   oninput="markProviderKeyDirty(${k.id})"
                                    class="w-24 border rounded px-1.5 py-0.5 text-xs">
-                            <button onclick="updateProviderKeyLabel(${k.id})" class="pk-action text-blue-500 hover:text-blue-700 text-xs">${t('save', 'Save')}</button>
                             <span class="text-xs ${k.is_active ? 'text-green-600' : 'text-red-500'}">${k.is_active ? t('active', 'Active') : (k.disabled_by === 'manual' ? t('manualDisabled', 'Manual disabled') : t('autoDisabled', 'Auto disabled'))}</span>
                             ${k.disabled_reason ? '<span class="warn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="warn-tip">' + k.disabled_reason.replace(/</g, '&lt;') + '</span></span>' : ''}
                             ${scheduleBadge(k.disable_schedule, k.schedule_active_now)}
                         </div>
                         <div class="flex items-center gap-1 text-xs text-gray-400 mt-1">
                             <span>${t('concurrency', 'Concurrency')}:</span>
-                            <input type="number" min="1" value="${k.max_concurrent || ''}" placeholder="${t('default', 'Default')}"
-                                   id="provider-key-mc-${k.id}"
+                            <input type="number" min="0" value="${k.max_concurrent || ''}" placeholder="${t('default', 'Default')}"
+                                   id="provider-key-mc-${k.id}" data-orig="${k.max_concurrent || ''}"
+                                   oninput="markProviderKeyDirty(${k.id})"
                                    class="w-16 border rounded px-1.5 py-0.5 text-xs text-center">
-                            <button onclick="updateProviderKeyConcurrency(${k.id})" class="pk-action text-blue-500 hover:text-blue-700">${t('save', 'Save')}</button>
                             <span class="ml-2">Priority:</span>
                             <input type="number" min="0" value="${k.priority || 0}" placeholder="0"
-                                   id="provider-key-pri-${k.id}"
+                                   id="provider-key-pri-${k.id}" data-orig="${k.priority || 0}"
+                                   oninput="markProviderKeyDirty(${k.id})"
                                    class="w-14 border rounded px-1.5 py-0.5 text-xs text-center">
-                            <button onclick="updateProviderKeyPriority(${k.id})" class="pk-action text-blue-500 hover:text-blue-700">${t('save', 'Save')}</button>
                             ${k.health_score !== undefined ? '<span class="ml-2 px-1.5 py-0.5 rounded text-[10px] ' + (k.health_score >= 90 ? 'bg-green-100 text-green-700' : k.health_score >= 60 ? 'bg-blue-100 text-blue-700' : k.health_score >= 30 ? 'bg-yellow-100 text-yellow-700' : k.health_score > 0 ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700') + '">HP ' + k.health_score + '</span>' : ''}
                         </div>
                     </div>
@@ -1475,6 +1520,77 @@
                     </div>
                 </div>
             `).join('');
+            updateProviderKeysSaveBar();
+        }
+
+        function providerKeyFieldValue(keyId, kind) {
+            const el = document.getElementById('provider-key-' + kind + '-' + keyId);
+            if (!el) return null;
+            return kind === 'label' ? el.value.trim() : el.value;
+        }
+
+        function providerKeyDirtyFields(keyId) {
+            const fields = [];
+            ['label', 'mc', 'pri'].forEach(kind => {
+                const el = document.getElementById('provider-key-' + kind + '-' + keyId);
+                if (!el) return;
+                const orig = el.dataset.orig ?? '';
+                const cur = kind === 'label' ? el.value.trim() : el.value;
+                if (cur !== orig) fields.push(kind);
+            });
+            return fields;
+        }
+
+        function markProviderKeyDirty(keyId) {
+            const row = document.querySelector(`[data-pk-row="${keyId}"]`);
+            if (row) {
+                const dirty = providerKeyDirtyFields(keyId).length > 0;
+                row.classList.toggle('pk-row-dirty', dirty);
+            }
+            updateProviderKeysSaveBar();
+        }
+
+        function updateProviderKeysSaveBar() {
+            const btn = document.getElementById('provider-keys-save-btn');
+            if (!btn) return;
+            const dirtyCount = currentProviderKeys.filter(k => providerKeyDirtyFields(k.id).length > 0).length;
+            btn.disabled = dirtyCount === 0;
+            btn.classList.toggle('opacity-50', dirtyCount === 0);
+            btn.textContent = dirtyCount > 0
+                ? t('saveChanges', 'Save changes') + ` (${dirtyCount})`
+                : t('saveChanges', 'Save changes');
+        }
+
+        async function saveAllProviderKeys() {
+            if (!providerKeysTargetId) return;
+            const updates = currentProviderKeys
+                .map(k => ({ keyId: k.id, fields: providerKeyDirtyFields(k.id) }))
+                .filter(u => u.fields.length > 0);
+            if (!updates.length) { showToast(t('noChanges', 'No changes to save'), 'error'); return; }
+            const btn = document.getElementById('provider-keys-save-btn');
+            if (btn) btn.disabled = true;
+            let failed = 0;
+            for (const {keyId, fields} of updates) {
+                const body = {};
+                if (fields.includes('label')) body.label = providerKeyFieldValue(keyId, 'label');
+                if (fields.includes('mc')) body.max_concurrent = providerKeyFieldValue(keyId, 'mc') ? parseInt(providerKeyFieldValue(keyId, 'mc'), 10) : null;
+                if (fields.includes('pri')) body.priority = parseInt(providerKeyFieldValue(keyId, 'pri'), 10) || 0;
+                try {
+                    await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(body)
+                    });
+                } catch(e) { failed++; }
+            }
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
+            renderProviderKeys(data.keys || []);
+            loadProviders();
+            if (failed) {
+                showToast(t('partialSaveFailed', 'Some keys failed to save') + ` (${updates.length - failed}/${updates.length})`, 'error');
+            } else {
+                showToast(t('allKeysSaved', 'All changes saved'));
+            }
         }
 
         async function loadStrategyTemplates() {
@@ -1723,6 +1839,10 @@
         }
 
         function closeProviderKeysModal() {
+            const dirtyCount = currentProviderKeys.filter(k => providerKeyDirtyFields(k.id).length > 0).length;
+            if (dirtyCount > 0 && !confirm(`${t('unsavedChanges', 'You have unsaved changes')} (${dirtyCount}) — ${t('closeAnyway', 'close anyway?')}`)) {
+                return;
+            }
             document.getElementById('provider-keys-modal').classList.add('hidden');
             document.getElementById('provider-keys-modal').classList.remove('flex');
             providerKeysTargetId = null;
@@ -1813,51 +1933,6 @@
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
                 renderProviderKeys(data.keys || []);
                 loadProviders();
-            } catch(err) {}
-        }
-
-        async function updateProviderKeyConcurrency(keyId) {
-            if (!providerKeysTargetId) return;
-            const input = document.getElementById('provider-key-mc-' + keyId);
-            const maxConcurrent = input && input.value ? parseInt(input.value, 10) : null;
-            try {
-                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({max_concurrent: maxConcurrent})
-                }, {success: t('concurrencySaved', 'Concurrency saved'), error: t('failedToSave', 'Failed to save')});
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
-                renderProviderKeys(data.keys || []);
-            } catch(err) {}
-        }
-
-        async function updateProviderKeyPriority(keyId) {
-            if (!providerKeysTargetId) return;
-            const input = document.getElementById('provider-key-pri-' + keyId);
-            const priority = input ? parseInt(input.value, 10) || 0 : 0;
-            try {
-                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({priority: priority})
-                }, {success: 'Priority saved', error: t('failedToSave', 'Failed to save')});
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
-                renderProviderKeys(data.keys || []);
-            } catch(err) {}
-        }
-
-        async function updateProviderKeyLabel(keyId) {
-            if (!providerKeysTargetId) return;
-            const input = document.getElementById('provider-key-label-' + keyId);
-            const label = input ? input.value.trim() : '';
-            try {
-                await mgFetch(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys/' + keyId, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({label: label})
-                }, {success: t('labelSaved', 'Label saved'), error: t('failedToSave', 'Failed to save')});
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers/` + providerKeysTargetId + '/keys');
-                renderProviderKeys(data.keys || []);
             } catch(err) {}
         }
 
@@ -2583,11 +2658,20 @@
                 const right = `${b.model_name || ''}/${b.provider_name || ''}`;
                 return left.localeCompare(right);
             });
+            const pricedCount = allProviderModels.filter(r => r.input_price_cny_per_million != null || r.output_price_cny_per_million != null).length;
+            const unpricedCount = allProviderModels.length - pricedCount;
+            const shownUnpriced = rows.filter(r => r.input_price_cny_per_million == null && r.output_price_cny_per_million == null).length;
             if (!rows.length) {
                 container.innerHTML = '<div class="text-gray-400 text-center py-4">暂无数据，先在「供应商模型」里添加绑定。</div>';
                 return;
             }
-            container.innerHTML = `<div class="config-table-wrap">
+            container.innerHTML = `
+            <div class="flex flex-wrap items-center gap-3 mb-3 text-xs text-gray-500">
+                <span class="px-2 py-1 rounded bg-green-50 text-green-700">已配价 ${pricedCount}</span>
+                <span class="px-2 py-1 rounded bg-yellow-50 text-yellow-700">未配价 ${unpricedCount}</span>
+                <span>当前筛选显示 ${rows.length} 行（未配价 ${shownUnpriced}）</span>
+            </div>
+            <div class="config-table-wrap">
                 <table class="config-table pricing-table">
                     <colgroup>
                         <col style="width: 44px">
@@ -2614,7 +2698,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        ${rows.map(route => `<tr>
+                        ${rows.map(route => {
+                            const unpriced = route.input_price_cny_per_million == null && route.output_price_cny_per_million == null;
+                            return `<tr class="${unpriced ? 'bg-yellow-50' : ''}">
                             <td><input type="checkbox" class="pricing-row-check" data-pm-id="${route.id}"></td>
                             <td>
                                 <div class="font-medium text-sm text-gray-800 truncate" title="${escapeAttr(route.model_display_name || route.model_name || '')}">${escapeHtml(route.model_display_name || route.model_name)}</div>
@@ -2640,7 +2726,8 @@
                                     </div>
                                 </div>
                             </td>
-                        </tr>`).join('')}
+                        </tr>`;
+                        }).join('')}
                     </tbody>
                 </table>
             </div>
@@ -2656,15 +2743,30 @@
         function selectedPricingIds() {
             return [...document.querySelectorAll('.pricing-row-check:checked')].map(c => parseInt(c.dataset.pmId, 10));
         }
-        async function openBatchPricingModal() {
+        let batchPricingIds = [];
+        function openBatchPricingModal() {
             const ids = selectedPricingIds();
             if (!ids.length) { showToast('请先勾选要改价的行', 'error'); return; }
-            const input = prompt('输入价（元/百万 tokens，留空跳过）:');
-            if (input === null) return;
-            const output = prompt('输出价（留空跳过）:');
-            if (output === null) return;
-            const cached = prompt('缓存价（留空跳过）:');
-            if (cached === null) return;
+            batchPricingIds = ids;
+            document.getElementById('batch-pricing-count').textContent = `(${ids.length} 行)`;
+            ['batch-pricing-input', 'batch-pricing-output', 'batch-pricing-cached'].forEach(id => document.getElementById(id).value = '');
+            const modal = document.getElementById('batch-pricing-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('batch-pricing-input').focus();
+        }
+        function closeBatchPricingModal() {
+            const modal = document.getElementById('batch-pricing-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            batchPricingIds = [];
+        }
+        async function confirmBatchPricing() {
+            const input = document.getElementById('batch-pricing-input').value.trim();
+            const output = document.getElementById('batch-pricing-output').value.trim();
+            const cached = document.getElementById('batch-pricing-cached').value.trim();
+            if (!input && !output && !cached) { showToast('至少填写一项价格', 'error'); return; }
+            const ids = batchPricingIds;
             const body = { ids };
             if (input !== '') body.input_price_cny_per_million = parseFloat(input);
             if (output !== '') body.output_price_cny_per_million = parseFloat(output);
@@ -2673,21 +2775,42 @@
                 await mgFetch(`${APP_BASE_PATH}/admin/api/provider-models/batch-pricing`, {
                     method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
                 });
-                showToast('批量改价成功');
+                closeBatchPricingModal();
+                showToast(`批量改价成功（${ids.length} 行）`);
                 await loadModelPricing();
             } catch(e) { showToast('批量改价失败', 'error'); }
         }
-        async function openCopyPricingModal(pmId) {
+        let copyPricingSourceId = null;
+        function openCopyPricingModal(pmId) {
             const base = allProviderModels.find(x => x.id === pmId);
             const sameModel = allProviderModels.filter(r => r.model_name === base?.model_name && r.id !== pmId);
             if (!sameModel.length) { showToast('同模型下没有其他供应商可复制', 'error'); return; }
-            const opts = sameModel.map(r => `${r.id}:${r.provider_name}`).join('\n');
-            const targetId = prompt(`选择目标（同模型其他供应商）:\n${opts}\n输入目标 id:`);
-            if (!targetId) return;
+            copyPricingSourceId = pmId;
+            document.getElementById('copy-pricing-source').textContent = `${base?.provider_name || ''} →`;
+            document.getElementById('copy-pricing-targets').innerHTML = sameModel.map(r => `
+                <label class="flex items-center gap-2 border rounded px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                    <input type="radio" name="copy-pricing-target" value="${r.id}">
+                    <span class="text-sm">${escapeHtml(r.provider_name || '')}</span>
+                    <span class="text-xs text-gray-400 ml-auto font-mono">${escapeHtml(r.upstream_model_name || r.model_name || '')}</span>
+                </label>`).join('');
+            const modal = document.getElementById('copy-pricing-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+        function closeCopyPricingModal() {
+            const modal = document.getElementById('copy-pricing-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            copyPricingSourceId = null;
+        }
+        async function confirmCopyPricing() {
+            const target = document.querySelector('input[name="copy-pricing-target"]:checked');
+            if (!target || !copyPricingSourceId) { showToast('请选择目标供应商', 'error'); return; }
             try {
-                await mgFetch(`${APP_BASE_PATH}/admin/api/provider-models/${pmId}/copy-pricing`, {
-                    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({target_pm_id: parseInt(targetId,10)})
+                await mgFetch(`${APP_BASE_PATH}/admin/api/provider-models/${copyPricingSourceId}/copy-pricing`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({target_pm_id: parseInt(target.value, 10)})
                 });
+                closeCopyPricingModal();
                 showToast('复制价格成功');
                 await loadModelPricing();
             } catch(e) { showToast('复制价格失败', 'error'); }

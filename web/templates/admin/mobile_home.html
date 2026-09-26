@@ -110,9 +110,9 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 </select>
                 <select id="period-select" class="text-xs border rounded-lg px-2 py-1.5 bg-gray-50" onchange="loadData()">
                     <option value="day">{{ _('Today') }}</option>
-                    <option value="week">{{ _('Week') }}</option>
-                    <option value="month">{{ _('Month') }}</option>
-                    <option value="year">{{ _('Year') }}</option>
+                    <option value="week">{{ _('Last 7 Days') }}</option>
+                    <option value="month">{{ _('Last 30 Days') }}</option>
+                    <option value="year">{{ _('Last 365 Days') }}</option>
                 </select>
                 <button onclick="logout()" class="p-2 text-gray-400 hover:text-red-500 rounded-lg">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

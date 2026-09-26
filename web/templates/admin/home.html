@@ -105,9 +105,9 @@
             {% call admin_page_header(_('Dashboard')) %}
             <select id="period-select" onchange="changePeriod()" class="border rounded px-3 py-2 bg-white">
                 <option value="day">{{ _('Today') }}</option>
-                <option value="week">{{ _('This Week') }}</option>
-                <option value="month">{{ _('This Month') }}</option>
-                <option value="year">{{ _('This Year') }}</option>
+                <option value="week">{{ _('Last 7 Days') }}</option>
+                <option value="month">{{ _('Last 30 Days') }}</option>
+                <option value="year">{{ _('Last 365 Days') }}</option>
             </select>
             {% endcall %}
             <div id="provider-status-banner" class="hidden mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
