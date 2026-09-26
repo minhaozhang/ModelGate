@@ -1,8 +1,9 @@
 import logging
 import os
+import re
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import and_, delete, func, or_, select
 
 from app.core.database import (
     ApiKey,
@@ -402,6 +403,35 @@ async def _nginx_section(start_dt: datetime, end_dt: datetime) -> dict | None:
     }
 
 
+UPSTREAM_RATE_LIMITED_STATUS = "rate_limited"
+QUOTA_WINDOW_RE = re.compile(
+    r"(?:已?达?到?\s*5\s*小时.{0,12}(?:上限|限额|额度)"
+    r"|5\s*小时\s*使用上限"
+    r"|5-hour(?:ly)?\s+(?:usage\s+)?(?:limit|cap)"
+    r"|five.hour.{0,10}limit"
+    r"|usage\s+limit\s+(?:reached|exceeded))",
+    re.IGNORECASE,
+)
+RESET_TIME_RE = re.compile(r"(\d{4}-\d{1,2}-\d{1,2}\s+\d{1,2}:\d{2}:\d{2})")
+
+
+async def _provider_name_map(session, ids: set) -> dict:
+    ids = {i for i in ids if i is not None}
+    if not ids:
+        return {}
+    from app.core.database import Provider
+
+    rows = await session.execute(
+        select(Provider.id, Provider.name).where(Provider.id.in_(ids))
+    )
+    return {i: n or f"Provider#{i}" for i, n in rows.fetchall()}
+
+
+def _pm_label(name_map: dict, pid, model) -> dict:
+    prov = name_map.get(pid) or ("local" if pid is None else f"Provider#{pid}")
+    return {"provider": prov, "model": model or "?"}
+
+
 async def _errors_section(session, start_dt: datetime, end_dt: datetime, date_str: str, thresholds: dict) -> dict:
     status_rows = await session.execute(
         select(RequestLogRead.status, func.count())
@@ -417,8 +447,131 @@ async def _errors_section(session, start_dt: datetime, end_dt: datetime, date_st
     errors = status_counts.get(ERROR_STATUS, 0)
     timeouts = status_counts.get(TIMEOUT_STATUS, 0)
     rate_limited = sum(status_counts.get(s, 0) for s in RATE_LIMITED_STATUSES)
+    local_rate_limited = status_counts.get("local_rate_limited", 0)
+    upstream_rate_limited = rate_limited - local_rate_limited
     attempts = total - rate_limited
     error_rate = (errors + timeouts) / attempts * 100 if attempts > 0 else 0.0
+
+    upstream_rl_rows = await session.execute(
+        select(
+            RequestLogRead.provider_id,
+            RequestLogRead.model,
+            func.count(),
+        )
+        .where(
+            RequestLogRead.created_at >= start_dt,
+            RequestLogRead.created_at < end_dt,
+            RequestLogRead.status == UPSTREAM_RATE_LIMITED_STATUS,
+        )
+        .group_by(RequestLogRead.provider_id, RequestLogRead.model)
+    )
+    upstream_rl_raw = upstream_rl_rows.fetchall()
+    rl_names = await _provider_name_map(session, {r[0] for r in upstream_rl_raw})
+    upstream_rl_top = sorted(
+        (
+            {**_pm_label(rl_names, p, m), "requests": c}
+            for p, m, c in upstream_rl_raw
+        ),
+        key=lambda x: -x["requests"],
+    )[:5]
+
+    server_err_rows = await session.execute(
+        select(
+            RequestLogRead.provider_id,
+            RequestLogRead.model,
+            func.count(),
+            func.count().filter(RequestLogRead.status == TIMEOUT_STATUS),
+        )
+        .where(
+            RequestLogRead.created_at >= start_dt,
+            RequestLogRead.created_at < end_dt,
+            or_(
+                and_(
+                    RequestLogRead.status == ERROR_STATUS,
+                    RequestLogRead.upstream_status_code.isnot(None),
+                ),
+                RequestLogRead.status == TIMEOUT_STATUS,
+            ),
+        )
+        .group_by(RequestLogRead.provider_id, RequestLogRead.model)
+    )
+    server_err_raw = server_err_rows.fetchall()
+    se_names = await _provider_name_map(session, {r[0] for r in server_err_raw})
+    server_err_all = sorted(
+        (
+            {**_pm_label(se_names, p, m), "errors": c, "timeouts": t}
+            for p, m, c, t in server_err_raw
+        ),
+        key=lambda x: -(x["errors"] + x["timeouts"]),
+    )
+    upstream_err_row = await session.execute(
+        select(func.count()).select_from(RequestLogRead).where(
+            RequestLogRead.created_at >= start_dt,
+            RequestLogRead.created_at < end_dt,
+            RequestLogRead.status == ERROR_STATUS,
+            RequestLogRead.upstream_status_code.isnot(None),
+        )
+    )
+    upstream_errors = upstream_err_row.scalar() or 0
+    server_errors = upstream_errors + timeouts
+    client_errors = errors - upstream_errors
+    server_err_top = server_err_all[:5]
+
+    quota_events: list[dict] = []
+    quota_rows = await session.execute(
+        select(
+            RequestLogRead.provider_id,
+            RequestLogRead.model,
+            RequestLogRead.error,
+            RequestLogRead.created_at,
+        )
+        .where(
+            RequestLogRead.created_at >= start_dt,
+            RequestLogRead.created_at < end_dt,
+            RequestLogRead.status.in_((ERROR_STATUS, UPSTREAM_RATE_LIMITED_STATUS, TIMEOUT_STATUS)),
+            or_(
+                RequestLogRead.error.like("%小时%"),
+                RequestLogRead.error.like("%上限%"),
+                RequestLogRead.error.ilike("%usage limit%"),
+                RequestLogRead.error.ilike("%5-hour%"),
+            ),
+        )
+    )
+    quota_raw = quota_rows.fetchall()
+    q_names = await _provider_name_map(session, {r[0] for r in quota_raw})
+    for p, m, err_text, ts in quota_raw:
+        text = err_text or ""
+        m2 = QUOTA_WINDOW_RE.search(text)
+        if not m2:
+            continue
+        reset_m = RESET_TIME_RE.search(text)
+        quota_events.append({
+            "provider": q_names.get(p) or ("local" if p is None else f"Provider#{p}"),
+            "model": m or "?",
+            "created_at": ts,
+            "reset_at": reset_m.group(1) if reset_m else "",
+        })
+    quota_5h = None
+    if quota_events:
+        reset_candidates = sorted(
+            {e["reset_at"] for e in quota_events if e["reset_at"]},
+            reverse=True,
+        )
+        off_peak_events = [
+            e for e in quota_events if e["created_at"].hour >= 20 or e["created_at"].hour < 11
+        ]
+        prov_counts: dict[str, int] = {}
+        for e in quota_events:
+            k = f"{e['provider']}/{e['model']}"
+            prov_counts[k] = prov_counts.get(k, 0) + 1
+        quota_5h = {
+            "count": len(quota_events),
+            "first_at": min(e["created_at"] for e in quota_events).isoformat(),
+            "last_at": max(e["created_at"] for e in quota_events).isoformat(),
+            "reset_at": reset_candidates[0] if reset_candidates else "",
+            "off_peak": bool(off_peak_events),
+            "top": sorted(prov_counts.items(), key=lambda x: -x[1])[:3],
+        }
 
     model_rows = await session.execute(
         select(
@@ -480,12 +633,36 @@ async def _errors_section(session, start_dt: datetime, end_dt: datetime, date_st
     flags = []
     if attempts > 0 and error_rate > thresholds["error_rate_warn"]:
         flags.append(f"错误率 {error_rate:.1f}% 超过阈值 {thresholds['error_rate_warn']:.0f}%")
+    if upstream_rate_limited > 0:
+        top_rl = upstream_rl_top[0] if upstream_rl_top else None
+        flags.append(
+            f"上游限流 {upstream_rate_limited} 次（服务端限流，异常）"
+            + (f"，主要 {top_rl['provider']}/{top_rl['model']} {top_rl['requests']} 次" if top_rl else "")
+        )
+    if server_errors > 0:
+        top_se = server_err_top[0] if server_err_top else None
+        flags.append(
+            f"服务端错误 {server_errors} 次（含超时，异常）"
+            + (f"，主要 {top_se['provider']}/{top_se['model']}" if top_se else "")
+        )
+    if quota_5h:
+        flags.append(
+            f"上游 5 小时额度用完 {quota_5h['count']} 次（重置 {quota_5h['reset_at'] or '未知'}）"
+            + ("，且发生在非高峰期 20:00-11:00，异常" if quota_5h["off_peak"] else "")
+        )
 
     return {
         "total": total,
         "errors": errors,
         "timeouts": timeouts,
         "rate_limited": rate_limited,
+        "local_rate_limited": local_rate_limited,
+        "upstream_rate_limited": upstream_rate_limited,
+        "upstream_rate_limited_top": upstream_rl_top,
+        "server_errors": server_errors,
+        "client_errors": client_errors,
+        "server_errors_top": server_err_top,
+        "quota_5h": quota_5h,
         "error_rate": round(error_rate, 2),
         "top_error_models": top_error_models,
         "worst_providers": worst_providers,
@@ -582,9 +759,19 @@ def _build_summary(level: str, security: dict, errors: dict, usage: dict) -> str
         f"Token {usage['tokens']:,}",
         f"花费 ¥{usage['cost']:.4f}",
         f"错误率 {errors['error_rate']:.1f}%",
+    ]
+    if errors.get("upstream_rate_limited"):
+        parts.append(f"上游限流 {errors['upstream_rate_limited']}")
+    if errors.get("server_errors"):
+        parts.append(f"服务端错误 {errors['server_errors']}")
+    if errors.get("quota_5h"):
+        parts.append(
+            "5小时额度用完" + ("（非高峰期，异常）" if errors["quota_5h"].get("off_peak") else "")
+        )
+    parts.extend([
         f"认证失败 {security['auth_failures']}",
         f"登录失败 {security['login_failures']}",
-    ]
+    ])
     prefix = "【简报·警告】" if level == "warning" else "【简报】"
     return prefix + "；".join(parts)
 
@@ -622,7 +809,10 @@ async def _ai_analyze(date_str: str, sections: dict, model: str) -> dict:
         },
         "errors": {
             k: sections["errors"][k]
-            for k in ("total", "errors", "timeouts", "rate_limited", "error_rate",
+            for k in ("total", "errors", "timeouts", "rate_limited",
+                      "local_rate_limited", "upstream_rate_limited",
+                      "upstream_rate_limited_top", "server_errors",
+                      "server_errors_top", "client_errors", "quota_5h", "error_rate",
                       "top_error_models", "worst_providers", "top_upstream_status", "flags")
             if k in sections.get("errors", {})
         },

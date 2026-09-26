@@ -277,16 +277,36 @@
             const models = (err.top_error_models || []).filter(m => (m.errors + m.timeouts) > 0);
             const provs = (err.worst_providers || []).filter(p => p.error_rate > 0);
             const ups = (err.top_upstream_status || []);
+            const rlTop = (err.upstream_rate_limited_top || []).filter(x => x.requests > 0);
+            const seTop = (err.server_errors_top || []).filter(x => (x.errors + x.timeouts) > 0);
+            const q5 = err.quota_5h;
             return `
             <div class="bg-white rounded-lg shadow p-6 mb-4">
                 <div class="sec-title mb-3">⚠ ${T('错误分布', 'Errors')}</div>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                <div class="grid grid-cols-2 md:grid-cols-7 gap-3 mb-4">
                     <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('总请求', 'Requests')}</div><div class="text-xl font-semibold">${fmt(err.total)}</div></div>
-                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('错误', 'Errors')}</div><div class="text-xl font-semibold text-red-400">${fmt(err.errors)}</div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('客户端错误', 'Client errors')}</div><div class="text-xl font-semibold text-gray-500">${fmt(Math.max(0, err.client_errors || 0))}</div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('服务端错误', 'Server errors')}</div><div class="text-xl font-semibold ${err.server_errors > 0 ? 'text-red-400' : ''}">${fmt(err.server_errors || 0)}</div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('上游限流', 'Upstream RL')}</div><div class="text-xl font-semibold ${err.upstream_rate_limited > 0 ? 'text-red-400' : ''}">${fmt(err.upstream_rate_limited || 0)}</div></div>
+                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('本地限流', 'Local RL')}</div><div class="text-xl font-semibold">${fmt(err.local_rate_limited || 0)}</div></div>
                     <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('超时', 'Timeouts')}</div><div class="text-xl font-semibold text-orange-400">${fmt(err.timeouts)}</div></div>
-                    <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('限流', 'Rate limited')}</div><div class="text-xl font-semibold">${fmt(err.rate_limited)}</div></div>
                     <div class="stat-card rounded p-3"><div class="text-xs text-gray-500">${T('错误率', 'Error rate')}</div><div class="text-xl font-semibold">${(err.error_rate || 0).toFixed(1)}%</div></div>
                 </div>
+                ${q5 ? `
+                <div class="mb-3 border rounded-lg p-3 ${q5.off_peak ? 'border-red-300 bg-red-50' : 'border-orange-200 bg-orange-50'}">
+                    <div class="text-sm font-medium ${q5.off_peak ? 'text-red-600' : 'text-orange-600'}">⏱ ${T('上游 5 小时额度用完', 'Upstream 5h quota exhausted')} × ${fmt(q5.count)}${q5.off_peak ? ` · ${T('非高峰期（20:00-11:00），异常', 'Off-peak (20:00-11:00), abnormal')}` : ''}</div>
+                    <div class="text-xs text-gray-500 mt-1">${T('首次', 'First')} ${esc((q5.first_at || '').replace('T', ' ').slice(0, 16))} · ${T('末次', 'Last')} ${esc((q5.last_at || '').replace('T', ' ').slice(0, 16))}${q5.reset_at ? ` · ${T('重置于', 'Resets at')} ${esc(q5.reset_at)}` : ''}${(q5.top || []).length ? ` · ${esc(q5.top.map(x => x[0]).join(', '))}` : ''}</div>
+                </div>` : ''}
+                ${rlTop.length ? `
+                <table class="dr-table w-full text-sm mb-3">
+                    <thead><tr><th>${T('上游限流（服务端，异常）', 'Upstream rate-limited (server-side)')}</th><th class="text-right">${T('次数', 'Count')}</th></tr></thead>
+                    <tbody>${rlTop.map(x => `<tr><td class="font-mono text-xs">${esc(x.provider)}/${esc(x.model)}</td><td class="text-right text-red-400 font-semibold">${fmt(x.requests)}</td></tr>`).join('')}</tbody>
+                </table>` : ''}
+                ${seTop.length ? `
+                <table class="dr-table w-full text-sm mb-3">
+                    <thead><tr><th>${T('服务端错误（含超时，异常）', 'Server-side errors (incl. timeouts)')}</th><th class="text-right">${T('错误', 'Err')}</th><th class="text-right">${T('超时', 'TO')}</th></tr></thead>
+                    <tbody>${seTop.map(x => `<tr><td class="font-mono text-xs">${esc(x.provider)}/${esc(x.model)}</td><td class="text-right text-red-400">${fmt(x.errors)}</td><td class="text-right text-orange-400">${fmt(x.timeouts)}</td></tr>`).join('')}</tbody>
+                </table>` : ''}
                 ${models.length ? `
                 <table class="dr-table w-full text-sm mb-3">
                     <thead><tr><th>${T('供应商/模型', 'Provider/Model')}</th><th>${T('请求', 'Req')}</th><th>${T('错误', 'Err')}</th><th>${T('超时', 'TO')}</th><th>${T('限流', 'RL')}</th></tr></thead>

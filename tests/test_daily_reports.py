@@ -151,6 +151,25 @@ class DailyReportStaticTests(unittest.TestCase):
         self.assertIn("drNginx", ui)
         self.assertIn("key_ip_top", ui)
 
+    def test_quota_5h_regex_and_error_split(self):
+        from app.services.daily_report import QUOTA_WINDOW_RE, RESET_TIME_RE
+
+        msg = "已达到 5 小时的使用上限。您的限额将在 2026-09-23 23:55:44 重置。 (1308)"
+        self.assertTrue(QUOTA_WINDOW_RE.search(msg))
+        self.assertEqual(RESET_TIME_RE.search(msg).group(1), "2026-09-23 23:55:44")
+        self.assertTrue(QUOTA_WINDOW_RE.search("5-hour usage limit reached"))
+        src = (ROOT / "app" / "services" / "daily_report.py").read_text(encoding="utf-8")
+        self.assertIn("upstream_rate_limited", src)
+        self.assertIn("local_rate_limited", src)
+        self.assertIn("server_errors", src)
+        self.assertIn("client_errors", src)
+        self.assertIn("quota_5h", src)
+        self.assertIn("20:00-11:00", src)
+        ui = (ROOT / "web" / "templates" / "admin" / "daily_reports.html").read_text(encoding="utf-8")
+        self.assertIn("upstream_rate_limited_top", ui)
+        self.assertIn("server_errors_top", ui)
+        self.assertIn("quota_5h", ui)
+
     def test_nginx_section_returns_none_without_host_root(self):
         import asyncio
         import os
