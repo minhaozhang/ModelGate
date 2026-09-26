@@ -36,6 +36,15 @@ def _to_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _global_default_cache_hit_ratio() -> float | None:
+    import app.core.config as config
+
+    raw = (config.system_settings or {}).get("pricing.default_cache_hit_ratio")
+    if raw is None or raw == "":
+        return None
+    return _to_float(raw, None)
+
+
 def _explicit_cached_input_tokens(tokens: dict[str, Any]) -> int | None:
     for key in ("cache_read_input_tokens", "cached_input_tokens"):
         if key in tokens:
@@ -171,7 +180,11 @@ async def enrich_tokens_with_billing(
         input_price_cny_per_million=provider_model.input_price_cny_per_million,
         output_price_cny_per_million=provider_model.output_price_cny_per_million,
         cached_input_price_cny_per_million=provider_model.cached_input_price_cny_per_million,
-        default_cache_hit_ratio=provider_model.default_cache_hit_ratio or 0,
+        default_cache_hit_ratio=(
+            provider_model.default_cache_hit_ratio
+            if provider_model.default_cache_hit_ratio is not None
+            else _to_float(_global_default_cache_hit_ratio(), 0.0)
+        ),
         pricing_tiers=provider_model.pricing_tiers or [],
     )
     if not _has_pricing(pricing):

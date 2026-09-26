@@ -2,7 +2,7 @@ import os
 import time
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import select, func
 
 import app.core.config as config
@@ -49,6 +49,10 @@ async def get_config(_: bool = Depends(permission_required("page.system.config")
     for key in ALL_DEFAULTS.get("concurrency", {}):
         concurrency_settings[key] = await get_setting("concurrency", key)
 
+    pricing_settings = {}
+    for key in ALL_DEFAULTS.get("pricing", {}):
+        pricing_settings[key] = await get_setting("pricing", key)
+
     return {
         "ua_override": ua or DEFAULT_OUTBOUND_USER_AGENT,
         "default_ua": DEFAULT_OUTBOUND_USER_AGENT,
@@ -58,6 +62,7 @@ async def get_config(_: bool = Depends(permission_required("page.system.config")
         "billing": billing_settings,
         "daily_report": daily_report_settings,
         "concurrency": concurrency_settings,
+        "pricing": pricing_settings,
     }
 
 
@@ -138,6 +143,21 @@ async def update_config(body: dict, _: bool = Depends(permission_required("syste
             continue
         await save_setting(
             "concurrency", key, str(value), "用户模型并发动态控制参数"
+        )
+
+    pricing_updates = body.get("pricing", {})
+    valid_pricing_keys = ALL_DEFAULTS.get("pricing", {})
+    for key, value in pricing_updates.items():
+        if key not in valid_pricing_keys:
+            continue
+        try:
+            num = float(value)
+        except (TypeError, ValueError):
+            continue
+        if num < 0 or num > 100:
+            continue
+        await save_setting(
+            "pricing", key, str(value), "价格全局默认参数"
         )
 
     return {"ok": True}
@@ -576,6 +596,6 @@ async def get_system_info(_: bool = Depends(permission_required("page.stats"))):
 
 @router.get("/system-config", response_class=HTMLResponse)
 async def system_config_page(request: Request, _: bool = Depends(permission_required("page.system.config"))):
-    return HTMLResponse(
-        content=render(request, "admin/system_config.html", active_page="system-config")
-    )
+    from app.core.app_paths import build_app_url
+
+    return RedirectResponse(url=build_app_url(request, "/admin/config?tab=system"))

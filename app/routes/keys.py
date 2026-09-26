@@ -34,7 +34,6 @@ class ApiKeyCreate(BaseModel):
     allowed_model_ids: list[int] = Field(default_factory=list)
     bypass_busyness: bool = False
     max_concurrent: Optional[int] = None
-    model_concurrency: Optional[dict[str, int]] = None
     daily_quota_cny: Optional[float] = None
     tags: list[str] = Field(default_factory=list)
 
@@ -48,7 +47,6 @@ class ApiKeyUpdate(BaseModel):
     is_active: Optional[bool] = None
     bypass_busyness: Optional[bool] = None
     max_concurrent: Optional[int] = None
-    model_concurrency: Optional[dict[str, int]] = None
     daily_quota_cny: Optional[float] = None
     tags: Optional[list[str]] = None
 
@@ -164,7 +162,6 @@ async def list_api_keys(
                     "is_active": k.is_active,
                     "bypass_busyness": k.bypass_busyness or False,
                     "max_concurrent": getattr(k, "max_concurrent", None),
-                    "model_concurrency": getattr(k, "model_concurrency", None) or {},
                     "daily_quota_cny": k.daily_quota_cny,
                     "tags": tags_map[k.id],
                     "last_used_at": k.last_used_at.isoformat()
@@ -184,21 +181,6 @@ def _normalize_max_concurrent(value: Optional[int]):
     return value
 
 
-def _normalize_model_concurrency(value: Optional[dict[str, int]]):
-    """{model: limit}; limit must be a non-negative int (0 disables the
-    model for this key). None clears the override."""
-    if value is None:
-        return None
-    normalized: dict[str, int] = {}
-    for model, limit in value.items():
-        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
-            return JSONResponse(
-                {"error": "模型并发必须为非负整数"}, status_code=400
-            )
-        normalized[model] = limit
-    return normalized
-
-
 @router.post("/keys")
 async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_required("api_key.create"))):
     access_error = _validate_access_payload(
@@ -210,11 +192,6 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_requir
     normalized_max_concurrent = _normalize_max_concurrent(data.max_concurrent)
     if isinstance(normalized_max_concurrent, JSONResponse):
         return normalized_max_concurrent
-    normalized_model_concurrency = _normalize_model_concurrency(
-        data.model_concurrency
-    )
-    if isinstance(normalized_model_concurrency, JSONResponse):
-        return normalized_model_concurrency
     async with async_session_maker() as session:
         new_key = ApiKey(
             name=data.name,
@@ -225,7 +202,6 @@ async def create_api_key(data: ApiKeyCreate, _: bool = Depends(permission_requir
             else (data.expires_at or (datetime.now() + timedelta(days=365))),
             bypass_busyness=data.bypass_busyness,
             max_concurrent=normalized_max_concurrent,
-            model_concurrency=normalized_model_concurrency,
             daily_quota_cny=(
                 None
                 if data.daily_quota_cny is None or data.daily_quota_cny == -1
@@ -277,11 +253,6 @@ async def update_api_key(
             if isinstance(normalized, JSONResponse):
                 return normalized
             key.max_concurrent = normalized
-        if data.model_concurrency is not None:
-            normalized_mc = _normalize_model_concurrency(data.model_concurrency)
-            if isinstance(normalized_mc, JSONResponse):
-                return normalized_mc
-            key.model_concurrency = normalized_mc or None
         if data.daily_quota_cny is not None:
             if data.daily_quota_cny < 0:
                 if data.daily_quota_cny == -1:

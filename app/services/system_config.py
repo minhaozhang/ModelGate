@@ -46,6 +46,9 @@ ALL_DEFAULTS = {
         "peak_user_model_limit": "2",
         "offpeak_user_model_limit": "1",
     },
+    "pricing": {
+        "default_cache_hit_ratio": "0",
+    },
 }
 
 _settings_cache: dict[str, tuple[str, float]] = {}

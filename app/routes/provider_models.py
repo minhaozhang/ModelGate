@@ -28,6 +28,11 @@ class ProviderModelCreate(BaseModel):
     alias: Optional[str] = None
     priority: Optional[int] = 0
     is_active: bool = True
+    input_price_cny_per_million: Optional[float] = None
+    output_price_cny_per_million: Optional[float] = None
+    cached_input_price_cny_per_million: Optional[float] = None
+    default_cache_hit_ratio: Optional[float] = None
+    pricing_tiers: Optional[list[dict]] = None
 
 
 class ProviderModelUpdate(BaseModel):
@@ -97,6 +102,16 @@ async def add_provider_model(
     _: bool = Depends(permission_required("provider_model.create")),
 ):
     async with async_session_maker() as session:
+        ratio = data.default_cache_hit_ratio
+        if ratio is None:
+            import app.core.config as app_config
+
+            try:
+                ratio = float(
+                    (app_config.system_settings or {}).get("pricing.default_cache_hit_ratio") or 0
+                )
+            except (TypeError, ValueError):
+                ratio = 0
         pm = ProviderModel(
             provider_id=provider_id,
             model_id=data.model_id,
@@ -105,8 +120,19 @@ async def add_provider_model(
             alias=data.alias,
             priority=data.priority or 0,
             is_active=data.is_active,
-            input_price_cny_per_million=DEFAULT_MODEL_INPUT_PRICE_CNY,
-            output_price_cny_per_million=DEFAULT_MODEL_OUTPUT_PRICE_CNY,
+            input_price_cny_per_million=(
+                data.input_price_cny_per_million
+                if data.input_price_cny_per_million is not None
+                else DEFAULT_MODEL_INPUT_PRICE_CNY
+            ),
+            output_price_cny_per_million=(
+                data.output_price_cny_per_million
+                if data.output_price_cny_per_million is not None
+                else DEFAULT_MODEL_OUTPUT_PRICE_CNY
+            ),
+            cached_input_price_cny_per_million=data.cached_input_price_cny_per_million,
+            default_cache_hit_ratio=ratio,
+            pricing_tiers=data.pricing_tiers or [],
         )
         session.add(pm)
         await session.commit()
