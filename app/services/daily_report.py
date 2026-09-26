@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete, func, select
@@ -45,6 +46,7 @@ async def _thresholds() -> dict:
         "rate_limit_warn": await get_float_setting("daily_report", "rate_limit_warn", 500.0),
         "ip_req_warn": await get_float_setting("daily_report", "ip_req_warn", 2000.0),
         "ip_auth_fail_warn": await get_float_setting("daily_report", "ip_auth_fail_warn", 30.0),
+        "key_ip_warn": await get_float_setting("daily_report", "key_ip_warn", 3.0),
     }
 
 
@@ -182,6 +184,61 @@ async def _security_section(session, start_dt: datetime, end_dt: datetime, thres
         for ip, stats in ip_top
     ]
 
+    key_ip_rows = await session.execute(
+        select(
+            RequestLogRead.api_key_id,
+            func.count().label("requests"),
+            func.count(func.distinct(RequestLogRead.client_ip)).label("ip_count"),
+        )
+        .where(
+            RequestLogRead.created_at >= start_dt,
+            RequestLogRead.created_at < end_dt,
+            RequestLogRead.api_key_id.isnot(None),
+            RequestLogRead.client_ip.isnot(None),
+        )
+        .group_by(RequestLogRead.api_key_id)
+    )
+    key_ip_all = sorted(
+        [(k, reqs or 0, ips or 0) for k, reqs, ips in key_ip_rows.fetchall()],
+        key=lambda r: (-r[2], -r[1]),
+    )
+    key_ip_top = []
+    if key_ip_all:
+        top5_ids = [r[0] for r in key_ip_all[:5]]
+        name_rows = await session.execute(
+            select(ApiKey.id, ApiKey.name).where(ApiKey.id.in_(top5_ids))
+        )
+        key_names = {i: n or f"Key#{i}" for i, n in name_rows.fetchall()}
+        pair_rows = await session.execute(
+            select(
+                RequestLogRead.api_key_id,
+                RequestLogRead.client_ip,
+                func.count(),
+            )
+            .where(
+                RequestLogRead.created_at >= start_dt,
+                RequestLogRead.created_at < end_dt,
+                RequestLogRead.api_key_id.in_(top5_ids),
+                RequestLogRead.client_ip.isnot(None),
+            )
+            .group_by(RequestLogRead.api_key_id, RequestLogRead.client_ip)
+        )
+        top_ip_by_key: dict[int, tuple[str, int]] = {}
+        for kid, ip, cnt in pair_rows.fetchall():
+            cur = top_ip_by_key.get(kid)
+            if cur is None or (cnt or 0) > cur[1]:
+                top_ip_by_key[kid] = (ip or "unknown", cnt or 0)
+        for kid, reqs, ips in key_ip_all[:5]:
+            top_ip, top_ip_cnt = top_ip_by_key.get(kid, ("", 0))
+            key_ip_top.append({
+                "key_id": kid,
+                "key_name": key_names.get(kid, f"Key#{kid}"),
+                "ip_count": ips,
+                "requests": reqs,
+                "top_ip": top_ip,
+                "top_ip_share": round(top_ip_cnt / reqs * 100, 1) if reqs else 0.0,
+            })
+
     flags = []
     if login_failures > thresholds["login_fail_warn"]:
         flags.append(f"登录失败 {login_failures} 次超过阈值 {int(thresholds['login_fail_warn'])}")
@@ -200,6 +257,16 @@ async def _security_section(session, start_dt: datetime, end_dt: datetime, thres
                 f"IP {ip} 认证失败 {stats['auth_failures']} 次超过阈值 {int(thresholds['ip_auth_fail_warn'])}"
                 + (f"（{ip_cities.get(ip)}）" if ip_cities.get(ip) else "")
             )
+    for kid, reqs, ips in key_ip_all:
+        if ips >= thresholds["key_ip_warn"]:
+            name = f"Key#{kid}"
+            for item in key_ip_top:
+                if item["key_id"] == kid:
+                    name = item["key_name"]
+                    break
+            flags.append(
+                f"{name} 从 {ips} 个不同 IP 发起请求（阈值 {int(thresholds['key_ip_warn'])}，疑似共享/泄露）"
+            )
 
     return {
         "login_failures": login_failures,
@@ -212,7 +279,126 @@ async def _security_section(session, start_dt: datetime, end_dt: datetime, thres
         "admin_ops": admin_ops,
         "high_risk_ops": high_risk_ops,
         "ip_top": ip_top_data,
+        "key_ip_top": key_ip_top,
         "flags": flags,
+    }
+
+
+NGINX_LOG_ROOT = "/host_root/var/lib/docker/containers"
+NGINX_TAIL_BYTES = 24 * 1024 * 1024
+
+_NGINX_LINE_RE = None
+
+
+def _parse_nginx_window(log_path: str, start_utc, end_utc) -> list[dict]:
+    import json as _json
+    import re
+
+    global _NGINX_LINE_RE
+    if _NGINX_LINE_RE is None:
+        _NGINX_LINE_RE = re.compile(
+            r'^(\S+) \S+ \S+ \[[^\]]+\] "(\S+) (\S+)[^"]*" (\d{3}) (\d+|-)'
+        )
+
+    entries: list[dict] = []
+    size = os.path.getsize(log_path)
+    with open(log_path, "rb") as f:
+        if size > NGINX_TAIL_BYTES:
+            f.seek(size - NGINX_TAIL_BYTES)
+            f.readline()
+        for raw in f:
+            try:
+                rec = _json.loads(raw)
+            except Exception:
+                continue
+            ts = rec.get("time", "")
+            try:
+                t = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if not (start_utc <= t < end_utc):
+                continue
+            m = _NGINX_LINE_RE.match(rec.get("log", ""))
+            if not m:
+                continue
+            ip, method, path, status, bytes_ = m.groups()
+            entries.append({
+                "ip": ip,
+                "method": method,
+                "path": path,
+                "status": int(status),
+                "bytes": int(bytes_) if bytes_.isdigit() else 0,
+            })
+    return entries
+
+
+def _find_nginx_log() -> str | None:
+    import json as _json
+
+    if not os.path.isdir(NGINX_LOG_ROOT):
+        return None
+    for cid in os.listdir(NGINX_LOG_ROOT):
+        cfg_path = os.path.join(NGINX_LOG_ROOT, cid, "config.v2.json")
+        try:
+            with open(cfg_path, "r", encoding="utf-8", errors="ignore") as f:
+                cfg = _json.load(f)
+            name = (cfg.get("Name") or "").lower()
+            image = (cfg.get("Image") or cfg.get("Config", {}).get("Image") or "").lower()
+            if "nginx" in name or "nginx" in image:
+                log_path = os.path.join(NGINX_LOG_ROOT, cid, f"{cid}-json.log")
+                if os.path.exists(log_path):
+                    return log_path
+        except Exception:
+            continue
+    return None
+
+
+async def _nginx_section(start_dt: datetime, end_dt: datetime) -> dict | None:
+    import asyncio
+    from collections import Counter
+    from datetime import timezone
+
+    try:
+        log_path = await asyncio.to_thread(_find_nginx_log)
+        if not log_path:
+            return None
+        off = datetime.now().astimezone().utcoffset() or timedelta()
+        start_utc = (start_dt - off).replace(tzinfo=timezone.utc)
+        end_utc = (end_dt - off).replace(tzinfo=timezone.utc)
+        entries = await asyncio.to_thread(_parse_nginx_window, log_path, start_utc, end_utc)
+    except Exception as e:
+        logger.warning("[DAILY_REPORT] nginx log analysis failed: %s", e)
+        return None
+
+    if not entries:
+        return {"total": 0}
+
+    status_counter = Counter(e["status"] for e in entries)
+    static_hits = sum(1 for e in entries if e["path"].startswith(("/modelgate/static/", "/static/")))
+    total_bytes = sum(e["bytes"] for e in entries)
+
+    scan_counter: Counter = Counter()
+    scan_ip = {}
+    for e in entries:
+        if e["status"] >= 400 and not e["path"].startswith(("/modelgate/", "/static/")):
+            scan_counter[f"{e['method']} {e['path']}"] += 1
+            scan_ip.setdefault(f"{e['method']} {e['path']}", e["ip"])
+    top_ips = Counter(e["ip"] for e in entries).most_common(5)
+
+    return {
+        "total": len(entries),
+        "status_2xx": sum(c for s, c in status_counter.items() if 200 <= s < 300),
+        "status_3xx": sum(c for s, c in status_counter.items() if 300 <= s < 400),
+        "status_4xx": sum(c for s, c in status_counter.items() if 400 <= s < 500 and s != 499),
+        "status_499": status_counter.get(499, 0),
+        "status_5xx": sum(c for s, c in status_counter.items() if s >= 500),
+        "static_hits": static_hits,
+        "total_mb": round(total_bytes / 1024 / 1024, 1),
+        "top_ips": [{"ip": ip, "requests": cnt} for ip, cnt in top_ips],
+        "scan_paths": [
+            {"path": p, "requests": cnt, "sample_ip": scan_ip.get(p, "")}
+            for p, cnt in scan_counter.most_common(5)
+        ],
     }
 
 
@@ -428,6 +614,8 @@ async def _ai_analyze(date_str: str, sections: dict, model: str) -> dict:
                 "rate_limited",
                 "admin_ops",
                 "ip_top",
+                "key_ip_top",
+                "nginx",
                 "flags",
             )
             if k in sections.get("security", {})
@@ -504,6 +692,8 @@ async def generate_daily_report(
         security = await _security_section(session, start_dt, end_dt, thresholds)
         errors = await _errors_section(session, start_dt, end_dt, date_str, thresholds)
         usage = await _usage_section(session, date_str)
+
+    security["nginx"] = await _nginx_section(start_dt, end_dt)
 
     all_flags = security["flags"] + errors["flags"]
     level = "warning" if all_flags else "info"

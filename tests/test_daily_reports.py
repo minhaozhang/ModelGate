@@ -118,13 +118,14 @@ class DailyReportStaticTests(unittest.TestCase):
 
     def test_thresholds_in_defaults_and_ui(self):
         cfg = (ROOT / "app" / "services" / "system_config.py").read_text(encoding="utf-8")
-        for key in ("error_rate_warn", "auth_fail_warn", "login_fail_warn", "rate_limit_warn", "ip_req_warn", "ip_auth_fail_warn"):
+        for key in ("error_rate_warn", "auth_fail_warn", "login_fail_warn", "rate_limit_warn", "ip_req_warn", "ip_auth_fail_warn", "key_ip_warn"):
             self.assertIn(key, cfg)
         route = (ROOT / "app" / "routes" / "system_config.py").read_text(encoding="utf-8")
         self.assertIn('"daily_report"', route)
         ui = (ROOT / "web" / "templates" / "admin" / "system_config.html").read_text(encoding="utf-8")
         self.assertIn("daily_report-error_rate_warn", ui)
         self.assertIn("daily_report-ip_auth_fail_warn", ui)
+        self.assertIn("daily_report-key_ip_warn", ui)
         self.assertIn("saveDailyReport", ui)
 
     def test_ip_distribution_in_security_section(self):
@@ -133,6 +134,35 @@ class DailyReportStaticTests(unittest.TestCase):
         self.assertIn("ip_req_warn", src)
         self.assertIn("ip_auth_fail_warn", src)
         self.assertIn("IpLocation", src)
+
+    def test_key_ip_distribution_and_nginx_in_security_section(self):
+        src = (ROOT / "app" / "services" / "daily_report.py").read_text(encoding="utf-8")
+        self.assertIn('"key_ip_top": key_ip_top', src)
+        self.assertIn("key_ip_warn", src)
+        self.assertIn("func.count(func.distinct(RequestLogRead.client_ip))", src)
+        self.assertIn("NGINX_LOG_ROOT", src)
+        self.assertIn("_find_nginx_log", src)
+        self.assertIn('"scan_paths"', src)
+        self.assertIn('"status_499"', src)
+        self.assertIn('security["nginx"] = await _nginx_section', src)
+        self.assertIn('"key_ip_top"', src)
+        self.assertIn('"nginx"', src)
+        ui = (ROOT / "web" / "templates" / "admin" / "daily_reports.html").read_text(encoding="utf-8")
+        self.assertIn("drNginx", ui)
+        self.assertIn("key_ip_top", ui)
+
+    def test_nginx_section_returns_none_without_host_root(self):
+        import asyncio
+        import os
+        from datetime import datetime
+
+        if os.path.isdir("/host_root"):
+            self.skipTest("host_root present (container env)")
+        from app.services.daily_report import _find_nginx_log, _nginx_section
+
+        self.assertIsNone(_find_nginx_log())
+        start = datetime(2026, 9, 25)
+        self.assertIsNone(asyncio.run(_nginx_section(start, start)))
 
     def test_by_key_report_includes_tags(self):
         src = (ROOT / "app" / "routes" / "report_center.py").read_text(encoding="utf-8")

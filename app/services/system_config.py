@@ -38,6 +38,7 @@ ALL_DEFAULTS = {
         "rate_limit_warn": "500",
         "ip_req_warn": "2000",
         "ip_auth_fail_warn": "30",
+        "key_ip_warn": "3",
     },
 }
 

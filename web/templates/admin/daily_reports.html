@@ -219,6 +219,16 @@
                     </table>
                     <div class="text-xs text-gray-400">${T('红色行为只有失败记录、无正常请求的可疑 IP', 'Red rows = IPs with failures only and no successful traffic')}</div>
                 </div>` : ''}
+                ${(sec.key_ip_top || []).length ? `
+                <div class="mb-4">
+                    <div class="text-xs text-gray-500 mb-1">${T('Key 的 IP 分布 Top（共享/泄露检测）', 'Key IP spread (sharing/leak detection)')}</div>
+                    <table class="dr-table w-full text-sm mb-3">
+                        <thead><tr><th>${T('Key', 'Key')}</th><th class="text-right">${T('不同 IP 数', 'Distinct IPs')}</th><th class="text-right">${T('请求', 'Req')}</th><th>${T('主要 IP', 'Top IP')}</th><th class="text-right">${T('占比', 'Share')}</th></tr></thead>
+                        <tbody>${(sec.key_ip_top || []).map(k => `<tr${k.ip_count >= 3 ? ' style="color:#f87171;"' : ''}><td class="text-xs">${esc(k.key_name)}</td><td class="text-right ${k.ip_count >= 3 ? 'text-red-400 font-semibold' : ''}">${fmt(k.ip_count)}</td><td class="text-right">${fmt(k.requests)}</td><td class="font-mono text-xs">${esc(k.top_ip || '—')}</td><td class="text-right">${Number(k.top_ip_share || 0).toFixed(1)}%</td></tr>`).join('')}</tbody>
+                    </table>
+                    <div class="text-xs text-gray-400">${T('IP 数≥3 的 Key 标红，疑似密钥共享或泄露', 'Keys with ≥3 IPs highlighted: possible sharing/leak')}</div>
+                </div>` : ''}
+                ${sec.nginx && sec.nginx.total ? drNginx(sec.nginx) : ''}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
                         <div class="text-xs text-gray-500 mb-1">${T('登录失败 Top IP', 'Login failure top IPs')}</div>
@@ -230,6 +240,34 @@
                         <div class="text-xs text-gray-500 mb-1">${T('认证失败 Top IP', 'Auth failure top IPs')}</div>
                         ${aips.length ? aips.map(([ip, c]) => `<div class="flex justify-between font-mono text-xs"><span>${esc(ip)}</span><span>${fmt(c)}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
                         ${(sec.high_risk_ops || []).length ? `<div class="text-xs text-gray-500 mt-3 mb-1">${T('高危操作（删除类）', 'High-risk ops (deletes)')}</div>` + sec.high_risk_ops.map(o => `<div class="text-xs truncate" title="${esc(o.detail)}">[${esc(o.user)}] ${esc(o.action)}/${esc(o.resource)} — ${esc(o.detail)}</div>`).join('') : ''}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function drNginx(ng) {
+            const scans = (ng.scan_paths || []);
+            const ips = (ng.top_ips || []);
+            return `
+            <div class="mb-4 border border-gray-200 rounded-lg p-3">
+                <div class="text-xs text-gray-500 mb-2">🌐 nginx ${T('接入层（当日窗口）', 'edge layer (day window)')}</div>
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-3">
+                    <div class="stat-card rounded p-2"><div class="text-xs text-gray-500">${T('总请求', 'Total')}</div><div class="text-lg font-semibold">${fmt(ng.total)}</div></div>
+                    <div class="stat-card rounded p-2"><div class="text-xs text-gray-500">2xx</div><div class="text-lg font-semibold">${fmt(ng.status_2xx)}</div></div>
+                    <div class="stat-card rounded p-2"><div class="text-xs text-gray-500">4xx</div><div class="text-lg font-semibold text-orange-400">${fmt(ng.status_4xx)}</div></div>
+                    <div class="stat-card rounded p-2"><div class="text-xs text-gray-500">499</div><div class="text-lg font-semibold text-orange-400">${fmt(ng.status_499)}</div></div>
+                    <div class="stat-card rounded p-2"><div class="text-xs text-gray-500">5xx</div><div class="text-lg font-semibold text-red-400">${fmt(ng.status_5xx)}</div></div>
+                    <div class="stat-card rounded p-2"><div class="text-xs text-gray-500">${T('流量', 'Traffic')}</div><div class="text-lg font-semibold">${fmt(ng.total_mb)}MB</div></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-xs text-gray-500 mb-1">${T('非常规路径探测（4xx，非 /modelgate）', 'Scan paths (4xx, non-/modelgate)')}</div>
+                        ${scans.length ? scans.map(s => `<div class="flex justify-between text-xs"><span class="truncate font-mono" title="${esc(s.path)}">${esc(s.path)}</span><span class="text-orange-400">${fmt(s.requests)} <span class="text-gray-400 font-mono">${esc(s.sample_ip)}</span></span></div>`).join('') : `<div class="text-gray-400 text-xs">—</div>`}
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-500 mb-1">${T('全量 Top IP（含未到应用层的请求）', 'Top IPs (incl. never reaching app)')}</div>
+                        ${ips.length ? ips.map(i => `<div class="flex justify-between font-mono text-xs"><span>${esc(i.ip)}</span><span>${fmt(i.requests)}</span></div>`).join('') : `<div class="text-gray-400 text-xs">—</div>`}
+                        <div class="text-xs text-gray-400 mt-2">${T('静态资源请求', 'Static hits')} ${fmt(ng.static_hits)}</div>
                     </div>
                 </div>
             </div>`;
