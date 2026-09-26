@@ -235,6 +235,7 @@ class ProxyRuntimeWrapperTests(unittest.IsolatedAsyncioTestCase):
         provider_key_semaphore = object()
         user_provider_model_semaphore = object()
         user_api_key_semaphore = object()
+        user_model_semaphore = object()
         response = object()
         runtime_handle = AsyncMock(return_value=response)
 
@@ -255,6 +256,7 @@ class ProxyRuntimeWrapperTests(unittest.IsolatedAsyncioTestCase):
                 provider_key_semaphore,
                 user_provider_model_semaphore,
                 user_api_key_semaphore,
+                user_model_semaphore,
                 "req-1",
                 None,
                 None,
@@ -267,6 +269,7 @@ class ProxyRuntimeWrapperTests(unittest.IsolatedAsyncioTestCase):
             kwargs["user_provider_model_semaphore"], user_provider_model_semaphore
         )
         self.assertIs(kwargs["user_api_key_semaphore"], user_api_key_semaphore)
+        self.assertIs(kwargs["user_model_semaphore"], user_model_semaphore)
         self.assertNotIn("semaphore", kwargs)
         self.assertNotIn("api_key_model_semaphore", kwargs)
 

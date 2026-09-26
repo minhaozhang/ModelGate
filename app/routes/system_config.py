@@ -45,6 +45,10 @@ async def get_config(_: bool = Depends(permission_required("page.system.config")
     for key in ALL_DEFAULTS.get("daily_report", {}):
         daily_report_settings[key] = await get_setting("daily_report", key)
 
+    concurrency_settings = {}
+    for key in ALL_DEFAULTS.get("concurrency", {}):
+        concurrency_settings[key] = await get_setting("concurrency", key)
+
     return {
         "ua_override": ua or DEFAULT_OUTBOUND_USER_AGENT,
         "default_ua": DEFAULT_OUTBOUND_USER_AGENT,
@@ -53,6 +57,7 @@ async def get_config(_: bool = Depends(permission_required("page.system.config")
         "glm_health_check_model_default": DEFAULT_HEALTH_CHECK_MODEL,
         "billing": billing_settings,
         "daily_report": daily_report_settings,
+        "concurrency": concurrency_settings,
     }
 
 
@@ -119,6 +124,21 @@ async def update_config(body: dict, _: bool = Depends(permission_required("syste
             except (TypeError, ValueError):
                 continue
             await save_setting("daily_report", key, str(value))
+
+    concurrency_updates = body.get("concurrency", {})
+    valid_concurrency_keys = ALL_DEFAULTS.get("concurrency", {})
+    for key, value in concurrency_updates.items():
+        if key not in valid_concurrency_keys:
+            continue
+        try:
+            num = int(value)
+        except (TypeError, ValueError):
+            continue
+        if num < 0 or (num > 23 and key.endswith("_hour")):
+            continue
+        await save_setting(
+            "concurrency", key, str(value), "用户模型并发动态控制参数"
+        )
 
     return {"ok": True}
 

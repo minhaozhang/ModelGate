@@ -207,6 +207,32 @@
                 </div>
                 <div id="daily_report-msg" class="mt-3 text-sm hidden"></div>
             </div>
+            <div class="mt-6 bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-semibold mb-1">{{ _('User Model Concurrency Control' if current_locale != 'zh' else '用户模型并发控制') }}</h2>
+                <p class="text-xs text-gray-500 mb-4">{{ _('Dynamic per-model cap per user key: min(model gauge headroom, time window cap). Explicit per-key overrides in API Keys page win.' if current_locale != 'zh' else '用户 Key 对单个模型的并发上限 = min(模型并发表盘富余度, 时段上限)；API Keys 页可为单 Key 显式指定（优先）。') }}</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Off-peak start hour (0-23)' if current_locale != 'zh' else '低峰开始小时（0-23）') }}</label>
+                        <input id="concurrency-offpeak_start_hour" type="number" step="1" min="0" max="23" class="w-full border rounded px-3 py-2 text-sm" placeholder="20">
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Off-peak end hour (0-23)' if current_locale != 'zh' else '低峰结束小时（0-23）') }}</label>
+                        <input id="concurrency-offpeak_end_hour" type="number" step="1" min="0" max="23" class="w-full border rounded px-3 py-2 text-sm" placeholder="11">
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Peak per-model limit per key' if current_locale != 'zh' else '高峰期单 Key 单模型并发') }}</label>
+                        <input id="concurrency-peak_user_model_limit" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="2">
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-600 mb-1 block">{{ _('Off-peak per-model limit per key' if current_locale != 'zh' else '低峰期单 Key 单模型并发') }}</label>
+                        <input id="concurrency-offpeak_user_model_limit" type="number" step="1" min="0" class="w-full border rounded px-3 py-2 text-sm" placeholder="1">
+                    </div>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button onclick="saveConcurrency()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
+                </div>
+                <div id="concurrency-msg" class="mt-3 text-sm hidden"></div>
+            </div>
         </main>
     </div>
     <script>
@@ -258,6 +284,12 @@
             if (d.daily_report) {
                 for (const [key, val] of Object.entries(d.daily_report)) {
                     const el = document.getElementById('daily_report-' + key);
+                    if (el) el.value = val;
+                }
+            }
+            if (d.concurrency) {
+                for (const [key, val] of Object.entries(d.concurrency)) {
+                    const el = document.getElementById('concurrency-' + key);
                     if (el) el.value = val;
                 }
             }
@@ -360,6 +392,29 @@
                 body: JSON.stringify({ daily_report })
             });
             const msg = document.getElementById('daily_report-msg');
+            if (r.ok) {
+                msg.textContent = '{{ _('Saved') }}';
+                msg.className = 'mt-3 text-sm text-green-600';
+            } else {
+                const d = await r.json();
+                msg.textContent = d.detail || '{{ _('Save failed') }}';
+                msg.className = 'mt-3 text-sm text-red-600';
+            }
+            msg.classList.remove('hidden');
+        }
+        async function saveConcurrency() {
+            const keys = ['offpeak_start_hour', 'offpeak_end_hour', 'peak_user_model_limit', 'offpeak_user_model_limit'];
+            const concurrency = {};
+            for (const key of keys) {
+                const el = document.getElementById('concurrency-' + key);
+                if (el) concurrency[key] = el.value;
+            }
+            const r = await fetch(APP_BASE_PATH + '/admin/api/system/config', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ concurrency })
+            });
+            const msg = document.getElementById('concurrency-msg');
             if (r.ok) {
                 msg.textContent = '{{ _('Saved') }}';
                 msg.className = 'mt-3 text-sm text-green-600';

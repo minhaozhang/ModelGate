@@ -915,6 +915,9 @@ async def migrate_api_keys(conn) -> None:
     await conn.execute(
         text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS daily_quota_cny DOUBLE PRECISION")
     )
+    await conn.execute(
+        text("ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS model_concurrency JSONB")
+    )
 
 
 async def migrate_providers_and_keys(conn) -> None:

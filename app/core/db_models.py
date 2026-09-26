@@ -242,6 +242,7 @@ class ApiKey(Base):
     is_active = Column(Boolean, default=True)
     bypass_busyness = Column(Boolean, default=False)
     max_concurrent = Column(Integer, nullable=True)
+    model_concurrency = Column(JSONB, nullable=True)
     preferred_tags = Column(Text, nullable=True)
     daily_quota_cny = Column(Float, nullable=True)
     last_used_at = Column(DateTime, nullable=True)

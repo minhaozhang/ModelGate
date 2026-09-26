@@ -1,15 +1,18 @@
 import asyncio
 import os
+from datetime import datetime
 
 from app.core.config import (
     provider_key_model_semaphores,
     provider_key_semaphores,
     standard_model_semaphores,
     user_api_key_semaphores,
+    user_model_semaphores,
 )
 
 DEFAULT_PROVIDER_KEY_MAX_CONCURRENCY = 3
 DEFAULT_USER_API_KEY_MAX_CONCURRENCY = 1
+DEFAULT_USER_MODEL_CONCURRENCY = 2
 SEMAPHORE_RETRY_AFTER_SECONDS = 5
 
 
@@ -147,6 +150,73 @@ def _get_or_create_user_api_key_semaphore(
     return _get_or_create_scoped_semaphore(
         user_api_key_semaphores, sem_key, target_limit
     )
+
+
+def _get_or_create_user_model_semaphore(
+    api_key_id: int, model: str, target_limit: int
+) -> tuple[str, asyncio.Semaphore]:
+    sem_key = f"usermodel:{api_key_id}:{model}"
+    return _get_or_create_scoped_semaphore(
+        user_model_semaphores, sem_key, target_limit
+    )
+
+
+def _model_gauge_cap(model: str) -> int:
+    """Per-user-per-model cap derived from the model's total
+    concurrency gauge (stdmodel semaphore): how many slots a single
+    user key may take while the model still has headroom."""
+    sem = standard_model_semaphores.get(f"stdmodel:{model}")
+    if sem is None:
+        # Model has no total concurrency cap — treat as idle.
+        return DEFAULT_USER_MODEL_CONCURRENCY
+    limit = getattr(sem, SCOPED_SEMAPHORE_LIMIT_ATTR, 0) or 0
+    if limit <= 0:
+        return DEFAULT_USER_MODEL_CONCURRENCY
+    available = getattr(sem, "_value", 0) or 0
+    waiters = getattr(sem, "_waiters", None)
+    if waiters or available <= 0:
+        return 1
+    if available / limit >= 0.5:
+        return 2
+    return 1
+
+
+def _time_cap(now: datetime | None = None) -> int:
+    """Time-window cap: off-peak hours (default 20:00-11:00) are tighter —
+    background hammering off-hours is abnormal."""
+    import app.core.config as config
+
+    def _int(key: str, default: int) -> int:
+        try:
+            return int(config.system_settings.get(key) or default)
+        except (TypeError, ValueError):
+            return default
+
+    start = _int("concurrency.offpeak_start_hour", 20)
+    end = _int("concurrency.offpeak_end_hour", 11)
+    peak = _int("concurrency.peak_user_model_limit", 2)
+    off = _int("concurrency.offpeak_user_model_limit", 1)
+    hour = (now or datetime.now()).hour
+    if start == end:
+        return peak
+    offpeak = hour >= start or hour < end
+    return off if offpeak else peak
+
+
+def _get_user_model_limit(
+    bypass_busyness: bool,
+    stored_cfg,
+    model: str,
+    now: datetime | None = None,
+) -> int:
+    if bypass_busyness:
+        return 9999
+    if isinstance(stored_cfg, dict) and model in stored_cfg:
+        try:
+            return max(int(stored_cfg[model]), 0)
+        except (TypeError, ValueError):
+            pass
+    return max(min(_model_gauge_cap(model), _time_cap(now)), 0)
 
 
 def _get_or_create_user_provider_model_semaphore(

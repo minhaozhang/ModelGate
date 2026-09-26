@@ -187,6 +187,11 @@
                             <p class="text-xs text-gray-500 mt-1">{{ _('Ignore model busyness availability restrictions') }}</p>
                         </div>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Per-model concurrency (optional)' if current_locale != 'zh' else '模型并发（可选）') }}</label>
+                        <p class="text-xs text-gray-500 mb-2">{{ _('Overrides the dynamic cap for specific models; empty = dynamic (gauge + time window). 0 disables the model for this key.' if current_locale != 'zh' else '为指定模型固定并发上限，留空则动态控制（模型富余度+时段）；0 = 该 Key 禁用此模型。') }}</p>
+                        <div id="apikey-model-concurrency-list" class="max-h-40 overflow-y-auto border rounded p-2 space-y-1"></div>
+                    </div>
                 </div>
                 <div class="shrink-0 border-t bg-white px-4 py-3 flex justify-end gap-2">
                     <button type="button" onclick="closeApiKeyModal()" class="px-4 py-2 border rounded hover:bg-gray-50">{{ _('Cancel') }}</button>
@@ -1016,6 +1021,35 @@ maxConcurrent: "{{ _('Max concurrency' if current_locale != 'zh' else '并发上
             ]);
         }
 
+        function renderModelConcurrencyInputs(values) {
+            const wrap = document.getElementById('apikey-model-concurrency-list');
+            if (!wrap) return;
+            wrap.innerHTML = '';
+            for (const m of standardModels) {
+                const val = (values && values[m.name] !== undefined) ? values[m.name] : '';
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2';
+                row.innerHTML =
+                    '<span class="text-xs text-gray-600 flex-1 truncate" title="' + m.name + '">' + m.name + '</span>' +
+                    '<input type="number" min="0" step="1" data-mc-model="' + m.name + '" value="' + val + '" class="w-20 border rounded px-2 py-1 text-xs">';
+                wrap.appendChild(row);
+            }
+            if (!standardModels.length) {
+                wrap.innerHTML = '<div class="text-xs text-gray-400">' + (window.I18N.noModels || '') + '</div>';
+            }
+        }
+
+        function collectModelConcurrency() {
+            const out = {};
+            document.querySelectorAll('#apikey-model-concurrency-list input[data-mc-model]').forEach(el => {
+                const v = el.value.trim();
+                if (v === '') return;
+                const n = parseInt(v, 10);
+                if (!isNaN(n) && n >= 0) out[el.getAttribute('data-mc-model')] = n;
+            });
+            return out;
+        }
+
         function prepareApiKeyPickers() {
             renderStandardModelCheckboxes(true);
         }
@@ -1091,6 +1125,7 @@ ${shCmd}`;
             document.getElementById('apikey-bypass-busyness').checked = false;
             document.getElementById('apikey-daily-quota').value = '';
             document.getElementById('apikey-max-concurrent').value = '';
+            renderModelConcurrencyInputs({});
             currentTags = [];
             renderTags();
             document.getElementById('apikey-modal').classList.remove('hidden');
@@ -1115,6 +1150,7 @@ ${shCmd}`;
                 key.daily_quota_cny === null || key.daily_quota_cny === undefined ? '' : key.daily_quota_cny;
             document.getElementById('apikey-max-concurrent').value =
                 key.max_concurrent === 0 || key.max_concurrent ? key.max_concurrent : '';
+            renderModelConcurrencyInputs(key.model_concurrency || {});
             currentTags = [...(key.tags || [])];
             renderTags();
             document.getElementById('apikey-modal').classList.remove('hidden');
@@ -1146,6 +1182,7 @@ ${shCmd}`;
                     const n = parseInt(v, 10);
                     return isNaN(n) ? -1 : n;
                 })(),
+                model_concurrency: collectModelConcurrency(),
                 tags: currentTags,
             };
 

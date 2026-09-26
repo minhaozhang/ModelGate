@@ -170,6 +170,7 @@ async def handle_streaming(
     provider_key_semaphore,
     user_provider_model_semaphore,
     user_api_key_semaphore,
+    user_model_semaphore,
     request_id,
     log_id,
     request,
@@ -830,6 +831,8 @@ async def handle_streaming(
                 request_id
             ):
                 user_api_key_semaphore.release()
+            if user_model_semaphore is not None:
+                user_model_semaphore.release()
             if model_concurrency_semaphore is not None:
                 model_concurrency_semaphore.release()
 

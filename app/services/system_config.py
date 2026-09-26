@@ -40,6 +40,12 @@ ALL_DEFAULTS = {
         "ip_auth_fail_warn": "30",
         "key_ip_warn": "3",
     },
+    "concurrency": {
+        "offpeak_start_hour": "20",
+        "offpeak_end_hour": "11",
+        "peak_user_model_limit": "2",
+        "offpeak_user_model_limit": "1",
+    },
 }
 
 _settings_cache: dict[str, tuple[str, float]] = {}

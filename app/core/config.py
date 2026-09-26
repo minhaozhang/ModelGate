@@ -86,6 +86,7 @@ api_keys_cache: dict[str, dict] = {}
 provider_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
 provider_key_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 user_api_key_semaphores: dict[str, "asyncio.Semaphore"] = {}
+user_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 standard_model_semaphores: dict[str, "asyncio.Semaphore"] = {}
 _model_requests_24h_cache: dict[str, Any] = {"counts": None, "series": None, "recent": None, "at": 0.0}
 

@@ -361,7 +361,7 @@ class ProxyWrapperForwardTests(unittest.IsolatedAsyncioTestCase):
             result = await handle_streaming(
                 "https://example.com", {}, b"{}", "openai", "gpt",
                 [], 0, {}, 1, "127.0.0.1", "test", 0,
-                object(), object(), object(),
+                object(), object(), object(), None,
                 "req-1", None, None,
                 model_concurrency_semaphore=model_semaphore,
             )

@@ -49,7 +49,9 @@ from app.services.proxy_runtime import (
     USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
     _get_user_api_key_limit,
     _get_user_provider_model_limit,
+    _get_user_model_limit,
     _get_or_create_user_api_key_semaphore,
+    _get_or_create_user_model_semaphore,
     _get_or_create_user_provider_model_semaphore,
     _get_or_create_provider_key_semaphore,
     _get_or_create_standard_model_semaphore,
@@ -92,6 +94,18 @@ def _api_key_max_concurrent(api_key_id: int | None) -> int | None:
     for key_info in api_keys_cache.values():
         if key_info.get("id") == api_key_id:
             return key_info.get("max_concurrent")
+    return None
+
+
+def _api_key_model_concurrency(api_key_id: int | None) -> dict | None:
+    from app.core.config import api_keys_cache
+
+    if not api_key_id:
+        return None
+    for key_info in api_keys_cache.values():
+        if key_info.get("id") == api_key_id:
+            cfg = key_info.get("model_concurrency")
+            return cfg if isinstance(cfg, dict) else None
     return None
 
 
@@ -571,10 +585,12 @@ async def proxy_request(request: Request, endpoint: str):
 
     provider_key_semaphore = None
     user_api_key_semaphore = None
+    user_model_semaphore = None
     user_provider_model_semaphore = None
     model_concurrency_semaphore = None
     acquired = False
     user_api_key_acquired = False
+    user_model_acquired = False
     user_provider_model_acquired = False
     model_conc_acquired = False
 
@@ -732,6 +748,71 @@ async def proxy_request(request: Request, endpoint: str):
                     429,
                     "rate_limit_error",
                     "user_global_concurrency_reached",
+                    headers={
+                        **busyness_headers,
+                        "retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS),
+                    },
+                )
+
+        user_model_limit = _get_user_model_limit(
+            bypass_busyness,
+            _api_key_model_concurrency(api_key_id),
+            model,
+        )
+        if user_model_limit < 9999:
+            user_model_sem_key, user_model_semaphore = (
+                _get_or_create_user_model_semaphore(
+                    api_key_id, model, user_model_limit
+                )
+            )
+            try:
+                await acquire_scoped_semaphore(
+                    user_model_semaphore,
+                    USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                )
+                user_model_acquired = True
+            except asyncio.TimeoutError:
+                message = (
+                    f"您对模型 '{model}' 的并发已达上限，请等待当前请求完成后再试"
+                )
+                logger.warning(
+                    "[RATE LIMIT] %s at per-model concurrency %d",
+                    user_model_sem_key,
+                    user_model_limit,
+                )
+                update_stats(
+                    provider_name,
+                    actual_model,
+                    0,
+                    api_key_id=api_key_id,
+                    is_rate_limited=True,
+                )
+                await create_request_log(
+                    provider_name,
+                    actual_model,
+                    status=LOCAL_RATE_LIMITED_STATUS,
+                    api_key_id=api_key_id,
+                    client_ip=client_ip,
+                    user_agent=user_agent,
+                    request_context_tokens=request_context_tokens,
+                    request_image_count=request_image_count,
+                    latency_ms=(time.time() - start_time) * 1000,
+                    upstream_status_code=429,
+                    downstream_status_code=429,
+                    error=message,
+                    inbound_protocol=inbound_protocol,
+                    intent=request_intent,
+                    requested_model=requested_model,
+                    routing_decision=_build_routing_decision(
+                        routing_decision_base,
+                        outcome="user_model_concurrency_reached",
+                    ),
+                )
+                return _openai_error_response(
+                    message,
+                    429,
+                    "rate_limit_error",
+                    "user_model_concurrency_reached",
                     headers={
                         **busyness_headers,
                         "retry-after": str(SEMAPHORE_RETRY_AFTER_SECONDS),
@@ -1243,6 +1324,7 @@ async def proxy_request(request: Request, endpoint: str):
                             provider_key_semaphore,
                             user_provider_model_semaphore,
                             user_api_key_semaphore,
+                            user_model_semaphore,
                             request_id,
                             stream_log_id,
                             request,
@@ -1267,6 +1349,8 @@ async def proxy_request(request: Request, endpoint: str):
                         if isinstance(response, StreamingResponse):
                             user_api_key_acquired = False
                             user_api_key_semaphore = None
+                            user_model_acquired = False
+                            user_model_semaphore = None
                         model_conc_acquired = False
                         model_concurrency_semaphore = None
                     else:
@@ -1592,6 +1676,8 @@ async def proxy_request(request: Request, endpoint: str):
         if not entered_handler:
             if user_provider_model_acquired and user_provider_model_semaphore is not None:
                 user_provider_model_semaphore.release()
+            if user_model_acquired and user_model_semaphore is not None:
+                user_model_semaphore.release()
             if acquired and provider_key_semaphore is not None:
                 provider_key_semaphore.release()
         latency = (time.time() - start_time) * 1000
@@ -1628,6 +1714,8 @@ async def proxy_request(request: Request, endpoint: str):
         if user_api_key_acquired and user_api_key_semaphore is not None:
             if not consume_user_slot_released(request_id):
                 user_api_key_semaphore.release()
+        if user_model_acquired and user_model_semaphore is not None:
+            user_model_semaphore.release()
         if model_conc_acquired and model_concurrency_semaphore is not None:
             model_concurrency_semaphore.release()
 
@@ -1764,6 +1852,7 @@ async def handle_streaming(
     provider_key_semaphore,
     user_provider_model_semaphore,
     user_api_key_semaphore,
+    user_model_semaphore,
     request_id,
     log_id,
     request,
@@ -1795,6 +1884,7 @@ async def handle_streaming(
         provider_key_semaphore=provider_key_semaphore,
         user_provider_model_semaphore=user_provider_model_semaphore,
         user_api_key_semaphore=user_api_key_semaphore,
+        user_model_semaphore=user_model_semaphore,
         request_id=request_id,
         log_id=log_id,
         request=request,
