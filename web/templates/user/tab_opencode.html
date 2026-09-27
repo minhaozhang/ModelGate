@@ -2,25 +2,23 @@
     <h2 class="text-lg font-semibold tracking-tight mb-4">{{ _('OpenCode Configuration') }}</h2>
 
     <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
-        <h3 class="font-semibold tracking-tight text-gray-800 mb-2">{{ _('One-liner setup') }} <span class="text-xs font-normal text-blue-600">{{ _('recommended') }}</span></h3>
-        <p class="text-sm text-blue-700 mb-3">{{ _('Run the command below in a terminal on the machine where OpenCode is installed. It backs up your current config, fetches the latest ModelGate models, and writes them into your opencode.jsonc automatically.') }}</p>
-        <p class="text-xs text-blue-600 mb-3">{{ '命令已自动嵌入你的 API Key（在右上角「我的 Key」中查看/复制），无需手动输入。' if current_locale == 'zh' else _('The commands below already embed your API key (view/copy it via "My Key" at the top right).') }}</p>
+        <h3 class="font-semibold tracking-tight text-gray-800 mb-3">{{ _('One-liner setup') }}</h3>
         <div class="space-y-3">
             <div>
-                <div class="text-xs font-medium text-blue-700 mb-1">{{ 'Windows (PowerShell)' if current_locale == 'zh' else 'Windows (PowerShell)' }}</div>
+                <div class="text-xs font-medium text-blue-700 mb-1">Windows (PowerShell)</div>
                 <div class="flex items-center gap-2 rounded bg-white border border-blue-200 px-3 py-2">
                     <code id="ps1-cmd" class="flex-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap"></code>
                     <button type="button" onclick="copyById('ps1-cmd')" class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50">{{ _('Copy') }}</button>
                 </div>
             </div>
             <div>
-                <div class="text-xs font-medium text-blue-700 mb-1">{{ 'macOS / Linux (Bash)' if current_locale == 'zh' else 'macOS / Linux (Bash)' }}</div>
+                <div class="text-xs font-medium text-blue-700 mb-1">macOS / Linux (Bash)</div>
                 <div class="flex items-center gap-2 rounded bg-white border border-blue-200 px-3 py-2">
                     <code id="sh-cmd" class="flex-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap"></code>
                     <button type="button" onclick="copyById('sh-cmd')" class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50">{{ _('Copy') }}</button>
                 </div>
             </div>
         </div>
-        <p class="text-xs text-blue-600 mt-3">{{ _('Requires only curl on macOS/Linux. The script prompts for the API key if it is not embedded in the URL.') if current_locale == 'zh' else _('The macOS/Linux script only needs curl. If the API key is not embedded in the URL, the script will prompt for it.') }}</p>
+        <p class="text-xs text-blue-600 mt-3">{{ _('Your API key is embedded in the commands (see "My Key" at the top right) · macOS/Linux only needs curl') }}</p>
     </div>
 </div>
