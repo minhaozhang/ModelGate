@@ -170,14 +170,18 @@ class AdminUiStaticTests(unittest.TestCase):
     def test_user_opencode_tab_dropped_manual_upload_merge_flow(self):
         html = (ROOT / "web" / "templates" / "user" / "tab_opencode.html").read_text(encoding="utf-8")
 
-        # The manual upload/merge block was dropped: the one-liner scripts and
-        # the copy-markdown flow cover everything it did.
+        # The manual upload/merge block was dropped: the one-liner scripts
+        # cover everything it did.
         self.assertNotIn("mergeConfigFile", html)
         self.assertNotIn("downloadConfig", html)
         self.assertNotIn("copyOpencodeConfigDir", html)
-        # The copy-markdown manual flow remains.
-        self.assertIn("config-output", html)
-        self.assertIn("copyConfig()", html)
+        # The copy-markdown manual flow was dropped too: only the one-liner
+        # commands remain, and the key moved to the "My Key" modal.
+        self.assertNotIn("config-output", html)
+        self.assertNotIn("copyConfig()", html)
+        self.assertIn("ps1-cmd", html)
+        self.assertIn("sh-cmd", html)
+        self.assertNotIn("opencode-api-key", html)
 
     def test_user_cost_card_downloads_billing_details_for_current_period(self):
         tab = (ROOT / "web" / "templates" / "user" / "tab_stats.html").read_text(encoding="utf-8")

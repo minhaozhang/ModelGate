@@ -53,7 +53,8 @@
         /* modal panels float above a dimmed overlay: keep them fully opaque
            (the glassy 3%-alpha card treatment must not bleed through) */
         body.theme-dark #my-requests-modal > div,
-        body.theme-dark #price-detail-modal > div { background: #0a0a12 !important; }
+        body.theme-dark #price-detail-modal > div,
+        body.theme-dark #my-key-modal > div { background: #0a0a12 !important; }
         body.theme-dark .bg-gray-50 { background: rgba(235, 234, 250, 0.05) !important; }
         body.theme-dark #global-status-strip { background: rgba(235, 234, 250, 0.04) !important; border-color: rgba(235, 234, 250, 0.08) !important; }
         body.theme-dark #global-status-strip .text-slate-700 { color: #ededf8e6 !important; }
@@ -351,8 +352,8 @@
                 <button id="stats-view-toggle" onclick="toggleStatsView()" class="ctl-btn-new" title="{{ _('Back to Classic') }}">
                     {{ _('Back to Classic') }} &nearr;
                 </button>
-                <button onclick="regenerateKey()" class="ctl-btn-amber">
-                    {{ _('Reset API Key') }}
+                <button onclick="openMyKeyModal()" class="ctl-btn-amber">
+                    {{ _('My Key') }}
                 </button>
                 <button onclick="logout()" class="ctl-btn-ghost">
                     {{ _('Logout') }}
@@ -524,6 +525,9 @@
         regenerateKeyFailed: {{ _('Failed to regenerate API key') | tojson }},
         newKeyIs: {{ _('Your new API Key is:') | tojson }},
         newKeySaveNote: {{ _('Please save it securely. You will need it to log in again.') | tojson }},
+        myKeyTitle: {{ _('My API Key') | tojson }},
+        myKeyResetLabel: {{ _('Reset API Key') | tojson }},
+        myKeyLoadFailed: {{ _('Failed to load API key') | tojson }},
         temporarilyUnavailable: {{ _('Temporarily unavailable') | tojson }},
         providerUnavailable: {{ _('Provider unavailable') | tojson }},
         providerUnavailableLine: {{ _('Provider {name} is unavailable: {reason}') | tojson }},
@@ -1608,19 +1612,6 @@
         });
         
         async function loadOpenCodeConfig() {
-            const el = document.getElementById('config-output');
-            el.textContent = window.I18N.loading || 'Loading...';
-            try {
-                const resp = await fetch(APP_BASE_PATH + '/opencode/setup.md');
-                if (!resp.ok) {
-                    el.textContent = window.I18N.loadFailed || 'Failed to load';
-                } else {
-                    const text = await resp.text();
-                    el.textContent = text;
-                }
-            } catch (e) {
-                el.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
-            }
             const origin = window.location.origin;
             const ps1El = document.getElementById('ps1-cmd');
             const shEl = document.getElementById('sh-cmd');
@@ -1631,23 +1622,35 @@
                     const data = await resp.json();
                     if (data && data.key) {
                         keyParam = '?key=' + encodeURIComponent(data.key);
-                        setMaskedText('opencode-api-key', data.key);
-                        const realPs1 = `irm '${origin}${APP_BASE_PATH}/opencode/setup.ps1${keyParam}' | iex`;
-                        const realSh = `curl -fsSL '${origin}${APP_BASE_PATH}/opencode/setup.sh${keyParam}' | bash`;
-                        setMaskedCommand('ps1-cmd', realPs1, keyParam);
-                        setMaskedCommand('sh-cmd', realSh, keyParam);
+                        setMaskedCommand('ps1-cmd', `irm '${origin}${APP_BASE_PATH}/opencode/setup.ps1${keyParam}' | iex`, keyParam);
+                        setMaskedCommand('sh-cmd', `curl -fsSL '${origin}${APP_BASE_PATH}/opencode/setup.sh${keyParam}' | bash`, keyParam);
                     }
                 }
             } catch (e) { /* key stays masked out of commands */ }
             if (ps1El && !REAL_TEXT_OVERRIDES['ps1-cmd']) ps1El.textContent = `irm '${origin}${APP_BASE_PATH}/opencode/setup.ps1${keyParam}' | iex`;
             if (shEl && !REAL_TEXT_OVERRIDES['sh-cmd']) shEl.textContent = `curl -fsSL '${origin}${APP_BASE_PATH}/opencode/setup.sh${keyParam}' | bash`;
         }
-        
-        function copyConfig(targetId) {
-            const el = document.getElementById(targetId || 'config-output');
-            if (!el) return;
-            const config = REAL_TEXT_OVERRIDES[targetId] || el.textContent;
-            navigator.clipboard.writeText(config).then(() => alert(window.I18N.copied));
+
+        async function openMyKeyModal() {
+            const modal = document.getElementById('my-key-modal');
+            const display = document.getElementById('my-key-display');
+            display.textContent = window.I18N.loading || 'Loading...';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            try {
+                const resp = await fetch(APP_BASE_PATH + '/user/api/my-key');
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                setMaskedText('my-key-display', data.key);
+            } catch (e) {
+                display.textContent = window.I18N.myKeyLoadFailed || 'Failed to load';
+            }
+        }
+
+        function closeMyKeyModal() {
+            const modal = document.getElementById('my-key-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
         }
 
         let _codexCtx = null;
@@ -2496,6 +2499,26 @@
       <button onclick="closePriceDetail()" class="text-gray-400 hover:text-gray-600">✕</button>
     </div>
     <div id="price-detail-body" class="space-y-2 text-sm"></div>
+  </div>
+</div>
+<div id="my-key-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(0,0,0,0.5)">
+  <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full mx-4">
+    <div class="flex justify-between items-center px-4 py-3 border-b shrink-0">
+      <h3 class="text-base font-semibold" id="my-key-modal-title">{{ _('My API Key') }}</h3>
+      <button onclick="closeMyKeyModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+    </div>
+    <div class="p-4 space-y-4">
+      <div class="flex items-center gap-2 rounded bg-gray-50 border px-3 py-2">
+        <code id="my-key-display" class="flex-1 text-sm text-gray-800 overflow-x-auto whitespace-nowrap select-all"></code>
+        <button type="button" onclick="copyById('my-key-display')" class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50 shrink-0">{{ _('Copy') }}</button>
+      </div>
+      <p class="text-xs text-gray-500">{{ _('The copy button copies the full key; the display is masked.') if current_locale == 'zh' else _('The display is masked, but the copy button copies the full key.') }}</p>
+      <div class="flex justify-end">
+        <button onclick="regenerateKey()" class="px-3 py-1.5 rounded text-sm text-amber-700 border border-amber-300 bg-amber-50 hover:bg-amber-100">
+          {{ _('Reset API Key') }}
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 <div id="my-requests-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(0,0,0,0.5)">

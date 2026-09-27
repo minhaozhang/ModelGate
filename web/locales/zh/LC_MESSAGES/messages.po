@@ -2139,6 +2139,19 @@ msgstr "黑金模式"
 msgid "Reset API Key"
 msgstr "重置 API 密钥"
 
+#: web/templates/user/dashboard.html:355
+msgid "My Key"
+msgstr "我的 Key"
+
+msgid "My API Key"
+msgstr "我的 API 密钥"
+
+msgid "Failed to load API key"
+msgstr "加载 API 密钥失败"
+
+msgid "The display is masked, but the copy button copies the full key."
+msgstr "显示为掩码，复制按钮会复制完整密钥。"
+
 #: web/templates/user/dashboard.html:365
 msgid "Statistics"
 msgstr "统计"
