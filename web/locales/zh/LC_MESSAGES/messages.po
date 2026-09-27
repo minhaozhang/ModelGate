@@ -3450,3 +3450,9 @@ msgstr "按密钥"
 
 msgid "Provider Key"
 msgstr "密钥"
+
+msgid "Client Config"
+msgstr "客户端配置"
+
+msgid "Pi Configuration"
+msgstr "Pi 配置"

@@ -24,6 +24,9 @@
         .stats-summary-tab { border-radius: 0.5rem; padding: 0.375rem 0.875rem; font-size: 0.8125rem; font-weight: 500; color: #64748b; cursor: pointer; white-space: nowrap; transition: color 0.15s, background-color 0.15s, box-shadow 0.15s; }
         .stats-summary-tab:hover { color: #334155; }
         .stats-summary-tab.active { background: #ffffff; color: #2563eb; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.05); }
+        .client-tab-btn { border-radius: 0.5rem 0.5rem 0 0; padding: 0.4rem 1rem; font-size: 0.8125rem; font-weight: 500; color: #64748b; cursor: pointer; white-space: nowrap; transition: color 0.15s, background-color 0.15s; border-bottom: 2px solid transparent; }
+        .client-tab-btn:hover { color: #334155; background: rgba(148, 163, 184, 0.08); }
+        .client-tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
         .card-shell { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -16px rgba(15, 23, 42, 0.14); border: 1px solid rgba(15, 23, 42, 0.06); }
         .metric-value { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
         .value-pop { display: inline-block; animation: valuePop .45s ease-out; }
@@ -99,6 +102,9 @@
         body.theme-dark .tab-btn { color: #ededf8a3; }
         body.theme-dark .tab-btn:hover { color: #ededf8; background: rgba(235, 234, 250, 0.06) !important; }
         body.theme-dark .tab-btn.active { background: rgba(129, 140, 248, 0.14) !important; box-shadow: none; }
+        body.theme-dark .client-tab-btn { color: #94a3b8; }
+        body.theme-dark .client-tab-btn:hover { color: #e2e8f0; background: rgba(148, 163, 184, 0.10); }
+        body.theme-dark .client-tab-btn.active { color: #a78bfa; border-bottom-color: #a78bfa; }
         body.theme-dark .seg-nav { background: rgba(235, 234, 250, 0.06); }
         body.theme-dark .stats-sub-tab:hover, body.theme-dark .stats-summary-tab:hover { color: #ededf8; }
         body.theme-dark .stats-sub-tab.active, body.theme-dark .stats-summary-tab.active { background: rgba(129, 140, 248, 0.14) !important; box-shadow: none; }
@@ -236,6 +242,9 @@
         body.theme-blackgold .tab-btn:not(.active) { background: transparent !important; border-color: transparent !important; }
         body.theme-blackgold .tab-btn:hover { color: #fafaf9; background: rgba(212, 168, 83, 0.08) !important; }
         body.theme-blackgold .tab-btn.active { border-bottom-color: transparent; background: rgba(212, 168, 83, 0.14) !important; color: #d4a853 !important; box-shadow: none; }
+        body.theme-blackgold .client-tab-btn { color: #a8a29e; }
+        body.theme-blackgold .client-tab-btn:hover { color: #e7e5e4; background: rgba(212, 168, 83, 0.08); }
+        body.theme-blackgold .client-tab-btn.active { color: #d4a853; border-bottom-color: #d4a853; }
         body.theme-blackgold .seg-nav { background: rgba(212, 168, 83, 0.08); }
         body.theme-blackgold .stats-sub-tab, body.theme-blackgold .stats-summary-tab { color: #a8a29e; }
         body.theme-blackgold .stats-sub-tab:not(.active), body.theme-blackgold .stats-summary-tab:not(.active) { background: transparent !important; border-color: transparent !important; }
@@ -371,8 +380,7 @@
         <div class="tab-nav mb-6" role="tablist">
             <button class="tab-btn active" onclick="showTab('stats')">{{ _('Statistics Monitor') }}</button>
             <button class="tab-btn" onclick="showTab('catalog')">{{ _('Model Plaza') }}</button>
-            <button class="tab-btn" onclick="showTab('opencode')">{{ _('OpenCode Config') }}</button>
-            <button class="tab-btn" onclick="showTab('codex')">Codex {{ _('Config') }}</button>
+            <button class="tab-btn" data-tab="clients" onclick="showTab('clients')">{{ _('Client Config') }}</button>
             <button class="tab-btn" onclick="showTab('usage')">{{ _('Usage Guide') }}</button>
             <button class="tab-btn" onclick="showTab('documents')">{{ _('Documents') }}</button>
             <button class="tab-btn" data-tab="notifications" onclick="showTab('notifications')">{{ _('Notifications') }}</button>
@@ -381,9 +389,17 @@
         {% include 'user/tab_stats_v2.html' %}
 
         <div class="bg-white rounded-2xl card-shell mb-6">
+            <div id="tab-clients" class="tab-content">
+                <div class="client-nav flex flex-wrap gap-1 border-b border-gray-200 mb-6 pl-2" role="tablist">
+                    <button class="client-tab-btn active" id="client-tab-opencode" onclick="switchClientTab('opencode')">OpenCode</button>
+                    <button class="client-tab-btn" id="client-tab-codex" onclick="switchClientTab('codex')">Codex</button>
+                    <button class="client-tab-btn" id="client-tab-pi" onclick="switchClientTab('pi')">Pi</button>
+                </div>
+                {% include 'user/tab_opencode.html' %}
+                {% include 'user/tab_codex.html' %}
+                {% include 'user/tab_pi.html' %}
+            </div>
             {% include 'user/tab_catalog.html' %}
-            {% include 'user/tab_opencode.html' %}
-            {% include 'user/tab_codex.html' %}
             {% include 'user/tab_usage.html' %}
             {% include 'user/tab_documents.html' %}
             {% include 'user/tab_notifications.html' %}
@@ -645,16 +661,41 @@
             if (_statsLegacy) loadStats();
             else if (window.v2LoadStats) window.v2LoadStats();
         }
+        const CLIENT_SUBTABS = { opencode: true, codex: true, pi: true };
+        let _clientsActive = '';
+        const _clientsLoaded = {};
+
+        function switchClientTab(name) {
+            if (!CLIENT_SUBTABS[name]) name = 'opencode';
+            _clientsActive = name;
+            document.querySelectorAll('.client-tab-btn').forEach(function (b) {
+                b.classList.toggle('active', b.id === 'client-tab-' + name);
+            });
+            document.querySelectorAll('.client-pane').forEach(function (p) {
+                p.style.display = (p.id === 'tab-' + name) ? '' : 'none';
+            });
+            if (!_clientsLoaded[name]) {
+                _clientsLoaded[name] = true;
+                if (name === 'opencode') loadOpenCodeConfig();
+                if (name === 'codex') loadCodexConfig();
+                if (name === 'pi') loadPiConfig();
+            }
+        }
+
         function showTab(tab) {
+            if (CLIENT_SUBTABS[tab]) {
+                // legacy anchors (opencode/codex/pi) route into the clients tab
+                switchClientTab(tab);
+                tab = 'clients';
+            }
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             var btn = event.target.closest('.tab-btn');
             if (btn) { btn.classList.add('active'); }
             else { document.querySelectorAll('.tab-btn').forEach(function(b){ if(b.getAttribute('data-tab')===tab) b.classList.add('active'); }); }
             document.getElementById('tab-' + tab).classList.add('active');
-            
-            if (tab === 'opencode') loadOpenCodeConfig();
-            if (tab === 'codex') loadCodexConfig();
+            if (tab === 'clients' && !_clientsActive) switchClientTab('opencode');
+
             if (tab === 'catalog' && !catalogLoaded) loadCatalog();
             if (tab === 'documents') loadDocList();
             if (tab === 'notifications') { loadUserNotifList(1); userNotifMarkAllRead(); }
@@ -1698,6 +1739,78 @@
         async function downloadCodexModelsJson() {
             try {
                 const resp = await fetch(APP_BASE_PATH + '/codex/models.json');
+                if (!resp.ok) {
+                    alert(window.I18N.loadFailed || 'Failed to load');
+                    return;
+                }
+                const text = await resp.text();
+                const blob = new Blob([text], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'models.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert((window.I18N.loadFailed || 'Failed to load') + ': ' + e.message);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Pi coding agent config tab
+        // ------------------------------------------------------------------
+        let _piCtx = null;
+        let _piKey = '';
+
+        async function loadPiConfig() {
+            const jsonEl = document.getElementById('pi-models-json');
+            const mdEl = document.getElementById('pi-setup-output');
+            if (jsonEl) jsonEl.textContent = window.I18N.loading || 'Loading...';
+            try {
+                const resp = await fetch(APP_BASE_PATH + '/pi/config');
+                if (resp.ok) {
+                    _piCtx = await resp.json();
+                    _piKey = _piCtx.api_key || '';
+                    setMaskedText('pi-api-key', _piKey);
+                    const block = {
+                        providers: {
+                            modelgate: {
+                                baseUrl: _piCtx.base_url,
+                                api: 'openai-completions',
+                                apiKey: _piKey,
+                                models: (_piCtx.models || []).map(function (m) { return { id: m }; }),
+                            },
+                        },
+                    };
+                    const text = JSON.stringify(block, null, 2);
+                    if (jsonEl) jsonEl.textContent = text;
+                    REAL_TEXT_OVERRIDES['pi-models-json'] = text;
+                } else if (jsonEl) {
+                    jsonEl.textContent = window.I18N.loadFailed || 'Failed to load';
+                }
+            } catch (e) {
+                if (jsonEl) jsonEl.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
+            }
+            if (mdEl) {
+                try {
+                    const resp = await fetch(APP_BASE_PATH + '/pi/setup.md');
+                    mdEl.textContent = resp.ok ? await resp.text() : (window.I18N.loadFailed || 'Failed to load');
+                } catch (e) {
+                    mdEl.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
+                }
+            }
+            const origin = window.location.origin;
+            let keyParam = '';
+            if (_piKey) keyParam = '?key=' + encodeURIComponent(_piKey);
+            const realPs1 = `irm '${origin}${APP_BASE_PATH}/pi/setup.ps1${keyParam}' | iex`;
+            const realSh = `bash <(curl -fsSL '${origin}${APP_BASE_PATH}/pi/setup.sh${keyParam}')`;
+            setMaskedCommand('pi-ps1-cmd', realPs1, keyParam);
+            setMaskedCommand('pi-sh-cmd', realSh, keyParam);
+        }
+
+        async function downloadPiModelsJson() {
+            try {
+                const resp = await fetch(APP_BASE_PATH + '/pi/models.json');
                 if (!resp.ok) {
                     alert(window.I18N.loadFailed || 'Failed to load');
                     return;
