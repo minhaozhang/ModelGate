@@ -41,6 +41,7 @@ from app.core.db_models import (  # noqa: F401
     Provider,
     ProviderDailyStat,
     ProviderKey,
+    ProviderKeyDailyStat,
     ProviderKeyRoutingRule,
     ProviderKeyStrategyAssignment,
     ProviderKeyStrategyTemplate,

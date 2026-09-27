@@ -3441,3 +3441,12 @@ msgstr "总 Token"
 
 msgid "Cost (CNY)"
 msgstr "花费（元）"
+
+msgid "By Provider"
+msgstr "按供应商"
+
+msgid "By Provider Key"
+msgstr "按密钥"
+
+msgid "Provider Key"
+msgstr "密钥"

@@ -17,6 +17,8 @@ from sqlalchemy import func, select
 from app.core.database import (
     ApiKey,
     ApiKeyDailyStat,
+    ProviderDailyStat,
+    ProviderKeyDailyStat,
     TagDailyStat,
     async_session_maker,
 )
@@ -124,6 +126,76 @@ async def _query_by_key(start: str, end: str) -> list[dict]:
     ]
 
 
+async def _query_by_provider(start: str, end: str) -> list[dict]:
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(
+                ProviderDailyStat.provider_name,
+                func.coalesce(func.sum(ProviderDailyStat.requests), 0).label("requests"),
+                func.coalesce(func.sum(ProviderDailyStat.prompt_tokens), 0).label("prompt_tokens"),
+                func.coalesce(func.sum(ProviderDailyStat.completion_tokens), 0).label("completion_tokens"),
+                func.coalesce(func.sum(ProviderDailyStat.tokens), 0).label("tokens"),
+                func.coalesce(func.sum(ProviderDailyStat.cost_cny), 0).label("cost"),
+            )
+            .where(
+                ProviderDailyStat.date >= start,
+                ProviderDailyStat.date <= end,
+            )
+            .group_by(ProviderDailyStat.provider_name)
+            .order_by(func.coalesce(func.sum(ProviderDailyStat.cost_cny), 0).desc())
+        )
+        rows = result.fetchall()
+
+    return [
+        {
+            "provider_name": row.provider_name or "",
+            "requests": int(row.requests or 0),
+            "prompt_tokens": int(row.prompt_tokens or 0),
+            "completion_tokens": int(row.completion_tokens or 0),
+            "tokens": int(row.tokens or 0),
+            "cost": round(float(row.cost or 0), 6),
+        }
+        for row in rows
+    ]
+
+
+async def _query_by_provider_key(start: str, end: str) -> list[dict]:
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(
+                ProviderKeyDailyStat.provider_key_id,
+                func.max(ProviderKeyDailyStat.provider_key_label).label("provider_key_label"),
+                func.max(ProviderKeyDailyStat.provider_name).label("provider_name"),
+                func.coalesce(func.sum(ProviderKeyDailyStat.requests), 0).label("requests"),
+                func.coalesce(func.sum(ProviderKeyDailyStat.prompt_tokens), 0).label("prompt_tokens"),
+                func.coalesce(func.sum(ProviderKeyDailyStat.completion_tokens), 0).label("completion_tokens"),
+                func.coalesce(func.sum(ProviderKeyDailyStat.tokens), 0).label("tokens"),
+                func.coalesce(func.sum(ProviderKeyDailyStat.cost_cny), 0).label("cost"),
+            )
+            .where(
+                ProviderKeyDailyStat.date >= start,
+                ProviderKeyDailyStat.date <= end,
+            )
+            .group_by(ProviderKeyDailyStat.provider_key_id)
+            .order_by(func.coalesce(func.sum(ProviderKeyDailyStat.cost_cny), 0).desc())
+        )
+        rows = result.fetchall()
+
+    return [
+        {
+            "provider_key_id": row.provider_key_id,
+            "label": row.provider_key_label or f"(密钥 #{row.provider_key_id})",
+            "provider_name": row.provider_name or "",
+            "requests": int(row.requests or 0),
+            "prompt_tokens": int(row.prompt_tokens or 0),
+            "completion_tokens": int(row.completion_tokens or 0),
+            "tokens": int(row.tokens or 0),
+            "cost": round(float(row.cost or 0), 6),
+        }
+        for row in rows
+    ]
+
+
 @router.get("/by-tag")
 async def report_by_tag(
     start: Optional[str] = Query(None),
@@ -146,6 +218,28 @@ async def report_by_key(
     return {"start": start_date, "end": end_date, "rows": rows}
 
 
+@router.get("/by-provider")
+async def report_by_provider(
+    start: Optional[str] = Query(None),
+    end: Optional[str] = Query(None),
+    _: bool = Depends(permission_required("page.report_center")),
+):
+    start_date, end_date = _resolve_range(start, end)
+    rows = await _query_by_provider(start_date, end_date)
+    return {"start": start_date, "end": end_date, "rows": rows}
+
+
+@router.get("/by-provider-key")
+async def report_by_provider_key(
+    start: Optional[str] = Query(None),
+    end: Optional[str] = Query(None),
+    _: bool = Depends(permission_required("page.report_center")),
+):
+    start_date, end_date = _resolve_range(start, end)
+    rows = await _query_by_provider_key(start_date, end_date)
+    return {"start": start_date, "end": end_date, "rows": rows}
+
+
 def _rows_to_csv(headers: list[str], rows: list[dict], keys: list[str]) -> str:
     def _cell(row: dict, key: str):
         value = row.get(key, "")
@@ -163,6 +257,8 @@ def _rows_to_csv(headers: list[str], rows: list[dict], keys: list[str]) -> str:
 
 _BY_TAG_CSV_KEYS = ["tag", "key_count", "requests", "prompt_tokens", "completion_tokens", "tokens", "cost"]
 _BY_KEY_CSV_KEYS = ["tags", "key_name", "requests", "prompt_tokens", "completion_tokens", "tokens", "cost"]
+_BY_PROVIDER_CSV_KEYS = ["provider_name", "requests", "prompt_tokens", "completion_tokens", "tokens", "cost"]
+_BY_PROVIDER_KEY_CSV_KEYS = ["provider_name", "label", "requests", "prompt_tokens", "completion_tokens", "tokens", "cost"]
 
 
 @router.get("/by-tag.csv")
@@ -192,6 +288,38 @@ async def report_by_key_csv(
     filename = f"modelgate_report_by_key_{start_date}_{end_date}.csv"
     return Response(
         content="\ufeff" + _rows_to_csv(["标签", "Key", "请求数", "输入Token", "输出Token", "总Token", "花费(元)"], rows, _BY_KEY_CSV_KEYS),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/by-provider.csv")
+async def report_by_provider_csv(
+    start: Optional[str] = Query(None),
+    end: Optional[str] = Query(None),
+    _: bool = Depends(permission_required("page.report_center")),
+):
+    start_date, end_date = _resolve_range(start, end)
+    rows = await _query_by_provider(start_date, end_date)
+    filename = f"modelgate_report_by_provider_{start_date}_{end_date}.csv"
+    return Response(
+        content="\ufeff" + _rows_to_csv(["供应商", "请求数", "输入Token", "输出Token", "总Token", "花费(元)"], rows, _BY_PROVIDER_CSV_KEYS),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/by-provider-key.csv")
+async def report_by_provider_key_csv(
+    start: Optional[str] = Query(None),
+    end: Optional[str] = Query(None),
+    _: bool = Depends(permission_required("page.report_center")),
+):
+    start_date, end_date = _resolve_range(start, end)
+    rows = await _query_by_provider_key(start_date, end_date)
+    filename = f"modelgate_report_by_provider_key_{start_date}_{end_date}.csv"
+    return Response(
+        content="\ufeff" + _rows_to_csv(["供应商", "密钥", "请求数", "输入Token", "输出Token", "总Token", "花费(元)"], rows, _BY_PROVIDER_KEY_CSV_KEYS),
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

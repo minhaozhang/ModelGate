@@ -71,6 +71,8 @@
                     <div class="flex border-b border-gray-200 px-4">
                         <button class="rc-tab active" id="rc-tab-tag" onclick="rcSetView('tag')">{{ _('By Tag') }}</button>
                         <button class="rc-tab" id="rc-tab-key" onclick="rcSetView('key')">{{ _('By Person') }}</button>
+                        <button class="rc-tab" id="rc-tab-provider" onclick="rcSetView('provider')">{{ _('By Provider') }}</button>
+                        <button class="rc-tab" id="rc-tab-provider-key" onclick="rcSetView('provider-key')">{{ _('By Provider Key') }}</button>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="rc-table">
@@ -87,6 +89,23 @@
                                 <tr id="rc-head-key" style="display:none">
                                     <th>{{ _('Person') }}</th>
                                     <th>{{ _('Tags') }}</th>
+                                    <th class="num">{{ _('Requests') }}</th>
+                                    <th class="num">{{ _('Input Tokens') }}</th>
+                                    <th class="num">{{ _('Output Tokens') }}</th>
+                                    <th class="num">{{ _('Total Tokens') }}</th>
+                                    <th class="num">{{ _('Cost (CNY)') }}</th>
+                                </tr>
+                                <tr id="rc-head-provider" style="display:none">
+                                    <th>{{ _('Provider') }}</th>
+                                    <th class="num">{{ _('Requests') }}</th>
+                                    <th class="num">{{ _('Input Tokens') }}</th>
+                                    <th class="num">{{ _('Output Tokens') }}</th>
+                                    <th class="num">{{ _('Total Tokens') }}</th>
+                                    <th class="num">{{ _('Cost (CNY)') }}</th>
+                                </tr>
+                                <tr id="rc-head-provider-key" style="display:none">
+                                    <th>{{ _('Provider') }}</th>
+                                    <th>{{ _('Provider Key') }}</th>
                                     <th class="num">{{ _('Requests') }}</th>
                                     <th class="num">{{ _('Input Tokens') }}</th>
                                     <th class="num">{{ _('Output Tokens') }}</th>
@@ -119,23 +138,31 @@
     function fmtNum(v) { return (v || 0).toLocaleString(); }
     function fmtCost(v) { v = v || 0; return '¥' + (v >= 1 ? v.toFixed(2) : v.toFixed(4)); }
 
+    const RC_VIEWS = ['tag', 'key', 'provider', 'provider-key'];
+    const RC_COLS = { tag: 7, key: 7, provider: 6, 'provider-key': 7 };
+
     function rcSetView(view) {
         rcView = view;
-        document.getElementById('rc-tab-tag').classList.toggle('active', view === 'tag');
-        document.getElementById('rc-tab-key').classList.toggle('active', view === 'key');
-        document.getElementById('rc-head-tag').style.display = view === 'tag' ? '' : 'none';
-        document.getElementById('rc-head-key').style.display = view === 'key' ? '' : 'none';
-        document.getElementById('rc-note').textContent = view === 'tag'
-            ? T('多标签 Key 会同时计入其每个标签，跨标签合计会大于实际总量；按人视图不含重复。', 'Keys with multiple tags are counted under each tag; cross-tag totals overlap. The by-person view has no duplicates.')
-            : '';
+        for (const v of RC_VIEWS) {
+            const tab = document.getElementById('rc-tab-' + v);
+            const head = document.getElementById('rc-head-' + v);
+            if (tab) tab.classList.toggle('active', v === view);
+            if (head) head.style.display = v === view ? '' : 'none';
+        }
+        const notes = {
+            tag: T('多标签 Key 会同时计入其每个标签，跨标签合计会大于实际总量；按人视图不含重复。', 'Keys with multiple tags are counted under each tag; cross-tag totals overlap. The by-person view has no duplicates.'),
+            'provider-key': T('按上游供应商密钥聚合（对账视图）；明细仅保留约30天，更早日期无花费数据。', 'Aggregated per upstream provider key (reconciliation view); raw logs are kept ~30 days only, older dates have no cost data.'),
+        };
+        document.getElementById('rc-note').textContent = notes[view] || '';
         rcLoad();
     }
 
     function rcRender() {
         const body = document.getElementById('rc-body');
         const rows = rcData.rows || [];
+        const cols = RC_COLS[rcView] || 7;
         if (!rows.length) {
-            body.innerHTML = `<tr><td colspan="8" class="text-center text-gray-400 py-8">${T('暂无数据', 'No data')}</td></tr>`;
+            body.innerHTML = `<tr><td colspan="${cols}" class="text-center text-gray-400 py-8">${T('暂无数据', 'No data')}</td></tr>`;
             document.getElementById('rc-subtitle').textContent = '';
             return;
         }
@@ -149,6 +176,25 @@
                 html += `<tr>
                     <td>${chip}</td>
                     <td class="num">${fmtNum(r.key_count)}</td>
+                    <td class="num">${fmtNum(r.requests)}</td>
+                    <td class="num">${fmtNum(r.prompt_tokens)}</td>
+                    <td class="num">${fmtNum(r.completion_tokens)}</td>
+                    <td class="num">${fmtNum(r.tokens)}</td>
+                    <td class="num">${fmtCost(r.cost)}</td>
+                </tr>`;
+            } else if (rcView === 'provider') {
+                html += `<tr>
+                    <td>${escapeHtml(r.provider_name)}</td>
+                    <td class="num">${fmtNum(r.requests)}</td>
+                    <td class="num">${fmtNum(r.prompt_tokens)}</td>
+                    <td class="num">${fmtNum(r.completion_tokens)}</td>
+                    <td class="num">${fmtNum(r.tokens)}</td>
+                    <td class="num">${fmtCost(r.cost)}</td>
+                </tr>`;
+            } else if (rcView === 'provider-key') {
+                html += `<tr>
+                    <td>${escapeHtml(r.provider_name)}</td>
+                    <td>${escapeHtml(r.label)}</td>
                     <td class="num">${fmtNum(r.requests)}</td>
                     <td class="num">${fmtNum(r.prompt_tokens)}</td>
                     <td class="num">${fmtNum(r.completion_tokens)}</td>
@@ -170,9 +216,11 @@
                 </tr>`;
             }
         }
-        const totalCells = rcView === 'tag'
-            ? `<td>${T('合计', 'Total')}</td><td class="num">-</td><td class="num">${fmtNum(sum.requests)}</td><td class="num">${fmtNum(sum.prompt_tokens)}</td><td class="num">${fmtNum(sum.completion_tokens)}</td><td class="num">${fmtNum(sum.tokens)}</td><td class="num">${fmtCost(sum.cost)}</td>`
-            : `<td>${T('合计', 'Total')}</td><td class="num">-</td><td class="num">${fmtNum(sum.requests)}</td><td class="num">${fmtNum(sum.prompt_tokens)}</td><td class="num">${fmtNum(sum.completion_tokens)}</td><td class="num">${fmtNum(sum.tokens)}</td><td class="num">${fmtCost(sum.cost)}</td>`;
+        const numTotals = `<td class="num">${fmtNum(sum.requests)}</td><td class="num">${fmtNum(sum.prompt_tokens)}</td><td class="num">${fmtNum(sum.completion_tokens)}</td><td class="num">${fmtNum(sum.tokens)}</td><td class="num">${fmtCost(sum.cost)}</td>`;
+        const totalLabel = `<td>${T('合计', 'Total')}</td>`;
+        const totalCells = rcView === 'provider'
+            ? `${totalLabel}${numTotals}`
+            : `${totalLabel}<td class="num">-</td>${numTotals}`;
         html += `<tr class="total">${totalCells}</tr>`;
         body.innerHTML = html;
         document.getElementById('rc-subtitle').textContent = `${rcData.start} ~ ${rcData.end}`;
@@ -180,11 +228,11 @@
 
     async function rcLoad() {
         const body = document.getElementById('rc-body');
-        body.innerHTML = `<tr><td colspan="7" class="text-center text-gray-400 py-8"><span class="spinner"></span></td></tr>`;
+        body.innerHTML = `<tr><td colspan="${RC_COLS[rcView] || 7}" class="text-center text-gray-400 py-8"><span class="spinner"></span></td></tr>`;
         const qs = new URLSearchParams({ start: document.getElementById('rc-start').value, end: document.getElementById('rc-end').value });
         const resp = await fetch(`${APP_BASE_PATH}/admin/api/report-center/by-${rcView}?${qs}`);
         if (resp.status === 401 || resp.status === 403) {
-            body.innerHTML = `<tr><td colspan="7" class="text-center text-gray-400 py-8">${T('无权限', 'Forbidden')}</td></tr>`;
+            body.innerHTML = `<tr><td colspan="${RC_COLS[rcView] || 7}" class="text-center text-gray-400 py-8">${T('无权限', 'Forbidden')}</td></tr>`;
             return;
         }
         rcData = await resp.json();

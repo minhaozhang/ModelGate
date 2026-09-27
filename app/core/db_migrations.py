@@ -1099,6 +1099,38 @@ async def migrate_tag_stats(conn) -> None:
     )
 
 
+async def migrate_provider_key_stats(conn) -> None:
+    # nullable on purpose: NULL marks pre-migration rows not yet re-aggregated
+    await conn.execute(
+        text("ALTER TABLE provider_daily_stats ADD COLUMN IF NOT EXISTS cost_cny DOUBLE PRECISION")
+    )
+    await conn.execute(
+        text(
+            "CREATE TABLE IF NOT EXISTS provider_key_daily_stats ("
+            "id SERIAL NOT NULL PRIMARY KEY, "
+            "date VARCHAR(10) NOT NULL, "
+            "provider_key_id INTEGER NOT NULL, "
+            "provider_key_label VARCHAR(50), "
+            "provider_name VARCHAR(50), "
+            "requests INTEGER DEFAULT 0, "
+            "tokens INTEGER DEFAULT 0, "
+            "prompt_tokens INTEGER DEFAULT 0, "
+            "completion_tokens INTEGER DEFAULT 0, "
+            "errors INTEGER DEFAULT 0, "
+            "timeouts INTEGER DEFAULT 0, "
+            "rate_limited INTEGER DEFAULT 0, "
+            "cost_cny DOUBLE PRECISION DEFAULT '0'"
+            ")"
+        )
+    )
+    await conn.execute(
+        text("CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_key_stats ON provider_key_daily_stats (provider_key_id, date)")
+    )
+    await conn.execute(
+        text("CREATE INDEX IF NOT EXISTS idx_provider_key_stats_date ON provider_key_daily_stats (date)")
+    )
+
+
 async def migrate_audit_logs(conn) -> None:
     await conn.execute(text("DROP INDEX IF EXISTS idx_audit_logs_user_id"))
     await conn.execute(text("DROP INDEX IF EXISTS idx_audit_logs_resource"))
@@ -1283,5 +1315,6 @@ async def init_db():
         await migrate_analysis(conn)
         await migrate_mcp(conn)
         await migrate_tag_stats(conn)
+        await migrate_provider_key_stats(conn)
         await migrate_audit_logs(conn)
         await migrate_scheduler(conn)

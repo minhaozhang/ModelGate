@@ -22,6 +22,36 @@ class TagDailyStatsModelTests(unittest.TestCase):
         models = (ROOT / "app" / "core" / "db_models.py").read_text(encoding="utf-8")
         self.assertIn("class TagDailyStat(Base):", models)
 
+    def test_provider_key_daily_stats_table_declared(self):
+        migrations = (ROOT / "app" / "core" / "db_migrations.py").read_text(encoding="utf-8")
+        self.assertIn("CREATE TABLE IF NOT EXISTS provider_key_daily_stats", migrations)
+        self.assertIn("uq_provider_key_stats", migrations)
+        self.assertIn("idx_provider_key_stats_date", migrations)
+        self.assertIn("ALTER TABLE provider_daily_stats ADD COLUMN IF NOT EXISTS cost_cny", migrations)
+        models = (ROOT / "app" / "core" / "db_models.py").read_text(encoding="utf-8")
+        self.assertIn("class ProviderKeyDailyStat(Base):", models)
+
+    def test_aggregator_writes_provider_cost_and_key_stats(self):
+        source = (ROOT / "app" / "services" / "stats_aggregator.py").read_text(encoding="utf-8")
+        self.assertIn("provider_key_stats", source)
+        self.assertIn("ProviderKeyDailyStat(", source)
+        self.assertIn("delete(ProviderKeyDailyStat).where(ProviderKeyDailyStat.date == date_str)", source)
+        # backfill safety: only re-aggregate dates whose raw logs still exist
+        self.assertIn("func.to_char(RequestLogRead.created_at", source)
+
+    def test_report_center_has_provider_and_provider_key_views(self):
+        source = (ROOT / "app" / "routes" / "report_center.py").read_text(encoding="utf-8")
+        self.assertIn("_query_by_provider", source)
+        self.assertIn("_query_by_provider_key", source)
+        self.assertIn('@router.get("/by-provider")', source)
+        self.assertIn('@router.get("/by-provider-key")', source)
+        self.assertIn('@router.get("/by-provider.csv")', source)
+        self.assertIn('@router.get("/by-provider-key.csv")', source)
+        html = (ROOT / "web" / "templates" / "admin" / "report_center.html").read_text(encoding="utf-8")
+        self.assertIn("rcSetView('provider')", html)
+        self.assertIn("rcSetView('provider-key')", html)
+        self.assertIn("rc-head-provider-key", html)
+
     def test_aggregator_reads_total_cost_from_tokens_jsonb(self):
         source = (ROOT / "app" / "services" / "stats_aggregator.py").read_text(encoding="utf-8")
         self.assertIn("async def aggregate_tag_daily_stats", source)

@@ -8,6 +8,7 @@ from app.core.database import (
     RequestLog,
     RequestLogRead,
     ProviderDailyStat,
+    ProviderKeyDailyStat,
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
     ModelDailyStat,
@@ -46,6 +47,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
 
         provider_cache = {}
         provider_stats = {}
+        provider_key_stats = {}
         api_key_stats = {}
         api_key_model_stats = {}
         model_stats = {}
@@ -94,6 +96,7 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                         "errors": 0,
                         "timeouts": 0,
                         "rate_limited": 0,
+                        "cost_cny": 0.0,
                     }
                 if is_rate_limited:
                     provider_stats[provider_name]["rate_limited"] += 1
@@ -102,10 +105,43 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 provider_stats[provider_name]["tokens"] += tokens
                 provider_stats[provider_name]["prompt_tokens"] += prompt_tokens
                 provider_stats[provider_name]["completion_tokens"] += completion_tokens
+                provider_stats[provider_name]["cost_cny"] += cost_cny
                 if is_error:
                     provider_stats[provider_name]["errors"] += 1
                 if is_timeout:
                     provider_stats[provider_name]["timeouts"] += 1
+
+            if log.provider_key_id is not None:
+                key_bucket = provider_key_stats.get(log.provider_key_id)
+                if key_bucket is None:
+                    key_bucket = provider_key_stats[log.provider_key_id] = {
+                        "label": log.provider_key_label,
+                        "provider_name": provider_name,
+                        "requests": 0,
+                        "tokens": 0,
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
+                        "errors": 0,
+                        "timeouts": 0,
+                        "rate_limited": 0,
+                        "cost_cny": 0.0,
+                    }
+                if log.provider_key_label:
+                    key_bucket["label"] = log.provider_key_label
+                if provider_name:
+                    key_bucket["provider_name"] = provider_name
+                if is_rate_limited:
+                    key_bucket["rate_limited"] += 1
+                else:
+                    key_bucket["requests"] += 1
+                key_bucket["tokens"] += tokens
+                key_bucket["prompt_tokens"] += prompt_tokens
+                key_bucket["completion_tokens"] += completion_tokens
+                key_bucket["cost_cny"] += cost_cny
+                if is_error:
+                    key_bucket["errors"] += 1
+                if is_timeout:
+                    key_bucket["timeouts"] += 1
 
             if log.api_key_id:
                 if log.api_key_id not in api_key_stats:
@@ -185,6 +221,9 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
             delete(ProviderDailyStat).where(ProviderDailyStat.date == date_str)
         )
         await session.execute(
+            delete(ProviderKeyDailyStat).where(ProviderKeyDailyStat.date == date_str)
+        )
+        await session.execute(
             delete(ApiKeyDailyStat).where(ApiKeyDailyStat.date == date_str)
         )
         await session.execute(
@@ -205,6 +244,24 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
                 errors=stats["errors"],
                 timeouts=stats["timeouts"],
                 rate_limited=stats["rate_limited"],
+                cost_cny=round(stats["cost_cny"], 10),
+            )
+            session.add(stat)
+
+        for provider_key_id, stats in provider_key_stats.items():
+            stat = ProviderKeyDailyStat(
+                provider_key_id=provider_key_id,
+                provider_key_label=stats["label"],
+                provider_name=stats["provider_name"],
+                date=date_str,
+                requests=stats["requests"],
+                tokens=stats["tokens"],
+                prompt_tokens=stats["prompt_tokens"],
+                completion_tokens=stats["completion_tokens"],
+                errors=stats["errors"],
+                timeouts=stats["timeouts"],
+                rate_limited=stats["rate_limited"],
+                cost_cny=round(stats["cost_cny"], 10),
             )
             session.add(stat)
 
@@ -257,13 +314,14 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
 
     total_requests = sum(s["requests"] for s in provider_stats.values())
     logger.info(
-        f"[AGGREGATOR] Aggregated stats for {date_str}: {total_requests} requests, {len(provider_stats)} providers, {len(api_key_stats)} api_keys, {len(model_stats)} models"
+        f"[AGGREGATOR] Aggregated stats for {date_str}: {total_requests} requests, {len(provider_stats)} providers, {len(provider_key_stats)} provider_keys, {len(api_key_stats)} api_keys, {len(model_stats)} models"
     )
 
     return {
         "date": date_str,
         "total_requests": total_requests,
         "providers": len(provider_stats),
+        "provider_keys": len(provider_key_stats),
         "api_keys": len(api_key_stats),
         "models": len(model_stats),
     }
@@ -271,30 +329,40 @@ async def aggregate_stats_for_date(date_str: str) -> dict:
 
 async def get_missing_dates() -> list[str]:
     async with async_session_maker() as session:
-        first_log_result = await session.execute(
-            select(func.min(RequestLogRead.created_at))
+        # Raw logs older than ~30 days are archived away, so only dates whose
+        # detail rows still exist in request_logs can be (re-)aggregated safely.
+        result = await session.execute(
+            select(func.distinct(func.to_char(RequestLogRead.created_at, "YYYY-MM-DD")))
         )
-        first_log_date = first_log_result.scalar()
-
-        if not first_log_date:
+        log_dates = {row[0] for row in result.fetchall()}
+        if not log_dates:
             return []
 
-        today_result = await session.execute(select(func.current_date()))
-        db_today = today_result.scalar()
+        result = await session.execute(
+            select(
+                ProviderDailyStat.date,
+                func.count(ProviderDailyStat.id),
+                func.count(ProviderDailyStat.cost_cny),
+            ).group_by(ProviderDailyStat.date)
+        )
+        provider_rows = {row[0]: (row[1], row[2]) for row in result.fetchall()}
 
-        start_date = first_log_date.date()
-        end_date = db_today - timedelta(days=1)
+        result = await session.execute(select(ProviderKeyDailyStat.date).distinct())
+        key_stat_dates = {row[0] for row in result.fetchall()}
 
-        result = await session.execute(select(ProviderDailyStat.date).distinct())
-        existing_dates = {row[0] for row in result.fetchall()}
-
+        today = datetime.now().date().strftime("%Y-%m-%d")
         missing = []
-        current = start_date
-        while current <= end_date:
-            date_str = current.strftime("%Y-%m-%d")
-            if date_str not in existing_dates:
+        for date_str in sorted(log_dates):
+            if date_str >= today:
+                continue  # today is handled by the scheduled task, not backfill
+            total_rows, rows_with_cost = provider_rows.get(date_str, (0, 0))
+            fully_aggregated = (
+                total_rows > 0
+                and total_rows == rows_with_cost
+                and date_str in key_stat_dates
+            )
+            if not fully_aggregated:
                 missing.append(date_str)
-            current += timedelta(days=1)
 
         return missing
 

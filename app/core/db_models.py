@@ -483,8 +483,29 @@ class ProviderDailyStat(Base):
     errors = Column(Integer, default=0)
     timeouts = Column(Integer, default=0)
     rate_limited = Column(Integer, default=0)
+    cost_cny = Column(Float, default=0)
 
     __table_args__ = (Index("idx_provider_stats_date", "date"),)
+
+
+class ProviderKeyDailyStat(Base):
+    __tablename__ = "provider_key_daily_stats"
+
+    id = Column(Integer, primary_key=True)
+    provider_key_id = Column(Integer, nullable=False)
+    provider_key_label = Column(String(50), nullable=True)
+    provider_name = Column(String(50), nullable=True)
+    date = Column(String(10), nullable=False)
+    requests = Column(Integer, default=0)
+    tokens = Column(Integer, default=0)
+    prompt_tokens = Column(Integer, default=0)
+    completion_tokens = Column(Integer, default=0)
+    errors = Column(Integer, default=0)
+    timeouts = Column(Integer, default=0)
+    rate_limited = Column(Integer, default=0)
+    cost_cny = Column(Float, default=0)
+
+    __table_args__ = (Index("idx_provider_key_stats_date", "date"),)
 
 
 class ApiKeyDailyStat(Base):
