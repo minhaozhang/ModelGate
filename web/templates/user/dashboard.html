@@ -1631,12 +1631,22 @@
             if (shEl && !REAL_TEXT_OVERRIDES['sh-cmd']) shEl.textContent = `curl -fsSL '${origin}${APP_BASE_PATH}/opencode/setup.sh${keyParam}' | bash`;
         }
 
+        // Shared by the claude / codex / dsh / pi client tabs: copy the
+        // real (unmasked) text when available, else the displayed text.
+        function copyConfig(targetId) {
+            const el = document.getElementById(targetId);
+            if (!el) return;
+            const config = REAL_TEXT_OVERRIDES[targetId] || el.textContent;
+            navigator.clipboard.writeText(config).then(() => alert(window.I18N.copied));
+        }
+
         async function openMyKeyModal() {
             const modal = document.getElementById('my-key-modal');
             const display = document.getElementById('my-key-display');
             display.textContent = window.I18N.loading || 'Loading...';
             modal.classList.remove('hidden');
             modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
             try {
                 const resp = await fetch(APP_BASE_PATH + '/user/api/my-key');
                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -1651,6 +1661,7 @@
             const modal = document.getElementById('my-key-modal');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+            document.body.style.overflow = '';
         }
 
         let _codexCtx = null;
