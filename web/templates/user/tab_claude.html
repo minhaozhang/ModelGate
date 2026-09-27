@@ -1,0 +1,92 @@
+<div id="tab-claude" class="client-pane p-6" style="display:none">
+    <h2 class="text-lg font-semibold tracking-tight mb-4">{{ _('Claude Code Configuration') }}</h2>
+
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
+        <h3 class="font-semibold tracking-tight text-gray-800 mb-2">{{ '方式一：一键配置脚本' if current_locale == 'zh' else _('Option 1: one-liner setup script') }} <span class="text-xs font-normal text-blue-600">{{ _('recommended') }}</span></h3>
+        <p class="text-sm text-blue-700 mb-3">{{ 'Claude Code 会读取 ~/.claude/settings.json 的 env 字段。脚本会备份现有配置、合并 ModelGate 网关环境变量（ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / ANTHROPIC_MODEL，其余设置全部保留），然后写入模型默认值。' if current_locale == 'zh' else _('Claude Code reads the env field of ~/.claude/settings.json. The script backs up the existing file, merges the ModelGate gateway env vars (ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / ANTHROPIC_MODEL; every other setting is preserved) and sets the default model.') }}</p>
+        <div class="mb-4">
+            <div class="text-xs font-medium text-blue-700 mb-1">API Key</div>
+            <div class="flex items-center gap-2 rounded bg-white border border-blue-200 px-3 py-2">
+                <code id="claude-api-key" class="flex-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap select-all">{{ _('Loading...') }}</code>
+                <button type="button" onclick="copyById('claude-api-key')" class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50">{{ _('Copy') }}</button>
+            </div>
+            <p class="text-xs text-blue-600 mt-1">{{ '命令已自动嵌入你的 API Key，无需手动输入。' if current_locale == 'zh' else _('The commands below already embed your API key.') }}</p>
+        </div>
+        <div class="space-y-3">
+            <div>
+                <div class="text-xs font-medium text-blue-700 mb-1">Windows (PowerShell)</div>
+                <div class="flex items-center gap-2 rounded bg-white border border-blue-200 px-3 py-2">
+                    <code id="claude-ps1-cmd" class="flex-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap"></code>
+                    <button type="button" onclick="copyById('claude-ps1-cmd')" class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50 shrink-0">{{ _('Copy') }}</button>
+                </div>
+            </div>
+            <div>
+                <div class="text-xs font-medium text-blue-700 mb-1">macOS / Linux (Bash)</div>
+                <div class="flex items-center gap-2 rounded bg-white border border-blue-200 px-3 py-2">
+                    <code id="claude-sh-cmd" class="flex-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap"></code>
+                    <button type="button" onclick="copyById('claude-sh-cmd')" class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50 shrink-0">{{ _('Copy') }}</button>
+                </div>
+            </div>
+        </div>
+        <p class="text-xs text-blue-600 mt-3">{{ '前提：已安装 Claude Code（npm install -g @anthropic-ai/claude-code，命令 claude）。ModelGate 直接兼容 Anthropic Messages 协议（/v1/messages）。' if current_locale == 'zh' else _('Requires Claude Code installed (npm install -g @anthropic-ai/claude-code, command claude). ModelGate speaks the Anthropic Messages protocol natively (/v1/messages).') }}</p>
+    </div>
+
+    <details class="border border-gray-200 rounded-lg mb-6" open>
+        <summary class="px-4 py-3 cursor-pointer text-sm font-medium text-gray-700 select-none">{{ '方式二：手动编辑配置文件' if current_locale == 'zh' else _('Option 2: manual config') }}</summary>
+        <div class="p-4 pt-0">
+            <p class="text-sm text-gray-600 mb-4">{{ 'Claude Code 只需要一个文件：~/.claude/settings.json（env 字段持久化环境变量）。也可以只在当前终端临时 export 三个环境变量。' if current_locale == 'zh' else _('Claude Code needs a single file: ~/.claude/settings.json (the env field persists environment variables). You can also export the three env vars temporarily in your current shell.') }}</p>
+
+            <div class="mb-6">
+                <div class="text-xs font-medium text-gray-600 mb-1">{{ '1. ~/.claude/settings.json' if current_locale == 'zh' else _('1. ~/.claude/settings.json') }}</div>
+                <div class="relative">
+                    <button onclick="copyConfig('claude-settings-json')" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
+                    <pre id="claude-settings-json" class="text-xs sm:text-sm whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded-lg p-4 pr-16 overflow-x-auto"></pre>
+                </div>
+                <div class="mt-2 flex flex-wrap items-center gap-3">
+                    <button type="button" onclick="downloadClaudeSettings()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ '下载 settings.json' if current_locale == 'zh' else _('Download settings.json') }}</button>
+                    <span class="text-xs text-gray-500">{{ '目标目录' if current_locale == 'zh' else _('Target folder') }}: <code id="claude-config-dir" class="rounded bg-gray-100 px-1 py-0.5"></code></span>
+                    <button type="button" onclick="copyById('claude-config-dir')" class="rounded border px-2 py-1 text-xs text-blue-500 hover:bg-gray-50">{{ '复制目录' if current_locale == 'zh' else _('Copy folder') }}</button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">{{ '已有 settings.json 时只需把 env 下三个 ANTHROPIC_* 键并入，其余键（permissions 等）保留。' if current_locale == 'zh' else _('If settings.json already exists, merge the three ANTHROPIC_* keys under env and keep every other key (permissions, ...).') }}</p>
+            </div>
+
+            <div class="mb-6">
+                <div class="text-xs font-medium text-gray-600 mb-1">{{ '2. 临时环境变量（仅当前终端会话）' if current_locale == 'zh' else _('2. Temporary env vars (current shell only)') }}</div>
+                <div class="relative">
+                    <button onclick="copyConfig('claude-env-cmd')" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
+                    <pre id="claude-env-cmd" class="text-xs sm:text-sm whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded-lg p-4 pr-16 overflow-x-auto"></pre>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 rounded-lg p-4">
+                <h3 class="font-semibold tracking-tight text-gray-800 mb-2">{{ _('How to use') }}</h3>
+                <ol class="list-decimal list-inside text-sm text-blue-700 space-y-1">
+                    <li>{{ '把 settings.json 放入 ~/.claude/（Windows: %USERPROFILE%\\.claude\\），目录不存在则创建' if current_locale == 'zh' else _('Put settings.json in ~/.claude/ (Windows: %USERPROFILE%\\.claude\\); create the folder if missing') }}</li>
+                    <li>{{ '运行 claude 启动' if current_locale == 'zh' else _('Run claude to start') }}</li>
+                    <li>{{ '用 /model 切换模型，或直接使用 ANTHROPIC_MODEL 设定的默认值' if current_locale == 'zh' else _('Switch models with /model, or rely on the ANTHROPIC_MODEL default') }}</li>
+                </ol>
+            </div>
+        </div>
+    </details>
+
+    <details class="border border-gray-200 rounded-lg mb-6">
+        <summary class="px-4 py-3 cursor-pointer text-sm font-medium text-gray-700 select-none">{{ '完整配置说明（可发给 Claude 自动配置）' if current_locale == 'zh' else _('Full setup instructions (send to Claude to self-configure)') }}</summary>
+        <div class="p-4 pt-0">
+            <p class="text-gray-600 my-4">{{ '复制下面的说明发给 Claude（或其他 agent），它会按步骤完成配置。' if current_locale == 'zh' else _('Copy the instructions below and send them to Claude (or any agent); they describe every step.') }}</p>
+            <div class="bg-gray-50 rounded-xl p-5 mb-4">
+                <div class="relative">
+                    <button onclick="copyConfig('claude-setup-output')" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
+                    <pre id="claude-setup-output" class="text-sm whitespace-pre-wrap"></pre>
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <script>
+        (function(){
+            const isWin = /Win/i.test(navigator.userAgent);
+            const el = document.getElementById('claude-config-dir');
+            if (el) el.textContent = isWin ? '%USERPROFILE%\\.claude' : '~/.claude';
+        })();
+    </script>
+</div>

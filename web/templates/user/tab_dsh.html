@@ -1,0 +1,67 @@
+<div id="tab-dsh" class="client-pane p-6" style="display:none">
+    <h2 class="text-lg font-semibold tracking-tight mb-4">{{ _('DeepSeek Harness Configuration') }}</h2>
+
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
+        <h3 class="font-semibold tracking-tight text-gray-800 mb-2">{{ '方式一：Web UI 表单配置' if current_locale == 'zh' else _('Option 1: Web UI form') }} <span class="text-xs font-normal text-blue-600">{{ _('recommended') }}</span></h3>
+        <p class="text-sm text-blue-700 mb-3">{{ 'DeepSeek Harness（dsh）在 Web UI 里配置自定义 OpenAI 兼容网关，保存后立即生效、无需重启。安装启动：npx @deepseek-ai/dsh web（打开 http://127.0.0.1:3080）。' if current_locale == 'zh' else _('DeepSeek Harness (dsh) configures custom OpenAI-compatible gateways in its Web UI; changes take effect immediately without a restart. Install &amp; start: npx @deepseek-ai/dsh web (opens http://127.0.0.1:3080).') }}</p>
+        <div class="mb-4">
+            <div class="text-xs font-medium text-blue-700 mb-1">API Key</div>
+            <div class="flex items-center gap-2 rounded bg-white border border-blue-200 px-3 py-2">
+                <code id="dsh-api-key" class="flex-1 text-xs text-gray-800 overflow-x-auto whitespace-nowrap select-all">{{ _('Loading...') }}</code>
+                <button type="button" onclick="copyById('dsh-api-key')" class="text-blue-500 hover:text-blue-700 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50">{{ _('Copy') }}</button>
+            </div>
+        </div>
+        <div class="rounded bg-white border border-blue-200 overflow-x-auto mb-2">
+            <table class="w-full text-sm">
+                <tbody>
+                    <tr class="border-b border-blue-100"><td class="px-3 py-2 text-gray-600 whitespace-nowrap">Provider ID</td><td class="px-3 py-2"><code class="text-gray-800">modelgate</code></td></tr>
+                    <tr class="border-b border-blue-100"><td class="px-3 py-2 text-gray-600 whitespace-nowrap">{{ '显示名称' if current_locale == 'zh' else _('Display name') }}</td><td class="px-3 py-2"><code class="text-gray-800">ModelGate</code></td></tr>
+                    <tr class="border-b border-blue-100"><td class="px-3 py-2 text-gray-600 whitespace-nowrap">Base URL</td><td class="px-3 py-2"><code id="dsh-base-url" class="text-gray-800 break-all"></code></td></tr>
+                    <tr class="border-b border-blue-100"><td class="px-3 py-2 text-gray-600 whitespace-nowrap">API protocol</td><td class="px-3 py-2"><code class="text-gray-800">OpenAI Chat Completions</code></td></tr>
+                    <tr><td class="px-3 py-2 text-gray-600 whitespace-nowrap">API key</td><td class="px-3 py-2 text-gray-500">{{ '粘贴上方 API Key' if current_locale == 'zh' else _('paste the API key above') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-xs text-blue-600 mt-2">{{ '操作路径：Settings → Models → Add model provider → 切到 Custom model API，填上表后保存；再点 Fetch available models 自动发现模型。' if current_locale == 'zh' else _('Path: Settings -> Models -> Add model provider -> switch to Custom model API, fill the table above and save; then use Fetch available models to discover models.') }}</p>
+    </div>
+
+    <details class="border border-gray-200 rounded-lg mb-6">
+        <summary class="px-4 py-3 cursor-pointer text-sm font-medium text-gray-700 select-none">{{ '方式二：直接编辑 cordis.patch.yml（高级）' if current_locale == 'zh' else _('Option 2: edit cordis.patch.yml (advanced)') }}</summary>
+        <div class="p-4 pt-0">
+            <p class="text-sm text-gray-600 mb-4">{{ 'dsh 的供应商路由存放在 $DSH_HOME/profiles/web/cordis.patch.yml（Settings 头部的 Open configuration file 按钮会显示你机器上的准确路径）。密钥通过 MODELGATE_API_KEY 环境变量引用，不写入文件。' if current_locale == 'zh' else _('dsh stores provider routes in $DSH_HOME/profiles/web/cordis.patch.yml (the Settings header\'s Open configuration file button reveals the exact path on your machine). The key is referenced through the MODELGATE_API_KEY environment variable, never written into the file.') }}</p>
+
+            <div class="mb-4">
+                <div class="text-xs font-medium text-gray-600 mb-1">{{ '1. 设置环境变量（运行 dsh 的终端）' if current_locale == 'zh' else _('1. Set the env var (in the terminal that runs dsh)') }}</div>
+                <div class="relative">
+                    <button onclick="copyConfig('dsh-env-cmd')" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
+                    <pre id="dsh-env-cmd" class="text-xs sm:text-sm whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded-lg p-4 pr-16 overflow-x-auto"></pre>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="text-xs font-medium text-gray-600 mb-1">2. cordis.patch.yml</div>
+                <div class="relative">
+                    <button onclick="copyConfig('dsh-patch-yml')" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
+                    <pre id="dsh-patch-yml" class="text-xs sm:text-sm whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded-lg p-4 pr-16 overflow-x-auto"></pre>
+                </div>
+                <div class="mt-2 flex flex-wrap items-center gap-3">
+                    <button type="button" onclick="downloadDshPatchYml()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ '下载 cordis.patch.yml' if current_locale == 'zh' else _('Download cordis.patch.yml') }}</button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">{{ '若文件中已有 @deepseek-ai/dsh-llm-pi-ai 条目，把 providers.modelgate 段并入（Cordis 覆盖会整体替换条目配置，注意保留其余 providers 与字段）。' if current_locale == 'zh' else _('If the file already has a @deepseek-ai/dsh-llm-pi-ai entry, merge the providers.modelgate block into it (a Cordis override replaces the complete entry config, so preserve other providers and fields).') }}</p>
+            </div>
+        </div>
+    </details>
+
+    <details class="border border-gray-200 rounded-lg mb-6">
+        <summary class="px-4 py-3 cursor-pointer text-sm font-medium text-gray-700 select-none">{{ '完整配置说明（可发给 dsh 自动配置）' if current_locale == 'zh' else _('Full setup instructions (send to dsh to self-configure)') }}</summary>
+        <div class="p-4 pt-0">
+            <p class="text-gray-600 my-4">{{ '复制下面的说明发给 agent，它会按步骤完成配置。' if current_locale == 'zh' else _('Copy the instructions below and send them to an agent; they describe every step.') }}</p>
+            <div class="bg-gray-50 rounded-xl p-5 mb-4">
+                <div class="relative">
+                    <button onclick="copyConfig('dsh-setup-output')" class="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">{{ _('Copy') }}</button>
+                    <pre id="dsh-setup-output" class="text-sm whitespace-pre-wrap"></pre>
+                </div>
+            </div>
+        </div>
+    </details>
+</div>

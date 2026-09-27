@@ -239,6 +239,8 @@ from app.routes import (
     opencode,
     codex,
     pi,
+    claude,
+    dsh,
     reports,
     report_center,
     daily_reports,
@@ -268,6 +270,8 @@ app.include_router(user.router)
 app.include_router(opencode.router)
 app.include_router(codex.router)
 app.include_router(pi.router)
+app.include_router(claude.router)
+app.include_router(dsh.router)
 app.include_router(reports.router)
 app.include_router(report_center.router)
 app.include_router(daily_reports.router)

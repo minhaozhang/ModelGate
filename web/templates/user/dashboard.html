@@ -394,10 +394,14 @@
                     <button class="client-tab-btn active" id="client-tab-opencode" onclick="switchClientTab('opencode')">OpenCode</button>
                     <button class="client-tab-btn" id="client-tab-codex" onclick="switchClientTab('codex')">Codex</button>
                     <button class="client-tab-btn" id="client-tab-pi" onclick="switchClientTab('pi')">Pi</button>
+                    <button class="client-tab-btn" id="client-tab-claude" onclick="switchClientTab('claude')">Claude Code</button>
+                    <button class="client-tab-btn" id="client-tab-dsh" onclick="switchClientTab('dsh')">DeepSeek</button>
                 </div>
                 {% include 'user/tab_opencode.html' %}
                 {% include 'user/tab_codex.html' %}
                 {% include 'user/tab_pi.html' %}
+                {% include 'user/tab_claude.html' %}
+                {% include 'user/tab_dsh.html' %}
             </div>
             {% include 'user/tab_catalog.html' %}
             {% include 'user/tab_usage.html' %}
@@ -661,7 +665,7 @@
             if (_statsLegacy) loadStats();
             else if (window.v2LoadStats) window.v2LoadStats();
         }
-        const CLIENT_SUBTABS = { opencode: true, codex: true, pi: true };
+        const CLIENT_SUBTABS = { opencode: true, codex: true, pi: true, claude: true, dsh: true };
         let _clientsActive = '';
         const _clientsLoaded = {};
 
@@ -679,6 +683,8 @@
                 if (name === 'opencode') loadOpenCodeConfig();
                 if (name === 'codex') loadCodexConfig();
                 if (name === 'pi') loadPiConfig();
+                if (name === 'claude') loadClaudeConfig();
+                if (name === 'dsh') loadDshConfig();
             }
         }
 
@@ -1821,6 +1827,153 @@
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = 'models.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert((window.I18N.loadFailed || 'Failed to load') + ': ' + e.message);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Claude Code config tab
+        // ------------------------------------------------------------------
+        let _claudeCtx = null;
+        let _claudeKey = '';
+
+        async function loadClaudeConfig() {
+            const jsonEl = document.getElementById('claude-settings-json');
+            const envEl = document.getElementById('claude-env-cmd');
+            const mdEl = document.getElementById('claude-setup-output');
+            if (jsonEl) jsonEl.textContent = window.I18N.loading || 'Loading...';
+            try {
+                const resp = await fetch(APP_BASE_PATH + '/claude/config');
+                if (resp.ok) {
+                    _claudeCtx = await resp.json();
+                    _claudeKey = _claudeCtx.api_key || '';
+                    setMaskedText('claude-api-key', _claudeKey);
+                    let base = _claudeCtx.base_url || '';
+                    if (base.endsWith('/v1')) base = base.slice(0, -3);
+                    const env = { ANTHROPIC_BASE_URL: base, ANTHROPIC_AUTH_TOKEN: _claudeKey };
+                    if (_claudeCtx.default_model) env.ANTHROPIC_MODEL = _claudeCtx.default_model;
+                    const text = JSON.stringify({ env: env }, null, 2);
+                    if (jsonEl) jsonEl.textContent = text;
+                    REAL_TEXT_OVERRIDES['claude-settings-json'] = text;
+                    if (envEl) {
+                        const isZh = /zh/i.test(document.documentElement.lang || '');
+                        const cmdText = isZh
+                            ? '# PowerShell\n$env:ANTHROPIC_BASE_URL = "' + base + '"\n$env:ANTHROPIC_AUTH_TOKEN = "' + _claudeKey + '"\n\n# bash / zsh\nexport ANTHROPIC_BASE_URL="' + base + '"\nexport ANTHROPIC_AUTH_TOKEN="' + _claudeKey + '"'
+                            : '# PowerShell\n$env:ANTHROPIC_BASE_URL = "' + base + '"\n$env:ANTHROPIC_AUTH_TOKEN = "' + _claudeKey + '"\n\n# bash / zsh\nexport ANTHROPIC_BASE_URL="' + base + '"\nexport ANTHROPIC_AUTH_TOKEN="' + _claudeKey + '"';
+                        envEl.textContent = cmdText;
+                        REAL_TEXT_OVERRIDES['claude-env-cmd'] = cmdText;
+                    }
+                } else if (jsonEl) {
+                    jsonEl.textContent = window.I18N.loadFailed || 'Failed to load';
+                }
+            } catch (e) {
+                if (jsonEl) jsonEl.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
+            }
+            if (mdEl) {
+                try {
+                    const resp = await fetch(APP_BASE_PATH + '/claude/setup.md');
+                    mdEl.textContent = resp.ok ? await resp.text() : (window.I18N.loadFailed || 'Failed to load');
+                } catch (e) {
+                    mdEl.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
+                }
+            }
+            const origin = window.location.origin;
+            let keyParam = '';
+            if (_claudeKey) keyParam = '?key=' + encodeURIComponent(_claudeKey);
+            const realPs1 = `irm '${origin}${APP_BASE_PATH}/claude/setup.ps1${keyParam}' | iex`;
+            const realSh = `bash <(curl -fsSL '${origin}${APP_BASE_PATH}/claude/setup.sh${keyParam}')`;
+            setMaskedCommand('claude-ps1-cmd', realPs1, keyParam);
+            setMaskedCommand('claude-sh-cmd', realSh, keyParam);
+        }
+
+        async function downloadClaudeSettings() {
+            try {
+                const resp = await fetch(APP_BASE_PATH + '/claude/settings.json');
+                if (!resp.ok) {
+                    alert(window.I18N.loadFailed || 'Failed to load');
+                    return;
+                }
+                const text = await resp.text();
+                const blob = new Blob([text], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'settings.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert((window.I18N.loadFailed || 'Failed to load') + ': ' + e.message);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // DeepSeek Harness (dsh) config tab
+        // ------------------------------------------------------------------
+        let _dshCtx = null;
+        let _dshKey = '';
+
+        async function loadDshConfig() {
+            const baseEl = document.getElementById('dsh-base-url');
+            const ymlEl = document.getElementById('dsh-patch-yml');
+            const envEl = document.getElementById('dsh-env-cmd');
+            const mdEl = document.getElementById('dsh-setup-output');
+            if (ymlEl) ymlEl.textContent = window.I18N.loading || 'Loading...';
+            try {
+                const resp = await fetch(APP_BASE_PATH + '/dsh/config');
+                if (resp.ok) {
+                    _dshCtx = await resp.json();
+                    _dshKey = _dshCtx.api_key || '';
+                    setMaskedText('dsh-api-key', _dshKey);
+                    const base = _dshCtx.base_url || '';
+                    if (baseEl) baseEl.textContent = base;
+                    if (envEl) {
+                        const envText = '# PowerShell\n$env:MODELGATE_API_KEY = "' + _dshKey + '"\n\n# bash / zsh\nexport MODELGATE_API_KEY="' + _dshKey + '"';
+                        envEl.textContent = envText;
+                        REAL_TEXT_OVERRIDES['dsh-env-cmd'] = envText;
+                    }
+                    try {
+                        const yresp = await fetch(APP_BASE_PATH + '/dsh/cordis.patch.yml');
+                        if (yresp.ok && ymlEl) {
+                            const ytext = await yresp.text();
+                            ymlEl.textContent = ytext;
+                        } else if (ymlEl) {
+                            ymlEl.textContent = window.I18N.loadFailed || 'Failed to load';
+                        }
+                    } catch (e) {
+                        if (ymlEl) ymlEl.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
+                    }
+                } else if (ymlEl) {
+                    ymlEl.textContent = window.I18N.loadFailed || 'Failed to load';
+                }
+            } catch (e) {
+                if (ymlEl) ymlEl.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
+            }
+            if (mdEl) {
+                try {
+                    const resp = await fetch(APP_BASE_PATH + '/dsh/setup.md');
+                    mdEl.textContent = resp.ok ? await resp.text() : (window.I18N.loadFailed || 'Failed to load');
+                } catch (e) {
+                    mdEl.textContent = (window.I18N.loadFailed || 'Failed to load') + ': ' + e.message;
+                }
+            }
+        }
+
+        async function downloadDshPatchYml() {
+            try {
+                const resp = await fetch(APP_BASE_PATH + '/dsh/cordis.patch.yml');
+                if (!resp.ok) {
+                    alert(window.I18N.loadFailed || 'Failed to load');
+                    return;
+                }
+                const text = await resp.text();
+                const blob = new Blob([text], { type: 'text/yaml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'cordis.patch.yml';
                 a.click();
                 URL.revokeObjectURL(url);
             } catch (e) {

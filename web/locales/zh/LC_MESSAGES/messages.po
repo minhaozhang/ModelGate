@@ -3456,3 +3456,12 @@ msgstr "客户端配置"
 
 msgid "Pi Configuration"
 msgstr "Pi 配置"
+
+msgid "Claude Code Configuration"
+msgstr "Claude Code 配置"
+
+msgid "DeepSeek Harness Configuration"
+msgstr "DeepSeek Harness 配置"
+
+msgid "Option 1: Web UI form"
+msgstr "方式一：Web UI 表单配置"
