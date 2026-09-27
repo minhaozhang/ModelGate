@@ -441,11 +441,6 @@
         noRequests: {{ _('No requests yet') | tojson }},
         noModels: {{ _('No models') | tojson }},
         copied: {{ _('Copied!') | tojson }},
-        uploadConfig: {{ _('Upload opencode.jsonc') | tojson }},
-        downloadMerged: {{ _('Download Merged Config') | tojson }},
-        mergeSuccess: {{ _('Merged config downloaded!') | tojson }},
-        mergeFailed: {{ _('Merge failed') | tojson }},
-        invalidFile: {{ _('Invalid JSON file') | tojson }},
         disabledProviders: {{ _('Disabled Providers') | tojson }},
         personal: {{ _('Personal') | tojson }},
         system: {{ _('System') | tojson }},
@@ -2014,86 +2009,11 @@
         }
 
 
-        function copyOpencodeConfigDir() {
-            const dir = document.getElementById('opencode-config-dir')?.textContent || '~/.config/opencode';
-            navigator.clipboard.writeText(dir).then(() => alert(window.I18N.copied));
-        }
-
-        function copyOpencodeOpenCmd() {
-            const cmd = document.getElementById('opencode-open-cmd')?.textContent || 'open ~/.config/opencode';
-            navigator.clipboard.writeText(cmd).then(() => alert(window.I18N.copied));
-        }
-
-        function downloadConfig() {
-            const config = document.getElementById('config-output').textContent || '';
-            if (!config || config === (window.I18N.loading || 'Loading...')) return;
-            const jsonMatch = config.match(/```json\s*([\s\S]*?)```/);
-            const content = jsonMatch ? jsonMatch[1].trim() : config;
-            const filename = jsonMatch ? 'opencode.jsonc' : 'opencode-setup.md';
-            const mime = jsonMatch ? 'application/json' : 'text/markdown;charset=utf-8';
-            const blob = new Blob([content], { type: mime });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
         function downloadBillingDetails() {
             const period = document.getElementById('period-select')?.value || 'day';
             window.location.href = APP_BASE_PATH + '/user/api/billing-details.csv?period=' + encodeURIComponent(period);
         }
 
-        async function mergeConfigFile(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const statusEl = document.getElementById('merge-status');
-            const label = document.getElementById('upload-label');
-            try {
-                const text = await file.text();
-                let userConfig;
-                try {
-                    userConfig = JSON.parse(text);
-                } catch {
-                    statusEl.textContent = window.I18N.invalidFile;
-                    statusEl.className = 'mt-2 text-sm text-red-500';
-                    statusEl.classList.remove('hidden');
-                    return;
-                }
-                label.textContent = window.I18N.loading || 'Loading...';
-                const resp = await fetch(APP_BASE_PATH + '/opencode/merge', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ config: userConfig }),
-                });
-                if (!resp.ok) {
-                    statusEl.textContent = window.I18N.mergeFailed;
-                    statusEl.className = 'mt-2 text-sm text-red-500';
-                    statusEl.classList.remove('hidden');
-                    return;
-                }
-                const merged = await resp.json();
-                const blob = new Blob([JSON.stringify(merged, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'opencode.jsonc';
-                a.click();
-                URL.revokeObjectURL(url);
-                statusEl.textContent = window.I18N.mergeSuccess;
-                statusEl.className = 'mt-2 text-sm text-green-600';
-                statusEl.classList.remove('hidden');
-            } catch (e) {
-                statusEl.textContent = (window.I18N.mergeFailed || 'Merge failed') + ': ' + e.message;
-                statusEl.className = 'mt-2 text-sm text-red-500';
-                statusEl.classList.remove('hidden');
-            } finally {
-                label.textContent = window.I18N.uploadConfig || 'Upload opencode.jsonc';
-                input.value = '';
-            }
-        }
-        
         function copyCode(type) {
             const el = document.getElementById('code-' + type);
             navigator.clipboard.writeText(el.textContent).then(() => alert(window.I18N.copied));

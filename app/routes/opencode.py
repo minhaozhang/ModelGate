@@ -302,6 +302,7 @@ async def build_opencode_config(
         "provider": {
             "modelgate": {
                 "name": "ModelGate",
+                "npm": "@ai-sdk/openai-compatible",
                 "options": {
                     "baseURL": base_url,
                     "apiKey": key.key,

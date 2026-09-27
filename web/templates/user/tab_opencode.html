@@ -34,56 +34,6 @@
     <details class="border border-gray-200 rounded-lg mb-6" open>
         <summary class="px-4 py-3 cursor-pointer text-sm font-medium text-gray-700 select-none">{{ _('Manual setup (copy markdown)') }}</summary>
         <div class="p-4 pt-0">
-            <div class="bg-gray-50 rounded-xl p-5 mt-3">
-                <h3 class="font-semibold mb-2">{{ _('Merge with existing config') }}</h3>
-                <p class="text-sm text-gray-600 mb-1">{{ _('Upload your existing opencode.jsonc to merge the latest ModelGate config into it') }}</p>
-                <p id="config-path-hint" class="text-sm text-gray-400 mb-3"></p>
-                <div class="mb-3 rounded border border-slate-200 bg-white p-3 text-xs text-gray-600">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span>{{ '目标目录' if current_locale == 'zh' else 'Target folder' }}:</span>
-                        <code id="opencode-config-dir" class="rounded bg-gray-100 px-2 py-1"></code>
-                        <button type="button" onclick="copyOpencodeConfigDir()" class="rounded border px-2 py-1 text-blue-500 hover:bg-gray-50">{{ '复制目录' if current_locale == 'zh' else 'Copy folder' }}</button>
-                    </div>
-                    <div class="mt-2 flex flex-wrap items-center gap-2">
-                        <span>{{ '终端快速打开' if current_locale == 'zh' else 'Quick open in terminal' }}:</span>
-                        <code id="opencode-open-cmd" class="rounded bg-gray-100 px-2 py-1"></code>
-                        <button type="button" onclick="copyOpencodeOpenCmd()" class="rounded border px-2 py-1 text-blue-500 hover:bg-gray-50">{{ '复制命令' if current_locale == 'zh' else 'Copy command' }}</button>
-                    </div>
-                    <p class="mt-2">{{ '浏览器不能直接把下载文件保存到这个隐藏目录，请下载后把 opencode.jsonc 移动到这个目录。' if current_locale == 'zh' else 'The browser cannot save directly into this hidden folder. Move the downloaded file to this folder after download.' }}</p>
-                    <div id="mac-hidden-folder-hint" class="mt-2 hidden text-gray-500">
-                        <span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 font-mono">⌘</span>
-                        <span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 font-mono">Shift</span>
-                        <span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 font-mono">.</span>
-                        <span class="ml-1">{{ '在文件对话框中显示隐藏文件夹；或按' if current_locale == 'zh' else 'shows hidden folders in the file dialog. Or press' }}</span>
-                        <span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 font-mono">⌘</span>
-                        <span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 font-mono">Shift</span>
-                        <span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 font-mono">G</span>
-                        <span>{{ '输入 ~/.config/opencode/ 直接跳转。' if current_locale == 'zh' else 'and enter ~/.config/opencode/ to jump there.' }}</span>
-                        <span class="sr-only">Cmd + Shift + . Cmd + Shift + G</span>
-                    </div>
-                </div>
-                <script>
-                    (function(){
-                        const isWin = /Win/i.test(navigator.userAgent);
-                        const isMac = /Mac/i.test(navigator.userAgent);
-                        const dir = isWin ? '%USERPROFILE%\\.config\\opencode' : '~/.config/opencode';
-                        document.getElementById('opencode-config-dir').textContent = dir;
-                        document.getElementById('config-path-hint').textContent = isWin ? '{{ _("Config path: %USERPROFILE%\\\\.config\\\\opencode\\\\opencode.jsonc") }}' : '{{ _("Config path: ~/.config/opencode/opencode.jsonc") }}';
-                        document.getElementById('mac-hidden-folder-hint').classList.toggle('hidden', !isMac);
-                        const openCmd = isWin ? 'explorer %USERPROFILE%\\.config\\opencode' : (isMac ? 'open ~/.config/opencode' : 'xdg-open ~/.config/opencode');
-                        document.getElementById('opencode-open-cmd').textContent = openCmd;
-                    })();
-                </script>
-                <div class="flex flex-wrap items-center gap-3">
-                    <label class="bg-green-500 text-white px-4 py-2 rounded text-sm hover:bg-green-600 cursor-pointer">
-                        <span id="upload-label">{{ _('Upload opencode.jsonc') }}</span>
-                        <input type="file" accept=".jsonc,.json" onchange="mergeConfigFile(this)" class="hidden">
-                    </label>
-                    <button type="button" onclick="downloadConfig()" class="bg-blue-500 text-white px-4 py-2 rounded text-sm hover:bg-blue-600">{{ '下载 opencode.jsonc' if current_locale == 'zh' else 'Download opencode.jsonc' }}</button>
-                </div>
-                <div id="merge-status" class="mt-2 text-sm hidden"></div>
-            </div>
-
             <p class="text-gray-600 my-4">{{ _('Copy the text below and send it to OpenCode for configuration') }}</p>
 
             <div class="bg-gray-50 rounded-xl p-5 mb-6">

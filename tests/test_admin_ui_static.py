@@ -167,16 +167,17 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("renderStandardModelCheckboxes(true)", prepare)
         self.assertNotIn("renderModelCheckboxes", prepare)
 
-    def test_user_opencode_tab_shows_target_path_and_macos_hidden_folder_shortcuts(self):
+    def test_user_opencode_tab_dropped_manual_upload_merge_flow(self):
         html = (ROOT / "web" / "templates" / "user" / "tab_opencode.html").read_text(encoding="utf-8")
 
-        self.assertIn("copyOpencodeConfigDir", html)
-        self.assertIn("downloadConfig", html)
-        self.assertIn("downloaded file to this folder", html)
-        self.assertIn("⌘", html)
-        self.assertIn("Shift", html)
-        self.assertIn("Cmd + Shift + .", html)
-        self.assertIn("Cmd + Shift + G", html)
+        # The manual upload/merge block was dropped: the one-liner scripts and
+        # the copy-markdown flow cover everything it did.
+        self.assertNotIn("mergeConfigFile", html)
+        self.assertNotIn("downloadConfig", html)
+        self.assertNotIn("copyOpencodeConfigDir", html)
+        # The copy-markdown manual flow remains.
+        self.assertIn("config-output", html)
+        self.assertIn("copyConfig()", html)
 
     def test_user_cost_card_downloads_billing_details_for_current_period(self):
         tab = (ROOT / "web" / "templates" / "user" / "tab_stats.html").read_text(encoding="utf-8")
