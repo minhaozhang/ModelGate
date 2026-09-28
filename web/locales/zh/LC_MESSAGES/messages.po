@@ -2155,6 +2155,12 @@ msgstr "用量报表"
 msgid "Request Stats"
 msgstr "请求汇总"
 
+msgid "Data Insights"
+msgstr "数据洞察"
+
+msgid "Daily briefings and usage reports in one place"
+msgstr "每日简报与使用报告合并入口"
+
 msgid "Aggregated live from raw request logs (retained ~30 days) with status and time-window filters; for long-range reconciliation use the Usage Reports view."
 msgstr "实时聚合自请求明细（约保留 30 天），支持按状态/时间窗过滤；长周期对账请用「用量报表」视图。"
 

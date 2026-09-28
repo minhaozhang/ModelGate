@@ -28,8 +28,15 @@ class DailyReportStaticTests(unittest.TestCase):
 
     def test_page_route_registered(self):
         src = (ROOT / "app" / "routes" / "pages.py").read_text(encoding="utf-8")
-        self.assertIn('@router.get("/daily-reports"', src)
-        self.assertIn("admin/daily_reports.html", src)
+        self.assertIn('@router.get("/insights"', src)
+        self.assertIn("admin/insights.html", src)
+        # The old standalone pages redirect into the merged Data Insights page.
+        self.assertIn('"/admin/insights#daily"', src)
+        self.assertIn('"/admin/insights#usage"', src)
+        merged = (ROOT / "web" / "templates" / "admin" / "insights.html").read_text(encoding="utf-8")
+        self.assertIn("insights-panel-daily", merged)
+        self.assertIn("insights-panel-reports", merged)
+        self.assertIn("switchInsightsTab", merged)
 
     def test_scheduler_task_registered(self):
         src = (ROOT / "app" / "services" / "scheduler.py").read_text(encoding="utf-8")
@@ -50,7 +57,7 @@ class DailyReportStaticTests(unittest.TestCase):
         self.assertIn("DailyReport,", src)
 
     def test_template_renders_sections(self):
-        tpl = (ROOT / "web" / "templates" / "admin" / "daily_reports.html").read_text(encoding="utf-8")
+        tpl = (ROOT / "web" / "templates" / "admin" / "insights.html").read_text(encoding="utf-8")
         for needle in (
             "drSecurity",
             "drErrors",
@@ -90,10 +97,10 @@ class DailyReportStaticTests(unittest.TestCase):
         self.assertIn('ai_model = str(body.get("ai_model") or "").strip()', src)
         self.assertIn('generate_daily_report(date_str, ai_model=ai_model or None)', src)
 
-    def test_nav_has_daily_reports_link(self):
+    def test_nav_has_insights_link(self):
         nav = (ROOT / "web" / "templates" / "components" / "nav.html").read_text(encoding="utf-8")
-        self.assertIn("/admin/daily-reports", nav)
-        self.assertIn("Daily Reports", nav)
+        self.assertIn("/admin/insights", nav)
+        self.assertIn("Data Insights", nav)
 
     def test_auth_failed_logging_in_proxy(self):
         src = (ROOT / "app" / "services" / "proxy.py").read_text(encoding="utf-8")
@@ -147,7 +154,7 @@ class DailyReportStaticTests(unittest.TestCase):
         self.assertIn('security["nginx"] = await _nginx_section', src)
         self.assertIn('"key_ip_top"', src)
         self.assertIn('"nginx"', src)
-        ui = (ROOT / "web" / "templates" / "admin" / "daily_reports.html").read_text(encoding="utf-8")
+        ui = (ROOT / "web" / "templates" / "admin" / "insights.html").read_text(encoding="utf-8")
         self.assertIn("drNginx", ui)
         self.assertIn("key_ip_top", ui)
 
@@ -165,7 +172,7 @@ class DailyReportStaticTests(unittest.TestCase):
         self.assertIn("client_errors", src)
         self.assertIn("quota_5h", src)
         self.assertIn("20:00-11:00", src)
-        ui = (ROOT / "web" / "templates" / "admin" / "daily_reports.html").read_text(encoding="utf-8")
+        ui = (ROOT / "web" / "templates" / "admin" / "insights.html").read_text(encoding="utf-8")
         self.assertIn("upstream_rate_limited_top", ui)
         self.assertIn("server_errors_top", ui)
         self.assertIn("quota_5h", ui)

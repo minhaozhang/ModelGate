@@ -87,11 +87,18 @@ async def mobile_home_page(request: Request, session: Optional[str] = Cookie(Non
     return HTMLResponse(content=render(request, "admin/mobile_home.html"))
 
 
+@router.get("/insights", response_class=HTMLResponse)
+async def insights_page(request: Request, session: Optional[str] = Cookie(None)):
+    if not _check_auth(session):
+        return RedirectResponse(url=build_app_url(request, "/admin/login"))
+    return HTMLResponse(content=render(request, "admin/insights.html"))
+
+
 @router.get("/reports", response_class=HTMLResponse)
 async def reports_page(request: Request, session: Optional[str] = Cookie(None)):
     if not _check_auth(session):
         return RedirectResponse(url=build_app_url(request, "/admin/login"))
-    return HTMLResponse(content=render(request, "admin/reports.html"))
+    return RedirectResponse(url=build_app_url(request, "/admin/insights#usage"))
 
 
 @router.get("/report-center", response_class=HTMLResponse)
@@ -105,7 +112,7 @@ async def report_center_page(request: Request, session: Optional[str] = Cookie(N
 async def daily_reports_page(request: Request, session: Optional[str] = Cookie(None)):
     if not _check_auth(session):
         return RedirectResponse(url=build_app_url(request, "/admin/login"))
-    return HTMLResponse(content=render(request, "admin/daily_reports.html"))
+    return RedirectResponse(url=build_app_url(request, "/admin/insights#daily"))
 
 
 @router.get("/documents", response_class=HTMLResponse)

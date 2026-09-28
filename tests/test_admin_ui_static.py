@@ -322,7 +322,7 @@ class AdminUiStaticTests(unittest.TestCase):
             "api_keys.html",
             "config.html",
             "documents.html",
-            "reports.html",
+            "insights.html",
             "request_logs.html",
             "users.html",
             "roles.html",
