@@ -7,6 +7,7 @@
     <title>{{ _('Report Center') }} - ModelGate</title>
     <link rel="icon" href="{{ app_base_path }}/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/output.css?v={{ css_version }}">
+    <script src="/static/js/date-picker.js"></script>
     <style>
         .nav-link { transition: all 0.2s; }
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
@@ -23,12 +24,18 @@
         .rc-table tr.total td { font-weight: 700; background: #f9fafb; border-top: 2px solid #e5e7eb; }
         .rc-tagchip { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; background: #e0f2fe; color: #0369a1; }
         .rc-tagchip.none { background: #f3f4f6; color: #6b7280; }
+        .rc-mode-btn { padding: 0.4rem 1.1rem; font-size: 0.8125rem; font-weight: 600; color: #6b7280; background: none; border: 0; cursor: pointer; }
+        .rc-mode-btn.active { color: #2563eb; background: rgba(59, 130, 246, 0.10); }
+        .time-btn { padding: 0.3rem 0.8rem; font-size: 0.75rem; font-weight: 600; border: 1px solid #e5e7eb; border-radius: 0.5rem; color: #6b7280; background: #fff; cursor: pointer; }
+        .time-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+        .dim-btn { padding: 0.35rem 0.9rem; font-size: 0.75rem; font-weight: 600; border: 1px solid #e5e7eb; border-radius: 0.5rem; color: #6b7280; background: #fff; cursor: pointer; }
+        .dim-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
         body.theme-dark { background: #020617 !important; color: #e2e8f0; }
         body.theme-dark nav, body.theme-dark .bg-white { background: #0f172a !important; }
         body.theme-dark .bg-gray-50 { background: #111827 !important; }
         body.theme-dark .bg-gray-100 { background: #020617 !important; }
         body.theme-dark .text-gray-800 { color: #f8fafc !important; }
-        body.theme-dark .text-gray-700 { color: #e5e7eb !important; }
+        body.theme-dark .text-gray-700 { color: #e2e8f0 !important; }
         body.theme-dark .text-gray-600 { color: #cbd5e1 !important; }
         body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
         body.theme-dark .border, body.theme-dark .border-b, body.theme-dark .border-t, body.theme-dark .border-gray-200 { border-color: #1f2937 !important; }
@@ -41,6 +48,10 @@
         body.theme-dark .rc-tagchip.none { background: rgba(148, 163, 184, 0.16); color: #94a3b8; }
         body.theme-dark .rc-tab { color: #94a3b8; }
         body.theme-dark .rc-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+        body.theme-dark .rc-mode-btn { color: #94a3b8; }
+        body.theme-dark .rc-mode-btn.active { color: #60a5fa; background: rgba(59, 130, 246, 0.16); }
+        body.theme-dark .time-btn, body.theme-dark .dim-btn { background: #0f172a; color: #94a3b8; border-color: #334155; }
+        body.theme-dark .time-btn.active, body.theme-dark .dim-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -53,7 +64,14 @@
                         <h1 class="text-xl font-bold text-gray-800">{{ _('Report Center') }}</h1>
                         <p class="text-sm text-gray-500 mt-1" id="rc-subtitle"></p>
                     </div>
-                    <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm">
+                        <button id="rc-mode-usage" onclick="rcSetMode('usage')" class="rc-mode-btn active">{{ _('Usage Reports') }}</button>
+                        <button id="rc-mode-requests" onclick="rcSetMode('requests')" class="rc-mode-btn">{{ _('Request Stats') }}</button>
+                    </div>
+                </div>
+
+                <div id="rc-view-usage">
+                    <div class="flex flex-wrap items-center gap-2 mb-4">
                         <input type="date" id="rc-start" class="border rounded-lg px-3 py-2 text-sm">
                         <span class="text-gray-400 text-sm">~</span>
                         <input type="date" id="rc-end" class="border rounded-lg px-3 py-2 text-sm">
@@ -65,61 +83,134 @@
                         <button onclick="rcLoad()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">{{ _('Query') }}</button>
                         <button onclick="rcExport()" class="border px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100">{{ _('Export CSV') }}</button>
                     </div>
+
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div class="flex border-b border-gray-200 px-4">
+                            <button class="rc-tab active" id="rc-tab-tag" onclick="rcSetView('tag')">{{ _('By Tag') }}</button>
+                            <button class="rc-tab" id="rc-tab-key" onclick="rcSetView('key')">{{ _('By Person') }}</button>
+                            <button class="rc-tab" id="rc-tab-provider" onclick="rcSetView('provider')">{{ _('By Provider') }}</button>
+                            <button class="rc-tab" id="rc-tab-provider-key" onclick="rcSetView('provider-key')">{{ _('By Provider Key') }}</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="rc-table">
+                                <thead>
+                                    <tr id="rc-head-tag">
+                                        <th>{{ _('Tag') }}</th>
+                                        <th class="num">{{ _('People') }}</th>
+                                        <th class="num">{{ _('Requests') }}</th>
+                                        <th class="num">{{ _('Input Tokens') }}</th>
+                                        <th class="num">{{ _('Output Tokens') }}</th>
+                                        <th class="num">{{ _('Total Tokens') }}</th>
+                                        <th class="num">{{ _('Cost (CNY)') }}</th>
+                                    </tr>
+                                    <tr id="rc-head-key" style="display:none">
+                                        <th>{{ _('Person') }}</th>
+                                        <th>{{ _('Tags') }}</th>
+                                        <th class="num">{{ _('Requests') }}</th>
+                                        <th class="num">{{ _('Input Tokens') }}</th>
+                                        <th class="num">{{ _('Output Tokens') }}</th>
+                                        <th class="num">{{ _('Total Tokens') }}</th>
+                                        <th class="num">{{ _('Cost (CNY)') }}</th>
+                                    </tr>
+                                    <tr id="rc-head-provider" style="display:none">
+                                        <th>{{ _('Provider') }}</th>
+                                        <th class="num">{{ _('Requests') }}</th>
+                                        <th class="num">{{ _('Input Tokens') }}</th>
+                                        <th class="num">{{ _('Output Tokens') }}</th>
+                                        <th class="num">{{ _('Total Tokens') }}</th>
+                                        <th class="num">{{ _('Cost (CNY)') }}</th>
+                                    </tr>
+                                    <tr id="rc-head-provider-key" style="display:none">
+                                        <th>{{ _('Provider') }}</th>
+                                        <th>{{ _('Provider Key') }}</th>
+                                        <th class="num">{{ _('Requests') }}</th>
+                                        <th class="num">{{ _('Input Tokens') }}</th>
+                                        <th class="num">{{ _('Output Tokens') }}</th>
+                                        <th class="num">{{ _('Total Tokens') }}</th>
+                                        <th class="num">{{ _('Cost (CNY)') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rc-body">
+                                    <tr><td colspan="7" class="text-center text-gray-400 py-8"><span class="spinner"></span></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-3" id="rc-note"></p>
                 </div>
 
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div class="flex border-b border-gray-200 px-4">
-                        <button class="rc-tab active" id="rc-tab-tag" onclick="rcSetView('tag')">{{ _('By Tag') }}</button>
-                        <button class="rc-tab" id="rc-tab-key" onclick="rcSetView('key')">{{ _('By Person') }}</button>
-                        <button class="rc-tab" id="rc-tab-provider" onclick="rcSetView('provider')">{{ _('By Provider') }}</button>
-                        <button class="rc-tab" id="rc-tab-provider-key" onclick="rcSetView('provider-key')">{{ _('By Provider Key') }}</button>
+                <div id="rc-view-requests" class="hidden">
+                    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-4">
+                        <div class="flex flex-wrap items-end gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ _('Provider') }}</label>
+                                <select id="agg-provider" class="border border-gray-200 rounded px-3 py-2 text-sm w-40">
+                                    <option value="">{{ _('All') }}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ _('API Key') }}</label>
+                                <input id="agg-key" type="text" placeholder="{{ _('Key name') }}" class="border border-gray-200 rounded px-3 py-2 text-sm w-36">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ _('Client IP') }}</label>
+                                <input id="agg-ip" type="text" placeholder="e.g. 192.168.1.1" class="border border-gray-200 rounded px-3 py-2 text-sm w-36">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ _('Status') }}</label>
+                                <select id="agg-status" class="border border-gray-200 rounded px-3 py-2 text-sm w-36">
+                                    <option value="">{{ _('All') }}</option>
+                                    <option value="success">success</option>
+                                    <option value="error">error</option>
+                                    <option value="rate_limited">rate_limited</option>
+                                    <option value="local_rate_limited">local_rate_limited</option>
+                                    <option value="timeout">timeout</option>
+                                    <option value="cancelled">cancelled</option>
+                                    <option value="sending">sending</option>
+                                    <option value="pending">pending</option>
+                                    <option value="waiting">waiting</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ _('Time Range') }}</label>
+                                <div class="flex gap-2">
+                                    <button class="time-btn active" data-agg-range="24h" onclick="aggSetRange(this)">24h</button>
+                                    <button class="time-btn" data-agg-range="7d" onclick="aggSetRange(this)">7d</button>
+                                    <button class="time-btn" data-agg-range="30d" onclick="aggSetRange(this)">30d</button>
+                                    <button class="time-btn" data-agg-range="custom" onclick="aggSetRange(this)">{{ _('Custom') }}</button>
+                                </div>
+                            </div>
+                            <div id="agg-custom-range" class="hidden">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ _('Custom Range') }}</label>
+                                <div id="agg-date-picker"></div>
+                            </div>
+                            <button onclick="aggLoad()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">{{ _('Query') }}</button>
+                            <button onclick="aggExportCSV()" class="border border-gray-200 bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">{{ _('Export CSV') }}</button>
+                        </div>
+                    </section>
+
+                    <div class="flex gap-2 mb-4">
+                        <button id="dim-btn-provider_model" onclick="aggSetDimension('provider_model')" class="dim-btn active">{{ _('Provider/Model') }}</button>
+                        <button id="dim-btn-user" onclick="aggSetDimension('user')" class="dim-btn">{{ _('User') }}</button>
+                        <button id="dim-btn-ip" onclick="aggSetDimension('ip')" class="dim-btn">{{ _('Client IP') }}</button>
+                        <button id="dim-btn-user_ip" onclick="aggSetDimension('user_ip')" class="dim-btn">{{ _('User + IP') }}</button>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="rc-table">
-                            <thead>
-                                <tr id="rc-head-tag">
-                                    <th>{{ _('Tag') }}</th>
-                                    <th class="num">{{ _('People') }}</th>
-                                    <th class="num">{{ _('Requests') }}</th>
-                                    <th class="num">{{ _('Input Tokens') }}</th>
-                                    <th class="num">{{ _('Output Tokens') }}</th>
-                                    <th class="num">{{ _('Total Tokens') }}</th>
-                                    <th class="num">{{ _('Cost (CNY)') }}</th>
-                                </tr>
-                                <tr id="rc-head-key" style="display:none">
-                                    <th>{{ _('Person') }}</th>
-                                    <th>{{ _('Tags') }}</th>
-                                    <th class="num">{{ _('Requests') }}</th>
-                                    <th class="num">{{ _('Input Tokens') }}</th>
-                                    <th class="num">{{ _('Output Tokens') }}</th>
-                                    <th class="num">{{ _('Total Tokens') }}</th>
-                                    <th class="num">{{ _('Cost (CNY)') }}</th>
-                                </tr>
-                                <tr id="rc-head-provider" style="display:none">
-                                    <th>{{ _('Provider') }}</th>
-                                    <th class="num">{{ _('Requests') }}</th>
-                                    <th class="num">{{ _('Input Tokens') }}</th>
-                                    <th class="num">{{ _('Output Tokens') }}</th>
-                                    <th class="num">{{ _('Total Tokens') }}</th>
-                                    <th class="num">{{ _('Cost (CNY)') }}</th>
-                                </tr>
-                                <tr id="rc-head-provider-key" style="display:none">
-                                    <th>{{ _('Provider') }}</th>
-                                    <th>{{ _('Provider Key') }}</th>
-                                    <th class="num">{{ _('Requests') }}</th>
-                                    <th class="num">{{ _('Input Tokens') }}</th>
-                                    <th class="num">{{ _('Output Tokens') }}</th>
-                                    <th class="num">{{ _('Total Tokens') }}</th>
-                                    <th class="num">{{ _('Cost (CNY)') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rc-body">
-                                <tr><td colspan="7" class="text-center text-gray-400 py-8"><span class="spinner"></span></td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+
+                    <section class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div id="agg-loading" class="hidden p-6 flex items-center justify-center gap-3 text-sm text-gray-500">
+                            <span class="spinner"></span>
+                            {{ _('Loading...') }}
+                        </div>
+                        <div id="agg-empty" class="hidden p-6 text-sm text-gray-500">{{ _('No data found for the selected time range.') }}</div>
+                        <div id="agg-table-wrap" class="hidden overflow-x-auto">
+                            <table class="rc-table">
+                                <thead id="agg-thead"></thead>
+                                <tbody id="agg-tbody"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                    <p class="text-xs text-gray-400 mt-3">{{ _('Aggregated live from raw request logs (retained ~30 days) with status and time-window filters; for long-range reconciliation use the Usage Reports view.') }}</p>
                 </div>
-                <p class="text-xs text-gray-400 mt-3" id="rc-note"></p>
             </div>
         </main>
     </div>
@@ -262,6 +353,280 @@
     });
     initDates(30);
     rcSetView('tag');
+
+    /* ---------- Request Stats view (moved from Request Logs) ---------- */
+
+    async function fetchJsonOrRedirect(url, options = {}) {
+        const response = await fetch(url, options);
+        if (response.status === 401) {
+            window.location.href = `${APP_BASE_PATH}/admin/login`;
+            return null;
+        }
+        if (!response.ok) throw new Error(await response.text());
+        return response.json();
+    }
+
+    function rcSetMode(mode) {
+        const usageView = document.getElementById('rc-view-usage');
+        const reqView = document.getElementById('rc-view-requests');
+        const btnUsage = document.getElementById('rc-mode-usage');
+        const btnReq = document.getElementById('rc-mode-requests');
+        const isUsage = mode === 'usage';
+        usageView.classList.toggle('hidden', !isUsage);
+        reqView.classList.toggle('hidden', isUsage);
+        btnUsage.classList.toggle('active', isUsage);
+        btnReq.classList.toggle('active', !isUsage);
+        document.getElementById('rc-subtitle').textContent = '';
+        if (!isUsage) {
+            aggLoadProviders();
+            aggLoad();
+        }
+    }
+    window.rcSetMode = rcSetMode;
+
+    let currentAggRange = '24h';
+    let currentAggDimension = 'provider_model';
+    let currentAggData = null;
+    let aggDatePicker = null;
+
+    function aggSetRange(btn) {
+        document.querySelectorAll('#rc-view-requests .time-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentAggRange = btn.dataset.aggRange;
+        const customEl = document.getElementById('agg-custom-range');
+        if (currentAggRange === 'custom') {
+            customEl.classList.remove('hidden');
+            if (!aggDatePicker) {
+                aggDatePicker = MgDateRangePicker.create({
+                    el: '#agg-date-picker',
+                    type: 'date',
+                    placeholder: T('选择日期范围', 'Select date range')
+                });
+            }
+        } else {
+            customEl.classList.add('hidden');
+        }
+    }
+    window.aggSetRange = aggSetRange;
+
+    function aggSetDimension(dim) {
+        currentAggDimension = dim;
+        ['provider_model', 'user', 'ip', 'user_ip'].forEach(d => {
+            document.getElementById('dim-btn-' + d).classList.toggle('active', d === dim);
+        });
+        aggLoad();
+    }
+    window.aggSetDimension = aggSetDimension;
+
+    async function aggLoadProviders() {
+        const select = document.getElementById('agg-provider');
+        if (select.options.length > 1) return;
+        try {
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/providers`);
+            if (!data || !data.providers) return;
+            data.providers.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                select.appendChild(opt);
+            });
+        } catch (e) { console.error('Failed to load providers', e); }
+    }
+
+    const AGG_I18N = {
+        provider: T('供应商', 'Provider'),
+        model: T('模型', 'Model'),
+        apiKey: T('API Key', 'API Key'),
+        clientIp: T('客户端 IP', 'Client IP'),
+        requests: T('请求数', 'Requests'),
+        avgLatency: T('平均延迟', 'Avg Latency'),
+        maxLatency: T('最大延迟', 'Max Latency'),
+        minLatency: T('最小延迟', 'Min Latency'),
+        avgTokens: T('平均 Tokens', 'Avg Tokens'),
+        totalTokens: T('总 Tokens', 'Total Tokens'),
+        noDataToExport: T('没有可导出的数据', 'No data to export'),
+    };
+
+    function fmtLatency(ms) { return ((ms || 0) / 1000).toFixed(2) + ' s'; }
+    function fmtTokensK(v) { return v > 0 ? (v / 1000).toFixed(1) + 'k' : '-'; }
+    function fmtTokensM(v) { return v > 0 ? (v / 1000000).toFixed(2) + 'm' : '-'; }
+
+    function aggRender(data) {
+        const thead = document.getElementById('agg-thead');
+        const tbody = document.getElementById('agg-tbody');
+        const dim = data.group_by || 'provider_model';
+        const rows = data.rows || [];
+
+        if (dim === 'provider_model') {
+            thead.innerHTML = `<tr>
+                <th>${AGG_I18N.provider}</th>
+                <th>${AGG_I18N.model}</th>
+                <th class="num">${AGG_I18N.requests}</th>
+                <th class="num">${AGG_I18N.avgLatency}</th>
+                <th class="num">${AGG_I18N.maxLatency}</th>
+                <th class="num">${AGG_I18N.minLatency}</th>
+                <th class="num">${AGG_I18N.avgTokens}</th>
+                <th class="num">${AGG_I18N.totalTokens}</th>
+            </tr>`;
+            tbody.innerHTML = rows.map(r => `<tr>
+                <td>${escapeHtml(r.provider_name)}</td>
+                <td style="font-family:Monaco,Menlo,monospace;font-size:0.75rem">${escapeHtml(r.model)}</td>
+                <td class="num">${fmtNum(r.request_count)}</td>
+                <td class="num">${fmtLatency(r.avg_latency_ms)}</td>
+                <td class="num">${fmtLatency(r.max_latency_ms)}</td>
+                <td class="num">${fmtLatency(r.min_latency_ms)}</td>
+                <td class="num">${fmtTokensK(r.avg_tokens)}</td>
+                <td class="num">${fmtTokensM(r.total_tokens)}</td>
+            </tr>`).join('');
+        } else if (dim === 'user') {
+            thead.innerHTML = `<tr>
+                <th>${AGG_I18N.apiKey}</th>
+                <th class="num">${AGG_I18N.requests}</th>
+                <th class="num">${AGG_I18N.avgLatency}</th>
+                <th class="num">${AGG_I18N.totalTokens}</th>
+            </tr>`;
+            tbody.innerHTML = rows.map(r => `<tr>
+                <td>${escapeHtml(r.api_key_name)}</td>
+                <td class="num">${fmtNum(r.request_count)}</td>
+                <td class="num">${fmtLatency(r.avg_latency_ms)}</td>
+                <td class="num">${fmtTokensM(r.total_tokens)}</td>
+            </tr>`).join('');
+        } else if (dim === 'ip') {
+            thead.innerHTML = `<tr>
+                <th>${AGG_I18N.clientIp}</th>
+                <th class="num">${AGG_I18N.requests}</th>
+                <th class="num">${AGG_I18N.avgLatency}</th>
+                <th class="num">${AGG_I18N.totalTokens}</th>
+            </tr>`;
+            tbody.innerHTML = rows.map(r => `<tr>
+                <td style="font-family:Monaco,Menlo,monospace;font-size:0.75rem">${escapeHtml(r.client_ip)}</td>
+                <td class="num">${fmtNum(r.request_count)}</td>
+                <td class="num">${fmtLatency(r.avg_latency_ms)}</td>
+                <td class="num">${fmtTokensM(r.total_tokens)}</td>
+            </tr>`).join('');
+        } else {
+            thead.innerHTML = `<tr>
+                <th>${AGG_I18N.apiKey}</th>
+                <th>${AGG_I18N.clientIp}</th>
+                <th class="num">${AGG_I18N.requests}</th>
+                <th class="num">${AGG_I18N.avgLatency}</th>
+                <th class="num">${AGG_I18N.totalTokens}</th>
+            </tr>`;
+            tbody.innerHTML = rows.map(r => `<tr>
+                <td>${escapeHtml(r.api_key_name)}</td>
+                <td style="font-family:Monaco,Menlo,monospace;font-size:0.75rem">${escapeHtml(r.client_ip)}</td>
+                <td class="num">${fmtNum(r.request_count)}</td>
+                <td class="num">${fmtLatency(r.avg_latency_ms)}</td>
+                <td class="num">${fmtTokensM(r.total_tokens)}</td>
+            </tr>`).join('');
+        }
+        currentAggData = data;
+    }
+
+    function aggExportCSV() {
+        if (!currentAggData || !currentAggData.rows || !currentAggData.rows.length) {
+            alert(AGG_I18N.noDataToExport);
+            return;
+        }
+        const dim = currentAggData.group_by;
+        const rows = currentAggData.rows;
+        let headers = [];
+        let csvRows = [];
+
+        if (dim === 'provider_model') {
+            headers = ['Provider', 'Model', 'Requests', 'Avg Latency (s)', 'Max Latency (s)', 'Min Latency (s)', 'Avg Tokens', 'Total Tokens'];
+            csvRows = rows.map(r => [
+                r.provider_name, r.model, r.request_count,
+                (r.avg_latency_ms / 1000).toFixed(2),
+                (r.max_latency_ms / 1000).toFixed(2),
+                (r.min_latency_ms / 1000).toFixed(2),
+                r.avg_tokens, r.total_tokens
+            ]);
+        } else if (dim === 'user') {
+            headers = ['User', 'Requests', 'Avg Latency (s)', 'Total Tokens'];
+            csvRows = rows.map(r => [
+                r.api_key_name, r.request_count,
+                (r.avg_latency_ms / 1000).toFixed(2),
+                r.total_tokens
+            ]);
+        } else if (dim === 'ip') {
+            headers = ['Client IP', 'Requests', 'Avg Latency (s)', 'Total Tokens'];
+            csvRows = rows.map(r => [
+                r.client_ip, r.request_count,
+                (r.avg_latency_ms / 1000).toFixed(2),
+                r.total_tokens
+            ]);
+        } else {
+            headers = ['User', 'Client IP', 'Requests', 'Avg Latency (s)', 'Total Tokens'];
+            csvRows = rows.map(r => [
+                r.api_key_name, r.client_ip, r.request_count,
+                (r.avg_latency_ms / 1000).toFixed(2),
+                r.total_tokens
+            ]);
+        }
+
+        const csvContent = '\uFEFF' + [headers.join(','), ...csvRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `aggregate_${dim}_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+    window.aggExportCSV = aggExportCSV;
+
+    async function aggLoad() {
+        const loading = document.getElementById('agg-loading');
+        const empty = document.getElementById('agg-empty');
+        const tbody = document.getElementById('agg-tbody');
+        const wrap = document.getElementById('agg-table-wrap');
+
+        loading.classList.remove('hidden');
+        empty.classList.add('hidden');
+        wrap.classList.add('hidden');
+        tbody.innerHTML = '';
+
+        try {
+            const provider = document.getElementById('agg-provider').value;
+            const status = document.getElementById('agg-status').value;
+            const keyName = document.getElementById('agg-key').value.trim();
+            const clientIp = document.getElementById('agg-ip').value.trim();
+            const params = new URLSearchParams();
+
+            if (currentAggRange === 'custom' && aggDatePicker) {
+                const s = aggDatePicker.getStartISO();
+                const e = aggDatePicker.getEndISO();
+                if (s) params.set('start_time', s);
+                if (e) params.set('end_time', e);
+                else params.set('time_range', '24h');
+            } else {
+                params.set('time_range', currentAggRange);
+            }
+
+            if (provider) params.set('provider', provider);
+            if (status) params.set('status', status);
+            if (keyName) params.set('key_name', keyName);
+            if (clientIp) params.set('client_ip', clientIp);
+            params.set('group_by', currentAggDimension);
+
+            const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/aggregate?${params}`);
+            if (!data) return;
+
+            const rows = data.rows || [];
+            if (!rows.length) {
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            wrap.classList.remove('hidden');
+            aggRender(data);
+        } catch (e) {
+            console.error('Failed to load aggregate', e);
+        } finally {
+            loading.classList.add('hidden');
+        }
+    }
+    window.aggLoad = aggLoad;
 })();
 </script>
 </body>

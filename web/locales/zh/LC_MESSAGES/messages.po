@@ -2149,6 +2149,15 @@ msgstr "我的 API 密钥"
 msgid "Your API key is embedded in the commands (see \"My Key\" at the top right) · macOS/Linux only needs curl"
 msgstr "命令已嵌入你的 API Key（右上角「我的 Key」可查看）· macOS/Linux 仅需 curl"
 
+msgid "Usage Reports"
+msgstr "用量报表"
+
+msgid "Request Stats"
+msgstr "请求汇总"
+
+msgid "Aggregated live from raw request logs (retained ~30 days) with status and time-window filters; for long-range reconciliation use the Usage Reports view."
+msgstr "实时聚合自请求明细（约保留 30 天），支持按状态/时间窗过滤；长周期对账请用「用量报表」视图。"
+
 msgid "Failed to load API key"
 msgstr "加载 API 密钥失败"
 
