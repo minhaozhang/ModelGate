@@ -102,10 +102,10 @@ async def create_request_log(
 
 async def update_request_log(
     log_id: int,
-    response: str = "",
+    response: Optional[str] = None,
     tokens: Optional[dict] = None,
     latency_ms: Optional[float] = None,
-    status: str = "success",
+    status: Optional[str] = None,
     upstream_status_code: Optional[int] = None,
     downstream_status_code: Optional[int] = None,
     error: Optional[str] = None,
@@ -119,18 +119,27 @@ async def update_request_log(
     request_messages: Optional[list] = None,
     wait_ms: Optional[float] = None,
 ) -> bool:
+    # PATCH 语义：仅显式传入的字段才更新，未传字段保留原值。
+    # （旧的全字段覆盖语义会把 _persist_tries 等单字段调用
+    #   已写入的 status/error/upstream_status_code 覆盖成默认值。）
     async with async_session_maker() as session:
-        values = dict(
-            response=_clean_null_bytes(response),
-            tokens=_clean_null_bytes(tokens) or {},
-            latency_ms=latency_ms,
-            status=status,
-            upstream_status_code=upstream_status_code,
-            downstream_status_code=downstream_status_code,
-            error=_clean_null_bytes(error),
-            actual_model=actual_model,
-            updated_at=func.now(),
-        )
+        values = {"updated_at": func.now()}
+        if response is not None:
+            values["response"] = _clean_null_bytes(response)
+        if tokens is not None:
+            values["tokens"] = _clean_null_bytes(tokens) or {}
+        if latency_ms is not None:
+            values["latency_ms"] = latency_ms
+        if status is not None:
+            values["status"] = status
+        if upstream_status_code is not None:
+            values["upstream_status_code"] = upstream_status_code
+        if downstream_status_code is not None:
+            values["downstream_status_code"] = downstream_status_code
+        if error is not None:
+            values["error"] = _clean_null_bytes(error)
+        if actual_model is not None:
+            values["actual_model"] = actual_model
         if wait_ms is not None:
             values["wait_ms"] = wait_ms
         if provider_name:
@@ -150,7 +159,7 @@ async def update_request_log(
         result = await session.execute(
             update(RequestLog).where(RequestLog.id == log_id).values(**values)
         )
-        if status != "success":
+        if status is not None and status != "success":
             await session.execute(
                 sa_delete(RequestContent).where(RequestContent.log_id == log_id)
             )
