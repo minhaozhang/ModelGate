@@ -2158,6 +2158,9 @@ msgstr "请求汇总"
 msgid "Data Insights"
 msgstr "数据洞察"
 
+msgid "User Usage Report"
+msgstr "用户使用报告"
+
 msgid "Daily briefings and usage reports in one place"
 msgstr "每日简报与使用报告合并入口"
 

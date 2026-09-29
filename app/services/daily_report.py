@@ -830,9 +830,10 @@ async def _ai_analyze(date_str: str, sections: dict, model: str) -> dict:
             {
                 "role": "system",
                 "content": (
-                    "你是 ModelGate API 网关的运维分析师，根据每日运营数据写简明分析。"
-                    "要求：中文；200字以内；先用一句话总体评估，再指出异常或值得关注的点"
-                    "（引用具体数字），最后给1-2条可执行建议；用短句，不要标题，"
+                    "你是 ModelGate API 网关的运维分析师，根据每日运营数据写分析。"
+                    "要求：中文；500字以内；先用两三句话总体评估（引用总量数字），"
+                    "再逐项指出异常或值得关注的点（引用具体数字、IP、Key），"
+                    "最后给2-3条可执行建议；用短句，不要标题，"
                     "不要输出JSON，不要客套。"
                 ),
             },
@@ -842,7 +843,7 @@ async def _ai_analyze(date_str: str, sections: dict, model: str) -> dict:
                 + _json.dumps(payload, ensure_ascii=False),
             },
         ],
-        "max_tokens": 600,
+        "max_tokens": 1200,
         "temperature": 0.3,
         "stream": False,
     }
