@@ -55,7 +55,10 @@ def _is_key_retryable_status(status_code: int) -> bool:
 
 
 def _is_route_fallback_status(status_code: int) -> bool:
-    return status_code >= 500
+    # 5xx: upstream server-side failure. 404: model not available on this
+    # provider — the request itself is valid, another provider may have the
+    # model, so rotate to the next provider in the route chain.
+    return status_code >= 500 or status_code == 404
 
 
 def _resolve_request_status(status_code: int, provider_error: str | None = None) -> str:
