@@ -153,6 +153,7 @@ async def init_element_permissions():
             ('system_config.update', '保存系统配置', 'element', 'system_config', 'update'),
             ('scheduler.trigger', '手动触发任务', 'element', 'scheduler', 'update'),
             ('scheduler.update', '编辑定时任务', 'element', 'scheduler', 'update'),
+            ('notification.create', '发布公告', 'element', 'notification', 'create'),
             ('notification.mark_read', '标记通知已读', 'element', 'notification', 'update')
             ON CONFLICT (code) DO NOTHING;
         """))

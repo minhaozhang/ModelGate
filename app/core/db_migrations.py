@@ -1176,6 +1176,7 @@ def default_rbac_permissions() -> list[dict]:
         ("model.create", "创建模型", "model", "create"),
         ("model.update", "更新模型", "model", "update"),
         ("model.delete", "删除模型", "model", "delete"),
+        ("notification.create", "发布公告", "notification", "create"),
         ("notification.mark_read", "标记通知已读", "notification", "update"),
         ("provider.create", "创建供应商", "provider", "create"),
         ("provider.update", "更新供应商", "provider", "update"),

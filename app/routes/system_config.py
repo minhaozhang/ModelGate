@@ -1,7 +1,7 @@
 import os
 import time
 from datetime import date, datetime
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import select, func
 
@@ -201,6 +201,27 @@ async def get_notifications(
 ):
     from app.services.notification import get_admin_notifications
     return await get_admin_notifications(page=page, page_size=page_size, unread_only=unread)
+
+
+@router.post("/api/notifications")
+async def publish_notification(
+    payload: dict = Body(...),
+    _: bool = Depends(permission_required("notification.create")),
+):
+    """Publish a site-wide announcement broadcast to every user's message center."""
+    from app.services.notification import create_notification
+
+    title = str(payload.get("title") or "").strip()
+    body = str(payload.get("body") or "").strip() or None
+    level = payload.get("level")
+    if level not in ("info", "warning"):
+        level = "info"
+    if not title:
+        raise HTTPException(status_code=400, detail="title is required")
+    notification_id = await create_notification(
+        type="user", level=level, title=title, body=body, target_api_key_id=None
+    )
+    return {"ok": True, "id": notification_id}
 
 
 @router.get("/api/notifications/unread-count")

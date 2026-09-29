@@ -60,6 +60,35 @@
         body.theme-dark #global-status-strip .text-slate-700 { color: #ededf8e6 !important; }
         body.theme-dark #global-status-strip .text-slate-500 { color: #ededf8b8 !important; }
         body.theme-dark #global-status-strip .text-slate-400 { color: #ededf87a !important; }
+        #announcement-strip { border-color: #bfdbfe; background: rgba(239, 246, 255, 0.85); }
+        #announcement-strip:hover { background: rgba(219, 234, 254, 0.95); }
+        #announcement-strip.ann-warning { border-color: #fde68a; background: rgba(254, 252, 232, 0.9); }
+        #announcement-strip.ann-warning:hover { background: rgba(254, 249, 195, 0.95); }
+        #announcement-icon { color: #3b82f6; }
+        #announcement-title { color: #1e3a8a; }
+        #announcement-time { color: #60a5fa; }
+        #announcement-strip.ann-warning #announcement-icon { color: #f59e0b; }
+        #announcement-strip.ann-warning #announcement-title { color: #92400e; }
+        #announcement-strip.ann-warning #announcement-time { color: #d97706; }
+        .ann-dot { width: 6px; height: 6px; border-radius: 9999px; background: #bfdbfe; cursor: pointer; transition: background 0.15s; }
+        .ann-dot.active { background: #3b82f6; }
+        #announcement-strip.ann-warning .ann-dot { background: #fde68a; }
+        #announcement-strip.ann-warning .ann-dot.active { background: #f59e0b; }
+        body.theme-dark #announcement-strip { background: rgba(96, 165, 250, 0.08) !important; border-color: rgba(96, 165, 250, 0.22) !important; }
+        body.theme-dark #announcement-strip:hover { background: rgba(96, 165, 250, 0.14) !important; }
+        body.theme-dark #announcement-strip.ann-warning { background: rgba(245, 158, 11, 0.08) !important; border-color: rgba(245, 158, 11, 0.25) !important; }
+        body.theme-dark #announcement-strip.ann-warning:hover { background: rgba(245, 158, 11, 0.14) !important; }
+        body.theme-dark #announcement-title { color: #bfdbfe !important; }
+        body.theme-dark #announcement-strip.ann-warning #announcement-title { color: #fde68a !important; }
+        body.theme-dark #announcement-time { color: #60a5fa99 !important; }
+        body.theme-dark #announcement-icon { color: #60a5fa !important; }
+        body.theme-dark #announcement-strip.ann-warning #announcement-icon { color: #f59e0b !important; }
+        body.theme-dark .ann-dot { background: #475569 !important; }
+        body.theme-dark .ann-dot.active { background: #60a5fa !important; }
+        body.theme-dark #announcement-strip.ann-warning .ann-dot.active { background: #f59e0b !important; }
+        body.theme-dark #announcement-modal > div { background: #0a0a12 !important; }
+        body.theme-dark #announcement-modal-title { color: #e2e8f0 !important; }
+        body.theme-dark #announcement-modal-body { color: #94a3b8 !important; }
         body.theme-dark .bg-gray-200 { background: rgba(235, 234, 250, 0.09) !important; }
         body.theme-dark .bg-gray-100 { background: #050508 !important; }
         body.theme-dark .bg-blue-50 { background: rgba(129, 140, 248, 0.10) !important; }
@@ -376,6 +405,15 @@
             <span id="strip-label" class="font-medium text-slate-700 whitespace-nowrap">--</span>
             <span id="strip-live" class="text-slate-500 whitespace-nowrap"></span>
             <span id="strip-hint" class="ml-auto text-xs text-slate-400 truncate"></span>
+        </div>
+
+        <div id="announcement-strip" class="hidden mb-4 rounded-xl border px-4 py-2.5 flex items-center gap-3 text-sm shadow-sm cursor-pointer transition-colors" onclick="openAnnouncementModal()" role="button">
+            <svg id="announcement-icon" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 11-5.8-1.6"/></svg>
+            <span id="announcement-title" class="font-medium truncate transition-opacity duration-300"></span>
+            <span class="ml-auto flex items-center gap-2.5 shrink-0">
+                <span id="announcement-dots" class="flex items-center gap-1.5"></span>
+                <span id="announcement-time" class="text-xs"></span>
+            </span>
         </div>
 
         <div class="tab-nav mb-6" role="tablist">
@@ -2267,6 +2305,7 @@
         loadMyRequests();
         loadSystemActiveSessions();
         loadProviderStatus();
+        loadAnnouncements();
         setInterval(loadStats, 30000);
         setInterval(loadMyRequests, 10000);
         setInterval(loadSystemActiveSessions, 10000);
@@ -2498,6 +2537,84 @@
             await fetch(APP_BASE_PATH + '/user/api/notifications/read-all', {method:'PUT'});
             loadUserNotifList(_userNotifPage);
         }
+
+        // ---- announcement banner (rotating, max 5 within 7 days) ----
+        let _annItems = [];
+        let _annIdx = 0;
+        let _annTimer = null;
+
+        function renderAnnouncementStrip() {
+            const item = _annItems[_annIdx];
+            if (!item) return;
+            const strip = document.getElementById('announcement-strip');
+            strip.classList.toggle('ann-warning', item.level === 'warning');
+            document.getElementById('announcement-title').textContent = item.title;
+            document.getElementById('announcement-time').textContent = new Date(item.created_at).toLocaleString();
+            const dots = document.getElementById('announcement-dots');
+            dots.innerHTML = _annItems.length > 1 ? _annItems.map(function(_, i) {
+                return '<span class="ann-dot' + (i === _annIdx ? ' active' : '') + '" onclick="event.stopPropagation(); switchAnnouncement(' + i + ')"></span>';
+            }).join('') : '';
+        }
+
+        function switchAnnouncement(idx) {
+            if (!_annItems.length) return;
+            _annIdx = ((idx % _annItems.length) + _annItems.length) % _annItems.length;
+            renderAnnouncementStrip();
+            restartAnnRotation();
+        }
+
+        function restartAnnRotation() {
+            if (_annTimer) { clearInterval(_annTimer); _annTimer = null; }
+            if (_annItems.length <= 1) return;
+            _annTimer = setInterval(function() {
+                const titleEl = document.getElementById('announcement-title');
+                titleEl.style.opacity = '0';
+                setTimeout(function() {
+                    _annIdx = (_annIdx + 1) % _annItems.length;
+                    renderAnnouncementStrip();
+                    const el = document.getElementById('announcement-title');
+                    if (el) el.style.opacity = '1';
+                }, 300);
+            }, 8000);
+        }
+
+        async function loadAnnouncements() {
+            try {
+                const r = await fetch(APP_BASE_PATH + '/user/api/announcements');
+                if (!r.ok) return;
+                const d = await r.json();
+                _annItems = (d.items || []).filter(function(a) { return a && a.title; });
+                if (!_annItems.length) return;
+                _annIdx = 0;
+                renderAnnouncementStrip();
+                document.getElementById('announcement-strip').classList.remove('hidden');
+                restartAnnRotation();
+            } catch (e) {}
+        }
+
+        function openAnnouncementModal() {
+            const item = _annItems[_annIdx];
+            if (!item) return;
+            document.getElementById('announcement-modal-title').textContent = item.title;
+            document.getElementById('announcement-modal-time').textContent = new Date(item.created_at).toLocaleString();
+            document.getElementById('announcement-modal-body').textContent = item.body || '';
+            const modal = document.getElementById('announcement-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeAnnouncementModal() {
+            const modal = document.getElementById('announcement-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+
+        function announcementGoNotifs() {
+            closeAnnouncementModal();
+            showTab('notifications');
+        }
     </script>
 {% endraw %}
 <div id="price-detail-modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
@@ -2528,6 +2645,21 @@
         <button onclick="regenerateKey()" class="px-3 py-1.5 rounded text-sm text-amber-700 border border-amber-300 bg-amber-50 hover:bg-amber-100">
           {{ _('Reset API Key') }}
         </button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="announcement-modal" class="fixed inset-0 hidden items-center justify-center z-50" style="background:rgba(0,0,0,0.5)" onclick="if (event.target === this) closeAnnouncementModal()">
+  <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4">
+    <div class="flex justify-between items-start px-5 pt-5 pb-1 gap-3">
+      <h3 id="announcement-modal-title" class="text-base font-semibold text-gray-800"></h3>
+      <button onclick="closeAnnouncementModal()" class="text-gray-400 hover:text-gray-600 shrink-0">✕</button>
+    </div>
+    <div class="px-5 pb-5">
+      <div id="announcement-modal-time" class="text-xs text-gray-400 mb-3"></div>
+      <div id="announcement-modal-body" class="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed max-h-[60vh] overflow-y-auto"></div>
+      <div class="mt-5 flex justify-end">
+        <button onclick="announcementGoNotifs()" class="text-sm text-blue-600 hover:underline">{{ _('View all notifications') }}</button>
       </div>
     </div>
   </div>

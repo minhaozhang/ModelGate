@@ -18,6 +18,7 @@
         body.theme-dark .border-b { border-color: #1f2937 !important; }
         .nav-link { transition: all 0.2s; }
         .nav-link:hover { background: rgba(59, 130, 246, 0.1); }
+        body.theme-dark input, body.theme-dark select, body.theme-dark textarea { background: #0f172a !important; color: #e5e7eb !important; border-color: #334155 !important; }
         .notif-card { transition: background 0.15s; }
         .notif-card:hover { background: rgba(59, 130, 246, 0.04); }
     </style>
@@ -28,6 +29,21 @@
         {% include "components/nav.html" %}
         <main class="ml-56 flex-1 p-6">
             {% call admin_page_header(_('Notifications')) %}{% endcall %}
+
+            <div class="bg-white rounded-lg shadow p-5 mb-6">
+                <h3 class="text-base font-semibold text-gray-800 mb-3">{{ _('Publish Announcement') }}</h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
+                    <input id="ann-title" class="md:col-span-2 border border-gray-200 rounded px-3 py-2 text-sm" maxlength="100" placeholder="{{ _('Title') }}">
+                    <select id="ann-level" class="border border-gray-200 rounded px-3 py-2 text-sm">
+                        <option value="info">{{ _('Normal') }}</option>
+                        <option value="warning">{{ _('Important') }}</option>
+                    </select>
+                    <button id="ann-publish-btn" onclick="publishAnnouncement()" class="bg-blue-600 text-white rounded px-4 py-2 text-sm hover:bg-blue-700">{{ _('Publish') }}</button>
+                </div>
+                <textarea id="ann-body" class="w-full mt-3 border border-gray-200 rounded px-3 py-2 text-sm" rows="3" maxlength="2000" placeholder="{{ _('Announcement content, sent to every user message center') }}"></textarea>
+                <p class="text-xs text-gray-400 mt-2">{{ _('Announcements show on user dashboards for 7 days and are then cleaned up automatically.') }}</p>
+            </div>
+
             <div id="notifications-list" class="space-y-3">{{ _('Loading...') }}</div>
             <div id="pagination" class="flex justify-center gap-2 mt-6"></div>
         </main>
@@ -74,6 +90,34 @@
             }
             if (page < totalPages) html += `<button onclick="loadNotifications(${page+1})" class="px-3 py-1 border rounded text-sm">&gt;</button>`;
             pg.innerHTML = html;
+        }
+        async function publishAnnouncement() {
+            const titleEl = document.getElementById('ann-title');
+            const bodyEl = document.getElementById('ann-body');
+            const title = titleEl.value.trim();
+            const body = bodyEl.value.trim();
+            const level = document.getElementById('ann-level').value;
+            const btn = document.getElementById('ann-publish-btn');
+            if (!title) { titleEl.focus(); return; }
+            btn.disabled = true;
+            try {
+                const r = await fetch(`${APP_BASE_PATH}/admin/api/notifications`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, body, level })
+                });
+                if (r.ok) {
+                    titleEl.value = '';
+                    bodyEl.value = '';
+                    loadNotifications(1);
+                } else if (r.status === 403) {
+                    alert(`{{ _("No permission to publish announcements") }}`);
+                } else {
+                    alert(`{{ _("Publish failed") }}`);
+                }
+            } finally {
+                btn.disabled = false;
+            }
         }
         loadNotifications(1);
     </script>

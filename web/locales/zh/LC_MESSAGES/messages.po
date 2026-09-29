@@ -2161,6 +2161,33 @@ msgstr "数据洞察"
 msgid "User Usage Report"
 msgstr "用户使用报告"
 
+msgid "Publish Announcement"
+msgstr "发布公告"
+
+msgid "Normal"
+msgstr "普通"
+
+msgid "Important"
+msgstr "重要"
+
+msgid "Publish"
+msgstr "发布"
+
+msgid "Announcement content, sent to every user message center"
+msgstr "公告内容，将发送到所有用户的消息中心"
+
+msgid "Announcements show on user dashboards for 7 days and are then cleaned up automatically."
+msgstr "公告在用户面板展示 7 天，之后自动清理。"
+
+msgid "No permission to publish announcements"
+msgstr "无发布公告权限"
+
+msgid "Publish failed"
+msgstr "发布失败"
+
+msgid "View all notifications"
+msgstr "查看全部通知"
+
 msgid "Daily briefings and usage reports in one place"
 msgstr "每日简报与使用报告合并入口"
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from sqlalchemy import select, func, and_, or_
@@ -247,6 +247,33 @@ async def get_user_unread_count(api_key_id: int) -> int:
             )
         )
         return result.scalar() or 0
+
+
+async def get_announcements(days: int = 7, limit: int = 5) -> list[dict]:
+    """Site-wide broadcast announcements (type='user', no target key) within the window."""
+    cutoff = datetime.now() - timedelta(days=days)
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Notification)
+            .where(
+                Notification.type == "user",
+                Notification.target_api_key_id.is_(None),
+                Notification.created_at >= cutoff,
+            )
+            .order_by(Notification.created_at.desc())
+            .limit(limit)
+        )
+        items = result.scalars().all()
+        return [
+            {
+                "id": n.id,
+                "level": n.level,
+                "title": n.title,
+                "body": n.body,
+                "created_at": n.created_at.isoformat() if n.created_at else None,
+            }
+            for n in items
+        ]
 
 
 async def mark_user_read(notification_id: int, api_key_id: int) -> bool:

@@ -1048,6 +1048,17 @@ async def mark_all_user_notifications_read(
     return {"ok": True, "count": count}
 
 
+@router.get("/user/api/announcements")
+async def get_user_announcements(
+    request: Request, api_key_id: int = Depends(get_user_session)
+):
+    """Latest broadcast announcements (within 7 days) for the dashboard banner."""
+    if not api_key_id:
+        return translated_error(request, "Not authenticated", 401)
+    from app.services.notification import get_announcements
+    return {"items": await get_announcements()}
+
+
 @router.get("/user/api/active")
 async def get_user_recent_requests(
     request: Request,
