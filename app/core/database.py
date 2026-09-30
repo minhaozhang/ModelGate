@@ -36,6 +36,7 @@ from app.core.db_models import (  # noqa: F401
     Menu,
     Model,
     ModelDailyStat,
+    ModelSpeedStat,
     Notification,
     Permission,
     Provider,

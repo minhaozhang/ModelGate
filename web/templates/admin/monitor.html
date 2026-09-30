@@ -317,6 +317,35 @@
                     <div id="latency-heatmap" class="hidden h-full overflow-auto"></div>
                 </div>
             </div>
+
+            <div class="bg-white rounded-lg shadow p-5 mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">{{ _('Tokens per Second') }}</h3>
+                    <div id="speed-meta" class="text-sm text-gray-500">{{ _('Streaming output speed by hour') }}</div>
+                </div>
+                <div class="mb-4 flex flex-wrap items-center gap-2">
+                    <button type="button" id="speed-dim-model" onclick="setSpeedDimension('model')" class="latency-tab active rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Model') }}</button>
+                    <button type="button" id="speed-dim-provider" onclick="setSpeedDimension('provider')" class="latency-tab rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Provider') }}</button>
+                    <button type="button" id="speed-dim-provider-model" onclick="setSpeedDimension('provider_model')" class="latency-tab rounded-full border px-3 py-1.5 text-sm font-medium">{{ _('Provider & Model') }}</button>
+                </div>
+                <div class="h-80">
+                    <canvas id="speedChart"></canvas>
+                </div>
+                <div class="mt-4 overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200 text-left text-gray-500">
+                                <th class="px-4 py-2 font-medium">{{ _('Name') }}</th>
+                                <th class="px-4 py-2 font-medium text-right">24h tok/s</th>
+                                <th class="px-4 py-2 font-medium text-right">24h {{ _('Requests') }}</th>
+                                <th class="px-4 py-2 font-medium text-right">7d tok/s</th>
+                                <th class="px-4 py-2 font-medium text-right">7d {{ _('Requests') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="speed-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
             <div class="bg-white rounded-lg shadow p-5 mt-6">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold">{{ _('Provider / Key / Model Status') if current_locale == 'zh' else 'Provider / Key / Model Status' }}</h3>
@@ -392,6 +421,9 @@
         max: "{{ _('Max') }}",
         avgShort: "{{ _('Avg') }}",
         noHeatmapData: "{{ _('No heatmap data') }}",
+        tokensPerSecondAxis: "{{ _('Speed (tokens/s)') }}",
+        streamingSpeedByHour: "{{ _('Streaming output speed by hour') }}",
+        noSpeedData: "{{ _('No speed data yet') }}",
     };
     </script>
     <script>
@@ -404,6 +436,9 @@
         let apikeyChart = null;
         let modelChart = null;
         let latencyChart = null;
+        let speedChart = null;
+        let currentSpeedDimension = 'model';
+        let latestSpeedData = null;
         const providerPalette = ['#2563eb', '#3b82f6', '#0ea5e9', '#38bdf8', '#1d4ed8', '#60a5fa', '#0284c7', '#7dd3fc'];
         const apikeyPalette = ['#059669', '#10b981', '#14b8a6', '#34d399', '#0f766e', '#2dd4bf', '#22c55e', '#6ee7b7'];
         const modelPalette = ['#2563eb', '#059669', '#ea580c', '#dc2626', '#7c3aed', '#0891b2', '#ca8a04', '#4f46e5'];
@@ -1051,12 +1086,120 @@
             renderLatencyChart(monitorData.latency || {});
         }
 
+        // ---- tokens/s speed card (reads precomputed model_speed_stats) ----
+        function setSpeedDimension(dim) {
+            currentSpeedDimension = dim;
+            ['model', 'provider', 'provider_model'].forEach(function (d) {
+                const btn = document.getElementById('speed-dim-' + d);
+                if (btn) btn.classList.toggle('active', d === dim);
+            });
+            if (latestSpeedData && latestSpeedData.dimension === dim) {
+                renderSpeedCard(latestSpeedData);
+            } else {
+                loadSpeedStats();
+            }
+        }
+
+        async function loadSpeedStats() {
+            try {
+                const data = await fetchJsonOrRedirect(
+                    `${APP_BASE_PATH}/admin/api/stats/speed?dimension=${currentSpeedDimension}&hours=168`
+                );
+                latestSpeedData = data;
+                renderSpeedCard(data);
+            } catch (e) {
+                console.error('loadSpeedStats failed', e);
+            }
+        }
+
+        function renderSpeedCard(data) {
+            const chartTheme = getChartTheme();
+            const ctx = document.getElementById('speedChart').getContext('2d');
+            if (speedChart) speedChart.destroy();
+
+            const items = (data.items || []).slice(0, 8);
+            const labels = [];
+            const labelIndex = {};
+            items.forEach(function (it) {
+                (it.series || []).forEach(function (pt) {
+                    const label = pt.t ? pt.t.slice(11, 16) : '';
+                    if (!(label in labelIndex)) { labelIndex[label] = labels.length; labels.push(label); }
+                });
+            });
+            labels.sort();
+            labels.forEach(function (label, i) { labelIndex[label] = i; });
+
+            const datasets = items.map(function (it, idx) {
+                const values = new Array(labels.length).fill(null);
+                (it.series || []).forEach(function (pt) {
+                    const label = pt.t ? pt.t.slice(11, 16) : '';
+                    const i = labelIndex[label];
+                    if (i !== undefined && pt.v !== null && pt.v !== undefined) values[i] = pt.v;
+                });
+                return {
+                    label: it.name,
+                    data: values,
+                    borderColor: modelPalette[idx % modelPalette.length],
+                    backgroundColor: modelPalette[idx % modelPalette.length] + '33',
+                    tension: 0.25,
+                    pointRadius: 2,
+                    fill: false,
+                };
+            });
+
+            document.getElementById('speed-meta').textContent = items.length
+                ? `${window.I18N.streamingSpeedByHour} / ${items.length}`
+                : window.I18N.noSpeedData;
+
+            speedChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: chartTheme.tickColor, boxWidth: 12 } },
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: chartTheme.gridColor },
+                            ticks: { color: chartTheme.tickColor, maxTicksLimit: 12 },
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: chartTheme.gridColor },
+                            ticks: { color: chartTheme.tickColor },
+                            title: { display: true, text: window.I18N.tokensPerSecondAxis, color: chartTheme.titleColor }
+                        }
+                    }
+                }
+            });
+
+            const tbody = document.getElementById('speed-table-body');
+            if (!items.length) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">${window.I18N.noSpeedData}</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = items.map(function (it) {
+                const cell = v => (v === null || v === undefined) ? '—' : v.toLocaleString();
+                return `<tr class="border-b border-gray-100">
+                    <td class="px-4 py-2 font-medium">${escapeHtml(it.name || '')}</td>
+                    <td class="px-4 py-2 text-right font-mono">${cell(it.tokens_per_s_24h)}</td>
+                    <td class="px-4 py-2 text-right font-mono">${(it.requests_24h || 0).toLocaleString()}</td>
+                    <td class="px-4 py-2 text-right font-mono">${cell(it.tokens_per_s)}</td>
+                    <td class="px-4 py-2 text-right font-mono">${(it.requests || 0).toLocaleString()}</td>
+                </tr>`;
+            }).join('');
+        }
+
         loadData();
         setInterval(loadData, 30000);
         loadProviderStatus();
         setInterval(loadProviderStatus, 10000);
         loadSystemInfo();
         setInterval(loadSystemInfo, 10000);
+        loadSpeedStats();
 
         async function loadProviderStatus() {
             try {

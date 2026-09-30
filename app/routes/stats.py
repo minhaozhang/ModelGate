@@ -26,6 +26,9 @@ from app.core.database import (
 )
 import app.core.config as config_module
 from app.services.logging import IN_FLIGHT_STATUSES
+
+# Max lookback window (days) allowed for /stats/speed reports.
+SPEED_REPORT_MAX_DAYS = 30
 from app.core.config import (
     add_live_stats_subscriber,
     api_keys_cache,
@@ -895,6 +898,19 @@ def merge_range_aggregate(target: dict, raw: dict) -> None:
             mb = bucket["models"].setdefault(mname, {"requests": 0, "tokens": 0})
             mb["requests"] += mv["requests"]
             mb["tokens"] += mv["tokens"]
+
+
+@router.get("/stats/speed")
+async def get_speed_stats(
+    dimension: Literal["provider", "provider_model", "model"] = "model",
+    hours: int = 168,
+    _: bool = Depends(permission_required("page.stats")),
+):
+    """Streaming speed (tokens/s) from the precomputed model_speed_stats table."""
+    from app.services.speed_stats import get_speed_report
+
+    hours = max(1, min(int(hours), 24 * SPEED_REPORT_MAX_DAYS))
+    return await get_speed_report(dimension, hours=hours)
 
 
 @router.get("/stats/aggregate")

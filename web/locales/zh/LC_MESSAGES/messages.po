@@ -2146,7 +2146,9 @@ msgstr "我的 Key"
 msgid "My API Key"
 msgstr "我的 API 密钥"
 
-msgid "Your API key is embedded in the commands (see \"My Key\" at the top right) · macOS/Linux only needs curl"
+msgid ""
+"Your API key is embedded in the commands (see \"My Key\" at the top right) ·"
+" macOS/Linux only needs curl"
 msgstr "命令已嵌入你的 API Key（右上角「我的 Key」可查看）· macOS/Linux 仅需 curl"
 
 msgid "Usage Reports"
@@ -2176,7 +2178,9 @@ msgstr "发布"
 msgid "Announcement content, sent to every user message center"
 msgstr "公告内容，将发送到所有用户的消息中心"
 
-msgid "Announcements show on user dashboards for 7 days and are then cleaned up automatically."
+msgid ""
+"Announcements show on user dashboards for 7 days and are then cleaned up "
+"automatically."
 msgstr "公告在用户面板展示 7 天，之后自动清理。"
 
 msgid "No permission to publish announcements"
@@ -2191,7 +2195,10 @@ msgstr "查看全部通知"
 msgid "Daily briefings and usage reports in one place"
 msgstr "每日简报与使用报告合并入口"
 
-msgid "Aggregated live from raw request logs (retained ~30 days) with status and time-window filters; for long-range reconciliation use the Usage Reports view."
+msgid ""
+"Aggregated live from raw request logs (retained ~30 days) with status and "
+"time-window filters; for long-range reconciliation use the Usage Reports "
+"view."
 msgstr "实时聚合自请求明细（约保留 30 天），支持按状态/时间窗过滤；长周期对账请用「用量报表」视图。"
 
 msgid "Failed to load API key"
@@ -3110,6 +3117,117 @@ msgstr "首包耗时"
 msgid "Wait"
 msgstr "等待"
 
+msgid "Report Center"
+msgstr "报表中心"
+
+msgid "Daily Reports"
+msgstr "每日简报"
+
+msgid "Daily Report Alert Thresholds"
+msgstr "每日简报告警阈值"
+
+msgid "Daily ops report flags warning when any metric exceeds its threshold"
+msgstr "每日简报中任一指标超过阈值时，简报级别升级为警告"
+
+msgid "Error rate warn % (errors/attempts)"
+msgstr "错误率告警 %（错误/总请求）"
+
+msgid "API auth failures warn"
+msgstr "Key 认证失败告警（次）"
+
+msgid "Admin login failures warn"
+msgstr "管理端登录失败告警（次）"
+
+msgid "Rate limited requests warn"
+msgstr "限流请求告警（次）"
+
+msgid "By Tag"
+msgstr "按标签"
+
+msgid "By Person"
+msgstr "按人"
+
+msgid "Person"
+msgstr "人（Key）"
+
+msgid "Tags"
+msgstr "标签"
+
+msgid "Single IP requests warn"
+msgstr "单 IP 请求告警（次）"
+
+msgid "Single IP auth failures warn"
+msgstr "单 IP 认证失败告警（次）"
+
+msgid "Last 7 days"
+msgstr "近 7 天"
+
+msgid "Last 30 days"
+msgstr "近 30 天"
+
+msgid "Last 90 days"
+msgstr "近 90 天"
+
+msgid "Tag"
+msgstr "标签"
+
+msgid "People"
+msgstr "人数"
+
+msgid "Input Tokens"
+msgstr "输入 Token"
+
+msgid "Output Tokens"
+msgstr "输出 Token"
+
+msgid "Total Tokens"
+msgstr "总 Token"
+
+msgid "Cost (CNY)"
+msgstr "花费（元）"
+
+msgid "By Provider"
+msgstr "按供应商"
+
+msgid "By Provider Key"
+msgstr "按密钥"
+
+msgid "Provider Key"
+msgstr "密钥"
+
+msgid "Client Config"
+msgstr "客户端配置"
+
+msgid "Pi Configuration"
+msgstr "Pi 配置"
+
+msgid "Claude Code Configuration"
+msgstr "Claude Code 配置"
+
+msgid "DeepSeek Harness Configuration"
+msgstr "DeepSeek Harness 配置"
+
+msgid "Option 1: Web UI form"
+msgstr "方式一：Web UI 表单配置"
+
+msgid "Tokens per Second"
+msgstr "Tokens/s 速度"
+
+msgid "Streaming output speed by hour"
+msgstr "按小时的流式输出速度"
+
+msgid "Provider & Model"
+msgstr "供应商 & 模型"
+
+msgid "Speed (tokens/s)"
+msgstr "速度 (tokens/s)"
+
+msgid "No speed data yet"
+msgstr "暂无速度数据"
+
+msgid "Average output speed over the last 7 days"
+msgstr "近 7 天平均输出速度"
+
 #~ msgid "API Proxy"
 #~ msgstr "ModelGate"
 
@@ -3434,95 +3552,3 @@ msgstr "等待"
 
 #~ msgid "Without Prefix"
 #~ msgstr "不带前缀"
-msgid "Report Center"
-msgstr "报表中心"
-
-msgid "Daily Reports"
-msgstr "每日简报"
-
-msgid "Daily Report Alert Thresholds"
-msgstr "每日简报告警阈值"
-
-msgid "Daily ops report flags warning when any metric exceeds its threshold"
-msgstr "每日简报中任一指标超过阈值时，简报级别升级为警告"
-
-msgid "Error rate warn % (errors/attempts)"
-msgstr "错误率告警 %（错误/总请求）"
-
-msgid "API auth failures warn"
-msgstr "Key 认证失败告警（次）"
-
-msgid "Admin login failures warn"
-msgstr "管理端登录失败告警（次）"
-
-msgid "Rate limited requests warn"
-msgstr "限流请求告警（次）"
-
-msgid "By Tag"
-msgstr "按标签"
-
-msgid "By Person"
-msgstr "按人"
-
-msgid "Person"
-msgstr "人（Key）"
-
-msgid "Tags"
-msgstr "标签"
-
-msgid "Single IP requests warn"
-msgstr "单 IP 请求告警（次）"
-
-msgid "Single IP auth failures warn"
-msgstr "单 IP 认证失败告警（次）"
-
-msgid "Last 7 days"
-msgstr "近 7 天"
-
-msgid "Last 30 days"
-msgstr "近 30 天"
-
-msgid "Last 90 days"
-msgstr "近 90 天"
-
-msgid "Tag"
-msgstr "标签"
-
-msgid "People"
-msgstr "人数"
-
-msgid "Input Tokens"
-msgstr "输入 Token"
-
-msgid "Output Tokens"
-msgstr "输出 Token"
-
-msgid "Total Tokens"
-msgstr "总 Token"
-
-msgid "Cost (CNY)"
-msgstr "花费（元）"
-
-msgid "By Provider"
-msgstr "按供应商"
-
-msgid "By Provider Key"
-msgstr "按密钥"
-
-msgid "Provider Key"
-msgstr "密钥"
-
-msgid "Client Config"
-msgstr "客户端配置"
-
-msgid "Pi Configuration"
-msgstr "Pi 配置"
-
-msgid "Claude Code Configuration"
-msgstr "Claude Code 配置"
-
-msgid "DeepSeek Harness Configuration"
-msgstr "DeepSeek Harness 配置"
-
-msgid "Option 1: Web UI form"
-msgstr "方式一：Web UI 表单配置"

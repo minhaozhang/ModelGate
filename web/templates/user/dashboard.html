@@ -471,6 +471,7 @@
         limitedAccessNote: {{ _('Models explicitly available to this API key.') | tojson }},
         modelsAvailableNote: {{ _('Models available to this API key.') | tojson }},
         platformProviderCatalog: {{ _('Platform provider catalog') | tojson }},
+        speedHint: {{ _('Average output speed over the last 7 days') | tojson }},
         modelsThisKeyCanUse: {{ _('Models this key can use') | tojson }},
         noData: {{ _('No data') | tojson }},
         allCategories: {{ _('All Categories') | tojson }},
@@ -977,6 +978,7 @@
                                     <div class="mt-3 flex flex-wrap gap-1.5 text-[11px]">
                                         <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
                                         <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
+                                        ${model.speed_tokens_per_s != null ? `<span class="rounded-full bg-black/5 px-2 py-1" title="${window.I18N.speedHint}">≈ ${model.speed_tokens_per_s} tok/s</span>` : ''}
                                         ${model.is_multimodal ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
                                         ${model.has_override ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.alias}</span>` : ''}
                                         ${priceBadge}
@@ -1030,6 +1032,7 @@
                             <div class="mt-3 flex flex-wrap gap-1.5 text-[11px] text-emerald-900/80">
                                 <span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.ctx} ${formatCompactTokens(model.context || 0)}</span>
                                 <span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
+                                ${model.speed_tokens_per_s != null ? `<span class="rounded-full bg-white/70 px-2 py-1" title="${window.I18N.speedHint}">≈ ${model.speed_tokens_per_s} tok/s</span>` : ''}
                                 ${model.is_multimodal ? `<span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
                                 ${priceBadge}
                             </div>

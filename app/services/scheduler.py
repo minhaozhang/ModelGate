@@ -19,6 +19,7 @@ from app.services.stats_aggregator import (
     backup_request_contents,
 )
 from app.services.busyness import compute_busyness_level, LEVEL_LABELS
+from app.services.speed_stats import run_speed_stats_aggregation
 
 logger = proxy_logger
 scheduler = AsyncIOScheduler()
@@ -77,6 +78,12 @@ TASK_REGISTRY = {
         "description": "每日定时调用 GLM 模型验证 zhipu 供应商链路可用，失败时发送后台通知",
         "default_cron": "30 5 * * *",
         "func": None,
+    },
+    "speed_stats_aggregate": {
+        "name": "速度统计聚合",
+        "description": "按小时聚合各供应商/模型的流式输出速度(tokens/s)到速度统计表，自动补跑缺失窗口",
+        "default_cron": "5 * * * *",
+        "func": run_speed_stats_aggregation,
     },
 }
 
@@ -250,6 +257,12 @@ async def _task_daily_ops_report():
     await _run_task_with_logging("daily_ops_report", None, summary)
 
 
+async def _task_speed_stats():
+    result = await run_speed_stats_aggregation()
+    summary = f"windows={result['windows']}, rows={result['rows']}, purged={result['purged']}"
+    await _run_task_with_logging("speed_stats_aggregate", None, summary)
+
+
 TASK_HANDLERS = {
     "aggregate_daily_stats": _task_aggregate_daily,
     "aggregate_tag_daily_stats": _task_aggregate_tags,
@@ -260,6 +273,7 @@ TASK_HANDLERS = {
     "compute_busyness_level": _task_busyness,
     "backup_request_contents": _task_backup_contents,
     "glm_health_check": _task_glm_health_check,
+    "speed_stats_aggregate": _task_speed_stats,
 }
 
 

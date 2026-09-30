@@ -610,6 +610,18 @@ _DDL: list[str] = [
     "CREATE INDEX IF NOT EXISTS idx_notifications_target ON notifications (target_api_key_id)",
     "CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications (created_at)",
 
+    "CREATE TABLE IF NOT EXISTS model_speed_stats ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "period_start TIMESTAMP NOT NULL, "
+    "provider_name VARCHAR(50) NOT NULL DEFAULT '', "
+    "model_name VARCHAR(100) NOT NULL DEFAULT '', "
+    "requests INTEGER NOT NULL DEFAULT 0, "
+    "output_tokens BIGINT NOT NULL DEFAULT 0, "
+    "stream_ms FLOAT NOT NULL DEFAULT 0"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_model_speed_stats ON model_speed_stats (period_start, provider_name, model_name)",
+    "CREATE INDEX IF NOT EXISTS idx_model_speed_stats_period ON model_speed_stats (period_start)",
+
     "CREATE TABLE IF NOT EXISTS scheduler_tasks ("
     "id SERIAL NOT NULL PRIMARY KEY, "
     "task_id VARCHAR(100) NOT NULL UNIQUE, "

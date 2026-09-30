@@ -1,6 +1,7 @@
 """ORM models. Importing this module registers every table on Base.metadata."""
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     Date,
@@ -574,6 +575,38 @@ class ModelDailyStat(Base):
         Index(
             "idx_model_stats_unique", "model_name", "provider_name", "date", unique=True
         ),
+    )
+
+
+class ModelSpeedStat(Base):
+    """Hourly streaming speed (tokens/s) stats per provider / provider+model / model.
+
+    Dimensions are encoded with an empty-string sentinel:
+    - (provider_name='',  model_name='M')  -> model across all providers
+    - (provider_name='P', model_name='')   -> provider rollup
+    - (provider_name='P', model_name='M')  -> provider+model
+    tokens/s is derived on read: output_tokens / (stream_ms / 1000).
+    """
+
+    __tablename__ = "model_speed_stats"
+
+    id = Column(Integer, primary_key=True)
+    period_start = Column(DateTime, nullable=False)
+    provider_name = Column(String(50), nullable=False, default="")
+    model_name = Column(String(100), nullable=False, default="")
+    requests = Column(Integer, nullable=False, default=0)
+    output_tokens = Column(BigInteger, nullable=False, default=0)
+    stream_ms = Column(Float, nullable=False, default=0)
+
+    __table_args__ = (
+        Index(
+            "uq_model_speed_stats",
+            "period_start",
+            "provider_name",
+            "model_name",
+            unique=True,
+        ),
+        Index("idx_model_speed_stats_period", "period_start"),
     )
 
 

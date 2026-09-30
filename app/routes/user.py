@@ -1767,6 +1767,13 @@ async def get_user_catalog(
         key_model_access = key_model_access_result.scalars().all()
         auto_routes = auto_routes_result.scalars().all()
 
+    try:
+        from app.services.speed_stats import get_model_speed_map
+
+        model_speed_map = await get_model_speed_map(days=7)
+    except Exception:
+        model_speed_map = {}
+
     provider_map = {provider.id: provider for provider in providers}
     model_map = {model.id: model for model in models}
     active_provider_models = [
@@ -1892,6 +1899,9 @@ async def get_user_catalog(
             model_entry["min_output_price"] = pricing["min_output_price"]
             model_entry["min_cached_price"] = pricing["min_cached_price"]
             model_entry["tier_samples"] = pricing["tier_samples"]
+            speed = model_speed_map.get(model_entry.get("model_name"))
+            if speed:
+                model_entry["speed_tokens_per_s"] = speed
 
         models_data = sorted(models_by_id.values(), key=lambda item: item["model_name"])
         if not models_data:
