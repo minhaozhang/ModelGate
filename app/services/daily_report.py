@@ -23,6 +23,60 @@ TIMEOUT_STATUS = "timeout"
 RATE_LIMITED_STATUSES = {"rate_limited", "local_rate_limited"}
 AUTH_FAILED_STATUS = "auth_failed"
 
+# Max IPs whose geo location is actively looked up (amap/ipinfo) per report run.
+REPORT_IP_LOOKUP_LIMIT = 15
+
+
+def _lookup_candidates(
+    ip_cities: dict[str, str],
+    warning_ips: list[str],
+    auth_fail_top: list[str],
+    login_fail_top: list[str],
+    traffic_ips: list[str],
+    limit: int = REPORT_IP_LOOKUP_LIMIT,
+) -> list[str]:
+    """Problem IPs lacking a known location, worst first, capped per run."""
+    candidates: list[str] = []
+    for ip in warning_ips + auth_fail_top + login_fail_top + traffic_ips:
+        if not ip or ip == "unknown" or ip in ip_cities or ip in candidates:
+            continue
+        candidates.append(ip)
+    return candidates[:limit]
+
+
+def _city_label_from_lookup(result: dict) -> str:
+    parts = []
+    country = result.get("country") or ""
+    if country and country not in ("中国", "China", "CHN"):
+        parts.append(country)
+    province = result.get("province") or ""
+    if province:
+        parts.append(province)
+    city = result.get("city") or ""
+    if city and city != province:
+        parts.append(city)
+    return " ".join(parts)
+
+
+async def _resolve_missing_cities(candidates: list[str], ip_cities: dict[str, str]) -> None:
+    """Actively look up locations via the platform service (caches into ip_locations)."""
+    import asyncio as _asyncio
+
+    from app.services.ip_location import lookup_ip_location
+
+    if not candidates:
+        return
+    results = await _asyncio.gather(
+        *(lookup_ip_location(ip) for ip in candidates),
+        return_exceptions=True,
+    )
+    for ip, result in zip(candidates, results):
+        if isinstance(result, Exception) or not result.get("ok"):
+            continue
+        label = _city_label_from_lookup(result)
+        if label:
+            ip_cities[ip] = label
+
 HIGH_RISK_RESOURCES = {"roles", "users", "api_keys", "providers", "provider_keys"}
 
 
@@ -150,7 +204,7 @@ async def _security_section(session, start_dt: datetime, end_dt: datetime, thres
         ip_traffic.items(),
         key=lambda kv: (kv[1]["requests"] + kv[1]["auth_failures"] + kv[1]["login_failures"]),
         reverse=True,
-    )[:5]
+    )[:10]
 
     ip_top_ips = [ip for ip, _ in ip_top]
     ip_cities: dict[str, str] = {}
@@ -175,6 +229,23 @@ async def _security_section(session, start_dt: datetime, end_dt: datetime, thres
                 parts.append(city)
             if parts:
                 ip_cities[ip] = " ".join(parts)
+
+    login_fail_top = sorted(login_fail_by_ip.items(), key=lambda x: -x[1])[:5]
+    auth_fail_top = sorted(auth_fail_by_ip.items(), key=lambda x: -x[1])[:5]
+    warning_ips = [
+        ip
+        for ip, stats in ip_top
+        if stats["requests"] >= thresholds["ip_req_warn"]
+        or stats["auth_failures"] >= thresholds["ip_auth_fail_warn"]
+    ]
+    candidates = _lookup_candidates(
+        ip_cities,
+        warning_ips,
+        [ip for ip, _ in auth_fail_top],
+        [ip for ip, _ in login_fail_top],
+        ip_top_ips,
+    )
+    await _resolve_missing_cities(candidates, ip_cities)
 
     ip_top_data = [
         {
@@ -272,9 +343,15 @@ async def _security_section(session, start_dt: datetime, end_dt: datetime, thres
     return {
         "login_failures": login_failures,
         "login_locked": login_locked,
-        "login_fail_top_ips": sorted(login_fail_by_ip.items(), key=lambda x: -x[1])[:5],
+        "login_fail_top_ips": [
+            {"ip": ip, "count": cnt, "city": ip_cities.get(ip, "")}
+            for ip, cnt in login_fail_top
+        ],
         "auth_failures": auth_failures,
-        "auth_fail_top_ips": sorted(auth_fail_by_ip.items(), key=lambda x: -x[1])[:5],
+        "auth_fail_top_ips": [
+            {"ip": ip, "count": cnt, "city": ip_cities.get(ip, "")}
+            for ip, cnt in auth_fail_top
+        ],
         "auth_fail_reasons": sorted(auth_fail_reasons.items(), key=lambda x: -x[1])[:5],
         "rate_limited": rate_limited,
         "admin_ops": admin_ops,

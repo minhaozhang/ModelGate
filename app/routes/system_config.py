@@ -615,6 +615,52 @@ async def get_system_info(_: bool = Depends(permission_required("page.stats"))):
     }
 
 
+@router.get("/api/system/ips")
+async def list_ip_directory(
+    search: str = "",
+    page: int = 1,
+    page_size: int = 20,
+    _: bool = Depends(permission_required("page.system.config")),
+):
+    from app.services.ip_directory import list_ips
+
+    return await list_ips(search=search, page=page, page_size=page_size)
+
+
+@router.post("/api/system/ips/{ip}/lookup")
+async def lookup_ip_geo(
+    ip: str, _: bool = Depends(permission_required("system_config.update"))
+):
+    from app.services.ip_location import lookup_ip_location
+
+    return await lookup_ip_location(ip)
+
+
+@router.post("/api/system/ips/{ip}/tags")
+async def add_ip_tag(
+    ip: str, body: dict = Body(...), _: bool = Depends(permission_required("system_config.update"))
+):
+    from app.services.ip_directory import add_ip_tag
+
+    tag = (body.get("tag") or "").strip()
+    if not tag:
+        raise HTTPException(status_code=422, detail="标签不能为空")
+    try:
+        tags = await add_ip_tag(ip, tag)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return {"ip": ip, "tags": tags}
+
+
+@router.delete("/api/system/ips/{ip}/tags/{tag}")
+async def delete_ip_tag(
+    ip: str, tag: str, _: bool = Depends(permission_required("system_config.update"))
+):
+    from app.services.ip_directory import remove_ip_tag
+
+    return {"ip": ip, "tags": await remove_ip_tag(ip, tag)}
+
+
 @router.get("/system-config", response_class=HTMLResponse)
 async def system_config_page(request: Request, _: bool = Depends(permission_required("page.system.config"))):
     html = render(request, "admin/system_config.html", active_page="system-config")

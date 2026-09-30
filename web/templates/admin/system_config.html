@@ -73,6 +73,7 @@
                 <button class="sys-tab-btn" data-sys-tab="billing" onclick="switchSysTab('billing')">{{ _('Billing Rules' if current_locale != 'zh' else '计费规则') }}</button>
                 <button class="sys-tab-btn" data-sys-tab="daily_report" onclick="switchSysTab('daily_report')">{{ _('Report Thresholds' if current_locale != 'zh' else '简报阈值') }}</button>
                 <button class="sys-tab-btn" data-sys-tab="concurrency" onclick="switchSysTab('concurrency')">{{ _('Concurrency' if current_locale != 'zh' else '并发控制') }}</button>
+                <button class="sys-tab-btn" data-sys-tab="ips" onclick="switchSysTab('ips')">{{ _('IP Management' if current_locale != 'zh' else 'IP 管理') }}</button>
             </div>
 
             <div id="sys-tab-ua" class="sys-tab-panel">
@@ -270,6 +271,47 @@
                     <div id="concurrency-msg" class="mt-3 text-sm hidden"></div>
                 </div>
             </div>
+
+            <div id="sys-tab-ips" class="sys-tab-panel hidden">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+                        <h2 class="text-lg font-semibold">{{ _('IP Management' if current_locale != 'zh' else 'IP 管理') }}</h2>
+                        <div class="flex items-center gap-2">
+                            <input id="ipdir-search" class="border rounded px-3 py-1.5 text-sm" style="width:220px" placeholder="{{ _('IP or tag' if current_locale != 'zh' else 'IP 或标签') }}" onkeydown="if(event.key==='Enter')ipDirSearch()">
+                            <button onclick="ipDirSearch()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm">{{ _('Search' if current_locale != 'zh' else '搜索') }}</button>
+                            <button onclick="ipDirState.page=1;ipDirState.search='';document.getElementById('ipdir-search').value='';loadIpDir()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded text-sm">{{ _('Reset' if current_locale != 'zh' else '重置') }}</button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-4">{{ _('All client IPs seen in request/audit logs, with cached geo location and manual tags.' if current_locale != 'zh' else '请求日志与管理端操作中出现过的所有客户端 IP：归属地来自缓存表（缺失可手动查询），标签手动维护。') }}</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 text-left text-gray-500">
+                                    <th class="px-3 py-2 font-medium">IP</th>
+                                    <th class="px-3 py-2 font-medium">{{ _('Location' if current_locale != 'zh' else '归属地') }}</th>
+                                    <th class="px-3 py-2 font-medium">ISP</th>
+                                    <th class="px-3 py-2 font-medium">{{ _('Tags' if current_locale != 'zh' else '标签') }}</th>
+                                    <th class="px-3 py-2 font-medium text-right">{{ _('Requests' if current_locale != 'zh' else '请求数') }}</th>
+                                    <th class="px-3 py-2 font-medium text-right">{{ _('Admin Ops' if current_locale != 'zh' else '管理操作') }}</th>
+                                    <th class="px-3 py-2 font-medium">{{ _('Last Seen' if current_locale != 'zh' else '最近活跃') }}</th>
+                                    <th class="px-3 py-2 font-medium text-right">{{ _('Actions' if current_locale != 'zh' else '操作') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ipdir-body">
+                                <tr><td colspan="8" class="px-3 py-6 text-center text-gray-400">{{ _('Loading...' if current_locale != 'zh' else '加载中…') }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between text-sm">
+                        <span id="ipdir-meta" class="text-xs text-gray-500"></span>
+                        <div class="flex gap-2">
+                            <button id="ipdir-prev" onclick="ipDirPage(-1)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded text-sm">{{ _('Prev' if current_locale != 'zh' else '上一页') }}</button>
+                            <button id="ipdir-next" onclick="ipDirPage(1)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded text-sm">{{ _('Next' if current_locale != 'zh' else '下一页') }}</button>
+                        </div>
+                    </div>
+                    <div id="ipdir-msg" class="mt-3 text-sm hidden"></div>
+                </div>
+            </div>
         </main>
     </div>
     <script>
@@ -289,7 +331,8 @@
         }
         applyTheme(getThemeMode());
 
-        const SYS_TABS = ['ua', 'glm', 'busyness', 'billing', 'daily_report', 'concurrency'];
+        const SYS_TABS = ['ua', 'glm', 'busyness', 'billing', 'daily_report', 'concurrency', 'ips'];
+        let ipDirLoaded = false;
         function switchSysTab(tab) {
             if (!SYS_TABS.includes(tab)) tab = 'ua';
             document.querySelectorAll('.sys-tab-panel').forEach(panel => panel.classList.add('hidden'));
@@ -301,6 +344,7 @@
             const url = new URL(window.location.href);
             url.searchParams.set('tab', tab);
             window.history.replaceState(null, '', url.toString());
+            if (tab === 'ips' && !ipDirLoaded) { ipDirLoaded = true; loadIpDir(); }
         }
 
         function sysShowMsg(id, ok, text) {
@@ -458,6 +502,119 @@
                     </div>
                 `).join('');
             } catch (e) { console.error('sysLoadUAStats failed', e); }
+        }
+
+        // ---- IP directory tab ----
+        const ipDirState = { page: 1, pageSize: 20, search: '', total: 0 };
+        const TAG_PREDEFINED = { '办公室': 'blue', '家': 'green', '服务器': 'purple', '攻击者': 'red', '可疑': 'red', '客户': 'amber', '内网': 'slate' };
+        const TAG_HEX = { blue: '#3b82f6', green: '#10b981', purple: '#8b5cf6', red: '#ef4444', amber: '#f59e0b', cyan: '#06b6d4', pink: '#ec4899', slate: '#64748b' };
+        const TAG_KEYS = Object.keys(TAG_HEX);
+        function tagHex(tag) {
+            const key = TAG_PREDEFINED[tag] || TAG_KEYS[[...tag].reduce((s, c) => s + c.charCodeAt(0), 0) % TAG_KEYS.length];
+            return TAG_HEX[key];
+        }
+        function ipDirShowMsg(ok, text) {
+            const el = document.getElementById('ipdir-msg');
+            el.textContent = text;
+            el.className = 'mt-3 text-sm ' + (ok ? 'text-green-600' : 'text-red-600');
+        }
+        function ipDirSearch() {
+            ipDirState.search = document.getElementById('ipdir-search').value.trim();
+            ipDirState.page = 1;
+            loadIpDir();
+        }
+        function ipDirPage(delta) {
+            const maxPage = Math.max(1, Math.ceil(ipDirState.total / ipDirState.pageSize));
+            const next = Math.min(maxPage, Math.max(1, ipDirState.page + delta));
+            if (next !== ipDirState.page) { ipDirState.page = next; loadIpDir(); }
+        }
+        async function loadIpDir() {
+            const body = document.getElementById('ipdir-body');
+            try {
+                const qs = new URLSearchParams({ search: ipDirState.search, page: ipDirState.page, page_size: ipDirState.pageSize });
+                const r = await fetch(`${APP_BASE_PATH}/admin/api/system/ips?${qs}`);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const d = await r.json();
+                ipDirState.total = d.total || 0;
+                const maxPage = Math.max(1, Math.ceil(ipDirState.total / ipDirState.pageSize));
+                if (ipDirState.page > maxPage) { ipDirState.page = maxPage; return loadIpDir(); }
+                document.getElementById('ipdir-meta').textContent =
+                    `{{ _('Total' if current_locale != 'zh' else '共') }} ${ipDirState.total} IP / ${ipDirState.page}/${maxPage}`;
+                document.getElementById('ipdir-prev').disabled = ipDirState.page <= 1;
+                document.getElementById('ipdir-next').disabled = ipDirState.page >= maxPage;
+                if (!(d.items || []).length) {
+                    body.innerHTML = `<tr><td colspan="8" class="px-3 py-6 text-center text-gray-400">{{ _('No IPs found' if current_locale != 'zh' else '没有匹配的 IP') }}</td></tr>`;
+                    return;
+                }
+                body.innerHTML = d.items.map(it => {
+                    const chips = (it.tags || []).map(t => {
+                        const hex = tagHex(t);
+                        return `<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium" style="background:${hex}1a;color:${hex};border:1px solid ${hex}55">${escapeHtml(t)}<span class="cursor-pointer font-bold" onclick='ipRemoveTag("${it.ip}", ${JSON.stringify(t).replace(/'/g, "&#39;")})' title="{{ _('Remove tag' if current_locale != 'zh' else '删除标签') }}">×</span></span>`;
+                    }).join(' ');
+                    const tagInput = `
+                        <span class="inline-flex items-center gap-1">
+                            <input id="tagin-${it.ip}" class="border rounded px-2 py-0.5 text-xs" style="width:110px" placeholder="{{ _('Tag' if current_locale != 'zh' else '标签') }}" onkeydown="if(event.key==='Enter')ipAddTag('${it.ip}')">
+                            <button onclick="ipAddTag('${it.ip}')" class="text-xs text-blue-600 hover:underline">✓</button>
+                        </span>`;
+                    return `<tr class="border-b border-gray-100">
+                        <td class="px-3 py-2 font-mono text-xs">${escapeHtml(it.ip)}</td>
+                        <td class="px-3 py-2 text-xs">${it.location ? escapeHtml(it.location) : `<span class="text-gray-400">${it.isp ? '' : '{{ _('Not resolved' if current_locale != 'zh' else '未查询') }}'}</span>`}</td>
+                        <td class="px-3 py-2 text-xs text-gray-500">${escapeHtml(it.isp || '—')}</td>
+                        <td class="px-3 py-2"><span class="inline-flex flex-wrap gap-1 items-center">${chips} ${tagInput}</span></td>
+                        <td class="px-3 py-2 text-right font-mono text-xs">${(it.requests || 0).toLocaleString()}</td>
+                        <td class="px-3 py-2 text-right font-mono text-xs">${(it.admin_ops || 0).toLocaleString()}</td>
+                        <td class="px-3 py-2 text-xs text-gray-500">${it.last_seen ? it.last_seen.replace('T', ' ').slice(0, 16) : '—'}</td>
+                        <td class="px-3 py-2 text-right"><button onclick="ipLookup('${it.ip}', this)" class="text-xs text-blue-600 hover:underline whitespace-nowrap">{{ _('Locate' if current_locale != 'zh' else '查询归属地') }}</button></td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                console.error('loadIpDir failed', e);
+                body.innerHTML = `<tr><td colspan="8" class="px-3 py-6 text-center text-red-500">{{ _('Load failed' if current_locale != 'zh' else '加载失败') }}: ${escapeHtml(String(e.message || e))}</td></tr>`;
+            }
+        }
+        async function ipLookup(ip, btn) {
+            if (btn) { btn.disabled = true; btn.textContent = '…'; }
+            try {
+                const r = await fetch(`${APP_BASE_PATH}/admin/api/system/ips/${encodeURIComponent(ip)}/lookup`, { method: 'POST' });
+                const d = await r.json();
+                if (d.ok) {
+                    ipDirShowMsg(true, `${ip}: ${[d.province, d.city, d.country].filter(Boolean).join(' ') || d.isp || '{{ _('Resolved' if current_locale != 'zh' else '已解析') }}'}`);
+                    loadIpDir();
+                } else {
+                    ipDirShowMsg(false, `${ip}: ${d.message || '{{ _('Lookup failed' if current_locale != 'zh' else '查询失败') }}'}`);
+                }
+            } catch (e) {
+                ipDirShowMsg(false, String(e));
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = '{{ _('Locate' if current_locale != 'zh' else '查询归属地') }}'; }
+            }
+        }
+        async function ipAddTag(ip) {
+            const input = document.getElementById(`tagin-${ip}`);
+            const tag = (input && input.value || '').trim();
+            if (!tag) return;
+            try {
+                const r = await fetch(`${APP_BASE_PATH}/admin/api/system/ips/${encodeURIComponent(ip)}/tags`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tag })
+                });
+                const d = await r.json();
+                if (!r.ok) { ipDirShowMsg(false, d.detail || '{{ _('Failed' if current_locale != 'zh' else '操作失败') }}'); return; }
+                if (input) input.value = '';
+                ipDirShowMsg(true, `${ip} + '${tag}'`);
+                loadIpDir();
+            } catch (e) { ipDirShowMsg(false, String(e)); }
+        }
+        async function ipRemoveTag(ip, tag) {
+            try {
+                const r = await fetch(`${APP_BASE_PATH}/admin/api/system/ips/${encodeURIComponent(ip)}/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' });
+                if (!r.ok) { const d = await r.json(); ipDirShowMsg(false, d.detail || '{{ _('Failed' if current_locale != 'zh' else '操作失败') }}'); return; }
+                ipDirShowMsg(true, `${ip} - '${tag}'`);
+                loadIpDir();
+            } catch (e) { ipDirShowMsg(false, String(e)); }
+        }
+        function escapeHtml(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         }
 
         const initialTab = new URLSearchParams(window.location.search).get('tab');

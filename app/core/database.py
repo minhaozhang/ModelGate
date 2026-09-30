@@ -32,6 +32,7 @@ from app.core.db_models import (  # noqa: F401
     Document,
     DocumentFile,
     IpLocation,
+    IpTag,
     DailyReport,
     Menu,
     Model,

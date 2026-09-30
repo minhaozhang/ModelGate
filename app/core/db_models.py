@@ -967,6 +967,20 @@ class AuditLog(Base):
     )
 
 
+class IpTag(Base):
+    __tablename__ = "ip_tags"
+
+    id = Column(Integer, primary_key=True)
+    ip = Column(String(64), nullable=False)
+    tag = Column(String(50), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("ip", "tag", name="uq_ip_tags"),
+        Index("idx_ip_tags_ip", "ip"),
+    )
+
+
 class IpLocation(Base):
     __tablename__ = "ip_locations"
 

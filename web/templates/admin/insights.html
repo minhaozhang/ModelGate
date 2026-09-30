@@ -345,8 +345,10 @@
         }
 
         function drSecurity(sec) {
-            const ips = (sec.login_fail_top_ips || []);
-            const aips = (sec.auth_fail_top_ips || []);
+            const normIp = e => Array.isArray(e) ? { ip: e[0], count: e[1], city: '' } : (e || {});
+            const ips = (sec.login_fail_top_ips || []).map(normIp);
+            const aips = (sec.auth_fail_top_ips || []).map(normIp);
+            const ipCity = o => o.city ? ` <span class="text-gray-400">${esc(o.city)}</span>` : '';
             const reasons = (sec.auth_fail_reasons || []);
             const ipTop = (sec.ip_top || []).filter(i => (i.requests + i.auth_failures + i.login_failures) > 0);
             return `
@@ -383,13 +385,13 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
                         <div class="text-xs text-gray-500 mb-1">${T('登录失败 Top IP', 'Login failure top IPs')}</div>
-                        ${ips.length ? ips.map(([ip, c]) => `<div class="flex justify-between font-mono text-xs"><span>${esc(ip)}</span><span>${fmt(c)}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
+                        ${ips.length ? ips.map(o => `<div class="flex justify-between font-mono text-xs"><span>${esc(o.ip)}${ipCity(o)}</span><span>${fmt(o.count)}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
                         <div class="text-xs text-gray-500 mt-3 mb-1">${T('认证失败原因', 'Auth failure reasons')}</div>
                         ${reasons.length ? reasons.map(([rs, c]) => `<div class="flex justify-between text-xs"><span class="truncate" title="${esc(rs)}">${esc(rs)}</span><span>${fmt(c)}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
                     </div>
                     <div>
                         <div class="text-xs text-gray-500 mb-1">${T('认证失败 Top IP', 'Auth failure top IPs')}</div>
-                        ${aips.length ? aips.map(([ip, c]) => `<div class="flex justify-between font-mono text-xs"><span>${esc(ip)}</span><span>${fmt(c)}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
+                        ${aips.length ? aips.map(o => `<div class="flex justify-between font-mono text-xs"><span>${esc(o.ip)}${ipCity(o)}</span><span>${fmt(o.count)}</span></div>`).join('') : '<div class="text-gray-400 text-xs">—</div>'}
                         ${(sec.high_risk_ops || []).length ? `<div class="text-xs text-gray-500 mt-3 mb-1">${T('高危操作（删除类）', 'High-risk ops (deletes)')}</div>` + sec.high_risk_ops.map(o => `<div class="text-xs truncate" title="${esc(o.detail)}">[${esc(o.user)}] ${esc(o.action)}/${esc(o.resource)} — ${esc(o.detail)}</div>`).join('') : ''}
                     </div>
                 </div>

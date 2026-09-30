@@ -622,6 +622,15 @@ _DDL: list[str] = [
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_model_speed_stats ON model_speed_stats (period_start, provider_name, model_name)",
     "CREATE INDEX IF NOT EXISTS idx_model_speed_stats_period ON model_speed_stats (period_start)",
 
+    "CREATE TABLE IF NOT EXISTS ip_tags ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "ip VARCHAR(64) NOT NULL, "
+    "tag VARCHAR(50) NOT NULL, "
+    "created_at TIMESTAMP DEFAULT now()"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_ip_tags ON ip_tags (ip, tag)",
+    "CREATE INDEX IF NOT EXISTS idx_ip_tags_ip ON ip_tags (ip)",
+
     "CREATE TABLE IF NOT EXISTS scheduler_tasks ("
     "id SERIAL NOT NULL PRIMARY KEY, "
     "task_id VARCHAR(100) NOT NULL UNIQUE, "
