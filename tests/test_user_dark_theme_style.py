@@ -9,6 +9,30 @@ def _read(rel):
     return (ROOT / rel).read_text(encoding="utf-8")
 
 
+class ClipboardCopyFallbackTests(unittest.TestCase):
+    """navigator.clipboard is undefined on plain-HTTP deployments (secure
+    context required); bare calls throw and kill the copy buttons."""
+
+    def test_dashboard_copy_calls_are_guarded(self):
+        html = _read("web/templates/user/dashboard.html")
+        self.assertIn("function copyTextToClipboard(", html)
+        self.assertIn("function legacyCopy(", html)
+        self.assertIn("navigator.clipboard && window.isSecureContext", html)
+        self.assertIn("document.execCommand('copy')", html)
+        # The ONLY writeText call sits inside the guarded helper.
+        self.assertEqual(html.count("navigator.clipboard.writeText"), 1)
+
+    def test_opencode_copy_is_guarded(self):
+        html = _read("web/templates/public/opencode.html")
+        self.assertIn("navigator.clipboard && window.isSecureContext", html)
+        self.assertIn("legacyCopy(", html)
+
+    def test_copy_failed_copy_is_translated(self):
+        po = _read("web/locales/zh/LC_MESSAGES/messages.po")
+        self.assertIn('msgid "Copy failed, please copy manually"', po)
+        self.assertIn("复制失败，请手动复制", po)
+
+
 class UserDarkThemePaletteTests(unittest.TestCase):
     """theme-dark must follow the index-c deep-space violet palette."""
 

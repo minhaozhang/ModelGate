@@ -131,6 +131,10 @@ msgstr ""
 msgid "Copied!"
 msgstr ""
 
+#: web/templates/public/opencode.html:91 web/templates/user/dashboard.html:412
+msgid "Copy failed, please copy manually"
+msgstr ""
+
 #: web/templates/admin/api_keys.html:226
 msgid "API Key and usage instructions copied!"
 msgstr ""

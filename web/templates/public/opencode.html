@@ -88,6 +88,7 @@
         window.I18N = {
             pleaseEnterApiKey: {{ _('Please enter an API Key') | tojson }},
             copied: {{ _('Copied!') | tojson }},
+            copyFailed: {{ _('Copy failed, please copy manually') | tojson }},
             copy: {{ _('Copy') | tojson }},
             failedToGenerateConfig: {{ _('Failed to generate config') | tojson }},
             promptText: {{ _('# Please add the following provider config to ~/.config/opencode/opencode.jsonc. If that file does not exist, create it first. You can also place opencode.jsonc in the current project root. Keep existing providers and settings, only add or update the modelgate provider.') | tojson }},
@@ -154,13 +155,38 @@
             document.getElementById('error-msg').textContent = msg;
         }
 
+        function legacyCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.top = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            let ok = false;
+            try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+            ta.remove();
+            return ok;
+        }
+
         function copyConfig() {
             const config = document.getElementById('config-output').textContent;
-            navigator.clipboard.writeText(config).then(() => {
+            // Clipboard API requires HTTPS / localhost; fall back on plain HTTP.
+            const markBtn = (ok) => {
                 const btn = document.querySelector('.copy-btn');
-                btn.textContent = window.I18N.copied;
+                btn.textContent = ok ? window.I18N.copied : window.I18N.copyFailed;
                 setTimeout(() => btn.textContent = window.I18N.copy, 2000);
-            });
+            };
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(config).then(
+                    () => markBtn(true),
+                    () => markBtn(legacyCopy(config))
+                );
+                return;
+            }
+            markBtn(legacyCopy(config));
         }
     </script>
 </body>

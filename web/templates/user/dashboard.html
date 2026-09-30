@@ -481,6 +481,7 @@
         noRequests: {{ _('No requests yet') | tojson }},
         noModels: {{ _('No models') | tojson }},
         copied: {{ _('Copied!') | tojson }},
+        copyFailed: {{ _('Copy failed, please copy manually') | tojson }},
         disabledProviders: {{ _('Disabled Providers') | tojson }},
         personal: {{ _('Personal') | tojson }},
         system: {{ _('System') | tojson }},
@@ -1672,13 +1673,43 @@
             if (shEl && !REAL_TEXT_OVERRIDES['sh-cmd']) shEl.textContent = `curl -fsSL '${origin}${APP_BASE_PATH}/opencode/setup.sh${keyParam}' | bash`;
         }
 
+        // Clipboard API requires a secure context (HTTPS / localhost); on
+        // plain-HTTP deployments navigator.clipboard is undefined and a bare
+        // call throws. Fall back to the textarea + execCommand technique.
+        function legacyCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.top = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            let ok = false;
+            try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+            ta.remove();
+            return ok;
+        }
+
+        function copyTextToClipboard(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(
+                    () => alert(window.I18N.copied),
+                    () => alert(legacyCopy(text) ? window.I18N.copied : window.I18N.copyFailed)
+                );
+                return;
+            }
+            alert(legacyCopy(text) ? window.I18N.copied : window.I18N.copyFailed);
+        }
+
         // Shared by the claude / codex / dsh / pi client tabs: copy the
         // real (unmasked) text when available, else the displayed text.
         function copyConfig(targetId) {
             const el = document.getElementById(targetId);
             if (!el) return;
             const config = REAL_TEXT_OVERRIDES[targetId] || el.textContent;
-            navigator.clipboard.writeText(config).then(() => alert(window.I18N.copied));
+            copyTextToClipboard(config);
         }
 
         async function openMyKeyModal() {
@@ -2060,7 +2091,7 @@
             const el = document.getElementById(id);
             if (!el) return;
             const text = REAL_TEXT_OVERRIDES[id] || el.textContent || '';
-            navigator.clipboard.writeText(text).then(() => alert(window.I18N.copied));
+            copyTextToClipboard(text);
         }
 
 
@@ -2071,7 +2102,7 @@
 
         function copyCode(type) {
             const el = document.getElementById('code-' + type);
-            navigator.clipboard.writeText(el.textContent).then(() => alert(window.I18N.copied));
+            copyTextToClipboard(el.textContent);
         }
 
         function switchProtocol(proto) {

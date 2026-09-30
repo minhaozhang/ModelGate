@@ -131,6 +131,10 @@ msgstr "我已保存"
 msgid "Copied!"
 msgstr "已复制!"
 
+#: web/templates/public/opencode.html:91 web/templates/user/dashboard.html:412
+msgid "Copy failed, please copy manually"
+msgstr "复制失败，请手动复制"
+
 #: web/templates/admin/api_keys.html:226
 msgid "API Key and usage instructions copied!"
 msgstr "API Key 和使用说明已复制!"
