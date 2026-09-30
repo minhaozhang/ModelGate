@@ -21,6 +21,42 @@ class SpeedExpressionTests(unittest.TestCase):
         # Never divide by zero.
         self.assertIn("NULLIF", REQUEST_SPEED_EXPR)
 
+    def test_expression_excludes_first_prefill_token(self):
+        """v2 formula: (N - 1) / (latency - first_chunk), industry standard."""
+        from app.core.db_models import REQUEST_SPEED_EXPR
+
+        self.assertIn(") - 1, 0)", REQUEST_SPEED_EXPR)
+
+    def test_migration_replaces_v1_expression(self):
+        from app.core import db_migrations
+
+        src = open(db_migrations.__file__, encoding="utf-8").read()
+        # v1 columns are dropped and recreated; v2 is detected by PG's deparse
+        # fingerprint "- (1)::numeric" so the swap is a true one-time event.
+        self.assertIn('if current_expr is not None and "- (1)::numeric" not in current_expr', src)
+        self.assertIn("DROP COLUMN speed_tokens_per_s", src)
+        # The view is dropped first so the column swap is not blocked.
+        self.assertLess(
+            src.index("DROP VIEW IF EXISTS request_logs_all"),
+            src.index("DROP COLUMN speed_tokens_per_s"),
+        )
+
+    def test_display_threshold_hides_tiny_bursts(self):
+        bases = {
+            r"D:\project\ModelGate\web\templates\admin\request_logs.html",
+            r"D:\project\ModelGate\web\templates\user\tab_stats_v2.html",
+            r"D:\project\ModelGate\web\templates\admin\mobile_home.html",
+        }
+        for path in bases:
+            with self.subTest(path=path):
+                src = open(path, encoding="utf-8").read()
+                has_threshold = (
+                    ("SPEED_MIN_TOKENS = 50" in src and "SPEED_MIN_STREAM_MS = 500" in src)
+                    or (">= 50" in src and ">= 500" in src)
+                )
+                self.assertTrue(has_threshold, "min tokens/duration threshold required")
+
+
     def test_orm_models_expose_generated_column(self):
         from sqlalchemy import Computed
 

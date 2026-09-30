@@ -1090,6 +1090,14 @@
             if (v == null) return '-';
             return v >= 1000 ? (v / 1000).toFixed(1) + 's' : v + 'ms';
         }
+        // tok/s only meaningful with enough output tokens and stream duration;
+        // tiny bursts measure flush jitter, not model speed.
+        function speedMeaningful(r) {
+            if (r.speed_tokens_per_s == null) return false;
+            const out = Number(r.output_tokens || 0);
+            const streamMs = (r.latency_ms || 0) - (r.first_chunk_ms || 0);
+            return out >= 50 && streamMs >= 500;
+        }
         function fmtTries(tries) {
             return (tries || []).map(t => {
                 let seg = t.provider || '-';
@@ -1136,7 +1144,7 @@
                         <span class="shrink-0">${T('费用', 'Cost')}: ${cost}</span>
                         <span class="shrink-0">${T('耗时', 'Latency')}: ${latency}</span>
                         <span class="shrink-0">${T('首Token', 'First token')}: ${formatMs(r.first_chunk_ms)}</span>
-                        ${r.speed_tokens_per_s != null ? `<span class="shrink-0">${T('速度', 'Speed')}: ${r.speed_tokens_per_s} tok/s</span>` : ''}
+                        ${speedMeaningful(r) ? `<span class="shrink-0">${T('速度', 'Speed')}: ${r.speed_tokens_per_s} tok/s</span>` : ''}
                         ${r.wait_ms > 0 ? `<span class="shrink-0">${T('排队', 'Wait')}: ${formatMs(r.wait_ms)}</span>` : ''}
                         <span class="ml-auto shrink-0"></span>
                     </div>
@@ -1175,7 +1183,7 @@
                         <td>${time}</td>
                         <td class="num">${formatMs(r.latency_ms)}</td>
                         <td class="num">${formatMs(r.first_chunk_ms)}</td>
-                        <td class="num">${r.speed_tokens_per_s != null ? r.speed_tokens_per_s : '-'}</td>
+                        <td class="num">${speedMeaningful(r) ? r.speed_tokens_per_s : '-'}</td>
                         <td class="num">${imgChip}${retryChip}${r.context_tokens > 0 ? formatCompactTokens(r.context_tokens) : '-'}</td>
                         <td class="num">${r.input_tokens > 0 ? formatCompactTokens(r.input_tokens) : '-'}</td>
                         <td class="num">${r.output_tokens > 0 ? formatCompactTokens(r.output_tokens) : '-'}</td>

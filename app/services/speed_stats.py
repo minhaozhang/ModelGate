@@ -4,6 +4,8 @@ Every run aggregates complete one-hour windows from request_logs:
 - only successful streaming requests with a first-chunk time count
 - stream duration = latency_ms - first_chunk_ms  ("from first token to end")
 - output tokens come from tokens.completion_tokens (fallback output_tokens)
+- rate = (sum(output_tokens) - requests) / sum(duration): industry-standard
+  decode throughput, excluding each request's first (prefill) token
 
 Three dimensions are stored per window with '' sentinels (see ModelSpeedStat):
 provider rollup, provider+model, and model across providers (user-view name).
@@ -161,10 +163,23 @@ async def run_speed_stats_aggregation() -> dict:
     return summary
 
 
-def compute_tokens_per_second(output_tokens: int | float, stream_ms: int | float) -> float | None:
+def compute_tokens_per_second(
+    output_tokens: int | float,
+    stream_ms: int | float,
+    requests: int | float = 0,
+) -> float | None:
+    """Decode tok/s = (output_tokens - requests) / (stream_ms / 1000).
+
+    Industry-standard formula: the window starts at the first token and the
+    first (prefill) token of each request is excluded, so the numerator
+    subtracts the request count from the summed output tokens.
+    """
     if not stream_ms or stream_ms <= 0:
         return None
-    return round(float(output_tokens) / (float(stream_ms) / 1000.0), 1)
+    decode_tokens = float(output_tokens) - float(requests or 0)
+    if decode_tokens <= 0:
+        return None
+    return round(decode_tokens / (float(stream_ms) / 1000.0), 1)
 
 
 async def get_speed_report(dimension: str, hours: int = 168) -> dict:
@@ -220,6 +235,7 @@ async def get_speed_report(dimension: str, hours: int = 168) -> dict:
                 *key_cols,
                 ModelSpeedStat.output_tokens,
                 ModelSpeedStat.stream_ms,
+                ModelSpeedStat.requests,
             )
             .where(where & (ModelSpeedStat.period_start >= day_start))
             .order_by(ModelSpeedStat.period_start.asc())
@@ -232,7 +248,7 @@ async def get_speed_report(dimension: str, hours: int = 168) -> dict:
         series_map.setdefault(key, []).append(
             {
                 "t": row[0].isoformat(),
-                "v": compute_tokens_per_second(row[-2], row[-1]),
+                "v": compute_tokens_per_second(row[-3], row[-2], row[-1]),
             }
         )
 
@@ -250,9 +266,9 @@ async def get_speed_report(dimension: str, hours: int = 168) -> dict:
             {
                 "name": _display_name(dimension, row),
                 "requests": req_total,
-                "tokens_per_s": compute_tokens_per_second(out_total, ms_total),
+                "tokens_per_s": compute_tokens_per_second(out_total, ms_total, req_total),
                 "requests_24h": req_day,
-                "tokens_per_s_24h": compute_tokens_per_second(out_day, ms_day),
+                "tokens_per_s_24h": compute_tokens_per_second(out_day, ms_day, req_day),
                 "series": series_map.get(key, []),
             }
         )
@@ -279,6 +295,7 @@ async def get_model_speed_map(days: int = 7) -> dict[str, float]:
                 ModelSpeedStat.model_name,
                 func.sum(ModelSpeedStat.output_tokens),
                 func.sum(ModelSpeedStat.stream_ms),
+                func.sum(ModelSpeedStat.requests),
             )
             .where(
                 (ModelSpeedStat.provider_name == "")
@@ -289,8 +306,8 @@ async def get_model_speed_map(days: int = 7) -> dict[str, float]:
         )
         rows = result.all()
     speed_map = {}
-    for name, output_tokens, stream_ms in rows:
-        tps = compute_tokens_per_second(output_tokens or 0, stream_ms or 0)
+    for name, output_tokens, stream_ms, requests in rows:
+        tps = compute_tokens_per_second(output_tokens or 0, stream_ms or 0, requests or 0)
         if tps:
             speed_map[name] = tps
     return speed_map

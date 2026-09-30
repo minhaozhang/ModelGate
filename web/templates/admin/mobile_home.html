@@ -1298,7 +1298,12 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 const timeBits = [];
                 if (log.first_chunk_ms != null) timeBits.push(`${window.I18N.logFirst || 'first'} ${formatLatency(log.first_chunk_ms)}`);
                 if (log.latency_ms != null) timeBits.push(formatLatency(log.latency_ms));
-                if (log.speed_tokens_per_s != null) timeBits.push(`${log.speed_tokens_per_s} tok/s`);
+                if (log.speed_tokens_per_s != null) {
+                    const st = log.tokens || {};
+                    const sOut = Number(st.completion_tokens ?? st.output_tokens ?? 0);
+                    const sStream = (log.latency_ms || 0) - (log.first_chunk_ms || 0);
+                    if (sOut >= 50 && sStream >= 500) timeBits.push(`${log.speed_tokens_per_s} tok/s`);
+                }
                 return `<div class="bg-white rounded-xl p-3" onclick="var d=this.querySelector('.log-detail');if(d)d.classList.toggle('hidden')">
                     <div class="flex items-center gap-2 text-[11px]">
                         <span class="text-gray-400 shrink-0">${time}</span>

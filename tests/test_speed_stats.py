@@ -142,6 +142,17 @@ class ComputeTokensPerSecondTests(unittest.TestCase):
         self.assertIsNone(compute_tokens_per_second(1000, 0))
         self.assertIsNone(compute_tokens_per_second(1000, None))
 
+    def test_requests_subtract_first_token_each(self):
+        """Industry-standard decode throughput: (N - requests) / duration."""
+        from app.services.speed_stats import compute_tokens_per_second
+
+        # 1000 tokens over 100 requests in 2000ms -> 900 decode tokens / 2s.
+        self.assertEqual(compute_tokens_per_second(1000, 2000, 100), 450.0)
+        # All first tokens (N == requests) -> nothing decoded, no rate.
+        self.assertIsNone(compute_tokens_per_second(100, 2000, 100))
+        # Requests default to 0 keeps the raw-sum behaviour.
+        self.assertEqual(compute_tokens_per_second(1000, 2000, 0), 500.0)
+
 
 class AggregateSpeedWindowTests(unittest.IsolatedAsyncioTestCase):
     async def test_upserts_grouped_rows(self):
@@ -192,12 +203,13 @@ class GetModelSpeedMapTests(unittest.IsolatedAsyncioTestCase):
     async def test_maps_model_to_tps(self):
         from app.services.speed_stats import get_model_speed_map
 
-        rows = [("gpt-4", 1000, 2000), ("dead", 0, 0)]
+        rows = [("gpt-4", 1000, 2000, 2), ("dead", 0, 0, 0)]
         session = _FakeSession([_FakeResult(rows)])
         with patch("app.services.speed_stats.async_session_maker", return_value=_Ctx(session)):
             speed_map = await get_model_speed_map(days=7)
 
-        self.assertEqual(speed_map, {"gpt-4": 500.0})
+        # (1000 - 2) decode tokens over 2s -> 499.0 tok/s
+        self.assertEqual(speed_map, {"gpt-4": 499.0})
 
 
 class WiringTests(unittest.TestCase):

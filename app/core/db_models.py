@@ -24,16 +24,18 @@ from sqlalchemy.orm import registry
 
 from app.core.db_engine import Base
 
-# Per-request streaming output speed (tokens/s), computed by the database from
-# completion tokens and stream duration (latency_ms - first_chunk_ms). Only
-# successful streaming requests with output tokens get a value, else NULL.
-# Shared by RequestLog / RequestLogHistory generated columns and migrations.
+# Per-request decode throughput (tokens/s), computed by the database from
+# decode tokens and stream duration (latency_ms - first_chunk_ms). Follows the
+# industry-standard formula (vLLM / MLPerf / NVIDIA): TPOT = (e2e - TTFT) /
+# (N - 1), i.e. the window starts AT the first token and the first (prefill)
+# token is excluded from the count. NULL unless the request streamed
+# successfully with >= 2 output tokens.
 REQUEST_SPEED_EXPR = (
     "CASE WHEN latency_ms > first_chunk_ms "
     "AND GREATEST(COALESCE((tokens->>'completion_tokens')::numeric, "
-    "(tokens->>'output_tokens')::numeric, 0), 0) > 0 "
+    "(tokens->>'output_tokens')::numeric, 0) - 1, 0) > 0 "
     "THEN round(GREATEST(COALESCE((tokens->>'completion_tokens')::numeric, "
-    "(tokens->>'output_tokens')::numeric, 0), 0) "
+    "(tokens->>'output_tokens')::numeric, 0) - 1, 0) "
     "/ NULLIF(((latency_ms - first_chunk_ms) / 1000.0)::numeric, 0), 1) "
     "ELSE NULL END"
 )

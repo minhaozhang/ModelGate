@@ -784,12 +784,34 @@ async def migrate_request_logs(conn) -> None:
         text("UPDATE request_logs_history SET archive_month = to_char(created_at, 'YYYY-MM') WHERE archive_month IS NULL")
     )
 
-    # Per-request streaming speed (tokens/s) as a stored generated column:
+    # request_logs_all must be dropped first: the speed column swap below may
+    # DROP COLUMN, which the existing view would block via dependency.
+    await conn.execute(text("DROP VIEW IF EXISTS request_logs_all"))
+
+    # Per-request decode speed (tokens/s) as a stored generated column:
     # zero write-path changes, historical rows backfilled by the ALTER itself,
     # and archived rows are recomputed from the copied base columns.
+    # v1 counted all N output tokens; v2 follows the industry-standard
+    # decode-throughput formula (N - 1) / (latency - first_chunk). PG < 17
+    # cannot ALTER a generated expression, so v1 columns are replaced.
+    # Marker note: PG deparses "N - 1" as "N - (1)::numeric" in
+    # information_schema, so that exact form is the v2 fingerprint.
     from app.core.db_models import REQUEST_SPEED_EXPR
 
     for speed_table in ("request_logs", "request_logs_history"):
+        current_expr = (
+            await conn.execute(
+                text(
+                    "SELECT generation_expression FROM information_schema.columns "
+                    f"WHERE table_schema = 'public' AND table_name = '{speed_table}' "
+                    "AND column_name = 'speed_tokens_per_s'"
+                )
+            )
+        ).scalar()
+        if current_expr is not None and "- (1)::numeric" not in current_expr:
+            await conn.execute(
+                text(f"ALTER TABLE {speed_table} DROP COLUMN speed_tokens_per_s")
+            )
         await conn.execute(
             text(
                 f"ALTER TABLE {speed_table} ADD COLUMN IF NOT EXISTS speed_tokens_per_s DOUBLE PRECISION "
@@ -804,7 +826,6 @@ async def migrate_request_logs(conn) -> None:
         "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
         "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, routing_decision, request_image_count, fallback_tries, created_at, updated_at"
     )
-    await conn.execute(text("DROP VIEW IF EXISTS request_logs_all"))
     await conn.execute(
         text(
             "CREATE VIEW request_logs_all AS "
