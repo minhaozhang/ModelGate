@@ -46,9 +46,11 @@
         .log-table tbody tr:hover { background: #f9fafb; }
         .log-table tbody tr.is-error { background: #fef2f2; }
         .log-table tbody tr.is-error:hover { background: #fee2e2; }
-        .log-row .cell-model,
-        .log-row .cell-key,
-        .log-row .cell-ip { word-break: break-all; }
+        .log-row .cell-model { word-break: break-all; min-width: 200px; }
+        .log-row .cell-key { word-break: break-all; }
+        .log-row .cell-ip { white-space: nowrap; min-width: 140px; }
+        .log-row .cell-status { max-width: 118px; }
+        .log-row .cell-status .badge { padding: 0.1rem 0.4rem; }
         .log-table .num { text-align: right; font-variant-numeric: tabular-nums; }
         .intent-badge {
             display: inline-block; padding: 0.1rem 0.45rem;
@@ -300,8 +302,7 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                         <table class="log-table">
                             <thead>
                                 <tr>
-                                    <th>{{ _('Created At') }}</th>
-                                    <th>{{ _('Completed At') }}</th>
+                                    <th>{{ _('Time') }}</th>
                                     <th>{{ _('Status') }}</th>
                                     <th>{{ _('API Key') }}</th>
                                     <th>{{ _('Provider') }}</th>
@@ -309,8 +310,7 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                                     <th>{{ _('Upstream') }}/{{ _('Downstream') }}</th>
                                     <th class="num">{{ _('Tokens') }}</th>
                                     <th class="num">{{ _('Context') }}</th>
-                                    <th class="num">{{ _('Latency') }}</th>
-                                    <th class="num">{{ _('TTFT') }}</th>
+                                    <th class="num">{{ _('Latency') }}/{{ _('TTFT') }}</th>
                                     <th class="num">{{ _('Speed (tok/s)') }}</th>
                                     <th class="num">{{ _('Wait') }}</th>
                                     <th class="num">{{ _('Cost') }}</th>
@@ -356,6 +356,7 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
             details: "{{ _('Details') }}",
             meta: "Meta",
             requestAt: "{{ _('Created At') }}",
+            completedAt: "{{ _('Completed At' if current_locale != 'zh' else '完成时间') }}",
             queryResults: "{{ _('Query Results') }}",
             noLogs: "{{ _('No logs found matching the current filters.') }}",
             loadingFailed: "{{ _('Failed to load data') }}",
@@ -690,8 +691,10 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                         data-error="${escapeHtml(hasError ? log.error : '')}"
                         data-model="${escapeHtml(log.model || '')}"
                         data-tokens="${escapeHtml(typeof log.tokens === 'object' ? JSON.stringify(log.tokens) : (log.tokens || ''))}">
-                        <td class="cell-time whitespace-nowrap text-gray-700">${escapeHtml(new Date(log.created_at).toLocaleString())}</td>
-                        <td class="cell-time whitespace-nowrap text-gray-700">${log.updated_at ? escapeHtml(new Date(log.updated_at).toLocaleString()) : '-'}</td>
+                        <td class="cell-time whitespace-nowrap text-gray-700">
+                            <div>${escapeHtml(new Date(log.created_at).toLocaleString())}</div>
+                            <div class="text-[10px] text-gray-400 mt-0.5" title="${window.I18N.completedAt}">${log.updated_at ? escapeHtml(new Date(log.updated_at).toLocaleString()) : '-'}</div>
+                        </td>
                         <td class="cell-status">
                             <div class="flex items-center gap-1 flex-wrap">
                                 <span class="badge ${badgeClass}">${escapeHtml(log.status)}</span>
@@ -713,8 +716,7 @@ body.theme-dark .badge-waiting { background: rgba(148, 163, 184, 0.16); color: #
                         </td>
                         <td class="cell-tokens num">${tokensHtml}</td>
                         <td class="num mono text-gray-700"><div class="flex items-center gap-1 flex-wrap">${imgBadge}</div><span title="${log.request_context_tokens != null && log.request_context_tokens !== '' ? Number(log.request_context_tokens).toLocaleString() : ''}">${log.request_context_tokens != null && log.request_context_tokens !== '' ? formatK(log.request_context_tokens) : '-'}</span></td>
-                        <td class="cell-latency num mono text-gray-700">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + 's' : '-'}</td>
-                        <td class="num mono text-gray-700">${log.first_chunk_ms != null ? (log.first_chunk_ms / 1000).toFixed(2) + 's' : '-'}</td>
+                        <td class="cell-latency num mono text-gray-700 whitespace-nowrap" title="${window.I18N.latency} / ${window.I18N.ttft}">${log.latency_ms != null ? (log.latency_ms / 1000).toFixed(2) + 's' : '-'}<span class="text-gray-400"> / ${log.first_chunk_ms != null ? (log.first_chunk_ms / 1000).toFixed(2) + 's' : '-'}</span></td>
                         <td class="num mono ${requestSpeedText(log) !== '-' && log.speed_tokens_per_s < 10 ? 'text-amber-600' : 'text-gray-700'}">${requestSpeedText(log)}</td>
                         <td class="num mono ${log.wait_ms > 5000 ? 'text-amber-600' : 'text-gray-700'}">${log.wait_ms != null ? (log.wait_ms / 1000).toFixed(2) + 's' : '-'}</td>
                         <td class="cell-cost num mono text-gray-700">${billingCost !== null ? formatCost(billingCost) : '-'}</td>

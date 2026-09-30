@@ -212,5 +212,29 @@ class AdminExportTests(unittest.TestCase):
         )
 
 
+class RequestLogsLayoutTests(unittest.TestCase):
+    def test_merged_time_and_latency_columns(self):
+        tpl = open(
+            r"D:\project\ModelGate\web\templates\admin\request_logs.html", encoding="utf-8"
+        ).read()
+        # Single merged Time column header, no separate Created/Completed pair.
+        self.assertIn("{{ _('Time') }}", tpl)
+        self.assertNotIn("<th>{{ _('Created At') }}</th>", tpl)
+        self.assertNotIn("<th>{{ _('Completed At') }}</th>", tpl)
+        # Latency and TTFT share one cell on one line.
+        self.assertIn("{{ _('Latency') }}/{{ _('TTFT') }}", tpl)
+        self.assertIn(
+            'title="${window.I18N.latency} / ${window.I18N.ttft}"', tpl
+        )
+
+    def test_column_width_hints(self):
+        tpl = open(
+            r"D:\project\ModelGate\web\templates\admin\request_logs.html", encoding="utf-8"
+        ).read()
+        self.assertIn(".log-row .cell-model { word-break: break-all; min-width: 200px; }", tpl)
+        self.assertIn(".log-row .cell-ip { white-space: nowrap; min-width: 140px; }", tpl)
+        self.assertIn(".log-row .cell-status { max-width: 118px; }", tpl)
+
+
 if __name__ == "__main__":
     unittest.main()
