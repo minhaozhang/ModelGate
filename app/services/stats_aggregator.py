@@ -593,9 +593,24 @@ async def archive_old_request_logs() -> int:
     cutoff = datetime.now() - timedelta(days=30)
 
     async with async_session_maker() as session:
+        # history.speed_tokens_per_s is a PLAIN column (never generated - a
+        # generated column would need a full-table rewrite to create). When
+        # present and plain, copy the live-computed value during the move.
+        hist_generated = (
+            await session.execute(
+                text(
+                    "SELECT is_generated FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = 'request_logs_history' "
+                    "AND column_name = 'speed_tokens_per_s'"
+                )
+            )
+        ).scalar()
+        speed_insert_col = "" if hist_generated == "ALWAYS" or hist_generated is None else "speed_tokens_per_s, "
+        speed_select_col = "" if hist_generated == "ALWAYS" or hist_generated is None else "rl.speed_tokens_per_s, "
+
         result = await session.execute(
             text(
-                """
+                f"""
                 WITH moved AS (
                     INSERT INTO request_logs_history (
                         id,
@@ -607,7 +622,7 @@ async def archive_old_request_logs() -> int:
                         latency_ms,
                         first_chunk_ms,
                         wait_ms,
-                        request_context_tokens,
+                        {speed_insert_col}request_context_tokens,
                         status,
                         upstream_status_code,
                         downstream_status_code,
@@ -638,7 +653,7 @@ async def archive_old_request_logs() -> int:
                         rl.latency_ms,
                         rl.first_chunk_ms,
                         rl.wait_ms,
-                        rl.request_context_tokens,
+                        {speed_select_col}rl.request_context_tokens,
                         rl.status,
                         rl.upstream_status_code,
                         rl.downstream_status_code,

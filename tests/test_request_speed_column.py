@@ -27,18 +27,13 @@ class SpeedExpressionTests(unittest.TestCase):
 
         self.assertIn(") - 1, 0)", REQUEST_SPEED_EXPR)
 
-    def test_migration_replaces_v1_expression(self):
+    def test_migration_detects_v1_expression(self):
         from app.core import db_migrations
 
         src = open(db_migrations.__file__, encoding="utf-8").read()
-        # v1 columns are dropped and recreated; v2 is detected by PG's deparse
-        # fingerprint "- (1)::numeric" so the swap is a true one-time event.
-        self.assertIn('if current_expr is not None and "- (1)::numeric" not in current_expr', src)
-        self.assertIn("DROP COLUMN speed_tokens_per_s", src)
-        # The view is dropped first so the column swap is not blocked.
-        self.assertLess(
-            src.index("DROP VIEW IF EXISTS request_logs_all"),
-            src.index("DROP COLUMN speed_tokens_per_s"),
+        # v2 is detected by PG's deparse fingerprint "- (1)::numeric".
+        self.assertIn(
+            'needs_swap = live_expr is not None and "- (1)::numeric" not in live_expr', src
         )
 
     def test_display_threshold_hides_tiny_bursts(self):
@@ -62,10 +57,10 @@ class SpeedExpressionTests(unittest.TestCase):
 
         from app.core.db_models import RequestLog, RequestLogHistory
 
-        for model in (RequestLog, RequestLogHistory):
-            col = model.__table__.columns["speed_tokens_per_s"]
-            self.assertIsNotNone(col.computed, "column must be DB-generated")
-            self.assertIsInstance(col.computed, Computed)
+        live = RequestLog.__table__.columns["speed_tokens_per_s"]
+        self.assertIsInstance(live.computed, Computed, "live table stays generated")
+        hist = RequestLogHistory.__table__.columns["speed_tokens_per_s"]
+        self.assertIsNone(hist.computed, "history table must be a plain column")
 
     def test_request_logs_all_fallback_table_has_column(self):
         from app.core.db_models import request_logs_all_table
@@ -74,17 +69,48 @@ class SpeedExpressionTests(unittest.TestCase):
 
 
 class MigrationSourceTests(unittest.TestCase):
-    def test_migration_adds_generated_column_to_both_tables(self):
+    def test_history_never_gets_a_generated_column(self):
+        """2026-09-30 incident: ADD COLUMN GENERATED on the big archive table
+        rewrites it under an exclusive lock and stalls startup. History must
+        only ever get a plain, metadata-only column."""
         from app.core import db_migrations
 
         src = open(db_migrations.__file__, encoding="utf-8").read()
-        self.assertIn('("request_logs", "request_logs_history")', src)
-        self.assertIn("GENERATED ALWAYS AS", src)
-        # The union view must expose the new column.
-        self.assertIn('"speed_tokens_per_s, "', src)
+        # The only GENERATED ALWAYS target is the live request_logs table.
+        self.assertEqual(src.count("GENERATED ALWAYS AS"), 1)
+        self.assertIn(
+            "ALTER TABLE request_logs_history DROP COLUMN IF EXISTS speed_tokens_per_s", src
+        )
+        self.assertIn(
+            '"ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS "\n            "speed_tokens_per_s DOUBLE PRECISION"',
+            src,
+        )
+
+    def test_live_column_swap_is_lock_guarded_and_skippable(self):
+        from app.core import db_migrations
+
+        src = open(db_migrations.__file__, encoding="utf-8").read()
+        # The lock timeout guards the WHOLE startup transaction and is set
+        # before any DDL runs.
+        self.assertIn("SET LOCAL lock_timeout = '15s'", src)
+        self.assertLess(
+            src.index("SET LOCAL lock_timeout"),
+            src.index("await create_tables(conn)"),
+        )
+        # A blocked swap is skipped via savepoint, not a startup crash.
+        self.assertIn("SAVEPOINT speed_live_column", src)
+        self.assertIn("ROLLBACK TO SAVEPOINT speed_live_column", src)
+        # Big live tables keep v1: the rewrite would stall live writes.
+        self.assertIn("pg_relation_size('request_logs')", src)
+        self.assertIn("256 * 1024 * 1024", src)
+        # The view is dropped first so the column swap is not blocked.
+        self.assertLess(
+            src.index("DROP VIEW IF EXISTS request_logs_all"),
+            src.index("DROP COLUMN IF EXISTS speed_tokens_per_s"),
+        )
 
     def test_view_column_list_matches_table_column_order(self):
-        from app.core.db_models import request_logs_all_table, RequestLog
+        from app.core.db_models import request_logs_all_table, RequestLog, RequestLogHistory
 
         view_cols = {
             "id", "api_key_id", "provider_id", "model", "response", "tokens",
@@ -100,20 +126,17 @@ class MigrationSourceTests(unittest.TestCase):
             view_cols, set(request_logs_all_table.columns.keys())
         )
         self.assertIn("speed_tokens_per_s", RequestLog.__table__.columns)
+        self.assertIn("speed_tokens_per_s", RequestLogHistory.__table__.columns)
 
-    def test_archive_insert_does_not_copy_generated_column(self):
+    def test_archive_copies_speed_into_plain_history_column(self):
         from app.services import stats_aggregator
 
         src = open(stats_aggregator.__file__, encoding="utf-8").read()
-        self.assertNotIn(
-            "INSERT INTO request_logs_history (\n                        speed_tokens_per_s",
-            src,
-        )
-        # Base columns used by the generated expression ARE archived, so the
-        # history table can recompute speed on its own.
-        self.assertIn("first_chunk_ms", src)
-        self.assertIn("latency_ms", src)
-        self.assertIn("tokens", src)
+        # Adaptive copy: only when history's column exists and is plain.
+        self.assertIn("SELECT is_generated FROM information_schema.columns", src)
+        self.assertIn("{speed_insert_col}request_context_tokens", src)
+        self.assertIn("{speed_select_col}rl.request_context_tokens", src)
+        self.assertIn('"" if hist_generated == "ALWAYS" or hist_generated is None', src)
 
 
 class _Base:

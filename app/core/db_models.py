@@ -24,12 +24,13 @@ from sqlalchemy.orm import registry
 
 from app.core.db_engine import Base
 
-# Per-request decode throughput (tokens/s), computed by the database from
-# decode tokens and stream duration (latency_ms - first_chunk_ms). Follows the
-# industry-standard formula (vLLM / MLPerf / NVIDIA): TPOT = (e2e - TTFT) /
-# (N - 1), i.e. the window starts AT the first token and the first (prefill)
-# token is excluded from the count. NULL unless the request streamed
-# successfully with >= 2 output tokens.
+# Per-request decode throughput (tokens/s) for the LIVE request_logs table,
+# computed by the database as a stored generated column. Industry-standard
+# formula (vLLM / MLPerf / NVIDIA): (N - 1) / (e2e - TTFT) - the window starts
+# at the first token and the first (prefill) token is excluded.
+# NOTE: request_logs_history deliberately uses a PLAIN column filled by the
+# archive job instead - ADD COLUMN ... GENERATED rewrites the whole table,
+# which once stalled production startup for minutes (2026-09-30 incident).
 REQUEST_SPEED_EXPR = (
     "CASE WHEN latency_ms > first_chunk_ms "
     "AND GREATEST(COALESCE((tokens->>'completion_tokens')::numeric, "
@@ -401,7 +402,10 @@ class RequestLogHistory(Base):
     latency_ms = Column(Float, nullable=True)
     first_chunk_ms = Column(Float, nullable=True)
     wait_ms = Column(Float, nullable=True)
-    speed_tokens_per_s = Column(Float, Computed(REQUEST_SPEED_EXPR), nullable=True)
+    # Plain column (NOT generated): filled by the archive job's INSERT copy.
+    # A generated column here would require a full-table rewrite to create,
+    # which stalls startup behind the ACCESS EXCLUSIVE lock.
+    speed_tokens_per_s = Column(Float, nullable=True)
     request_context_tokens = Column(Integer, nullable=True)
     status = Column(String(20), nullable=False)
     upstream_status_code = Column(Integer, nullable=True)

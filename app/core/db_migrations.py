@@ -784,40 +784,87 @@ async def migrate_request_logs(conn) -> None:
         text("UPDATE request_logs_history SET archive_month = to_char(created_at, 'YYYY-MM') WHERE archive_month IS NULL")
     )
 
-    # request_logs_all must be dropped first: the speed column swap below may
-    # DROP COLUMN, which the existing view would block via dependency.
+    # request_logs_all must be dropped first: the speed column changes below
+    # may DROP COLUMN, which the existing view would block via dependency.
     await conn.execute(text("DROP VIEW IF EXISTS request_logs_all"))
 
-    # Per-request decode speed (tokens/s) as a stored generated column:
-    # zero write-path changes, historical rows backfilled by the ALTER itself,
-    # and archived rows are recomputed from the copied base columns.
-    # v1 counted all N output tokens; v2 follows the industry-standard
-    # decode-throughput formula (N - 1) / (latency - first_chunk). PG < 17
-    # cannot ALTER a generated expression, so v1 columns are replaced.
-    # Marker note: PG deparses "N - 1" as "N - (1)::numeric" in
-    # information_schema, so that exact form is the v2 fingerprint.
+    # Per-request speed column hardening (2026-09-30 incident):
+    # ADD COLUMN ... GENERATED ALWAYS rewrites the whole table under an
+    # ACCESS EXCLUSIVE lock - minutes on production-sized tables, stalling
+    # startup and queueing live writes. Therefore:
+    # - request_logs_history gets a PLAIN column (metadata-only, instant);
+    #   the archive job copies values into it (see stats_aggregator).
+    # - request_logs keeps its generated column (auto-computed on write).
+    #   Creating or swapping it (v1 -> v2 formula) only happens under a short
+    #   lock_timeout inside a savepoint; if the lock is busy the attempt is
+    #   skipped and retried on the next restart - startup NEVER waits.
     from app.core.db_models import REQUEST_SPEED_EXPR
 
-    for speed_table in ("request_logs", "request_logs_history"):
-        current_expr = (
-            await conn.execute(
-                text(
-                    "SELECT generation_expression FROM information_schema.columns "
-                    f"WHERE table_schema = 'public' AND table_name = '{speed_table}' "
-                    "AND column_name = 'speed_tokens_per_s'"
-                )
-            )
-        ).scalar()
-        if current_expr is not None and "- (1)::numeric" not in current_expr:
-            await conn.execute(
-                text(f"ALTER TABLE {speed_table} DROP COLUMN speed_tokens_per_s")
-            )
+    # history: any existing column (v1/v2 generated) -> plain, no rewrite.
+    await conn.execute(
+        text("ALTER TABLE request_logs_history DROP COLUMN IF EXISTS speed_tokens_per_s")
+    )
+    await conn.execute(
+        text(
+            "ALTER TABLE request_logs_history ADD COLUMN IF NOT EXISTS "
+            "speed_tokens_per_s DOUBLE PRECISION"
+        )
+    )
+
+    # live table: detect current expression (PG deparses "N - 1" as
+    # "N - (1)::numeric", which is the v2 fingerprint).
+    live_expr = (
         await conn.execute(
             text(
-                f"ALTER TABLE {speed_table} ADD COLUMN IF NOT EXISTS speed_tokens_per_s DOUBLE PRECISION "
-                f"GENERATED ALWAYS AS ({REQUEST_SPEED_EXPR}) STORED"
+                "SELECT generation_expression FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'request_logs' "
+                "AND column_name = 'speed_tokens_per_s'"
             )
         )
+    ).scalar()
+    needs_swap = live_expr is not None and "- (1)::numeric" not in live_expr
+    needs_add = live_expr is None
+    if needs_swap:
+        # The swap rewrites the live table under an exclusive lock for the
+        # whole rewrite (~10s/GB measured); lock_timeout bounds only the lock
+        # WAIT, not the hold. v1 vs v2 differ by <=2% (N vs N-1), so keep v1
+        # rather than stall live writes on a big table.
+        import logging
+
+        live_bytes = (
+            await conn.execute(text("SELECT pg_relation_size('request_logs')"))
+        ).scalar()
+        if (live_bytes or 0) > 256 * 1024 * 1024:
+            needs_swap = False
+            logging.getLogger(__name__).warning(
+                "request_logs speed v1->v2 swap skipped: table too large "
+                "(%d bytes > 256MB rewrite risk); keeping v1 formula",
+                live_bytes,
+            )
+    if needs_swap or needs_add:
+        import logging
+
+        await conn.execute(text("SAVEPOINT speed_live_column"))
+        try:
+            if needs_swap:
+                await conn.execute(
+                    text("ALTER TABLE request_logs DROP COLUMN speed_tokens_per_s")
+                )
+            await conn.execute(
+                text(
+                    "ALTER TABLE request_logs ADD COLUMN speed_tokens_per_s DOUBLE PRECISION "
+                    f"GENERATED ALWAYS AS ({REQUEST_SPEED_EXPR}) STORED"
+                )
+            )
+            await conn.execute(text("RELEASE SAVEPOINT speed_live_column"))
+        except Exception as exc:  # lock timeout (or worse): keep old column
+            await conn.execute(text("ROLLBACK TO SAVEPOINT speed_live_column"))
+            await conn.execute(text("RELEASE SAVEPOINT speed_live_column"))
+            logging.getLogger(__name__).warning(
+                "request_logs speed column %s skipped (%s); will retry next restart",
+                "v1->v2 swap" if needs_swap else "creation",
+                exc,
+            )
 
     # request_logs_all: live + archived union view.
     columns = (
@@ -1346,6 +1393,14 @@ async def seed_rbac_defaults(conn) -> None:
 
 async def init_db():
     async with engine.begin() as conn:
+        # Guard the WHOLE startup transaction: any DDL stuck waiting on a
+        # lock (busy table during a rolling deploy, leaked idle-in-transaction
+        # session) fails fast with a clear lock-timeout error instead of
+        # hanging startup until the health check kills the container
+        # (2026-09-30 incident). Optional/skippable steps use savepoints to
+        # degrade gracefully; the rest abort startup loudly, which is the
+        # correct signal to stop the old instance first.
+        await conn.execute(text("SET LOCAL lock_timeout = '15s'"))
         await create_tables(conn)
         await seed_rbac_defaults(conn)
         # One-time: slow the auto-reenable sweep from 30min to hourly (only

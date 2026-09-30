@@ -185,8 +185,11 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 @app.on_event("startup")
 async def startup():
+    import time
+
     from app.core.config import providers_cache, api_keys_cache, logger
 
+    t0 = time.perf_counter()
     await init_db()
     await load_providers()
     await load_api_keys()
@@ -209,6 +212,12 @@ async def startup():
     from app.services.proxy import get_http_client
 
     get_http_client()
+
+    # Readiness marker: grep the logs for this line to confirm the service is
+    # fully up (db migrations done, scheduler running, http client ready).
+    logger.info(
+        f"[MODELGATE-READY] startup complete in {time.perf_counter() - t0:.1f}s"
+    )
 
 
 @app.on_event("shutdown")
