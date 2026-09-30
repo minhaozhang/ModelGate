@@ -2,6 +2,8 @@
 
 Every run aggregates complete one-hour windows from request_logs:
 - only successful streaming requests with a first-chunk time count
+- streams shorter than SPEED_MIN_STREAM_MS (100ms) are excluded: non-streaming
+  / single-chunk responses have latency ~= TTFT and explode per-row speeds
 - stream duration = latency_ms - first_chunk_ms  ("from first token to end")
 - output tokens come from tokens.completion_tokens (fallback output_tokens)
 - rate = (sum(output_tokens) - requests) / sum(duration): industry-standard
@@ -29,9 +31,13 @@ from app.services.model_naming import (
 
 SPEED_RETENTION_DAYS = 30
 SPEED_BACKFILL_WINDOWS = 48
+# Streams shorter than this are excluded from aggregation: non-streaming /
+# single-chunk responses have latency ~= TTFT (delta < 5ms), which explodes
+# per-row speeds (observed max ~503k tok/s). 100ms keeps real short streams.
+SPEED_MIN_STREAM_MS = 100
 
 _FETCH_WINDOW_SQL = text(
-    """
+    f"""
     SELECT
         COALESCE(p.name, '') AS provider_name,
         rl.requested_model AS requested_model,
@@ -47,7 +53,7 @@ _FETCH_WINDOW_SQL = text(
       AND rl.status = 'success'
       AND rl.first_chunk_ms IS NOT NULL
       AND rl.latency_ms IS NOT NULL
-      AND rl.latency_ms > rl.first_chunk_ms
+      AND (rl.latency_ms - rl.first_chunk_ms) >= {SPEED_MIN_STREAM_MS}
       AND GREATEST(COALESCE((rl.tokens->>'completion_tokens')::bigint,
                             (rl.tokens->>'output_tokens')::bigint, 0), 0) > 0
     """
@@ -74,7 +80,7 @@ def group_speed_rows(rows) -> dict[tuple[str, str], dict]:
         provider = row.provider_name or ""
         output_tokens = int(row.output_tokens or 0)
         stream_ms = float(row.stream_ms or 0)
-        if output_tokens <= 0 or stream_ms <= 0:
+        if output_tokens <= 0 or stream_ms < SPEED_MIN_STREAM_MS:
             continue
         upstream_model = provider_stats_model_name(row.actual_model, row.model)
         user_model = user_stats_model_name(row.requested_model, row.model)

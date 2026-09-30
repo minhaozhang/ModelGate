@@ -99,6 +99,31 @@ class GroupSpeedRowsTests(unittest.TestCase):
         ]
         self.assertEqual(group_speed_rows(rows), {})
 
+    def test_tiny_delta_streams_excluded(self):
+        """Single-chunk responses (latency ~= TTFT, delta < 5ms) explode
+        per-row speed (observed ~503k tok/s) and must not enter stats."""
+        from app.services.speed_stats import SPEED_MIN_STREAM_MS, group_speed_rows
+
+        rows = [
+            SimpleNamespace(provider_name="p", requested_model="m", model="m",
+                            actual_model="m", output_tokens=500, stream_ms=3),
+            SimpleNamespace(provider_name="p", requested_model="m", model="m",
+                            actual_model="m", output_tokens=500, stream_ms=99),
+        ]
+        self.assertEqual(group_speed_rows(rows), {})
+        boundary = [SimpleNamespace(provider_name="p", requested_model="m", model="m",
+                                    actual_model="m", output_tokens=500,
+                                    stream_ms=SPEED_MIN_STREAM_MS)]
+        self.assertEqual(group_speed_rows(boundary)[("p", "m")]["requests"], 1)
+
+    def test_fetch_sql_guards_min_stream_duration(self):
+        from app.services import speed_stats
+
+        sql = str(speed_stats._FETCH_WINDOW_SQL)
+        self.assertIn(
+            f"(rl.latency_ms - rl.first_chunk_ms) >= {speed_stats.SPEED_MIN_STREAM_MS}", sql
+        )
+
 
 class MissingWindowsTests(unittest.TestCase):
     def test_from_scratch_returns_bounded_windows(self):
