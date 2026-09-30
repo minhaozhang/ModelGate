@@ -3222,6 +3222,9 @@ msgstr "供应商 & 模型"
 msgid "Speed (tokens/s)"
 msgstr "速度 (tokens/s)"
 
+msgid "Speed (tok/s)"
+msgstr "速度"
+
 msgid "No speed data yet"
 msgstr "暂无速度数据"
 

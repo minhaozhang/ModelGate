@@ -1136,6 +1136,7 @@
                         <span class="shrink-0">${T('费用', 'Cost')}: ${cost}</span>
                         <span class="shrink-0">${T('耗时', 'Latency')}: ${latency}</span>
                         <span class="shrink-0">${T('首Token', 'First token')}: ${formatMs(r.first_chunk_ms)}</span>
+                        ${r.speed_tokens_per_s != null ? `<span class="shrink-0">${T('速度', 'Speed')}: ${r.speed_tokens_per_s} tok/s</span>` : ''}
                         ${r.wait_ms > 0 ? `<span class="shrink-0">${T('排队', 'Wait')}: ${formatMs(r.wait_ms)}</span>` : ''}
                         <span class="ml-auto shrink-0"></span>
                     </div>
@@ -1151,6 +1152,7 @@
                     <th>${T('时间', 'Time')}</th>
                     <th class="num">${T('耗时', 'Latency')}</th>
                     <th class="num">${T('首Token', 'First token')}</th>
+                    <th class="num">${T('速度', 'Speed')}</th>
                     <th class="num">${T('上下文', 'Context')}</th>
                     <th class="num">${T('输入', 'Input')}</th>
                     <th class="num">${T('输出', 'Output')}</th>
@@ -1173,6 +1175,7 @@
                         <td>${time}</td>
                         <td class="num">${formatMs(r.latency_ms)}</td>
                         <td class="num">${formatMs(r.first_chunk_ms)}</td>
+                        <td class="num">${r.speed_tokens_per_s != null ? r.speed_tokens_per_s : '-'}</td>
                         <td class="num">${imgChip}${retryChip}${r.context_tokens > 0 ? formatCompactTokens(r.context_tokens) : '-'}</td>
                         <td class="num">${r.input_tokens > 0 ? formatCompactTokens(r.input_tokens) : '-'}</td>
                         <td class="num">${r.output_tokens > 0 ? formatCompactTokens(r.output_tokens) : '-'}</td>

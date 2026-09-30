@@ -784,9 +784,23 @@ async def migrate_request_logs(conn) -> None:
         text("UPDATE request_logs_history SET archive_month = to_char(created_at, 'YYYY-MM') WHERE archive_month IS NULL")
     )
 
+    # Per-request streaming speed (tokens/s) as a stored generated column:
+    # zero write-path changes, historical rows backfilled by the ALTER itself,
+    # and archived rows are recomputed from the copied base columns.
+    from app.core.db_models import REQUEST_SPEED_EXPR
+
+    for speed_table in ("request_logs", "request_logs_history"):
+        await conn.execute(
+            text(
+                f"ALTER TABLE {speed_table} ADD COLUMN IF NOT EXISTS speed_tokens_per_s DOUBLE PRECISION "
+                f"GENERATED ALWAYS AS ({REQUEST_SPEED_EXPR}) STORED"
+            )
+        )
+
     # request_logs_all: live + archived union view.
     columns = (
         "id, api_key_id, provider_id, model, response, tokens, latency_ms, first_chunk_ms, wait_ms, "
+        "speed_tokens_per_s, "
         "request_context_tokens, status, upstream_status_code, downstream_status_code, client_ip, user_agent, "
         "inbound_protocol, error, intent, requested_model, actual_model, provider_key_id, provider_key_label, routing_decision, request_image_count, fallback_tries, created_at, updated_at"
     )

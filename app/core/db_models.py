@@ -4,6 +4,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     Column,
+    Computed,
     Date,
     DateTime,
     Float,
@@ -22,6 +23,20 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import registry
 
 from app.core.db_engine import Base
+
+# Per-request streaming output speed (tokens/s), computed by the database from
+# completion tokens and stream duration (latency_ms - first_chunk_ms). Only
+# successful streaming requests with output tokens get a value, else NULL.
+# Shared by RequestLog / RequestLogHistory generated columns and migrations.
+REQUEST_SPEED_EXPR = (
+    "CASE WHEN latency_ms > first_chunk_ms "
+    "AND GREATEST(COALESCE((tokens->>'completion_tokens')::numeric, "
+    "(tokens->>'output_tokens')::numeric, 0), 0) > 0 "
+    "THEN round(GREATEST(COALESCE((tokens->>'completion_tokens')::numeric, "
+    "(tokens->>'output_tokens')::numeric, 0), 0) "
+    "/ NULLIF(((latency_ms - first_chunk_ms) / 1000.0)::numeric, 0), 1) "
+    "ELSE NULL END"
+)
 
 # ==================== Providers & provider keys ====================
 
@@ -345,6 +360,7 @@ class RequestLog(Base):
     latency_ms = Column(Float, nullable=True)
     first_chunk_ms = Column(Float, nullable=True)
     wait_ms = Column(Float, nullable=True)
+    speed_tokens_per_s = Column(Float, Computed(REQUEST_SPEED_EXPR), nullable=True)
     request_context_tokens = Column(Integer, nullable=True)
     status = Column(String(20), nullable=False)
     upstream_status_code = Column(Integer, nullable=True)
@@ -383,6 +399,7 @@ class RequestLogHistory(Base):
     latency_ms = Column(Float, nullable=True)
     first_chunk_ms = Column(Float, nullable=True)
     wait_ms = Column(Float, nullable=True)
+    speed_tokens_per_s = Column(Float, Computed(REQUEST_SPEED_EXPR), nullable=True)
     request_context_tokens = Column(Integer, nullable=True)
     status = Column(String(20), nullable=False)
     upstream_status_code = Column(Integer, nullable=True)
@@ -440,6 +457,7 @@ if request_logs_all_table is None:
         Column("latency_ms", Float),
         Column("first_chunk_ms", Float),
         Column("wait_ms", Float),
+        Column("speed_tokens_per_s", Float),
         Column("request_context_tokens", Integer),
         Column("status", String(20)),
         Column("upstream_status_code", Integer),

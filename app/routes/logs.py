@@ -101,6 +101,7 @@ def _serialize_error_log(
         "latency_ms": log.latency_ms,
         "first_chunk_ms": getattr(log, "first_chunk_ms", None),
         "wait_ms": getattr(log, "wait_ms", None),
+        "speed_tokens_per_s": getattr(log, "speed_tokens_per_s", None),
         "request_context_tokens": log.request_context_tokens,
         "request_image_count": getattr(log, "request_image_count", None),
         "fallback_tries": getattr(log, "fallback_tries", None),
@@ -206,6 +207,7 @@ async def get_all_logs(limit: int = 100, _: bool = Depends(permission_required("
                     "latency_ms": log.latency_ms,
                     "first_chunk_ms": getattr(log, "first_chunk_ms", None),
                     "wait_ms": getattr(log, "wait_ms", None),
+                    "speed_tokens_per_s": getattr(log, "speed_tokens_per_s", None),
                     "request_context_tokens": log.request_context_tokens,
                     "request_image_count": getattr(log, "request_image_count", None),
                     "fallback_tries": getattr(log, "fallback_tries", None),
@@ -369,7 +371,7 @@ async def query_logs(
 
 LOG_EXPORT_MAX_ROWS = 50000
 
-_XLSX_COL_WIDTHS = [8, 20, 20, 24, 18, 12, 12, 10, 12, 12, 15]
+_XLSX_COL_WIDTHS = [8, 20, 20, 24, 18, 12, 12, 10, 12, 12, 10, 15]
 
 
 def _xlsx_safe(value):
@@ -441,6 +443,7 @@ async def export_logs(
             "耗时(秒)",
             "输入Tokens",
             "输出Tokens",
+            "速度(tok/s)",
             "客户端IP",
         ]
     ]
@@ -468,6 +471,7 @@ async def export_logs(
                 else "",
                 tokens.get("prompt_tokens") or 0,
                 tokens.get("completion_tokens") or 0,
+                getattr(log, "speed_tokens_per_s", None) if getattr(log, "speed_tokens_per_s", None) is not None else "",
                 log.client_ip or "",
             ]
         )
