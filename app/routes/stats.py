@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timedelta
 from typing import Optional, Literal
 from fastapi import (
@@ -2370,6 +2371,40 @@ async def get_realtime_stats(_: bool = Depends(permission_required("page.stats")
         "active_requests": snapshot["active_requests"],
         "active_users": snapshot["active_users"],
     }
+
+
+_odometer_cache: dict = {"at": 0.0, "data": None}
+_ODOMETER_TTL_SECONDS = 60.0
+
+
+@router.get("/stats/odometer")
+async def get_odometer(_: bool = Depends(permission_required("page.stats"))):
+    """All-time cost & request totals for the admin cluster odometer.
+
+    Reads only the provider daily aggregates (no request_logs scan) and is
+    cached in-process for a minute.
+    """
+    now = time.monotonic()
+    cached = _odometer_cache["data"]
+    if cached is not None and now - _odometer_cache["at"] < _ODOMETER_TTL_SECONDS:
+        return cached
+
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(
+                func.coalesce(func.sum(ProviderDailyStat.cost_cny), 0).label("cost"),
+                func.coalesce(func.sum(ProviderDailyStat.requests), 0).label("requests"),
+            )
+        )
+        row = result.one()
+
+    data = {
+        "total_cost": round(float(row.cost or 0), 2),
+        "total_requests": int(row.requests or 0),
+    }
+    _odometer_cache["at"] = now
+    _odometer_cache["data"] = data
+    return data
 
 
 @router.websocket("/stats/live")

@@ -189,6 +189,64 @@
         body.theme-dark .conc-bar-bg { background: #1f2937; }
         .model-tag { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.68rem; font-weight: 500; background: #f1f5f9; color: #475569; margin: 1px; }
         body.theme-dark .model-tag { background: #1f2937; color: #94a3b8; }
+
+        /* ===== instrument cluster (Porsche-style triple gauge) ===== */
+        .cluster-panel {
+            display: flex; align-items: stretch; justify-content: center; gap: 20px;
+            padding: 18px 22px 14px; border-radius: 18px; margin-bottom: 1.5rem;
+            background: linear-gradient(180deg, #1c2027 0%, #12151a 55%, #0c0e12 100%);
+            border: 1px solid #262b34;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 10px 30px rgba(0,0,0,0.35);
+            flex-wrap: wrap;
+        }
+        body.theme-blackgold .cluster-panel {
+            background: linear-gradient(180deg, #241d10 0%, #171208 55%, #100c06 100%);
+            border-color: rgba(212,168,83,0.35);
+        }
+        .ag-gauge { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+        .ag-label { margin-top: 6px; font-size: 11px; letter-spacing: 0.04em; color: #a8b2c4; }
+        .ag-tach svg { width: 212px; }
+        .ag-speedo svg, .ag-fuel svg { width: 152px; }
+        .ag-face-a { stop-color: #191d24; }
+        .ag-face-b { stop-color: #090b0f; }
+        body.theme-blackgold .ag-face-a { stop-color: #221a0d; }
+        body.theme-blackgold .ag-face-b { stop-color: #0d0a04; }
+        .ag-ring { stroke: #9aa4b2; stroke-width: 1.6; }
+        .ag-groove { stroke: rgba(255,255,255,0.09); }
+        .ag-tick { stroke: #7a8199; }
+        .ag-tick-major { stroke: #e8ecf3; }
+        .ag-tick-red { stroke: #ef4444; }
+        .ag-redzone { stroke: rgba(239,68,68,0.45); }
+        .ag-num { fill: #eef2f7; }
+        .ag-num-red { fill: #f87171; }
+        .ag-needle-body { fill: #f4f7fb; }
+        .ag-cw { fill: #8f9cb0; }
+        .ag-hub-cap { fill: #10131a; stroke: #c8d0dc; stroke-width: 1; }
+        .ag-center-num { fill: #f4f7fb; font-weight: 700; }
+        .ag-center-num.alert { fill: #f87171; }
+        .ag-center-num.warn { fill: #fbbf24; }
+        .ag-center-unit { fill: #98a2b6; }
+        body.theme-blackgold .ag-ring { stroke: url(#ag-ring-gold); }
+        body.theme-blackgold .ag-tick-major { stroke: #ecdcae; }
+        body.theme-blackgold .ag-num { fill: #e7d5a3; }
+        body.theme-blackgold .ag-hub-cap { stroke: #e2c88a; }
+        .ag-dial { position: relative; }
+        .ag-dial svg { display: block; }
+        .ag-odometer {
+            position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(105deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.05) 28%, rgba(255,255,255,0) 34%, rgba(255,255,255,0) 100%), #02040a;
+            border: 1px solid #39424f; border-radius: 4px;
+            padding: 1px 7px; line-height: 1.1;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 9.5px; font-weight: 600; color: #bfe3ee; letter-spacing: 0.03em;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.95), inset 0 -1px 0 rgba(255,255,255,0.1), 0 1px 0 rgba(255,255,255,0.05);
+            white-space: nowrap;
+        }
+        body.theme-blackgold .ag-odometer { border-color: rgba(212,168,83,0.4); color: #f0e2b6; }
+        @media (max-width: 640px) {
+            .cluster-panel { flex-direction: column; align-items: center; }
+            .ag-tach svg { width: 190px; }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -212,6 +270,21 @@
                 </div>
             </div>
             {% endcall %}
+
+            <div id="cluster-panel" class="cluster-panel">
+                <div class="ag-gauge ag-speedo">
+                    <div class="ag-dial" id="ag-speedo-dial"></div>
+                    <div class="ag-label" id="ag-speedo-label"></div>
+                </div>
+                <div class="ag-gauge ag-tach">
+                    <div class="ag-dial" id="ag-tach-dial"></div>
+                    <div class="ag-label" id="ag-tach-label"></div>
+                </div>
+                <div class="ag-gauge ag-fuel">
+                    <div class="ag-dial" id="ag-fuel-dial"></div>
+                    <div class="ag-label" id="ag-fuel-label"></div>
+                </div>
+            </div>
 
             <div id="system-info-panel" class="bg-white rounded-lg shadow p-5 mb-6">
                 <div class="flex items-center justify-between mb-4">
@@ -424,6 +497,11 @@
         tokensPerSecondAxis: "{{ _('Speed (tokens/s)') }}",
         streamingSpeedByHour: "{{ _('Streaming output speed by hour') }}",
         noSpeedData: "{{ _('No speed data yet') }}",
+        clusterSpeed: "{{ _('Cluster speed') }}",
+        clusterTach: "{{ _('Cluster concurrency') }}",
+        clusterFuel: "{{ _('Cluster key health') }}",
+        clusterOdoTitle: "{{ _('Total cost (odometer)') }}",
+        clusterTachUnit: "{{ _('in-flight') }}",
     };
     </script>
     <script>
@@ -1209,6 +1287,7 @@
                 let totalKeys = rows.filter(r => r.key_id !== null).length;
                 let healthyKeys = rows.filter(r => r.health_score >= 60).length;
                 document.getElementById('provider-status-meta').textContent = `${healthyKeys}/${totalKeys} keys healthy`;
+                ClusterGauges.setFuel(healthyKeys, totalKeys);
 
                 const tbody = document.getElementById('provider-status-tbody');
                 tbody.innerHTML = rows.map(r => {
@@ -1250,6 +1329,298 @@
                     </tr>`;
                 }).join('');
             } catch(e) { console.error('Failed to load provider status', e); }
+        }
+
+        // ===== Porsche-style instrument cluster =====
+        // Tach = concurrency, speedo = tokens/s (with total-cost odometer
+        // window), fuel = provider key health. Needles ride the same
+        // spring integrator used across the site.
+        const ClusterGauges = (() => {
+            const R_TRACK = 40, SWEEP_A1 = 135, SWEEP_FULL = 270, SWEEP_FUEL = 90;
+            const TACH_TIERS = [20, 30, 50, 100, 200, 500];
+            const SPEED_TIERS = [2000, 5000, 10000, 25000, 50000];
+            const REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const cards = {};
+            let animTimer = 0;
+            let odoCost = null;
+
+            function pt(r, deg) {
+                const rad = deg * Math.PI / 180;
+                return [50 + r * Math.cos(rad), 50 + r * Math.sin(rad)];
+            }
+            function arcPath(r, a1, a2, large, sweepFlag) {
+                const [x1, y1] = pt(r, a1), [x2, y2] = pt(r, a2);
+                return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large ? 1 : 0} ${sweepFlag === 0 ? 0 : 1} ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+            }
+            function shade(hex, p) {
+                const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+                const t = p < 0 ? 0 : 255, a = Math.abs(p);
+                const f = (c) => Math.round(c + (t - c) * a).toString(16).padStart(2, '0');
+                return '#' + f(r) + f(g) + f(b);
+            }
+            // 270° gauges sweep clockwise through the top; the fuel gauge
+            // sweeps counterclockwise through the bottom quarter (E -> F).
+            function _agTicks(startDeg, sweep, count, majorEvery, r1, r2, redLo, redHi, dir) {
+                let out = '';
+                for (let i = 0; i <= count; i++) {
+                    const pct = i / count;
+                    const deg = startDeg + dir * sweep * pct;
+                    const major = (i % majorEvery === 0) || (redLo != null && redHi > 0.5 && Math.abs(pct - redLo) < 0.006);
+                    const inRed = redLo != null && pct >= redLo && pct <= redHi;
+                    const [x1, y1] = pt(major ? r1 : (r1 + 1.6), deg), [x2, y2] = pt(r2, deg);
+                    const cls = inRed ? 'ag-tick-red' : (major ? 'ag-tick-major' : 'ag-tick');
+                    out += `<line class="${cls}" x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke-width="${major ? (inRed ? 2.2 : 1.8) : 1}"/>`;
+                }
+                return out;
+            }
+            function numAt(r, deg, text, red, size) {
+                const [x, y] = pt(r, deg);
+                return `<text class="${red ? 'ag-num-red' : 'ag-num'}" x="${x.toFixed(2)}" y="${(y + 2).toFixed(2)}" font-size="${size}" font-weight="600" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">${text}</text>`;
+            }
+            function gaugeColor(kind, pct) {
+                if (kind === 'speedo') return '#22d3ee';
+                if (kind === 'fuel') return pct < 0.25 ? '#ef4444' : (pct < 0.45 ? '#f59e0b' : '#10b981');
+                if (pct >= 0.95) return '#ef4444';
+                if (pct > 0.8) return '#f59e0b';
+                return '#06b6d4';
+            }
+            function centerClass(kind, pct) {
+                if (kind === 'tach') return pct >= 0.95 ? ' alert' : '';
+                if (kind === 'fuel') return pct < 0.25 ? ' alert' : (pct < 0.45 ? ' warn' : '');
+                return '';
+            }
+            function fmtNum(v) {
+                if (v >= 1000) {
+                    const k = v / 1000;
+                    const s = Number.isInteger(k) ? k : Math.round(k * 10) / 10;
+                    return s + 'k';
+                }
+                return String(Math.round(v * 10) / 10);
+            }
+            function tierFor(tiers, v) {
+                for (const t of tiers) if (v <= t) return t;
+                return tiers[tiers.length - 1];
+            }
+            function gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFromPct, gi) {
+                const isFuel = kind === 'fuel';
+                const sweep = isFuel ? SWEEP_FUEL : SWEEP_FULL;
+                const dir = isFuel ? -1 : 1;
+                const sf = isFuel ? 0 : 1;
+                const arcLen = 2 * Math.PI * R_TRACK * sweep / 360;
+                const a0 = SWEEP_A1, aMid = SWEEP_A1 + dir * sweep / 2, aEnd = SWEEP_A1 + dir * sweep;
+                const nR = 29;
+                let nums;
+                if (isFuel) {
+                    nums = numAt(nR, a0, 'E', true, 8) + numAt(nR, aEnd, 'F', false, 8);
+                } else {
+                    nums = numAt(nR, a0, '0', false, 7.2)
+                        + numAt(nR, aMid, fmtNum(scaleMax / 2), false, 7.2)
+                        + numAt(nR, aEnd, fmtNum(scaleMax), redFromPct != null, 7.2);
+                }
+                const redzone = redFromPct != null
+                    ? `<path class="ag-redzone" d="${arcPath(36, SWEEP_A1 + dir * sweep * redFromPct, SWEEP_A1 + dir * sweep * 0.975, sweep * (0.975 - redFromPct) > 180, sf)}" fill="none" stroke-width="2.6" stroke-linecap="round"/>
+                       <path d="${arcPath(36, SWEEP_A1 + dir * sweep * redFromPct, SWEEP_A1 + dir * sweep * 0.975, sweep * (0.975 - redFromPct) > 180, sf)}" fill="none" stroke="#ef4444" stroke-width="2.6" stroke-linecap="round" opacity="0.3" filter="url(#ag-glow-${gi})"/>` : '';
+                const fuelRed = isFuel ? `<path class="ag-redzone" d="${arcPath(36, a0, SWEEP_A1 - sweep * 0.25, false, sf)}" fill="none" stroke-width="2.6" stroke-linecap="round"/>` : '';
+                const color = gaugeColor(kind, pct);
+                const off = (arcLen * (1 - pct)).toFixed(2);
+                const hide = pct <= 0.005 ? ' visibility="hidden"' : '';
+                const rot = (-135 + dir * sweep * pct).toFixed(1);
+                return `
+                <svg viewBox="0 0 100 100" aria-hidden="true">
+                    <defs>
+                        <radialGradient id="ag-face-${gi}" cx="0.5" cy="0.98" r="1.08">
+                            <stop class="ag-face-a" offset="0"/>
+                            <stop class="ag-face-b" offset="1"/>
+                        </radialGradient>
+                        <filter id="ag-glow-${gi}" x="-30%" y="-30%" width="160%" height="160%">
+                            <feGaussianBlur stdDeviation="1.8"/>
+                        </filter>
+                        <filter id="ag-shdw-${gi}" x="-40%" y="-40%" width="180%" height="180%">
+                            <feDropShadow dx="0" dy="0.9" stdDeviation="0.9" flood-color="#000" flood-opacity="0.6"/>
+                        </filter>
+                    </defs>
+                    <circle cx="50" cy="50" r="47.5" fill="url(#ag-face-${gi})"/>
+                    <circle cx="50" cy="50" r="47.4" fill="none" stroke="#454c59" stroke-width="2.6"/>
+                    <circle cx="50" cy="50" r="45.4" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="1.6"/>
+                    <path class="ag-ring" d="${arcPath(R_TRACK, a0, aEnd, sweep > 180, sf)}" fill="none" stroke-linecap="round"/>
+                    <path class="ag-groove" d="${arcPath(R_TRACK, a0, aEnd, sweep > 180, sf)}" fill="none" stroke-width="6" stroke-linecap="round"/>
+                    ${redzone}${fuelRed}
+                    ${_agTicks(SWEEP_A1, sweep, isFuel ? 8 : 27, isFuel ? 2 : 3, 30.5, 34.5, ...(isFuel ? [0, 0.25] : (redFromPct != null ? [redFromPct, 1] : [null, null])), dir)}
+                    ${nums}
+                    <path d="${arcPath(43.5, 195, 260, false, 1)}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2.4" stroke-linecap="round"/>
+                    <path class="ag-glow" d="${arcPath(R_TRACK, a0, aEnd, sweep > 180, sf)}" fill="none" stroke="${color}" stroke-width="6.4" stroke-linecap="round" opacity="0.45" filter="url(#ag-glow-${gi})" stroke-dasharray="${arcLen.toFixed(2)}" stroke-dashoffset="${off}"${hide}/>
+                    <path class="ag-value" d="${arcPath(R_TRACK, a0, aEnd, sweep > 180, sf)}" fill="none" stroke="${color}" stroke-width="4.2" stroke-linecap="round" stroke-dasharray="${arcLen.toFixed(2)}" stroke-dashoffset="${off}"${hide}/>
+                    <g class="ag-needle" filter="url(#ag-shdw-${gi})" style="transform-origin:50px 50px;transform:rotate(${rot}deg)">
+                        <path class="ag-needle-body" stroke="rgba(0,0,0,0.35)" stroke-width="0.2" d="M 49.2 52 L 49.85 15 L 50.15 15 L 50.8 52 Z"/>
+                        <path class="ag-needle-tip" fill="${shade(color, 0.55)}" d="M 49.83 15 L 50.2 15 L 50.18 23 L 49.85 23 Z"/>
+                        <circle class="ag-cw" cx="50" cy="53.8" r="2.5"/>
+                    </g>
+                    <circle class="ag-hub-cap" cx="50" cy="50" r="3.4"/>
+                    <circle cx="50" cy="50" r="1.4" fill="#c8d0dc"/>
+                    <text class="ag-center-num${centerClass(kind, pct)}" x="50" y="${isFuel ? 74 : 63}" font-size="${isFuel ? 10 : 13}" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">${valueText}</text>
+                    ${unitText ? `<text class="ag-center-unit" x="50" y="${isFuel ? 81 : 70}" font-size="5" text-anchor="middle" letter-spacing="0.3">${unitText}</text>` : ''}
+                </svg>`;
+            }
+
+            function mount(kind, dialId, scaleMax, unitText, labelText, labelId) {
+                if (!cards['#defs'] ) {
+                    const defs = document.createElement('div');
+                    defs.innerHTML = '<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="ag-ring-gold" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f6e3ac"/><stop offset="0.5" stop-color="#d4ab55"/><stop offset="1" stop-color="#94763a"/></linearGradient></defs></svg>';
+                    document.getElementById('cluster-panel').prepend(defs.firstChild);
+                    cards['#defs'] = true;
+                }
+                const dial = document.getElementById(dialId);
+                const old = cards[kind];
+                const pct = old ? old.tgtPct : 0;
+                const valueText = old ? old.valueText : (kind === 'fuel' ? '0/0' : '0');
+                const gi = kind === 'tach' ? 't' : kind === 'fuel' ? 'f' : 's';
+                const isFuel = kind === 'fuel';
+                const dir = isFuel ? -1 : 1;
+                const sweep = isFuel ? SWEEP_FUEL : SWEEP_FULL;
+                const redFrom = kind === 'tach' ? 0.85 : (isFuel ? 0 : null);
+                dial.innerHTML = gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFrom, gi)
+                    + (kind === 'speedo' ? `<div class="ag-odometer" title="${window.I18N.clusterOdoTitle}">${odoCost == null ? '—' : '¥' + odoCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : '');
+                document.getElementById(labelId).textContent = labelText;
+                const arcLen = 2 * Math.PI * R_TRACK * sweep / 360;
+                cards[kind] = {
+                    kind, dir, sweep, arcLen, scale: scaleMax, dial,
+                    needle: dial.querySelector('.ag-needle'),
+                    valueArc: dial.querySelector('.ag-value'),
+                    glowArc: dial.querySelector('.ag-glow'),
+                    tip: dial.querySelector('.ag-needle-tip'),
+                    centerNum: dial.querySelector('.ag-center-num'),
+                    curPct: pct, tgtPct: pct, velPct: old ? old.velPct : 0,
+                    valueText,
+                };
+                applyPct(cards[kind], pct);
+            }
+            function applyPct(card, pct) {
+                const off = (card.arcLen * (1 - pct)).toFixed(2);
+                const hide = pct <= 0.005 ? 'hidden' : 'visible';
+                const color = gaugeColor(card.kind, pct);
+                card.valueArc.setAttribute('stroke-dashoffset', off);
+                card.valueArc.setAttribute('visibility', hide);
+                card.glowArc.setAttribute('stroke-dashoffset', off);
+                card.glowArc.setAttribute('visibility', hide);
+                card.valueArc.setAttribute('stroke', color);
+                card.glowArc.setAttribute('stroke', color);
+                card.tip.setAttribute('fill', shade(color, 0.55));
+                card.needle.style.transform = `rotate(${(-135 + card.dir * card.sweep * pct).toFixed(1)}deg)`;
+                const cls = 'ag-center-num' + centerClass(card.kind, pct);
+                if (card.centerNum.getAttribute('class') !== cls) card.centerNum.setAttribute('class', cls);
+            }
+            function startAnim() {
+                if (!animTimer) animTimer = requestAnimationFrame(tick);
+            }
+            function tick() {
+                let any = false;
+                for (const key of ['tach', 'speedo', 'fuel']) {
+                    const card = cards[key];
+                    if (!card) continue;
+                    const t = card.tgtPct || 0, c = card.curPct || 0, v = card.velPct || 0;
+                    const d = t - c;
+                    if (Math.abs(d) < 0.001 && Math.abs(v) < 0.0004) {
+                        if (c !== t || v !== 0) { applyPct(card, t); card.curPct = t; card.velPct = 0; }
+                        continue;
+                    }
+                    // Spring integrator (same model as the rest of the site):
+                    // slightly under-damped so needles overshoot and settle.
+                    card.velPct = (v + d * 0.02) * 0.8;
+                    card.curPct = c + card.velPct;
+                    applyPct(card, card.curPct);
+                    any = true;
+                }
+                animTimer = any ? requestAnimationFrame(tick) : 0;
+            }
+            function setTarget(kind, pct, valueText) {
+                const card = cards[kind];
+                if (!card) return;
+                card.tgtPct = Math.max(0, Math.min(1, pct));
+                if (valueText !== undefined && valueText !== card.valueText) {
+                    card.valueText = valueText;
+                    card.centerNum.textContent = valueText;
+                }
+                if (REDUCE_MOTION) {
+                    card.curPct = card.tgtPct;
+                    card.velPct = 0;
+                    applyPct(card, card.tgtPct);
+                } else {
+                    startAnim();
+                }
+            }
+            function setValue(kind, value) {
+                const card = cards[kind];
+                if (!card) return;
+                const tiers = kind === 'tach' ? TACH_TIERS : SPEED_TIERS;
+                const need = tierFor(tiers, Math.max(value * 1.15, 1));
+                if (need > card.scale) {
+                    mount(kind, kind === 'tach' ? 'ag-tach-dial' : 'ag-speedo-dial', need,
+                        kind === 'tach' ? window.I18N.clusterTachUnit : 'tok/s',
+                        kind === 'tach' ? window.I18N.clusterTach : window.I18N.clusterSpeed,
+                        kind === 'tach' ? 'ag-tach-label' : 'ag-speedo-label');
+                }
+                const c = cards[kind];
+                const text = kind === 'tach' ? String(Math.round(value)) : fmtNum(value);
+                setTarget(kind, c.scale ? value / c.scale : 0, text);
+            }
+            function setFuel(healthy, total) {
+                const card = cards['fuel'];
+                if (!card) return;
+                const pct = total > 0 ? healthy / total : 0;
+                setTarget('fuel', pct, `${healthy}/${total}`);
+            }
+            function setOdometer(cost) {
+                odoCost = cost;
+                const el = cards['speedo'] && cards['speedo'].dial.querySelector('.ag-odometer');
+                if (el) el.textContent = '¥' + cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            return { mount, setValue, setFuel, setOdometer };
+        })();
+
+        let clusterSocket = null;
+        let clusterReconnectTimer = null;
+        let clusterPollTimer = null;
+        function updateClusterLive(data) {
+            if (!data) return;
+            ClusterGauges.setValue('tach', Number(data.active_requests) || 0);
+            ClusterGauges.setValue('speedo', Number(data.tokens_per_second) || 0);
+        }
+        function stopClusterPolling() {
+            if (clusterPollTimer) { clearInterval(clusterPollTimer); clusterPollTimer = null; }
+        }
+        function startClusterPolling() {
+            if (clusterPollTimer) return;
+            clusterPollTimer = setInterval(async () => {
+                try {
+                    updateClusterLive(await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/realtime`));
+                } catch (e) { /* 401 redirects inside fetchJsonOrRedirect */ }
+            }, 5000);
+        }
+        function scheduleClusterReconnect() {
+            if (clusterReconnectTimer) return;
+            clusterReconnectTimer = setTimeout(() => { clusterReconnectTimer = null; connectClusterLive(); }, 2000);
+        }
+        function connectClusterLive() {
+            try {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                clusterSocket = new WebSocket(`${protocol}//${window.location.host}${APP_BASE_PATH}/admin/api/stats/live`);
+            } catch (e) { startClusterPolling(); return; }
+            clusterSocket.onmessage = (event) => {
+                try { updateClusterLive(JSON.parse(event.data)); stopClusterPolling(); } catch (e) {}
+            };
+            clusterSocket.onclose = (event) => {
+                clusterSocket = null;
+                if (event.code === 4401) { startClusterPolling(); return; }
+                scheduleClusterReconnect();
+                startClusterPolling();
+            };
+            clusterSocket.onerror = () => { if (clusterSocket) clusterSocket.close(); };
+        }
+        async function loadClusterOdometer() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/odometer`);
+                if (data) ClusterGauges.setOdometer(Number(data.total_cost) || 0);
+            } catch (e) {}
         }
 
         function escapeHtml(value) {
@@ -1321,6 +1692,13 @@
                 console.error('Failed to load system info', e);
             }
         }
+
+        ClusterGauges.mount('speedo', 'ag-speedo-dial', 2000, 'tok/s', window.I18N.clusterSpeed, 'ag-speedo-label');
+        ClusterGauges.mount('tach', 'ag-tach-dial', 20, window.I18N.clusterTachUnit, window.I18N.clusterTach, 'ag-tach-label');
+        ClusterGauges.mount('fuel', 'ag-fuel-dial', null, 'keys', window.I18N.clusterFuel, 'ag-fuel-label');
+        connectClusterLive();
+        loadClusterOdometer();
+        setInterval(loadClusterOdometer, 300000);
     </script>
 </body>
 </html>

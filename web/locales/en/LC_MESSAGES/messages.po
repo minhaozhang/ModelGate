@@ -5059,3 +5059,18 @@ msgstr "Wait"
 
 #~ msgid "Disable reason (optional)"
 #~ msgstr "Disable reason (optional)"
+
+msgid "Cluster speed"
+msgstr "Tokens/s"
+
+msgid "Cluster concurrency"
+msgstr "Concurrency"
+
+msgid "Cluster key health"
+msgstr "Key Health"
+
+msgid "Total cost (odometer)"
+msgstr "Total cost (odometer)"
+
+msgid "in-flight"
+msgstr "in-flight"

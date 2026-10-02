@@ -3559,3 +3559,18 @@ msgstr "近 7 天平均输出速度"
 
 #~ msgid "Without Prefix"
 #~ msgstr "不带前缀"
+
+msgid "Cluster speed"
+msgstr "速率 Tokens/s"
+
+msgid "Cluster concurrency"
+msgstr "并发 Concurrency"
+
+msgid "Cluster key health"
+msgstr "密钥健康 Key Health"
+
+msgid "Total cost (odometer)"
+msgstr "累计费用（总里程）"
+
+msgid "in-flight"
+msgstr "进行中"
