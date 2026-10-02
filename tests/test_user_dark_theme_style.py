@@ -9,6 +9,65 @@ def _read(rel):
     return (ROOT / rel).read_text(encoding="utf-8")
 
 
+class ModelConcurrencyGauge3DTests(unittest.TestCase):
+    """Porsche-cluster gauge: black face, tick ring with scale numbers,
+    white blade needle with colored tip, glowing value arc, spring motion."""
+
+    FILES = ("web/templates/user/dashboard.html", "web/templates/user/tab_stats_v2.html")
+
+    def test_gauge_markers_present(self):
+        for rel in self.FILES:
+            html = _read(rel)
+            for marker in (
+                "mc-face-a", "mc-face-b",       # radial black dial face
+                "mc-ring", "mc-groove",         # bezel ring + arc groove
+                "mc-tick-major", "_mcTicks()",  # full graduation ring
+                "mc-num-mid", "mc-num-max",     # dynamic scale numbers
+                "mc-needle-body", "mc-needle-tip",
+                "mc-hub-cap", "mc-glass",
+                "feGaussianBlur",               # value-arc glow
+                "_mcSetNeedleColor", "_mcShade",
+                "card.numMax.textContent = eff;",
+                "card.numMid.textContent = Math.round(eff / 2);",
+            ):
+                self.assertIn(marker, html, f"{rel} missing {marker}")
+
+    def test_zero_arc_dot_guard(self):
+        # A zero-length dash with round linecap paints a stray dot at the
+        # scale start; the arc pair must hide until there is arc to show.
+        for rel in self.FILES:
+            html = _read(rel)
+            self.assertIn("pct > 0.005 ? 'visible' : 'hidden'", html, rel)
+
+    def test_gold_ring_gradient_defs(self):
+        # Both gauge lists render on the same page, so their shared-document
+        # gold ring gradients need distinct ids, defined outside the lists
+        # (list containers get their innerHTML rewritten).
+        d_css, d_tab = _read("web/templates/user/dashboard.html"), _read("web/templates/user/tab_stats.html")
+        v_css, v_tab = _read("web/templates/user/tab_stats_v2.html"), _read("web/templates/user/tab_stats_v2.html")
+        self.assertIn("url(#mc-ring-gold-d)", d_css)
+        self.assertIn('id="mc-ring-gold-d"', d_tab)
+        self.assertIn("url(#mc-ring-gold-v)", v_css)
+        self.assertIn('id="mc-ring-gold-v"', v_tab)
+
+    def test_superseded_skeuomorphic_markers_gone(self):
+        for rel in self.FILES:
+            html = _read(rel)
+            for stale in (
+                "mc-needle-tail", "mc-bezel", "mc-dial-wrap", "rotateX",
+                "feDropShadow", "mc-needle-hl", "mc-hub-mid", "mc-hub-dot",
+                "mc-track", "mc-plate", "needleStops",
+            ):
+                self.assertNotIn(stale, html, f"{rel} still has {stale}")
+
+    def test_needle_uses_spring_integrator(self):
+        for rel in self.FILES:
+            html = _read(rel)
+            self.assertIn("velPct", html)
+            self.assertIn("card.velPct = (v + d * 0.02) * 0.8;", html)
+            self.assertNotIn("d * 0.14", html, "old lerp easing must be gone")
+
+
 class ClipboardCopyFallbackTests(unittest.TestCase):
     """navigator.clipboard is undefined on plain-HTTP deployments (secure
     context required); bare calls throw and kill the copy buttons."""
