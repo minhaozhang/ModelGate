@@ -5074,3 +5074,30 @@ msgstr "Total cost (odometer)"
 
 msgid "in-flight"
 msgstr "in-flight"
+
+msgid "Redline"
+msgstr "Redline"
+
+msgid "Key health"
+msgstr "Key health"
+
+msgid "Provider disabled"
+msgstr "Provider disabled"
+
+msgid "Data offline"
+msgstr "Data offline"
+
+msgid "Uptime"
+msgstr "Uptime"
+
+msgid "Total requests"
+msgstr "Total requests"
+
+msgid "Concurrency entered the red zone (85 and above on the scale)"
+msgstr "Concurrency entered the red zone (85 and above on the scale)
+
+msgid "Healthy key ratio below 45%"
+msgstr "Healthy key ratio below 45%"
+
+msgid "Disabled providers"
+msgstr "Disabled providers"

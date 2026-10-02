@@ -3574,3 +3574,30 @@ msgstr "累计费用（总里程）"
 
 msgid "in-flight"
 msgstr "进行中"
+
+msgid "Redline"
+msgstr "红线"
+
+msgid "Key health"
+msgstr "密钥"
+
+msgid "Provider disabled"
+msgstr "供应商禁用"
+
+msgid "Data offline"
+msgstr "数据离线"
+
+msgid "Uptime"
+msgstr "运行"
+
+msgid "Total requests"
+msgstr "累计请求"
+
+msgid "Concurrency entered the red zone (85 and above on the scale)"
+msgstr "并发已进入红区（达到量程的85以上）
+
+msgid "Healthy key ratio below 45%"
+msgstr "健康密钥占比低于 45%"
+
+msgid "Disabled providers"
+msgstr "已禁用的供应商"

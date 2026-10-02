@@ -93,8 +93,24 @@ class MonitorClusterTemplateTests(unittest.TestCase):
             "ag-fuel",            # fuel: provider key health
             "ag-odometer",        # rolling cost window
             "ag-redzone",         # tach redline arc
+            "ag-console",         # bottom console: tell-tales + trip computer
+            "ag-lamp",            # tell-tale lamps (redline/fuel/disabled/offline)
+            "ag-trip",            # trip computer (active users / uptime / total requests)
             "_agTicks",
             "velPct",             # spring integrator
+            "prefers-reduced-motion",
+        ):
+            self.assertIn(marker, html, f"monitor.html missing {marker}")
+
+    def test_lamp_wiring_present(self):
+        html = self._read()
+        for marker in (
+            "ag-lamp-redline",
+            "ag-lamp-fuel",
+            "ag-lamp-disabled",
+            "ag-lamp-offline",
+            "disabled_providers",   # disabled lamp driven by live snapshot
+            "clusterLastLiveAt",    # offline watchdog heartbeat
         ):
             self.assertIn(marker, html, f"monitor.html missing {marker}")
 

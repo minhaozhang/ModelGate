@@ -192,8 +192,8 @@
 
         /* ===== instrument cluster (Porsche-style triple gauge) ===== */
         .cluster-panel {
-            display: flex; align-items: stretch; justify-content: center; gap: 20px;
-            padding: 18px 22px 14px; border-radius: 18px; margin-bottom: 1.5rem;
+            display: flex; align-items: stretch; justify-content: center; gap: 28px;
+            padding: 20px 28px 14px; border-radius: 18px; margin-bottom: 1.5rem;
             background: linear-gradient(180deg, #1c2027 0%, #12151a 55%, #0c0e12 100%);
             border: 1px solid #262b34;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 10px 30px rgba(0,0,0,0.35);
@@ -205,8 +205,8 @@
         }
         .ag-gauge { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
         .ag-label { margin-top: 6px; font-size: 11px; letter-spacing: 0.04em; color: #a8b2c4; }
-        .ag-tach svg { width: 212px; }
-        .ag-speedo svg, .ag-fuel svg { width: 152px; }
+        .ag-tach svg { width: 240px; }
+        .ag-speedo svg, .ag-fuel svg { width: 170px; }
         .ag-face-a { stop-color: #191d24; }
         .ag-face-b { stop-color: #090b0f; }
         body.theme-blackgold .ag-face-a { stop-color: #221a0d; }
@@ -245,7 +245,41 @@
         body.theme-blackgold .ag-odometer { border-color: rgba(212,168,83,0.4); color: #f0e2b6; }
         @media (max-width: 640px) {
             .cluster-panel { flex-direction: column; align-items: center; }
-            .ag-tach svg { width: 190px; }
+            .ag-tach svg { width: 200px; }
+            .ag-console { flex-direction: column; gap: 8px; }
+        }
+
+        /* bottom console: tell-tale lamps (left) + trip computer (right) */
+        .ag-console {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            gap: 16px; margin-top: 14px; padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.07);
+            flex-wrap: wrap;
+        }
+        .ag-lamps { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .ag-lamp { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; letter-spacing: 0.03em; color: #77808f; }
+        .ag-lamp i {
+            width: 9px; height: 9px; border-radius: 50%; flex: none;
+            background: transparent; border: 1.5px solid #39424f;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+            transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+        }
+        .ag-lamp.lit { color: #aab4c4; }
+        .ag-lamp.lit-red i { background: #ef4444; border-color: #ef4444; animation: ag-pulse-red 2s ease-in-out infinite; }
+        .ag-lamp.lit-amber i { background: #f59e0b; border-color: #f59e0b; animation: ag-pulse-amber 2s ease-in-out infinite; }
+        .ag-lamp.lit-green i { background: #10b981; border-color: #10b981; box-shadow: 0 0 9px rgba(16,185,129,0.8); }
+        @keyframes ag-pulse-red {
+            0%, 100% { box-shadow: 0 0 10px rgba(239,68,68,0.95); }
+            50% { box-shadow: 0 0 3px rgba(239,68,68,0.45); }
+        }
+        @keyframes ag-pulse-amber {
+            0%, 100% { box-shadow: 0 0 10px rgba(245,158,11,0.95); }
+            50% { box-shadow: 0 0 3px rgba(245,158,11,0.45); }
+        }
+        .ag-trip { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: #98a2b6; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 16px; }
+        .ag-trip b { color: #d5dce8; font-weight: 600; }
+        @media (prefers-reduced-motion: reduce) {
+            .ag-lamp i { transition: none; animation: none !important; }
         }
     </style>
 </head>
@@ -283,6 +317,19 @@
                 <div class="ag-gauge ag-fuel">
                     <div class="ag-dial" id="ag-fuel-dial"></div>
                     <div class="ag-label" id="ag-fuel-label"></div>
+                </div>
+
+                <div class="ag-console">
+                    <div class="ag-lamps">
+                        <span class="ag-lamp" id="ag-lamp-redline"><i></i><span id="ag-lamp-redline-text"></span></span>
+                        <span class="ag-lamp" id="ag-lamp-fuel"><i></i><span id="ag-lamp-fuel-text"></span></span>
+                        <span class="ag-lamp" id="ag-lamp-disabled"><i></i><span id="ag-lamp-disabled-text"></span></span>
+                        <span class="ag-lamp" id="ag-lamp-offline"><i></i><span id="ag-lamp-offline-text"></span></span>
+                    </div>
+                    <div class="ag-trip">
+                        <span><span id="ag-trip-users-label"></span> <b id="ag-trip-users">–</b></span>
+                        <span id="ag-trip-uptime-wrap" style="display:none"><span id="ag-trip-uptime-label"></span> <b id="ag-trip-uptime">–</b></span>                        <span><span id="ag-trip-requests-label"></span> <b id="ag-trip-requests">–</b></span>
+                    </div>
                 </div>
             </div>
 
@@ -502,6 +549,16 @@
         clusterFuel: "{{ _('Cluster key health') }}",
         clusterOdoTitle: "{{ _('Total cost (odometer)') }}",
         clusterTachUnit: "{{ _('in-flight') }}",
+        clusterLampRedline: "{{ _('Redline') }}",
+        clusterLampFuel: "{{ _('Key health') }}",
+        clusterLampDisabled: "{{ _('Provider disabled') }}",
+        clusterLampOffline: "{{ _('Data offline') }}",
+        clusterActiveUsers: "{{ _('Active users') }}",
+        clusterUptime: "{{ _('Uptime') }}",
+        clusterTotalRequests: "{{ _('Total requests') }}",
+        clusterRedlineTitle: "{{ _('Concurrency entered the red zone (85 and above on the scale)') }}",
+        clusterFuelTitle: "{{ _('Healthy key ratio below 45%') }}",
+        clusterDisabledTitle: "{{ _('Disabled providers') }}",
     };
     </script>
     <script>
@@ -1562,28 +1619,48 @@
                 const c = cards[kind];
                 const text = kind === 'tach' ? String(Math.round(value)) : fmtNum(value);
                 setTarget(kind, c.scale ? value / c.scale : 0, text);
+                if (kind === 'tach') {
+                    setLamp('ag-lamp-redline', c.scale && value / c.scale >= 0.85 ? 'lit-red' : '');
+                }
             }
             function setFuel(healthy, total) {
                 const card = cards['fuel'];
                 if (!card) return;
                 const pct = total > 0 ? healthy / total : 0;
                 setTarget('fuel', pct, `${healthy}/${total}`);
+                setLamp('ag-lamp-fuel', pct < 0.45 ? (pct < 0.25 ? 'lit-red' : 'lit-amber') : '');
+            }
+            function setLamp(id, cls) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const next = cls ? 'ag-lamp lit ' + cls : 'ag-lamp';
+                if (el.className !== next) el.className = next;
             }
             function setOdometer(cost) {
                 odoCost = cost;
                 const el = cards['speedo'] && cards['speedo'].dial.querySelector('.ag-odometer');
                 if (el) el.textContent = '¥' + cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
-            return { mount, setValue, setFuel, setOdometer };
+            return { mount, setValue, setFuel, setOdometer, setLamp };
         })();
 
         let clusterSocket = null;
         let clusterReconnectTimer = null;
         let clusterPollTimer = null;
+        let clusterLastLiveAt = 0;
         function updateClusterLive(data) {
             if (!data) return;
+            clusterLastLiveAt = Date.now();
             ClusterGauges.setValue('tach', Number(data.active_requests) || 0);
             ClusterGauges.setValue('speedo', Number(data.tokens_per_second) || 0);
+            ClusterGauges.setLamp('ag-lamp-offline', '');
+            const disabled = data.disabled_providers;
+            const names = disabled && typeof disabled === 'object' ? Object.keys(disabled) : [];
+            const dl = document.getElementById('ag-lamp-disabled');
+            if (dl) dl.title = names.length ? `${window.I18N.clusterDisabledTitle}: ${names.join(', ')}` : window.I18N.clusterDisabledTitle;
+            ClusterGauges.setLamp('ag-lamp-disabled', names.length ? 'lit-red' : '');
+            const users = document.getElementById('ag-trip-users');
+            if (users && data.active_users !== undefined) users.textContent = String(data.active_users);
         }
         function stopClusterPolling() {
             if (clusterPollTimer) { clearInterval(clusterPollTimer); clusterPollTimer = null; }
@@ -1619,7 +1696,11 @@
         async function loadClusterOdometer() {
             try {
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/odometer`);
-                if (data) ClusterGauges.setOdometer(Number(data.total_cost) || 0);
+                if (data) {
+                    ClusterGauges.setOdometer(Number(data.total_cost) || 0);
+                    const req = document.getElementById('ag-trip-requests');
+                    if (req) req.textContent = (Number(data.total_requests) || 0).toLocaleString();
+                }
             } catch (e) {}
         }
 
@@ -1685,6 +1766,12 @@
                 document.getElementById('system-disk-detail').textContent = `${diskLabel}: ${fmtBytes(disk.used)} / ${fmtBytes(disk.total)}`;
 
                 document.getElementById('system-uptime').textContent = `{{ "运行时间" if current_locale == "zh" else "Uptime" }} ${fmtUptime(data.uptime)}`;
+                const tripUptime = document.getElementById('ag-trip-uptime');
+                if (tripUptime) {
+                    tripUptime.textContent = fmtUptime(data.uptime);
+                    const wrap = document.getElementById('ag-trip-uptime-wrap');
+                    if (wrap && data.uptime !== undefined) wrap.style.display = '';
+                }
                 document.getElementById('system-process-memory').textContent = fmtBytes(proc.memory_rss);
                 document.getElementById('system-process-detail').textContent = `CPU ${Number(proc.cpu_percent || 0).toFixed(1)}% · ${proc.threads || 0} threads · ${proc.connections ?? '-'} conn`;
                 document.getElementById('system-network-detail').textContent = `↑ ${fmtBytes(net.bytes_sent)} · ↓ ${fmtBytes(net.bytes_recv)}`;
@@ -1696,6 +1783,29 @@
         ClusterGauges.mount('speedo', 'ag-speedo-dial', 2000, 'tok/s', window.I18N.clusterSpeed, 'ag-speedo-label');
         ClusterGauges.mount('tach', 'ag-tach-dial', 20, window.I18N.clusterTachUnit, window.I18N.clusterTach, 'ag-tach-label');
         ClusterGauges.mount('fuel', 'ag-fuel-dial', null, 'keys', window.I18N.clusterFuel, 'ag-fuel-label');
+        (function initClusterConsole() {
+            const texts = {
+                'ag-lamp-redline-text': window.I18N.clusterLampRedline,
+                'ag-lamp-fuel-text': window.I18N.clusterLampFuel,
+                'ag-lamp-disabled-text': window.I18N.clusterLampDisabled,
+                'ag-lamp-offline-text': window.I18N.clusterLampOffline,
+                'ag-trip-users-label': window.I18N.clusterActiveUsers,
+                'ag-trip-uptime-label': window.I18N.clusterUptime,
+                'ag-trip-requests-label': window.I18N.clusterTotalRequests,
+            };
+            for (const [id, text] of Object.entries(texts)) {
+                const el = document.getElementById(id);
+                if (el) el.textContent = text;
+            }
+            document.getElementById('ag-lamp-redline').title = window.I18N.clusterRedlineTitle;
+            document.getElementById('ag-lamp-fuel').title = window.I18N.clusterFuelTitle;
+            document.getElementById('ag-lamp-disabled').title = window.I18N.clusterDisabledTitle;
+            setInterval(() => {
+                if (clusterLastLiveAt && Date.now() - clusterLastLiveAt > 15000) {
+                    ClusterGauges.setLamp('ag-lamp-offline', 'lit-red');
+                }
+            }, 5000);
+        })();
         connectClusterLive();
         loadClusterOdometer();
         setInterval(loadClusterOdometer, 300000);
