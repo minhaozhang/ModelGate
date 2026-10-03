@@ -30,6 +30,9 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         body.theme-dark .text-gray-600 { color: #ededf8e6 !important; }
         body.theme-dark .text-gray-500 { color: #ededf8b8 !important; }
         body.theme-dark .text-gray-400 { color: #ededf8a3 !important; }
+        body.theme-dark .text-gray-700 { color: #ededf8e6 !important; }
+        body.theme-dark .border-gray-200 { border-color: rgba(235, 234, 250, 0.10) !important; }
+        body.theme-dark #logs-key-dropdown > div:hover { background: rgba(59, 130, 246, 0.16) !important; }
         body.theme-dark .text-orange-600 { color: #fdba74 !important; }
         body.theme-dark .text-orange-700 { color: #fed7aa !important; }
         body.theme-dark .text-green-700 { color: #bbf7d0 !important; }
@@ -331,7 +334,9 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         expectedRestoreAt: "{{ _('expected restore at {time}') }}",
         noNotifications: "{{ _('No notifications') }}",
         noLogs: "{{ _('No logs in range') }}",
-        logCtx: "{{ _('ctx' if current_locale != 'zh' else '总') }}",
+        logCtx: "{{ _('ctx (est.)' if current_locale != 'zh' else '上下文(估)') }}",
+        logTotal: "{{ _('total' if current_locale != 'zh' else '总') }}",
+        logIpLoc: "{{ _('location' if current_locale != 'zh' else '所在地') }}",
         logCache: "{{ _('cache' if current_locale != 'zh' else '缓存') }}",
         logFirst: "{{ _('1st' if current_locale != 'zh' else '首') }}",
         logWait: "{{ _('wait' if current_locale != 'zh' else '排队') }}",
@@ -1268,6 +1273,22 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             if (v >= 1000) return ((v / 1000).toFixed(v >= 1e4 ? 0 : 1).replace(/\.0$/, '')) + 'k';
             return String(v);
         }
+        const ipGeoCache = new Map();
+        function loadLogIpGeo(card) {
+            const span = card.querySelector('[data-ipgeo]');
+            if (!span || span.dataset.done) return;
+            const ip = (span.dataset.ipgeo || '').trim();
+            span.dataset.done = '1';
+            if (!ip || ip === '-') return;
+            const apply = (label) => { if (label && label !== '-') span.textContent = ` (${label})`; };
+            if (ipGeoCache.has(ip)) { apply(ipGeoCache.get(ip)); return; }
+            fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/logs/ip-location?ip=${encodeURIComponent(ip)}`)
+                .then(d => {
+                    if (d && d.label) { ipGeoCache.set(ip, d.label); apply(d.label); }
+                })
+                .catch(() => {});
+        }
+
         function renderLogs(logs, append) {
             const statusStyles = {
                 success: 'bg-green-100 text-green-700',
@@ -1304,7 +1325,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     const sStream = (log.latency_ms || 0) - (log.first_chunk_ms || 0);
                     if (sOut >= 50 && sStream >= 500) timeBits.push(`${log.speed_tokens_per_s} tok/s`);
                 }
-                return `<div class="bg-white rounded-xl p-3" onclick="var d=this.querySelector('.log-detail');if(d)d.classList.toggle('hidden')">
+                return `<div class="bg-white rounded-xl p-3" onclick="var d=this.querySelector('.log-detail');if(d){d.classList.toggle('hidden');if(!d.classList.contains('hidden'))loadLogIpGeo(this)}">
                     <div class="flex items-center gap-2 text-[11px]">
                         <span class="text-gray-400 shrink-0">${time}</span>
                         <span class="font-medium text-gray-800 truncate flex-1" title="${esc(log.model || '-')}">${esc(log.model || '-')}</span>
@@ -1317,16 +1338,15 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                         <span class="px-1.5 py-0.5 rounded text-[9px] ${sc} shrink-0">${esc(log.status)}</span>
                         ${imgChip}
                         ${retryChip}
-                        <span class="shrink-0">${window.I18N.logCtx || 'ctx'} ${fmtTok(tk.ctx)}</span>
                         <span class="shrink-0">&uarr;${fmtTok(tk.input)}</span>
                         <span class="shrink-0">&darr;${fmtTok(tk.output)}</span>
-                        <span class="shrink-0">${window.I18N.logCache || 'cache'} ${tk.cachePct != null ? tk.cachePct + '%' : '-'}</span>
                         <span class="shrink-0 ml-auto">${timeBits.join(' &middot; ')}</span>
                     </div>
                     <div class="log-detail hidden mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-500 space-y-1">
                         <div>${esc(log.status)}${code !== '-' ? ' &middot; HTTP ' + code : ''} &middot; Key: ${esc(log.api_key || '-')} &middot; ${esc(log.provider || '-')} &middot; ${esc(log.inbound_protocol || 'openai')}</div>
-                        <div>Provider Key: ${esc(log.provider_key_label || '-')} &middot; ${window.I18N.logWait || 'wait'}: ${formatLatency(log.wait_ms)} &middot; cache: ${fmtTok(tk.cached)}/${fmtTok(tk.input)}</div>
-                        <div class="font-mono break-all">${esc(log.client_ip || '-')}</div>
+                        <div>Provider Key: ${esc(log.provider_key_label || '-')} &middot; ${window.I18N.logWait || 'wait'}: ${formatLatency(log.wait_ms)}</div>
+                        <div>${window.I18N.logTotal || 'total'} ${fmtTok(tk.input + tk.output)} &middot; ${window.I18N.logCtx || 'ctx (est.)'} ${fmtTok(tk.ctx)} &middot; ${window.I18N.logCache || 'cache'} ${fmtTok(tk.cached)}/${fmtTok(tk.input)}${tk.cachePct != null ? ' (' + tk.cachePct + '%)' : ''}</div>
+                        <div class="font-mono break-all">${esc(log.client_ip || '-')} <span data-ipgeo="${esc(log.client_ip || '')}" class="font-sans text-gray-400"></span></div>
                         <div class="break-all">${esc(String(log.user_agent || '-').substring(0, 300))}</div>
                         ${errMsg}
                     </div>

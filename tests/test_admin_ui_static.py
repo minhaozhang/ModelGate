@@ -86,9 +86,11 @@ class AdminUiStaticTests(unittest.TestCase):
         self.assertIn("dark-code", public_opencode)
         self.assertIn("dark-row", public_opencode)
 
-        self.assertIn("dark:bg-slate-900", nav)
-        self.assertIn("dark:text-slate-100", nav)
-        self.assertIn("dark:border-slate-800", nav)
+        # nav follows the app theme (page-level body.theme-dark rules), never
+        # the OS color scheme: dark: variants caused an unreadable dark sidebar
+        # when the app was in light mode on an OS-dark machine.
+        self.assertNotIn("dark:", nav)
+        self.assertIn("bg-white", nav)
 
         self.assertIn("dark:bg-slate-900", scheduler_tasks)
         self.assertIn("dark:border-slate-800", scheduler_tasks)

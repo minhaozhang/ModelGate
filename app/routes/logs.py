@@ -305,6 +305,27 @@ async def _resolve_log_filter_conditions(
     return conditions, False
 
 
+@router.get("/logs/ip-location")
+async def get_log_ip_location(
+    ip: str, _: bool = Depends(permission_required("page.logs.requests"))
+):
+    """Resolve a client IP to a short location label for log detail views."""
+    from app.services.ip_location import lookup_ip_location
+
+    result = await lookup_ip_location((ip or "").strip())
+    if result.get("ok"):
+        province = result.get("province") or ""
+        city = result.get("city") or ""
+        country = result.get("country") or ""
+        region = " ".join(p for p in ((province or country), city) if p)
+        label = region or country or "-"
+        isp = (result.get("isp") or "").strip()
+        if isp:
+            label = f"{label} · {isp}"
+        return {"ok": True, "label": label}
+    return {"ok": False, "label": result.get("message") or "-"}
+
+
 @router.get("/logs/query")
 async def query_logs(
     key_name: Optional[str] = None,
