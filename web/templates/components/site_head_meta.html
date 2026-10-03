@@ -9,7 +9,7 @@
     var m = localStorage.getItem(key) || 'dark';
     if (m !== 'dark' && m !== 'blackgold') return;
     var cls = m === 'dark' ? 'theme-dark' : 'theme-blackgold';
-    var bg = m === 'dark' ? '#020617' : '#0a0a0a';
+    var bg = m === 'dark' ? '#050508' : '#0a0a0a';
     document.documentElement.style.background = bg;
     var apply = function(b){ if (b && !b.classList.contains(cls)) b.classList.add(cls); };
     if (document.body) { apply(document.body); return; }
@@ -52,9 +52,9 @@ body.theme-dark .bg-yellow-100, body.theme-blackgold .bg-yellow-100 { background
 body.theme-dark .bg-orange-50, body.theme-blackgold .bg-orange-50 { background: rgba(249, 115, 22, 0.12) !important; }
 body.theme-dark .bg-orange-100, body.theme-blackgold .bg-orange-100 { background: rgba(249, 115, 22, 0.18) !important; }
 body.theme-dark .bg-gray-200, body.theme-blackgold .bg-gray-200,
-body.theme-dark .bg-slate-200, body.theme-blackgold .bg-slate-200 { background: #243244 !important; }
+body.theme-dark .bg-slate-200, body.theme-blackgold .bg-slate-200 { background: #1c1c29 !important; }
 body.theme-dark .bg-slate-50, body.theme-blackgold .bg-slate-50,
-body.theme-dark .bg-slate-100, body.theme-blackgold .bg-slate-100 { background: #1e293b !important; }
+body.theme-dark .bg-slate-100, body.theme-blackgold .bg-slate-100 { background: #14141f !important; }
 body.theme-dark .text-blue-600, body.theme-blackgold .text-blue-600 { color: #93c5fd !important; }
 body.theme-dark .text-blue-700, body.theme-dark .text-blue-800, body.theme-blackgold .text-blue-700, body.theme-blackgold .text-blue-800 { color: #bfdbfe !important; }
 body.theme-dark .text-blue-900, body.theme-blackgold .text-blue-900 { color: #dbeafe !important; }
