@@ -3601,3 +3601,27 @@ msgstr "健康密钥占比低于 45%"
 
 msgid "Disabled providers"
 msgstr "已禁用的供应商"
+
+msgid "Gateway status"
+msgstr "网关状态"
+
+msgid "Memory"
+msgstr "内存"
+
+msgid "Disk"
+msgstr "磁盘"
+
+msgid "NORMAL"
+msgstr "正常"
+
+msgid "DEGRADED"
+msgstr "降级"
+
+msgid "CRITICAL"
+msgstr "告警"
+
+msgid "Clock"
+msgstr "时钟"
+
+msgid "Top keys"
+msgstr "热门 Key"

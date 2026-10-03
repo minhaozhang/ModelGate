@@ -190,25 +190,57 @@
         .model-tag { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.68rem; font-weight: 500; background: #f1f5f9; color: #ededf87a; margin: 1px; }
         body.theme-dark .model-tag { background: #14141f; color: #ededf8b8; }
 
-        /* ===== instrument cluster (Porsche-style triple gauge) ===== */
+        /* ===== instrument cluster (Porsche-style binnacle) ===== */
         .cluster-panel {
+            position: relative; overflow: hidden;
             display: flex; align-items: stretch; justify-content: center; gap: 28px;
             padding: 20px 28px 14px; border-radius: 18px; margin-bottom: 1.5rem;
             background: linear-gradient(180deg, #1c2027 0%, #12151a 55%, #0c0e12 100%);
             border: 1px solid #262b34;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 10px 30px rgba(0,0,0,0.35);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), inset 0 18px 28px -14px rgba(0,0,0,0.75), 0 10px 30px rgba(0,0,0,0.35);
             flex-wrap: wrap;
+        }
+        /* binnacle canopy: curved hood shading over the embedded dials */
+        .cluster-panel::before {
+            content: ''; position: absolute; left: -6%; right: -6%; top: -72px; height: 120px;
+            background: radial-gradient(ellipse 55% 100% at 50% 0%, rgba(255,255,255,0.09), rgba(255,255,255,0.02) 55%, transparent 75%);
+            pointer-events: none;
         }
         body.theme-blackgold .cluster-panel {
             background: linear-gradient(180deg, #241d10 0%, #171208 55%, #100c06 100%);
             border-color: rgba(212,168,83,0.35);
         }
+        body.theme-blackgold .cluster-panel::before {
+            background: radial-gradient(ellipse 55% 100% at 50% 0%, rgba(255,220,150,0.10), rgba(255,220,150,0.02) 55%, transparent 75%);
+        }
         .ag-gauge { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
         .ag-label { margin-top: 6px; font-size: 11px; letter-spacing: 0.04em; color: #a8b2c4; }
         .ag-tach svg { width: 240px; }
-        .ag-speedo svg, .ag-fuel svg { width: 170px; }
-        .ag-face-a { stop-color: #191d24; }
-        .ag-face-b { stop-color: #090b0f; }
+        .ag-speedo svg { width: 170px; }
+        .ag-fuel svg { width: 150px; }
+        /* top-usage dial: leaderboard pod echoing the binnacle's left info dial */
+        .ag-top-dial { width: 150px; height: 150px; }
+        .ag-top-dial svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .ag-top-head {
+            position: absolute; top: 16%; left: 0; right: 0; text-align: center; z-index: 2;
+            font-size: 8px; font-weight: 700; letter-spacing: 0.16em; color: #98a2b6;
+        }
+        .ag-top-rows {
+            position: absolute; top: 30%; left: 13%; right: 13%; z-index: 2;
+            display: flex; flex-direction: column; gap: 7px;
+        }
+        .ag-top-row { display: flex; align-items: center; gap: 5px; font-size: 9px; }
+        .ag-top-rank { width: 9px; flex: none; font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; color: #22d3ee; }
+        .ag-top-row:nth-child(2) .ag-top-rank { color: #7dd3fc; }
+        .ag-top-row:nth-child(3) .ag-top-rank { color: #98a2b6; }
+        .ag-top-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d5dce8; }
+        .ag-top-val { flex: none; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8.5px; color: #bfe3ee; }
+        .ag-top-empty { text-align: center; color: #77808f; font-size: 9px; }
+        body.theme-blackgold .ag-top-head { color: #c9b783; }
+        body.theme-blackgold .ag-top-name { color: #e7d5a3; }
+        body.theme-blackgold .ag-top-val { color: #f0e2b6; }
+        .ag-face-a { stop-color: #12151c; }
+        .ag-face-b { stop-color: #05070a; }
         body.theme-blackgold .ag-face-a { stop-color: #221a0d; }
         body.theme-blackgold .ag-face-b { stop-color: #0d0a04; }
         .ag-ring { stroke: #9aa4b2; stroke-width: 1.6; }
@@ -230,7 +262,10 @@
         body.theme-blackgold .ag-tick-major { stroke: #ecdcae; }
         body.theme-blackgold .ag-num { fill: #e7d5a3; }
         body.theme-blackgold .ag-hub-cap { stroke: #e2c88a; }
-        .ag-dial { position: relative; }
+        .ag-dial { position: relative; border-radius: 50%; background: #050505;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 20px rgba(0,0,0,0.6), inset 0 2px 12px rgba(0,0,0,0.7); }
+        body.theme-blackgold .ag-dial {
+            box-shadow: 0 0 0 1px rgba(212,168,83,0.22), 0 8px 20px rgba(0,0,0,0.6), inset 0 2px 12px rgba(0,0,0,0.7); }
         .ag-dial svg { display: block; }
         .ag-odometer {
             position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%);
@@ -249,22 +284,22 @@
             .ag-console { flex-direction: column; gap: 8px; }
         }
 
-        /* bottom console: tell-tale lamps (left) + trip computer (right) */
+        /* bottom console: trip computer (lamps live on the tach face) */
         .ag-console {
-            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            width: 100%; display: flex; align-items: center; justify-content: center;
             gap: 16px; margin-top: 14px; padding-top: 10px;
             border-top: 1px solid rgba(255,255,255,0.07);
             flex-wrap: wrap;
         }
-        .ag-lamps { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-        .ag-lamp { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; letter-spacing: 0.03em; color: #77808f; }
+        /* tell-tale lamps pinned to the tach dial corners */
+        .ag-lamp { display: inline-flex; align-items: center; }
+        .ag-lamp-corner { position: absolute; z-index: 3; }
         .ag-lamp i {
-            width: 9px; height: 9px; border-radius: 50%; flex: none;
+            width: 10px; height: 10px; border-radius: 50%; flex: none;
             background: transparent; border: 1.5px solid #39424f;
             box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
             transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
         }
-        .ag-lamp.lit { color: #aab4c4; }
         .ag-lamp.lit-red i { background: #ef4444; border-color: #ef4444; animation: ag-pulse-red 2s ease-in-out infinite; }
         .ag-lamp.lit-amber i { background: #f59e0b; border-color: #f59e0b; animation: ag-pulse-amber 2s ease-in-out infinite; }
         .ag-lamp.lit-green i { background: #10b981; border-color: #10b981; box-shadow: 0 0 9px rgba(16,185,129,0.8); }
@@ -276,10 +311,41 @@
             0%, 100% { box-shadow: 0 0 10px rgba(245,158,11,0.95); }
             50% { box-shadow: 0 0 3px rgba(245,158,11,0.45); }
         }
-        .ag-trip { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: #98a2b6; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 16px; }
+        @keyframes ag-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .ag-trip { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: #98a2b6; }
         .ag-trip b { color: #d5dce8; font-weight: 600; }
+
+        /* status dial: segmented health bars + mode badge (vehicle-status style) */
+        .ag-status-dial { width: 170px; height: 170px; }
+        .ag-status-dial svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .ag-bars {
+            position: absolute; inset: 17% 12% 27%; z-index: 2;
+            display: flex; flex-direction: column; justify-content: center; gap: 7px;
+        }
+        .ag-bar-row { display: flex; align-items: center; gap: 5px; }
+        .ag-bar-name { width: 26px; flex: none; text-align: right; font-size: 9px; letter-spacing: 0.02em; color: #98a2b6; }
+        .ag-bar-segs { display: flex; gap: 1.5px; flex: 1; }
+        .ag-bar-segs i { flex: 1; height: 5px; border-radius: 1px; background: rgba(255,255,255,0.09); }
+        .ag-bar-segs i.on { background: var(--seg, #10b981); box-shadow: 0 0 3px var(--seg, #10b981); }
+        .ag-bar-val { width: 30px; flex: none; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8.5px; color: #d5dce8; }
+        .ag-status-mode {
+            position: absolute; bottom: 10.5%; left: 50%; transform: translateX(-50%); z-index: 2;
+            font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 9px; font-weight: 700;
+            letter-spacing: 0.14em; color: #10b981; white-space: nowrap;
+        }
+        .ag-status-mode.degraded { color: #f59e0b; }
+        .ag-status-mode.critical { color: #ef4444; animation: ag-blink 1.6s ease-in-out infinite; }
+        .ag-status-arc { stroke: rgba(239,68,68,0.28); transition: stroke 0.3s; }
+        .ag-status-arc.hot { stroke: #ef4444; filter: drop-shadow(0 0 3px rgba(239,68,68,0.8)); }
+        body.theme-blackgold .ag-bar-name { color: #c9b783; }
+        body.theme-blackgold .ag-bar-val { color: #e7d5a3; }
         @media (prefers-reduced-motion: reduce) {
             .ag-lamp i { transition: none; animation: none !important; }
+            .ag-status-mode.critical { animation: none !important; }
+            .ag-status-arc { transition: none; }
         }
     </style>
 </head>
@@ -306,13 +372,29 @@
             {% endcall %}
 
             <div id="cluster-panel" class="cluster-panel">
+                <div class="ag-gauge ag-top">
+                    <div class="ag-dial ag-top-dial" id="ag-top-dial">
+                        <div class="ag-top-head" id="ag-top-head"></div>
+                        <div class="ag-top-rows" id="ag-top-rows"></div>
+                    </div>
+                    <div class="ag-label" id="ag-top-label"></div>
+                </div>
                 <div class="ag-gauge ag-speedo">
                     <div class="ag-dial" id="ag-speedo-dial"></div>
                     <div class="ag-label" id="ag-speedo-label"></div>
                 </div>
                 <div class="ag-gauge ag-tach">
-                    <div class="ag-dial" id="ag-tach-dial"></div>
+                    <div class="ag-dial" id="ag-tach-dial">
+                        <span class="ag-lamp ag-lamp-corner" id="ag-lamp-redline" style="right:16%;top:16%"><i></i></span>
+                        <span class="ag-lamp ag-lamp-corner" id="ag-lamp-offline" style="left:16%;top:16%"><i></i></span>
+                        <span class="ag-lamp ag-lamp-corner" id="ag-lamp-disabled" style="left:16%;bottom:16%"><i></i></span>
+                        <span class="ag-lamp ag-lamp-corner" id="ag-lamp-fuel" style="right:16%;bottom:16%"><i></i></span>
+                    </div>
                     <div class="ag-label" id="ag-tach-label"></div>
+                </div>
+                <div class="ag-gauge ag-status">
+                    <div class="ag-dial ag-status-dial" id="ag-status-dial"></div>
+                    <div class="ag-label" id="ag-status-label"></div>
                 </div>
                 <div class="ag-gauge ag-fuel">
                     <div class="ag-dial" id="ag-fuel-dial"></div>
@@ -320,15 +402,9 @@
                 </div>
 
                 <div class="ag-console">
-                    <div class="ag-lamps">
-                        <span class="ag-lamp" id="ag-lamp-redline"><i></i><span id="ag-lamp-redline-text"></span></span>
-                        <span class="ag-lamp" id="ag-lamp-fuel"><i></i><span id="ag-lamp-fuel-text"></span></span>
-                        <span class="ag-lamp" id="ag-lamp-disabled"><i></i><span id="ag-lamp-disabled-text"></span></span>
-                        <span class="ag-lamp" id="ag-lamp-offline"><i></i><span id="ag-lamp-offline-text"></span></span>
-                    </div>
                     <div class="ag-trip">
                         <span><span id="ag-trip-users-label"></span> <b id="ag-trip-users">–</b></span>
-                        <span id="ag-trip-uptime-wrap" style="display:none"><span id="ag-trip-uptime-label"></span> <b id="ag-trip-uptime">–</b></span>                        <span><span id="ag-trip-requests-label"></span> <b id="ag-trip-requests">–</b></span>
+                        <span><span id="ag-trip-requests-label"></span> <b id="ag-trip-requests">–</b></span>
                     </div>
                 </div>
             </div>
@@ -546,7 +622,17 @@
         noSpeedData: "{{ _('No speed data yet') }}",
         clusterSpeed: "{{ _('Cluster speed') }}",
         clusterTach: "{{ _('Cluster concurrency') }}",
+        clusterClock: "{{ _('Clock') }}",
+        clusterTopKeys: "{{ _('Top keys') }}",
         clusterFuel: "{{ _('Cluster key health') }}",
+        clusterStatus: "{{ _('Gateway status') }}",
+        clusterBar_keys: "{{ _('Keys') }}",
+        clusterBar_cpu: "CPU",
+        clusterBar_mem: "{{ _('Memory') }}",
+        clusterBar_disk: "{{ _('Disk') }}",
+        clusterModeNormal: "{{ _('NORMAL') }}",
+        clusterModeDegraded: "{{ _('DEGRADED') }}",
+        clusterModeCritical: "{{ _('CRITICAL') }}",
         clusterOdoTitle: "{{ _('Total cost (odometer)') }}",
         clusterTachUnit: "{{ _('in-flight') }}",
         clusterLampRedline: "{{ _('Redline') }}",
@@ -1203,6 +1289,7 @@
                 maskLabels: true
             });
             apikeyChart = apikeyResult.chart;
+            ClusterGauges.setTopKeys(apikeyData.data || {});
             const modelResult = renderUsageChart(modelChart, 'modelChart', 'model-legend', modelData.data || {}, {
                 type: 'pie',
                 cutout: 0,
@@ -1344,7 +1431,9 @@
                 let totalKeys = rows.filter(r => r.key_id !== null).length;
                 let healthyKeys = rows.filter(r => r.health_score >= 60).length;
                 document.getElementById('provider-status-meta').textContent = `${healthyKeys}/${totalKeys} keys healthy`;
+                const keysPct = totalKeys > 0 ? healthyKeys / totalKeys : 0;
                 ClusterGauges.setFuel(healthyKeys, totalKeys);
+                ClusterGauges.setStatusBar('keys', keysPct, `${healthyKeys}/${totalKeys}`);
 
                 const tbody = document.getElementById('provider-status-tbody');
                 tbody.innerHTML = rows.map(r => {
@@ -1535,8 +1624,12 @@
                 const dir = isFuel ? -1 : 1;
                 const sweep = isFuel ? SWEEP_FUEL : SWEEP_FULL;
                 const redFrom = kind === 'tach' ? 0.85 : (isFuel ? 0 : null);
+                // corner tell-tale lamps live inside the tach dial; keep them
+                // across (re)mounts that rewrite the dial svg
+                const lamps = Array.from(dial.querySelectorAll('.ag-lamp'));
                 dial.innerHTML = gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFrom, gi)
                     + (kind === 'speedo' ? `<div class="ag-odometer" title="${window.I18N.clusterOdoTitle}">${odoCost == null ? '—' : '¥' + odoCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : '');
+                lamps.forEach(l => dial.appendChild(l));
                 document.getElementById(labelId).textContent = labelText;
                 const arcLen = 2 * Math.PI * R_TRACK * sweep / 360;
                 cards[kind] = {
@@ -1630,10 +1723,128 @@
                 setTarget('fuel', pct, `${healthy}/${total}`);
                 setLamp('ag-lamp-fuel', pct < 0.45 ? (pct < 0.25 ? 'lit-red' : 'lit-amber') : '');
             }
+            function mountTopDial(headText, labelText, labelId) {
+                const dial = document.getElementById('ag-top-dial');
+                dial.insertAdjacentHTML('afterbegin', `
+                    <svg viewBox="0 0 100 100" aria-hidden="true">
+                        <defs>
+                            <radialGradient id="ag-face-top" cx="0.5" cy="0.98" r="1.08">
+                                <stop class="ag-face-a" offset="0"/>
+                                <stop class="ag-face-b" offset="1"/>
+                            </radialGradient>
+                        </defs>
+                        <circle cx="50" cy="50" r="47.5" fill="url(#ag-face-top)"/>
+                        <circle cx="50" cy="50" r="47.4" fill="none" stroke="#454c59" stroke-width="2.6"/>
+                        <circle cx="50" cy="50" r="45.4" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="1.6"/>
+                    </svg>`);
+                document.getElementById('ag-top-head').textContent = headText;
+                document.getElementById(labelId).textContent = labelText;
+                setTopKeys({});
+            }
+            function setTopKeys(data) {
+                const rows = document.getElementById('ag-top-rows');
+                if (!rows) return;
+                const top = Object.entries(data || {})
+                    .map(([name, s]) => ({ name, tokens: Number((s && s.tokens) || 0) }))
+                    .filter(e => e.tokens > 0)
+                    .sort((a, b) => b.tokens - a.tokens)
+                    .slice(0, 3);
+                if (!top.length) {
+                    rows.innerHTML = `<div class="ag-top-empty">–</div>`;
+                    return;
+                }
+                rows.innerHTML = top.map((e, i) => `
+                    <div class="ag-top-row" title="${escapeHtml(e.name)} · ${e.tokens.toLocaleString()} tokens">
+                        <span class="ag-top-rank">${i + 1}</span>
+                        <span class="ag-top-name">${escapeHtml(maskName(e.name))}</span>
+                        <span class="ag-top-val">${formatCompactTokens(e.tokens)}</span>
+                    </div>`).join('');
+            }
+            // ===== status dial: segmented bars + mode badge =====
+            // Four vehicle-computer style bars: key health (like fuel) plus
+            // CPU / memory / disk load (like temp/oil/battery). The bottom
+            // red arc stays dim as a warning-zone marking and lights up hot
+            // whenever the derived mode leaves NORMAL.
+            const STATUS_BARS = ['keys', 'cpu', 'mem', 'disk'];
+            const ZONE_COLOR = { green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
+            const statusState = { bars: {}, disabledProviders: 0, mode: 'normal' };
+            function segZone(name, pct) {
+                if (name === 'keys') return pct < 0.25 ? 'red' : (pct < 0.45 ? 'amber' : 'green');
+                return pct >= 0.85 ? 'red' : (pct >= 0.65 ? 'amber' : 'green');
+            }
+            function mountStatusDial(dialId, labelText, labelId) {
+                const dial = document.getElementById(dialId);
+                if (!dial) return;
+                const rows = STATUS_BARS.map(name => `
+                    <div class="ag-bar-row" data-bar="${name}">
+                        <span class="ag-bar-name">${window.I18N['clusterBar_' + name] || name}</span>
+                        <span class="ag-bar-segs">${'<i></i>'.repeat(10)}</span>
+                        <span class="ag-bar-val">–</span>
+                    </div>`).join('');
+                dial.innerHTML = `
+                    <svg viewBox="0 0 100 100" aria-hidden="true">
+                        <defs>
+                            <radialGradient id="ag-face-st" cx="0.5" cy="0.98" r="1.08">
+                                <stop class="ag-face-a" offset="0"/>
+                                <stop class="ag-face-b" offset="1"/>
+                            </radialGradient>
+                        </defs>
+                        <circle cx="50" cy="50" r="47.5" fill="url(#ag-face-st)"/>
+                        <circle cx="50" cy="50" r="47.4" fill="none" stroke="#454c59" stroke-width="2.6"/>
+                        <circle cx="50" cy="50" r="45.4" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="1.6"/>
+                        <path class="ag-status-arc" d="${arcPath(40.5, 55, 125, false, 1)}" fill="none" stroke-width="2.6" stroke-linecap="round"/>
+                    </svg>
+                    <div class="ag-bars">${rows}</div>
+                    <div class="ag-status-mode" id="ag-status-mode"></div>`;
+                document.getElementById(labelId).textContent = labelText;
+                for (const name of STATUS_BARS) statusState.bars[name] = { pct: null, zone: 'green' };
+                renderMode();
+            }
+            function setStatusBar(name, pct, text) {
+                const bar = statusState.bars[name];
+                if (!bar) return;
+                bar.pct = pct;
+                bar.zone = segZone(name, pct);
+                const row = document.querySelector(`#ag-status-dial .ag-bar-row[data-bar="${name}"]`);
+                if (row) {
+                    const lit = Math.round(Math.max(0, Math.min(1, pct)) * 10);
+                    row.style.setProperty('--seg', ZONE_COLOR[bar.zone]);
+                    row.querySelectorAll('.ag-bar-segs i').forEach((s, i) => s.classList.toggle('on', i < lit));
+                    row.querySelector('.ag-bar-val').textContent = text;
+                }
+                renderMode();
+            }
+            function setStatusSys(cpu, mem, disk) {
+                if (cpu != null && !isNaN(cpu)) setStatusBar('cpu', cpu / 100, Math.round(cpu) + '%');
+                if (mem != null && !isNaN(mem)) setStatusBar('mem', mem / 100, Math.round(mem) + '%');
+                if (disk != null && !isNaN(disk)) setStatusBar('disk', disk / 100, Math.round(disk) + '%');
+            }
+            function setDisabledProviders(n) {
+                statusState.disabledProviders = n;
+                renderMode();
+            }
+            function renderMode() {
+                const el = document.getElementById('ag-status-mode');
+                if (!el) return;
+                const zones = Object.values(statusState.bars).filter(b => b.pct != null).map(b => b.zone);
+                let mode = 'normal';
+                if (zones.includes('red')) mode = 'critical';
+                else if (zones.includes('amber') || statusState.disabledProviders > 0) mode = 'degraded';
+                statusState.mode = mode;
+                const labels = {
+                    normal: window.I18N.clusterModeNormal || 'NORMAL',
+                    degraded: window.I18N.clusterModeDegraded || 'DEGRADED',
+                    critical: window.I18N.clusterModeCritical || 'CRITICAL',
+                };
+                el.textContent = labels[mode];
+                el.className = 'ag-status-mode' + (mode === 'normal' ? '' : ' ' + mode);
+                const arc = document.querySelector('#ag-status-dial .ag-status-arc');
+                if (arc) arc.classList.toggle('hot', mode !== 'normal');
+            }
             function setLamp(id, cls) {
                 const el = document.getElementById(id);
                 if (!el) return;
-                const next = cls ? 'ag-lamp lit ' + cls : 'ag-lamp';
+                const next = 'ag-lamp ag-lamp-corner' + (cls ? ' lit ' + cls : '');
                 if (el.className !== next) el.className = next;
             }
             function setOdometer(cost) {
@@ -1641,7 +1852,7 @@
                 const el = cards['speedo'] && cards['speedo'].dial.querySelector('.ag-odometer');
                 if (el) el.textContent = '¥' + cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
-            return { mount, setValue, setFuel, setOdometer, setLamp };
+            return { mount, mountStatusDial, mountTopDial, setValue, setFuel, setStatusBar, setStatusSys, setDisabledProviders, setOdometer, setLamp, setTopKeys };
         })();
 
         let clusterSocket = null;
@@ -1659,6 +1870,7 @@
             const dl = document.getElementById('ag-lamp-disabled');
             if (dl) dl.title = names.length ? `${window.I18N.clusterDisabledTitle}: ${names.join(', ')}` : window.I18N.clusterDisabledTitle;
             ClusterGauges.setLamp('ag-lamp-disabled', names.length ? 'lit-red' : '');
+            ClusterGauges.setDisabledProviders(names.length);
             const users = document.getElementById('ag-trip-users');
             if (users && data.active_users !== undefined) users.textContent = String(data.active_users);
         }
@@ -1766,40 +1978,33 @@
                 document.getElementById('system-disk-detail').textContent = `${diskLabel}: ${fmtBytes(disk.used)} / ${fmtBytes(disk.total)}`;
 
                 document.getElementById('system-uptime').textContent = `{{ "运行时间" if current_locale == "zh" else "Uptime" }} ${fmtUptime(data.uptime)}`;
-                const tripUptime = document.getElementById('ag-trip-uptime');
-                if (tripUptime) {
-                    tripUptime.textContent = fmtUptime(data.uptime);
-                    const wrap = document.getElementById('ag-trip-uptime-wrap');
-                    if (wrap && data.uptime !== undefined) wrap.style.display = '';
-                }
                 document.getElementById('system-process-memory').textContent = fmtBytes(proc.memory_rss);
                 document.getElementById('system-process-detail').textContent = `CPU ${Number(proc.cpu_percent || 0).toFixed(1)}% · ${proc.threads || 0} threads · ${proc.connections ?? '-'} conn`;
                 document.getElementById('system-network-detail').textContent = `↑ ${fmtBytes(net.bytes_sent)} · ↓ ${fmtBytes(net.bytes_recv)}`;
+                ClusterGauges.setStatusSys(cpuPct, memPct, diskPct);
             } catch (e) {
                 console.error('Failed to load system info', e);
             }
         }
 
+        ClusterGauges.mountTopDial('TOP', window.I18N.clusterTopKeys, 'ag-top-label');
         ClusterGauges.mount('speedo', 'ag-speedo-dial', 2000, 'tok/s', window.I18N.clusterSpeed, 'ag-speedo-label');
         ClusterGauges.mount('tach', 'ag-tach-dial', 20, window.I18N.clusterTachUnit, window.I18N.clusterTach, 'ag-tach-label');
+        ClusterGauges.mountStatusDial('ag-status-dial', window.I18N.clusterStatus, 'ag-status-label');
         ClusterGauges.mount('fuel', 'ag-fuel-dial', null, 'keys', window.I18N.clusterFuel, 'ag-fuel-label');
         (function initClusterConsole() {
             const texts = {
-                'ag-lamp-redline-text': window.I18N.clusterLampRedline,
-                'ag-lamp-fuel-text': window.I18N.clusterLampFuel,
-                'ag-lamp-disabled-text': window.I18N.clusterLampDisabled,
-                'ag-lamp-offline-text': window.I18N.clusterLampOffline,
                 'ag-trip-users-label': window.I18N.clusterActiveUsers,
-                'ag-trip-uptime-label': window.I18N.clusterUptime,
                 'ag-trip-requests-label': window.I18N.clusterTotalRequests,
             };
             for (const [id, text] of Object.entries(texts)) {
                 const el = document.getElementById(id);
                 if (el) el.textContent = text;
             }
-            document.getElementById('ag-lamp-redline').title = window.I18N.clusterRedlineTitle;
-            document.getElementById('ag-lamp-fuel').title = window.I18N.clusterFuelTitle;
+            document.getElementById('ag-lamp-redline').title = `${window.I18N.clusterLampRedline}: ${window.I18N.clusterRedlineTitle}`;
+            document.getElementById('ag-lamp-fuel').title = `${window.I18N.clusterLampFuel}: ${window.I18N.clusterFuelTitle}`;
             document.getElementById('ag-lamp-disabled').title = window.I18N.clusterDisabledTitle;
+            document.getElementById('ag-lamp-offline').title = window.I18N.clusterLampOffline;
             setInterval(() => {
                 if (clusterLastLiveAt && Date.now() - clusterLastLiveAt > 15000) {
                     ClusterGauges.setLamp('ag-lamp-offline', 'lit-red');

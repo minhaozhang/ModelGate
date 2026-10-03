@@ -5101,3 +5101,27 @@ msgstr "Healthy key ratio below 45%"
 
 msgid "Disabled providers"
 msgstr "Disabled providers"
+
+msgid "Gateway status"
+msgstr "Gateway status"
+
+msgid "Memory"
+msgstr "Memory"
+
+msgid "Disk"
+msgstr "Disk"
+
+msgid "NORMAL"
+msgstr "NORMAL"
+
+msgid "DEGRADED"
+msgstr "DEGRADED"
+
+msgid "CRITICAL"
+msgstr "CRITICAL"
+
+msgid "Clock"
+msgstr "Clock"
+
+msgid "Top keys"
+msgstr "Top keys"

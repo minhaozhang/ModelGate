@@ -88,14 +88,25 @@ class MonitorClusterTemplateTests(unittest.TestCase):
         html = self._read()
         for marker in (
             "cluster-panel",
+            "cluster-panel::before",  # binnacle canopy hood shading
+            "ag-top",             # left pod: top-3 key usage leaderboard
+            "mountTopDial",
+            "setTopKeys",
             "ag-tach",            # center tach: concurrency
             "ag-speedo",          # speed: tokens/s
-            "ag-fuel",            # fuel: provider key health
+            "ag-status",          # status dial: keys/cpu/mem/disk bars
+            "ag-fuel",            # right pod: key health arc (E -> F)
             "ag-odometer",        # rolling cost window
             "ag-redzone",         # tach redline arc
-            "ag-console",         # bottom console: tell-tales + trip computer
-            "ag-lamp",            # tell-tale lamps (redline/fuel/disabled/offline)
+            "ag-console",         # bottom console: trip computer
+            "ag-lamp-corner",     # tell-tales pinned to the tach face
             "ag-trip",            # trip computer (active users / uptime / total requests)
+            "ag-status-dial",
+            "ag-bar-row",         # segmented vehicle-computer bars
+            "ag-status-mode",     # NORMAL / DEGRADED / CRITICAL badge
+            "mountStatusDial",
+            "setStatusSys",
+            "clusterModeNormal",
             "_agTicks",
             "velPct",             # spring integrator
             "prefers-reduced-motion",
