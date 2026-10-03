@@ -275,7 +275,7 @@ class LoginDeepSpaceThemeTests(unittest.TestCase):
         self.assertIn("background: #050508", html)
         self.assertIn("rgba(235, 234, 250, 0.03)", html)
         self.assertIn("rgba(235, 234, 250, 0.08)", html)
-        self.assertIn("linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)", html)
+        self.assertIn("linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%)", html)
         self.assertNotIn("from-blue-500 to-purple-500", html)
 
     def test_login_particle_palette_is_indigo_family(self):

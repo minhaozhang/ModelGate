@@ -183,6 +183,7 @@
         body.theme-dark .bg-white.text-gray-700,
         body.theme-dark .bg-gray-200.text-gray-700,
         body.theme-dark .bg-gray-100.text-gray-500,
+        body.theme-dark .bg-gray-100.text-gray-600,
         body.theme-dark .bg-slate-100.text-slate-600,
         body.theme-dark .bg-emerald-100.text-emerald-700 {
             color: #ededf8b8 !important;
@@ -341,6 +342,7 @@
         body.theme-blackgold .bg-white.text-gray-700,
         body.theme-blackgold .bg-gray-200.text-gray-700,
         body.theme-blackgold .bg-gray-100.text-gray-500,
+        body.theme-blackgold .bg-gray-100.text-gray-600,
         body.theme-blackgold .bg-slate-100.text-slate-600,
         body.theme-blackgold .bg-emerald-100.text-emerald-700 {
             color: #c9b896 !important;
@@ -375,7 +377,7 @@
         <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight text-gray-800">{{ _('ModelGate-dashboard') }}</h1>
-                <p class="mt-0.5 text-sm text-gray-500">{{ name }}</p>
+                <p class="mt-0.5 text-sm text-gray-600">{{ name }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <select id="period-select" onchange="onPeriodChange()" class="ctl-select">
@@ -970,7 +972,7 @@
                                 : 'border-gray-200 bg-white text-gray-700';
                             const badge = isOwned
                                 ? `<span class="inline-flex items-center rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${window.I18N.owned}</span>`
-                                : `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">${window.I18N.available}</span>`;
+                                : `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">${window.I18N.available}</span>`;
                             const unavailableBadge = model.is_available === false
                                 ? `<div class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 text-white text-xs flex items-center justify-center font-bold cursor-help shadow" title="${window.I18N.temporarilyUnavailable}">!</div>`
                                 : '';

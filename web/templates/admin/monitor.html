@@ -55,10 +55,10 @@
             transition: all 0.15s;
         }
         .time-btn:hover { background: #f9fafb; border-color: #d1d5db; }
-        .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
+        .time-btn.active { background: #2563eb; color: #ffffff; border-color: #2563eb; }
         body.theme-dark .time-btn { background: #0a0a12; color: #e5e7eb; border-color: rgba(235,234,250,0.10); }
         body.theme-dark .time-btn:hover { background: #14141f; }
-        body.theme-dark .time-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
+        body.theme-dark .time-btn.active { background: #2563eb; color: #ffffff; border-color: #2563eb; }
         body.theme-dark .shadow,
         body.theme-dark .shadow-lg { box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45) !important; }
         body.theme-dark .nav-link { color: #ededf8e6 !important; }
@@ -76,8 +76,8 @@
             border-color: #2563eb;
         }
         body.theme-dark .latency-tab.active {
-            background: #3b82f6;
-            border-color: #3b82f6;
+            background: #2563eb;
+            border-color: #2563eb;
             color: #ffffff;
         }
         .heatmap-grid {
@@ -230,11 +230,11 @@
             display: flex; flex-direction: column; gap: 7px;
         }
         .ag-top-row { display: flex; align-items: center; gap: 5px; font-size: 9px; }
-        .ag-top-rank { width: 9px; flex: none; font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; color: #22d3ee; }
+        .ag-top-rank { width: 9px; flex: none; font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-weight: 700; color: #22d3ee; }
         .ag-top-row:nth-child(2) .ag-top-rank { color: #7dd3fc; }
         .ag-top-row:nth-child(3) .ag-top-rank { color: #98a2b6; }
         .ag-top-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d5dce8; }
-        .ag-top-val { flex: none; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8.5px; color: #bfe3ee; }
+        .ag-top-val { flex: none; font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 8.5px; color: #bfe3ee; }
         .ag-top-empty { text-align: center; color: #77808f; font-size: 9px; }
         body.theme-blackgold .ag-top-head { color: #c9b783; }
         body.theme-blackgold .ag-top-name { color: #e7d5a3; }
@@ -272,7 +272,7 @@
             background: linear-gradient(105deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.05) 28%, rgba(255,255,255,0) 34%, rgba(255,255,255,0) 100%), #02040a;
             border: 1px solid #39424f; border-radius: 4px;
             padding: 1px 7px; line-height: 1.1;
-            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace;
             font-size: 9.5px; font-weight: 600; color: #bfe3ee; letter-spacing: 0.03em;
             box-shadow: inset 0 3px 6px rgba(0,0,0,0.95), inset 0 -1px 0 rgba(255,255,255,0.1), 0 1px 0 rgba(255,255,255,0.05);
             white-space: nowrap;
@@ -315,7 +315,7 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        .ag-trip { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: #98a2b6; }
+        .ag-trip { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 11px; color: #98a2b6; }
         .ag-trip b { color: #d5dce8; font-weight: 600; }
 
         /* status dial: segmented health bars + mode badge (vehicle-status style) */
@@ -330,10 +330,10 @@
         .ag-bar-segs { display: flex; gap: 1.5px; flex: 1; }
         .ag-bar-segs i { flex: 1; height: 5px; border-radius: 1px; background: rgba(255,255,255,0.09); }
         .ag-bar-segs i.on { background: var(--seg, #10b981); box-shadow: 0 0 3px var(--seg, #10b981); }
-        .ag-bar-val { width: 30px; flex: none; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8.5px; color: #d5dce8; }
+        .ag-bar-val { width: 30px; flex: none; font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 8.5px; color: #d5dce8; }
         .ag-status-mode {
             position: absolute; bottom: 10.5%; left: 50%; transform: translateX(-50%); z-index: 2;
-            font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 9px; font-weight: 700;
+            font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 9px; font-weight: 700;
             letter-spacing: 0.14em; color: #10b981; white-space: nowrap;
         }
         .ag-status-mode.degraded { color: #f59e0b; }
@@ -1521,7 +1521,7 @@
             }
             function numAt(r, deg, text, red, size) {
                 const [x, y] = pt(r, deg);
-                return `<text class="${red ? 'ag-num-red' : 'ag-num'}" x="${x.toFixed(2)}" y="${(y + 2).toFixed(2)}" font-size="${size}" font-weight="600" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">${text}</text>`;
+                return `<text class="${red ? 'ag-num-red' : 'ag-num'}" x="${x.toFixed(2)}" y="${(y + 2).toFixed(2)}" font-size="${size}" font-weight="600" text-anchor="middle" font-family="'Lucida Console', Menlo, Monaco, 'Courier New', monospace">${text}</text>`;
             }
             function gaugeColor(kind, pct) {
                 if (kind === 'speedo') return '#22d3ee';
@@ -1603,7 +1603,7 @@
                     </g>
                     <circle class="ag-hub-cap" cx="50" cy="50" r="3.4"/>
                     <circle cx="50" cy="50" r="1.4" fill="#c8d0dc"/>
-                    <text class="ag-center-num${centerClass(kind, pct)}" x="50" y="${isFuel ? 74 : 63}" font-size="${isFuel ? 10 : 13}" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace">${valueText}</text>
+                    <text class="ag-center-num${centerClass(kind, pct)}" x="50" y="${isFuel ? 74 : 63}" font-size="${isFuel ? 10 : 13}" text-anchor="middle" font-family="'Lucida Console', Menlo, Monaco, 'Courier New', monospace">${valueText}</text>
                     ${unitText ? `<text class="ag-center-unit" x="50" y="${isFuel ? 81 : 70}" font-size="5" text-anchor="middle" letter-spacing="0.3">${unitText}</text>` : ''}
                 </svg>`;
             }

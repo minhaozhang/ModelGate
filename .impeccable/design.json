@@ -1,0 +1,617 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-03T00:00:00+08:00",
+  "title": "Design System: ModelGate",
+  "extensions": {
+    "colorMeta": {
+      "signal-green": {
+        "role": "primary",
+        "displayName": "Signal Green 信号绿",
+        "canonical": "#22c55e",
+        "tonalRamp": [
+          "#052e16",
+          "#14532d",
+          "#166534",
+          "#16a34a",
+          "#22c55e",
+          "#4ade80",
+          "#86efac",
+          "#dcfce7"
+        ]
+      },
+      "signal-green-bright": {
+        "role": "primary",
+        "displayName": "Signal Green Bright 亮信号绿",
+        "canonical": "#4ade80",
+        "tonalRamp": [
+          "#052e16",
+          "#14532d",
+          "#15803d",
+          "#16a34a",
+          "#22c55e",
+          "#4ade80",
+          "#bbf7d0",
+          "#f0fdf4"
+        ]
+      },
+      "aged-brass": {
+        "role": "primary",
+        "displayName": "Aged Brass 陈年黄铜",
+        "canonical": "#d4a853",
+        "tonalRamp": [
+          "#171208",
+          "#241d10",
+          "#3d2f14",
+          "#8a6a2a",
+          "#b08a3e",
+          "#d4a853",
+          "#e5c078",
+          "#f0e2b6"
+        ]
+      },
+      "brass-muted": {
+        "role": "neutral",
+        "displayName": "Brass Muted 哑金文本",
+        "canonical": "#c9b896",
+        "tonalRamp": [
+          "#1c1917",
+          "#292524",
+          "#57534e",
+          "#8b7d65",
+          "#a8a29e",
+          "#c9b896",
+          "#e7e5e4",
+          "#fafaf9"
+        ]
+      },
+      "action-blue": {
+        "role": "primary",
+        "displayName": "Action Blue 行动蓝",
+        "canonical": "#3b82f6",
+        "tonalRamp": [
+          "#172554",
+          "#1e3a8a",
+          "#1d4ed8",
+          "#2563eb",
+          "#3b82f6",
+          "#60a5fa",
+          "#93c5fd",
+          "#dbeafe"
+        ]
+      },
+      "action-blue-deep": {
+        "role": "primary",
+        "displayName": "Action Blue Deep 深行动蓝",
+        "canonical": "#2563eb",
+        "tonalRamp": [
+          "#172554",
+          "#1e3a8a",
+          "#1e40af",
+          "#1d4ed8",
+          "#2563eb",
+          "#3b82f6",
+          "#60a5fa",
+          "#bfdbfe"
+        ]
+      },
+      "indigo-focus": {
+        "role": "secondary",
+        "displayName": "Indigo Focus 靛蓝聚焦",
+        "canonical": "#818cf8",
+        "tonalRamp": [
+          "#1e1b4b",
+          "#312e81",
+          "#4338ca",
+          "#6366f1",
+          "#818cf8",
+          "#a5b4fc",
+          "#c7d2fe",
+          "#e0e7ff"
+        ]
+      },
+      "violet-active": {
+        "role": "secondary",
+        "displayName": "Violet Active 紫罗兰选中",
+        "canonical": "#a78bfa",
+        "tonalRamp": [
+          "#2e1065",
+          "#4c1d95",
+          "#6d28d9",
+          "#8b5cf6",
+          "#a78bfa",
+          "#c4b5fd",
+          "#ddd6fe",
+          "#ede9fe"
+        ]
+      },
+      "redline": {
+        "role": "tertiary",
+        "displayName": "Redline 红线红",
+        "canonical": "#ef4444",
+        "tonalRamp": [
+          "#450a0a",
+          "#7f1d1d",
+          "#b91c1c",
+          "#dc2626",
+          "#ef4444",
+          "#f87171",
+          "#fca5a5",
+          "#fee2e2"
+        ]
+      },
+      "telltale-amber": {
+        "role": "tertiary",
+        "displayName": "Telltale Amber 警示琥珀",
+        "canonical": "#f59e0b",
+        "tonalRamp": [
+          "#451a03",
+          "#78350f",
+          "#b45309",
+          "#d97706",
+          "#f59e0b",
+          "#fbbf24",
+          "#fcd34d",
+          "#fef3c7"
+        ]
+      },
+      "telltale-green": {
+        "role": "tertiary",
+        "displayName": "Telltale Green 通行绿",
+        "canonical": "#10b981",
+        "tonalRamp": [
+          "#022c22",
+          "#064e3b",
+          "#047857",
+          "#059669",
+          "#10b981",
+          "#34d399",
+          "#6ee7b7",
+          "#d1fae5"
+        ]
+      },
+      "cockpit-night": {
+        "role": "neutral",
+        "displayName": "Cockpit Night 座舱夜黑",
+        "canonical": "#050508",
+        "tonalRamp": [
+          "#050508",
+          "#0a0a12",
+          "#0d0d17",
+          "#14141f",
+          "#1c1c29",
+          "#3f3f52",
+          "#8a8aa0",
+          "#c9c9de"
+        ]
+      },
+      "night-panel": {
+        "role": "neutral",
+        "displayName": "Night Panel 夜面板",
+        "canonical": "#0a0a12",
+        "tonalRamp": [
+          "#050508",
+          "#0a0a12",
+          "#0d0d17",
+          "#14141f",
+          "#1c1c29",
+          "#4a4a62",
+          "#9a9ab2",
+          "#ededf8"
+        ]
+      },
+      "night-raised": {
+        "role": "neutral",
+        "displayName": "Night Raised 夜抬升面",
+        "canonical": "#14141f",
+        "tonalRamp": [
+          "#050508",
+          "#0a0a12",
+          "#14141f",
+          "#1c1c29",
+          "#262636",
+          "#555570",
+          "#a3a3c2",
+          "#ededf8"
+        ]
+      },
+      "night-text": {
+        "role": "neutral",
+        "displayName": "Night Text 夜文本",
+        "canonical": "#ededf8",
+        "tonalRamp": [
+          "#0d0d17",
+          "#1c1c29",
+          "#3a3a52",
+          "#6b6b8a",
+          "#a3a3c2",
+          "#c9c9de",
+          "#ededf8",
+          "#ffffff"
+        ]
+      },
+      "zinc-abyss": {
+        "role": "neutral",
+        "displayName": "Zinc Abyss 深渊黑",
+        "canonical": "#09090b",
+        "tonalRamp": [
+          "#09090b",
+          "#18181b",
+          "#27272a",
+          "#3f3f46",
+          "#52525b",
+          "#71717a",
+          "#a1a1aa",
+          "#fafafa"
+        ]
+      },
+      "brass-panel": {
+        "role": "neutral",
+        "displayName": "Brass Panel 黄铜面板",
+        "canonical": "#1a1814",
+        "tonalRamp": [
+          "#0d0a04",
+          "#141210",
+          "#1a1814",
+          "#241d10",
+          "#292524",
+          "#57534e",
+          "#a8a29e",
+          "#fafaf9"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper 纸白",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#111827",
+          "#1f2937",
+          "#4b5563",
+          "#9ca3af",
+          "#d1d5db",
+          "#e5e7eb",
+          "#f3f4f6",
+          "#ffffff"
+        ]
+      },
+      "porcelain": {
+        "role": "neutral",
+        "displayName": "Porcelain 瓷灰",
+        "canonical": "#f3f4f6",
+        "tonalRamp": [
+          "#1f2937",
+          "#374151",
+          "#6b7280",
+          "#d1d5db",
+          "#e5e7eb",
+          "#f3f4f6",
+          "#f9fafb",
+          "#ffffff"
+        ]
+      },
+      "gauge-bezel": {
+        "role": "neutral",
+        "displayName": "Gauge Bezel 表圈钢",
+        "canonical": "#9aa4b2",
+        "tonalRamp": [
+          "#10131a",
+          "#262b34",
+          "#39424f",
+          "#454c59",
+          "#7a8199",
+          "#9aa4b2",
+          "#c8d0dc",
+          "#e8ecf3"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Landing hero only (Instrument Sans); never inside the consoles."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page and brand titles (sidebar wordmark, page headers)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card and panel headings; scales down to 0.875–1rem on dense admin grids."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Console default text; stack includes Microsoft YaHei for Chinese parity."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Mono eyebrows, stat captions, dial labels, timestamps; uppercase when mono."
+      },
+      "dial": {
+        "displayName": "Dial",
+        "purpose": "Gauge/dial numerals only: Lucida Console stack (no slashed zero); never for prose or code."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-rest-light",
+        "value": "0 1px 2px rgba(15,23,42,0.05)",
+        "purpose": "Default admin/user cards in light theme."
+      },
+      {
+        "name": "card-shell-light",
+        "value": "0 1px 2px rgba(15,23,42,0.04), 0 12px 32px -16px rgba(15,23,42,0.14)",
+        "purpose": "User portal elevated containers in light theme."
+      },
+      {
+        "name": "surface-dark",
+        "value": "0 18px 36px rgba(0,0,0,0.55), inset 0 1px 0 rgba(235,234,250,0.06)",
+        "purpose": "Dark-theme cards and modals: deep ambient shadow plus 1px inset top highlight."
+      },
+      {
+        "name": "surface-brass",
+        "value": "0 18px 36px rgba(0,0,0,0.45), inset 0 1px 0 rgba(212,168,83,0.06)",
+        "purpose": "Black-gold cards: same formula with a brass inset highlight."
+      },
+      {
+        "name": "admin-deep-dark",
+        "value": "0 12px 30px rgba(2,6,23,0.45)",
+        "purpose": "Admin panels in dark mode."
+      },
+      {
+        "name": "hover-lift",
+        "value": "0 4px 12px rgba(0,0,0,0.12)",
+        "purpose": "Stat-card hover response, paired with translateY(-2px)."
+      },
+      {
+        "name": "cluster-panel",
+        "value": "inset 0 1px 0 rgba(255,255,255,0.07), inset 0 18px 28px -14px rgba(0,0,0,0.75), 0 10px 30px rgba(0,0,0,0.35)",
+        "purpose": "The binnacle hood; combined with a #1c2027→#12151a→#0c0e12 gradient and radial glare canopy."
+      },
+      {
+        "name": "dial-well",
+        "value": "0 0 0 1px rgba(255,255,255,0.06), 0 8px 20px rgba(0,0,0,0.6), inset 0 2px 12px rgba(0,0,0,0.7)",
+        "purpose": "Recessed instrument dial face."
+      },
+      {
+        "name": "focus-glow",
+        "value": "0 0 0 3px rgba(129,140,248,0.18)",
+        "purpose": "User-portal text-input focus bloom; elsewhere focus is the themed 2px outline."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.25, 1, 0.5, 1)",
+        "purpose": "Digit-roll counters and landing reveals."
+      },
+      {
+        "name": "ease-emphatic",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Bubble pops, settles, and spark bursts."
+      },
+      {
+        "name": "duration-fast",
+        "value": "0.15s",
+        "purpose": "Control feedback (tabs, small buttons)."
+      },
+      {
+        "name": "duration-base",
+        "value": "0.2s",
+        "purpose": "Hovers, links, button transitions."
+      },
+      {
+        "name": "duration-slow",
+        "value": "0.6s",
+        "purpose": "Digit rolls, section reveals, session enter/exit."
+      },
+      {
+        "name": "spring-needle",
+        "value": "stiffness 280, damping 50, mass 1",
+        "purpose": "Gauge needles and landing spring counters; needles never use CSS transitions."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: reduce)",
+        "purpose": "Binding: lamp pulses stop, digit rolls snap, springs settle instantly."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      },
+      {
+        "name": "2xl",
+        "value": "1536px"
+      },
+      {
+        "name": "wide",
+        "value": "1680px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button (Admin)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The admin console's solid action: Action Blue, compact, 4px radius.",
+      "html": "<button class=\"ds-btn-primary\">Create API Key</button>",
+      "css": ".ds-btn-primary { background: #3b82f6; color: #ffffff; border: none; border-radius: 4px; padding: 8px 24px; font-size: 14px; font-weight: 500; font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif; cursor: pointer; transition: background 0.15s; } .ds-btn-primary:hover { background: #2563eb; } .ds-btn-primary:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }"
+    },
+    {
+      "name": "Landing Button",
+      "kind": "button",
+      "refersTo": "button-landing",
+      "description": "Signal Green call-to-action on the public landing page; dark text, soft lift on hover.",
+      "html": "<button class=\"ds-btn-landing\">Get Started</button>",
+      "css": ".ds-btn-landing { display: inline-flex; align-items: center; gap: 8px; background: #22c55e; color: #09090b; border: none; border-radius: 8px; padding: 11px 22px; font-size: 15px; font-weight: 600; font-family: 'Instrument Sans', system-ui, -apple-system, sans-serif; cursor: pointer; transition: background 0.2s, box-shadow 0.2s; } .ds-btn-landing:hover { background: #4ade80; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); } .ds-btn-landing:focus-visible { outline: 2px solid #22c55e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "The default quiet control: paper fill, hairline border, porcelain hover.",
+      "html": "<button class=\"ds-btn-ghost\">Export CSV</button>",
+      "css": ".ds-btn-ghost { background: #ffffff; color: #4b5563; border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 500; font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif; cursor: pointer; transition: background 0.15s, border-color 0.15s; } .ds-btn-ghost:hover { background: #f9fafb; } .ds-btn-ghost:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }"
+    },
+    {
+      "name": "Login Button (Gradient)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single gradient exception: indigo-to-violet with an inset highlight, used only on login screens.",
+      "html": "<button class=\"ds-btn-login\">Login</button>",
+      "css": ".ds-btn-login { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ededf8; border: none; border-radius: 8px; padding: 10px 24px; font-size: 15px; font-weight: 500; font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif; cursor: pointer; box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25), inset 0 1px 0 rgba(235, 234, 250, 0.18); transition: box-shadow 0.25s ease, background 0.25s ease; } .ds-btn-login:hover { background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%); box-shadow: 0 12px 32px rgba(99, 102, 241, 0.4), inset 0 1px 0 rgba(235, 234, 250, 0.22); } .ds-btn-login:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }"
+    },
+    {
+      "name": "Health Badge",
+      "kind": "chip",
+      "refersTo": "badge-health",
+      "description": "Pill status badge with the five health levels; soft tinted fill, deep text.",
+      "html": "<span class=\"ds-badge ds-badge-excellent\">98</span> <span class=\"ds-badge ds-badge-warning\">72</span> <span class=\"ds-badge ds-badge-critical\">41</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 35px; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 700; font-family: ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; } .ds-badge-excellent { background: #dcfce7; color: #15803d; } .ds-badge-warning { background: #fef3c7; color: #b45309; } .ds-badge-critical { background: #fee2e2; color: #b91c1c; }"
+    },
+    {
+      "name": "Segmented Tabs",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Pillbox tab bar: 14px track, 10px buttons, raised paper chip for the active tab.",
+      "html": "<div class=\"ds-tabs\"><button class=\"ds-tab active\">Overview</button><button class=\"ds-tab\">Stats</button><button class=\"ds-tab\">Requests</button></div>",
+      "css": ".ds-tabs { display: inline-flex; gap: 4px; padding: 4px; background: #f1f5f9; border: 1px solid rgba(15, 23, 42, 0.06); border-radius: 14px; } .ds-tab { border: none; background: transparent; border-radius: 10px; padding: 8px 16px; font-size: 14px; font-weight: 500; color: #64748b; font-family: ui-sans-serif, system-ui, sans-serif; cursor: pointer; white-space: nowrap; transition: color 0.15s, background-color 0.15s, box-shadow 0.15s; } .ds-tab:hover { color: #334155; background: rgba(255, 255, 255, 0.7); } .ds-tab:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; } .ds-tab.active { background: #ffffff; color: #2563eb; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.05); }"
+    },
+    {
+      "name": "Dark Glass Card",
+      "kind": "card",
+      "refersTo": "card-dark",
+      "description": "Dark-theme container: 3% white glass, hairline border, deep shadow plus inset top highlight.",
+      "html": "<div class=\"ds-card-dark\"><div class=\"ds-card-dark-title\">Total Requests</div><div class=\"ds-card-dark-metric\">12,480</div><div class=\"ds-card-dark-sub\">Last 24 hours</div></div>",
+      "css": ".ds-card-dark { background: rgba(235, 234, 250, 0.03); border: 1px solid rgba(235, 234, 250, 0.08); border-radius: 16px; padding: 20px; max-width: 260px; color: #ededf8; font-family: ui-sans-serif, system-ui, sans-serif; box-shadow: 0 18px 36px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(235, 234, 250, 0.06); } .ds-card-dark-title { font-size: 14px; color: rgba(237, 237, 248, 0.72); margin-bottom: 6px; } .ds-card-dark-metric { font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; } .ds-card-dark-sub { margin-top: 8px; font-size: 12px; color: rgba(237, 237, 248, 0.48); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard field; user-portal variant blooms a 3px indigo glow on focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"sk-...\" />",
+      "css": ".ds-input { background: #ffffff; color: #374151; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; font-size: 14px; font-family: ui-sans-serif, system-ui, sans-serif; width: 240px; transition: border-color 0.15s, box-shadow 0.15s; } .ds-input::placeholder { color: #9ca3af; } .ds-input:hover { border-color: #d1d5db; } .ds-input:focus { outline: none; border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.18); }"
+    },
+    {
+      "name": "Sidebar Nav Link",
+      "kind": "nav",
+      "refersTo": "nav-link-active",
+      "description": "Admin sidebar item: quiet by default, active takes a 10% blue fill plus the 3px right edge bar.",
+      "html": "<nav class=\"ds-sidenav\"><a class=\"ds-sidenav-link active\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6\"/></svg>Dashboard</a><a class=\"ds-sidenav-link\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 6h16M4 10h16M4 14h16M4 18h16\"/></svg>Request Logs</a></nav>",
+      "css": ".ds-sidenav { width: 224px; background: #0a0a12; padding: 8px 0; font-family: ui-sans-serif, system-ui, sans-serif; } .ds-sidenav-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; font-size: 14px; color: rgba(237, 237, 248, 0.9); text-decoration: none; border-right: 3px solid transparent; transition: background 0.2s, color 0.2s; } .ds-sidenav-link:hover { background: rgba(148, 163, 184, 0.12); } .ds-sidenav-link:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; } .ds-sidenav-link.active { background: rgba(96, 165, 250, 0.15); color: #60a5fa; border-right-color: #60a5fa; }"
+    },
+    {
+      "name": "Section Label",
+      "kind": "custom",
+      "refersTo": "tab-active",
+      "description": "Landing eyebrow label: uppercase mono with a small square accent dot.",
+      "html": "<span class=\"ds-section-label\">Routing</span>",
+      "css": ".ds-section-label { display: inline-flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: #22c55e; } .ds-section-label::before { content: ''; width: 6px; height: 6px; border-radius: 1px; background: #22c55e; }"
+    },
+    {
+      "name": "Instrument Dial (Tach Pod)",
+      "kind": "custom",
+      "refersTo": "card-dark",
+      "description": "The signature binnacle pod: always-dark dial face, bezel ring, ticks, redline arc, needle, mono readout.",
+      "html": "<div class=\"ds-gauge-pod\"><svg class=\"ds-gauge\" viewBox=\"0 0 100 100\" aria-hidden=\"true\"><defs><radialGradient id=\"dsg-face\" cx=\"50%\" cy=\"42%\" r=\"68%\"><stop offset=\"0%\" stop-color=\"#12151c\"/><stop offset=\"100%\" stop-color=\"#05070a\"/></radialGradient></defs><circle cx=\"50\" cy=\"50\" r=\"48\" fill=\"url(#dsg-face)\"/><circle cx=\"50\" cy=\"50\" r=\"46.5\" fill=\"none\" stroke=\"#9aa4b2\" stroke-width=\"1.2\"/><circle cx=\"50\" cy=\"50\" r=\"40\" fill=\"none\" stroke=\"#39424f\" stroke-width=\"4\" stroke-dasharray=\"1.2 9.16\"/><circle cx=\"50\" cy=\"50\" r=\"40\" fill=\"none\" stroke=\"#e8ecf3\" stroke-width=\"5\" stroke-dasharray=\"2 40.05\"/><circle class=\"ds-gauge-red\" cx=\"50\" cy=\"50\" r=\"40\" fill=\"none\" stroke=\"rgba(239,68,68,0.45)\" stroke-width=\"5\" stroke-dasharray=\"26 225.3\" transform=\"rotate(-38 50 50)\"/><line x1=\"50\" y1=\"54\" x2=\"50\" y2=\"17\" stroke=\"#f4f7fb\" stroke-width=\"2.5\" stroke-linecap=\"round\" transform=\"rotate(48 50 50)\"/><circle cx=\"50\" cy=\"50\" r=\"5\" fill=\"#10131a\" stroke=\"#c8d0dc\" stroke-width=\"1\"/><text x=\"50\" y=\"74\" text-anchor=\"middle\" class=\"ds-gauge-num\">36</text></svg><div class=\"ds-gauge-label\">TOKENS/S</div></div>",
+      "css": ".ds-gauge-pod { width: 132px; padding: 12px; text-align: center; background: linear-gradient(180deg, #141720 0%, #0a0c11 100%); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 10px; box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04); } .ds-gauge { width: 108px; display: block; margin: 0 auto; } .ds-gauge-num { fill: #f4f7fb; font: 700 14px ui-monospace, Menlo, Consolas, monospace; } .ds-gauge-red { transition: stroke 0.3s, filter 0.3s; } .ds-gauge-pod:hover .ds-gauge-red { stroke: #ef4444; filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.8)); } .ds-gauge-label { margin-top: 6px; font-size: 11px; letter-spacing: 0.04em; color: #a8b2c4; font-family: ui-sans-serif, system-ui, sans-serif; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Driver's Cockpit",
+    "overview": "ModelGate is the instrument panel of a car you drive every day, not a brochure about one. The whole visual system orbits one signature: the Porsche-binnacle instrument cluster on the monitoring surfaces — dark dial faces, metal bezel rings, spring-physics needles, redline zones that mark real thresholds, tell-tale lamps that light when something is wrong. Everything else in the product is built to keep the driver reading and acting at speed: dense metric grids, quiet cards, restrained controls. Density is a feature, not a defect; every visible state earns its pixels, and gauge ranges always equal real capacity.\n\nThe mood is instrument-grade precision, high density, and calm. Surfaces are dark-first — the admin and user portals default to a near-black cockpit with a blue-violet tint — but the system ships three complete themes (light, dark, black-gold) and every feature is finished only when it reads right in all three, in both Chinese and English. Decoration is rationed: gradients, glare, and dimensional rendering belong to the instruments, the login button, and the public landing page; ordinary ops surfaces stay flat and quiet.\n\nConfirmed visual rejections: no marketing fluff inside the product, no decorative use of status colors, no CDN-loaded assets of any kind.",
+    "keyCharacteristics": [
+      "Dark-first tri-theme system: light / dark / black-gold, all three mandatory",
+      "Porsche-binnacle instrument language as the binding signature (always-dark dials, real redlines)",
+      "Ops density: scan-and-act grids up to 8 metric columns on wide screens",
+      "Restrained, precise components: ghost by default, solid only for primary actions",
+      "Spring-physics motion with a binding prefers-reduced-motion path",
+      "Bilingual by construction (zh primary, en parity), CJK-aware font stacks"
+    ],
+    "rules": [
+      {
+        "name": "The Tri-Theme Parity Rule",
+        "body": "No screen ships until it renders correctly in light, dark, and black-gold. The shared focus ring is the audit probe: it must read #3b82f6 in light, #60a5fa in dark, #d4a853 in black-gold.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dark Dial Rule",
+        "body": "Gauge faces stay dark (a #12151c → #05070a gradient) in every theme, including light. Themes change the bezel metal and tick color, never the dial face — the instrument is always a night instrument.",
+        "section": "colors"
+      },
+      {
+        "name": "The Signal Discipline Rule",
+        "body": "Red, amber, and telltale-green encode state only. A red that isn't an error, an amber that isn't a warning, or a green that isn't \"healthy\" is a bug.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Numerals Rule",
+        "body": "Every live or comparable number is set with font-variant-numeric: tabular-nums. Digits may flip (the 0.6s digit-roll counter), but they may never jitter sideways.",
+        "section": "typography"
+      },
+      {
+        "name": "The Mono-for-Data Rule",
+        "body": "Anything measured, logged, keyed, or dialed is monospace; prose never is. Gauge numerals, odometer readouts, request IDs, API keys, and code blocks are mono — headlines and paragraphs are not.",
+        "section": "typography"
+      },
+      {
+        "name": "The Ops Density Rule",
+        "body": "On monitoring surfaces, add columns before you add air. A 1680px-wide screen shows eight metric cards; it does not show four cards with bigger margins.",
+        "section": "layout"
+      },
+      {
+        "name": "The Quiet-Surface Rule",
+        "body": "Dimensional rendering — bezels, insets, glare, deep wells — is reserved for gauges and their pods. A plain card with an instrument shadow is overdressed.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Inset-Highlight Rule",
+        "body": "In dark themes, elevation reads as deep soft shadow + 1px inset top highlight. Do not substitute brighter borders or blur-heavy glows.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Sacred Circle Rule",
+        "body": "Perfect circles belong to dials, lamps, and status dots. Avatars, buttons, and cards are never circular — a circle promises an instrument.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Reduced-Motion Rule",
+        "body": "Every animation ships a prefers-reduced-motion: reduce path that removes non-essential motion — lamp pulses stop, digit rolls snap, needle springs settle instantly. This is a product requirement, not a nicety.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do ship every screen in all three themes; verify the focus ring reads #3b82f6 / #60a5fa / #d4a853 in light / dark / black-gold.",
+      "Do keep dial faces dark (#12151c → #05070a) in all themes; retint only the bezel metal, ticks, and text toward brass in black-gold.",
+      "Do set every live number in tabular-nums and drive numeric changes through the flip counter or the spring integrator (stiffness 280, damping 50).",
+      "Do keep Chinese and English at parity; the body stack must include Microsoft YaHei, and CJK line-length comfort takes precedence on zh screens.",
+      "Do reserve Signal Green for the landing page and logo; the consoles speak Action Blue (admin) and Indigo/Violet (user).",
+      "Do give every animation a prefers-reduced-motion path before calling the feature done.",
+      "Do make gauge ranges truthful: sweep equals effective capacity, redline equals the real threshold."
+    ],
+    "donts": [
+      "Don't load fonts, icons, scripts, or CSS from a CDN — every asset is self-hosted under web/static.",
+      "Don't use gradient fills decoratively; gradients belong to the binnacle panel, the login button, and the landing hero glow only.",
+      "Don't use Redline red, Telltale Amber, or Telltale Green as branding or decoration — they encode state (Signal Discipline Rule).",
+      "Don't introduce border radii outside the established scale (4 / 6 / 8 / 10 / 12 / 14 / 16 / 18px, pill).",
+      "Don't approximate elevation in dark themes with bright borders or heavy blur — use the deep-shadow-plus-inset-highlight formula.",
+      "Don't animate gauge needles with CSS transitions or keyframes; physical needle motion comes from the spring integrator.",
+      "Don't write marketing copy inside the product; console voice is concise and operational."
+    ]
+  }
+}

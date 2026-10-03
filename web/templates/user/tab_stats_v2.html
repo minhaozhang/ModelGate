@@ -2,13 +2,13 @@
     <style>
         .v2-card { background: #f9fafb; border-radius: 1rem; padding: 1.25rem; }
         .v2-card h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; color: #1f2937; }
-        .v2-card h3 .meta { font-size: 0.6875rem; color: #9ca3af; font-weight: 400; }
+        .v2-card h3 .meta { font-size: 0.6875rem; color: #6b7280; font-weight: 400; }
         .v2-kpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
         @media (min-width: 768px) { .v2-kpi-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
         .v2-kpi { background: rgba(255,255,255,.7); border-radius: 1rem; padding: 0.875rem 1rem; }
         .v2-kpi .lbl { font-size: 0.6875rem; color: #6b7280; font-weight: 500; }
         .v2-kpi .val { font-size: 1.625rem; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-        .v2-kpi .vs { font-size: 0.6875rem; color: #9ca3af; margin-top: 2px; }
+        .v2-kpi .vs { font-size: 0.6875rem; color: #6b7280; margin-top: 2px; }
         .v2-kpi .vs b { color: #6b7280; font-weight: 600; }
         .v2-live { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #059669; background: #d1fae5; padding: 4px 12px; border-radius: 999px; font-weight: 600; }
         .v2-live i { width: 7px; height: 7px; border-radius: 50%; background: #10b981; animation: v2pulse 1.6s infinite; }
@@ -55,7 +55,7 @@
         .v2-bubble-spark { position: absolute; left: 50%; top: 50%; width: var(--sz, 4px); height: var(--sz, 4px); border-radius: 50%; pointer-events: none; animation: v2bubbleSpark .48s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
         .v2-bubble .b-name { font-size: 12px; font-weight: 600; color: #374151; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .v2-bubble .b-count { font-size: 11px; color: #6b7280; }
-        .v2-bubble .b-age { font-size: 10px; color: #9ca3af; font-variant-numeric: tabular-nums; line-height: 1; }
+        .v2-bubble .b-age { font-size: 10px; color: #6b7280; font-variant-numeric: tabular-nums; line-height: 1; }
         .v2-bubble.self .v2-bubble-body { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22); }
         .v2-bubble.self .b-name { color: #2563eb; }
         @keyframes v2bubblePop { from { transform: scale(0.3); opacity: 0; } 60% { transform: scale(1.07); opacity: 1; } to { transform: scale(1); opacity: 1; } }
@@ -81,11 +81,12 @@
         .v2-req-table td.num, .v2-req-table th.num { text-align: right; }
         .v2-req-table .err-line { max-width: 260px; overflow: hidden; text-overflow: ellipsis; color: #dc2626; }
         .v2-req-title { color: #374151; }
-        .v2-req-time { color: #9ca3af; font-size: 0.75rem; }
+        .v2-req-time { color: #6b7280; font-size: 0.75rem; }
         .v2-req-meta { color: #6b7280; }
         .v2-pgbtn { color: #374151; }
         body.theme-dark .v2-card h3 { color: #ededf8; }
         body.theme-dark .v2-card .text-gray-400 { color: #ededf8b8 !important; }
+        body.theme-dark .v2-card h3 .meta { color: #9ca3af; }
         body.theme-dark .v2-card { background: rgba(235, 234, 250, 0.04); }
         body.theme-dark .v2-kpi { background: rgba(235, 234, 250, 0.06); }
         body.theme-dark .v2-kpi .lbl, body.theme-dark .v2-reqrow { color: #ededf8b8; }
@@ -117,6 +118,8 @@
         body.theme-blackgold .v2-card { background: rgba(212, 168, 83, 0.05); }
         body.theme-blackgold .v2-kpi { background: rgba(212, 168, 83, 0.07); }
         body.theme-blackgold .v2-kpi .lbl, body.theme-blackgold .v2-reqrow { color: #c9b896; }
+        body.theme-blackgold .v2-card h3 .meta { color: #9ca3af; }
+        body.theme-blackgold .v2-kpi .vs { color: #9ca3af; }
         body.theme-blackgold #v2-model-concurrency-list .model-conc-card { border-color: rgba(212, 168, 83, 0.25); }
         body.theme-blackgold #v2-model-concurrency-list .mc-name { color: #d9c493; }
         body.theme-blackgold #v2-model-concurrency-list .mc-ring { stroke: url(#mc-ring-gold-v); stroke-width: 1.6; }
@@ -224,7 +227,7 @@
             <span class="flex items-center gap-2">
                 <span class="meta" id="v2-cost-chart-meta"></span>
                 <span class="flex rounded-lg overflow-hidden border" style="border-color:#e5e7eb">
-                    <button type="button" id="v2-cost-metric-cost" onclick="v2SetCostMetric('cost')" class="v2-cost-toggle" style="background:#d97706;color:#fff">费用</button>
+                    <button type="button" id="v2-cost-metric-cost" onclick="v2SetCostMetric('cost')" class="v2-cost-toggle" style="background:#b45309;color:#fff">费用</button>
                     <button type="button" id="v2-cost-metric-tokens" onclick="v2SetCostMetric('tokens')" class="v2-cost-toggle" style="background:transparent;color:#6b7280">Token</button>
                 </span>
             </span>
@@ -486,7 +489,7 @@
             _v2CostMetric = metric;
             const costBtn = document.getElementById('v2-cost-metric-cost');
             const tokenBtn = document.getElementById('v2-cost-metric-tokens');
-            const active = { background: metric === 'cost' ? '#d97706' : '#059669', color: '#fff' };
+            const active = { background: metric === 'cost' ? '#b45309' : '#047857', color: '#fff' };
             const idle = { background: 'transparent', color: '' };
             const apply = (el, st) => { if (el) { el.style.background = st.background; el.style.color = st.color; } };
             apply(costBtn, metric === 'cost' ? active : idle);
