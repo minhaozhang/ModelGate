@@ -24,6 +24,7 @@ from app.core.database import (
     ApiKeyDailyStat,
     ApiKeyModelDailyStat,
     ModelDailyStat,
+    HourlyPeakStat,
 )
 import app.core.config as config_module
 from app.services.logging import IN_FLIGHT_STATUSES
@@ -2370,6 +2371,7 @@ async def get_realtime_stats(_: bool = Depends(permission_required("page.stats")
         "tokens_per_second": get_total_tokens_per_second(),
         "active_requests": snapshot["active_requests"],
         "active_users": snapshot["active_users"],
+        "hour_peaks": snapshot["hour_peaks"],
     }
 
 
@@ -2405,6 +2407,35 @@ async def get_odometer(_: bool = Depends(permission_required("page.stats"))):
     _odometer_cache["at"] = now
     _odometer_cache["data"] = data
     return data
+
+
+@router.get("/stats/hourly-peaks")
+async def get_hourly_peaks(
+    limit: int = 168, _: bool = Depends(permission_required("page.stats"))
+):
+    """Per-hour gateway peaks (max concurrency / max tokens/s), newest first."""
+    limit = max(1, min(limit, 24 * 90))
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(HourlyPeakStat)
+            .order_by(HourlyPeakStat.date.desc(), HourlyPeakStat.hour.desc())
+            .limit(limit)
+        )
+        rows = result.scalars().all()
+    return {
+        "rows": [
+            {
+                "date": row.date,
+                "hour": row.hour,
+                "max_concurrency": row.max_concurrency or 0,
+                "max_tokens_per_second": row.max_tokens_per_second or 0.0,
+                "updated_at": (
+                    row.updated_at.isoformat() if row.updated_at else None
+                ),
+            }
+            for row in rows
+        ]
+    }
 
 
 @router.websocket("/stats/live")

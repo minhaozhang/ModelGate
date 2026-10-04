@@ -209,6 +209,10 @@ async def startup():
 
     start_user_slot_watchdog()
 
+    from app.services.peak_stats import start_peak_sampler
+
+    await start_peak_sampler()
+
     from app.services.proxy import get_http_client
 
     get_http_client()
@@ -222,6 +226,10 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
+    from app.services.peak_stats import stop_peak_sampler
+
+    await stop_peak_sampler()
+
     from app.services.scheduler import shutdown_scheduler
 
     shutdown_scheduler()

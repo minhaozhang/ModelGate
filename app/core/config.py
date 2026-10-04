@@ -464,6 +464,11 @@ async def prune_stale_active_requests() -> bool:
 
 
 async def build_live_stats_snapshot() -> dict[str, Any]:
+    # Hourly peak recorder: same funnel as the always-on sampler so the
+    # displayed maxima and the persisted ones cannot diverge.
+    from app.services.peak_stats import observe_peak_sample, peaks_payload
+
+    await observe_peak_sample()
     await prune_stale_active_requests()
     async with active_requests_lock:
         snapshot_now = datetime.now()
@@ -576,6 +581,7 @@ async def build_live_stats_snapshot() -> dict[str, Any]:
             "active_requests": len(active_requests),
             "active_users": len(grouped_users),
             "tokens_per_second": get_total_tokens_per_second(),
+            "hour_peaks": peaks_payload(),
             "sessions": dict(sorted(grouped_users.items(), key=lambda item: item[1]["first_activity"])),
             "requests": request_rows,
             "disabled_providers": disabled_providers,

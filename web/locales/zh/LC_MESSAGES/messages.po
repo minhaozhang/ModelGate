@@ -3566,6 +3566,9 @@ msgstr "速率 Tokens/s"
 msgid "Cluster concurrency"
 msgstr "并发 Concurrency"
 
+msgid "Hour peak"
+msgstr "本小时峰值"
+
 msgid "Cluster key health"
 msgstr "密钥健康 Key Health"
 

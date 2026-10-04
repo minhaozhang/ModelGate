@@ -31,6 +31,7 @@ from app.core.db_models import (  # noqa: F401
     AutoModelRoute,
     Document,
     DocumentFile,
+    HourlyPeakStat,
     IpLocation,
     IpTag,
     DailyReport,

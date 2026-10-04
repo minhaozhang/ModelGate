@@ -450,6 +450,16 @@ _DDL: list[str] = [
     "CREATE INDEX IF NOT EXISTS idx_tag_daily_stats_date ON tag_daily_stats (date)",
     "CREATE INDEX IF NOT EXISTS idx_tag_daily_stats_tag ON tag_daily_stats (tag)",
 
+    "CREATE TABLE IF NOT EXISTS hourly_peak_stats ("
+    "id SERIAL NOT NULL PRIMARY KEY, "
+    "date VARCHAR(10) NOT NULL, "
+    "hour INTEGER NOT NULL, "
+    "max_concurrency INTEGER DEFAULT 0, "
+    "max_tokens_per_second DOUBLE PRECISION DEFAULT '0', "
+    "updated_at TIMESTAMP DEFAULT NOW()"
+    ")",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_hourly_peak_stats ON hourly_peak_stats (date, hour)",
+
     "CREATE TABLE IF NOT EXISTS daily_reports ("
     "id SERIAL NOT NULL PRIMARY KEY, "
     "date VARCHAR(10) NOT NULL, "

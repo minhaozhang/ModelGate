@@ -97,6 +97,134 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         body.theme-dark .log-provider { border: 1px solid rgba(148, 163, 184, 0.3); }
         .log-tokens { color: #ededf8a3; }
         body.theme-dark .log-tokens { color: #ededf8b8; }
+
+        /* ===== instrument cluster (binnacle dialect from the monitor page) =====
+           Middle three pods only: speedo (rate) / tach (concurrency, corner
+           tell-tale lamps) / status dial (keys + cpu/mem/disk segmented bars).
+           Sized for a 375px viewport; the fuel pod and top-keys pod are
+           intentionally not ported (mobile scope). */
+        .mg-cluster {
+            position: relative; overflow: hidden;
+            display: flex; align-items: flex-end; justify-content: center; gap: 4px;
+            padding: 14px 6px 10px; border-radius: 14px;
+            background: linear-gradient(180deg, #1c2027 0%, #12151a 55%, #0c0e12 100%);
+            border: 1px solid #262b34;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), inset 0 18px 28px -14px rgba(0,0,0,0.75), 0 10px 30px rgba(0,0,0,0.35);
+        }
+        .mg-cluster::before {
+            content: ''; position: absolute; left: -6%; right: -6%; top: -52px; height: 90px;
+            background: radial-gradient(ellipse 55% 100% at 50% 0%, rgba(255,255,255,0.09), rgba(255,255,255,0.02) 55%, transparent 75%);
+            pointer-events: none;
+        }
+        body.theme-blackgold .mg-cluster {
+            background: linear-gradient(180deg, #241d10 0%, #171208 55%, #100c06 100%);
+            border-color: rgba(212,168,83,0.35);
+        }
+        body.theme-blackgold .mg-cluster::before {
+            background: radial-gradient(ellipse 55% 100% at 50% 0%, rgba(255,220,150,0.10), rgba(255,220,150,0.02) 55%, transparent 75%);
+        }
+        .ag-gauge { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+        .ag-label { margin-top: 4px; font-size: 9px; letter-spacing: 0.04em; color: #a8b2c4; }
+        .ag-tach svg { width: 128px; }
+        .ag-speedo svg { width: 92px; }
+        .ag-face-a { stop-color: #12151c; }
+        .ag-face-b { stop-color: #05070a; }
+        body.theme-blackgold .ag-face-a { stop-color: #221a0d; }
+        body.theme-blackgold .ag-face-b { stop-color: #0d0a04; }
+        .ag-ring { stroke: #9aa4b2; stroke-width: 1.6; }
+        .ag-groove { stroke: rgba(255,255,255,0.09); }
+        .ag-tick { stroke: #7a8199; }
+        .ag-tick-major { stroke: #e8ecf3; }
+        .ag-tick-red { stroke: #ef4444; }
+        .ag-redzone { stroke: rgba(239,68,68,0.45); }
+        .ag-num { fill: #eef2f7; }
+        .ag-num-red { fill: #f87171; }
+        .ag-needle-body { fill: #f4f7fb; }
+        .ag-cw { fill: #8f9cb0; }
+        .ag-hub-cap { fill: #10131a; stroke: #c8d0dc; stroke-width: 1; }
+        .ag-center-num { fill: #f4f7fb; font-weight: 700; }
+        .ag-center-num.alert { fill: #f87171; }
+        .ag-center-num.warn { fill: #fbbf24; }
+        .ag-center-unit { fill: #98a2b6; }
+        body.theme-blackgold .ag-ring { stroke: url(#ag-ring-gold); }
+        body.theme-blackgold .ag-tick-major { stroke: #ecdcae; }
+        body.theme-blackgold .ag-num { fill: #e7d5a3; }
+        body.theme-blackgold .ag-hub-cap { stroke: #e2c88a; }
+        .ag-dial { position: relative; border-radius: 50%; background: #050505;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 20px rgba(0,0,0,0.6), inset 0 2px 12px rgba(0,0,0,0.7); }
+        body.theme-blackgold .ag-dial {
+            box-shadow: 0 0 0 1px rgba(212,168,83,0.22), 0 8px 20px rgba(0,0,0,0.6), inset 0 2px 12px rgba(0,0,0,0.7); }
+        .ag-dial svg { display: block; }
+        .ag-odometer {
+            position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(105deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.05) 28%, rgba(255,255,255,0) 34%, rgba(255,255,255,0) 100%), #02040a;
+            border: 1px solid #39424f; border-radius: 4px;
+            padding: 1px 4px; line-height: 1.1;
+            font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace;
+            font-size: 8px; font-weight: 600; color: #bfe3ee; letter-spacing: 0.03em;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.95), inset 0 -1px 0 rgba(255,255,255,0.1), 0 1px 0 rgba(255,255,255,0.05);
+            white-space: nowrap;
+        }
+        body.theme-blackgold .ag-odometer { border-color: rgba(212,168,83,0.4); color: #f0e2b6; }
+        /* tell-tale lamps pinned to the tach dial corners */
+        .ag-lamp { display: inline-flex; align-items: center; }
+        .ag-lamp-corner { position: absolute; z-index: 3; }
+        .ag-lamp i {
+            width: 8px; height: 8px; border-radius: 50%; flex: none;
+            background: transparent; border: 1.5px solid #39424f;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+            transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+        }
+        .ag-lamp.lit-red i { background: #ef4444; border-color: #ef4444; animation: ag-pulse-red 2s ease-in-out infinite; }
+        .ag-lamp.lit-amber i { background: #f59e0b; border-color: #f59e0b; animation: ag-pulse-amber 2s ease-in-out infinite; }
+        .ag-lamp.lit-green i { background: #10b981; border-color: #10b981; box-shadow: 0 0 9px rgba(16,185,129,0.8); }
+        @keyframes ag-pulse-red {
+            0%, 100% { box-shadow: 0 0 10px rgba(239,68,68,0.95); }
+            50% { box-shadow: 0 0 3px rgba(239,68,68,0.45); }
+        }
+        @keyframes ag-pulse-amber {
+            0%, 100% { box-shadow: 0 0 10px rgba(245,158,11,0.95); }
+            50% { box-shadow: 0 0 3px rgba(245,158,11,0.45); }
+        }
+        @keyframes ag-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        /* status dial: segmented health bars + mode badge */
+        .ag-status-dial { width: 112px; height: 112px; }
+        .ag-status-dial svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .ag-bars {
+            position: absolute; inset: 16% 9% 26%; z-index: 2;
+            display: flex; flex-direction: column; justify-content: center; gap: 5px;
+        }
+        .ag-bar-row { display: flex; align-items: center; gap: 3px; }
+        .ag-bar-name { width: 18px; flex: none; text-align: right; font-size: 6.5px; letter-spacing: 0.02em; color: #98a2b6; }
+        .ag-bar-segs { display: flex; gap: 1px; flex: 1; }
+        .ag-bar-segs i { flex: 1; height: 4px; border-radius: 1px; background: rgba(255,255,255,0.09); }
+        .ag-bar-segs i.on { background: var(--seg, #10b981); box-shadow: 0 0 3px var(--seg, #10b981); }
+        .ag-bar-val { width: 24px; flex: none; font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 7px; color: #d5dce8; }
+        .ag-status-mode {
+            position: absolute; bottom: 10.5%; left: 50%; transform: translateX(-50%); z-index: 2;
+            font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 7.5px; font-weight: 700;
+            letter-spacing: 0.14em; color: #10b981; white-space: nowrap;
+        }
+        .ag-status-mode.degraded { color: #f59e0b; }
+        .ag-status-mode.critical { color: #ef4444; animation: ag-blink 1.6s ease-in-out infinite; }
+        .ag-status-arc { stroke: rgba(239,68,68,0.28); transition: stroke 0.3s; }
+        .ag-status-arc.hot { stroke: #ef4444; filter: drop-shadow(0 0 3px rgba(239,68,68,0.8)); }
+        body.theme-blackgold .ag-bar-name { color: #c9b783; }
+        body.theme-blackgold .ag-bar-val { color: #e7d5a3; }
+        .mg-cluster-peaks {
+            position: absolute; top: 6px; right: 10px; z-index: 2;
+            font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace;
+            font-size: 9px; color: #98a2b6; white-space: nowrap;
+        }
+        .mg-cluster-peaks b { color: #d5dce8; font-weight: 600; }
+        @media (prefers-reduced-motion: reduce) {
+            .ag-lamp i { transition: none; animation: none !important; }
+            .ag-status-mode.critical { animation: none !important; }
+            .ag-status-arc { transition: none; }
+        }
     </style>
 </head>
 <body class="theme-dark bg-gray-50 min-h-screen pb-20">
@@ -104,7 +232,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         <div class="flex items-center justify-between px-4 py-3">
             <div>
                 <h1 class="text-lg font-bold text-gray-800">ModelGate</h1>
-                <div class="text-xs text-gray-400">{{ _('Admin Dashboard') }}</div>
             </div>
             <div class="flex items-center gap-2">
                 <select id="lang-select" onchange="switchLang(this.value)" class="text-xs border rounded-lg px-1.5 py-1 bg-gray-50">
@@ -179,13 +306,48 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm p-4">
-            <div class="flex items-center justify-between mb-3">
-                <span class="font-medium text-sm text-gray-800">{{ _('Request Trend') }}</span>
+        <div class="mg-cluster" id="cluster-panel">
+            <div class="ag-gauge ag-speedo">
+                <div class="ag-dial" id="ag-speedo-dial"></div>
+                <div class="ag-label" id="ag-speedo-label"></div>
             </div>
-            <div class="relative" style="height: 220px;">
-                <canvas id="trendChart"></canvas>
-                <div id="trend-chart-loading" class="absolute inset-0 flex items-center justify-center text-xs text-gray-400">{{ _('Loading...') }}</div>
+            <div class="ag-gauge ag-tach">
+                <div class="ag-dial ag-tach-dial" id="ag-tach-dial">
+                    <span class="ag-lamp ag-lamp-corner" id="ag-lamp-redline" style="right:16%;top:16%"><i></i></span>
+                    <span class="ag-lamp ag-lamp-corner" id="ag-lamp-offline" style="left:16%;top:16%"><i></i></span>
+                    <span class="ag-lamp ag-lamp-corner" id="ag-lamp-disabled" style="left:16%;bottom:16%"><i></i></span>
+                    <span class="ag-lamp ag-lamp-corner" id="ag-lamp-fuel" style="right:16%;bottom:16%"><i></i></span>
+                </div>
+                <div class="ag-label" id="ag-tach-label"></div>
+            </div>
+            <div class="ag-gauge ag-status">
+                <div class="ag-dial ag-status-dial" id="ag-status-dial"></div>
+                <div class="ag-label" id="ag-status-label"></div>
+            </div>
+            <div class="mg-cluster-peaks" id="mg-cluster-peaks">
+                <span id="mg-peak-label"></span> <b id="mg-peak-conc">–</b> · <b id="mg-peak-tps">–</b> tok/s
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="collapsible-header flex items-center justify-between p-4" onclick="toggleSection('trend')">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                    <span class="font-medium text-sm text-gray-800">{{ _('Request Trend') }}</span>
+                </div>
+                <svg id="chevron-trend" class="chevron w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </div>
+            <div id="trend-content" class="collapsible-content">
+                <div class="px-4 pb-4">
+                    <div class="relative" style="height: 220px;">
+                        <canvas id="trendChart"></canvas>
+                        <div id="trend-chart-loading" class="absolute inset-0 flex items-center justify-center text-xs text-gray-400">{{ _('Loading...') }}</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -354,6 +516,26 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         opFailed: "{{ _('Operation failed') }}",
         scheduledDisable: "{{ _('Scheduled') }}",
         scheduleActiveNow: "{{ _('active now') }}",
+        clusterSpeed: "{{ _('Cluster speed') }}",
+        clusterTach: "{{ _('Cluster concurrency') }}",
+        clusterStatus: "{{ _('Gateway status') }}",
+        clusterBar_keys: "{{ _('Keys') }}",
+        clusterBar_cpu: "CPU",
+        clusterBar_mem: "{{ _('Memory') }}",
+        clusterBar_disk: "{{ _('Disk') }}",
+        clusterModeNormal: "{{ _('NORMAL') }}",
+        clusterModeDegraded: "{{ _('DEGRADED') }}",
+        clusterModeCritical: "{{ _('CRITICAL') }}",
+        clusterOdoTitle: "{{ _('Total cost (odometer)') }}",
+        clusterTachUnit: "{{ _('in-flight') }}",
+        clusterLampRedline: "{{ _('Redline') }}",
+        clusterLampFuel: "{{ _('Key health') }}",
+        clusterLampOffline: "{{ _('Data offline') }}",
+        clusterFuel: "{{ _('Cluster key health') }}",
+        clusterFuelTitle: "{{ _('Healthy key ratio below 45%') }}",
+        clusterRedlineTitle: "{{ _('Concurrency entered the red zone (85 and above on the scale)') }}",
+        clusterDisabledTitle: "{{ _('Disabled providers') }}",
+        clusterHourPeak: "{{ _('Hour peak') }}",
     };
     </script>
     <script>
@@ -364,6 +546,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         let liveStatsReconnectTimer = null;
         let liveSnapshotRecvAt = 0;
         let adminAuthRedirecting = false;
+        let mgLastLiveAt = 0;
         let providersByName = {};
         const openProvKeys = new Set();
         let notifLoading = false;
@@ -838,7 +1021,391 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             if (!req || req === actual) return `${prov}/${actual}`;
             return `${req} -> ${prov}/${actual}`;
         }
+        // ===== instrument cluster gauges (ported from the monitor page's
+        // ClusterGauges; middle three pods only — see .mg-cluster above).
+        // Kept line-for-line close to the monitor implementation so the two
+        // stay in sync; dropped: top-keys pod, fuel dial (the fuel tell-tale
+        // lamp survives, driven from key-health ratios via setKeysHealth). =====
+        const ClusterGauges = (() => {
+            const R_TRACK = 40, SWEEP_A1 = 135, SWEEP_FULL = 270, SWEEP_FUEL = 90;
+            const TACH_TIERS = [20, 30, 50, 100, 200, 500];
+            const SPEED_TIERS = [1000, 2000, 5000, 10000, 25000, 50000];
+            const REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const cards = {};
+            let animTimer = 0;
+            let odoCost = null;
+
+            function pt(r, deg) {
+                const rad = deg * Math.PI / 180;
+                return [50 + r * Math.cos(rad), 50 + r * Math.sin(rad)];
+            }
+            function arcPath(r, a1, a2, large, sweepFlag) {
+                const [x1, y1] = pt(r, a1), [x2, y2] = pt(r, a2);
+                return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large ? 1 : 0} ${sweepFlag === 0 ? 0 : 1} ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+            }
+            function shade(hex, p) {
+                const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+                const t = p < 0 ? 0 : 255, a = Math.abs(p);
+                const f = (c) => Math.round(c + (t - c) * a).toString(16).padStart(2, '0');
+                return '#' + f(r) + f(g) + f(b);
+            }
+            function _agTicks(startDeg, sweep, count, majorEvery, r1, r2, redLo, redHi, dir) {
+                let out = '';
+                for (let i = 0; i <= count; i++) {
+                    const pct = i / count;
+                    const deg = startDeg + dir * sweep * pct;
+                    const major = (i % majorEvery === 0) || (redLo != null && redHi > 0.5 && Math.abs(pct - redLo) < 0.006);
+                    const inRed = redLo != null && pct >= redLo && pct <= redHi;
+                    const [x1, y1] = pt(major ? r1 : (r1 + 1.6), deg), [x2, y2] = pt(r2, deg);
+                    const cls = inRed ? 'ag-tick-red' : (major ? 'ag-tick-major' : 'ag-tick');
+                    out += `<line class="${cls}" x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke-width="${major ? (inRed ? 2.2 : 1.8) : 1}"/>`;
+                }
+                return out;
+            }
+            function numAt(r, deg, text, red, size) {
+                const [x, y] = pt(r, deg);
+                return `<text class="${red ? 'ag-num-red' : 'ag-num'}" x="${x.toFixed(2)}" y="${(y + 2).toFixed(2)}" font-size="${size}" font-weight="600" text-anchor="middle" font-family="'Lucida Console', Menlo, Monaco, 'Courier New', monospace">${text}</text>`;
+            }
+            function gaugeColor(kind, pct) {
+                if (kind === 'speedo') return '#22d3ee';
+                if (kind === 'fuel') return pct < 0.25 ? '#ef4444' : (pct < 0.45 ? '#f59e0b' : '#10b981');
+                if (pct >= 0.95) return '#ef4444';
+                if (pct > 0.8) return '#f59e0b';
+                return '#06b6d4';
+            }
+            function centerClass(kind, pct) {
+                if (kind === 'tach') return pct >= 0.95 ? ' alert' : '';
+                if (kind === 'fuel') return pct < 0.25 ? ' alert' : (pct < 0.45 ? ' warn' : '');
+                return '';
+            }
+            function fmtNum(v) {
+                if (v >= 1000) {
+                    const k = v / 1000;
+                    const s = Number.isInteger(k) ? k : Math.round(k * 10) / 10;
+                    return s + 'k';
+                }
+                return String(Math.round(v * 10) / 10);
+            }
+            function tierFor(tiers, v) {
+                for (const t of tiers) if (v <= t) return t;
+                return tiers[tiers.length - 1];
+            }
+            function gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFromPct, gi) {
+                const isFuel = kind === 'fuel';
+                const sweep = isFuel ? SWEEP_FUEL : SWEEP_FULL;
+                const dir = isFuel ? -1 : 1;
+                const sf = isFuel ? 0 : 1;
+                const arcLen = 2 * Math.PI * R_TRACK * sweep / 360;
+                const a0 = SWEEP_A1, aMid = SWEEP_A1 + dir * sweep / 2, aEnd = SWEEP_A1 + dir * sweep;
+                const nR = 29;
+                let nums;
+                if (isFuel) {
+                    nums = numAt(nR, a0, 'E', true, 8) + numAt(nR, aEnd, 'F', false, 8);
+                } else {
+                    nums = numAt(nR, a0, '0', false, 7.2)
+                        + numAt(nR, aMid, fmtNum(scaleMax / 2), false, 7.2)
+                        + numAt(nR, aEnd, fmtNum(scaleMax), redFromPct != null, 7.2);
+                }
+                const redzone = redFromPct != null
+                    ? `<path class="ag-redzone" d="${arcPath(36, SWEEP_A1 + dir * sweep * redFromPct, SWEEP_A1 + dir * sweep * 0.975, sweep * (0.975 - redFromPct) > 180, sf)}" fill="none" stroke-width="2.6" stroke-linecap="round"/>
+                       <path d="${arcPath(36, SWEEP_A1 + dir * sweep * redFromPct, SWEEP_A1 + dir * sweep * 0.975, sweep * (0.975 - redFromPct) > 180, sf)}" fill="none" stroke="#ef4444" stroke-width="2.6" stroke-linecap="round" opacity="0.3" filter="url(#ag-glow-${gi})"/>` : '';
+                const color = gaugeColor(kind, pct);
+                const off = (arcLen * (1 - pct)).toFixed(2);
+                const hide = pct <= 0.005 ? ' visibility="hidden"' : '';
+                const rot = (-135 + dir * sweep * pct).toFixed(1);
+                return `
+                <svg viewBox="0 0 100 100" aria-hidden="true">
+                    <defs>
+                        <radialGradient id="ag-face-${gi}" cx="0.5" cy="0.98" r="1.08">
+                            <stop class="ag-face-a" offset="0"/>
+                            <stop class="ag-face-b" offset="1"/>
+                        </radialGradient>
+                        <filter id="ag-glow-${gi}" x="-30%" y="-30%" width="160%" height="160%">
+                            <feGaussianBlur stdDeviation="1.8"/>
+                        </filter>
+                        <filter id="ag-shdw-${gi}" x="-40%" y="-40%" width="180%" height="180%">
+                            <feDropShadow dx="0" dy="0.9" stdDeviation="0.9" flood-color="#000" flood-opacity="0.6"/>
+                        </filter>
+                    </defs>
+                    <circle cx="50" cy="50" r="47.5" fill="url(#ag-face-${gi})"/>
+                    <circle cx="50" cy="50" r="47.4" fill="none" stroke="#454c59" stroke-width="2.6"/>
+                    <circle cx="50" cy="50" r="45.4" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="1.6"/>
+                    <path class="ag-ring" d="${arcPath(R_TRACK, a0, aEnd, sweep > 180, sf)}" fill="none" stroke-linecap="round"/>
+                    <path class="ag-groove" d="${arcPath(R_TRACK, a0, aEnd, sweep > 180, sf)}" fill="none" stroke-width="6" stroke-linecap="round"/>
+                    ${redzone}
+                    ${_agTicks(SWEEP_A1, sweep, 27, 3, 30.5, 34.5, ...(redFromPct != null ? [redFromPct, 1] : [null, null]), dir)}
+                    ${nums}
+                    <path d="${arcPath(43.5, 195, 260, false, 1)}" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2.4" stroke-linecap="round"/>
+                    <path class="ag-glow" d="${arcPath(R_TRACK, a0, aEnd, sweep > 180, sf)}" fill="none" stroke="${color}" stroke-width="6.4" stroke-linecap="round" opacity="0.45" filter="url(#ag-glow-${gi})" stroke-dasharray="${arcLen.toFixed(2)}" stroke-dashoffset="${off}"${hide}/>
+                    <path class="ag-value" d="${arcPath(R_TRACK, a0, aEnd, sweep > 180, sf)}" fill="none" stroke="${color}" stroke-width="4.2" stroke-linecap="round" stroke-dasharray="${arcLen.toFixed(2)}" stroke-dashoffset="${off}"${hide}/>
+                    <g class="ag-needle" filter="url(#ag-shdw-${gi})" style="transform-origin:50px 50px;transform:rotate(${rot}deg)">
+                        <path class="ag-needle-body" stroke="rgba(0,0,0,0.35)" stroke-width="0.2" d="M 49.2 52 L 49.85 15 L 50.15 15 L 50.8 52 Z"/>
+                        <path class="ag-needle-tip" fill="${shade(color, 0.55)}" d="M 49.83 15 L 50.2 15 L 50.18 23 L 49.85 23 Z"/>
+                        <circle class="ag-cw" cx="50" cy="53.8" r="2.5"/>
+                    </g>
+                    <circle class="ag-hub-cap" cx="50" cy="50" r="3.4"/>
+                    <circle cx="50" cy="50" r="1.4" fill="#c8d0dc"/>
+                    <text class="ag-center-num${centerClass(kind, pct)}" x="50" y="63" font-size="13" text-anchor="middle" font-family="'Lucida Console', Menlo, Monaco, 'Courier New', monospace">${valueText}</text>
+                    ${unitText ? `<text class="ag-center-unit" x="50" y="70" font-size="5" text-anchor="middle" letter-spacing="0.3">${unitText}</text>` : ''}
+                </svg>`;
+            }
+
+            function mount(kind, dialId, scaleMax, unitText, labelText, labelId) {
+                if (!cards['#defs'] ) {
+                    const defs = document.createElement('div');
+                    defs.innerHTML = '<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="ag-ring-gold" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f6e3ac"/><stop offset="0.5" stop-color="#d4ab55"/><stop offset="1" stop-color="#94763a"/></linearGradient></defs></svg>';
+                    document.getElementById('cluster-panel').prepend(defs.firstChild);
+                    cards['#defs'] = true;
+                }
+                const dial = document.getElementById(dialId);
+                const old = cards[kind];
+                const pct = old ? old.tgtPct : 0;
+                const valueText = old ? old.valueText : '0';
+                const gi = kind === 'tach' ? 't' : 's';
+                const dir = 1;
+                const sweep = SWEEP_FULL;
+                const redFrom = kind === 'tach' ? 0.85 : null;
+                // corner tell-tale lamps live inside the tach dial; keep them
+                // across (re)mounts that rewrite the dial svg
+                const lamps = Array.from(dial.querySelectorAll('.ag-lamp'));
+                dial.innerHTML = gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFrom, gi)
+                    + (kind === 'speedo' ? `<div class="ag-odometer" title="${window.I18N.clusterOdoTitle}">${odoCost == null ? '—' : '¥' + odoCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : '');
+                lamps.forEach(l => dial.appendChild(l));
+                document.getElementById(labelId).textContent = labelText;
+                const arcLen = 2 * Math.PI * R_TRACK * sweep / 360;
+                cards[kind] = {
+                    kind, dir, sweep, arcLen, scale: scaleMax, dial,
+                    needle: dial.querySelector('.ag-needle'),
+                    valueArc: dial.querySelector('.ag-value'),
+                    glowArc: dial.querySelector('.ag-glow'),
+                    tip: dial.querySelector('.ag-needle-tip'),
+                    centerNum: dial.querySelector('.ag-center-num'),
+                    curPct: pct, tgtPct: pct, velPct: old ? old.velPct : 0,
+                    valueText,
+                };
+                applyPct(cards[kind], pct);
+            }
+            function applyPct(card, pct) {
+                const off = (card.arcLen * (1 - pct)).toFixed(2);
+                const hide = pct <= 0.005 ? 'hidden' : 'visible';
+                const color = gaugeColor(card.kind, pct);
+                card.valueArc.setAttribute('stroke-dashoffset', off);
+                card.valueArc.setAttribute('visibility', hide);
+                card.glowArc.setAttribute('stroke-dashoffset', off);
+                card.glowArc.setAttribute('visibility', hide);
+                card.valueArc.setAttribute('stroke', color);
+                card.glowArc.setAttribute('stroke', color);
+                card.tip.setAttribute('fill', shade(color, 0.55));
+                card.needle.style.transform = `rotate(${(-135 + card.dir * card.sweep * pct).toFixed(1)}deg)`;
+                const cls = 'ag-center-num' + centerClass(card.kind, pct);
+                if (card.centerNum.getAttribute('class') !== cls) card.centerNum.setAttribute('class', cls);
+            }
+            function startAnim() {
+                if (!animTimer) animTimer = requestAnimationFrame(tick);
+            }
+            function tick() {
+                let any = false;
+                for (const key of ['tach', 'speedo']) {
+                    const card = cards[key];
+                    if (!card) continue;
+                    const t = card.tgtPct || 0, c = card.curPct || 0, v = card.velPct || 0;
+                    const d = t - c;
+                    if (Math.abs(d) < 0.001 && Math.abs(v) < 0.0004) {
+                        if (c !== t || v !== 0) { applyPct(card, t); card.curPct = t; card.velPct = 0; }
+                        continue;
+                    }
+                    // Spring integrator (same model as the rest of the site):
+                    // slightly under-damped so needles overshoot and settle.
+                    card.velPct = (v + d * 0.02) * 0.8;
+                    card.curPct = c + card.velPct;
+                    applyPct(card, card.curPct);
+                    any = true;
+                }
+                animTimer = any ? requestAnimationFrame(tick) : 0;
+            }
+            function setTarget(kind, pct, valueText) {
+                const card = cards[kind];
+                if (!card) return;
+                card.tgtPct = Math.max(0, Math.min(1, pct));
+                if (valueText !== undefined && valueText !== card.valueText) {
+                    card.valueText = valueText;
+                    card.centerNum.textContent = valueText;
+                }
+                if (REDUCE_MOTION) {
+                    card.curPct = card.tgtPct;
+                    card.velPct = 0;
+                    applyPct(card, card.tgtPct);
+                } else {
+                    startAnim();
+                }
+            }
+            function setValue(kind, value) {
+                const card = cards[kind];
+                if (!card) return;
+                const tiers = kind === 'tach' ? TACH_TIERS : SPEED_TIERS;
+                const need = tierFor(tiers, Math.max(value * 1.15, 1));
+                if (need > card.scale) {
+                    mount(kind, kind === 'tach' ? 'ag-tach-dial' : 'ag-speedo-dial', need,
+                        kind === 'tach' ? window.I18N.clusterTachUnit : 'tok/s',
+                        kind === 'tach' ? window.I18N.clusterTach : window.I18N.clusterSpeed,
+                        kind === 'tach' ? 'ag-tach-label' : 'ag-speedo-label');
+                }
+                const c = cards[kind];
+                const text = kind === 'tach' ? String(Math.round(value)) : fmtNum(value);
+                setTarget(kind, c.scale ? value / c.scale : 0, text);
+                if (kind === 'tach') {
+                    setLamp('ag-lamp-redline', c.scale && value / c.scale >= 0.85 ? 'lit-red' : '');
+                }
+            }
+            // ===== status dial: segmented bars + mode badge =====
+            const STATUS_BARS = ['keys', 'cpu', 'mem', 'disk'];
+            const ZONE_COLOR = { green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
+            const statusState = { bars: {}, disabledProviders: 0, mode: 'normal' };
+            function segZone(name, pct) {
+                if (name === 'keys') return pct < 0.25 ? 'red' : (pct < 0.45 ? 'amber' : 'green');
+                return pct >= 0.85 ? 'red' : (pct >= 0.65 ? 'amber' : 'green');
+            }
+            function mountStatusDial(dialId, labelText, labelId) {
+                const dial = document.getElementById(dialId);
+                if (!dial) return;
+                const rows = STATUS_BARS.map(name => `
+                    <div class="ag-bar-row" data-bar="${name}">
+                        <span class="ag-bar-name">${window.I18N['clusterBar_' + name] || name}</span>
+                        <span class="ag-bar-segs">${'<i></i>'.repeat(10)}</span>
+                        <span class="ag-bar-val">–</span>
+                    </div>`).join('');
+                dial.innerHTML = `
+                    <svg viewBox="0 0 100 100" aria-hidden="true">
+                        <defs>
+                            <radialGradient id="ag-face-st" cx="0.5" cy="0.98" r="1.08">
+                                <stop class="ag-face-a" offset="0"/>
+                                <stop class="ag-face-b" offset="1"/>
+                            </radialGradient>
+                        </defs>
+                        <circle cx="50" cy="50" r="47.5" fill="url(#ag-face-st)"/>
+                        <circle cx="50" cy="50" r="47.4" fill="none" stroke="#454c59" stroke-width="2.6"/>
+                        <circle cx="50" cy="50" r="45.4" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="1.6"/>
+                        <path class="ag-status-arc" d="${arcPath(40.5, 55, 125, false, 1)}" fill="none" stroke-width="2.6" stroke-linecap="round"/>
+                    </svg>
+                    <div class="ag-bars">${rows}</div>
+                    <div class="ag-status-mode" id="ag-status-mode"></div>`;
+                document.getElementById(labelId).textContent = labelText;
+                for (const name of STATUS_BARS) statusState.bars[name] = { pct: null, zone: 'green' };
+                renderMode();
+            }
+            function setStatusBar(name, pct, text) {
+                const bar = statusState.bars[name];
+                if (!bar) return;
+                bar.pct = pct;
+                bar.zone = segZone(name, pct);
+                const row = document.querySelector(`#ag-status-dial .ag-bar-row[data-bar="${name}"]`);
+                if (row) {
+                    const lit = Math.round(Math.max(0, Math.min(1, pct)) * 10);
+                    row.style.setProperty('--seg', ZONE_COLOR[bar.zone]);
+                    row.querySelectorAll('.ag-bar-segs i').forEach((s, i) => s.classList.toggle('on', i < lit));
+                    row.querySelector('.ag-bar-val').textContent = text;
+                }
+                renderMode();
+            }
+            function setStatusSys(cpu, mem, disk) {
+                if (cpu != null && !isNaN(cpu)) setStatusBar('cpu', cpu / 100, Math.round(cpu) + '%');
+                if (mem != null && !isNaN(mem)) setStatusBar('mem', mem / 100, Math.round(mem) + '%');
+                if (disk != null && !isNaN(disk)) setStatusBar('disk', disk / 100, Math.round(disk) + '%');
+            }
+            function setDisabledProviders(n) {
+                statusState.disabledProviders = n;
+                renderMode();
+            }
+            function renderMode() {
+                const el = document.getElementById('ag-status-mode');
+                if (!el) return;
+                const zones = Object.values(statusState.bars).filter(b => b.pct != null).map(b => b.zone);
+                let mode = 'normal';
+                if (zones.includes('red')) mode = 'critical';
+                else if (zones.includes('amber') || statusState.disabledProviders > 0) mode = 'degraded';
+                statusState.mode = mode;
+                const labels = {
+                    normal: window.I18N.clusterModeNormal || 'NORMAL',
+                    degraded: window.I18N.clusterModeDegraded || 'DEGRADED',
+                    critical: window.I18N.clusterModeCritical || 'CRITICAL',
+                };
+                el.textContent = labels[mode];
+                el.className = 'ag-status-mode' + (mode === 'normal' ? '' : ' ' + mode);
+                const arc = document.querySelector('#ag-status-dial .ag-status-arc');
+                if (arc) arc.classList.toggle('hot', mode !== 'normal');
+            }
+            function setLamp(id, cls) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const next = 'ag-lamp ag-lamp-corner' + (cls ? ' lit ' + cls : '');
+                if (el.className !== next) el.className = next;
+            }
+            // mobile-only: the fuel tell-tale lamp survives without the fuel
+            // dial, driven straight from the healthy-key ratio.
+            function setKeysHealth(pct) {
+                setLamp('ag-lamp-fuel', pct < 0.45 ? (pct < 0.25 ? 'lit-red' : 'lit-amber') : '');
+            }
+            function setOdometer(cost) {
+                odoCost = cost;
+                const el = cards['speedo'] && cards['speedo'].dial.querySelector('.ag-odometer');
+                if (el) el.textContent = '¥' + cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            return { mount, mountStatusDial, setValue, setStatusBar, setStatusSys, setDisabledProviders, setOdometer, setLamp, setKeysHealth };
+        })();
+
+        function updateClusterLive(data) {
+            if (!data) return;
+            mgLastLiveAt = Date.now();
+            ClusterGauges.setValue('tach', Number(data.active_requests) || 0);
+            ClusterGauges.setValue('speedo', Number(data.tokens_per_second) || 0);
+            ClusterGauges.setLamp('ag-lamp-offline', '');
+            const disabled = data.disabled_providers;
+            const names = disabled && typeof disabled === 'object' ? Object.keys(disabled) : [];
+            const dl = document.getElementById('ag-lamp-disabled');
+            if (dl) dl.title = names.length ? `${window.I18N.clusterDisabledTitle}: ${names.join(', ')}` : window.I18N.clusterDisabledTitle;
+            ClusterGauges.setLamp('ag-lamp-disabled', names.length ? 'lit-red' : '');
+            ClusterGauges.setDisabledProviders(names.length);
+            const peaks = data.hour_peaks;
+            if (peaks) {
+                const peakConc = document.getElementById('mg-peak-conc');
+                const peakTps = document.getElementById('mg-peak-tps');
+                if (peakConc) peakConc.textContent = String(peaks.max_concurrency ?? 0);
+                if (peakTps) peakTps.textContent = Math.round(peaks.max_tokens_per_second || 0).toLocaleString();
+            }
+        }
+
+        async function loadClusterSystemInfo() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/system/info`);
+                const cpu = Number((data.cpu || {}).percent || 0);
+                const mem = Number((data.memory || {}).percent || 0);
+                const disk = Number(((data.host_disk || data.disk) || {}).percent || 0);
+                ClusterGauges.setStatusSys(cpu, mem, disk);
+            } catch (e) {}
+        }
+
+        async function loadClusterKeysStatus() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/provider-models-status`);
+                if (!data || !data.rows) return;
+                const rows = data.rows;
+                const total = rows.filter(r => r.key_id !== null).length;
+                const healthy = rows.filter(r => r.health_score >= 60).length;
+                const pct = total > 0 ? healthy / total : 0;
+                ClusterGauges.setStatusBar('keys', pct, `${healthy}/${total}`);
+                ClusterGauges.setKeysHealth(pct);
+            } catch (e) {}
+        }
+
+        async function loadClusterOdometer() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/odometer`);
+                if (data) ClusterGauges.setOdometer(Number(data.total_cost) || 0);
+            } catch (e) {}
+        }
+
         function renderLiveStats(data) {
+            updateClusterLive(data);
             const activeRequests = data.active_requests || 0;
             const tokensPerSecond = Math.round(data.tokens_per_second || 0);
             flipCounter('rps', activeRequests);
@@ -1551,6 +2118,27 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         updateNotifBadge();
         setInterval(updateNotifBadge, 30000);
         setInterval(loadProviderStatus, 30000);
+
+        // instrument cluster: mount, lamp titles, hourly-peak label, polls
+        ClusterGauges.mount('speedo', 'ag-speedo-dial', 1000, 'tok/s', window.I18N.clusterSpeed, 'ag-speedo-label');
+        ClusterGauges.mount('tach', 'ag-tach-dial', 20, window.I18N.clusterTachUnit, window.I18N.clusterTach, 'ag-tach-label');
+        ClusterGauges.mountStatusDial('ag-status-dial', window.I18N.clusterStatus, 'ag-status-label');
+        document.getElementById('ag-lamp-redline').title = `${window.I18N.clusterLampRedline}: ${window.I18N.clusterRedlineTitle}`;
+        document.getElementById('ag-lamp-offline').title = window.I18N.clusterLampOffline;
+        document.getElementById('ag-lamp-disabled').title = window.I18N.clusterDisabledTitle;
+        document.getElementById('ag-lamp-fuel').title = `${window.I18N.clusterLampFuel}: ${window.I18N.clusterFuelTitle}`;
+        document.getElementById('mg-peak-label').textContent = window.I18N.clusterHourPeak;
+        loadClusterKeysStatus();
+        loadClusterSystemInfo();
+        loadClusterOdometer();
+        setInterval(loadClusterKeysStatus, 30000);
+        setInterval(loadClusterSystemInfo, 10000);
+        setInterval(loadClusterOdometer, 60000);
+        setInterval(() => {
+            if (mgLastLiveAt && Date.now() - mgLastLiveAt > 15000) {
+                ClusterGauges.setLamp('ag-lamp-offline', 'lit-red');
+            }
+        }, 5000);
 
         (function() {
             const TOOLTIP_PAD = 8;

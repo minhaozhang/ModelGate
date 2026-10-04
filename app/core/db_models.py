@@ -655,6 +655,23 @@ class TagDailyStat(Base):
     )
 
 
+class HourlyPeakStat(Base):
+    """Gateway-wide per-hour peaks (max concurrency, max tokens/s)."""
+
+    __tablename__ = "hourly_peak_stats"
+
+    id = Column(Integer, primary_key=True)
+    date = Column(String(10), nullable=False)
+    hour = Column(Integer, nullable=False)
+    max_concurrency = Column(Integer, default=0)
+    max_tokens_per_second = Column(Float, default=0)
+    updated_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("date", "hour", name="uq_hourly_peak_stats"),
+    )
+
+
 class DailyReport(Base):
     __tablename__ = "daily_reports"
 

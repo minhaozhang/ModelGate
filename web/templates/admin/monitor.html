@@ -405,6 +405,7 @@
                     <div class="ag-trip">
                         <span><span id="ag-trip-users-label"></span> <b id="ag-trip-users">–</b></span>
                         <span><span id="ag-trip-requests-label"></span> <b id="ag-trip-requests">–</b></span>
+                        <span title="{{ _('Hour peak') }}"><span id="ag-trip-peak-label"></span> <b id="ag-trip-peak-conc">–</b> · <b id="ag-trip-peak-tps">–</b> tok/s</span>
                     </div>
                 </div>
             </div>
@@ -622,6 +623,7 @@
         noSpeedData: "{{ _('No speed data yet') }}",
         clusterSpeed: "{{ _('Cluster speed') }}",
         clusterTach: "{{ _('Cluster concurrency') }}",
+        clusterHourPeak: "{{ _('Hour peak') }}",
         clusterClock: "{{ _('Clock') }}",
         clusterTopKeys: "{{ _('Top keys') }}",
         clusterFuel: "{{ _('Cluster key health') }}",
@@ -1484,7 +1486,7 @@
         const ClusterGauges = (() => {
             const R_TRACK = 40, SWEEP_A1 = 135, SWEEP_FULL = 270, SWEEP_FUEL = 90;
             const TACH_TIERS = [20, 30, 50, 100, 200, 500];
-            const SPEED_TIERS = [2000, 5000, 10000, 25000, 50000];
+            const SPEED_TIERS = [1000, 2000, 5000, 10000, 25000, 50000];
             const REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             const cards = {};
             let animTimer = 0;
@@ -1873,6 +1875,13 @@
             ClusterGauges.setDisabledProviders(names.length);
             const users = document.getElementById('ag-trip-users');
             if (users && data.active_users !== undefined) users.textContent = String(data.active_users);
+            const peaks = data.hour_peaks;
+            if (peaks) {
+                const peakConc = document.getElementById('ag-trip-peak-conc');
+                const peakTps = document.getElementById('ag-trip-peak-tps');
+                if (peakConc) peakConc.textContent = String(peaks.max_concurrency ?? 0);
+                if (peakTps) peakTps.textContent = Math.round(peaks.max_tokens_per_second || 0).toLocaleString();
+            }
         }
         function stopClusterPolling() {
             if (clusterPollTimer) { clearInterval(clusterPollTimer); clusterPollTimer = null; }
@@ -1988,7 +1997,7 @@
         }
 
         ClusterGauges.mountTopDial('TOP', window.I18N.clusterTopKeys, 'ag-top-label');
-        ClusterGauges.mount('speedo', 'ag-speedo-dial', 2000, 'tok/s', window.I18N.clusterSpeed, 'ag-speedo-label');
+        ClusterGauges.mount('speedo', 'ag-speedo-dial', 1000, 'tok/s', window.I18N.clusterSpeed, 'ag-speedo-label');
         ClusterGauges.mount('tach', 'ag-tach-dial', 20, window.I18N.clusterTachUnit, window.I18N.clusterTach, 'ag-tach-label');
         ClusterGauges.mountStatusDial('ag-status-dial', window.I18N.clusterStatus, 'ag-status-label');
         ClusterGauges.mount('fuel', 'ag-fuel-dial', null, 'keys', window.I18N.clusterFuel, 'ag-fuel-label');
@@ -1996,6 +2005,7 @@
             const texts = {
                 'ag-trip-users-label': window.I18N.clusterActiveUsers,
                 'ag-trip-requests-label': window.I18N.clusterTotalRequests,
+                'ag-trip-peak-label': window.I18N.clusterHourPeak,
             };
             for (const [id, text] of Object.entries(texts)) {
                 const el = document.getElementById(id);
