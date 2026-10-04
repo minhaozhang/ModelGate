@@ -114,6 +114,26 @@ body.theme-blackgold { scrollbar-color: rgba(212, 168, 83, 0.30) transparent; }
 body.theme-dark ::-webkit-scrollbar-thumb { background-color: rgba(148, 163, 184, 0.28); }
 body.theme-blackgold ::-webkit-scrollbar-thumb { background-color: rgba(212, 168, 83, 0.30); }
 </style>
+{% if request is defined and '/admin/' in request.url.path %}
+<style>
+/* Admin dark-theme surface separation (admin scope only).
+   Cards (.bg-white -> #0a0a12) sit on the page (#050508) with ~1% luminance
+   delta, no border, and a shadow that vanishes on near-black — boundaries
+   disappear. Reuses the established dark-surface dialect from the login
+   card: 1px hairline + inset top highlight (DESIGN.md: Inset-Highlight).
+   Card background stays night-panel #0a0a12; do not "fix" by lightening.
+   Selector targets the card signature (.bg-white + shadow class) only, so
+   inputs/selects/buttons are unaffected. Specificity beats the per-template
+   .shadow overrides, so this wins regardless of load order. */
+body.theme-dark .bg-white.shadow,
+body.theme-dark .bg-white.shadow-sm,
+body.theme-dark .bg-white.shadow-lg,
+body.theme-dark .bg-white.shadow-xl {
+    border: 1px solid rgba(235, 234, 250, 0.08);
+    box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(235, 234, 250, 0.06) !important;
+}
+</style>
+{% endif %}
 <script>
 var _hmt = _hmt || [];
 (function() {
