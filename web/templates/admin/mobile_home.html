@@ -152,17 +152,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         body.theme-blackgold .ag-dial {
             box-shadow: 0 0 0 1px rgba(212,168,83,0.22), 0 8px 20px rgba(0,0,0,0.6), inset 0 2px 12px rgba(0,0,0,0.7); }
         .ag-dial svg { display: block; }
-        .ag-odometer {
-            position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%);
-            background: linear-gradient(105deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.05) 28%, rgba(255,255,255,0) 34%, rgba(255,255,255,0) 100%), #02040a;
-            border: 1px solid #39424f; border-radius: 4px;
-            padding: 1px 4px; line-height: 1.1;
-            font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace;
-            font-size: 8px; font-weight: 600; color: #bfe3ee; letter-spacing: 0.03em;
-            box-shadow: inset 0 3px 6px rgba(0,0,0,0.95), inset 0 -1px 0 rgba(255,255,255,0.1), 0 1px 0 rgba(255,255,255,0.05);
-            white-space: nowrap;
-        }
-        body.theme-blackgold .ag-odometer { border-color: rgba(212,168,83,0.4); color: #f0e2b6; }
         /* tell-tale lamps pinned to the tach dial corners */
         .ag-lamp { display: inline-flex; align-items: center; }
         .ag-lamp-corner { position: absolute; z-index: 3; }
@@ -523,7 +512,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         clusterModeNormal: "{{ _('NORMAL') }}",
         clusterModeDegraded: "{{ _('DEGRADED') }}",
         clusterModeCritical: "{{ _('CRITICAL') }}",
-        clusterOdoTitle: "{{ _('Total cost (odometer)') }}",
         clusterTachUnit: "{{ _('in-flight') }}",
         clusterLampRedline: "{{ _('Redline') }}",
         clusterLampFuel: "{{ _('Key health') }}",
@@ -1030,7 +1018,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             const REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             const cards = {};
             let animTimer = 0;
-            let odoCost = null;
 
             function pt(r, deg) {
                 const rad = deg * Math.PI / 180;
@@ -1165,8 +1152,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 // corner tell-tale lamps live inside the tach dial; keep them
                 // across (re)mounts that rewrite the dial svg
                 const lamps = Array.from(dial.querySelectorAll('.ag-lamp'));
-                dial.innerHTML = gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFrom, gi)
-                    + (kind === 'speedo' ? `<div class="ag-odometer" title="${window.I18N.clusterOdoTitle}">${odoCost == null ? '—' : '¥' + odoCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : '');
+                dial.innerHTML = gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFrom, gi);
                 lamps.forEach(l => dial.appendChild(l));
                 document.getElementById(labelId).textContent = labelText;
                 const arcLen = 2 * Math.PI * R_TRACK * sweep / 360;
@@ -1342,12 +1328,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             function setKeysHealth(pct) {
                 setLamp('ag-lamp-fuel', pct < 0.45 ? (pct < 0.25 ? 'lit-red' : 'lit-amber') : '');
             }
-            function setOdometer(cost) {
-                odoCost = cost;
-                const el = cards['speedo'] && cards['speedo'].dial.querySelector('.ag-odometer');
-                if (el) el.textContent = '¥' + cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-            return { mount, mountStatusDial, setValue, setStatusBar, setStatusSys, setDisabledProviders, setOdometer, setLamp, setKeysHealth };
+            return { mount, mountStatusDial, setValue, setStatusBar, setStatusSys, setDisabledProviders, setLamp, setKeysHealth };
         })();
 
         function updateClusterLive(data) {
@@ -1391,13 +1372,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 const pct = total > 0 ? healthy / total : 0;
                 ClusterGauges.setStatusBar('keys', pct, `${healthy}/${total}`);
                 ClusterGauges.setKeysHealth(pct);
-            } catch (e) {}
-        }
-
-        async function loadClusterOdometer() {
-            try {
-                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/odometer`);
-                if (data) ClusterGauges.setOdometer(Number(data.total_cost) || 0);
             } catch (e) {}
         }
 
@@ -2127,10 +2101,8 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         document.getElementById('mg-peak-label').textContent = window.I18N.clusterHourPeak;
         loadClusterKeysStatus();
         loadClusterSystemInfo();
-        loadClusterOdometer();
         setInterval(loadClusterKeysStatus, 30000);
         setInterval(loadClusterSystemInfo, 10000);
-        setInterval(loadClusterOdometer, 60000);
         setInterval(() => {
             if (mgLastLiveAt && Date.now() - mgLastLiveAt > 15000) {
                 ClusterGauges.setLamp('ag-lamp-offline', 'lit-red');

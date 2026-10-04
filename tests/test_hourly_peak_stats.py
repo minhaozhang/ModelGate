@@ -202,7 +202,6 @@ class HourlyPeaksTemplateGuards(unittest.TestCase):
             "updateClusterLive",
             "loadClusterSystemInfo",
             "loadClusterKeysStatus",
-            "loadClusterOdometer",
             "velPct",             # spring integrator parity with monitor
             "prefers-reduced-motion",
         ):
@@ -212,6 +211,11 @@ class HourlyPeaksTemplateGuards(unittest.TestCase):
         html = self._read(self.MOBILE)
         self.assertNotIn("mountTopDial", html, "top-keys pod must not be ported to mobile")
         self.assertNotIn("ag-fuel-dial", html, "fuel dial pod must not be ported to mobile")
+        self.assertNotIn(
+            "ag-odometer",
+            html,
+            "the cost odometer overflows the small mobile speedo - monitor only",
+        )
 
     def test_mobile_trend_collapsible_and_subtitle_removed(self):
         html = self._read(self.MOBILE)
