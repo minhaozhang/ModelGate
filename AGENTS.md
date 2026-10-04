@@ -11,6 +11,7 @@
 
 - Release flow: dev commit -> `git checkout master; git merge --ff-only dev` -> push origin(gitee)+atomgit -> `docker build -t 10.100.2.148:5002/modelgate:latest .` -> `docker push` -> back to dev.
 - Docker Hub (docker.io) is NOT reachable directly from this machine. Never `docker pull python:...` from docker.io and don't bother with mirror accelerators.
+- Containerd snapshotter is **permanently OFF** (`UseContainerdSnapshotter=false`, 2026-10-04 decision): with it ON, builds fail because `moby/buildkit` can't be pulled without docker.io. Do NOT re-enable it; classic store (overlay2) holds the base image, build cache and the tagged release images. If a Docker Desktop update resets the setting to true, just set it back to false and restart.
 - Local image cache matters: builds normally hit cached layers only (apt/pip layers unchanged between releases because requirements rarely change). `python:3.12-slim` exists locally, retagged from the internal registry:
   ```
   docker pull 10.100.2.148:5002/python:3.12-slim
