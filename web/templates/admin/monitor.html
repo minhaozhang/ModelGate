@@ -195,25 +195,13 @@
             position: relative; overflow: hidden;
             display: flex; align-items: stretch; justify-content: center; gap: 28px;
             padding: 20px 28px 14px; border-radius: 18px; margin-bottom: 1.5rem;
-            background:
-                linear-gradient(115deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,0) 46%, rgba(255,255,255,0.06) 52%, rgba(255,255,255,0) 58%, rgba(255,255,255,0) 75%, rgba(255,255,255,0.035) 100%),
-                repeating-linear-gradient(180deg, rgba(255,255,255,0.06) 0 1px, rgba(255,255,255,0) 1px 2px, rgba(0,0,0,0.32) 2px 3px, rgba(255,255,255,0) 3px 4px),
-                linear-gradient(180deg, #12161c 0%, #0b0e12 55%, #070809 100%);
+            background: linear-gradient(180deg, #101318 0%, #0a0c10 55%, #060708 100%);
             border: 1px solid #232830;
-            box-shadow:
-                inset 0 1px 0 rgba(255,255,255,0.08),
-                inset 0 -1px 0 rgba(0,0,0,0.9),
-                inset 1px 0 0 rgba(255,255,255,0.03),
-                inset -1px 0 0 rgba(255,255,255,0.03),
-                inset 0 18px 28px -14px rgba(0,0,0,0.75),
-                0 10px 30px rgba(0,0,0,0.35);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), inset 0 18px 28px -14px rgba(0,0,0,0.75), 0 10px 30px rgba(0,0,0,0.35);
             flex-wrap: wrap;
         }
         body.theme-blackgold .cluster-panel {
-            background:
-                linear-gradient(115deg, rgba(255,220,150,0.04) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,0) 46%, rgba(255,220,150,0.055) 52%, rgba(255,255,255,0) 58%, rgba(255,255,255,0) 75%, rgba(255,220,150,0.03) 100%),
-                repeating-linear-gradient(180deg, rgba(212,168,83,0.06) 0 1px, rgba(255,255,255,0) 1px 2px, rgba(0,0,0,0.32) 2px 3px, rgba(255,255,255,0) 3px 4px),
-                linear-gradient(180deg, #191306 0%, #100c05 55%, #080503 100%);
+            background: linear-gradient(180deg, #171106 0%, #0f0b05 55%, #080503 100%);
             border-color: rgba(212,168,83,0.35);
         }
         .ag-gauge { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
@@ -242,10 +230,10 @@
         body.theme-blackgold .ag-top-head { color: #c9b783; }
         body.theme-blackgold .ag-top-name { color: #e7d5a3; }
         body.theme-blackgold .ag-top-val { color: #f0e2b6; }
-        .ag-face-a { stop-color: #0c0f14; }
-        .ag-face-b { stop-color: #05070a; }
-        body.theme-blackgold .ag-face-a { stop-color: #181206; }
-        body.theme-blackgold .ag-face-b { stop-color: #0d0a04; }
+        .ag-face-a { stop-color: rgba(22,28,36,0.38); }
+        .ag-face-b { stop-color: rgba(4,6,9,0.62); }
+        body.theme-blackgold .ag-face-a { stop-color: rgba(56,44,20,0.38); }
+        body.theme-blackgold .ag-face-b { stop-color: rgba(10,8,4,0.62); }
         .ag-ring { stroke: #9aa4b2; stroke-width: 1.6; }
         .ag-groove { stroke: rgba(255,255,255,0.09); }
         .ag-tick { stroke: #7a8199; }
@@ -265,21 +253,38 @@
         body.theme-blackgold .ag-tick-major { stroke: #ecdcae; }
         body.theme-blackgold .ag-num { fill: #e7d5a3; }
         body.theme-blackgold .ag-hub-cap { stroke: #e2c88a; }
-        .ag-dial { position: relative; border-radius: 50%; background: #050505;
-            box-shadow:
-                0 0 0 1px rgba(255,255,255,0.08),
-                0 0 0 3px rgba(0,0,0,0.55),
-                0 0 0 4px rgba(255,255,255,0.05),
-                0 8px 20px rgba(0,0,0,0.6),
-                inset 0 2px 12px rgba(0,0,0,0.7); }
+        /* lathe-brushed gunmetal dial faces - pure-CSS metal:
+           conic anisotropic sheen + repeating-radial graining + radial
+           vignette (classic recipe, simurai/bennettfeely); the svg face
+           gradient on top acts as a translucent depth veil */
+        .ag-dial { position: relative; border-radius: 50%;
+            background:
+                repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0.045) 0 1px, rgba(255,255,255,0) 1px 3px),
+                conic-gradient(from 210deg,
+                    #161a20, #0d1014, #1b2129, #0b0d11, #1e242c,
+                    #0e1116, #171c23, #0a0c10, #1c222a, #10131a, #161a20),
+                radial-gradient(circle at 50% 42%, #141922 0%, #0a0c10 68%, #060709 100%);
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.07), 0 8px 20px rgba(0,0,0,0.6), inset 0 2px 12px rgba(0,0,0,0.7); }
         body.theme-blackgold .ag-dial {
-            box-shadow:
-                0 0 0 1px rgba(212,168,83,0.28),
-                0 0 0 3px rgba(0,0,0,0.55),
-                0 0 0 4px rgba(212,168,83,0.18),
-                0 8px 20px rgba(0,0,0,0.6),
-                inset 0 2px 12px rgba(0,0,0,0.7); }
+            background:
+                repeating-radial-gradient(circle at 50% 50%, rgba(212,168,83,0.05) 0 1px, rgba(212,168,83,0) 1px 3px),
+                conic-gradient(from 210deg,
+                    #1a1408, #0f0b05, #1f1809, #0b0804, #231b0b,
+                    #0d0a05, #191308, #090603, #20180a, #110d06, #1a1408),
+                radial-gradient(circle at 50% 42%, #181206 0%, #0d0a05 68%, #080503 100%);
+            box-shadow: 0 0 0 1px rgba(212,168,83,0.25), 0 8px 20px rgba(0,0,0,0.6), inset 0 2px 12px rgba(0,0,0,0.7); }
         .ag-dial svg { display: block; }
+        /* travelling glint: a faint specular streak on the brushed face
+           that aligns with the needle and fades in with sweep velocity
+           (light glancing off the polished needle onto the metal); the
+           tip-heavy mask keeps it strongest near the needle tip */
+        .ag-glint { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; opacity: 0;
+            background: linear-gradient(90deg, transparent 0%, transparent 30%, rgba(255,255,255,0.10) 47%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0.10) 53%, transparent 70%, transparent 100%);
+            -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.35) 45%, transparent 62%);
+            mask-image: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.35) 45%, transparent 62%);
+            will-change: transform, opacity; }
+        body.theme-blackgold .ag-glint {
+            background: linear-gradient(90deg, transparent 0%, transparent 30%, rgba(255,226,160,0.10) 47%, rgba(255,238,196,0.24) 50%, rgba(255,226,160,0.10) 53%, transparent 70%, transparent 100%); }
         /* hourly peak readout chip under the speedo/tach (ex-odometer slot) */
         .mg-peak-chip {
             position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); z-index: 2;
@@ -386,11 +391,12 @@
                     <div class="ag-label" id="ag-top-label"></div>
                 </div>
                 <div class="ag-gauge ag-speedo">
-                    <div class="ag-dial" id="ag-speedo-dial"><span class="mg-peak-chip" id="mg-peak-tps"></span></div>
+                    <div class="ag-dial" id="ag-speedo-dial"><div class="ag-glint" aria-hidden="true"></div><span class="mg-peak-chip" id="mg-peak-tps"></span></div>
                     <div class="ag-label" id="ag-speedo-label"></div>
                 </div>
                 <div class="ag-gauge ag-tach">
                     <div class="ag-dial" id="ag-tach-dial">
+                    <div class="ag-glint" aria-hidden="true"></div>
                         <span class="ag-lamp ag-lamp-corner" id="ag-lamp-redline" style="right:16%;top:16%"><i></i></span>
                         <span class="ag-lamp ag-lamp-corner" id="ag-lamp-offline" style="left:16%;top:16%"><i></i></span>
                         <span class="ag-lamp ag-lamp-corner" id="ag-lamp-disabled" style="left:16%;bottom:16%"><i></i></span>
@@ -404,7 +410,7 @@
                     <div class="ag-label" id="ag-status-label"></div>
                 </div>
                 <div class="ag-gauge ag-fuel">
-                    <div class="ag-dial" id="ag-fuel-dial"></div>
+                    <div class="ag-dial" id="ag-fuel-dial"><div class="ag-glint" aria-hidden="true"></div></div>
                     <div class="ag-label" id="ag-fuel-label"></div>
                 </div>
 
@@ -1630,7 +1636,7 @@
                 const redFrom = kind === 'tach' ? 0.85 : (isFuel ? 0 : null);
                 // corner tell-tale lamps and peak chips live inside the dials;
                 // keep them across (re)mounts that rewrite the dial svg
-                const pinned = Array.from(dial.querySelectorAll('.ag-lamp, .mg-peak-chip'));
+                const pinned = Array.from(dial.querySelectorAll('.ag-lamp, .mg-peak-chip, .ag-glint'));
                 dial.innerHTML = gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFrom, gi);
                 pinned.forEach(el => dial.appendChild(el));
                 document.getElementById(labelId).textContent = labelText;
@@ -1641,6 +1647,7 @@
                     valueArc: dial.querySelector('.ag-value'),
                     glowArc: dial.querySelector('.ag-glow'),
                     tip: dial.querySelector('.ag-needle-tip'),
+                    glint: dial.querySelector('.ag-glint'),
                     centerNum: dial.querySelector('.ag-center-num'),
                     curPct: pct, tgtPct: pct, velPct: old ? old.velPct : 0,
                     valueText,
@@ -1659,6 +1666,12 @@
                 card.glowArc.setAttribute('stroke', color);
                 card.tip.setAttribute('fill', shade(color, 0.55));
                 card.needle.style.transform = `rotate(${(-135 + card.dir * card.sweep * pct).toFixed(1)}deg)`;
+                // the moving needle throws a glint on the brushed face:
+                // streak angle follows the needle, brightness follows speed
+                if (card.glint) {
+                    card.glint.style.transform = card.needle.style.transform;
+                    card.glint.style.opacity = Math.min(0.4, Math.abs(card.velPct || 0) * 7).toFixed(3);
+                }
                 const cls = 'ag-center-num' + centerClass(card.kind, pct);
                 if (card.centerNum.getAttribute('class') !== cls) card.centerNum.setAttribute('class', cls);
             }
@@ -1673,7 +1686,7 @@
                     const t = card.tgtPct || 0, c = card.curPct || 0, v = card.velPct || 0;
                     const d = t - c;
                     if (Math.abs(d) < 0.001 && Math.abs(v) < 0.0004) {
-                        if (c !== t || v !== 0) { applyPct(card, t); card.curPct = t; card.velPct = 0; }
+                        if (c !== t || v !== 0) { card.curPct = t; card.velPct = 0; applyPct(card, t); }
                         continue;
                     }
                     // Spring integrator (same model as the rest of the site):
@@ -1763,14 +1776,11 @@
                         <span class="ag-top-val">${formatCompactTokens(e.tokens)}</span>
                     </div>`).join('');
             }
-            // ===== status dial: segmented bars + mode badge =====
-            // Four vehicle-computer style bars: key health (like fuel) plus
-            // CPU / memory / disk load (like temp/oil/battery). The bottom
-            // red arc stays dim as a warning-zone marking and lights up hot
-            // whenever the derived mode leaves NORMAL.
             // ===== status dial: segmented health bars + busyness readout =====
-            // keys sits last: its healthy/total readout is the widest string
-            // and the bottom row lies closest to the dial's widest chord.
+            // Four vehicle-computer style bars: key health (like fuel) plus
+            // CPU / memory / disk load (like temp/oil/battery). keys sits
+            // last: its healthy/total readout is the widest string and the
+            // bottom row lies closest to the dial's widest chord.
             const STATUS_BARS = ['cpu', 'mem', 'disk', 'keys'];
             const ZONE_COLOR = { green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
             const statusState = { bars: {} };
