@@ -5069,6 +5069,9 @@ msgstr "Concurrency"
 msgid "Hour peak"
 msgstr "Hour peak"
 
+msgid "Peak"
+msgstr "Peak"
+
 msgid "Cluster key health"
 msgstr "Key Health"
 

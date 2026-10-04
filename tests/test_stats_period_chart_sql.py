@@ -80,7 +80,7 @@ class StatsPeriodSqlTests(_SqlAggTestBase):
             _FakeResult([(1, "pk-A")]),          # provider key labels
             _FakeResult([_row(requests=10, tokens=500, prompt_tokens=100,
                               completion_tokens=400, errors=1, timeouts=0,
-                              rate_limited=2)]),  # totals
+                              rate_limited=2, cost=0.75)]),  # totals
             _FakeResult([                         # provider dim rows
                 _row(pid=5, pname="provA", pk_id=1, pk_label="old",
                      mname="m1", requests=8, tokens=480),
@@ -102,6 +102,7 @@ class StatsPeriodSqlTests(_SqlAggTestBase):
         self.assertEqual(data["total_tokens"], 500)
         self.assertEqual(data["total_errors"], 1)
         self.assertEqual(data["total_rate_limited"], 2)
+        self.assertEqual(data["total_cost"], 0.75)
 
         prov = data["providers"]["provA"]
         self.assertEqual(prov["requests"], 10)

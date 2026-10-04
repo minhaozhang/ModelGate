@@ -197,6 +197,9 @@ class HourlyPeaksTemplateGuards(unittest.TestCase):
             "setKeysHealth",
             "hour_peaks",
             "mg-cluster-peaks",
+            "mg-peak-chip",       # per-dial hourly peak readout under speedo/tach
+            "clusterCost",        # period cost follows the header period selector
+            "mg-status-busyness", # busyness level replaces the verdict badge
             "SPEED_TIERS = [1000, 2000, 5000, 10000, 25000, 50000]",
             "mount('speedo', 'ag-speedo-dial', 1000",
             "updateClusterLive",

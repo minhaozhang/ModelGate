@@ -733,6 +733,18 @@ async def aggregate_request_logs_range(
                 func.sum(
                     case((RequestLog.status.in_(RATE_LIMITED_STATUSES), 1), else_=0)
                 ).label("rate_limited"),
+                func.sum(
+                    case(
+                        (
+                            non_rl,
+                            func.coalesce(
+                                RequestLog.tokens["billing"]["total_cost_cny"].as_float(),
+                                0,
+                            ),
+                        ),
+                        else_=0,
+                    )
+                ).label("cost"),
             ).where(*window)
         )
     ).one()
@@ -856,6 +868,7 @@ async def aggregate_request_logs_range(
         "total_errors": int(totals_row.errors or 0),
         "total_timeouts": int(totals_row.timeouts or 0),
         "total_rate_limited": int(totals_row.rate_limited or 0),
+        "total_cost": float(totals_row.cost or 0),
         "model_stats": model_stats,
         "provider_stats": provider_stats,
         "api_key_stats": api_key_stats,
@@ -1622,6 +1635,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
         total_errors = 0
         total_timeouts = 0
         total_rate_limited = 0
+        total_cost = 0.0
 
         if period in TOTALS_AGGREGATED_PERIODS:
             (
@@ -1672,6 +1686,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         func.sum(ProviderDailyStat.requests).label("requests"),
                         func.sum(ProviderDailyStat.tokens).label("tokens"),
                         func.sum(ProviderDailyStat.rate_limited).label("rate_limited"),
+                        func.coalesce(func.sum(ProviderDailyStat.cost_cny), 0).label("cost"),
                     )
                     .where(
                         ProviderDailyStat.date >= start_str,
@@ -1689,6 +1704,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                         "models": {},
                         "keys": {},
                     }
+                    total_cost += float(row.cost or 0)
 
                 provider_model_rows_result = await session.execute(
                     select(
@@ -1790,7 +1806,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
             async def accumulate_raw_range(
                 raw_lo: datetime, raw_hi: datetime
             ) -> None:
-                nonlocal total_requests, total_tokens, total_prompt_tokens, total_completion_tokens, total_errors, total_timeouts, total_rate_limited
+                nonlocal total_requests, total_tokens, total_prompt_tokens, total_completion_tokens, total_errors, total_timeouts, total_rate_limited, total_cost
                 agg = await aggregate_request_logs_range(
                     session, raw_lo, raw_hi, pk_label_map
                 )
@@ -1801,6 +1817,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
                 total_errors += agg["total_errors"]
                 total_timeouts += agg["total_timeouts"]
                 total_rate_limited += agg["total_rate_limited"]
+                total_cost += agg["total_cost"]
                 merge_range_aggregate(
                     {
                         "models": model_stats,
@@ -1823,6 +1840,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
             total_errors = agg["total_errors"]
             total_timeouts = agg["total_timeouts"]
             total_rate_limited = agg["total_rate_limited"]
+            total_cost = agg["total_cost"]
             model_stats.update(agg["model_stats"])
             provider_stats.update(agg["provider_stats"])
             api_key_stats.update(agg["api_key_stats"])
@@ -1864,6 +1882,7 @@ async def get_stats_period(period: str = "day", _: bool = Depends(permission_req
             "total_tokens": total_tokens,
             "total_prompt_tokens": total_prompt_tokens,
             "total_completion_tokens": total_completion_tokens,
+            "total_cost": round(float(total_cost), 4),
             "total_errors": total_errors,
             "total_timeouts": total_timeouts,
             "total_rate_limited": total_rate_limited,

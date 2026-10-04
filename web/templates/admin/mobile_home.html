@@ -188,14 +188,12 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         .ag-bar-segs { display: flex; gap: 1px; flex: 1; }
         .ag-bar-segs i { flex: 1; height: 4px; border-radius: 1px; background: rgba(255,255,255,0.09); }
         .ag-bar-segs i.on { background: var(--seg, #10b981); box-shadow: 0 0 3px var(--seg, #10b981); }
-        .ag-bar-val { width: 24px; flex: none; font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 7px; color: #d5dce8; }
-        .ag-status-mode {
+        .ag-bar-val { width: 26px; flex: none; font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 6.5px; color: #d5dce8; }
+        .mg-status-busyness {
             position: absolute; bottom: 10.5%; left: 50%; transform: translateX(-50%); z-index: 2;
             font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 7.5px; font-weight: 700;
-            letter-spacing: 0.14em; color: #10b981; white-space: nowrap;
+            letter-spacing: 0.14em; color: #98a2b6; white-space: nowrap;
         }
-        .ag-status-mode.degraded { color: #f59e0b; }
-        .ag-status-mode.critical { color: #ef4444; animation: ag-blink 1.6s ease-in-out infinite; }
         .ag-status-arc { stroke: rgba(239,68,68,0.28); transition: stroke 0.3s; }
         .ag-status-arc.hot { stroke: #ef4444; filter: drop-shadow(0 0 3px rgba(239,68,68,0.8)); }
         body.theme-blackgold .ag-bar-name { color: #c9b783; }
@@ -206,31 +204,36 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             font-size: 9px; color: #98a2b6; white-space: nowrap;
         }
         .mg-cluster-peaks b { color: #d5dce8; font-weight: 600; }
+        .mg-peak-chip {
+            position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); z-index: 2;
+            font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace;
+            font-size: 7px; font-weight: 600; letter-spacing: 0.05em; color: #98a2b6; white-space: nowrap;
+        }
+        body.theme-blackgold .mg-peak-chip { color: #c9b783; }
         @media (prefers-reduced-motion: reduce) {
             .ag-lamp i { transition: none; animation: none !important; }
-            .ag-status-mode.critical { animation: none !important; }
             .ag-status-arc { transition: none; }
         }
     </style>
 </head>
 <body class="theme-dark bg-gray-50 min-h-screen pb-20">
     <nav class="bg-white shadow-sm sticky top-0 z-50">
-        <div class="flex items-center justify-between px-4 py-3 flex-wrap gap-y-2">
+        <div class="flex items-center justify-between px-4 py-2.5 flex-wrap gap-y-1.5">
             <div>
-                <h1 class="text-lg font-bold text-gray-800">ModelGate</h1>
+                <h1 class="text-base font-bold text-gray-800">ModelGate</h1>
             </div>
-            <div class="flex items-center gap-2">
-                <select id="lang-select" onchange="switchLang(this.value)" class="text-xs border rounded-lg px-1.5 py-1 bg-gray-50">
+            <div class="flex items-center gap-1.5">
+                <select id="lang-select" onchange="switchLang(this.value)" class="text-xs border rounded-lg px-1 py-1 bg-gray-50">
                     <option value="en">English</option>
                     <option value="zh">中文</option>
                 </select>
-                <select id="period-select" class="text-xs border rounded-lg px-2 py-1.5 bg-gray-50" onchange="loadData()">
+                <select id="period-select" class="text-xs border rounded-lg px-1.5 py-1 bg-gray-50" onchange="loadData()">
                     <option value="day">{{ _('Today') }}</option>
                     <option value="week">{{ _('Last 7 Days') }}</option>
                     <option value="month">{{ _('Last 30 Days') }}</option>
                     <option value="year">{{ _('Last 365 Days') }}</option>
                 </select>
-                <button onclick="logout()" class="p-2 text-gray-400 hover:text-red-500 rounded-lg">
+                <button onclick="logout()" class="p-1.5 text-gray-400 hover:text-red-500 rounded-lg">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                     </svg>
@@ -294,7 +297,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
 
         <div class="mg-cluster" id="cluster-panel">
             <div class="ag-gauge ag-speedo">
-                <div class="ag-dial" id="ag-speedo-dial"></div>
+                <div class="ag-dial" id="ag-speedo-dial"><span class="mg-peak-chip" id="mg-peak-tps"></span></div>
                 <div class="ag-label" id="ag-speedo-label"></div>
             </div>
             <div class="ag-gauge ag-tach">
@@ -303,6 +306,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     <span class="ag-lamp ag-lamp-corner" id="ag-lamp-offline" style="left:16%;top:16%"><i></i></span>
                     <span class="ag-lamp ag-lamp-corner" id="ag-lamp-disabled" style="left:16%;bottom:16%"><i></i></span>
                     <span class="ag-lamp ag-lamp-corner" id="ag-lamp-fuel" style="right:16%;bottom:16%"><i></i></span>
+                    <span class="mg-peak-chip" id="mg-peak-conc"></span>
                 </div>
                 <div class="ag-label" id="ag-tach-label"></div>
             </div>
@@ -311,7 +315,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 <div class="ag-label" id="ag-status-label"></div>
             </div>
             <div class="mg-cluster-peaks" id="mg-cluster-peaks">
-                <span id="mg-peak-label"></span> <b id="mg-peak-conc">–</b> · <b id="mg-peak-tps">–</b> tok/s
+                <span id="mg-cost-label"></span> <b id="mg-cluster-cost">--</b>
             </div>
         </div>
 
@@ -509,9 +513,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         clusterBar_cpu: "CPU",
         clusterBar_mem: "{{ _('Memory') }}",
         clusterBar_disk: "{{ _('Disk') }}",
-        clusterModeNormal: "{{ _('NORMAL') }}",
-        clusterModeDegraded: "{{ _('DEGRADED') }}",
-        clusterModeCritical: "{{ _('CRITICAL') }}",
         clusterTachUnit: "{{ _('in-flight') }}",
         clusterLampRedline: "{{ _('Redline') }}",
         clusterLampFuel: "{{ _('Key health') }}",
@@ -521,6 +522,8 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         clusterRedlineTitle: "{{ _('Concurrency entered the red zone (85 and above on the scale)') }}",
         clusterDisabledTitle: "{{ _('Disabled providers') }}",
         clusterHourPeak: "{{ _('Hour peak') }}",
+        clusterCost: "{{ _('Cost') }}",
+        peakShort: "{{ _('Peak') }}",
     };
     </script>
     <script>
@@ -984,6 +987,8 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 flipCounter('total-rate-limited', data.total_rate_limited || 0);
                 const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
                 flipCounter('error-rate', errorRate + '%');
+                const costEl = document.getElementById('mg-cluster-cost');
+                if (costEl) costEl.textContent = '¥' + Number(data.total_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                 renderProviderBars(data.providers || {}, data.disabled_providers || {});
                 renderApiKeyBars(data.api_keys || {});
@@ -1149,11 +1154,11 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 const dir = 1;
                 const sweep = SWEEP_FULL;
                 const redFrom = kind === 'tach' ? 0.85 : null;
-                // corner tell-tale lamps live inside the tach dial; keep them
-                // across (re)mounts that rewrite the dial svg
-                const lamps = Array.from(dial.querySelectorAll('.ag-lamp'));
+                // corner tell-tale lamps and peak chips live inside the dials;
+                // keep them across (re)mounts that rewrite the dial svg
+                const pinned = Array.from(dial.querySelectorAll('.ag-lamp, .mg-peak-chip'));
                 dial.innerHTML = gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFrom, gi);
-                lamps.forEach(l => dial.appendChild(l));
+                pinned.forEach(el => dial.appendChild(el));
                 document.getElementById(labelId).textContent = labelText;
                 const arcLen = 2 * Math.PI * R_TRACK * sweep / 360;
                 cards[kind] = {
@@ -1240,8 +1245,10 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     setLamp('ag-lamp-redline', c.scale && value / c.scale >= 0.85 ? 'lit-red' : '');
                 }
             }
-            // ===== status dial: segmented bars + mode badge =====
-            const STATUS_BARS = ['keys', 'cpu', 'mem', 'disk'];
+            // ===== status dial: segmented health bars + busyness readout =====
+            // keys sits last: its healthy/total readout is the widest string
+            // and the bottom row lies closest to the dial's widest chord.
+            const STATUS_BARS = ['cpu', 'mem', 'disk', 'keys'];
             const ZONE_COLOR = { green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
             const statusState = { bars: {}, disabledProviders: 0, mode: 'normal' };
             function segZone(name, pct) {
@@ -1271,7 +1278,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                         <path class="ag-status-arc" d="${arcPath(40.5, 55, 125, false, 1)}" fill="none" stroke-width="2.6" stroke-linecap="round"/>
                     </svg>
                     <div class="ag-bars">${rows}</div>
-                    <div class="ag-status-mode" id="ag-status-mode"></div>`;
+                    <div class="mg-status-busyness" id="mg-status-busyness">--</div>`;
                 document.getElementById(labelId).textContent = labelText;
                 for (const name of STATUS_BARS) statusState.bars[name] = { pct: null, zone: 'green' };
                 renderMode();
@@ -1300,20 +1307,11 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 renderMode();
             }
             function renderMode() {
-                const el = document.getElementById('ag-status-mode');
-                if (!el) return;
                 const zones = Object.values(statusState.bars).filter(b => b.pct != null).map(b => b.zone);
                 let mode = 'normal';
                 if (zones.includes('red')) mode = 'critical';
                 else if (zones.includes('amber') || statusState.disabledProviders > 0) mode = 'degraded';
                 statusState.mode = mode;
-                const labels = {
-                    normal: window.I18N.clusterModeNormal || 'NORMAL',
-                    degraded: window.I18N.clusterModeDegraded || 'DEGRADED',
-                    critical: window.I18N.clusterModeCritical || 'CRITICAL',
-                };
-                el.textContent = labels[mode];
-                el.className = 'ag-status-mode' + (mode === 'normal' ? '' : ' ' + mode);
                 const arc = document.querySelector('#ag-status-dial .ag-status-arc');
                 if (arc) arc.classList.toggle('hot', mode !== 'normal');
             }
@@ -1345,10 +1343,11 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             ClusterGauges.setDisabledProviders(names.length);
             const peaks = data.hour_peaks;
             if (peaks) {
-                const peakConc = document.getElementById('mg-peak-conc');
-                const peakTps = document.getElementById('mg-peak-tps');
-                if (peakConc) peakConc.textContent = String(peaks.max_concurrency ?? 0);
-                if (peakTps) peakTps.textContent = Math.round(peaks.max_tokens_per_second || 0).toLocaleString();
+                const conc = document.getElementById('mg-peak-conc');
+                const tps = document.getElementById('mg-peak-tps');
+                const short = v => v >= 1000 ? (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(Math.round(v));
+                if (conc) conc.textContent = `${window.I18N.peakShort} ${peaks.max_concurrency ?? 0}`;
+                if (tps) tps.textContent = `${window.I18N.peakShort} ${short(peaks.max_tokens_per_second || 0)}`;
             }
         }
 
@@ -1583,13 +1582,22 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/busyness`);
                 const el = document.getElementById('busyness-level');
                 if (!el || !data.level) return;
-                const colorMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-600'};
-                el.className = 'metric-flip mt-1 text-lg font-bold leading-none ' + (colorMap[data.color] || 'text-slate-600');
                 const locale = document.documentElement.lang || '{{ current_locale }}' || 'zh';
                 const isZh = locale === 'zh' || locale === 'zh-CN' || locale.startsWith('zh');
                 const zhMap = {extremely_busy:'过载',very_busy:'拥挤',busy:'活跃',normal:'流畅',idle:'平静',quiet:'寂静'};
                 const enMap = {extremely_busy:'Overloaded',very_busy:'Crowded',busy:'Active',normal:'Smooth',idle:'Calm',quiet:'Silent'};
-                el.textContent = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
+                const label = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
+                const colorMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-600'};
+                el.className = 'metric-flip mt-1 text-lg font-bold leading-none ' + (colorMap[data.color] || 'text-slate-600');
+                el.textContent = label;
+                // the status dial's bottom readout carries the busyness level
+                // instead of the old NORMAL/DEGRADED verdict badge
+                const dialEl = document.getElementById('mg-status-busyness');
+                if (dialEl) {
+                    const hexMap = {red:'#ef4444',orange:'#f97316',yellow:'#eab308',green:'#10b981',blue:'#3b82f6',slate:'#98a2b6'};
+                    dialEl.style.color = hexMap[data.color] || '#98a2b6';
+                    dialEl.textContent = label;
+                }
             } catch(e) {}
         }
 
@@ -2098,7 +2106,10 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         document.getElementById('ag-lamp-offline').title = window.I18N.clusterLampOffline;
         document.getElementById('ag-lamp-disabled').title = window.I18N.clusterDisabledTitle;
         document.getElementById('ag-lamp-fuel').title = `${window.I18N.clusterLampFuel}: ${window.I18N.clusterFuelTitle}`;
-        document.getElementById('mg-peak-label').textContent = window.I18N.clusterHourPeak;
+        document.getElementById('mg-cost-label').textContent = window.I18N.clusterCost;
+        document.getElementById('mg-cluster-cost').title = window.I18N.clusterCost;
+        document.getElementById('mg-peak-conc').title = window.I18N.clusterHourPeak;
+        document.getElementById('mg-peak-tps').title = window.I18N.clusterHourPeak;
         loadClusterKeysStatus();
         loadClusterSystemInfo();
         setInterval(loadClusterKeysStatus, 30000);

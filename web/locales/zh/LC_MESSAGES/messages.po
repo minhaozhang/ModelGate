@@ -1810,7 +1810,7 @@ msgstr "总耗时"
 #: web/templates/admin/request_logs.html:297
 #: web/templates/user/dashboard.html:437
 msgid "Cost"
-msgstr "成本"
+msgstr "费用"
 
 #: web/templates/admin/request_logs.html:298
 #: web/templates/admin/request_logs.html:331
@@ -3568,6 +3568,9 @@ msgstr "并发 Concurrency"
 
 msgid "Hour peak"
 msgstr "本小时峰值"
+
+msgid "Peak"
+msgstr "峰"
 
 msgid "Cluster key health"
 msgstr "密钥健康 Key Health"
