@@ -107,12 +107,22 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             position: relative; overflow: hidden;
             display: flex; align-items: flex-end; justify-content: center; gap: 4px;
             padding: 14px 6px 10px; border-radius: 14px;
-            background: linear-gradient(180deg, #1c2027 0%, #12151a 55%, #0c0e12 100%);
-            border: 1px solid #262b34;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), inset 0 18px 28px -14px rgba(0,0,0,0.75), 0 10px 30px rgba(0,0,0,0.35);
+            background:
+                repeating-linear-gradient(180deg, rgba(255,255,255,0.016) 0 1px, rgba(0,0,0,0.22) 1px 2px, rgba(255,255,255,0) 2px 4px),
+                linear-gradient(180deg, #101318 0%, #0a0c10 55%, #060708 100%);
+            border: 1px solid #232830;
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.08),
+                inset 0 -1px 0 rgba(0,0,0,0.9),
+                inset 1px 0 0 rgba(255,255,255,0.03),
+                inset -1px 0 0 rgba(255,255,255,0.03),
+                inset 0 18px 28px -14px rgba(0,0,0,0.75),
+                0 10px 30px rgba(0,0,0,0.35);
         }
         body.theme-blackgold .mg-cluster {
-            background: linear-gradient(180deg, #241d10 0%, #171208 55%, #100c06 100%);
+            background:
+                repeating-linear-gradient(180deg, rgba(212,168,83,0.03) 0 1px, rgba(0,0,0,0.22) 1px 2px, rgba(255,255,255,0) 2px 4px),
+                linear-gradient(180deg, #171106 0%, #0f0b05 55%, #080503 100%);
             border-color: rgba(212,168,83,0.35);
         }
         /* fluid widths: the three pods share the row by ratio so the panel
@@ -148,9 +158,19 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         body.theme-blackgold .ag-num { fill: #e7d5a3; }
         body.theme-blackgold .ag-hub-cap { stroke: #e2c88a; }
         .ag-dial { position: relative; border-radius: 50%; background: #050505;
-            box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 20px rgba(0,0,0,0.6), inset 0 2px 12px rgba(0,0,0,0.7); }
+            box-shadow:
+                0 0 0 1px rgba(255,255,255,0.08),
+                0 0 0 3px rgba(0,0,0,0.55),
+                0 0 0 4px rgba(255,255,255,0.05),
+                0 8px 20px rgba(0,0,0,0.6),
+                inset 0 2px 12px rgba(0,0,0,0.7); }
         body.theme-blackgold .ag-dial {
-            box-shadow: 0 0 0 1px rgba(212,168,83,0.22), 0 8px 20px rgba(0,0,0,0.6), inset 0 2px 12px rgba(0,0,0,0.7); }
+            box-shadow:
+                0 0 0 1px rgba(212,168,83,0.28),
+                0 0 0 3px rgba(0,0,0,0.55),
+                0 0 0 4px rgba(212,168,83,0.18),
+                0 8px 20px rgba(0,0,0,0.6),
+                inset 0 2px 12px rgba(0,0,0,0.7); }
         .ag-dial svg { display: block; }
         /* tell-tale lamps pinned to the tach dial corners */
         .ag-lamp { display: inline-flex; align-items: center; }
@@ -194,16 +214,10 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 7.5px; font-weight: 700;
             letter-spacing: 0.14em; color: #98a2b6; white-space: nowrap;
         }
-        .ag-status-arc { stroke: rgba(239,68,68,0.28); transition: stroke 0.3s; }
-        .ag-status-arc.hot { stroke: #ef4444; filter: drop-shadow(0 0 3px rgba(239,68,68,0.8)); }
+        .ag-status-arc { stroke: rgba(152,162,182,0.30); transition: stroke 0.3s, filter 0.3s; }
+        body.theme-blackgold .ag-status-arc { stroke: rgba(201,183,131,0.30); }
         body.theme-blackgold .ag-bar-name { color: #c9b783; }
         body.theme-blackgold .ag-bar-val { color: #e7d5a3; }
-        .mg-cluster-peaks {
-            position: absolute; top: 6px; right: 10px; z-index: 2;
-            font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace;
-            font-size: 9px; color: #98a2b6; white-space: nowrap;
-        }
-        .mg-cluster-peaks b { color: #d5dce8; font-weight: 600; }
         .mg-peak-chip {
             position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); z-index: 2;
             font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace;
@@ -290,8 +304,8 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 <div id="error-rate" class="metric-flip mt-1 text-lg font-bold leading-none text-purple-600">0%</div>
             </div>
             <div class="stat-card bg-white rounded-xl p-3 shadow-sm">
-                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Busyness') }}</div>
-                <div id="busyness-level" class="metric-flip mt-1 text-lg font-bold leading-none text-slate-600">--</div>
+                <div class="text-[10px] text-gray-400 uppercase tracking-wider">{{ _('Cost') }}</div>
+                <div id="total-cost" class="metric-flip mt-1 text-lg font-bold leading-none text-indigo-600">¥0.00</div>
             </div>
         </div>
 
@@ -313,9 +327,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             <div class="ag-gauge ag-status">
                 <div class="ag-dial ag-status-dial" id="ag-status-dial"></div>
                 <div class="ag-label" id="ag-status-label"></div>
-            </div>
-            <div class="mg-cluster-peaks" id="mg-cluster-peaks">
-                <span id="mg-cost-label"></span> <b id="mg-cluster-cost">--</b>
             </div>
         </div>
 
@@ -522,7 +533,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         clusterRedlineTitle: "{{ _('Concurrency entered the red zone (85 and above on the scale)') }}",
         clusterDisabledTitle: "{{ _('Disabled providers') }}",
         clusterHourPeak: "{{ _('Hour peak') }}",
-        clusterCost: "{{ _('Cost') }}",
         peakShort: "{{ _('Peak') }}",
     };
     </script>
@@ -987,8 +997,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 flipCounter('total-rate-limited', data.total_rate_limited || 0);
                 const errorRate = data.total_requests > 0 ? ((data.total_errors / data.total_requests) * 100).toFixed(1) : 0;
                 flipCounter('error-rate', errorRate + '%');
-                const costEl = document.getElementById('mg-cluster-cost');
-                if (costEl) costEl.textContent = '¥' + Number(data.total_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                flipCounter('total-cost', '¥' + Number(data.total_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
                 renderProviderBars(data.providers || {}, data.disabled_providers || {});
                 renderApiKeyBars(data.api_keys || {});
@@ -1250,7 +1259,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             // and the bottom row lies closest to the dial's widest chord.
             const STATUS_BARS = ['cpu', 'mem', 'disk', 'keys'];
             const ZONE_COLOR = { green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
-            const statusState = { bars: {}, disabledProviders: 0, mode: 'normal' };
+            const statusState = { bars: {} };
             function segZone(name, pct) {
                 if (name === 'keys') return pct < 0.25 ? 'red' : (pct < 0.45 ? 'amber' : 'green');
                 return pct >= 0.85 ? 'red' : (pct >= 0.65 ? 'amber' : 'green');
@@ -1281,7 +1290,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     <div class="mg-status-busyness" id="mg-status-busyness">--</div>`;
                 document.getElementById(labelId).textContent = labelText;
                 for (const name of STATUS_BARS) statusState.bars[name] = { pct: null, zone: 'green' };
-                renderMode();
             }
             function setStatusBar(name, pct, text) {
                 const bar = statusState.bars[name];
@@ -1295,25 +1303,11 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     row.querySelectorAll('.ag-bar-segs i').forEach((s, i) => s.classList.toggle('on', i < lit));
                     row.querySelector('.ag-bar-val').textContent = text;
                 }
-                renderMode();
             }
             function setStatusSys(cpu, mem, disk) {
                 if (cpu != null && !isNaN(cpu)) setStatusBar('cpu', cpu / 100, Math.round(cpu) + '%');
                 if (mem != null && !isNaN(mem)) setStatusBar('mem', mem / 100, Math.round(mem) + '%');
                 if (disk != null && !isNaN(disk)) setStatusBar('disk', disk / 100, Math.round(disk) + '%');
-            }
-            function setDisabledProviders(n) {
-                statusState.disabledProviders = n;
-                renderMode();
-            }
-            function renderMode() {
-                const zones = Object.values(statusState.bars).filter(b => b.pct != null).map(b => b.zone);
-                let mode = 'normal';
-                if (zones.includes('red')) mode = 'critical';
-                else if (zones.includes('amber') || statusState.disabledProviders > 0) mode = 'degraded';
-                statusState.mode = mode;
-                const arc = document.querySelector('#ag-status-dial .ag-status-arc');
-                if (arc) arc.classList.toggle('hot', mode !== 'normal');
             }
             function setLamp(id, cls) {
                 const el = document.getElementById(id);
@@ -1326,7 +1320,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             function setKeysHealth(pct) {
                 setLamp('ag-lamp-fuel', pct < 0.45 ? (pct < 0.25 ? 'lit-red' : 'lit-amber') : '');
             }
-            return { mount, mountStatusDial, setValue, setStatusBar, setStatusSys, setDisabledProviders, setLamp, setKeysHealth };
+            return { mount, mountStatusDial, setValue, setStatusBar, setStatusSys, setLamp, setKeysHealth };
         })();
 
         function updateClusterLive(data) {
@@ -1340,7 +1334,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
             const dl = document.getElementById('ag-lamp-disabled');
             if (dl) dl.title = names.length ? `${window.I18N.clusterDisabledTitle}: ${names.join(', ')}` : window.I18N.clusterDisabledTitle;
             ClusterGauges.setLamp('ag-lamp-disabled', names.length ? 'lit-red' : '');
-            ClusterGauges.setDisabledProviders(names.length);
             const peaks = data.hour_peaks;
             if (peaks) {
                 const conc = document.getElementById('mg-peak-conc');
@@ -1580,23 +1573,27 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         async function loadBusyness() {
             try {
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/busyness`);
-                const el = document.getElementById('busyness-level');
-                if (!el || !data.level) return;
+                if (!data.level) return;
                 const locale = document.documentElement.lang || '{{ current_locale }}' || 'zh';
                 const isZh = locale === 'zh' || locale === 'zh-CN' || locale.startsWith('zh');
                 const zhMap = {extremely_busy:'过载',very_busy:'拥挤',busy:'活跃',normal:'流畅',idle:'平静',quiet:'寂静'};
                 const enMap = {extremely_busy:'Overloaded',very_busy:'Crowded',busy:'Active',normal:'Smooth',idle:'Calm',quiet:'Silent'};
                 const label = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
-                const colorMap = {red:'text-red-600',orange:'text-orange-600',yellow:'text-yellow-600',green:'text-green-600',blue:'text-blue-600',slate:'text-slate-600'};
-                el.className = 'metric-flip mt-1 text-lg font-bold leading-none ' + (colorMap[data.color] || 'text-slate-600');
-                el.textContent = label;
+                const hexMap = {red:'#ef4444',orange:'#f97316',yellow:'#eab308',green:'#10b981',blue:'#3b82f6',slate:'#98a2b6'};
+                const hex = hexMap[data.color] || '#98a2b6';
                 // the status dial's bottom readout carries the busyness level
-                // instead of the old NORMAL/DEGRADED verdict badge
+                // (its KPI card was retired in favour of the period-cost card),
+                // and the bottom arc tints to the same level instead of the
+                // old always-red degraded glow
                 const dialEl = document.getElementById('mg-status-busyness');
                 if (dialEl) {
-                    const hexMap = {red:'#ef4444',orange:'#f97316',yellow:'#eab308',green:'#10b981',blue:'#3b82f6',slate:'#98a2b6'};
-                    dialEl.style.color = hexMap[data.color] || '#98a2b6';
+                    dialEl.style.color = hex;
                     dialEl.textContent = label;
+                }
+                const arc = document.querySelector('#ag-status-dial .ag-status-arc');
+                if (arc) {
+                    arc.style.stroke = hex;
+                    arc.style.filter = data.color === 'red' ? 'drop-shadow(0 0 3px rgba(239,68,68,0.8))' : 'none';
                 }
             } catch(e) {}
         }
@@ -2106,8 +2103,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         document.getElementById('ag-lamp-offline').title = window.I18N.clusterLampOffline;
         document.getElementById('ag-lamp-disabled').title = window.I18N.clusterDisabledTitle;
         document.getElementById('ag-lamp-fuel').title = `${window.I18N.clusterLampFuel}: ${window.I18N.clusterFuelTitle}`;
-        document.getElementById('mg-cost-label').textContent = window.I18N.clusterCost;
-        document.getElementById('mg-cluster-cost').title = window.I18N.clusterCost;
         document.getElementById('mg-peak-conc').title = window.I18N.clusterHourPeak;
         document.getElementById('mg-peak-tps').title = window.I18N.clusterHourPeak;
         loadClusterKeysStatus();
