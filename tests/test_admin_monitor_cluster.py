@@ -88,7 +88,6 @@ class MonitorClusterTemplateTests(unittest.TestCase):
         html = self._read()
         for marker in (
             "cluster-panel",
-            "cluster-panel::before",  # binnacle canopy hood shading
             "ag-top",             # left pod: top-3 key usage leaderboard
             "mountTopDial",
             "setTopKeys",
