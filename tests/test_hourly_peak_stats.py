@@ -239,8 +239,8 @@ class HourlyPeaksTemplateGuards(unittest.TestCase):
         for marker in (
             "SPEED_TIERS = [1000, 2000, 5000, 10000, 25000, 50000]",
             "mount('speedo', 'ag-speedo-dial', 1000",
-            "ag-trip-peak-conc",
-            "ag-trip-peak-tps",
+            'id="mg-peak-conc"',   # hourly peaks moved onto the dials (chips)
+            'id="mg-peak-tps"',
             "clusterHourPeak",
             "hour_peaks",
         ):

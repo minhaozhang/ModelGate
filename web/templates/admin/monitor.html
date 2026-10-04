@@ -196,8 +196,9 @@
             display: flex; align-items: stretch; justify-content: center; gap: 28px;
             padding: 20px 28px 14px; border-radius: 18px; margin-bottom: 1.5rem;
             background:
-                repeating-linear-gradient(180deg, rgba(255,255,255,0.016) 0 1px, rgba(0,0,0,0.22) 1px 2px, rgba(255,255,255,0) 2px 4px),
-                linear-gradient(180deg, #101318 0%, #0a0c10 55%, #060708 100%);
+                linear-gradient(115deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,0) 46%, rgba(255,255,255,0.06) 52%, rgba(255,255,255,0) 58%, rgba(255,255,255,0) 75%, rgba(255,255,255,0.035) 100%),
+                repeating-linear-gradient(180deg, rgba(255,255,255,0.06) 0 1px, rgba(255,255,255,0) 1px 2px, rgba(0,0,0,0.32) 2px 3px, rgba(255,255,255,0) 3px 4px),
+                linear-gradient(180deg, #12161c 0%, #0b0e12 55%, #070809 100%);
             border: 1px solid #232830;
             box-shadow:
                 inset 0 1px 0 rgba(255,255,255,0.08),
@@ -210,8 +211,9 @@
         }
         body.theme-blackgold .cluster-panel {
             background:
-                repeating-linear-gradient(180deg, rgba(212,168,83,0.03) 0 1px, rgba(0,0,0,0.22) 1px 2px, rgba(255,255,255,0) 2px 4px),
-                linear-gradient(180deg, #171106 0%, #0f0b05 55%, #080503 100%);
+                linear-gradient(115deg, rgba(255,220,150,0.04) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,0) 46%, rgba(255,220,150,0.055) 52%, rgba(255,255,255,0) 58%, rgba(255,255,255,0) 75%, rgba(255,220,150,0.03) 100%),
+                repeating-linear-gradient(180deg, rgba(212,168,83,0.06) 0 1px, rgba(255,255,255,0) 1px 2px, rgba(0,0,0,0.32) 2px 3px, rgba(255,255,255,0) 3px 4px),
+                linear-gradient(180deg, #191306 0%, #100c05 55%, #080503 100%);
             border-color: rgba(212,168,83,0.35);
         }
         .ag-gauge { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
@@ -278,17 +280,13 @@
                 0 8px 20px rgba(0,0,0,0.6),
                 inset 0 2px 12px rgba(0,0,0,0.7); }
         .ag-dial svg { display: block; }
-        .ag-odometer {
-            position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%);
-            background: linear-gradient(105deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.05) 28%, rgba(255,255,255,0) 34%, rgba(255,255,255,0) 100%), #02040a;
-            border: 1px solid #39424f; border-radius: 4px;
-            padding: 1px 7px; line-height: 1.1;
+        /* hourly peak readout chip under the speedo/tach (ex-odometer slot) */
+        .mg-peak-chip {
+            position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%); z-index: 2;
             font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace;
-            font-size: 9.5px; font-weight: 600; color: #bfe3ee; letter-spacing: 0.03em;
-            box-shadow: inset 0 3px 6px rgba(0,0,0,0.95), inset 0 -1px 0 rgba(255,255,255,0.1), 0 1px 0 rgba(255,255,255,0.05);
-            white-space: nowrap;
+            font-size: 8.5px; font-weight: 600; letter-spacing: 0.05em; color: #98a2b6; white-space: nowrap;
         }
-        body.theme-blackgold .ag-odometer { border-color: rgba(212,168,83,0.4); color: #f0e2b6; }
+        body.theme-blackgold .mg-peak-chip { color: #c9b783; }
         @media (max-width: 640px) {
             .cluster-panel { flex-direction: column; align-items: center; }
             .ag-tach svg { width: 200px; }
@@ -342,20 +340,17 @@
         .ag-bar-segs i { flex: 1; height: 5px; border-radius: 1px; background: rgba(255,255,255,0.09); }
         .ag-bar-segs i.on { background: var(--seg, #10b981); box-shadow: 0 0 3px var(--seg, #10b981); }
         .ag-bar-val { width: 30px; flex: none; font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 8.5px; color: #d5dce8; }
-        .ag-status-mode {
+        .mg-status-busyness {
             position: absolute; bottom: 10.5%; left: 50%; transform: translateX(-50%); z-index: 2;
             font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace; font-size: 9px; font-weight: 700;
-            letter-spacing: 0.14em; color: #10b981; white-space: nowrap;
+            letter-spacing: 0.14em; color: #98a2b6; white-space: nowrap;
         }
-        .ag-status-mode.degraded { color: #f59e0b; }
-        .ag-status-mode.critical { color: #ef4444; animation: ag-blink 1.6s ease-in-out infinite; }
-        .ag-status-arc { stroke: rgba(239,68,68,0.28); transition: stroke 0.3s; }
-        .ag-status-arc.hot { stroke: #ef4444; filter: drop-shadow(0 0 3px rgba(239,68,68,0.8)); }
+        .ag-status-arc { stroke: rgba(152,162,182,0.30); transition: stroke 0.3s, filter 0.3s; }
+        body.theme-blackgold .ag-status-arc { stroke: rgba(201,183,131,0.30); }
         body.theme-blackgold .ag-bar-name { color: #c9b783; }
         body.theme-blackgold .ag-bar-val { color: #e7d5a3; }
         @media (prefers-reduced-motion: reduce) {
             .ag-lamp i { transition: none; animation: none !important; }
-            .ag-status-mode.critical { animation: none !important; }
             .ag-status-arc { transition: none; }
         }
     </style>
@@ -391,7 +386,7 @@
                     <div class="ag-label" id="ag-top-label"></div>
                 </div>
                 <div class="ag-gauge ag-speedo">
-                    <div class="ag-dial" id="ag-speedo-dial"></div>
+                    <div class="ag-dial" id="ag-speedo-dial"><span class="mg-peak-chip" id="mg-peak-tps"></span></div>
                     <div class="ag-label" id="ag-speedo-label"></div>
                 </div>
                 <div class="ag-gauge ag-tach">
@@ -400,6 +395,7 @@
                         <span class="ag-lamp ag-lamp-corner" id="ag-lamp-offline" style="left:16%;top:16%"><i></i></span>
                         <span class="ag-lamp ag-lamp-corner" id="ag-lamp-disabled" style="left:16%;bottom:16%"><i></i></span>
                         <span class="ag-lamp ag-lamp-corner" id="ag-lamp-fuel" style="right:16%;bottom:16%"><i></i></span>
+                        <span class="mg-peak-chip" id="mg-peak-conc"></span>
                     </div>
                     <div class="ag-label" id="ag-tach-label"></div>
                 </div>
@@ -416,7 +412,6 @@
                     <div class="ag-trip">
                         <span><span id="ag-trip-users-label"></span> <b id="ag-trip-users">–</b></span>
                         <span><span id="ag-trip-requests-label"></span> <b id="ag-trip-requests">–</b></span>
-                        <span title="{{ _('Hour peak') }}"><span id="ag-trip-peak-label"></span> <b id="ag-trip-peak-conc">–</b> · <b id="ag-trip-peak-tps">–</b> tok/s</span>
                     </div>
                 </div>
             </div>
@@ -635,6 +630,7 @@
         clusterSpeed: "{{ _('Cluster speed') }}",
         clusterTach: "{{ _('Cluster concurrency') }}",
         clusterHourPeak: "{{ _('Hour peak') }}",
+        peakShort: "{{ _('Peak') }}",
         clusterClock: "{{ _('Clock') }}",
         clusterTopKeys: "{{ _('Top keys') }}",
         clusterFuel: "{{ _('Cluster key health') }}",
@@ -643,10 +639,6 @@
         clusterBar_cpu: "CPU",
         clusterBar_mem: "{{ _('Memory') }}",
         clusterBar_disk: "{{ _('Disk') }}",
-        clusterModeNormal: "{{ _('NORMAL') }}",
-        clusterModeDegraded: "{{ _('DEGRADED') }}",
-        clusterModeCritical: "{{ _('CRITICAL') }}",
-        clusterOdoTitle: "{{ _('Total cost (odometer)') }}",
         clusterTachUnit: "{{ _('in-flight') }}",
         clusterLampRedline: "{{ _('Redline') }}",
         clusterLampFuel: "{{ _('Key health') }}",
@@ -1501,7 +1493,6 @@
             const REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             const cards = {};
             let animTimer = 0;
-            let odoCost = null;
 
             function pt(r, deg) {
                 const rad = deg * Math.PI / 180;
@@ -1637,12 +1628,11 @@
                 const dir = isFuel ? -1 : 1;
                 const sweep = isFuel ? SWEEP_FUEL : SWEEP_FULL;
                 const redFrom = kind === 'tach' ? 0.85 : (isFuel ? 0 : null);
-                // corner tell-tale lamps live inside the tach dial; keep them
-                // across (re)mounts that rewrite the dial svg
-                const lamps = Array.from(dial.querySelectorAll('.ag-lamp'));
-                dial.innerHTML = gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFrom, gi)
-                    + (kind === 'speedo' ? `<div class="ag-odometer" title="${window.I18N.clusterOdoTitle}">${odoCost == null ? '—' : '¥' + odoCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : '');
-                lamps.forEach(l => dial.appendChild(l));
+                // corner tell-tale lamps and peak chips live inside the dials;
+                // keep them across (re)mounts that rewrite the dial svg
+                const pinned = Array.from(dial.querySelectorAll('.ag-lamp, .mg-peak-chip'));
+                dial.innerHTML = gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFrom, gi);
+                pinned.forEach(el => dial.appendChild(el));
                 document.getElementById(labelId).textContent = labelText;
                 const arcLen = 2 * Math.PI * R_TRACK * sweep / 360;
                 cards[kind] = {
@@ -1778,9 +1768,12 @@
             // CPU / memory / disk load (like temp/oil/battery). The bottom
             // red arc stays dim as a warning-zone marking and lights up hot
             // whenever the derived mode leaves NORMAL.
-            const STATUS_BARS = ['keys', 'cpu', 'mem', 'disk'];
+            // ===== status dial: segmented health bars + busyness readout =====
+            // keys sits last: its healthy/total readout is the widest string
+            // and the bottom row lies closest to the dial's widest chord.
+            const STATUS_BARS = ['cpu', 'mem', 'disk', 'keys'];
             const ZONE_COLOR = { green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
-            const statusState = { bars: {}, disabledProviders: 0, mode: 'normal' };
+            const statusState = { bars: {} };
             function segZone(name, pct) {
                 if (name === 'keys') return pct < 0.25 ? 'red' : (pct < 0.45 ? 'amber' : 'green');
                 return pct >= 0.85 ? 'red' : (pct >= 0.65 ? 'amber' : 'green');
@@ -1808,10 +1801,9 @@
                         <path class="ag-status-arc" d="${arcPath(40.5, 55, 125, false, 1)}" fill="none" stroke-width="2.6" stroke-linecap="round"/>
                     </svg>
                     <div class="ag-bars">${rows}</div>
-                    <div class="ag-status-mode" id="ag-status-mode"></div>`;
+                    <div class="mg-status-busyness" id="mg-status-busyness">--</div>`;
                 document.getElementById(labelId).textContent = labelText;
                 for (const name of STATUS_BARS) statusState.bars[name] = { pct: null, zone: 'green' };
-                renderMode();
             }
             function setStatusBar(name, pct, text) {
                 const bar = statusState.bars[name];
@@ -1825,34 +1817,11 @@
                     row.querySelectorAll('.ag-bar-segs i').forEach((s, i) => s.classList.toggle('on', i < lit));
                     row.querySelector('.ag-bar-val').textContent = text;
                 }
-                renderMode();
             }
             function setStatusSys(cpu, mem, disk) {
                 if (cpu != null && !isNaN(cpu)) setStatusBar('cpu', cpu / 100, Math.round(cpu) + '%');
                 if (mem != null && !isNaN(mem)) setStatusBar('mem', mem / 100, Math.round(mem) + '%');
                 if (disk != null && !isNaN(disk)) setStatusBar('disk', disk / 100, Math.round(disk) + '%');
-            }
-            function setDisabledProviders(n) {
-                statusState.disabledProviders = n;
-                renderMode();
-            }
-            function renderMode() {
-                const el = document.getElementById('ag-status-mode');
-                if (!el) return;
-                const zones = Object.values(statusState.bars).filter(b => b.pct != null).map(b => b.zone);
-                let mode = 'normal';
-                if (zones.includes('red')) mode = 'critical';
-                else if (zones.includes('amber') || statusState.disabledProviders > 0) mode = 'degraded';
-                statusState.mode = mode;
-                const labels = {
-                    normal: window.I18N.clusterModeNormal || 'NORMAL',
-                    degraded: window.I18N.clusterModeDegraded || 'DEGRADED',
-                    critical: window.I18N.clusterModeCritical || 'CRITICAL',
-                };
-                el.textContent = labels[mode];
-                el.className = 'ag-status-mode' + (mode === 'normal' ? '' : ' ' + mode);
-                const arc = document.querySelector('#ag-status-dial .ag-status-arc');
-                if (arc) arc.classList.toggle('hot', mode !== 'normal');
             }
             function setLamp(id, cls) {
                 const el = document.getElementById(id);
@@ -1860,12 +1829,7 @@
                 const next = 'ag-lamp ag-lamp-corner' + (cls ? ' lit ' + cls : '');
                 if (el.className !== next) el.className = next;
             }
-            function setOdometer(cost) {
-                odoCost = cost;
-                const el = cards['speedo'] && cards['speedo'].dial.querySelector('.ag-odometer');
-                if (el) el.textContent = '¥' + cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-            return { mount, mountStatusDial, mountTopDial, setValue, setFuel, setStatusBar, setStatusSys, setDisabledProviders, setOdometer, setLamp, setTopKeys };
+            return { mount, mountStatusDial, mountTopDial, setValue, setFuel, setStatusBar, setStatusSys, setLamp, setTopKeys };
         })();
 
         let clusterSocket = null;
@@ -1883,15 +1847,15 @@
             const dl = document.getElementById('ag-lamp-disabled');
             if (dl) dl.title = names.length ? `${window.I18N.clusterDisabledTitle}: ${names.join(', ')}` : window.I18N.clusterDisabledTitle;
             ClusterGauges.setLamp('ag-lamp-disabled', names.length ? 'lit-red' : '');
-            ClusterGauges.setDisabledProviders(names.length);
             const users = document.getElementById('ag-trip-users');
             if (users && data.active_users !== undefined) users.textContent = String(data.active_users);
             const peaks = data.hour_peaks;
             if (peaks) {
-                const peakConc = document.getElementById('ag-trip-peak-conc');
-                const peakTps = document.getElementById('ag-trip-peak-tps');
-                if (peakConc) peakConc.textContent = String(peaks.max_concurrency ?? 0);
-                if (peakTps) peakTps.textContent = Math.round(peaks.max_tokens_per_second || 0).toLocaleString();
+                const conc = document.getElementById('mg-peak-conc');
+                const tps = document.getElementById('mg-peak-tps');
+                const short = v => v >= 1000 ? (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(Math.round(v));
+                if (conc) conc.textContent = `${window.I18N.peakShort} ${peaks.max_concurrency ?? 0}`;
+                if (tps) tps.textContent = `${window.I18N.peakShort} ${short(peaks.max_tokens_per_second || 0)}`;
             }
         }
         function stopClusterPolling() {
@@ -1929,9 +1893,32 @@
             try {
                 const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/odometer`);
                 if (data) {
-                    ClusterGauges.setOdometer(Number(data.total_cost) || 0);
                     const req = document.getElementById('ag-trip-requests');
                     if (req) req.textContent = (Number(data.total_requests) || 0).toLocaleString();
+                }
+            } catch (e) {}
+        }
+
+        async function loadClusterBusyness() {
+            try {
+                const data = await fetchJsonOrRedirect(`${APP_BASE_PATH}/admin/api/stats/busyness`);
+                if (!data.level) return;
+                const locale = document.documentElement.lang || '{{ current_locale }}' || 'zh';
+                const isZh = locale === 'zh' || locale === 'zh-CN' || locale.startsWith('zh');
+                const zhMap = {extremely_busy:'过载',very_busy:'拥挤',busy:'活跃',normal:'流畅',idle:'平静',quiet:'寂静'};
+                const enMap = {extremely_busy:'Overloaded',very_busy:'Crowded',busy:'Active',normal:'Smooth',idle:'Calm',quiet:'Silent'};
+                const label = isZh ? (zhMap[data.name] || data.label) : (enMap[data.name] || data.name);
+                const hexMap = {red:'#ef4444',orange:'#f97316',yellow:'#eab308',green:'#10b981',blue:'#3b82f6',slate:'#98a2b6'};
+                const hex = hexMap[data.color] || '#98a2b6';
+                const dialEl = document.getElementById('mg-status-busyness');
+                if (dialEl) {
+                    dialEl.style.color = hex;
+                    dialEl.textContent = label;
+                }
+                const arc = document.querySelector('#ag-status-dial .ag-status-arc');
+                if (arc) {
+                    arc.style.stroke = hex;
+                    arc.style.filter = data.color === 'red' ? 'drop-shadow(0 0 3px rgba(239,68,68,0.8))' : 'none';
                 }
             } catch (e) {}
         }
@@ -2016,7 +2003,6 @@
             const texts = {
                 'ag-trip-users-label': window.I18N.clusterActiveUsers,
                 'ag-trip-requests-label': window.I18N.clusterTotalRequests,
-                'ag-trip-peak-label': window.I18N.clusterHourPeak,
             };
             for (const [id, text] of Object.entries(texts)) {
                 const el = document.getElementById(id);
@@ -2026,6 +2012,8 @@
             document.getElementById('ag-lamp-fuel').title = `${window.I18N.clusterLampFuel}: ${window.I18N.clusterFuelTitle}`;
             document.getElementById('ag-lamp-disabled').title = window.I18N.clusterDisabledTitle;
             document.getElementById('ag-lamp-offline').title = window.I18N.clusterLampOffline;
+            document.getElementById('mg-peak-conc').title = window.I18N.clusterHourPeak;
+            document.getElementById('mg-peak-tps').title = window.I18N.clusterHourPeak;
             setInterval(() => {
                 if (clusterLastLiveAt && Date.now() - clusterLastLiveAt > 15000) {
                     ClusterGauges.setLamp('ag-lamp-offline', 'lit-red');
@@ -2035,6 +2023,8 @@
         connectClusterLive();
         loadClusterOdometer();
         setInterval(loadClusterOdometer, 300000);
+        loadClusterBusyness();
+        setInterval(loadClusterBusyness, 30000);
     </script>
 </body>
 </html>

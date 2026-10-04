@@ -95,17 +95,17 @@ class MonitorClusterTemplateTests(unittest.TestCase):
             "ag-speedo",          # speed: tokens/s
             "ag-status",          # status dial: keys/cpu/mem/disk bars
             "ag-fuel",            # right pod: key health arc (E -> F)
-            "ag-odometer",        # rolling cost window
+            "mg-peak-chip",       # per-dial hourly peak readout (ex-odometer slot)
+            "mg-status-busyness", # busyness level replaces the verdict badge
             "ag-redzone",         # tach redline arc
             "ag-console",         # bottom console: trip computer
             "ag-lamp-corner",     # tell-tales pinned to the tach face
             "ag-trip",            # trip computer (active users / uptime / total requests)
             "ag-status-dial",
             "ag-bar-row",         # segmented vehicle-computer bars
-            "ag-status-mode",     # NORMAL / DEGRADED / CRITICAL badge
             "mountStatusDial",
             "setStatusSys",
-            "clusterModeNormal",
+            "peakShort",
             "_agTicks",
             "velPct",             # spring integrator
             "prefers-reduced-motion",
