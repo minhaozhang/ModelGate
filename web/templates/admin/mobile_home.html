@@ -136,12 +136,21 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
         .ag-redzone { stroke: rgba(239,68,68,0.45); }
         .ag-num { fill: #eef2f7; }
         .ag-num-red { fill: #f87171; }
-        .ag-needle-body { fill: #f4f7fb; }
+        .ag-needle-tip { fill: #8fb8ff; }
         .ag-cw { fill: #8f9cb0; }
         .ag-hub-cap { fill: #10131a; stroke: #c8d0dc; stroke-width: 1; }
-        .ag-center-num { fill: #f4f7fb; font-weight: 700; }
-        .ag-center-num.alert { fill: #f87171; }
-        .ag-center-num.warn { fill: #fbbf24; }
+        .ag-flip { position: absolute; top: 53%; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 0.02em; line-height: 1; z-index: 2;
+            font-family: 'Lucida Console', Menlo, Monaco, 'Courier New', monospace;
+            font-size: 22px; font-weight: 700; color: #f4f7fb; }
+        .ag-flip.alert { color: #f87171; }
+        .ag-flip.warn { color: #fbbf24; }
+        /* split-flap digit cards: hairline split + mechanical tilt on change */
+        .ag-flip .d { position: relative; width: 0.74em; text-align: center;
+            transition: transform 0.13s ease-in, filter 0.13s ease-in; }
+        .ag-flip .d::after { content: ''; position: absolute; left: 5%; right: 5%; top: 50%;
+            height: 0.06em; background: rgba(0,0,0,0.5); }
+        .ag-flip .d.out { transform: rotateX(-84deg); filter: brightness(0.45); }
         .ag-center-unit { fill: #98a2b6; }
         body.theme-blackgold .ag-ring { stroke: url(#ag-ring-gold); }
         body.theme-blackgold .ag-tick-major { stroke: #ecdcae; }
@@ -318,12 +327,13 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
 
         <div class="mg-cluster" id="cluster-panel">
             <div class="ag-gauge ag-speedo">
-                <div class="ag-dial" id="ag-speedo-dial"><div class="ag-glint" aria-hidden="true"></div><span class="mg-peak-chip" id="mg-peak-tps"></span></div>
+                <div class="ag-dial" id="ag-speedo-dial"><div class="ag-glint" aria-hidden="true"></div><div class="ag-flip" aria-hidden="true"></div><span class="mg-peak-chip" id="mg-peak-tps"></span></div>
                 <div class="ag-label" id="ag-speedo-label"></div>
             </div>
             <div class="ag-gauge ag-tach">
                 <div class="ag-dial ag-tach-dial" id="ag-tach-dial">
                     <div class="ag-glint" aria-hidden="true"></div>
+                    <div class="ag-flip" aria-hidden="true"></div>
                     <span class="ag-lamp ag-lamp-corner" id="ag-lamp-redline" style="right:16%;top:16%"><i></i></span>
                     <span class="ag-lamp ag-lamp-corner" id="ag-lamp-offline" style="left:16%;top:16%"><i></i></span>
                     <span class="ag-lamp ag-lamp-corner" id="ag-lamp-disabled" style="left:16%;bottom:16%"><i></i></span>
@@ -1132,6 +1142,11 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                         <filter id="ag-shdw-${gi}" x="-40%" y="-40%" width="180%" height="180%">
                             <feDropShadow dx="0" dy="0.9" stdDeviation="0.9" flood-color="#000" flood-opacity="0.6"/>
                         </filter>
+                        <linearGradient id="ag-ndl-${gi}" x1="0" y1="1" x2="0" y2="0">
+                            <stop offset="0" stop-color="#0d47b5"/>
+                            <stop offset="0.55" stop-color="#1e6fe8"/>
+                            <stop offset="1" stop-color="#5f9bff"/>
+                        </linearGradient>
                     </defs>
                     <circle cx="50" cy="50" r="47.5" fill="url(#ag-face-${gi})"/>
                     <circle cx="50" cy="50" r="47.4" fill="none" stroke="#454c59" stroke-width="2.6"/>
@@ -1145,13 +1160,12 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     <path class="ag-glow" d="${arcPath(R_TRACK, a0, aEnd, sweep > 180, sf)}" fill="none" stroke="${color}" stroke-width="6.4" stroke-linecap="round" opacity="0.45" filter="url(#ag-glow-${gi})" stroke-dasharray="${arcLen.toFixed(2)}" stroke-dashoffset="${off}"${hide}/>
                     <path class="ag-value" d="${arcPath(R_TRACK, a0, aEnd, sweep > 180, sf)}" fill="none" stroke="${color}" stroke-width="4.2" stroke-linecap="round" stroke-dasharray="${arcLen.toFixed(2)}" stroke-dashoffset="${off}"${hide}/>
                     <g class="ag-needle" filter="url(#ag-shdw-${gi})" style="transform-origin:50px 50px;transform:rotate(${rot}deg)">
-                        <path class="ag-needle-body" stroke="rgba(0,0,0,0.35)" stroke-width="0.2" d="M 49.2 52 L 49.85 15 L 50.15 15 L 50.8 52 Z"/>
-                        <path class="ag-needle-tip" fill="${shade(color, 0.55)}" d="M 49.83 15 L 50.2 15 L 50.18 23 L 49.85 23 Z"/>
+                        <path class="ag-needle-body" fill="url(#ag-ndl-${gi})" stroke="rgba(0,0,0,0.35)" stroke-width="0.2" d="M 49.2 52 L 49.85 15 L 50.15 15 L 50.8 52 Z"/>
+                        <path class="ag-needle-tip" d="M 49.83 15 L 50.2 15 L 50.18 23 L 49.85 23 Z"/>
                         <circle class="ag-cw" cx="50" cy="53.8" r="2.5"/>
                     </g>
                     <circle class="ag-hub-cap" cx="50" cy="50" r="3.4"/>
                     <circle cx="50" cy="50" r="1.4" fill="#c8d0dc"/>
-                    <text class="ag-center-num${centerClass(kind, pct)}" x="50" y="63" font-size="13" text-anchor="middle" font-family="'Lucida Console', Menlo, Monaco, 'Courier New', monospace">${valueText}</text>
                     ${unitText ? `<text class="ag-center-unit" x="50" y="70" font-size="5" text-anchor="middle" letter-spacing="0.3">${unitText}</text>` : ''}
                 </svg>`;
             }
@@ -1173,7 +1187,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 const redFrom = kind === 'tach' ? 0.85 : null;
                 // corner tell-tale lamps and peak chips live inside the dials;
                 // keep them across (re)mounts that rewrite the dial svg
-                const pinned = Array.from(dial.querySelectorAll('.ag-lamp, .mg-peak-chip, .ag-glint'));
+                const pinned = Array.from(dial.querySelectorAll('.ag-lamp, .mg-peak-chip, .ag-glint, .ag-flip'));
                 dial.innerHTML = gaugeSvg(kind, pct, valueText, unitText, scaleMax, redFrom, gi);
                 pinned.forEach(el => dial.appendChild(el));
                 document.getElementById(labelId).textContent = labelText;
@@ -1185,11 +1199,51 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     glowArc: dial.querySelector('.ag-glow'),
                     tip: dial.querySelector('.ag-needle-tip'),
                     glint: dial.querySelector('.ag-glint'),
-                    centerNum: dial.querySelector('.ag-center-num'),
+                    flip: dial.querySelector('.ag-flip'),
                     curPct: pct, tgtPct: pct, velPct: old ? old.velPct : 0,
                     valueText,
                 };
                 applyPct(cards[kind], pct);
+                setFlip(cards[kind], valueText);
+                sizeFlip(cards[kind]);
+            }
+            // the flip overlay lives in html space (not the svg viewBox),
+            // so its font-size tracks the dial's measured pixel width
+            function sizeFlip(card) {
+                if (!card || !card.flip || !card.dial) return;
+                const w = card.dial.getBoundingClientRect().width;
+                if (w > 0) card.flip.style.fontSize = (w * (card.kind === 'fuel' ? 0.10 : 0.13)).toFixed(1) + 'px';
+            }
+            window.addEventListener('resize', () => {
+                clearTimeout(window.__flipSz);
+                window.__flipSz = setTimeout(() => { for (const k in cards) sizeFlip(cards[k]); }, 150);
+            });
+            // split-flap center readout: only the digits that changed tilt
+            // over (Solari-board style); instant swap under reduced motion
+            function setFlip(card, text) {
+                const el = card.flip;
+                if (!el || el.dataset.v === text) return;
+                el.dataset.v = text;
+                el.setAttribute('aria-label', text);
+                const chars = [...String(text)];
+                let cells = Array.from(el.children);
+                if (REDUCE_MOTION || !cells.length) {
+                    el.innerHTML = chars.map(c => `<span class="d">${c === '&' ? '&amp;' : c === '<' ? '&lt;' : c}</span>`).join('');
+                    return;
+                }
+                while (cells.length < chars.length) {
+                    const s = document.createElement('span');
+                    s.className = 'd';
+                    el.appendChild(s);
+                    cells.push(s);
+                }
+                while (cells.length > chars.length) { el.lastChild.remove(); cells.pop(); }
+                chars.forEach((c, i) => {
+                    const cell = cells[i];
+                    if (cell.textContent === c) return;
+                    cell.classList.add('out');
+                    setTimeout(() => { cell.textContent = c; cell.classList.remove('out'); }, 140 + i * 26);
+                });
             }
             function applyPct(card, pct) {
                 const off = (card.arcLen * (1 - pct)).toFixed(2);
@@ -1201,7 +1255,6 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 card.glowArc.setAttribute('visibility', hide);
                 card.valueArc.setAttribute('stroke', color);
                 card.glowArc.setAttribute('stroke', color);
-                card.tip.setAttribute('fill', shade(color, 0.55));
                 card.needle.style.transform = `rotate(${(-135 + card.dir * card.sweep * pct).toFixed(1)}deg)`;
                 // the moving needle throws a glint on the brushed face:
                 // streak angle follows the needle, brightness follows speed
@@ -1209,8 +1262,8 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                     card.glint.style.transform = card.needle.style.transform;
                     card.glint.style.opacity = Math.min(0.4, Math.abs(card.velPct || 0) * 7).toFixed(3);
                 }
-                const cls = 'ag-center-num' + centerClass(card.kind, pct);
-                if (card.centerNum.getAttribute('class') !== cls) card.centerNum.setAttribute('class', cls);
+                const cls = 'ag-flip' + centerClass(card.kind, pct);
+                if (card.flip && card.flip.className !== cls) card.flip.className = cls;
             }
             function startAnim() {
                 if (!animTimer) animTimer = requestAnimationFrame(tick);
@@ -1241,7 +1294,7 @@ body.theme-dark .text-indigo-700 { color: #c7d2fe !important; }
                 card.tgtPct = Math.max(0, Math.min(1, pct));
                 if (valueText !== undefined && valueText !== card.valueText) {
                     card.valueText = valueText;
-                    card.centerNum.textContent = valueText;
+                    setFlip(card, valueText);
                 }
                 if (REDUCE_MOTION) {
                     card.curPct = card.tgtPct;
