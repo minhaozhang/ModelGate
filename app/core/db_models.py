@@ -197,6 +197,7 @@ class Model(Base):
     max_concurrent = Column(Integer, nullable=True)
     per_key_concurrency = Column(Integer, nullable=True)
     per_key_concurrency_tiers = Column(JSONB, nullable=True)
+    coding_only = Column(Boolean, default=False)
     estimated_price = Column(Float, nullable=True, server_default="0")
     tags = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

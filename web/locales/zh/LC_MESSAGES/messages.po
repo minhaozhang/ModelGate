@@ -2617,6 +2617,14 @@ msgstr "请妥善保存，您需要使用新密钥重新登录。"
 msgid "Temporarily unavailable"
 msgstr "暂时无法使用"
 
+#: web/templates/user/dashboard.html:589
+msgid "Coding only"
+msgstr "仅限编程"
+
+#: web/templates/user/dashboard.html:590
+msgid "This model is reserved for coding workloads. Please use other models for other scenarios."
+msgstr "该模型仅面向编程场景，其他场景请使用其他模型。"
+
 #: web/templates/user/document_detail.html:77
 #: web/templates/user/tab_documents.html:13
 msgid "Back to Documents"

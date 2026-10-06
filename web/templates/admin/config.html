@@ -636,6 +636,13 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1" title="{{ _('Idle-based per-user-key concurrency, matched top-down by the model total-gauge idle pct. Effective limit = min(key max concurrency, tier). Used only when Per-Key Concurrent is empty') }}">{{ _('Idle Tiers (pct:limit)') }}</label>
                     <input type="text" id="model-per-key-tiers" value="" placeholder="{{ _('e.g. 80:4, 50:2, 0:1 — idle>=80% -> 4/user; empty = dynamic') }}" class="w-full border rounded px-3 py-2 font-mono text-sm">
                 </div>
+                <div>
+                    <label class="flex items-center" title="{{ _('Only programming-tool traffic may use this model: Claude Code / Codex / OpenCode / DSH and similar coding agents pass (detected via endpoint protocol, user-agent or system prompt). Knowledge-base bots, chat agents and generic SDK clients (python/go/java) are rejected with 403') }}">
+                        <input type="checkbox" id="model-coding-only" class="mr-2">
+                        <span class="text-sm font-medium text-gray-700">{{ _('Coding Only') }}</span>
+                        <span class="text-xs text-gray-400 ml-2">{{ _('仅限编程工具（Claude Code / Codex / OpenCode 等），拒绝知识库/机器人/通用SDK流量') }}</span>
+                    </label>
+                </div>
                 <div class="flex gap-4">
                     <div class="flex-1 flex flex-col justify-end">
                         <label class="flex items-center" title="{{ _('Enable extended reasoning / chain-of-thought for this model') }}">
@@ -1322,6 +1329,7 @@
             document.getElementById('model-max-concurrent').value = '';
             document.getElementById('model-per-key-concurrency').value = '';
             document.getElementById('model-per-key-tiers').value = '';
+            document.getElementById('model-coding-only').checked = false;
             document.getElementById('model-thinking-enabled').checked = true;
             document.getElementById('model-reasoning-effort').value = '';
             document.getElementById('model-multimodal').checked = false;
@@ -1345,6 +1353,7 @@
             document.getElementById('model-max-concurrent').value = (m.max_concurrent === 0 || m.max_concurrent) ? m.max_concurrent : '';
             document.getElementById('model-per-key-concurrency').value = (m.per_key_concurrency === 0 || m.per_key_concurrency) ? m.per_key_concurrency : '';
             document.getElementById('model-per-key-tiers').value = (m.per_key_concurrency_tiers || []).map(t => `${t.min_idle_pct}:${t.limit}`).join(', ');
+            document.getElementById('model-coding-only').checked = !!m.coding_only;
             document.getElementById('model-thinking-enabled').checked = m.thinking_enabled;
             document.getElementById('model-reasoning-effort').value = m.reasoning_effort || '';
             document.getElementById('model-multimodal').checked = m.is_multimodal;
@@ -1388,6 +1397,7 @@
                 max_concurrent: document.getElementById('model-max-concurrent').value === '' ? null : parseInt(document.getElementById('model-max-concurrent').value, 10),
                 per_key_concurrency: document.getElementById('model-per-key-concurrency').value === '' ? null : parseInt(document.getElementById('model-per-key-concurrency').value, 10),
                 per_key_concurrency_tiers: parsePerKeyTiers(document.getElementById('model-per-key-tiers').value),
+                coding_only: document.getElementById('model-coding-only').checked,
                 thinking_enabled: document.getElementById('model-thinking-enabled').checked,
                 reasoning_effort: document.getElementById('model-reasoning-effort').value.trim() || null,
                 is_multimodal: document.getElementById('model-multimodal').checked,
@@ -1411,6 +1421,7 @@
                             max_concurrent: data.max_concurrent,
                             per_key_concurrency: data.per_key_concurrency,
                             per_key_concurrency_tiers: tiersParsed,
+                            coding_only: data.coding_only,
                             thinking_enabled: data.thinking_enabled,
                             reasoning_effort: data.reasoning_effort,
                             is_multimodal: data.is_multimodal,
@@ -2564,7 +2575,7 @@
                                 <td>${canDeleteModel ? `<input type="checkbox" ${selectedStandardModelIds.has(m.id) ? 'checked' : ''} onchange="toggleModelSelection(${m.id}, this.checked)">` : ''}</td>
                                 <td>
                                     <div class="font-semibold text-sm text-gray-800">${escapeHtml(m.display_name || m.name)}</div>
-                                    <div class="text-xs text-gray-500 mt-1">${escapeHtml(m.name)}</div>
+                                    <div class="text-xs text-gray-500 mt-1">${escapeHtml(m.name)}${m.coding_only ? ' <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700" title="仅限编程工具（Claude Code / Codex / OpenCode 等），知识库/机器人/通用SDK流量将被拒绝">仅编程</span>' : ''}</div>
                                 </td>
                                 <td>${renderAvailabilityPill(m.is_active, m.is_active ? '模型可用' : '模型停用')}</td>
                                 <td>

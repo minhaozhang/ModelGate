@@ -15,6 +15,7 @@ from app.services.minimax import process_minimax_response
 from app.services.pricing import enrich_tokens_with_billing
 from app.services.provider import (
     RouteResult,
+    get_cached_model_coding_only,
     get_model_config,
     get_provider_and_model,
     pick_api_key,
@@ -110,6 +111,34 @@ async def call_internal_model_via_proxy(
             "error": f"未找到模型: {requested_model}",
         }
 
+    # Coding-only gate for internal callers too: knowledge-base / chatbot
+    # features must not burn models reserved for programming tools.
+    # Infrastructure probes (health checks) are exempt inside the gate.
+    if get_cached_model_coding_only(requested_model):
+        from app.services.coding_gate import evaluate_internal_coding_gate
+
+        message = evaluate_internal_coding_gate(
+            model=requested_model,
+            purpose=purpose,
+            messages=req_body.get("messages") or [],
+            context_tokens=estimate_request_context_tokens(req_body),
+            user_agent=user_agent or "",
+        )
+        if message:
+            logger.warning(
+                "[CODING GATE] internal model=%s rejected purpose=%s",
+                requested_model,
+                purpose,
+            )
+            return {
+                "ok": False,
+                "provider_name": None,
+                "actual_model_name": None,
+                "status_code": 403,
+                "payload": None,
+                "error": message,
+            }
+
     provider_key_semaphore = None
     user_api_key_semaphore = None
     user_provider_model_semaphore = None
@@ -147,6 +176,12 @@ async def call_internal_model_via_proxy(
                 await acquire_scoped_semaphore(
                     user_api_key_semaphore,
                     USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                    context={
+                        "layer": "user_key_total",
+                        "sem": user_api_key_sem_key,
+                        "api_key_id": api_key_id,
+                        "limit_source": "api_key.max_concurrent(default_if_unset=1)",
+                    },
                 )
                 user_api_key_acquired = True
             except asyncio.TimeoutError:
@@ -173,6 +208,13 @@ async def call_internal_model_via_proxy(
                 await acquire_scoped_semaphore(
                     provider_key_semaphore,
                     SEMAPHORE_ACQUIRE_TIMEOUT_SECONDS,
+                    context={
+                        "layer": "provider_key",
+                        "sem": provider_key_sem_key,
+                        "provider": provider_name,
+                        "provider_key_id": chosen_key_id,
+                        "limit_source": "provider_key.max_concurrent",
+                    },
                 )
                 acquired = True
             except asyncio.TimeoutError:
@@ -202,6 +244,19 @@ async def call_internal_model_via_proxy(
                 await acquire_scoped_semaphore(
                     user_provider_model_semaphore,
                     USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                    context={
+                        "layer": "user_per_provider_key_model",
+                        "sem": user_provider_model_sem_key,
+                        "model": requested_model,
+                        "api_key_id": api_key_id,
+                        "provider": provider_name,
+                        "provider_key_id": chosen_key_id,
+                        "limit_source": (
+                            "bypass_busyness"
+                            if bypass_busyness
+                            else "busyness_level(>=5:3, 4:2, <=3:1)"
+                        ),
+                    },
                 )
                 user_provider_model_acquired = True
             except asyncio.TimeoutError:

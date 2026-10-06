@@ -36,6 +36,7 @@ class ModelCreate(BaseModel):
     max_concurrent: Optional[int] = Field(None, ge=0)
     per_key_concurrency: Optional[int] = Field(None, ge=0)
     per_key_concurrency_tiers: Optional[list[dict]] = None
+    coding_only: bool = False
     thinking_enabled: bool = True
     thinking_budget: int = 8192
     reasoning_effort: Optional[str] = None
@@ -52,6 +53,7 @@ class ModelUpdate(BaseModel):
     max_concurrent: Optional[int] = Field(None, ge=0)
     per_key_concurrency: Optional[int] = Field(None, ge=0)
     per_key_concurrency_tiers: Optional[list[dict]] = None
+    coding_only: Optional[bool] = None
     thinking_enabled: Optional[bool] = None
     thinking_budget: Optional[int] = None
     reasoning_effort: Optional[str] = None
@@ -163,6 +165,7 @@ async def list_all_models(_: bool = Depends(permission_required("page.models")))
                     "max_concurrent": getattr(m, "max_concurrent", None),
                     "per_key_concurrency": getattr(m, "per_key_concurrency", None),
                     "per_key_concurrency_tiers": getattr(m, "per_key_concurrency_tiers", None) or [],
+                    "coding_only": bool(getattr(m, "coding_only", False)),
                     "thinking_enabled": m.thinking_enabled,
                     "thinking_budget": m.thinking_budget,
                     "reasoning_effort": m.reasoning_effort,

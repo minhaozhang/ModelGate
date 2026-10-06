@@ -585,6 +585,8 @@
         myKeyResetLabel: {{ _('Reset API Key') | tojson }},
         myKeyLoadFailed: {{ _('Failed to load API key') | tojson }},
         temporarilyUnavailable: {{ _('Temporarily unavailable') | tojson }},
+        codingOnly: {{ _('Coding only') | tojson }},
+        codingOnlyHint: {{ _('This model is reserved for coding workloads. Please use other models for other scenarios.') | tojson }},
         providerUnavailable: {{ _('Provider unavailable') | tojson }},
         providerUnavailableLine: {{ _('Provider {name} is unavailable: {reason}') | tojson }},
         expectedRestoreAt: {{ _('expected restore at {time}') | tojson }},
@@ -997,6 +999,7 @@
                                         <span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
                                         ${model.speed_tokens_per_s != null ? `<span class="rounded-full bg-black/5 px-2 py-1" title="${window.I18N.speedHint}">≈ ${model.speed_tokens_per_s} tok/s</span>` : ''}
                                         ${model.is_multimodal ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
+                                        ${model.coding_only ? `<span class="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700 cursor-help" title="${window.I18N.codingOnlyHint}">${window.I18N.codingOnly}</span>` : ''}
                                         ${model.has_override ? `<span class="rounded-full bg-black/5 px-2 py-1">${window.I18N.alias}</span>` : ''}
                                         ${priceBadge}
                                     </div>
@@ -1051,6 +1054,7 @@
                                 <span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.out} ${formatCompactTokens(model.output || 0)}</span>
                                 ${model.speed_tokens_per_s != null ? `<span class="rounded-full bg-white/70 px-2 py-1" title="${window.I18N.speedHint}">≈ ${model.speed_tokens_per_s} tok/s</span>` : ''}
                                 ${model.is_multimodal ? `<span class="rounded-full bg-white/70 px-2 py-1">${window.I18N.multimodal}</span>` : ''}
+                                ${model.coding_only ? `<span class="rounded-full bg-white/70 px-2 py-1 text-emerald-700 cursor-help" title="${window.I18N.codingOnlyHint}">${window.I18N.codingOnly}</span>` : ''}
                                 ${priceBadge}
                             </div>
                             ${priceBtn ? `<div class="mt-2">${priceBtn}</div>` : ''}

@@ -28,6 +28,7 @@ from app.services.provider import (
     get_provider_model_candidates,
     get_model_config,
     get_cached_context_hard_limit,
+    get_cached_model_coding_only,
     get_disabled_provider_reason,
     pick_api_keys,
 )
@@ -504,6 +505,53 @@ async def proxy_request(request: Request, endpoint: str):
 
     request_intent = classify_intent(body_json.get("messages") or [])
 
+    # Coding-only gate: models flagged coding_only accept only programming
+    # tool traffic (Claude Code / Codex / OpenCode / DSH ...). Knowledge-base
+    # bots, chat agents and generic SDK scrapers get a clear 403 here.
+    if get_cached_model_coding_only(requested_model):
+        from app.services.coding_gate import (
+            coding_gate_rejection_message,
+            evaluate_coding_gate,
+        )
+
+        gate_allowed, gate_reason, gate_detail = evaluate_coding_gate(
+            messages=body_json.get("messages") or [],
+            context_tokens=request_context_tokens,
+            user_agent=user_agent or "",
+            inbound_protocol=inbound_protocol,
+        )
+        if not gate_allowed:
+            message = coding_gate_rejection_message(requested_model, gate_reason, gate_detail)
+            logger.warning(
+                "[CODING GATE] model=%s rejected reason=%s detail=%s ctx_tokens=%s ua=%r key=%s",
+                requested_model,
+                gate_reason,
+                gate_detail,
+                request_context_tokens,
+                user_agent,
+                api_key_id,
+            )
+            await create_request_log(
+                "",
+                requested_model,
+                status="error",
+                api_key_id=api_key_id,
+                client_ip=client_ip,
+                user_agent=user_agent,
+                latency_ms=(time.time() - start_time) * 1000,
+                downstream_status_code=403,
+                error=message,
+                inbound_protocol=inbound_protocol,
+                intent=request_intent,
+                requested_model=requested_model,
+            )
+            return _openai_error_response(
+                message,
+                403,
+                "permission_error",
+                "model_coding_only",
+            )
+
     hard_limit = get_cached_context_hard_limit(requested_model)
     if hard_limit and request_image_count == 0 and request_context_tokens > hard_limit:
         message = (
@@ -644,6 +692,12 @@ async def proxy_request(request: Request, endpoint: str):
                 await acquire_scoped_semaphore(
                     model_concurrency_semaphore,
                     USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                    context={
+                        "layer": "model_total",
+                        "sem": f"stdmodel:{model}",
+                        "model": model,
+                        "limit_source": "model.max_concurrent",
+                    },
                 )
                 model_conc_acquired = True
             except asyncio.TimeoutError:
@@ -700,6 +754,12 @@ async def proxy_request(request: Request, endpoint: str):
                 await acquire_scoped_semaphore(
                     user_api_key_semaphore,
                     USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                    context={
+                        "layer": "user_key_total",
+                        "sem": user_api_key_sem_key,
+                        "api_key_id": api_key_id,
+                        "limit_source": "api_key.max_concurrent",
+                    },
                 )
                 user_api_key_acquired = True
             except asyncio.TimeoutError:
@@ -746,16 +806,31 @@ async def proxy_request(request: Request, endpoint: str):
                     },
                 )
 
+        model_per_key_concurrency = get_cached_model_per_key_concurrency(model)
+        model_per_key_tiers = get_cached_model_per_key_concurrency_tiers(model)
         user_model_limit = _get_user_model_limit(
             bypass_busyness,
             model,
-            model_cfg=get_cached_model_per_key_concurrency(model),
-            model_tiers=get_cached_model_per_key_concurrency_tiers(model),
+            model_cfg=model_per_key_concurrency,
+            model_tiers=model_per_key_tiers,
             key_max_concurrent=_get_user_api_key_limit(
                 False, _api_key_max_concurrent(api_key_id)
             ),
         )
         if user_model_limit < 9999:
+            user_model_limit_source = (
+                "bypass_busyness"
+                if bypass_busyness
+                else (
+                    "model.per_key_concurrency"
+                    if model_per_key_concurrency is not None
+                    else (
+                        "model.per_key_concurrency_tiers"
+                        if model_per_key_tiers
+                        else "dynamic(model_gauge+time_window)"
+                    )
+                )
+            )
             user_model_sem_key, user_model_semaphore = (
                 _get_or_create_user_model_semaphore(
                     api_key_id, model, user_model_limit
@@ -765,6 +840,16 @@ async def proxy_request(request: Request, endpoint: str):
                 await acquire_scoped_semaphore(
                     user_model_semaphore,
                     USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                    context={
+                        "layer": "user_per_model",
+                        "sem": user_model_sem_key,
+                        "model": model,
+                        "api_key_id": api_key_id,
+                        "limit_source": user_model_limit_source,
+                        "per_key_concurrency": model_per_key_concurrency,
+                        "has_tiers": bool(model_per_key_tiers) or None,
+                        "key_max_concurrent": _api_key_max_concurrent(api_key_id),
+                    },
                 )
                 user_model_acquired = True
             except asyncio.TimeoutError:
@@ -1126,6 +1211,17 @@ async def proxy_request(request: Request, endpoint: str):
                         await acquire_scoped_semaphore(
                             provider_key_semaphore,
                             USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                            context={
+                                "layer": "provider_key",
+                                "sem": provider_key_sem_key,
+                                "provider": provider_name,
+                                "provider_key_id": chosen_key_id,
+                                "provider_key": _get_key_label(
+                                    provider_config, chosen_key_id
+                                ),
+                                "key_attempt": f"{attempt_idx + 1}/{len(all_keys)}",
+                                "limit_source": "provider_key.max_concurrent",
+                            },
                         )
                         acquired = True
                     except asyncio.TimeoutError:
@@ -1204,9 +1300,26 @@ async def proxy_request(request: Request, endpoint: str):
                         )
                     )
                     try:
+                        from app.core.config import busyness_state as _busyness_state
+
                         await acquire_scoped_semaphore(
                             user_provider_model_semaphore,
                             USER_PROVIDER_MODEL_CONCURRENCY_ACQUIRE_TIMEOUT_SECONDS,
+                            context={
+                                "layer": "user_per_provider_key_model",
+                                "sem": user_provider_model_sem_key,
+                                "model": model,
+                                "api_key_id": api_key_id,
+                                "provider": provider_name,
+                                "provider_key_id": chosen_key_id,
+                                "busyness_level": _busyness_state.get("level"),
+                                "key_attempt": f"{attempt_idx + 1}/{len(all_keys)}",
+                                "limit_source": (
+                                    "bypass_busyness"
+                                    if bypass_busyness
+                                    else "busyness_level(>=5:3, 4:2, <=3:1)"
+                                ),
+                            },
                         )
                         user_provider_model_acquired = True
                     except asyncio.TimeoutError:

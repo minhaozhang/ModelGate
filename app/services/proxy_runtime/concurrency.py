@@ -1,8 +1,10 @@
 import asyncio
 import os
+import time
 from datetime import datetime
 
 from app.core.config import (
+    logger,
     provider_key_model_semaphores,
     provider_key_semaphores,
     standard_model_semaphores,
@@ -45,20 +47,92 @@ class _ScopedSemaphore(asyncio.Semaphore):
             self._value = target_limit
 
 
-async def acquire_scoped_semaphore(semaphore: asyncio.Semaphore, timeout: float) -> None:
+def _semaphore_stats(semaphore: asyncio.Semaphore) -> str:
+    """One-line snapshot of a scoped semaphore: configured limit, how many
+    slots are currently held (in-flight requests) and how many are queued."""
+    limit = getattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, None)
+    value = getattr(semaphore, "_value", None)
+    try:
+        in_flight = max(int(limit) - int(value), 0)
+    except (TypeError, ValueError):
+        in_flight = "?"
+    waiters = getattr(semaphore, "_waiters", None)
+    queued = len(waiters) if waiters else 0
+    return f"limit={limit} in_flight={in_flight} queued={queued}"
+
+
+def _format_context(context: dict | None) -> str:
+    if not context:
+        return ""
+    parts = [f"{k}={v}" for k, v in context.items() if v is not None]
+    return (" " + " ".join(parts)) if parts else ""
+
+
+async def acquire_scoped_semaphore(
+    semaphore: asyncio.Semaphore,
+    timeout: float,
+    context: dict | None = None,
+) -> None:
     """Acquire with timeout; raise asyncio.TimeoutError on timeout OR when the
-    queue is already saturated, so callers reuse their existing 429 path."""
-    if getattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, None) == 0:
+    queue is already saturated, so callers reuse their existing 429 path.
+
+    Whenever the request cannot take a slot immediately, log WHY it has to
+    wait: the layer, its configured limit, current in-flight requests and
+    queue length, plus caller-supplied context (model / api key / provider
+    key / config source). This makes production logs self-explanatory when
+    users ask "why am I not getting my configured concurrency"."""
+    ctx = _format_context(context)
+    limit = getattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, None)
+    if limit == 0:
         # Explicit zero concurrency: reject immediately instead of queueing
         # behind a slot that can never open.
+        logger.warning(
+            "[CONCURRENCY TIMEOUT]%s %s reason=limit_is_zero",
+            ctx,
+            _semaphore_stats(semaphore),
+        )
         raise asyncio.TimeoutError
     waiters = getattr(semaphore, "_waiters", None)
     if waiters:
-        limit = getattr(semaphore, SCOPED_SEMAPHORE_LIMIT_ATTR, 0) or 0
-        max_waiters = max(limit, 1) * SEMAPHORE_MAX_WAITERS_FACTOR
+        max_waiters = max(limit or 0, 1) * SEMAPHORE_MAX_WAITERS_FACTOR
         if len(waiters) >= max_waiters:
+            logger.warning(
+                "[CONCURRENCY TIMEOUT]%s %s reason=queue_saturated "
+                "max_waiters=%d wait_timeout=%.0fs",
+                ctx,
+                _semaphore_stats(semaphore),
+                max_waiters,
+                timeout,
+            )
             raise asyncio.TimeoutError
-    await asyncio.wait_for(semaphore.acquire(), timeout=timeout)
+    value = getattr(semaphore, "_value", 0) or 0
+    if value <= 0 or waiters:
+        logger.info(
+            "[CONCURRENCY WAIT]%s %s wait_timeout=%.0fs",
+            ctx,
+            _semaphore_stats(semaphore),
+            timeout,
+        )
+    start = time.monotonic()
+    try:
+        await asyncio.wait_for(semaphore.acquire(), timeout=timeout)
+    except asyncio.TimeoutError:
+        logger.warning(
+            "[CONCURRENCY TIMEOUT]%s %s waited=%.1fs wait_timeout=%.0fs",
+            ctx,
+            _semaphore_stats(semaphore),
+            time.monotonic() - start,
+            timeout,
+        )
+        raise
+    waited = time.monotonic() - start
+    if waited > 0.1:
+        logger.info(
+            "[CONCURRENCY ACQUIRED]%s %s waited=%.1fs",
+            ctx,
+            _semaphore_stats(semaphore),
+            waited,
+        )
 
 
 def _get_or_create_scoped_semaphore(

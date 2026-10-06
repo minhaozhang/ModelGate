@@ -49,6 +49,7 @@ _model_hard_limit_by_name: dict[str, int | None] = {}
 _model_max_concurrent_by_name: dict[str, int | None] = {}
 _model_per_key_concurrency_by_name: dict[str, int | None] = {}
 _model_per_key_concurrency_tiers_by_name: dict[str, list | None] = {}
+_model_coding_only_by_name: dict[str, bool] = {}
 
 
 @dataclass
@@ -360,10 +361,11 @@ async def load_providers():
         _model_max_concurrent_by_name.clear()
         _model_per_key_concurrency_by_name.clear()
         _model_per_key_concurrency_tiers_by_name.clear()
+        _model_coding_only_by_name.clear()
         model_id_result = await session.execute(
-            select(Model.id, Model.name, Model.context_hard_limit, Model.context_length, Model.max_concurrent, Model.per_key_concurrency, Model.per_key_concurrency_tiers)
+            select(Model.id, Model.name, Model.context_hard_limit, Model.context_length, Model.max_concurrent, Model.per_key_concurrency, Model.per_key_concurrency_tiers, Model.coding_only)
         )
-        for model_id, model_name, hard_limit, context_length, max_concurrent, per_key_concurrency, per_key_tiers in model_id_result.fetchall():
+        for model_id, model_name, hard_limit, context_length, max_concurrent, per_key_concurrency, per_key_tiers, coding_only in model_id_result.fetchall():
             _model_id_by_name[model_name] = model_id
             _model_hard_limit_by_name[model_name] = (
                 hard_limit if hard_limit is not None else context_length
@@ -371,6 +373,7 @@ async def load_providers():
             _model_max_concurrent_by_name[model_name] = max_concurrent
             _model_per_key_concurrency_by_name[model_name] = per_key_concurrency
             _model_per_key_concurrency_tiers_by_name[model_name] = per_key_tiers or None
+            _model_coding_only_by_name[model_name] = bool(coding_only)
         for p in providers:
             pm_result = await session.execute(
                 select(ProviderModel, Model)
@@ -639,6 +642,12 @@ def get_cached_model_per_key_concurrency_tiers(model_name: str) -> list | None:
     if model_name in _model_per_key_concurrency_tiers_by_name:
         return _model_per_key_concurrency_tiers_by_name.get(model_name)
     return None
+
+
+def get_cached_model_coding_only(model_name: str) -> bool:
+    """Whether this standard model is reserved for coding-tool traffic.
+    False (the default) = no usage restriction."""
+    return bool(_model_coding_only_by_name.get(model_name, False))
 
 
 def _route_from_provider_model(

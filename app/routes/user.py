@@ -1887,6 +1887,7 @@ async def get_user_catalog(
                 "context": model.context_length or 0,
                 "output": model.max_tokens or 0,
                 "is_multimodal": bool(model.is_multimodal),
+                "coding_only": bool(getattr(model, "coding_only", False)),
                 "has_override": bool(
                     getattr(provider_model, "upstream_model_name", None)
                     or provider_model.model_name_override
