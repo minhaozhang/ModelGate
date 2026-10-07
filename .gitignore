@@ -9,7 +9,7 @@ backups/
 .env
 .env.*
 /.agents/
-/.claude/worktrees/
+/.claude/
 /.superpowers/
 /skills-lock.json
 /uploads/
