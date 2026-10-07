@@ -549,7 +549,9 @@ async def aggregate_logs(
             RequestLog.created_at <= dt_end,
             RequestLog.latency_ms.is_not(None),
         ]
-        if status:
+        if status == "all":
+            pass  # explicit "all statuses": no status filter
+        elif status:
             base_where.append(RequestLog.status == status)
         else:
             base_where.append(RequestLog.status == "success")
@@ -624,11 +626,13 @@ async def aggregate_logs(
             )
             result = await session.execute(q)
             rows = result.fetchall()
+            ip_cities = await _ip_city_map(session, [r.client_ip or "" for r in rows])
             return {
                 "group_by": "ip",
                 "rows": [
                     {
                         "client_ip": r.client_ip or "-",
+                        "ip_city": ip_cities.get(r.client_ip or "", ""),
                         "request_count": r.request_count,
                         "avg_latency_ms": float(r.avg_latency_ms) if r.avg_latency_ms else 0,
                         "total_tokens": int(r.total_tokens) if r.total_tokens else 0,
@@ -659,6 +663,7 @@ async def aggregate_logs(
                 )
                 key_map = {k[0]: k[1] for k in k_result.all()}
 
+            ip_cities = await _ip_city_map(session, [r.client_ip or "" for r in rows])
             return {
                 "group_by": "user_ip",
                 "rows": [
@@ -666,6 +671,7 @@ async def aggregate_logs(
                         "api_key_id": r.api_key_id,
                         "api_key_name": key_map.get(r.api_key_id, "-"),
                         "client_ip": r.client_ip or "-",
+                        "ip_city": ip_cities.get(r.client_ip or "", ""),
                         "request_count": r.request_count,
                         "avg_latency_ms": float(r.avg_latency_ms) if r.avg_latency_ms else 0,
                         "total_tokens": int(r.total_tokens) if r.total_tokens else 0,

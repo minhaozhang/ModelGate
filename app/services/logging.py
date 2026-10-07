@@ -84,7 +84,7 @@ async def create_request_log(
         session.add(log)
         await session.commit()
 
-        if request_messages is not None:
+        if request_messages is not None and config_module.content_recording_enabled():
             content = RequestContent(
                 log_id=log.id,
                 request_messages=_clean_null_bytes(request_messages),
@@ -163,7 +163,7 @@ async def update_request_log(
             await session.execute(
                 sa_delete(RequestContent).where(RequestContent.log_id == log_id)
             )
-        if request_messages is not None:
+        if request_messages is not None and config_module.content_recording_enabled():
             session.add(
                 RequestContent(
                     log_id=log_id,
@@ -229,6 +229,9 @@ async def update_request_content(
     response_thinking: Optional[str] = None,
     response_raw: Optional[dict] = None,
 ) -> bool:
+    if not config_module.content_recording_enabled():
+        return False
+
     from sqlalchemy import update as sa_update
 
     async with async_session_maker() as session:

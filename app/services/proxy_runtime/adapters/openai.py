@@ -7,12 +7,15 @@ class OpenAIAdapter(ProviderAdapter):
     name = "openai"
 
     def build_headers(
-        self, provider_config: dict, api_key: str | None = None
+        self,
+        provider_config: dict,
+        api_key: str | None = None,
+        client_user_agent: str | None = None,
     ) -> dict[str, str]:
         key = api_key or provider_config.get("api_key") or ""
         headers = {
             "content-type": "application/json",
-            "user-agent": config.OUTBOUND_USER_AGENT,
+            "user-agent": config.outbound_user_agent(client_user_agent),
             "connection": "keep-alive",
             "accept": "*/*",
         }

@@ -1186,7 +1186,12 @@ async def proxy_request(request: Request, endpoint: str):
                     route_exhausted = True
                     break
                 target_url = f"{provider_config['base_url']}{adapter_endpoint}"
-                headers = build_headers(provider_config, api_key=chosen_api_key, protocol=provider_protocol)
+                headers = build_headers(
+                    provider_config,
+                    api_key=chosen_api_key,
+                    protocol=provider_protocol,
+                    client_user_agent=user_agent,
+                )
 
                 if attempt_idx == 0:
                     _log_request_info(

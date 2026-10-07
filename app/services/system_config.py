@@ -1,3 +1,4 @@
+import re
 import time
 
 from sqlalchemy import select
@@ -23,6 +24,16 @@ ALL_DEFAULTS = {
     "busyness": BUSYNESS_DEFAULTS,
     "proxy": {
         "ua_override": "",
+        # "override" = send the fixed UA above; "passthrough" = forward the
+        # client's own User-Agent upstream.
+        "ua_mode": "override",
+        # Persist request context + response bodies in request_contents.
+        "record_content": "true",
+    },
+    "opencode": {
+        # Provider id/name written into the generated opencode.jsonc.
+        "provider_id": "modelgate",
+        "provider_name": "ModelGate",
     },
     "billing": {
         "peak_windows": "09:00-12:00,14:00-18:00",
@@ -152,3 +163,39 @@ async def save_setting(category: str, key: str, value: str, description: str | N
     ck = _cache_key(category, key)
     _settings_cache.pop(ck, None)
     config.system_settings[ck] = value
+
+
+_TRUE_VALUES = ("1", "true", "yes", "on")
+
+_OPENCODE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
+def parse_bool(raw: str | None, default: bool = True) -> bool:
+    if raw is None or str(raw).strip() == "":
+        return default
+    return str(raw).strip().lower() in _TRUE_VALUES
+
+
+def normalize_ua_mode(raw: str | None) -> str:
+    return "passthrough" if str(raw or "").strip().lower() == "passthrough" else "override"
+
+
+def valid_opencode_provider_id(value: str) -> bool:
+    return bool(_OPENCODE_ID_RE.match(value or ""))
+
+
+async def get_opencode_identity() -> tuple[str, str]:
+    """(provider_id, provider_name) written into generated opencode configs.
+
+    Read from the in-memory settings snapshot (populated by ``init_system_config``
+    at startup and refreshed by ``save_setting``), so request handlers never need
+    an extra DB round-trip — mirrors how the UA/content-recording toggles are read.
+    """
+    defaults = ALL_DEFAULTS["opencode"]
+    provider_id = str(
+        config.system_settings.get("opencode.provider_id") or defaults["provider_id"]
+    ).strip()
+    provider_name = str(
+        config.system_settings.get("opencode.provider_name") or defaults["provider_name"]
+    ).strip()
+    return provider_id or defaults["provider_id"], provider_name or defaults["provider_name"]

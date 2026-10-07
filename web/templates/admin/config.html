@@ -496,7 +496,11 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Base URL') }}</label>
-                        <input type="text" id="provider-url" required class="w-full border rounded px-3 py-2" placeholder="https://api.example.com/v1">
+                        <div class="flex gap-2">
+                            <input type="text" id="provider-url" required class="w-full border rounded px-3 py-2" placeholder="https://api.example.com/v1">
+                            <button type="button" id="provider-probe-btn" onclick="probeProviderUrl()" class="shrink-0 px-3 py-2 border rounded text-sm hover:bg-gray-50 whitespace-nowrap">{{ _('Probe') }}</button>
+                        </div>
+                        <div id="provider-probe-result" class="mt-2 text-xs hidden"></div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ _('Protocol') }}</label>
@@ -1244,9 +1248,62 @@
             document.getElementById('provider-protocol').value = 'openai';
             document.getElementById('provider-active').checked = true;
             document.getElementById('provider-merge-msgs').checked = false;
+            resetProbeResult();
             document.getElementById('provider-modal').classList.remove('hidden');
             document.getElementById('provider-modal').classList.add('flex');
         }
+
+        function resetProbeResult() {
+            const out = document.getElementById('provider-probe-result');
+            if (!out) return;
+            out.textContent = '';
+            out.className = 'mt-2 text-xs hidden';
+        }
+
+        async function probeProviderUrl() {
+            const btn = document.getElementById('provider-probe-btn');
+            const out = document.getElementById('provider-probe-result');
+            const url = document.getElementById('provider-url').value.trim();
+            const id = document.getElementById('provider-id').value;
+            if (!url && !id) {
+                out.className = 'mt-2 text-xs text-orange-600';
+                out.textContent = t('probeNeedUrl', 'Enter a Base URL first');
+                return;
+            }
+            const original = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '...';
+            out.className = 'mt-2 text-xs text-gray-500';
+            out.textContent = t('probing', 'Probing...');
+            try {
+                const payload = { base_url: url };
+                if (id) payload.provider_id = parseInt(id, 10);
+                const proto = document.getElementById('provider-protocol').value || 'openai';
+                if (proto) payload.protocol = proto;
+                const resp = await fetch(`${APP_BASE_PATH}/admin/api/providers/probe`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const d = await resp.json().catch(() => ({}));
+                if (d.ok) {
+                    const n = (d.model_count === null || d.model_count === undefined) ? '' : ` · ${t('modelsLabel', 'models')}: ${d.model_count}`;
+                    out.className = 'mt-2 text-xs text-green-600';
+                    out.textContent = `✅ ${t('probeOk', 'Reachable')} · ${d.latency_ms} ms · HTTP ${d.status_code}${n}`;
+                } else {
+                    const lat = d.latency_ms ? ` · ${d.latency_ms} ms` : '';
+                    out.className = 'mt-2 text-xs text-red-600';
+                    out.textContent = `❌ ${t('probeFail', 'Unreachable')}${lat} · ${d.error || ''}`;
+                }
+            } catch (e) {
+                out.className = 'mt-2 text-xs text-red-600';
+                out.textContent = String(e);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = original;
+            }
+        }
+        window.probeProviderUrl = probeProviderUrl;
 
         function editProvider(id) {
             const p = allProviders.find(x => x.id === id);
@@ -1259,6 +1316,7 @@
             document.getElementById('provider-protocol').value = p.protocol || 'openai';
             document.getElementById('provider-active').checked = p.is_active;
             document.getElementById('provider-merge-msgs').checked = p.merge_consecutive_messages || false;
+            resetProbeResult();
             const reasonEl = document.getElementById('provider-disabled-reason');
             if (p.disabled_reason) {
                 reasonEl.textContent = `${t('disabledReasonPrefix', 'Disabled:')} ${p.disabled_reason}`;

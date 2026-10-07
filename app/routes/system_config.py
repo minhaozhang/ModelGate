@@ -18,13 +18,25 @@ router = APIRouter(prefix="/admin", tags=["system-config"])
 
 @router.get("/api/system/config")
 async def get_config(_: bool = Depends(permission_required("page.system.config"))):
-    from app.services.system_config import ALL_DEFAULTS, get_setting
+    from app.services.system_config import (
+        ALL_DEFAULTS,
+        get_opencode_identity,
+        get_setting,
+        normalize_ua_mode,
+    )
 
     busyness_settings = {}
     for key in ALL_DEFAULTS.get("busyness", {}):
         busyness_settings[key] = await get_setting("busyness", key)
 
     ua = await get_setting("proxy", "ua_override", "")
+    ua_mode = normalize_ua_mode(await get_setting("proxy", "ua_mode", "override"))
+    # get_setting refreshes the in-memory snapshot, so this reports exactly what
+    # the proxy path (config.content_recording_enabled) will act on.
+    await get_setting("proxy", "record_content", "true")
+    record_content = config.content_recording_enabled()
+
+    opencode_provider_id, opencode_provider_name = await get_opencode_identity()
 
     from app.services.glm_health_check import DEFAULT_HEALTH_CHECK_MODEL
 
@@ -56,6 +68,10 @@ async def get_config(_: bool = Depends(permission_required("page.system.config")
     return {
         "ua_override": ua or DEFAULT_OUTBOUND_USER_AGENT,
         "default_ua": DEFAULT_OUTBOUND_USER_AGENT,
+        "ua_mode": ua_mode,
+        "record_content": record_content,
+        "opencode_provider_id": opencode_provider_id,
+        "opencode_provider_name": opencode_provider_name,
         "busyness": busyness_settings,
         "glm_health_check_model": glm_model,
         "glm_health_check_model_default": DEFAULT_HEALTH_CHECK_MODEL,
@@ -70,13 +86,62 @@ async def get_config(_: bool = Depends(permission_required("page.system.config")
 async def update_config(body: dict, _: bool = Depends(permission_required("system_config.update"))):
     from app.services.system_config import ALL_DEFAULTS, save_setting
 
-    ua = body.get("ua_override", "").strip()
-    if ua:
-        await save_setting("proxy", "ua_override", ua)
-        config.OUTBOUND_USER_AGENT = ua
-    else:
-        await save_setting("proxy", "ua_override", "")
-        config.OUTBOUND_USER_AGENT = DEFAULT_OUTBOUND_USER_AGENT
+    # Validate everything this payload touches before persisting anything, so a
+    # 422 never leaves the request half-applied.
+    new_opencode_id = new_opencode_name = None
+    if "opencode_provider_id" in body or "opencode_provider_name" in body:
+        from app.services.system_config import (
+            get_opencode_identity,
+            valid_opencode_provider_id,
+        )
+
+        current_id, current_name = await get_opencode_identity()
+        new_opencode_id = str(body.get("opencode_provider_id", current_id) or "").strip()
+        new_opencode_name = str(
+            body.get("opencode_provider_name", current_name) or ""
+        ).strip()
+        if not valid_opencode_provider_id(new_opencode_id):
+            raise HTTPException(
+                status_code=422,
+                detail="opencode provider id 只能包含字母/数字/._-，且以字母或数字开头",
+            )
+        if not new_opencode_name:
+            raise HTTPException(status_code=422, detail="opencode provider 显示名不能为空")
+
+    # Only touch ua_override when it is actually part of this payload —
+    # otherwise saving any other setting would silently wipe it.
+    if "ua_override" in body:
+        ua = str(body.get("ua_override") or "").strip()
+        if ua:
+            await save_setting("proxy", "ua_override", ua)
+            config.OUTBOUND_USER_AGENT = ua
+        else:
+            await save_setting("proxy", "ua_override", "")
+            config.OUTBOUND_USER_AGENT = DEFAULT_OUTBOUND_USER_AGENT
+
+    if "ua_mode" in body:
+        from app.services.system_config import normalize_ua_mode
+
+        await save_setting(
+            "proxy",
+            "ua_mode",
+            normalize_ua_mode(body.get("ua_mode")),
+            "出站 UA 策略：override=固定 UA，passthrough=透传客户端 UA",
+        )
+
+    if "record_content" in body:
+        from app.services.system_config import parse_bool
+
+        await save_setting(
+            "proxy",
+            "record_content",
+            "true" if parse_bool(body.get("record_content"), True) else "false",
+            "是否记录请求上下文与响应内容（request_contents）",
+        )
+
+    if new_opencode_id is not None:
+        await save_setting("opencode", "provider_id", new_opencode_id)
+        await save_setting("opencode", "provider_name", new_opencode_name)
 
     if "glm_health_check_model" in body:
         glm_model = str(body.get("glm_health_check_model") or "").strip()

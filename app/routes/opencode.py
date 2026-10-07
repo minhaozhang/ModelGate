@@ -18,6 +18,7 @@ from app.core.database import (
     async_session_maker,
 )
 from app.routes.user import get_user_session
+from app.services.system_config import get_opencode_identity
 
 router = APIRouter(tags=["docs"])
 
@@ -86,6 +87,15 @@ def build_opencode_base_url(request: Request) -> str:
     return f"{base_url}{app_base_path}/v1"
 
 
+def provider_block(config: dict) -> tuple[str, dict]:
+    """(provider_id, provider_block) from a generated opencode config."""
+    provider = config.get("provider") or {}
+    if not provider:
+        return "modelgate", {}
+    provider_id = next(iter(provider))
+    return provider_id, provider[provider_id]
+
+
 def sort_opencode_models(models: dict) -> dict:
     return {
         name: models[name]
@@ -94,8 +104,21 @@ def sort_opencode_models(models: dict) -> dict:
 
 
 async def build_opencode_config(
-    session, base_url: str, api_key: str = None, api_key_id: int = None
+    session,
+    base_url: str,
+    api_key: str = None,
+    api_key_id: int = None,
+    provider_id: str = "modelgate",
+    provider_name: str = "ModelGate",
 ):
+    """Build the generated opencode config.
+
+    The provider id/name are injected by the request handlers (see
+    ``get_opencode_identity``) so this function stays free of extra DB access;
+    direct callers get the historical ``modelgate`` / ``ModelGate`` naming.
+    """
+    provider_id = (provider_id or "").strip() or "modelgate"
+    provider_name = (provider_name or "").strip() or "ModelGate"
     if api_key:
         result = await session.execute(
             select(ApiKey).where(ApiKey.key == api_key, ApiKey.is_active == True)
@@ -300,8 +323,8 @@ async def build_opencode_config(
     return {
         "$schema": "https://opencode.ai/config.json",
         "provider": {
-            "modelgate": {
-                "name": "ModelGate",
+            provider_id: {
+                "name": provider_name,
                 "npm": "@ai-sdk/openai-compatible",
                 "options": {
                     "baseURL": base_url,
@@ -314,7 +337,7 @@ async def build_opencode_config(
 
 
 def build_setup_markdown(config: dict) -> str:
-    provider_config = config["provider"]["modelgate"]
+    pid, provider_config = provider_block(config)
     model_names = list(sort_opencode_models(provider_config.get("models", {})).keys())
     model_list = "\n".join(f"- `{model_name}`" for model_name in model_names)
     if not model_list:
@@ -329,15 +352,15 @@ Requirements:
 - If `~/.config/opencode/opencode.jsonc` does not exist, create it first.
 - You can also place `opencode.jsonc` in the root of the current project if you prefer a project-specific config.
 - Keep existing providers and other settings unchanged.
-- **Fully replace the `modelgate` provider**: find `provider.modelgate` in the config, and overwrite its entire value with the JSON object shown below. Do NOT merge, do NOT add fields to the existing one — the `modelgate` block must become exactly the JSON below.
-- If `provider.modelgate` does not exist yet, add it with the JSON below.
-- After replacement, the `modelgate.models` object must contain exactly the models listed below — no extra, no missing.
+- **Fully replace the `{pid}` provider**: find `provider.{pid}` in the config, and overwrite its entire value with the JSON object shown below. Do NOT merge, do NOT add fields to the existing one — the `{pid}` block must become exactly the JSON below.
+- If `provider.{pid}` does not exist yet, add it with the JSON below.
+- After replacement, the `{pid}.models` object must contain exactly the models listed below — no extra, no missing.
 - If OpenCode is not installed yet, download it from `https://opencode.ai/`.
 
 Models included in this provider (must match exactly after replacement):
 {model_list}
 
-Use this provider config (replace `provider.modelgate` entirely with this JSON object):
+Use this provider config (replace `provider.{pid}` entirely with this JSON object):
 
 ```json
 {json.dumps(config, ensure_ascii=False)}
@@ -346,7 +369,7 @@ Use this provider config (replace `provider.modelgate` entirely with this JSON o
 After the config is updated:
 1. Save the file.
 2. **Restart OpenCode** for the changes to take effect.
-3. Verify that the models above are available in OpenCode and that no stale models from a previous `modelgate` config remain."""
+3. Verify that the models above are available in OpenCode and that no stale models from a previous `{pid}` config remain."""
 
 
 @router.get("/opencode/setup.md")
@@ -360,8 +383,14 @@ async def get_opencode_setup_markdown(
 
     async with async_session_maker() as session:
         base_url = build_opencode_base_url(request)
+        provider_id, provider_name = await get_opencode_identity()
         config = await build_opencode_config(
-            session, base_url, api_key=api_key, api_key_id=api_key_id
+            session,
+            base_url,
+            api_key=api_key,
+            api_key_id=api_key_id,
+            provider_id=provider_id,
+            provider_name=provider_name,
         )
         if not config:
             return PlainTextResponse("# Error\n\nInvalid API Key", status_code=401)
@@ -386,8 +415,14 @@ async def merge_opencode_config(
 
     async with async_session_maker() as session:
         base_url = build_opencode_base_url(request)
+        provider_id, provider_name = await get_opencode_identity()
         modelgate_config = await build_opencode_config(
-            session, base_url, api_key=api_key, api_key_id=api_key_id
+            session,
+            base_url,
+            api_key=api_key,
+            api_key_id=api_key_id,
+            provider_id=provider_id,
+            provider_name=provider_name,
         )
         if not modelgate_config:
             return JSONResponse({"error": "Invalid API Key"}, status_code=401)
@@ -395,7 +430,8 @@ async def merge_opencode_config(
         providers = user_config.get("provider", {})
         if not isinstance(providers, dict):
             providers = {}
-        providers["modelgate"] = modelgate_config["provider"]["modelgate"]
+        pid, pblock = provider_block(modelgate_config)
+        providers[pid] = pblock
         user_config["provider"] = providers
 
         return JSONResponse(user_config)
@@ -426,8 +462,14 @@ async def merge_opencode_config_file(
 
     async with async_session_maker() as session:
         base_url = build_opencode_base_url(request)
+        provider_id, provider_name = await get_opencode_identity()
         modelgate_config = await build_opencode_config(
-            session, base_url, api_key=api_key, api_key_id=api_key_id
+            session,
+            base_url,
+            api_key=api_key,
+            api_key_id=api_key_id,
+            provider_id=provider_id,
+            provider_name=provider_name,
         )
         if not modelgate_config:
             return PlainTextResponse("Invalid API Key", status_code=401)
@@ -435,12 +477,11 @@ async def merge_opencode_config_file(
         providers = user_config.get("provider", {})
         if not isinstance(providers, dict):
             providers = {}
-        providers["modelgate"] = modelgate_config["provider"]["modelgate"]
+        pid, pblock = provider_block(modelgate_config)
+        providers[pid] = pblock
         user_config["provider"] = providers
 
-        models = sort_opencode_models(
-            modelgate_config["provider"]["modelgate"].get("models", {})
-        ).keys()
+        models = sort_opencode_models(pblock.get("models", {})).keys()
         merged = json.dumps(user_config, ensure_ascii=False, indent=2)
         return PlainTextResponse(
             content=merged + "\n",
@@ -541,7 +582,7 @@ $json = $resp | ConvertTo-Json -Depth 100
 Write-Host ""
 Write-Host "ModelGate provider configured." -ForegroundColor Green
 Write-Host "Config file: $ConfigFile"
-$models = @($resp.provider.modelgate.models.PSObject.Properties.Name) | Sort-Object
+$models = @($resp.provider.__PROVIDER_ID__.models.PSObject.Properties.Name) | Sort-Object
 Write-Host ("Available models ({0}):" -f $models.Count)
 foreach ($m in $models) { Write-Host "  - $m" }
 Write-Host ""
@@ -634,18 +675,22 @@ echo "Restart opencode if it is running."
 '''
 
 
-def _render_setup_script(template: str, base_url: str, api_key: str) -> str:
+def _render_setup_script(
+    template: str, base_url: str, api_key: str, provider_id: str = "modelgate"
+) -> str:
     return (
         template
         .replace("__BASE_URL__", base_url)
         .replace("__API_KEY__", api_key or "")
+        .replace("__PROVIDER_ID__", provider_id or "modelgate")
     )
 
 
 @router.get("/opencode/setup.ps1")
 async def get_opencode_setup_ps1(request: Request, key: Optional[str] = None):
     base = build_app_base_url(request)
-    script = _render_setup_script(_POWERSHELL_SCRIPT, base, key or "")
+    provider_id, _name = await get_opencode_identity()
+    script = _render_setup_script(_POWERSHELL_SCRIPT, base, key or "", provider_id)
     return PlainTextResponse(
         content=script,
         media_type="text/plain; charset=utf-8",

@@ -91,8 +91,10 @@ class OpenCodeReviewFixTests(unittest.TestCase):
         self.assertIn("modelgate", dashboard_html)
         self.assertIn("modelgate provider", dashboard_html)
 
-        self.assertIn("config.provider['modelgate']", public_html)
+        # 公开页不再硬编码 provider 键(管理员可改供应商标识),改为按配置里实际的键取。
         self.assertNotIn("config.provider['model-token-plan']", public_html)
+        self.assertNotIn("config.provider['modelgate']", public_html)
+        self.assertIn("Object.keys(config.provider", public_html)
         self.assertIn("modelgate provider", public_html)
 
     def test_placeholder_defaults_do_not_contain_internal_credentials(self):
@@ -169,6 +171,65 @@ class OpenCodeReviewFixTests(unittest.TestCase):
         self.assertLess(markdown.index("- `Beta`"), markdown.index("- `zeta`"))
         self.assertLess(markdown.index('"auto"'), markdown.index('"Beta"'))
         self.assertLess(markdown.index('"Beta"'), markdown.index('"zeta"'))
+
+
+    async def test_opencode_config_uses_injected_provider_identity(self):
+        """provider id/name 由路由层注入,build_opencode_config 自身不再查库。"""
+        import inspect
+
+        key = SimpleNamespace(id=7, key="sk-test")
+        provider = SimpleNamespace(id=1, is_active=True)
+        standard_model = SimpleNamespace(
+            id=101,
+            name="glm-5.1",
+            display_name="GLM 5.1",
+            is_multimodal=False,
+            max_tokens=8192,
+            context_length=32768,
+            thinking_enabled=False,
+        )
+        pm = SimpleNamespace(
+            id=11, provider_id=1, model_id=101, priority=1, is_active=True
+        )
+        auto_model = SimpleNamespace(
+            id=16,
+            name="auto",
+            display_name="auto",
+            is_multimodal=False,
+            context_length=204800,
+            max_tokens=131072,
+        )
+        auto_route = SimpleNamespace(
+            enabled=True,
+            model_ids=[101],
+            provider_model_ids=[],
+            route_policy={},
+        )
+        session = _SequencedSession(
+            [
+                _FakeScalarResult(one=key),
+                _FakeScalarResult(values=[]),
+                _FakeScalarResult(rows=[]),
+                _FakeScalarResult(rows=[(auto_model, auto_route)]),
+                _FakeScalarResult(values=[pm]),
+                _FakeScalarResult(one=provider),
+                _FakeScalarResult(one=standard_model),
+            ]
+        )
+
+        config = await opencode.build_opencode_config(
+            session,
+            "https://leturx.cc/modelgate/v1",
+            api_key_id=7,
+            provider_id="mygw",
+            provider_name="My Gateway",
+        )
+
+        self.assertEqual(list(config["provider"].keys()), ["mygw"])
+        self.assertEqual(config["provider"]["mygw"]["name"], "My Gateway")
+        self.assertNotIn(
+            "get_opencode_identity", inspect.getsource(opencode.build_opencode_config)
+        )
 
 
 class OpenCodeAutoModelTests(unittest.IsolatedAsyncioTestCase):

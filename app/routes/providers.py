@@ -44,6 +44,129 @@ class ProviderUpdate(BaseModel):
         return v.strip() if v is not None else v
 
 
+class ProviderProbe(BaseModel):
+    provider_id: Optional[int] = None
+    base_url: Optional[str] = None
+    protocol: Optional[str] = None
+
+
+def _probe_target(base_url: str, protocol: str) -> tuple[str, bool]:
+    """(path_suffix, is_anthropic) for the models-list probe.
+
+    Mirrors how the proxy itself builds URLs: OpenAI-style providers keep /v1 in
+    base_url (so `{base}/models`), Anthropic-style providers do not (so
+    `{base}/v1/models`).
+    """
+    is_anthropic = (protocol or "").strip().lower() == "anthropic"
+    return ("/v1/models" if is_anthropic else "/models"), is_anthropic
+
+
+def _probe_headers(api_key: str | None, is_anthropic: bool) -> dict[str, str]:
+    headers = {"Accept": "application/json"}
+    if not api_key:
+        return headers
+    if is_anthropic:
+        headers["x-api-key"] = api_key
+        headers["anthropic-version"] = "2023-06-01"
+    else:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return headers
+
+
+@router.post("/providers/probe")
+async def probe_provider(
+    data: ProviderProbe, _: bool = Depends(permission_required("page.providers"))
+):
+    """Connectivity probe for a provider base URL (admin diagnostics).
+
+    Uses the saved URL/protocol when `provider_id` is given, otherwise the values
+    passed in (so they can be tested before saving). Sends a GET to the models
+    list endpoint with the provider's first active key when available and
+    reports status/latency.
+    """
+    import time as _time
+
+    import httpx
+
+    base_url = (data.base_url or "").strip().rstrip("/")
+    protocol = (data.protocol or "").strip().lower()
+    api_key = None
+    async with async_session_maker() as session:
+        if data.provider_id:
+            result = await session.execute(
+                select(Provider).where(Provider.id == data.provider_id)
+            )
+            provider = result.scalar_one_or_none()
+            if not provider:
+                return JSONResponse({"ok": False, "error": "Provider not found"}, status_code=404)
+            if not base_url:
+                base_url = (provider.base_url or "").strip().rstrip("/")
+            if not protocol:
+                protocol = (provider.protocol or "openai").strip().lower()
+            pk_result = await session.execute(
+                select(ProviderKey)
+                .where(
+                    ProviderKey.provider_id == data.provider_id,
+                    ProviderKey.is_active == True,  # noqa: E712
+                )
+                .order_by(ProviderKey.id)
+                .limit(1)
+            )
+            key_row = pk_result.scalar_one_or_none()
+            if key_row:
+                api_key = key_row.api_key
+
+    if not base_url:
+        return JSONResponse({"ok": False, "error": "base_url is required"}, status_code=422)
+
+    path, is_anthropic = _probe_target(base_url, protocol)
+    headers = _probe_headers(api_key, is_anthropic)
+
+    started = _time.perf_counter()
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(f"{base_url}{path}", headers=headers)
+    except Exception as exc:
+        return {
+            "ok": False,
+            "reachable": False,
+            "base_url": base_url,
+            "latency_ms": round((_time.perf_counter() - started) * 1000, 1),
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+    latency_ms = round((_time.perf_counter() - started) * 1000, 1)
+    if resp.status_code != 200:
+        return {
+            "ok": False,
+            "reachable": True,
+            "base_url": base_url,
+            "status_code": resp.status_code,
+            "latency_ms": latency_ms,
+            "error": f"HTTP {resp.status_code}",
+        }
+
+    model_count = None
+    try:
+        payload = resp.json()
+        models = payload.get("data", payload.get("models", []))
+        if isinstance(models, dict):
+            models = list(models.values())
+        if isinstance(models, list):
+            model_count = len(models)
+    except Exception:
+        pass
+
+    return {
+        "ok": True,
+        "reachable": True,
+        "base_url": base_url,
+        "status_code": 200,
+        "latency_ms": latency_ms,
+        "model_count": model_count,
+    }
+
+
 @router.get("/provider-status")
 async def get_admin_provider_status(_: bool = Depends(login_required)):
     from app.services.provider_limiter import get_disabled_providers_status

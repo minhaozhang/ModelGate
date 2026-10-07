@@ -97,6 +97,30 @@ OUTBOUND_USER_AGENT = DEFAULT_OUTBOUND_USER_AGENT
 system_config: dict[str, Any] = {}
 system_settings: dict[str, str] = {}
 
+
+def outbound_user_agent(client_user_agent: Optional[str] = None) -> str:
+    """Resolve the User-Agent sent upstream.
+
+    proxy.ua_mode == "passthrough" forwards the client's own User-Agent;
+    anything else (default "override") keeps the configured fixed UA.
+    """
+    mode = str(system_settings.get("proxy.ua_mode") or "override").strip().lower()
+    if mode == "passthrough" and client_user_agent:
+        return client_user_agent
+    return OUTBOUND_USER_AGENT
+
+
+def content_recording_enabled() -> bool:
+    """Whether request context (messages) and response bodies are persisted.
+
+    Defaults to True so existing deployments keep recording unless an admin
+    explicitly switches it off (proxy.record_content).
+    """
+    raw = system_settings.get("proxy.record_content")
+    if raw is None or str(raw).strip() == "":
+        return True
+    return str(raw).strip().lower() not in ("0", "false", "no", "off")
+
 stats = {
     "total_requests": 0,
     "total_tokens": 0,

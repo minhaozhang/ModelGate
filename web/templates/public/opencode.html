@@ -131,7 +131,11 @@
                 document.getElementById('error-section').classList.add('hidden');
 
                 const config = data.config;
-                config.provider['modelgate'].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
+                // 供应商 ID 可在系统设置中改名，这里取配置里实际的 provider 键，避免硬编码。
+                const providerIds = Object.keys(config.provider || {});
+                if (providerIds.length > 0 && config.provider[providerIds[0]].options) {
+                    config.provider[providerIds[0]].options.baseURL = window.location.origin + APP_BASE_PATH + '/v1';
+                }
 
                 const prompt = window.I18N.promptText + "\n\n";
                 const configJson = prompt + JSON.stringify(config, null, 2);

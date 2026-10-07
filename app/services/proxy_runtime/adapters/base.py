@@ -2,17 +2,22 @@ from __future__ import annotations
 
 import abc
 
+import app.core.config as config
+
 
 class ProviderAdapter(abc.ABC):
     name: str = "base"
 
     def build_headers(
-        self, provider_config: dict, api_key: str | None = None
+        self,
+        provider_config: dict,
+        api_key: str | None = None,
+        client_user_agent: str | None = None,
     ) -> dict[str, str]:
         key = api_key or provider_config.get("api_key") or ""
         headers = {
             "content-type": "application/json",
-            "user-agent": "modelgate/1.0",
+            "user-agent": config.outbound_user_agent(client_user_agent),
             "connection": "keep-alive",
             "accept": "*/*",
         }

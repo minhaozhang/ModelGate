@@ -67,8 +67,7 @@
         <main class="ml-56 flex-1 p-6">
             {% call admin_page_header('系统设置' if current_locale == 'zh' else 'System Config') %}{% endcall %}
             <div class="bg-white rounded-lg shadow p-3 mb-6 flex items-center gap-1 flex-wrap border-b border-gray-100">
-                <button class="sys-tab-btn active" data-sys-tab="ua" onclick="switchSysTab('ua')">{{ _('Proxy UA' if current_locale != 'zh' else '代理 UA') }}</button>
-                <button class="sys-tab-btn" data-sys-tab="glm" onclick="switchSysTab('glm')">{{ _('Health Check' if current_locale != 'zh' else '健康检查') }}</button>
+                <button class="sys-tab-btn active" data-sys-tab="general" onclick="switchSysTab('general')">{{ _('General' if current_locale != 'zh' else '常规设置') }}</button>
                 <button class="sys-tab-btn" data-sys-tab="busyness" onclick="switchSysTab('busyness')">{{ _('Busyness Levels' if current_locale != 'zh' else '繁忙等级') }}</button>
                 <button class="sys-tab-btn" data-sys-tab="billing" onclick="switchSysTab('billing')">{{ _('Billing Rules' if current_locale != 'zh' else '计费规则') }}</button>
                 <button class="sys-tab-btn" data-sys-tab="daily_report" onclick="switchSysTab('daily_report')">{{ _('Report Thresholds' if current_locale != 'zh' else '简报阈值') }}</button>
@@ -76,37 +75,101 @@
                 <button class="sys-tab-btn" data-sys-tab="ips" onclick="switchSysTab('ips')">{{ _('IP Management' if current_locale != 'zh' else 'IP 管理') }}</button>
             </div>
 
-            <div id="sys-tab-ua" class="sys-tab-panel">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <h2 class="text-lg font-semibold mb-4">{{ _('Proxy User-Agent') }}</h2>
-                        <p class="text-xs text-gray-500 mb-1">{{ _('Current outbound UA (used for all proxy requests)') }}</p>
-                        <input id="ua-input" class="w-full border rounded px-3 py-2 text-sm font-mono mb-3" placeholder="User-Agent">
-                        <div id="default-ua-hint" class="text-xs text-gray-400 mb-3"></div>
-                        <div class="flex gap-2">
-                            <button onclick="sysSaveUa()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
-                            <button onclick="sysResetUa()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm">{{ _('Reset to Default') }}</button>
-                        </div>
-                        <div id="ua-msg" class="mt-3 text-sm hidden"></div>
-                    </div>
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <h2 class="text-lg font-semibold mb-1">{{ _('Today\'s Client UA') }}</h2>
-                        <p class="text-xs text-gray-500 mb-4">{{ _('Top user agents making requests today') }}</p>
-                        <div id="ua-list" class="space-y-3 text-sm"></div>
+            <div id="sys-tab-general" class="sys-tab-panel">
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <h2 class="text-lg font-semibold mb-1">{{ _('General Settings' if current_locale != 'zh' else '常规设置') }}</h2>
+                    <p class="text-xs text-gray-500 mb-4">{{ _('Single-value options collected in one table; each row saves independently.' if current_locale != 'zh' else '原先分散在多个标签页的单项设置统一收在这里，每行独立保存。') }}</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200 text-left text-gray-500">
+                                    <th class="px-3 py-2 font-medium w-44">{{ _('Setting' if current_locale != 'zh' else '设置项') }}</th>
+                                    <th class="px-3 py-2 font-medium" style="min-width:260px">{{ _('Value' if current_locale != 'zh' else '值') }}</th>
+                                    <th class="px-3 py-2 font-medium">{{ _('Notes' if current_locale != 'zh' else '说明') }}</th>
+                                    <th class="px-3 py-2 font-medium text-right">{{ _('Actions' if current_locale != 'zh' else '操作') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-gray-100">
+                                    <td class="px-3 py-3 font-medium">{{ _('UA Mode' if current_locale != 'zh' else 'UA 策略') }}</td>
+                                    <td class="px-3 py-3">
+                                        <select id="ua-mode-select" class="border rounded px-2 py-1.5 text-sm">
+                                            <option value="override">{{ _('Override with fixed UA (default)' if current_locale != 'zh' else '固定 UA 覆盖（默认）') }}</option>
+                                            <option value="passthrough">{{ _('Passthrough client UA' if current_locale != 'zh' else '透传客户端 UA') }}</option>
+                                        </select>
+                                    </td>
+                                    <td class="px-3 py-3 text-xs text-gray-500">{{ _('override: always send the fixed UA below; passthrough: forward the client\'s own User-Agent upstream (falls back to the fixed UA when the client sends none).' if current_locale != 'zh' else 'override：出站统一使用下方固定 UA；passthrough：把客户端自己的 User-Agent 原样转发给上游，客户端未携带时仍用固定 UA。') }}</td>
+                                    <td class="px-3 py-3 text-right align-top whitespace-nowrap">
+                                        <button onclick="sysSaveUaMode()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm">{{ _('Save') }}</button>
+                                        <div id="ua-mode-msg" class="mt-1 text-xs"></div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-100">
+                                    <td class="px-3 py-3 font-medium">{{ _('Outbound UA Override' if current_locale != 'zh' else '出站 UA 覆盖') }}</td>
+                                    <td class="px-3 py-3"><input id="ua-input" class="w-full border rounded px-2 py-1.5 text-sm font-mono" placeholder="User-Agent"></td>
+                                    <td class="px-3 py-3 text-xs text-gray-500">
+                                        {{ _('Fixed UA sent on all proxy requests in override mode. Empty means the built-in default.' if current_locale != 'zh' else 'override 模式下所有代理请求出站使用的固定 UA；留空使用内置默认值。') }}
+                                        <div id="default-ua-hint" class="text-xs text-gray-400 mt-1"></div>
+                                    </td>
+                                    <td class="px-3 py-3 text-right align-top whitespace-nowrap">
+                                        <button onclick="sysSaveUa()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm">{{ _('Save') }}</button>
+                                        <button onclick="sysResetUa()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded text-sm">{{ _('Default' if current_locale != 'zh' else '恢复默认') }}</button>
+                                        <div id="ua-msg" class="mt-1 text-xs"></div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-100">
+                                    <td class="px-3 py-3 font-medium">{{ _('Record Request Content' if current_locale != 'zh' else '记录请求内容') }}</td>
+                                    <td class="px-3 py-3">
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" id="record-content-input" class="mr-1">
+                                            <span class="text-xs text-gray-600">{{ _('Record request context and response content' if current_locale != 'zh' else '记录请求上下文与响应内容') }}</span>
+                                        </label>
+                                    </td>
+                                    <td class="px-3 py-3 text-xs text-gray-500">{{ _('When off, only metadata and usage statistics are kept and request_contents is not written; existing rows are not deleted.' if current_locale != 'zh' else '关闭后只保留元数据与用量统计，不再写入 request_contents；已有历史数据不受影响。') }}</td>
+                                    <td class="px-3 py-3 text-right align-top whitespace-nowrap">
+                                        <button onclick="sysSaveContent()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm">{{ _('Save') }}</button>
+                                        <div id="content-msg" class="mt-1 text-xs"></div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-100">
+                                    <td class="px-3 py-3 font-medium">{{ _('OpenCode Provider ID' if current_locale != 'zh' else 'OpenCode 供应商标识') }}</td>
+                                    <td class="px-3 py-3"><input id="opencode-provider-id" class="w-full border rounded px-2 py-1.5 text-sm font-mono" placeholder="modelgate"></td>
+                                    <td class="px-3 py-3 text-xs text-gray-500">{{ _('Provider id written into the generated opencode.jsonc. Changing it means existing users must re-run the setup script, otherwise the old and new provider coexist. Letters/digits/._- only.' if current_locale != 'zh' else '生成的 opencode.jsonc 中 provider 的标识，仅限字母/数字/._-。修改后老用户需重新运行一次安装脚本，否则配置里会同时存在新旧两个 provider。') }}</td>
+                                    <td class="px-3 py-3 text-right align-top whitespace-nowrap">
+                                        <button onclick="sysSaveOpencode('opencode-id-msg')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm">{{ _('Save') }}</button>
+                                        <div id="opencode-id-msg" class="mt-1 text-xs"></div>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-100">
+                                    <td class="px-3 py-3 font-medium">{{ _('OpenCode Display Name' if current_locale != 'zh' else 'OpenCode 显示名') }}</td>
+                                    <td class="px-3 py-3"><input id="opencode-provider-name" class="w-full border rounded px-2 py-1.5 text-sm" placeholder="ModelGate"></td>
+                                    <td class="px-3 py-3 text-xs text-gray-500">{{ _('Display name of the provider in opencode. Safe to change any time.' if current_locale != 'zh' else 'provider 在 opencode 里显示的名称，随时可改，无兼容性影响。') }}</td>
+                                    <td class="px-3 py-3 text-right align-top whitespace-nowrap">
+                                        <button onclick="sysSaveOpencode('opencode-name-msg')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm">{{ _('Save') }}</button>
+                                        <button onclick="sysResetOpencode()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded text-sm">{{ _('Default' if current_locale != 'zh' else '恢复默认') }}</button>
+                                        <div id="opencode-name-msg" class="mt-1 text-xs"></div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="px-3 py-3 font-medium">{{ _('GLM Health Check Model' if current_locale != 'zh' else 'GLM 健康检查模型') }}</td>
+                                    <td class="px-3 py-3"><input id="glm-model-input" class="w-full border rounded px-2 py-1.5 text-sm font-mono" placeholder="zhipu/glm-5.3"></td>
+                                    <td class="px-3 py-3 text-xs text-gray-500">
+                                        {{ _('Model called by the daily 05:30 health check (provider/model full name); empty uses the default.' if current_locale != 'zh' else '每日 05:30 健康检查调用的模型，需 provider/model 全名，留空使用默认值。') }}
+                                        <div id="glm-model-hint" class="text-xs text-gray-400 mt-1"></div>
+                                    </td>
+                                    <td class="px-3 py-3 text-right align-top whitespace-nowrap">
+                                        <button onclick="sysSaveGlmModel()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm">{{ _('Save') }}</button>
+                                        <div id="glm-model-msg" class="mt-1 text-xs"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            </div>
-
-            <div id="sys-tab-glm" class="sys-tab-panel hidden">
-                <div class="bg-white rounded-lg shadow p-6 max-w-2xl">
-                    <h2 class="text-lg font-semibold mb-4">{{ _('GLM Health Check Model' if current_locale != 'zh' else 'GLM 健康检查模型') }}</h2>
-                    <p class="text-xs text-gray-500 mb-1">{{ _('Daily 05:30 health check model (provider/model full name), empty for default' if current_locale != 'zh' else '每日 05:30 健康检查调用的模型，需 provider/model 全名，留空使用默认值') }}</p>
-                    <input id="glm-model-input" class="w-full border rounded px-3 py-2 text-sm font-mono mb-3" placeholder="zhipu/glm-5.3">
-                    <div id="glm-model-hint" class="text-xs text-gray-400 mb-3"></div>
-                    <div class="flex gap-2">
-                        <button onclick="sysSaveGlmModel()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">{{ _('Save') }}</button>
-                    </div>
-                    <div id="glm-model-msg" class="mt-3 text-sm hidden"></div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-semibold mb-1">{{ _('Today\'s Client UA') }}</h2>
+                    <p class="text-xs text-gray-500 mb-4">{{ _('Top user agents making requests today') }}</p>
+                    <div id="ua-list" class="space-y-3 text-sm"></div>
                 </div>
             </div>
 
@@ -331,10 +394,10 @@
         }
         applyTheme(getThemeMode());
 
-        const SYS_TABS = ['ua', 'glm', 'busyness', 'billing', 'daily_report', 'concurrency', 'ips'];
+        const SYS_TABS = ['general', 'busyness', 'billing', 'daily_report', 'concurrency', 'ips'];
         let ipDirLoaded = false;
         function switchSysTab(tab) {
-            if (!SYS_TABS.includes(tab)) tab = 'ua';
+            if (!SYS_TABS.includes(tab)) tab = 'general';
             document.querySelectorAll('.sys-tab-panel').forEach(panel => panel.classList.add('hidden'));
             document.querySelectorAll('.sys-tab-btn').forEach(btn => btn.classList.remove('active'));
             const panel = document.getElementById(`sys-tab-${tab}`);
@@ -360,6 +423,11 @@
                 const d = await r.json();
                 document.getElementById('ua-input').value = d.ua_override;
                 document.getElementById('default-ua-hint').textContent = `{{ _('Default') }}: ` + d.default_ua;
+                const uaMode = d.ua_mode === 'passthrough' ? 'passthrough' : 'override';
+                document.getElementById('ua-mode-select').value = uaMode;
+                document.getElementById('record-content-input').checked = d.record_content !== false;
+                document.getElementById('opencode-provider-id').value = d.opencode_provider_id || 'modelgate';
+                document.getElementById('opencode-provider-name').value = d.opencode_provider_name || 'ModelGate';
                 const glmInput = document.getElementById('glm-model-input');
                 glmInput.value = d.glm_health_check_model || '';
                 glmInput.placeholder = d.glm_health_check_model_default || 'zhipu/glm-5.3';
@@ -398,6 +466,15 @@
                 }
             } catch (e) { console.error('sysLoadConfig failed', e); }
         }
+        async function sysSaveUaMode() {
+            const uaMode = document.getElementById('ua-mode-select').value;
+            const r = await fetch(`${APP_BASE_PATH}/admin/api/system/config`, {
+                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ ua_mode: uaMode })
+            });
+            if (r.ok) sysShowMsg('ua-mode-msg', true, '{{ _('Saved') }}');
+            else { const d = await r.json().catch(() => ({})); sysShowMsg('ua-mode-msg', false, d.detail || '{{ _('Save failed') }}'); }
+        }
         async function sysSaveUa() {
             const ua = document.getElementById('ua-input').value.trim();
             const r = await fetch(`${APP_BASE_PATH}/admin/api/system/config`, {
@@ -405,7 +482,32 @@
                 body: JSON.stringify({ ua_override: ua })
             });
             if (r.ok) sysShowMsg('ua-msg', true, '{{ _('Saved') }}');
-            else { const d = await r.json(); sysShowMsg('ua-msg', false, d.detail || '{{ _('Save failed') }}'); }
+            else { const d = await r.json().catch(() => ({})); sysShowMsg('ua-msg', false, d.detail || '{{ _('Save failed') }}'); }
+        }
+        async function sysSaveContent() {
+            const record = document.getElementById('record-content-input').checked;
+            const r = await fetch(`${APP_BASE_PATH}/admin/api/system/config`, {
+                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ record_content: record })
+            });
+            if (r.ok) sysShowMsg('content-msg', true, '{{ _('Saved') }}');
+            else { const d = await r.json().catch(() => ({})); sysShowMsg('content-msg', false, d.detail || '{{ _('Save failed') }}'); }
+        }
+        async function sysSaveOpencode(msgId) {
+            msgId = msgId || 'opencode-name-msg';
+            const pid = document.getElementById('opencode-provider-id').value.trim();
+            const pname = document.getElementById('opencode-provider-name').value.trim();
+            const r = await fetch(`${APP_BASE_PATH}/admin/api/system/config`, {
+                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ opencode_provider_id: pid, opencode_provider_name: pname })
+            });
+            if (r.ok) sysShowMsg(msgId, true, '{{ _('Saved') }}');
+            else { const d = await r.json().catch(() => ({})); sysShowMsg(msgId, false, d.detail || '{{ _('Save failed') }}'); }
+        }
+        async function sysResetOpencode() {
+            document.getElementById('opencode-provider-id').value = 'modelgate';
+            document.getElementById('opencode-provider-name').value = 'ModelGate';
+            await sysSaveOpencode('opencode-id-msg');
         }
         async function sysResetUa() {
             document.getElementById('ua-input').value = document.getElementById('default-ua-hint').textContent.replace(`{{ _('Default') }}: `, '');
@@ -618,7 +720,7 @@
         }
 
         const initialTab = new URLSearchParams(window.location.search).get('tab');
-        switchSysTab(SYS_TABS.includes(initialTab) ? initialTab : 'ua');
+        switchSysTab(SYS_TABS.includes(initialTab) ? initialTab : 'general');
         sysLoadConfig();
         sysLoadUAStats();
     </script>

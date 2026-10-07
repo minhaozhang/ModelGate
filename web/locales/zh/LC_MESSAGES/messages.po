@@ -3639,3 +3639,15 @@ msgstr "时钟"
 
 msgid "Top keys"
 msgstr "热门 Key"
+
+msgid "Snapshot from daily aggregates (full history, with cost)"
+msgstr "每日聚合快照（可查全历史，含花费）"
+
+msgid "Aggregated live from raw request logs (~30 days retention)"
+msgstr "基于原始请求日志实时聚合（约保留30天）"
+
+msgid "Only success"
+msgstr "仅成功"
+
+msgid "All statuses"
+msgstr "全部状态"
