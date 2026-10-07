@@ -22,6 +22,7 @@ backups/
 /*.zip
 /index.html
 /index-*.html
+/request_contents_export.dat
 nul
 test_screenshots/
 .idea/
